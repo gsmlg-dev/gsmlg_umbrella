@@ -37,6 +37,15 @@
           </bx-side-nav-menu-item>
         </bx-side-nav-menu>
         <bx-side-nav-divider role="separator"></bx-side-nav-divider>
+        <bx-side-nav-menu title="Account" role="listitem" expanded>
+          <bx-side-nav-menu-item href={Routes.user_index_path(@conn, :index)} tabindex="-1" parent-has-icon="">
+            User List
+          </bx-side-nav-menu-item>
+          <bx-side-nav-menu-item href={Routes.user_index_path(@conn, :new)} tabindex="-1" parent-has-icon="">
+            New User
+          </bx-side-nav-menu-item>
+        </bx-side-nav-menu>
+        <bx-side-nav-divider role="separator"></bx-side-nav-divider>
         <bx-side-nav-link href={Routes.node_management_path(@conn, :index)} role="listitem">
           Node Management
         </bx-side-nav-link>

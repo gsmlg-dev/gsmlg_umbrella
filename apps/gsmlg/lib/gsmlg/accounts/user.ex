@@ -15,6 +15,7 @@ defmodule GSMLG.Accounts.User do
     field :password_salt, :string
     field :portrait, :string
     field :verify_code, :integer
+    field :username, :string
 
     timestamps()
   end
@@ -22,7 +23,21 @@ defmodule GSMLG.Accounts.User do
   @doc false
   def changeset(user, attrs) do
     user
-    |> cast(attrs, [:name, :email, :password, :password_salt, :is_active, :otp_token, :verify_code, :portrait, :google_id, :apple_id, :github_id, :active_time])
-    |> validate_required([:name, :email, :password, :password_salt, :is_active, :otp_token, :verify_code, :portrait, :google_id, :apple_id, :github_id, :active_time])
+    |> cast(attrs, [
+      :username,
+      :name,
+      :email,
+      :password,
+      :password_salt,
+      :is_active,
+      :otp_token,
+      :verify_code,
+      :portrait,
+      :google_id,
+      :apple_id,
+      :github_id,
+      :active_time
+    ])
+    |> validate_required([:username, :email, :password])
   end
 end

@@ -4,9 +4,48 @@ defmodule GSMLGWeb.UserLiveTest do
   import Phoenix.LiveViewTest
   import GSMLG.AccountsFixtures
 
-  @create_attrs %{active_time: %{day: 4, hour: 17, minute: 34, month: 4, year: 2022}, apple_id: "some apple_id", email: "some email", github_id: "some github_id", google_id: "some google_id", is_active: true, name: "some name", otp_token: "some otp_token", password: "some password", password_salt: "some password_salt", portrait: "some portrait", verify_code: 42}
-  @update_attrs %{active_time: %{day: 5, hour: 17, minute: 34, month: 4, year: 2022}, apple_id: "some updated apple_id", email: "some updated email", github_id: "some updated github_id", google_id: "some updated google_id", is_active: false, name: "some updated name", otp_token: "some updated otp_token", password: "some updated password", password_salt: "some updated password_salt", portrait: "some updated portrait", verify_code: 43}
-  @invalid_attrs %{active_time: %{day: 30, hour: 17, minute: 34, month: 2, year: 2022}, apple_id: nil, email: nil, github_id: nil, google_id: nil, is_active: false, name: nil, otp_token: nil, password: nil, password_salt: nil, portrait: nil, verify_code: nil}
+  @create_attrs %{
+    active_time: %{day: 4, hour: 17, minute: 34, month: 4, year: 2022},
+    apple_id: "some apple_id",
+    email: "some email",
+    github_id: "some github_id",
+    google_id: "some google_id",
+    is_active: true,
+    name: "some name",
+    otp_token: "some otp_token",
+    password: "some password",
+    password_salt: "some password_salt",
+    portrait: "some portrait",
+    verify_code: 42
+  }
+  @update_attrs %{
+    active_time: %{day: 5, hour: 17, minute: 34, month: 4, year: 2022},
+    apple_id: "some updated apple_id",
+    email: "some updated email",
+    github_id: "some updated github_id",
+    google_id: "some updated google_id",
+    is_active: false,
+    name: "some updated name",
+    otp_token: "some updated otp_token",
+    password: "some updated password",
+    password_salt: "some updated password_salt",
+    portrait: "some updated portrait",
+    verify_code: 43
+  }
+  @invalid_attrs %{
+    active_time: %{day: 30, hour: 17, minute: 34, month: 2, year: 2022},
+    apple_id: nil,
+    email: nil,
+    github_id: nil,
+    google_id: nil,
+    is_active: false,
+    name: nil,
+    otp_token: nil,
+    password: nil,
+    password_salt: nil,
+    portrait: nil,
+    verify_code: nil
+  }
 
   defp create_user(_) do
     user = user_fixture()

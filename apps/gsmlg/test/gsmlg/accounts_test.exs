@@ -8,7 +8,20 @@ defmodule GSMLG.AccountsTest do
 
     import GSMLG.AccountsFixtures
 
-    @invalid_attrs %{active_time: nil, apple_id: nil, email: nil, github_id: nil, google_id: nil, is_active: nil, name: nil, otp_token: nil, password: nil, password_salt: nil, portrait: nil, verify_code: nil}
+    @invalid_attrs %{
+      active_time: nil,
+      apple_id: nil,
+      email: nil,
+      github_id: nil,
+      google_id: nil,
+      is_active: nil,
+      name: nil,
+      otp_token: nil,
+      password: nil,
+      password_salt: nil,
+      portrait: nil,
+      verify_code: nil
+    }
 
     test "list_users/0 returns all users" do
       user = user_fixture()
@@ -21,7 +34,20 @@ defmodule GSMLG.AccountsTest do
     end
 
     test "create_user/1 with valid data creates a user" do
-      valid_attrs = %{active_time: ~U[2022-04-04 17:34:00Z], apple_id: "some apple_id", email: "some email", github_id: "some github_id", google_id: "some google_id", is_active: true, name: "some name", otp_token: "some otp_token", password: "some password", password_salt: "some password_salt", portrait: "some portrait", verify_code: 42}
+      valid_attrs = %{
+        active_time: ~U[2022-04-04 17:34:00Z],
+        apple_id: "some apple_id",
+        email: "some email",
+        github_id: "some github_id",
+        google_id: "some google_id",
+        is_active: true,
+        name: "some name",
+        otp_token: "some otp_token",
+        password: "some password",
+        password_salt: "some password_salt",
+        portrait: "some portrait",
+        verify_code: 42
+      }
 
       assert {:ok, %User{} = user} = Accounts.create_user(valid_attrs)
       assert user.active_time == ~U[2022-04-04 17:34:00Z]
@@ -44,7 +70,21 @@ defmodule GSMLG.AccountsTest do
 
     test "update_user/2 with valid data updates the user" do
       user = user_fixture()
-      update_attrs = %{active_time: ~U[2022-04-05 17:34:00Z], apple_id: "some updated apple_id", email: "some updated email", github_id: "some updated github_id", google_id: "some updated google_id", is_active: false, name: "some updated name", otp_token: "some updated otp_token", password: "some updated password", password_salt: "some updated password_salt", portrait: "some updated portrait", verify_code: 43}
+
+      update_attrs = %{
+        active_time: ~U[2022-04-05 17:34:00Z],
+        apple_id: "some updated apple_id",
+        email: "some updated email",
+        github_id: "some updated github_id",
+        google_id: "some updated google_id",
+        is_active: false,
+        name: "some updated name",
+        otp_token: "some updated otp_token",
+        password: "some updated password",
+        password_salt: "some updated password_salt",
+        portrait: "some updated portrait",
+        verify_code: 43
+      }
 
       assert {:ok, %User{} = user} = Accounts.update_user(user, update_attrs)
       assert user.active_time == ~U[2022-04-05 17:34:00Z]

@@ -3,6 +3,7 @@ defmodule GSMLG.Repo.Migrations.CreateUsers do
 
   def change do
     create table(:users) do
+      add :username, :string
       add :name, :string
       add :email, :string
       add :password, :string

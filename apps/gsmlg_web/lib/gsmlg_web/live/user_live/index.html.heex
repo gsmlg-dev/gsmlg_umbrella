@@ -13,49 +13,50 @@
   </.modal>
 <% end %>
 
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Email</th>
-      <th>Password</th>
-      <th>Password salt</th>
-      <th>Is active</th>
-      <th>Otp token</th>
-      <th>Verify code</th>
-      <th>Portrait</th>
-      <th>Google</th>
-      <th>Apple</th>
-      <th>Github</th>
-      <th>Active time</th>
-
-      <th></th>
-    </tr>
-  </thead>
-  <tbody id="users">
-    <%= for user <- @users do %>
-      <tr id={"user-#{user.id}"}>
-        <td><%= user.name %></td>
-        <td><%= user.email %></td>
-        <td><%= user.password %></td>
-        <td><%= user.password_salt %></td>
-        <td><%= user.is_active %></td>
-        <td><%= user.otp_token %></td>
-        <td><%= user.verify_code %></td>
-        <td><%= user.portrait %></td>
-        <td><%= user.google_id %></td>
-        <td><%= user.apple_id %></td>
-        <td><%= user.github_id %></td>
-        <td><%= user.active_time %></td>
-
-        <td>
-          <span><%= live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
-          <span><%= live_patch "Edit", to: Routes.user_index_path(@socket, :edit, user) %></span>
-          <span><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
-        </td>
-      </tr>
-    <% end %>
-  </tbody>
-</table>
-
 <span><%= live_patch "New User", to: Routes.user_index_path(@socket, :new) %></span>
+
+<bx-data-table>
+  <bx-table>
+    <bx-table-head>
+      <bx-table-header-row>
+        <bx-table-header-cell>Name</bx-table-header-cell>
+        <bx-table-header-cell>Email</bx-table-header-cell>
+        <bx-table-header-cell>Password</bx-table-header-cell>
+        <bx-table-header-cell>Password salt</bx-table-header-cell>
+        <bx-table-header-cell>Is active</bx-table-header-cell>
+        <bx-table-header-cell>Otp token</bx-table-header-cell>
+        <bx-table-header-cell>Verify code</bx-table-header-cell>
+        <bx-table-header-cell>Portrait</bx-table-header-cell>
+        <bx-table-header-cell>Google</bx-table-header-cell>
+        <bx-table-header-cell>Apple</bx-table-header-cell>
+        <bx-table-header-cell>Github</bx-table-header-cell>
+        <bx-table-header-cell>Active time</bx-table-header-cell>
+        <bx-table-header-cell></bx-table-header-cell>
+      </bx-table-header-row>
+    </bx-table-head>
+    <bx-table-body id="users">
+      <%= for user <- @users do %>
+        <bx-table-row id={"user-#{user.id}"}>
+          <bx-table-cell><%= user.name %></bx-table-cell>
+          <bx-table-cell><%= user.email %></bx-table-cell>
+          <bx-table-cell><%= user.password %></bx-table-cell>
+          <bx-table-cell><%= user.password_salt %></bx-table-cell>
+          <bx-table-cell><%= user.is_active %></bx-table-cell>
+          <bx-table-cell><%= user.otp_token %></bx-table-cell>
+          <bx-table-cell><%= user.verify_code %></bx-table-cell>
+          <bx-table-cell><%= user.portrait %></bx-table-cell>
+          <bx-table-cell><%= user.google_id %></bx-table-cell>
+          <bx-table-cell><%= user.apple_id %></bx-table-cell>
+          <bx-table-cell><%= user.github_id %></bx-table-cell>
+          <bx-table-cell><%= user.active_time %></bx-table-cell>
+
+          <bx-table-cell>
+            <span><%= live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
+            <span><%= live_patch "Edit", to: Routes.user_index_path(@socket, :edit, user) %></span>
+            <span><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
+          </bx-table-cell>
+        </bx-table-row>
+      <% end %>
+    </bx-table-body>
+  </bx-table>
+</bx-data-table>
