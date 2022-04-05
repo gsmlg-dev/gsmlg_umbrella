@@ -114,7 +114,6 @@ jobs:
         uses: actions/checkout@v2
 
       - name: 💊 Setup Elixir
-        working-directory: elixir
         run: |
           if [ ! -f "$(which mix)" ]
           then
