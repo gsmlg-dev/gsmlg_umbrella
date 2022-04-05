@@ -28,9 +28,8 @@ defmodule GSMLGWeb.Schema do
     end
 
     @desc "Get blogs count"
-    field :blog_total, :blog_total do
-      # arg :author, :string
-      resolve(&Resolvers.Content.count_blogs/3)
+    field :blogs_info, :blogs_info do
+      resolve(&Resolvers.Content.blogs_info/3)
     end
 
     @desc "Get all nodes"

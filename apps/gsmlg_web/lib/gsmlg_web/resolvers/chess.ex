@@ -1,7 +1,7 @@
 defmodule GSMLGWeb.Resolvers.Chess do
-  def start_chess(_parent, args, _resolution) do
+  def start_chess(_parent, %{started: started}, _resolution) do
     {:ok, pieces} = GSMLG.Chess.Room.start_room()
-    {:ok, %{started: true, pieces: pieces}}
+    {:ok, %{started: started, pieces: pieces}}
   end
 
   def get_chess(_parent, _args, _resolution) do

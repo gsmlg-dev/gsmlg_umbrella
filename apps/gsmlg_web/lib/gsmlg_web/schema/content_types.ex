@@ -11,7 +11,8 @@ defmodule GSMLGWeb.Schema.ContentTypes do
     field(:title, :string)
   end
 
-  object :blog_total do
+  object :blogs_info do
     field(:total, :integer)
+    field(:last_modified, :naive_datetime)
   end
 end

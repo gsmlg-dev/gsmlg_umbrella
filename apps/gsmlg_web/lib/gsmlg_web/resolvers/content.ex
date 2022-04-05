@@ -9,7 +9,13 @@ defmodule GSMLGWeb.Resolvers.Content do
         _resolution
       )
       when is_integer(limit) and is_binary(order_by) do
-    args = args |> Map.delete(:offset) |> Map.delete(:limit) |> Map.delete(:order_by) |> convert_to_klist()
+    args =
+      args
+      |> Map.delete(:offset)
+      |> Map.delete(:limit)
+      |> Map.delete(:order_by)
+      |> convert_to_klist()
+
     order_by =
       order_by
       |> String.split(",")
@@ -19,6 +25,7 @@ defmodule GSMLGWeb.Resolvers.Content do
 
     {:ok, GSMLG.Content.list_blogs_limit(convert_to_klist(args), limit, offset, order_by)}
   end
+
   def list_blogs(
         _parent,
         args = %{offset: offset, limit: limit},
@@ -26,7 +33,7 @@ defmodule GSMLGWeb.Resolvers.Content do
       )
       when is_integer(limit) do
     args = args |> Map.delete(:offset) |> Map.delete(:limit) |> convert_to_klist()
-    
+
     {:ok, GSMLG.Content.list_blogs_limit(convert_to_klist(args), limit, offset, [])}
   end
 
@@ -42,14 +49,11 @@ defmodule GSMLGWeb.Resolvers.Content do
     {:ok, GSMLG.Content.get_blog_by_slug(slug)}
   end
 
-  def count_blogs(_parent, args, _resolution) when map_size(args) == 0 do
+  def blogs_info(_parent, _args, _resolution) do
     count = GSMLG.Content.count_blogs()
-    {:ok, %{total: count}}
-  end
-
-  def count_blogs(_parent, args, _resolution) do
-    count = GSMLG.Content.count_blogs(convert_to_klist(args))
-    {:ok, %{total: count}}
+    last_modified = GSMLG.Content.last_updated_at()
+    IO.inspect(last_modified)
+    {:ok, %{total: count, last_modified: last_modified}}
   end
 
   def convert_to_klist(map) do

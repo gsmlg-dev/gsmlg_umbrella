@@ -7,6 +7,7 @@ defmodule GSMLG.Content do
   alias GSMLG.Repo
 
   alias GSMLG.Content.Blog
+
   @doc """
   Returns the count of blogs.
 
@@ -19,12 +20,18 @@ defmodule GSMLG.Content do
   def count_blogs do
     Repo.aggregate(Blog, :count)
   end
+
   def count_blogs(args) do
     query =
       from b in Blog,
         where: ^args
 
     Repo.aggregate(query, :count)
+  end
+
+  def last_updated_at() do
+    blog = GSMLG.Repo.one(from GSMLG.Content.Blog, limit: 1, order_by: [desc: :updated_at])
+    blog.updated_at
   end
 
   @doc """
@@ -54,12 +61,20 @@ defmodule GSMLG.Content do
   end
 
   def list_blogs_limit(args, limit, offset, order_by) do
-    query = cond do
-      Enum.count(args) == 0 and Enum.count(order_by) == 0 -> from b in Blog, limit: ^limit, offset: ^offset, order_by: [desc: :id]
-      Enum.count(args) == 0 -> from b in Blog, limit: ^limit, offset: ^offset, order_by: ^order_by
-      Enum.count(order_by) == 0 and Enum.count(args) > 0 -> from b in Blog, where: ^args, limit: ^limit, offset: ^offset, order_by: [desc: :id]
-      Enum.count(args) > 0 -> from b in Blog, where: ^args, limit: ^limit, offset: ^offset, order_by: ^order_by
-    end
+    query =
+      cond do
+        Enum.count(args) == 0 and Enum.count(order_by) == 0 ->
+          from b in Blog, limit: ^limit, offset: ^offset, order_by: [desc: :id]
+
+        Enum.count(args) == 0 ->
+          from b in Blog, limit: ^limit, offset: ^offset, order_by: ^order_by
+
+        Enum.count(order_by) == 0 and Enum.count(args) > 0 ->
+          from b in Blog, where: ^args, limit: ^limit, offset: ^offset, order_by: [desc: :id]
+
+        Enum.count(args) > 0 ->
+          from b in Blog, where: ^args, limit: ^limit, offset: ^offset, order_by: ^order_by
+      end
 
     Repo.all(query)
   end
