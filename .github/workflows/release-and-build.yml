@@ -1,0 +1,142 @@
+name: elixir-gsmlg-build-and-release
+on:
+  push:
+    branches:
+      - "main"
+jobs:
+  release:
+    name: Create semantic release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semantic.outputs.new_release_version }}
+    steps:
+      - name: 🛑 Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v2
+
+      - name: 🚀 Release
+        uses: cycjimmy/semantic-release-action@v3
+        id: semantic
+        extra_plugins: |
+          @semantic-release/exec
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Stop if NO NEW release
+        run: |
+          cat <<EOF
+          Published: ${{ steps.semantic.outputs.new_release_published }}
+          New Release Version: ${{ steps.semantic.outputs.new_release_version }}
+          New Release Major Version: ${{ steps.semantic.outputs.new_release_major_version }}
+          New Release Minor Version: ${{ steps.semantic.outputs.new_release_minor_version }}
+          New Release Patch Version: ${{ steps.semantic.outputs.new_release_patch_version }}
+          New Release Channel: ${{ steps.semantic.outputs.new_release_channel }}
+          New Release Notes: 
+          ${{ steps.semantic.outputs.new_release_notes }}
+          EOF
+          test -z "${{ steps.semantic.outputs.new_release_version }}" && exit 1 || exit 0
+
+  build-docker-image:
+    name: Build docker image
+    runs-on: ubuntu-latest
+    needs: [ release ]
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v2
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_PASSWD }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          push: true
+          build-args: |
+            RELEASE_VERSION=${{ needs.release.outputs.version }}
+          tags: |
+            docker.io/gsmlg/gsmlg.org:v${{ needs.release.outputs.version }}
+            docker.io/gsmlg/gsmlg.org:latest
+
+  build-package-amd64:
+    name: Build otp relase package linux amd64
+    runs-on: ubuntu-latest
+    needs: [ release ]
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v2
+
+      - name: 💊 Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '24'
+          elixir-version: '1.12.3'
+
+      - name: ⚙️ Run build
+        env:
+          MIX_ENV: prod
+          RELEASE_NAME: gsmlg_umbrella
+          RELEASE_VSN: ${{ needs.release.outputs.version }}
+        run: ./build.sh
+
+      - name: ⬆️ Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: gsmlg.tar.gz
+          asset_name: gsmlg_umbrella_amd64.tar.gz
+          tag: v${{ needs.release.outputs.version }}
+          overwrite: true
+
+  build-package-arm64:
+    name: Build otp relase package linux arm64
+    runs-on: ubuntu-arm64
+    needs: [ release ]
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v2
+
+      - name: 💊 Setup Elixir
+        working-directory: elixir
+        run: |
+          if [ ! -f "$(which mix)" ]
+          then
+            export DEBIAN_FRONTEND=noninteractive
+            sudo apt-get update
+            sudo apt-get install -y elixir
+            mix local.hex --force
+            mix local.rebar --force
+            mix archive.install hex phx_new --force
+          fi
+
+      - name: ⚙️ Run build
+        env:
+          MIX_ENV: prod
+          RELEASE_NAME: gsmlg_umbrella
+          RELEASE_VSN: ${{ needs.release.outputs.version }}
+        run: ./build.sh
+
+      - name: ⬆️ Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: gsmlg.tar.gz
+          asset_name: gsmlg_umbrella_arm64.tar.gz
+          tag: v${{ needs.release.outputs.version }}
+          overwrite: true
