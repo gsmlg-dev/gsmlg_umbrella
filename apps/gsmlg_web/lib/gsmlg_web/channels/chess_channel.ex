@@ -33,7 +33,7 @@ defmodule GSMLGWeb.ChessChannel do
   end
 
   def handle_in("move_chess", payload, socket) do
-    {:ok, %{pieces: pieces, turn: turn, done: done, start?: started}} = Room.move_chess(payload)
+    {:ok, %{pieces: pieces, turn: turn, done: done, start?: _started}} = Room.move_chess(payload)
 
     broadcast!(
       socket,
