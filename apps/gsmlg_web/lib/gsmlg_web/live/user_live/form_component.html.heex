@@ -1,0 +1,64 @@
+<div>
+  <h2><%= @title %></h2>
+
+  <.form
+    let={f}
+    for={@changeset}
+    id="user-form"
+    phx-target={@myself}
+    phx-change="validate"
+    phx-submit="save">
+  
+    <%= label f, :name %>
+    <%= text_input f, :name %>
+    <%= error_tag f, :name %>
+  
+    <%= label f, :email %>
+    <%= text_input f, :email %>
+    <%= error_tag f, :email %>
+  
+    <%= label f, :password %>
+    <%= text_input f, :password %>
+    <%= error_tag f, :password %>
+  
+    <%= label f, :password_salt %>
+    <%= text_input f, :password_salt %>
+    <%= error_tag f, :password_salt %>
+  
+    <%= label f, :is_active %>
+    <%= checkbox f, :is_active %>
+    <%= error_tag f, :is_active %>
+  
+    <%= label f, :otp_token %>
+    <%= text_input f, :otp_token %>
+    <%= error_tag f, :otp_token %>
+  
+    <%= label f, :verify_code %>
+    <%= number_input f, :verify_code %>
+    <%= error_tag f, :verify_code %>
+  
+    <%= label f, :portrait %>
+    <%= text_input f, :portrait %>
+    <%= error_tag f, :portrait %>
+  
+    <%= label f, :google_id %>
+    <%= text_input f, :google_id %>
+    <%= error_tag f, :google_id %>
+  
+    <%= label f, :apple_id %>
+    <%= text_input f, :apple_id %>
+    <%= error_tag f, :apple_id %>
+  
+    <%= label f, :github_id %>
+    <%= text_input f, :github_id %>
+    <%= error_tag f, :github_id %>
+  
+    <%= label f, :active_time %>
+    <%= datetime_select f, :active_time %>
+    <%= error_tag f, :active_time %>
+  
+    <div>
+      <%= submit "Save", phx_disable_with: "Saving..." %>
+    </div>
+  </.form>
+</div>
