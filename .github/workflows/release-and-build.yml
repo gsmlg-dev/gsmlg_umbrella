@@ -21,8 +21,9 @@ jobs:
       - name: 🚀 Release
         uses: cycjimmy/semantic-release-action@v3
         id: semantic
-        extra_plugins: |
-          @semantic-release/exec
+        with:
+          extra_plugins: |
+            @semantic-release/exec
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
