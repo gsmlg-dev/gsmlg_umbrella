@@ -29,3 +29,5 @@ gsmlg_web-*.tar
 npm-debug.log
 /assets/node_modules/
 /assets/package-lock.json
+
+.elixir_ls

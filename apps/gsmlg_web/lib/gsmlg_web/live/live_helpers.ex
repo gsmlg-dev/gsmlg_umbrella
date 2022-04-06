@@ -95,6 +95,36 @@ defmodule GSMLGWeb.LiveHelpers do
     content_tag(:"bx-textarea", "", opts)
   end
 
+  def bx_link(text, opts \\ []) do
+    opts =
+      opts
+      |> Keyword.put_new(:href, Keyword.get(opts, :to))
+
+    content_tag(:"bx-btn", text, opts)
+  end
+
+  @spec bx_live_patch(any, keyword) ::
+          {:safe, [binary | maybe_improper_list(any, binary | []) | 47 | 60 | 62, ...]}
+  def bx_live_patch(text, opts \\ []) do
+    opts =
+      opts
+      |> Keyword.put_new(:href, Keyword.get(opts, :to))
+      |> Keyword.put_new(:data_phx_link, :patch)
+      |> Keyword.put_new(:data_phx_link_state, :push)
+
+    content_tag(:"bx-btn", text, opts)
+  end
+
+  def bx_live_redirect(text, opts \\ []) do
+    opts =
+      opts
+      |> Keyword.put_new(:href, Keyword.get(opts, :to))
+      |> Keyword.put_new(:data_phx_link, :redirect)
+      |> Keyword.put_new(:data_phx_link_state, :push)
+
+    content_tag(:"bx-btn", text, opts)
+  end
+
   defp generic_input(type, form, field, opts)
        when is_list(opts) and (is_atom(field) or is_binary(field)) do
     opts =

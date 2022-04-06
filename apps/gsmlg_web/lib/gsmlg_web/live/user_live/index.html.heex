@@ -1,19 +1,6 @@
 <h1>Listing Users</h1>
 
-<%= if @live_action in [:new, :edit] do %>
-  <.modal return_to={Routes.user_index_path(@socket, :index)}>
-    <.live_component
-      module={GSMLGWeb.UserLive.FormComponent}
-      id={@user.id || :new}
-      title={@page_title}
-      action={@live_action}
-      user={@user}
-      return_to={Routes.user_index_path(@socket, :index)}
-    />
-  </.modal>
-<% end %>
-
-<span><%= live_patch "New User", to: Routes.user_index_path(@socket, :new) %></span>
+<span><%= bx_live_patch "New User", to: Routes.user_modify_path(@socket, :new) %></span>
 
 <bx-data-table>
   <bx-table>
@@ -51,9 +38,9 @@
           <bx-table-cell><%= user.active_time %></bx-table-cell>
 
           <bx-table-cell>
-            <span><%= live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
-            <span><%= live_patch "Edit", to: Routes.user_index_path(@socket, :edit, user) %></span>
-            <span><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
+            <span><%= bx_live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
+            <span><%= bx_live_patch "Edit", to: Routes.user_modify_path(@socket, :edit, user) %></span>
+            <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
           </bx-table-cell>
         </bx-table-row>
       <% end %>

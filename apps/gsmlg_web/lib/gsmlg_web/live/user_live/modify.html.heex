@@ -1,0 +1,27 @@
+<div>
+  <h2><%= @page_title %></h2>
+<%= if !is_nil(@user.id) do %>
+<bx-btn><%= bx_live_redirect "Show", to: Routes.user_show_path(@socket, :show, @user), kind: "primary" %></bx-btn> |
+<% end %>
+<bx-btn><%= bx_live_redirect "Back", to: Routes.user_index_path(@socket, :index), kind: "ghost" %></bx-btn>
+
+  <%= form_for @changeset, "", ["phx-change": "validate","phx-submit": "save",], fn f -> %>
+    <%= bx_text_input f, :username %>
+    <%= error_tag f, :username %>
+
+    <%= bx_text_input f, :name %>
+    <%= error_tag f, :name %>
+
+    <%= bx_text_input f, :email %>
+    <%= error_tag f, :email %>
+
+    <%= if is_nil(@user.id) do %>
+    <%= bx_text_input f, :password, type: :password %>
+    <%= error_tag f, :password %>
+    <% end %>
+
+    <div>
+      <%= submit "Save", phx_disable_with: "Saving..." %>
+    </div>
+  <% end %>
+</div>
