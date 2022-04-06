@@ -8,6 +8,7 @@ defmodule GSMLG.Repo.Migrations.CreateUsers do
       add :email, :string
       add :password, :string
       add :password_salt, :string
+      add :is_2fa_enabled, :boolean, default: false, null: false
       add :is_active, :boolean, default: false, null: false
       add :otp_token, :string
       add :verify_code, :integer

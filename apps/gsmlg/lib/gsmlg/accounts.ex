@@ -18,6 +18,19 @@ defmodule GSMLG.Accounts do
 
   """
   def list_users do
+    query = from u in User,
+      select: [
+        :id,
+        :username,
+        :name,
+        :email,
+        :is_active,
+        :portrait,
+        :google_id,
+        :apple_id,
+        :github_id,
+        :active_time
+      ]
     Repo.all(User)
   end
 
@@ -35,7 +48,22 @@ defmodule GSMLG.Accounts do
       ** (Ecto.NoResultsError)
 
   """
-  def get_user!(id), do: Repo.get!(User, id)
+  def get_user!(id) do
+    query = from u in User,
+      select: [
+        :id,
+        :username,
+        :name,
+        :email,
+        :is_active,
+        :portrait,
+        :google_id,
+        :apple_id,
+        :github_id,
+        :active_time
+      ]
+    Repo.get!(query, id)
+  end
 
   @doc """
   Creates a user.

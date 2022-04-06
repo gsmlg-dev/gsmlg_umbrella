@@ -8,6 +8,7 @@ defmodule GSMLG.Accounts.User do
     field :email, :string
     field :github_id, :string
     field :google_id, :string
+    field :is_2fa_enabled, :boolean, default: false
     field :is_active, :boolean, default: false
     field :name, :string
     field :otp_token, :string
@@ -28,9 +29,6 @@ defmodule GSMLG.Accounts.User do
       :name,
       :email,
       :password,
-      :password_salt,
-      :is_active,
-      :otp_token,
       :verify_code,
       :portrait,
       :google_id,
