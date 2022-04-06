@@ -8,11 +8,7 @@
       <bx-table-header-row>
         <bx-table-header-cell>Name</bx-table-header-cell>
         <bx-table-header-cell>Email</bx-table-header-cell>
-        <bx-table-header-cell>Password</bx-table-header-cell>
-        <bx-table-header-cell>Password salt</bx-table-header-cell>
         <bx-table-header-cell>Is active</bx-table-header-cell>
-        <bx-table-header-cell>Otp token</bx-table-header-cell>
-        <bx-table-header-cell>Verify code</bx-table-header-cell>
         <bx-table-header-cell>Portrait</bx-table-header-cell>
         <bx-table-header-cell>Google</bx-table-header-cell>
         <bx-table-header-cell>Apple</bx-table-header-cell>
@@ -26,11 +22,7 @@
         <bx-table-row id={"user-#{user.id}"}>
           <bx-table-cell><%= user.name %></bx-table-cell>
           <bx-table-cell><%= user.email %></bx-table-cell>
-          <bx-table-cell><%= user.password %></bx-table-cell>
-          <bx-table-cell><%= user.password_salt %></bx-table-cell>
           <bx-table-cell><%= user.is_active %></bx-table-cell>
-          <bx-table-cell><%= user.otp_token %></bx-table-cell>
-          <bx-table-cell><%= user.verify_code %></bx-table-cell>
           <bx-table-cell><%= user.portrait %></bx-table-cell>
           <bx-table-cell><%= user.google_id %></bx-table-cell>
           <bx-table-cell><%= user.apple_id %></bx-table-cell>
