@@ -62,26 +62,27 @@ defmodule GSMLGWeb.LiveHelpers do
   import Phoenix.HTML.Tag
   import Phoenix.HTML.Form
 
+  def bx_label(form, field, opts \\[]) do
+    opts =
+      opts
+      |> Keyword.put_new(:for, input_id(form, field))
+
+    content_tag(:"ui5-label", humanize(field), opts)
+  end
+
   def bx_text_input(form, field, opts \\ []) do
     generic_input(:text, form, field, opts)
   end
 
-  def bx_date_select(form, field, opts \\ [], innerOpts \\ []) do
-    value = Keyword.get(opts, :value, input_value(form, field) || Keyword.get(opts, :default))
-
+  def bx_date_select(form, field, opts \\ []) do
     opts =
       opts
-      |> Keyword.put_new(:"date-format", "Y-m-d")
-
-    innerOpts =
-      innerOpts
       |> Keyword.put_new(:id, input_id(form, field))
       |> Keyword.put_new(:name, input_name(form, field))
-      |> Keyword.put_new(:"label-text", humanize(field))
-      |> Keyword.put_new(:value, value)
+      |> Keyword.put_new(:value, input_value(form, field))
+      |> Keyword.update!(:value, &maybe_html_escape/1)
 
-    inner = content_tag(:"bx-date-picker-input", "", innerOpts)
-    content_tag(:"bx-date-picker", inner, opts)
+    content_tag(:"ui5-date-picker", "", opts)
   end
 
   def bx_textarea(form, field, opts \\ []) do
@@ -89,10 +90,9 @@ defmodule GSMLGWeb.LiveHelpers do
       opts
       |> Keyword.put_new(:id, input_id(form, field))
       |> Keyword.put_new(:name, input_name(form, field))
-      |> Keyword.put_new(:"label-text", humanize(field))
       |> Keyword.put_new(:value, html_escape(input_value(form, field) || ""))
 
-    content_tag(:"bx-textarea", "", opts)
+    content_tag(:"ui5-textarea", "", opts)
   end
 
   def bx_link(text, opts \\ []) do
@@ -100,7 +100,7 @@ defmodule GSMLGWeb.LiveHelpers do
       opts
       |> Keyword.put_new(:href, Keyword.get(opts, :to))
 
-    content_tag(:"bx-btn", text, opts)
+    content_tag(:"ui5-link", text, opts)
   end
 
   @spec bx_live_patch(any, keyword) ::
@@ -112,7 +112,7 @@ defmodule GSMLGWeb.LiveHelpers do
       |> Keyword.put_new(:data_phx_link, :patch)
       |> Keyword.put_new(:data_phx_link_state, :push)
 
-    content_tag(:"bx-btn", text, opts)
+    content_tag(:"ui5-link", text, opts)
   end
 
   def bx_live_redirect(text, opts \\ []) do
@@ -122,7 +122,16 @@ defmodule GSMLGWeb.LiveHelpers do
       |> Keyword.put_new(:data_phx_link, :redirect)
       |> Keyword.put_new(:data_phx_link_state, :push)
 
-    content_tag(:"bx-btn", text, opts)
+    content_tag(:"ui5-link", text, opts)
+  end
+
+  def bx_submit(text, opts \\ []) do
+    opts =
+      opts
+      |> Keyword.put_new(:type, :submit)
+      |> Keyword.put_new(:design, "Emphasized")
+
+    content_tag(:"ui5-button", text, opts)
   end
 
   defp generic_input(type, form, field, opts)
@@ -132,11 +141,10 @@ defmodule GSMLGWeb.LiveHelpers do
       |> Keyword.put_new(:type, type)
       |> Keyword.put_new(:id, input_id(form, field))
       |> Keyword.put_new(:name, input_name(form, field))
-      |> Keyword.put_new(:"label-text", humanize(field))
       |> Keyword.put_new(:value, input_value(form, field))
       |> Keyword.update!(:value, &maybe_html_escape/1)
 
-    content_tag(:"bx-input", "", opts)
+    content_tag(:"ui5-input", "", opts)
   end
 
   defp maybe_html_escape(nil), do: nil

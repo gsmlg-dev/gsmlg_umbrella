@@ -1,27 +1,36 @@
 <div>
-  <h2><%= @page_title %></h2>
+  <ui5-title level="H1"><%= @page_title %></ui5-title>
+
 <%= if !is_nil(@user.id) do %>
-<bx-btn><%= bx_live_redirect "Show", to: Routes.user_show_path(@socket, :show, @user), kind: "primary" %></bx-btn> |
+<span><%= bx_live_redirect "Show", to: Routes.user_show_path(@socket, :show, @user) %></span> |
 <% end %>
-<bx-btn><%= bx_live_redirect "Back", to: Routes.user_index_path(@socket, :index), kind: "ghost" %></bx-btn>
+<span><%= bx_live_redirect "Back", to: Routes.user_index_path(@socket, :index) %></span>
 
   <%= form_for @changeset, "", ["phx-change": "validate","phx-submit": "save",], fn f -> %>
+    <div class="form-group">
+    <%= bx_label f, :username %>
     <%= bx_text_input f, :username %>
     <%= error_tag f, :username %>
-
+    </div>
+    <div class="form-group">
+    <%= bx_label f, :name %>
     <%= bx_text_input f, :name %>
     <%= error_tag f, :name %>
-
+    </div>
+    <div class="form-group">
+    <%= bx_label f, :email %>
     <%= bx_text_input f, :email %>
     <%= error_tag f, :email %>
-
+    </div>
+    <div class="form-group">
     <%= if is_nil(@user.id) do %>
+    <%= bx_label f, :password %>
     <%= bx_text_input f, :password, type: :password %>
     <%= error_tag f, :password %>
     <% end %>
-
-    <div>
-      <%= submit "Save", phx_disable_with: "Saving..." %>
+    </div>
+    <div class="form-group">
+      <%= bx_submit "Save", phx_disable_with: "Saving..." %>
     </div>
   <% end %>
 </div>

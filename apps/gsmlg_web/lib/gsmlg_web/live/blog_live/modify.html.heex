@@ -1,38 +1,54 @@
 <div>
-  <h2>
-    <%= @page_title %>
-  </h2>
+  <ui5-title level="H1"><%= @page_title %></ui5-title>
 
   <%= form_for @changeset, "", ["phx-change": "validate","phx-submit": "save",], fn f -> %>
-  
+    <div class="form-group">
+    <%= bx_label f, :slug %>
     <%= bx_text_input f, :slug %>
     <%= error_tag f, :slug %>
-  
+    </div>
+    <div class="form-group">
+    <%= bx_label f, :title %>
     <%= bx_text_input f, :title %>
     <%= error_tag f, :title %>
-  
-    <%= date_select f, :date %>
+    </div>
+    <div class="form-group">
+    <%= bx_label f, :date %>
+    <%= bx_date_select f, :date, format_pattern: "yyyy-MM-dd" %>
     <%= error_tag f, :date %>
-    <br/>
+    </div>
+    <div class="form-group">
+    <%= bx_label f, :author %>
     <%= bx_text_input f, :author %>
     <%= error_tag f, :author %>
-
-    <%= bx_textarea f, :content, [rows: 50] %>
-    <%= error_tag f, :content %>
-
-    <remark-element id="content-preview"><%= @blog.content |> raw %></remark-element>
-    <script>
-      const ipt = document.getElementById('blog_content');
-      const pre = document.getElementById('content-preview');
-      ipt.addEventListener('input', () => {
-        pre.innerHTML = ipt.value;
-        pre.requestUpdate();
-        // pre.updated();
-      });
-    </script>
-  
-    <div>
-      <%= submit "Save", phx_disable_with: "Saving..." %>
+    </div>
+    <div class="form-group">
+      <%= bx_label f, :content %>
+      <ui5-tabcontainer class="full-width">
+        <ui5-tab text="RAW">
+          <ui5-label class="full-width">
+            <%= bx_textarea f, :content, [rows: 50, class: "full-width", style: "width: 960px"] %>
+            <%= error_tag f, :content %>
+          </ui5-label>
+        </ui5-tab>
+        <ui5-tab text="Preview">
+          <ui5-label class="full-width">
+            <remark-element id="content-preview"><%= @blog.content |> raw %></remark-element>
+            <script>
+              const ipt = document.getElementById('blog_content');
+              const pre = document.getElementById('content-preview');
+              ipt.addEventListener('input', () => {
+                pre.innerHTML = ipt.value;
+                pre.requestUpdate();
+                // pre.updated();
+              });
+            </script>
+          </ui5-label>
+        </ui5-tab>
+      </ui5-tabcontainer>
+    </div>
+    <div class="form-group">
+      <%= bx_submit "Save", phx_disable_with: "Saving..." %>
     </div>
   <% end %>
 </div>

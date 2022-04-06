@@ -91,9 +91,37 @@
 .main-container {
   margin-top: 3rem;
   min-height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
 }
 
 .side-nav {
   margin-top: 3rem;
   min-height: calc(100vh - 3rem);
+}
+
+.content-table {
+  display: flex;
+  flex: 1 1 auto;
+}
+
+.form-group {
+  margin-bottom: 0.3em;
+}
+.form-group ui5-input,
+.form-group ui5-date-picker,
+.form-group ui5-textarea,
+.form-group .full-width {
+  width: 100%;
+}
+
+.show-info .show-field {
+  display: flex;
+  align-items: center;
+}
+.show-info .show-field ui5-label{
+  flex: 1 1 auto;
+}
+.show-info .show-field .label{
+  flex: 0 0 200px;
 }
