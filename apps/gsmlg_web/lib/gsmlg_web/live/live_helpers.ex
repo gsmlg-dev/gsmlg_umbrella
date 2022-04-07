@@ -129,6 +129,7 @@ defmodule GSMLGWeb.LiveHelpers do
     opts =
       opts
       |> Keyword.put_new(:type, :submit)
+      |> Keyword.put_new(:submits, true)
       |> Keyword.put_new(:design, "Emphasized")
 
     content_tag(:"ui5-button", text, opts)

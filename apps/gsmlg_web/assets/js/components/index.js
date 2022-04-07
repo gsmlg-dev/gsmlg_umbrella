@@ -15,6 +15,7 @@ import "@ui5/webcomponents/dist/TabContainer.js";
 import "@ui5/webcomponents/dist/Tab.js";
 import "@ui5/webcomponents/dist/TabSeparator.js";
 import "@ui5/webcomponents/dist/Title.js";
+import "@ui5/webcomponents/dist/features/InputElementsFormSupport.js";
 
 // import { setTheme } from "@ui5/webcomponents-base/dist/config/Theme.js";
 // setTheme("sap_belize_hcb");

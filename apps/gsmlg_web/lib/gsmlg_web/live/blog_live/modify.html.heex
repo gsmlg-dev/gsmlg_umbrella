@@ -1,7 +1,7 @@
 <div>
   <ui5-title level="H1"><%= @page_title %></ui5-title>
 
-  <%= form_for @changeset, "", ["phx-change": "validate","phx-submit": "save",], fn f -> %>
+  <%= form_for @changeset, "", ["phx-change": "validate","phx-submit": "save", id: "blog-form"], fn f -> %>
     <div class="form-group">
     <%= bx_label f, :slug %>
     <%= bx_text_input f, :slug %>
@@ -48,7 +48,14 @@
       </ui5-tabcontainer>
     </div>
     <div class="form-group">
-      <%= bx_submit "Save", phx_disable_with: "Saving..." %>
+      <%= bx_submit "Save", phx_disable_with: "Saving...", id: "form-submit" %>
     </div>
+    <script>
+var sb = document.getElementById('form-submit');
+var fm = document.getElementById('blog-form');
+sb.addEventListener('click', (evt) => {
+  console.log('form', evt.target);
+})
+    </script>
   <% end %>
 </div>
