@@ -1,0 +1,46 @@
+<h1>Show User token</h1>
+
+<%= if @live_action in [:edit] do %>
+  <.modal return_to={Routes.user_token_show_path(@socket, :show, @user_token)}>
+    <.live_component
+      module={GSMLGWeb.UserTokenLive.FormComponent}
+      id={@user_token.id}
+      title={@page_title}
+      action={@live_action}
+      user_token={@user_token}
+      return_to={Routes.user_token_show_path(@socket, :show, @user_token)}
+    />
+  </.modal>
+<% end %>
+
+<ul>
+
+  <li>
+    <strong>Id:</strong>
+    <%= @user_token.id %>
+  </li>
+
+  <li>
+    <strong>Token:</strong>
+    <%= @user_token.token %>
+  </li>
+
+  <li>
+    <strong>Token type:</strong>
+    <%= @user_token.token_type %>
+  </li>
+
+  <li>
+    <strong>Create time:</strong>
+    <%= @user_token.create_time %>
+  </li>
+
+  <li>
+    <strong>Expire at:</strong>
+    <%= @user_token.expire_at %>
+  </li>
+
+</ul>
+
+<span><%= live_patch "Edit", to: Routes.user_token_show_path(@socket, :edit, @user_token), class: "button" %></span> |
+<span><%= live_redirect "Back", to: Routes.user_token_index_path(@socket, :index) %></span>

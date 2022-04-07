@@ -118,4 +118,66 @@ defmodule GSMLG.AccountsTest do
       assert %Ecto.Changeset{} = Accounts.change_user(user)
     end
   end
+
+  describe "user_tokens" do
+    alias GSMLG.Accounts.UserToken
+
+    import GSMLG.AccountsFixtures
+
+    @invalid_attrs %{create_time: nil, expire_at: nil, id: nil, token: nil, token_type: nil}
+
+    test "list_user_tokens/0 returns all user_tokens" do
+      user_token = user_token_fixture()
+      assert Accounts.list_user_tokens() == [user_token]
+    end
+
+    test "get_user_token!/1 returns the user_token with given id" do
+      user_token = user_token_fixture()
+      assert Accounts.get_user_token!(user_token.id) == user_token
+    end
+
+    test "create_user_token/1 with valid data creates a user_token" do
+      valid_attrs = %{create_time: ~U[2022-04-06 16:16:00Z], expire_at: ~U[2022-04-06 16:16:00Z], id: "7488a646-e31f-11e4-aace-600308960662", token: "some token", token_type: "some token_type"}
+
+      assert {:ok, %UserToken{} = user_token} = Accounts.create_user_token(valid_attrs)
+      assert user_token.create_time == ~U[2022-04-06 16:16:00Z]
+      assert user_token.expire_at == ~U[2022-04-06 16:16:00Z]
+      assert user_token.id == "7488a646-e31f-11e4-aace-600308960662"
+      assert user_token.token == "some token"
+      assert user_token.token_type == "some token_type"
+    end
+
+    test "create_user_token/1 with invalid data returns error changeset" do
+      assert {:error, %Ecto.Changeset{}} = Accounts.create_user_token(@invalid_attrs)
+    end
+
+    test "update_user_token/2 with valid data updates the user_token" do
+      user_token = user_token_fixture()
+      update_attrs = %{create_time: ~U[2022-04-07 16:16:00Z], expire_at: ~U[2022-04-07 16:16:00Z], id: "7488a646-e31f-11e4-aace-600308960668", token: "some updated token", token_type: "some updated token_type"}
+
+      assert {:ok, %UserToken{} = user_token} = Accounts.update_user_token(user_token, update_attrs)
+      assert user_token.create_time == ~U[2022-04-07 16:16:00Z]
+      assert user_token.expire_at == ~U[2022-04-07 16:16:00Z]
+      assert user_token.id == "7488a646-e31f-11e4-aace-600308960668"
+      assert user_token.token == "some updated token"
+      assert user_token.token_type == "some updated token_type"
+    end
+
+    test "update_user_token/2 with invalid data returns error changeset" do
+      user_token = user_token_fixture()
+      assert {:error, %Ecto.Changeset{}} = Accounts.update_user_token(user_token, @invalid_attrs)
+      assert user_token == Accounts.get_user_token!(user_token.id)
+    end
+
+    test "delete_user_token/1 deletes the user_token" do
+      user_token = user_token_fixture()
+      assert {:ok, %UserToken{}} = Accounts.delete_user_token(user_token)
+      assert_raise Ecto.NoResultsError, fn -> Accounts.get_user_token!(user_token.id) end
+    end
+
+    test "change_user_token/1 returns a user_token changeset" do
+      user_token = user_token_fixture()
+      assert %Ecto.Changeset{} = Accounts.change_user_token(user_token)
+    end
+  end
 end

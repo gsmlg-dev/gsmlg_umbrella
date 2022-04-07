@@ -1,0 +1,47 @@
+<h1>Listing User tokens</h1>
+
+<%= if @live_action in [:new, :edit] do %>
+  <.modal return_to={Routes.user_token_index_path(@socket, :index)}>
+    <.live_component
+      module={GSMLGWeb.UserTokenLive.FormComponent}
+      id={@user_token.id || :new}
+      title={@page_title}
+      action={@live_action}
+      user_token={@user_token}
+      return_to={Routes.user_token_index_path(@socket, :index)}
+    />
+  </.modal>
+<% end %>
+
+<table>
+  <thead>
+    <tr>
+      <th>Id</th>
+      <th>Token</th>
+      <th>Token type</th>
+      <th>Create time</th>
+      <th>Expire at</th>
+
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="user_tokens">
+    <%= for user_token <- @user_tokens do %>
+      <tr id={"user_token-#{user_token.id}"}>
+        <td><%= user_token.id %></td>
+        <td><%= user_token.token %></td>
+        <td><%= user_token.token_type %></td>
+        <td><%= user_token.create_time %></td>
+        <td><%= user_token.expire_at %></td>
+
+        <td>
+          <span><%= live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, user_token) %></span>
+          <span><%= live_patch "Edit", to: Routes.user_token_index_path(@socket, :edit, user_token) %></span>
+          <span><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: user_token.id, data: [confirm: "Are you sure?"] %></span>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<span><%= live_patch "New User token", to: Routes.user_token_index_path(@socket, :new) %></span>

@@ -28,4 +28,22 @@ defmodule GSMLG.AccountsFixtures do
 
     user
   end
+
+  @doc """
+  Generate a user_token.
+  """
+  def user_token_fixture(attrs \\ %{}) do
+    {:ok, user_token} =
+      attrs
+      |> Enum.into(%{
+        create_time: ~U[2022-04-06 16:16:00Z],
+        expire_at: ~U[2022-04-06 16:16:00Z],
+        id: "7488a646-e31f-11e4-aace-600308960662",
+        token: "some token",
+        token_type: "some token_type"
+      })
+      |> GSMLG.Accounts.create_user_token()
+
+    user_token
+  end
 end

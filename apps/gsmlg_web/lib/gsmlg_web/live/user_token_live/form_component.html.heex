@@ -1,0 +1,36 @@
+<div>
+  <h2><%= @title %></h2>
+
+  <.form
+    let={f}
+    for={@changeset}
+    id="user_token-form"
+    phx-target={@myself}
+    phx-change="validate"
+    phx-submit="save">
+  
+    <%= label f, :id %>
+    <%= text_input f, :id %>
+    <%= error_tag f, :id %>
+  
+    <%= label f, :token %>
+    <%= text_input f, :token %>
+    <%= error_tag f, :token %>
+  
+    <%= label f, :token_type %>
+    <%= text_input f, :token_type %>
+    <%= error_tag f, :token_type %>
+  
+    <%= label f, :create_time %>
+    <%= datetime_select f, :create_time %>
+    <%= error_tag f, :create_time %>
+  
+    <%= label f, :expire_at %>
+    <%= datetime_select f, :expire_at %>
+    <%= error_tag f, :expire_at %>
+  
+    <div>
+      <%= submit "Save", phx_disable_with: "Saving..." %>
+    </div>
+  </.form>
+</div>

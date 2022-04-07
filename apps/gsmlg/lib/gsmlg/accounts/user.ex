@@ -1,6 +1,7 @@
 defmodule GSMLG.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
+  alias GSMLG.Accounts.UserToken
 
   schema "users" do
     field :active_time, :utc_datetime
@@ -17,6 +18,8 @@ defmodule GSMLG.Accounts.User do
     field :portrait, :string
     field :verify_code, :integer
     field :username, :string
+
+    has_many :tokens, UserToken
 
     timestamps()
   end
