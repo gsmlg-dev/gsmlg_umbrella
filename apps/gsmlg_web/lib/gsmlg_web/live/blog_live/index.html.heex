@@ -5,7 +5,8 @@
 </div>
 
 <section class="content-table">
-  <ui5-table>
+
+  <ui5-table class="demo-table-single" mode="SingleSelect">
     <ui5-table-column slot="columns">Title</ui5-table-column>
     <ui5-table-column slot="columns">Date</ui5-table-column>
     <ui5-table-column slot="columns">Author</ui5-table-column>
@@ -16,8 +17,8 @@
       <ui5-table-cell><%= blog.date %></ui5-table-cell>
       <ui5-table-cell><%= blog.author %></ui5-table-cell>
       <ui5-table-cell>
-        <span><%= live_redirect "Edit", to: Routes.blog_modify_path(@socket, :edit, blog) %></span>
-        <span><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: blog.id, data: [confirm: "Are you sure?"] %></span>
+        <span><%= bx_live_redirect "Edit", to: Routes.blog_modify_path(@socket, :edit, blog) %></span>
+        <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: blog.id, data: [confirm: "Are you sure?"] %></span>
       </ui5-table-cell>
     </ui5-table-row>
     <% end %>

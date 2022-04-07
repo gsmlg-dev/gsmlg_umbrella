@@ -4,33 +4,35 @@
   <span><%= bx_live_patch "New User", to: Routes.user_modify_path(@socket, :new) %></span>
 </div>
 
-<ui5-table>
-  <ui5-table-column slot="columns">Name</ui5-table-column>
-  <ui5-table-column slot="columns">Email</ui5-table-column>
-  <ui5-table-column slot="columns">Is active</ui5-table-column>
-  <ui5-table-column slot="columns">Portrait</ui5-table-column>
-  <ui5-table-column slot="columns">Google</ui5-table-column>
-  <ui5-table-column slot="columns">Apple</ui5-table-column>
-  <ui5-table-column slot="columns">Github</ui5-table-column>
-  <ui5-table-column slot="columns">Active time</ui5-table-column>
-  <ui5-table-column slot="columns"></ui5-table-column>
+<section class="content-table">
+  <ui5-table class="demo-table-single" mode="SingleSelect">
+    <ui5-table-column slot="columns">Name</ui5-table-column>
+    <ui5-table-column slot="columns">Email</ui5-table-column>
+    <ui5-table-column slot="columns">Is active</ui5-table-column>
+    <ui5-table-column slot="columns">Portrait</ui5-table-column>
+    <ui5-table-column slot="columns">Google</ui5-table-column>
+    <ui5-table-column slot="columns">Apple</ui5-table-column>
+    <ui5-table-column slot="columns">Github</ui5-table-column>
+    <ui5-table-column slot="columns">Active time</ui5-table-column>
+    <ui5-table-column slot="columns"></ui5-table-column>
 
-  <%= for user <- @users do %>
-    <ui5-table-row>
-      <ui5-table-cell><%= user.name %></ui5-table-cell>
-      <ui5-table-cell><%= user.email %></ui5-table-cell>
-      <ui5-table-cell><%= user.is_active %></ui5-table-cell>
-      <ui5-table-cell><%= user.portrait %></ui5-table-cell>
-      <ui5-table-cell><%= user.google_id %></ui5-table-cell>
-      <ui5-table-cell><%= user.apple_id %></ui5-table-cell>
-      <ui5-table-cell><%= user.github_id %></ui5-table-cell>
-      <ui5-table-cell><%= user.active_time %></ui5-table-cell>
+    <%= for user <- @users do %>
+      <ui5-table-row>
+        <ui5-table-cell><%= user.name %></ui5-table-cell>
+        <ui5-table-cell><%= user.email %></ui5-table-cell>
+        <ui5-table-cell><%= user.is_active %></ui5-table-cell>
+        <ui5-table-cell><%= user.portrait %></ui5-table-cell>
+        <ui5-table-cell><%= user.google_id %></ui5-table-cell>
+        <ui5-table-cell><%= user.apple_id %></ui5-table-cell>
+        <ui5-table-cell><%= user.github_id %></ui5-table-cell>
+        <ui5-table-cell><%= user.active_time %></ui5-table-cell>
 
-      <ui5-table-cell>
-        <span><%= bx_live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
-        <span><%= bx_live_patch "Edit", to: Routes.user_modify_path(@socket, :edit, user) %></span>
-        <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
-      </ui5-table-cell>
-    </ui5-table-row>
-  <% end %>
-</ui5-table>
+        <ui5-table-cell>
+          <span><%= bx_live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
+          <span><%= bx_live_patch "Edit", to: Routes.user_modify_path(@socket, :edit, user) %></span>
+          <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
+        </ui5-table-cell>
+      </ui5-table-row>
+    <% end %>
+  </ui5-table>
+</section>
