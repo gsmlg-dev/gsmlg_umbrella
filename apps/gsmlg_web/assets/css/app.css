@@ -1,6 +1,15 @@
 /* This file is for your main application CSS */
 @import './phoenix.css';
-
+.main {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+[data-phx-main] {
+  display: flex;
+  flex: 1 1 auto;
+}
 /* Alerts and form errors used by phx.new */
 .alert {
   padding: 15px;

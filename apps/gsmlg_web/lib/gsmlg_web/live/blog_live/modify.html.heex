@@ -1,7 +1,14 @@
 <div>
   <ui5-title level="H1"><%= @page_title %></ui5-title>
 
-  <%= form_for @changeset, "", ["phx-change": "validate","phx-submit": "save", id: "blog-form"], fn f -> %>
+  <div class="header">
+  <%= if !is_nil(@blog.id) do %>
+  <span><%= bx_live_redirect "Show", to: Routes.blog_show_path(@socket, :show, @blog) %></span> |
+  <% end %>
+  <span><%= bx_live_redirect "Back", to: Routes.blog_index_path(@socket, :index) %></span>
+  </div>
+
+  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
     <div class="form-group">
     <%= bx_label f, :slug %>
     <%= bx_text_input f, :slug %>
@@ -48,14 +55,8 @@
       </ui5-tabcontainer>
     </div>
     <div class="form-group">
-      <%= bx_submit "Save", phx_disable_with: "Saving...", id: "form-submit" %>
+      <%= bx_submit "Save", phx_disable_with: "Saving..." %>
+      <%= submit "Save", phx_disable_with: "Saving..." %>
     </div>
-    <script>
-var sb = document.getElementById('form-submit');
-var fm = document.getElementById('blog-form');
-sb.addEventListener('click', (evt) => {
-  console.log('form', evt.target);
-})
-    </script>
-  <% end %>
+  </.form>
 </div>

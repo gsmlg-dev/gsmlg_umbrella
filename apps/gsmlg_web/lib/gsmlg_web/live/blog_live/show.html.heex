@@ -1,9 +1,10 @@
 <ui5-title level="H1">Show Blog</ui5-title>
 
-<p>
+<div class="header">
 <span><%= bx_live_redirect "Edit", to: Routes.blog_modify_path(@socket, :edit, @blog) %></span> |
 <span><%= bx_live_redirect "Back", to: Routes.blog_index_path(@socket, :index) %></span>
-</p>
+</div>
+
 <ul>
   <li>
     <strong>Slug:</strong>

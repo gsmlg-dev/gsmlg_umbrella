@@ -1,8 +1,9 @@
 <ui5-title level="H1">Show User</ui5-title>
 
-
-<span><%= bx_live_redirect "Edit", to: Routes.user_modify_path(@socket, :edit, @user), kind: "primary" %></span> |
-<span><%= bx_live_redirect "Back", to: Routes.user_index_path(@socket, :index), kind: "ghost" %></span>
+<div class="header">
+  <span><%= bx_live_redirect "Edit", to: Routes.user_modify_path(@socket, :edit, @user), kind: "primary" %></span> |
+  <span><%= bx_live_redirect "Back", to: Routes.user_index_path(@socket, :index), kind: "ghost" %></span>
+</div>
 
 <div class="show-info">
   <div class="show-field">

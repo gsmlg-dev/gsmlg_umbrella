@@ -128,9 +128,8 @@ defmodule GSMLGWeb.LiveHelpers do
   def bx_submit(text, opts \\ []) do
     opts =
       opts
-      |> Keyword.put_new(:type, :submit)
-      |> Keyword.put_new(:submits, true)
       |> Keyword.put_new(:design, "Emphasized")
+      |> Keyword.put_new(:submits, true)
 
     content_tag(:"ui5-button", text, opts)
   end
