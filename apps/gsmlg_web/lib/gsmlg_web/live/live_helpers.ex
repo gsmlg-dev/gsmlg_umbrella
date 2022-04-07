@@ -66,12 +66,17 @@ defmodule GSMLGWeb.LiveHelpers do
     opts =
       opts
       |> Keyword.put_new(:for, input_id(form, field))
+      |> Keyword.put_new(:show_colon, true)
 
     content_tag(:"ui5-label", humanize(field), opts)
   end
 
   def bx_text_input(form, field, opts \\ []) do
     generic_input(:text, form, field, opts)
+  end
+
+  def bx_password_input(form, field, opts \\ []) do
+    generic_input(:Password, form, field, opts)
   end
 
   def bx_date_select(form, field, opts \\ []) do
@@ -82,7 +87,21 @@ defmodule GSMLGWeb.LiveHelpers do
       |> Keyword.put_new(:value, input_value(form, field))
       |> Keyword.update!(:value, &maybe_html_escape/1)
 
-    content_tag(:"ui5-date-picker", "", opts)
+    error = form.errors |> Keyword.get_values(field)
+
+    unless Enum.empty?(error) do
+      opts = opts |> Keyword.put_new(:value_state, "Error")
+      content_tag(:"ui5-date-picker", opts) do
+        Enum.map(error, fn {err, _} ->
+          content_tag(:div, err,
+            slot: "valueStateMessage",
+            phx_feedback_for: input_name(form, field)
+          )
+        end)
+      end
+    else
+      content_tag(:"ui5-date-picker", "", opts)
+    end
   end
 
   def bx_textarea(form, field, opts \\ []) do
@@ -92,7 +111,21 @@ defmodule GSMLGWeb.LiveHelpers do
       |> Keyword.put_new(:name, input_name(form, field))
       |> Keyword.put_new(:value, html_escape(input_value(form, field) || ""))
 
-    content_tag(:"ui5-textarea", "", opts)
+    error = form.errors |> Keyword.get_values(field)
+
+    unless Enum.empty?(error) do
+      opts = opts |> Keyword.put_new(:value_state, "Error")
+      content_tag(:"ui5-textarea", opts) do
+        Enum.map(error, fn {err, _} ->
+          content_tag(:div, err,
+            slot: "valueStateMessage",
+            phx_feedback_for: input_name(form, field)
+          )
+        end)
+      end
+    else
+      content_tag(:"ui5-textarea", "", opts)
+    end
   end
 
   def bx_link(text, opts \\ []) do
@@ -144,7 +177,22 @@ defmodule GSMLGWeb.LiveHelpers do
       |> Keyword.put_new(:value, input_value(form, field))
       |> Keyword.update!(:value, &maybe_html_escape/1)
 
-    content_tag(:"ui5-input", "", opts)
+    error = form.errors |> Keyword.get_values(field)
+
+    unless Enum.empty?(error) do
+      opts = opts |> Keyword.put_new(:value_state, "Error")
+      content_tag(:"ui5-input", opts) do
+        Enum.map(error, fn {err, _} ->
+          content_tag(:div, err,
+            slot: "valueStateMessage",
+            phx_feedback_for: input_name(form, field)
+          )
+        end)
+      end
+    else
+      content_tag(:"ui5-input", "", opts)
+    end
+
   end
 
   defp maybe_html_escape(nil), do: nil

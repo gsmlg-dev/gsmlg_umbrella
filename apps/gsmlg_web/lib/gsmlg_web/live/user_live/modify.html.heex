@@ -12,23 +12,23 @@
     <div class="form-group">
     <%= bx_label f, :username %>
     <%= bx_text_input f, :username %>
-    <%= error_tag f, :username %>
+
     </div>
     <div class="form-group">
     <%= bx_label f, :name %>
     <%= bx_text_input f, :name %>
-    <%= error_tag f, :name %>
+
     </div>
     <div class="form-group">
     <%= bx_label f, :email %>
     <%= bx_text_input f, :email %>
-    <%= error_tag f, :email %>
+
     </div>
     <div class="form-group">
     <%= if is_nil(@user.id) do %>
     <%= bx_label f, :password %>
-    <%= bx_text_input f, :password, type: :password %>
-    <%= error_tag f, :password %>
+    <%= bx_password_input f, :password %>
+
     <% end %>
     </div>
     <div class="form-group">
