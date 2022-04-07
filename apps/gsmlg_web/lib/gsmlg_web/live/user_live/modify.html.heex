@@ -8,7 +8,7 @@
   <span><%= bx_live_redirect "Back", to: Routes.user_index_path(@socket, :index) %></span>
   </div>
 
-  <%= form_for @changeset, "", ["phx-change": "validate","phx-submit": "save",], fn f -> %>
+  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
     <div class="form-group">
     <%= bx_label f, :username %>
     <%= bx_text_input f, :username %>
@@ -35,5 +35,5 @@
       <%= bx_submit "Save", phx_disable_with: "Saving..." %>
       <%= submit "Save", phx_disable_with: "Saving..." %>
     </div>
-  <% end %>
+  </.form>
 </div>
