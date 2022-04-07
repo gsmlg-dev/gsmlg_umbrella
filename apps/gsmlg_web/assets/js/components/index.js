@@ -1,3 +1,4 @@
+import '@ui5/webcomponents-icons/dist/AllIcons.js';
 import '@ui5/webcomponents/dist/Link.js';
 import '@ui5/webcomponents/dist/Button.js';
 import '@ui5/webcomponents/dist/TableCell.js';
