@@ -31,7 +31,7 @@ defmodule GSMLG.Accounts do
         :github_id,
         :active_time
       ]
-    Repo.all(User)
+    Repo.all(query)
   end
 
   @doc """

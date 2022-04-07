@@ -6,11 +6,12 @@ defmodule GSMLG.Chess.Supervisor do
     Supervisor.start_link(name, :ok)
   end
 
+  @impl Supervisor
   def init(_) do
     children = [
-      worker(Room, [])
+      {Room, []}
     ]
 
-    supervise(children, strategy: :one_for_one)
+    Supervisor.init(children, strategy: :one_for_one)
   end
 end

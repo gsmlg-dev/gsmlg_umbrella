@@ -8,12 +8,13 @@ defmodule GSMLG.Node.Supervisor do
     Supervisor.start_link(name, :ok)
   end
 
+  @impl true
   def init(_) do
     children = [
-      worker(Self, []),
-      worker(Others, [])
+      {Self, []},
+      {Others, []}
     ]
 
-    supervise(children, strategy: :one_for_one)
+    Supervisor.init(children, strategy: :one_for_one)
   end
 end

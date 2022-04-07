@@ -37,7 +37,7 @@ defmodule GSMLG.Node.Self do
     :"#{GSMLG.name()}@#{host()}"
   end
 
-  def init(init) do
+  def init(_init) do
     state = node_start(%{alive?: Node.alive?(), self: Node.self(), pid: nil, restart?: true})
     Process.send_after(__MODULE__, :keep_alive, 60000)
     {:ok, state}
