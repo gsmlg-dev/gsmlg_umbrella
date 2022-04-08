@@ -7,40 +7,48 @@
 
 <div class="show-info">
   <div class="show-field">
-    <ui5-label class="label">
-      <strong>Username:</strong>
+    <ui5-label class="label" show-colon>
+      <strong>ID</strong>
+    </ui5-label>
+    <ui5-label>
+      <%= @user.id %>
+    </ui5-label>
+  </div>
+  <div class="show-field">
+    <ui5-label class="label" show-colon>
+      <strong>Username</strong>
     </ui5-label>
     <ui5-label>
       <%= @user.username %>
     </ui5-label>
   </div>
   <div class="show-field">
-    <ui5-label class="label">
-      <strong>Name:</strong>
+    <ui5-label class="label" show-colon>
+      <strong>Name</strong>
     </ui5-label>
     <ui5-label>
       <%= @user.name %>
     </ui5-label>
   </div>
   <div class="show-field">
-    <ui5-label class="label">
-      <strong>Email:</strong>
+    <ui5-label class="label" show-colon>
+      <strong>Email</strong>
     </ui5-label>
     <ui5-label>
       <%= @user.email %>
     </ui5-label>
   </div>
   <div class="show-field">
-    <ui5-label class="label">
-      <strong>Is Active:</strong>
+    <ui5-label class="label" show-colon>
+      <strong>Is Active</strong>
     </ui5-label>
     <ui5-label>
       <%= @user.is_active %>
     </ui5-label>
   </div>
   <div class="show-field">
-    <ui5-label class="label">
-      <strong>Portrait:</strong>
+    <ui5-label class="label" show-colon>
+      <strong>Portrait</strong>
     </ui5-label>
     <ui5-label>
     <%= @user.portrait %>

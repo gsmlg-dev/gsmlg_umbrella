@@ -1,47 +1,32 @@
-<h1>Listing User tokens</h1>
+<ui5-title level="H1">Listing User tokens</ui5-title>
 
-<%= if @live_action in [:new, :edit] do %>
-  <.modal return_to={Routes.user_token_index_path(@socket, :index)}>
-    <.live_component
-      module={GSMLGWeb.UserTokenLive.FormComponent}
-      id={@user_token.id || :new}
-      title={@page_title}
-      action={@live_action}
-      user_token={@user_token}
-      return_to={Routes.user_token_index_path(@socket, :index)}
-    />
-  </.modal>
-<% end %>
+<div class="header">
+  <span><%= bx_live_patch "New User Token", to: Routes.user_token_modify_path(@socket, :new) %></span>
+</div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Id</th>
-      <th>Token</th>
-      <th>Token type</th>
-      <th>Create time</th>
-      <th>Expire at</th>
+<section class="content-table">
+  <ui5-table class="demo-table-single" mode="SingleSelect">
+    <ui5-table-column slot="columns">ID</ui5-table-column>
+    <ui5-table-column slot="columns">Token</ui5-table-column>
+    <ui5-table-column slot="columns">Token Type</ui5-table-column>
+    <ui5-table-column slot="columns">Create Time</ui5-table-column>
+    <ui5-table-column slot="columns">Expire At</ui5-table-column>
+    <ui5-table-column slot="columns"></ui5-table-column>
 
-      <th></th>
-    </tr>
-  </thead>
-  <tbody id="user_tokens">
     <%= for user_token <- @user_tokens do %>
-      <tr id={"user_token-#{user_token.id}"}>
-        <td><%= user_token.id %></td>
-        <td><%= user_token.token %></td>
-        <td><%= user_token.token_type %></td>
-        <td><%= user_token.create_time %></td>
-        <td><%= user_token.expire_at %></td>
+      <ui5-table-row>
+        <ui5-table-cell><%= user_token.id %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.token %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.token_type %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.create_time %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.expire_at %></ui5-table-cell>
 
-        <td>
-          <span><%= live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, user_token) %></span>
-          <span><%= live_patch "Edit", to: Routes.user_token_index_path(@socket, :edit, user_token) %></span>
-          <span><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: user_token.id, data: [confirm: "Are you sure?"] %></span>
-        </td>
-      </tr>
+        <ui5-table-cell>
+          <span><%= bx_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, user_token) %></span>
+          <span><%= bx_live_patch "Edit", to: Routes.user_token_modify_path(@socket, :edit, user_token) %></span>
+          <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: user_token.id, data: [confirm: "Are you sure?"] %></span>
+        </ui5-table-cell>
+      </ui5-table-row>
     <% end %>
-  </tbody>
-</table>
-
-<span><%= live_patch "New User token", to: Routes.user_token_index_path(@socket, :new) %></span>
+  </ui5-table>
+</section>

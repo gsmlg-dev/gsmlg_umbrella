@@ -41,18 +41,19 @@
         <ui5-tab text="Preview">
           <ui5-label class="full-width">
             <remark-element id="content-preview"><%= @blog.content |> raw %></remark-element>
-            <script>
-              const ipt = document.getElementById('blog_content');
-              const pre = document.getElementById('content-preview');
-              ipt.addEventListener('input', () => {
-                pre.innerHTML = ipt.value;
-                pre.requestUpdate();
-                // pre.updated();
-              });
-            </script>
+
           </ui5-label>
         </ui5-tab>
       </ui5-tabcontainer>
+      <script>
+        const ipt = document.getElementById('blog_content');
+        const pre = document.getElementById('content-preview');
+        ipt.addEventListener('input', () => {
+          pre.innerHTML = ipt.value;
+          pre.requestUpdate();
+          // pre.updated();
+        });
+      </script>
     </div>
     <div class="form-group">
       <%= bx_submit "Save", phx_disable_with: "Saving..." %>

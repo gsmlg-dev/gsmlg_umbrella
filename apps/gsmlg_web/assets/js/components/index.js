@@ -7,6 +7,7 @@ import '@ui5/webcomponents/dist/TableGroupRow.js';
 import '@ui5/webcomponents/dist/Table.js';
 import '@ui5/webcomponents/dist/TableRow.js';
 import '@ui5/webcomponents/dist/DatePicker.js';
+import "@ui5/webcomponents/dist/DateTimePicker.js";
 import '@ui5/webcomponents/dist/Label.js';
 import '@ui5/webcomponents/dist/Input.js';
 import '@ui5/webcomponents/dist/TextArea.js';

@@ -7,6 +7,7 @@ defmodule GSMLG.Accounts do
   alias GSMLG.Repo
 
   alias GSMLG.Accounts.User
+  alias GSMLG.Accounts.UserToken
 
   @doc """
   Returns the list of users.
@@ -18,19 +19,22 @@ defmodule GSMLG.Accounts do
 
   """
   def list_users do
-    query = from u in User,
-      select: [
-        :id,
-        :username,
-        :name,
-        :email,
-        :is_active,
-        :portrait,
-        :google_id,
-        :apple_id,
-        :github_id,
-        :active_time
-      ]
+    query =
+      from(u in User,
+        select: [
+          :id,
+          :username,
+          :name,
+          :email,
+          :is_active,
+          :portrait,
+          :google_id,
+          :apple_id,
+          :github_id,
+          :active_time
+        ]
+      )
+
     Repo.all(query)
   end
 
@@ -49,19 +53,22 @@ defmodule GSMLG.Accounts do
 
   """
   def get_user!(id) do
-    query = from u in User,
-      select: [
-        :id,
-        :username,
-        :name,
-        :email,
-        :is_active,
-        :portrait,
-        :google_id,
-        :apple_id,
-        :github_id,
-        :active_time
-      ]
+    query =
+      from(u in User,
+        select: [
+          :id,
+          :username,
+          :name,
+          :email,
+          :is_active,
+          :portrait,
+          :google_id,
+          :apple_id,
+          :github_id,
+          :active_time
+        ]
+      )
+
     Repo.get!(query, id)
   end
 
@@ -159,7 +166,10 @@ defmodule GSMLG.Accounts do
       ** (Ecto.NoResultsError)
 
   """
-  def get_user_token!(id), do: Repo.get!(UserToken, id)
+  def get_user_token!(id) do
+    query = from(ut in UserToken, where: [id: ^id])
+    Repo.one(query)
+  end
 
   @doc """
   Creates a user_token.
@@ -175,7 +185,7 @@ defmodule GSMLG.Accounts do
   """
   def create_user_token(attrs \\ %{}) do
     %UserToken{}
-    |> UserToken.changeset(attrs)
+    |> UserToken.create_changeset(attrs)
     |> Repo.insert()
   end
 

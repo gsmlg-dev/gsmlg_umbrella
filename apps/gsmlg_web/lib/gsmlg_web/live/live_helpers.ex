@@ -62,7 +62,7 @@ defmodule GSMLGWeb.LiveHelpers do
   import Phoenix.HTML.Tag
   import Phoenix.HTML.Form
 
-  def bx_label(form, field, opts \\[]) do
+  def bx_label(form, field, opts \\ []) do
     opts =
       opts
       |> Keyword.put_new(:for, input_id(form, field))
@@ -91,6 +91,7 @@ defmodule GSMLGWeb.LiveHelpers do
 
     unless Enum.empty?(error) do
       opts = opts |> Keyword.put_new(:value_state, "Error")
+
       content_tag(:"ui5-date-picker", opts) do
         Enum.map(error, fn {err, _} ->
           content_tag(:div, err,
@@ -101,6 +102,32 @@ defmodule GSMLGWeb.LiveHelpers do
       end
     else
       content_tag(:"ui5-date-picker", "", opts)
+    end
+  end
+
+  def bx_datetime_select(form, field, opts \\ []) do
+    opts =
+      opts
+      |> Keyword.put_new(:id, input_id(form, field))
+      |> Keyword.put_new(:name, input_name(form, field))
+      |> Keyword.put_new(:value, input_value(form, field))
+      |> Keyword.update!(:value, &maybe_html_escape/1)
+
+    error = form.errors |> Keyword.get_values(field)
+
+    unless Enum.empty?(error) do
+      opts = opts |> Keyword.put_new(:value_state, "Error")
+
+      content_tag(:"ui5-datetime-picker", opts) do
+        Enum.map(error, fn {err, _} ->
+          content_tag(:div, err,
+            slot: "valueStateMessage",
+            phx_feedback_for: input_name(form, field)
+          )
+        end)
+      end
+    else
+      content_tag(:"ui5-datetime-picker", "", opts)
     end
   end
 
@@ -115,6 +142,7 @@ defmodule GSMLGWeb.LiveHelpers do
 
     unless Enum.empty?(error) do
       opts = opts |> Keyword.put_new(:value_state, "Error")
+
       content_tag(:"ui5-textarea", opts) do
         Enum.map(error, fn {err, _} ->
           content_tag(:div, err,
@@ -181,6 +209,7 @@ defmodule GSMLGWeb.LiveHelpers do
 
     unless Enum.empty?(error) do
       opts = opts |> Keyword.put_new(:value_state, "Error")
+
       content_tag(:"ui5-input", opts) do
         Enum.map(error, fn {err, _} ->
           content_tag(:div, err,
@@ -192,7 +221,6 @@ defmodule GSMLGWeb.LiveHelpers do
     else
       content_tag(:"ui5-input", "", opts)
     end
-
   end
 
   defp maybe_html_escape(nil), do: nil

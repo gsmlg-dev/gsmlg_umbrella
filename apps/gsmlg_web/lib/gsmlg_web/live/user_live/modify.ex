@@ -55,7 +55,6 @@ defmodule GSMLGWeb.UserLive.Modify do
   end
 
   def handle_event("save", %{"user" => user_params}, socket) do
-    IO.inspect(user_params)
     save_user(socket, socket.assigns.live_action, user_params)
   end
 
@@ -81,6 +80,7 @@ defmodule GSMLGWeb.UserLive.Modify do
          |> push_redirect(to: Routes.user_show_path(socket, :show, user))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
+        IO.inspect(changeset)
         {:noreply, assign(socket, changeset: changeset)}
     end
   end
