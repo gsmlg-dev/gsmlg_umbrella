@@ -1,62 +1,84 @@
 defmodule GSMLGWeb.Router do
   use GSMLGWeb, :router
 
+  pipeline :maybe_browser_auth do
+    plug(Guardian.Plug.VerifySession)
+    plug(Guardian.Plug.VerifyHeader, realm: "Bearer")
+    plug(Guardian.Plug.LoadResource)
+  end
+
+  pipeline :ensure_authed_access do
+    plug(Guardian.Plug.EnsureAuthenticated, %{
+      "typ" => "access",
+      handler: GSMLGWeb.HttpErrorHandler
+    })
+  end
+
   pipeline :browser do
-    plug :accepts, ["html"]
-    plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout, {GSMLGWeb.LayoutView, :root}
-    plug :protect_from_forgery
-    plug :put_secure_browser_headers
+    plug(:accepts, ["html"])
+    plug(:fetch_session)
+    plug(:fetch_live_flash)
+    plug(:put_root_layout, {GSMLGWeb.LayoutView, :root})
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
   end
 
   pipeline :api do
-    plug :accepts, ["json"]
+    plug(:accepts, ["json"])
   end
 
   scope "/admin", GSMLGWeb do
-    pipe_through :browser
+    pipe_through([:browser, :maybe_browser_auth])
 
-    get "/", PageController, :index
+    get("/sign_in", AuthController, :index)
+    get("/sign_up", AuthController, :new)
+  end
 
-    get "/node_management", NodeManagementController, :index
-    post "/node_management", NodeManagementController, :update
+  scope "/admin", GSMLGWeb do
+    pipe_through([:browser, :maybe_browser_auth, :ensure_authed_access])
 
-    live "/blogs", BlogLive.Index, :index
-    live "/blogs/new", BlogLive.Modify, :new
-    live "/blogs/:id", BlogLive.Show, :show
-    live "/blogs/:id/edit", BlogLive.Modify, :edit
+    get("/", PageController, :index)
 
-    live "/users", UserLive.Index, :index
-    live "/users/new", UserLive.Modify, :new
-    live "/users/:id", UserLive.Show, :show
-    live "/users/:id/edit", UserLive.Modify, :edit
+    get("/node_management", NodeManagementController, :index)
+    post("/node_management", NodeManagementController, :update)
 
-    live "/user_tokens", UserTokenLive.Index, :index
-    live "/user_tokens/new", UserTokenLive.Modify, :new
-    live "/user_tokens/:id/edit", UserTokenLive.Modify, :edit
-    live "/user_tokens/:id", UserTokenLive.Show, :show
+    live("/blogs", BlogLive.Index, :index)
+    live("/blogs/new", BlogLive.Modify, :new)
+    live("/blogs/:id", BlogLive.Show, :show)
+    live("/blogs/:id/edit", BlogLive.Modify, :edit)
+
+    live("/users", UserLive.Index, :index)
+    live("/users/new", UserLive.Modify, :new)
+    live("/users/:id", UserLive.Show, :show)
+    live("/users/:id/edit", UserLive.Modify, :edit)
+
+    live("/user_tokens", UserTokenLive.Index, :index)
+    live("/user_tokens/new", UserTokenLive.Modify, :new)
+    live("/user_tokens/:id/edit", UserTokenLive.Modify, :edit)
+    live("/user_tokens/:id", UserTokenLive.Show, :show)
 
     if Mix.env() in [:prod] do
       import Phoenix.LiveDashboard.Router
 
-      live_dashboard "/dashboard", metrics: GSMLGWeb.Telemetry
+      live_dashboard("/dashboard", metrics: GSMLGWeb.Telemetry)
     end
   end
 
   # Other scopes may use custom stacks.
   scope "/api", GSMLGWeb do
-    pipe_through :api
+    pipe_through(:api)
 
-    resources "/blogs", BlogController, except: [:new, :edit]
+    resources("/blogs", BlogController, except: [:new, :edit])
   end
 
-  forward "/graphiql",
-          Absinthe.Plug.GraphiQL,
-          schema: GSMLGWeb.Schema,
-          socket: GSMLGWeb.UserSocket
+  forward(
+    "/graphiql",
+    Absinthe.Plug.GraphiQL,
+    schema: GSMLGWeb.Schema,
+    socket: GSMLGWeb.UserSocket
+  )
 
-  forward "/graphql", Absinthe.Plug, schema: GSMLGWeb.Schema
+  forward("/graphql", Absinthe.Plug, schema: GSMLGWeb.Schema)
 
   # Enables LiveDashboard only for development
   #
@@ -69,8 +91,8 @@ defmodule GSMLGWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/" do
-      pipe_through :browser
-      live_dashboard "/dashboard", metrics: GSMLGWeb.Telemetry
+      pipe_through([:browser, :maybe_browser_auth])
+      live_dashboard("/dashboard", metrics: GSMLGWeb.Telemetry)
     end
   end
 
@@ -80,16 +102,16 @@ defmodule GSMLGWeb.Router do
   # node running the Phoenix server.
   if Mix.env() == :dev do
     scope "/dev" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
+      forward("/mailbox", Plug.Swoosh.MailboxPreview)
     end
   end
 
   # fallback not_found
   scope "/", GSMLGWeb do
-    pipe_through :browser
+    pipe_through(:browser)
 
-    get "/*request_path", PageController, :not_found
+    get("/*request_path", PageController, :not_found)
   end
 end

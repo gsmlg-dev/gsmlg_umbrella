@@ -5,13 +5,13 @@ defmodule GSMLG.Accounts.UserToken do
 
   @primary_key {:id, Ecto.UUID, []}
   schema "user_tokens" do
-    field :create_time, :utc_datetime
-    field :expire_at, :utc_datetime
+    field(:create_time, :utc_datetime)
+    field(:expire_at, :utc_datetime)
     # field :id, Ecto.UUID
-    field :token, :string
-    field :token_type, :string
+    field(:token, :string)
+    field(:token_type, :string)
 
-    belongs_to :user, User
+    belongs_to(:user, User)
 
     timestamps()
   end

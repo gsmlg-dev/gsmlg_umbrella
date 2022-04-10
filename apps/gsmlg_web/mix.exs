@@ -24,7 +24,7 @@ defmodule GSMLGWeb.MixProject do
   def application do
     [
       mod: {GSMLGWeb.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:guardian, :logger, :runtime_tools]
     ]
   end
 
@@ -52,6 +52,8 @@ defmodule GSMLGWeb.MixProject do
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
       {:earmark, ">= 1.4.15"},
+      {:guardian, "~> 2.0"},
+      {:guardian_phoenix, "~> 2.0"},
       {:absinthe, "~> 1.7.0"},
       {:absinthe_plug, "~> 1.5"},
       {:absinthe_phoenix, "~> 2.0.0"}

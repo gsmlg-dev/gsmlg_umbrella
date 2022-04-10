@@ -8,8 +8,8 @@ defmodule GSMLGWeb.UserSocket do
 
   ## Channels
 
-  channel "node:lobby", GSMLGWeb.NodeChannel
-  channel "room:chess", GSMLGWeb.ChessChannel
+  channel("node:lobby", GSMLGWeb.NodeChannel)
+  channel("room:chess", GSMLGWeb.ChessChannel)
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After
@@ -23,22 +23,19 @@ defmodule GSMLGWeb.UserSocket do
   # See `Phoenix.Token` documentation for examples in
   # performing token verification on connect.
   @impl true
-  def connect(params, socket, connect_info) do
-    IO.puts("Params: ")
-    IO.inspect(params)
-    IO.puts("Socket: ")
-    IO.inspect(socket)
-    IO.puts("Connect Info: ")
-    IO.inspect(connect_info)
+  def connect(%{"token" => token} = _params, socket, _connect_info) do
+    case Guardian.Phoenix.Socket.authenticate(socket, GSMLGWeb.Guardian, token) do
+      {:ok, authed_socket} ->
+        {:ok, authed_socket}
 
-    socket =
-      Absinthe.Phoenix.Socket.put_options(socket,
-        context: %{
-          current_user: ""
-        }
-      )
+      {:error, _} ->
+        :error
+    end
+  end
 
-    {:ok, socket}
+  # This function will be called when there was no authentication information
+  def connect(_params, socket) do
+    :error
   end
 
   # Socket id's are topics that allow you to identify all sockets for a given user:

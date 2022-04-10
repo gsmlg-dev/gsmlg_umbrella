@@ -13,9 +13,7 @@ defmodule GSMLGWeb.Endpoint do
 
   socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
 
-  socket "/socket", GSMLGWeb.UserSocket,
-    websocket: true,
-    longpoll: false
+  socket "/socket", GSMLGWeb.UserSocket, websocket: true
 
   # Serve at "/" the static files from "priv/static" directory.
   #
