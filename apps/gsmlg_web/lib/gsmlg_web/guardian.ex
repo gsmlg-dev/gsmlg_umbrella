@@ -1,5 +1,5 @@
 defmodule GSMLGWeb.Guardian do
-  use Guardian, otp_app: :gsmlg_web
+  use Guardian, otp_app: :gsmlg_web, token_module: Guardian.Token.Jwt
 
   def subject_for_token(%{id: id}, _claims) do
     # You can use any value for the subject of your token but

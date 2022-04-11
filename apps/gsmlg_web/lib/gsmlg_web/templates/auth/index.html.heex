@@ -1,13 +1,22 @@
-<h1>Listing Users</h1>
+<ui5-page class="login-page">
+  <%= form_for @changeset, Routes.auth_path(@conn, :sign_in), [class: "login-form"], fn f -> %>
+    <ui5-title class="login-title">
+      Sign In
+    </ui5-title>
+    <div class="form-group">
+      <%= bx_label f, :username %>
+      <%= bx_text_input f, :username %>
+      <%= error_tag f, :username %>
+    </div>
 
-<table>
-  <thead>
-    <tr>
+    <div class="form-group">
+      <%= bx_label f, :password %>
+      <%= bx_password_input f, :password %>
+      <%= error_tag f, :password %>
+    </div>
 
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-
-  </tbody>
-</table>
+    <div class="form-group">
+      <%= bx_submit "Save" %>
+    </div>
+  <% end %>
+</ui5-page>

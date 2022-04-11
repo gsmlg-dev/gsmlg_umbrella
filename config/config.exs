@@ -24,12 +24,12 @@ config :gsmlg,
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Local
 
 # Setup guardian
-config :gsmlg_web, GSMLG.Guardian,
+config :gsmlg_web, GSMLGWeb.Guardian,
   issuer: "gsmlg",
-  secret_key: "Secret key. You can use `mix guardian.gen.secret` to get one"
+  secret_key: "s5XC5yzTm66tg+1pbiQiJxWNUAvPK4UeAOUJVO1VYkrT2cyr/1usjyYHr8K2ymLc"
 
 config :guardian, Guardian,
-  issuer: "MyAppId",
+  issuer: "gsmlg",
   secret_key: Mix.env(),
   serializer: GSMLG.GuardianSerializer
 

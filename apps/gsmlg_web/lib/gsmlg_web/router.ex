@@ -2,6 +2,7 @@ defmodule GSMLGWeb.Router do
   use GSMLGWeb, :router
 
   pipeline :maybe_browser_auth do
+    plug Guardian.Plug.Pipeline, module: GSMLGWeb.Guardian, error_handler: GSMLGWeb.AuthController
     plug(Guardian.Plug.VerifySession)
     plug(Guardian.Plug.VerifyHeader, realm: "Bearer")
     plug(Guardian.Plug.LoadResource)
@@ -9,8 +10,7 @@ defmodule GSMLGWeb.Router do
 
   pipeline :ensure_authed_access do
     plug(Guardian.Plug.EnsureAuthenticated, %{
-      "typ" => "access",
-      handler: GSMLGWeb.HttpErrorHandler
+      handler: GSMLGWeb.AuthController
     })
   end
 
@@ -32,10 +32,15 @@ defmodule GSMLGWeb.Router do
 
     get("/sign_in", AuthController, :index)
     get("/sign_up", AuthController, :new)
+
+    post("/sign_in", AuthController, :sign_in)
+    post("/sign_up", AuthController, :sign_up)
+    delete("/sign_out", AuthController, :sign_out)
   end
 
   scope "/admin", GSMLGWeb do
-    pipe_through([:browser, :maybe_browser_auth, :ensure_authed_access])
+    pipe_through([:browser, :maybe_browser_auth])
+    # pipe_through([:browser, :maybe_browser_auth, :ensure_authed_access])
 
     get("/", PageController, :index)
 
@@ -91,7 +96,7 @@ defmodule GSMLGWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/" do
-      pipe_through([:browser, :maybe_browser_auth])
+      pipe_through([:browser])
       live_dashboard("/dashboard", metrics: GSMLGWeb.Telemetry)
     end
   end

@@ -3,19 +3,28 @@ defmodule GSMLGWeb.AuthController do
 
   alias GSMLG.Accounts.Auth
   alias GSMLG.Accounts.User
+  alias GSMLGWeb.Guardian
 
   def index(conn, _params) do
     if Guardian.Plug.authenticated?(conn) do
       user = Guardian.Plug.current_resource(conn)
+
+      conn
+      |> put_flash(:info, "Auth created successfully.")
+      |> redirect(to: Routes.user_show_path(conn, :show, user))
     else
       # No user
-    end
+      changeset = Auth.sign_in_changeset(%Auth{}, %{})
 
-    render(conn, "index.html")
+      conn
+      |> put_root_layout(false)
+      |> put_layout("auth.html")
+      |> render("index.html", changeset: changeset)
+    end
   end
 
   def new(conn, params) do
-    changeset = Auth.changeset(%User{}, params)
+    changeset = Auth.changeset(%Auth{}, params)
     render(conn, "new.html", changeset: changeset)
   end
 
@@ -27,32 +36,42 @@ defmodule GSMLGWeb.AuthController do
         |> redirect(to: Routes.user_show_path(conn, :show, user))
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        render(conn, "new.html", changeset: changeset)
+        conn
+        |> put_flash(:error, "invalid")
+        |> render("new.html", changeset: changeset)
     end
   end
 
-  def sign_in(conn, params) do
+  def sign_in(conn, %{"auth" => params}) do
     case Auth.sign_in(params) do
-      {:ok, user} ->
+      {:ok, %User{} = user} ->
         # Use access tokens.
         # Other tokens can be used, like :refresh etc
         conn
-        |> Guardian.Plug.sign_in(user, :access)
-        |> render("index.html")
+        |> put_flash(:info, "Sign in successfully.")
+        |> Guardian.Plug.sign_in(user)
+        |> redirect(to: Routes.user_show_path(conn, :show, user))
 
-      {:ok, user, api} ->
-        {:ok, jwt, _claims} = Guardian.encode_and_sign(user, :access)
-        conn |> render("index.html", %{token: jwt})
-
-      {:error, _reason} ->
-        nil
-        # handle not verifying the user's credentials
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> put_flash(:error, "invalid")
+        |> put_root_layout(false)
+        |> put_layout("auth.html")
+        |> render("index.html", changeset: changeset)
     end
   end
 
   def sign_out(conn, params) do
     conn
     |> Guardian.Plug.sign_out(params)
+    |> put_root_layout(false)
+    |> put_layout("auth.html")
     |> render("index.html", %{})
+  end
+
+  def auth_error(conn, {type, reason}, opts) do
+    conn
+    |> put_flash(:error, reason)
+    |> redirect(to: Routes.auth_path(conn, :index))
   end
 end
