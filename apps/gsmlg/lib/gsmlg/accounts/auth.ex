@@ -38,10 +38,6 @@ defmodule GSMLG.Accounts.Auth do
   defp find_user_pass(
          %Ecto.Changeset{changes: %{username: username, password: password}} = changeset
        ) do
-    IO.puts("auth: \n")
-    IO.puts(username)
-    IO.puts(password)
-
     query =
       from(u in User,
         select: [
@@ -63,5 +59,9 @@ defmodule GSMLG.Accounts.Auth do
       nil -> {:error, changeset |> add_error(:password, "invalid password or username")}
       %User{} = user -> {:ok, user}
     end
+  end
+
+  defp find_user_pass(%Ecto.Changeset{} = changeset) do
+    {:error, changeset}
   end
 end

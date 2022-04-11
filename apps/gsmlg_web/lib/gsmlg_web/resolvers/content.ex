@@ -52,7 +52,6 @@ defmodule GSMLGWeb.Resolvers.Content do
   def blogs_info(_parent, _args, _resolution) do
     count = GSMLG.Content.count_blogs()
     last_modified = GSMLG.Content.last_updated_at()
-    IO.inspect(last_modified)
     {:ok, %{total: count, last_modified: last_modified}}
   end
 

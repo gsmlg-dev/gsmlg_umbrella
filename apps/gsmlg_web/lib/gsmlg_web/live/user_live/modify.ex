@@ -80,7 +80,6 @@ defmodule GSMLGWeb.UserLive.Modify do
          |> push_redirect(to: Routes.user_show_path(socket, :show, user))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        IO.inspect(changeset)
         {:noreply, assign(socket, changeset: changeset)}
     end
   end

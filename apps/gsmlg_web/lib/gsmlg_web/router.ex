@@ -4,14 +4,11 @@ defmodule GSMLGWeb.Router do
   pipeline :maybe_browser_auth do
     plug Guardian.Plug.Pipeline, module: GSMLGWeb.Guardian, error_handler: GSMLGWeb.AuthController
     plug(Guardian.Plug.VerifySession)
-    plug(Guardian.Plug.VerifyHeader, realm: "Bearer")
-    plug(Guardian.Plug.LoadResource)
+    plug(Guardian.Plug.LoadResource, allow_blank: true)
   end
 
   pipeline :ensure_authed_access do
-    plug(Guardian.Plug.EnsureAuthenticated, %{
-      handler: GSMLGWeb.AuthController
-    })
+    plug Guardian.Plug.EnsureAuthenticated, claims: %{"typ" => "access"}
   end
 
   pipeline :browser do
@@ -24,6 +21,8 @@ defmodule GSMLGWeb.Router do
   end
 
   pipeline :api do
+    plug Guardian.Plug.Pipeline, module: GSMLGWeb.Guardian, error_handler: GSMLGWeb.AuthController
+    plug(Guardian.Plug.VerifyHeader, scheme: "Bearer")
     plug(:accepts, ["json"])
   end
 
@@ -35,12 +34,13 @@ defmodule GSMLGWeb.Router do
 
     post("/sign_in", AuthController, :sign_in)
     post("/sign_up", AuthController, :sign_up)
-    delete("/sign_out", AuthController, :sign_out)
   end
 
   scope "/admin", GSMLGWeb do
-    pipe_through([:browser, :maybe_browser_auth])
-    # pipe_through([:browser, :maybe_browser_auth, :ensure_authed_access])
+    # pipe_through([:browser, :maybe_browser_auth])
+    pipe_through([:browser, :maybe_browser_auth, :ensure_authed_access])
+
+    delete("/sign_out", AuthController, :sign_out)
 
     get("/", PageController, :index)
 

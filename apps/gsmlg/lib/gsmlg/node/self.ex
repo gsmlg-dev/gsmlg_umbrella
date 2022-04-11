@@ -80,9 +80,15 @@ defmodule GSMLG.Node.Self do
   def node_start(state) do
     pid =
       case Node.start(Self.name()) do
-        {:ok, pid} -> pid
-        {:error, {:already_started, pid}} -> pid
-        e -> IO.inspect(e)
+        {:ok, pid} ->
+          pid
+
+        {:error, {:already_started, pid}} ->
+          pid
+
+        {:error, reason} ->
+          IO.puts("Node start failed: #{reason}")
+          nil
       end
 
     newState =
@@ -125,10 +131,9 @@ defmodule GSMLG.Node.Self do
       GSMLGWeb.Endpoint.broadcast(room, event, opts)
     rescue
       _ ->
-        IO.puts("Broadcask node events to node:lobby failed!")
-        IO.inspect(room)
-        IO.inspect(event)
-        IO.inspect(opts)
+        IO.puts(
+          "Broadcask node events to node:lobby failed! \nRoom: #{room} \nevent: #{event} \nopts: #{opts}"
+        )
     end
   end
 end

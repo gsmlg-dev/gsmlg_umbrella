@@ -23,25 +23,6 @@ defmodule GSMLGWeb.AuthController do
     end
   end
 
-  def new(conn, params) do
-    changeset = Auth.changeset(%Auth{}, params)
-    render(conn, "new.html", changeset: changeset)
-  end
-
-  def create(conn, %{"auth" => auth_params}) do
-    case Auth.sign_up(auth_params) do
-      {:ok, user} ->
-        conn
-        |> put_flash(:info, "Auth created successfully.")
-        |> redirect(to: Routes.user_show_path(conn, :show, user))
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        conn
-        |> put_flash(:error, "invalid")
-        |> render("new.html", changeset: changeset)
-    end
-  end
-
   def sign_in(conn, %{"auth" => params}) do
     case Auth.sign_in(params) do
       {:ok, %User{} = user} ->
@@ -61,12 +42,29 @@ defmodule GSMLGWeb.AuthController do
     end
   end
 
+  def new(conn, params) do
+    changeset = Auth.changeset(%Auth{}, params)
+    render(conn, "new.html", changeset: changeset)
+  end
+
+  def sign_up(conn, %{"auth" => auth_params}) do
+    case Auth.sign_up(auth_params) do
+      {:ok, user} ->
+        conn
+        |> put_flash(:info, "Auth created successfully.")
+        |> redirect(to: Routes.user_show_path(conn, :show, user))
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> put_flash(:error, "invalid")
+        |> render("new.html", changeset: changeset)
+    end
+  end
+
   def sign_out(conn, params) do
     conn
-    |> Guardian.Plug.sign_out(params)
-    |> put_root_layout(false)
-    |> put_layout("auth.html")
-    |> render("index.html", %{})
+    |> Guardian.Plug.sign_out()
+    |> redirect(to: Routes.auth_path(conn, :index))
   end
 
   def auth_error(conn, {type, reason}, opts) do

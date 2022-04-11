@@ -55,7 +55,6 @@ defmodule GSMLGWeb.BlogLive.Modify do
   end
 
   def handle_event("save", %{"blog" => blog_params}, socket) do
-    IO.inspect(blog_params)
     save_blog(socket, socket.assigns.live_action, blog_params)
   end
 

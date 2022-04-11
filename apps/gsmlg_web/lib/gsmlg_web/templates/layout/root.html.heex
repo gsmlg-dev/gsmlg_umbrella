@@ -18,7 +18,7 @@
     >
       <img width="160" slot="logo" src={Routes.static_path(@conn, "/images/banner.svg")} />
       <ui5-avatar slot="profile">
-        <% user = GSMLGWeb.Guardian.Plug.current_resource(@conn); IO.inspect user %>
+        <% user = GSMLGWeb.Guardian.Plug.current_resource(@conn); %>
         <%= unless is_nil(user) do %>
           <img src={Routes.static_path(@conn, "/images/default_portrait.svg")} />
         <% end %>

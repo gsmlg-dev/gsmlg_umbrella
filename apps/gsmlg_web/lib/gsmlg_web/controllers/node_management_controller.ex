@@ -12,7 +12,6 @@ defmodule GSMLGWeb.NodeManagementController do
         send_resp(conn, :created, ~s({"cookie": "#{cookie}"}))
 
       error ->
-        IO.inspect(error)
         send_resp(conn, :forbidden, ~s({"error": "error"}))
     end
   end
@@ -23,7 +22,6 @@ defmodule GSMLGWeb.NodeManagementController do
         send_resp(conn, :created, ~s({"target_node": "#{target_node}"}))
 
       error ->
-        IO.inspect(error)
         send_resp(conn, :forbidden, ~s({"error": "error"}))
     end
   end
