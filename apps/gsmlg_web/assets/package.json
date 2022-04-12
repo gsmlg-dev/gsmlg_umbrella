@@ -3,9 +3,6 @@
     "@gsmlg/lit": "^1.14.0",
     "@gsmlg/ui5-webcomponents": "^1.2.8",
     "@gsmlg/ui5-webcomponents-fiori": "^1.2.8",
-    "lit": "^2.2.2",
-    "remark-html": "^15.0.1",
-    "remark-parse": "^10.0.1",
-    "unified": "^10.1.2"
+    "lit": "^2.2.2"
   }
 }
