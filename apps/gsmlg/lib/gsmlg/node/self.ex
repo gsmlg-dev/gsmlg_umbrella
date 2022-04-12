@@ -87,7 +87,8 @@ defmodule GSMLG.Node.Self do
           pid
 
         {:error, reason} ->
-          IO.puts("Node start failed: #{reason}")
+          IO.puts("Node start failed: ")
+          IO.inspect(reason)
           nil
       end
 
@@ -131,9 +132,10 @@ defmodule GSMLG.Node.Self do
       GSMLGWeb.Endpoint.broadcast(room, event, opts)
     rescue
       _ ->
-        IO.puts(
-          "Broadcask node events to node:lobby failed! \nRoom: #{room} \nevent: #{event} \nopts: #{opts}"
-        )
+        IO.puts("Broadcask node events to node:lobby failed!")
+        IO.inspect(room)
+        IO.inspect(event)
+        IO.inspect(opts)
     end
   end
 end
