@@ -31,28 +31,24 @@
     </div>
     <div class="form-group">
       <%= bx_label f, :content %>
-      <ui5-tabcontainer class="full-width">
-        <ui5-tab text="RAW">
-          <ui5-label class="full-width">
-            <%= bx_textarea f, :content, [rows: 50, class: "full-width", style: "width: 960px"] %>
-            <%= error_tag f, :content %>
-          </ui5-label>
-        </ui5-tab>
-        <ui5-tab text="Preview">
-          <ui5-label class="full-width">
-            <remark-element id="content-preview"><%= @blog.content |> raw %></remark-element>
-
-          </ui5-label>
-        </ui5-tab>
-      </ui5-tabcontainer>
+      <div>
+        <%= bx_textarea f, :content, [rows: 50] %>
+        <%= error_tag f, :content %>
+      </div>
+      <div>
+        <remark-element id="content-preview"></remark-element>
+      </div>
       <script>
-        const ipt = document.getElementById('blog_content');
-        const pre = document.getElementById('content-preview');
-        ipt.addEventListener('input', () => {
-          pre.innerHTML = ipt.value;
-          pre.requestUpdate();
-          // pre.updated();
-        });
+        (() => {
+          const ipt = document.getElementById('blog_content');
+          const pre = document.getElementById('content-preview');
+          const sync = () => {
+            pre.innerHTML = ipt.value;
+            pre.requestUpdate();
+          };
+          ipt.addEventListener('input', sync);
+          setTimeout(sync, 1000);
+        })()
       </script>
     </div>
     <div class="form-group">

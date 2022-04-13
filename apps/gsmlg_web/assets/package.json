@@ -1,8 +1,8 @@
 {
   "dependencies": {
     "@gsmlg/lit": "^1.14.0",
-    "@gsmlg/ui5-webcomponents": "^1.2.8",
-    "@gsmlg/ui5-webcomponents-fiori": "^1.2.8",
+    "@gsmlg/ui5-webcomponents": "^1.3.2",
+    "@gsmlg/ui5-webcomponents-fiori": "^1.3.2",
     "lit": "^2.2.2"
   }
 }

@@ -31,6 +31,8 @@ defmodule GSMLGWeb.UserSocket do
       {:error, _} ->
         :error
     end
+
+    {:ok, socket}
   end
 
   # This function will be called when there was no authentication information
