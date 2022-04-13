@@ -31,12 +31,27 @@ defmodule GSMLGWeb.UserSocket do
       {:error, _} ->
         :error
     end
-
-    {:ok, socket}
   end
 
   # This function will be called when there was no authentication information
-  def connect(_params, socket) do
+  @impl true
+  def connect(%{"_csrf_token" => _csrf_token}, socket, connect_info) do
+    %{session: %{"guardian_default_token" => token}} = connect_info
+    claims_to_check = %{}
+    key = Guardian.Plug.default_key()
+
+    with {:ok, resource, claims} <-
+           Guardian.resource_from_token(GSMLGWeb.Guardian, token, claims_to_check, []) do
+      authed_socket = Guardian.Phoenix.Socket.assign_rtc(socket, resource, token, claims, key)
+
+      {:ok, authed_socket}
+    else
+      _ -> :error
+    end
+  end
+
+  @impl true
+  def connect(_params, _socket) do
     :error
   end
 
@@ -51,5 +66,8 @@ defmodule GSMLGWeb.UserSocket do
   #
   # Returning `nil` makes this socket anonymous.
   @impl true
-  def id(_socket), do: nil
+  def id(socket) do
+    resource = Guardian.Phoenix.Socket.current_resource(socket)
+    "user_sokcet:#{resource.username}"
+  end
 end

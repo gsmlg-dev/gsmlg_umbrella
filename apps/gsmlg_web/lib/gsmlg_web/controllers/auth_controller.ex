@@ -42,13 +42,27 @@ defmodule GSMLGWeb.AuthController do
     end
   end
 
+  def sign_in(conn, params) do
+    case Auth.sign_in(params) do
+      {:ok, %User{} = user} ->
+        # Use access tokens.
+        # Other tokens can be used, like :refresh etc
+        conn
+        |> render("sign_in.json", username: user.username, token: Guardian.encode_and_sign(user))
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> render("error.json", changeset: changeset)
+    end
+  end
+
   def new(conn, params) do
     changeset = Auth.changeset(%Auth{}, params)
     render(conn, "new.html", changeset: changeset)
   end
 
-  def sign_up(conn, %{"auth" => auth_params}) do
-    case Auth.sign_up(auth_params) do
+  def sign_up(conn, %{"auth" => params}) do
+    case Auth.sign_up(params) do
       {:ok, user} ->
         conn
         |> put_flash(:info, "Auth created successfully.")
@@ -61,13 +75,25 @@ defmodule GSMLGWeb.AuthController do
     end
   end
 
-  def sign_out(conn, params) do
+  def sign_up(conn, params) do
+    case Auth.sign_up(params) do
+      {:ok, user} ->
+        conn
+        |> render("sign_up.json", username: user.username)
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> render("error.json", changeset: changeset)
+    end
+  end
+
+  def sign_out(conn, _params) do
     conn
     |> Guardian.Plug.sign_out()
     |> redirect(to: Routes.auth_path(conn, :index))
   end
 
-  def auth_error(conn, {type, reason}, opts) do
+  def auth_error(conn, {_type, reason}, _opts) do
     conn
     |> put_flash(:error, reason)
     |> redirect(to: Routes.auth_path(conn, :index))

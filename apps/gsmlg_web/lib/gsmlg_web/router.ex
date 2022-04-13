@@ -7,6 +7,12 @@ defmodule GSMLGWeb.Router do
     plug(Guardian.Plug.LoadResource, allow_blank: true)
   end
 
+  pipeline :maybe_api_auth do
+    plug Guardian.Plug.Pipeline, module: GSMLGWeb.Guardian, error_handler: GSMLGWeb.AuthController
+    plug(Guardian.Plug.VerifyHeader)
+    plug(Guardian.Plug.LoadResource, allow_blank: true)
+  end
+
   pipeline :ensure_authed_access do
     plug Guardian.Plug.EnsureAuthenticated, claims: %{"typ" => "access"}
   end
@@ -69,9 +75,16 @@ defmodule GSMLGWeb.Router do
     end
   end
 
+  scope "/api", GSMLGWeb do
+    pipe_through([:browser, :maybe_api_auth])
+
+    post("/sign_in", AuthController, :sign_in)
+    post("/sign_up", AuthController, :sign_up)
+  end
+
   # Other scopes may use custom stacks.
   scope "/api", GSMLGWeb do
-    pipe_through(:api)
+    pipe_through([:api, :maybe_api_auth])
 
     resources("/blogs", BlogController, except: [:new, :edit])
   end

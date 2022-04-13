@@ -35,17 +35,19 @@
           <ui5-li icon="document">Profile</ui5-li>
           <ui5-li icon="settings">Settings</ui5-li>
           <ui5-li icon="sys-help">Help</ui5-li>
-          <ui5-li icon="log">
-            <%= link("Sign out", to: Routes.auth_path(@conn, :sign_out), method: :delete) %>
+          <ui5-li icon="log" onclick="document.getElementById('user-sign-out').click();">
+            <%= link("Sign out", to: Routes.auth_path(@conn, :sign_out), method: :delete, id: "user-sign-out") %>
           </ui5-li>
         </ui5-list>
       </div>
     </ui5-popover>
     <script>
-      const shellbar = document.getElementById('shellbar');
-      shellbar.addEventListener("profile-click", function(event) {
-        popover.showAt(event.detail.targetRef);
-      });
+      (() => {
+        const shellbar = document.getElementById('shellbar');
+        shellbar.addEventListener("profile-click", function(event) {
+          popover.showAt(event.detail.targetRef);
+        });
+      })();
     </script>
 
     <div class="main">
@@ -66,20 +68,22 @@
       <% end %>
     </ui5-side-navigation>
     <script>
-      document.querySelectorAll('ui5-side-navigation').forEach((el) => {
-        el.addEventListener('click', (evt) => {
-          const srcEl = evt.srcElement;
-          if (srcEl === el) return;
-          const href = srcEl.getAttribute('href');
-          if (href != null) {
-            location.href = href;
-          }
+      (() => {
+        document.querySelectorAll('ui5-side-navigation').forEach((el) => {
+          el.addEventListener('click', (evt) => {
+            const srcEl = evt.srcElement;
+            if (srcEl === el) return;
+            const href = srcEl.getAttribute('href');
+            if (href != null) {
+              location.href = href;
+            }
+          });
         });
-      });
-      const sideNavigation = document.querySelector("ui5-side-navigation");
-      document.querySelector("#startButton").addEventListener("click", (event) => {
-        sideNavigation.collapsed = !sideNavigation.collapsed;
-      });
+        const sideNavigation = document.querySelector("ui5-side-navigation");
+        document.querySelector("#startButton").addEventListener("click", (event) => {
+          sideNavigation.collapsed = !sideNavigation.collapsed;
+        });
+      })();
     </script>
     <%= @inner_content %>
     </div>
