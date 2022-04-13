@@ -16,6 +16,7 @@
       secondary-title="Best in the World"
       show-co-pilot
     >
+      <ui5-button icon="menu" slot="startButton" id="startButton"></ui5-button>
       <img width="160" slot="logo" src={Routes.static_path(@conn, "/images/banner.svg")} />
       <ui5-avatar slot="profile">
         <% user = GSMLGWeb.Guardian.Plug.current_resource(@conn); %>
@@ -65,20 +66,20 @@
       <% end %>
     </ui5-side-navigation>
     <script>
-document.querySelectorAll('ui5-side-navigation').forEach((el) => {
-  el.addEventListener('click', (evt) => {
-    const srcEl = evt.srcElement;
-    if (srcEl === el) return;
-    const href = srcEl.getAttribute('href');
-    if (href != null) {
-      location.href = href;
-    }
-  });
-});
-const sideNavigation = document.querySelector("ui5-side-navigation");
-document.querySelector("#startButton").addEventListener("click", (event) => {
-  sideNavigation.collapsed = !sideNavigation.collapsed;
-});
+      document.querySelectorAll('ui5-side-navigation').forEach((el) => {
+        el.addEventListener('click', (evt) => {
+          const srcEl = evt.srcElement;
+          if (srcEl === el) return;
+          const href = srcEl.getAttribute('href');
+          if (href != null) {
+            location.href = href;
+          }
+        });
+      });
+      const sideNavigation = document.querySelector("ui5-side-navigation");
+      document.querySelector("#startButton").addEventListener("click", (event) => {
+        sideNavigation.collapsed = !sideNavigation.collapsed;
+      });
     </script>
     <%= @inner_content %>
     </div>
