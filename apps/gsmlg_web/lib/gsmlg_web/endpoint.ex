@@ -47,6 +47,8 @@ defmodule GSMLGWeb.Endpoint do
       tools
       tools.html
       webgl
+      robot.txt
+      cache_manifest.json
     )
 
   # Code reloading can be explicitly enabled under the
