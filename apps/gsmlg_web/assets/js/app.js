@@ -6,11 +6,8 @@ import "../css/app.css";
 // to get started and then uncomment the line below.
 import { socket, resetSocketWithToken, joinChannels } from "./user_socket.js";
 
-window.socket = socket;
-window.resetSocketWithToken = resetSocketWithToken;
-
 window.addEventListener('DOMContentLoaded', (event) => {
-    console.log('DOM fully loaded and parsed');
+    // console.log('DOM fully loaded and parsed');
     socket.connect();
     joinChannels();
 });
@@ -48,11 +45,19 @@ window.addEventListener("phx:page-loading-stop", info => topbar.hide());
 // connect if there are any LiveViews on the page
 liveSocket.connect();
 
-// expose liveSocket on window for web console debug logs and latency simulation:
-// >> liveSocket.enableDebug()
-// >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
-// >> liveSocket.disableLatencySim()
-window.liveSocket = liveSocket;
 
-liveSocket.enableDebug()
-liveSocket.enableLatencySim(1000)
+if (process.env.NODE_ENV === 'development') {
+
+    window.socket = socket;
+    window.resetSocketWithToken = resetSocketWithToken;
+
+    // expose liveSocket on window for web console debug logs and latency simulation:
+    // >> liveSocket.enableDebug()
+    // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
+    // >> liveSocket.disableLatencySim()
+    window.liveSocket = liveSocket;
+
+    liveSocket.enableDebug()
+    liveSocket.enableLatencySim(1000)
+    console.log('NODE_ENV: ', process.env.NODE_ENV);
+}
