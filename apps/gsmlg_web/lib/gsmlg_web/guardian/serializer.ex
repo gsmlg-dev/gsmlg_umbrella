@@ -1,5 +1,5 @@
-defmodule GSMLGWeb.GuardianSerializer do
-  @behaviour Guardian.Serializer
+defmodule GSMLGWeb.Guardian.Serializer do
+  # @behaviour Guardian.Serializer
 
   alias GSMLG.Repo
   alias GSMLG.Accounts.User

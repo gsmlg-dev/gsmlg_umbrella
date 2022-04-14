@@ -2,7 +2,7 @@ defmodule GSMLGWeb.UserLive.Index do
   use GSMLGWeb, :live_view
 
   alias GSMLG.Accounts
-  alias GSMLG.Accounts.User
+  # alias GSMLG.Accounts.User
 
   @impl true
   def mount(_params, _session, socket) do

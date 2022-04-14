@@ -10,7 +10,7 @@ import Config
 # which you should run after static files are built and
 # before starting your production server.
 config :gsmlg_web, GSMLGWeb.Endpoint,
-  url: [host: "gsmlg.com", port: 80],
+  url: [host: "gsmlg.org", port: 80],
   cache_static_manifest: "priv/static/cache_manifest.json"
 
 # ## SSL Support

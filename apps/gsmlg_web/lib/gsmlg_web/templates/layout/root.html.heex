@@ -51,41 +51,41 @@
     </script>
 
     <div class="main">
-    <ui5-side-navigation>
-      <ui5-side-navigation-item text="Home" icon="home"></ui5-side-navigation-item>
-      <ui5-side-navigation-item text="Blog" expanded icon="document">
-        <ui5-side-navigation-sub-item text="Blog List" href={Routes.blog_index_path(@conn, :index)}></ui5-side-navigation-sub-item>
-        <ui5-side-navigation-sub-item text="New Blog" href={Routes.blog_modify_path(@conn, :new)}></ui5-side-navigation-sub-item>
-      </ui5-side-navigation-item>
-      <ui5-side-navigation-item text="Account" expanded icon="account">
-        <ui5-side-navigation-sub-item text="User List" href={Routes.user_index_path(@conn, :index)}></ui5-side-navigation-sub-item>
-        <ui5-side-navigation-sub-item text="New User" href={Routes.user_modify_path(@conn, :new)}></ui5-side-navigation-sub-item>
-        <ui5-side-navigation-sub-item text="User Token List" href={Routes.user_token_index_path(@conn, :index)}></ui5-side-navigation-sub-item>
-      </ui5-side-navigation-item>
-      <ui5-side-navigation-item text="Node Management" icon="machine" href={Routes.node_management_path(@conn, :index)}></ui5-side-navigation-item>
-      <%= if function_exported?(Routes, :live_dashboard_path, 2) do %>
-      <ui5-side-navigation-item text="Live Dashboard" icon="bbyd-dashboard" href={Routes.live_dashboard_path(@conn, :home)}></ui5-side-navigation-item>
-      <% end %>
-    </ui5-side-navigation>
-    <script>
-      (() => {
-        document.querySelectorAll('ui5-side-navigation').forEach((el) => {
-          el.addEventListener('click', (evt) => {
-            const srcEl = evt.srcElement;
-            if (srcEl === el) return;
-            const href = srcEl.getAttribute('href');
-            if (href != null) {
-              location.href = href;
-            }
+      <ui5-side-navigation>
+        <ui5-side-navigation-item text="Home" icon="home" href={Routes.page_path(@conn, :index)}></ui5-side-navigation-item>
+        <ui5-side-navigation-item text="Blog" expanded icon="document">
+          <ui5-side-navigation-sub-item text="Blog List" href={Routes.blog_index_path(@conn, :index)}></ui5-side-navigation-sub-item>
+          <ui5-side-navigation-sub-item text="New Blog" href={Routes.blog_modify_path(@conn, :new)}></ui5-side-navigation-sub-item>
+        </ui5-side-navigation-item>
+        <ui5-side-navigation-item text="Account" expanded icon="account">
+          <ui5-side-navigation-sub-item text="User List" href={Routes.user_index_path(@conn, :index)}></ui5-side-navigation-sub-item>
+          <ui5-side-navigation-sub-item text="New User" href={Routes.user_modify_path(@conn, :new)}></ui5-side-navigation-sub-item>
+          <ui5-side-navigation-sub-item text="User Token List" href={Routes.user_token_index_path(@conn, :index)}></ui5-side-navigation-sub-item>
+        </ui5-side-navigation-item>
+        <ui5-side-navigation-item text="Node Management" icon="machine" href={Routes.node_management_path(@conn, :index)}></ui5-side-navigation-item>
+        <%= if function_exported?(Routes, :live_dashboard_path, 2) do %>
+        <ui5-side-navigation-item text="Live Dashboard" icon="bbyd-dashboard" href={Routes.live_dashboard_path(@conn, :home)}></ui5-side-navigation-item>
+        <% end %>
+      </ui5-side-navigation>
+      <script>
+        (() => {
+          document.querySelectorAll('ui5-side-navigation').forEach((el) => {
+            el.addEventListener('click', (evt) => {
+              const srcEl = evt.srcElement;
+              if (srcEl === el) return;
+              const href = srcEl.getAttribute('href');
+              if (href != null) {
+                location.href = href;
+              }
+            });
           });
-        });
-        const sideNavigation = document.querySelector("ui5-side-navigation");
-        document.querySelector("#startButton").addEventListener("click", (event) => {
-          sideNavigation.collapsed = !sideNavigation.collapsed;
-        });
-      })();
-    </script>
-    <%= @inner_content %>
+          const sideNavigation = document.querySelector("ui5-side-navigation");
+          document.querySelector("#startButton").addEventListener("click", (event) => {
+            sideNavigation.collapsed = !sideNavigation.collapsed;
+          });
+        })();
+      </script>
+      <%= @inner_content %>
     </div>
   </body>
 </html>

@@ -31,7 +31,7 @@ config :gsmlg_web, GSMLGWeb.Guardian,
 config :guardian, Guardian,
   issuer: "gsmlg",
   secret_key: Mix.env(),
-  serializer: GSMLG.GuardianSerializer
+  serializer: GSMLG.Guardian.Serializer
 
 # Swoosh API client is needed for adapters other than SMTP.
 config :swoosh, :api_client, false
