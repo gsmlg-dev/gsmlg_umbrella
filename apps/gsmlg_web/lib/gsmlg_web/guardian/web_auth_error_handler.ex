@@ -6,7 +6,10 @@ defmodule GSMLGWeb.Guardian.WebAuthErrorHandler do
 
   @impl Guardian.Plug.ErrorHandler
   def auth_error(conn, {type, reason}, _opts) do
+    IO.puts("[WebAuthErrorHandler] #{type}: #{reason}")
+
     conn
+    |> GSMLGWeb.Guardian.Plug.sign_out()
     |> put_flash(:error, "#{type}: #{reason}")
     |> redirect(to: Routes.auth_path(conn, :index))
   end

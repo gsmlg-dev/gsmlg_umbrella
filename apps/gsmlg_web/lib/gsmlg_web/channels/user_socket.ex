@@ -33,10 +33,13 @@ defmodule GSMLGWeb.UserSocket do
     end
   end
 
-  # This function will be called when there was no authentication information
-  @impl true
   def connect(%{"_csrf_token" => _csrf_token}, socket, connect_info) do
-    %{session: %{"guardian_default_token" => token}} = connect_info
+    token =
+      case connect_info do
+        %{session: %{"guardian_default_token" => token}} -> token
+        _ -> nil
+      end
+
     claims_to_check = %{}
     key = Guardian.Plug.default_key()
 
@@ -50,6 +53,7 @@ defmodule GSMLGWeb.UserSocket do
     end
   end
 
+  # This function will be called when there was no authentication information
   @impl true
   def connect(_params, _socket) do
     :error

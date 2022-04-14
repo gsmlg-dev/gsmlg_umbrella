@@ -3,29 +3,23 @@ defmodule GSMLG.Accounts.UserToken do
   import Ecto.Changeset
   alias GSMLG.Accounts.User
 
-  @primary_key {:id, Ecto.UUID, []}
+  @primary_key {:jti, :string, autogenerate: false}
   schema "user_tokens" do
-    field(:create_time, :utc_datetime)
-    field(:expire_at, :utc_datetime)
-    # field :id, Ecto.UUID
-    field(:token, :string)
-    field(:token_type, :string)
-
-    belongs_to(:user, User)
-
+    field(:aud, :string)
+    field(:typ, :string)
+    field(:iss, :string)
+    field(:sub, :string)
+    field(:exp, :integer)
+    field(:jwt, :string)
+    field(:claims, :map)
+    belongs_to(:user, User, define_field: false, foreign_key: :sub)
     timestamps()
   end
 
   @doc false
   def changeset(user_token, attrs) do
     user_token
-    |> cast(attrs, [:id, :token, :token_type, :expire_at])
-    |> validate_required([:token, :token_type])
-  end
-
-  def create_changeset(user_token, attrs) do
-    changeset(user_token, attrs)
-    |> put_change(:id, Ecto.UUID.generate())
-    |> put_change(:create_time, DateTime.utc_now() |> DateTime.truncate(:second))
+    |> cast(attrs, [:jti, :aud, :typ, :iss, :sub, :exp, :jwt, :claims])
+    |> validate_required([:jti, :aud])
   end
 end

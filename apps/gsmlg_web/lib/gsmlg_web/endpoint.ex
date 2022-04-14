@@ -11,18 +11,18 @@ defmodule GSMLGWeb.Endpoint do
     signing_salt: "PCs9e3vu"
   ]
 
-  socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
-
-  socket "/socket", GSMLGWeb.UserSocket,
-    websocket: [
-      connect_info: [
-        :peer_data,
-        :trace_context_headers,
-        :x_headers,
-        :uri,
-        {:session, @session_options}
-      ]
+  @websocket_options [
+    connect_info: [
+      :peer_data,
+      :trace_context_headers,
+      :x_headers,
+      :uri,
+      {:session, @session_options}
     ]
+  ]
+
+  socket "/socket", GSMLGWeb.UserSocket, websocket: @websocket_options
+  socket "/live", Phoenix.LiveView.Socket, websocket: @websocket_options
 
   # Serve at "/" the static files from "priv/static" directory.
   #

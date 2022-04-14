@@ -3,6 +3,7 @@
     <ui5-title class="login-title">
       Sign In
     </ui5-title>
+    <span><%= bx_link "Sign UP", to: Routes.auth_path(@conn, :new) %></span>
     <div class="form-group">
       <%= bx_label f, :username %>
       <%= bx_text_input f, :username %>

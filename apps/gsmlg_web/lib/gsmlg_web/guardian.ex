@@ -1,6 +1,8 @@
 defmodule GSMLGWeb.Guardian do
   use Guardian, otp_app: :gsmlg_web, token_module: Guardian.Token.Jwt
 
+  use GSMLGWeb.Guardian.DBHooks
+
   def subject_for_token(%{id: id}, _claims) do
     # You can use any value for the subject of your token but
     # it should be useful in retrieving the resource later, see

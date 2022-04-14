@@ -4,10 +4,12 @@ defmodule GSMLGWeb.Guardian.ApiAuthErrorHandler do
   @behaviour Guardian.Plug.ErrorHandler
 
   @impl Guardian.Plug.ErrorHandler
-  def auth_error(conn, {type, _reason}, _opts) do
-    body = Jason.encode!(%{message: to_string(type)})
+  def auth_error(conn, {type, reason}, _opts) do
+    IO.puts("[ApiAuthErrorHandler] #{type}: #{reason}")
+    body = Jason.encode!(%{message: "[ApiAuthErrorHandler] #{type}: #{reason}"})
 
     conn
+    |> GSMLGWeb.Guardian.Plug.sign_out()
     |> put_resp_content_type("application/json")
     |> send_resp(401, body)
   end

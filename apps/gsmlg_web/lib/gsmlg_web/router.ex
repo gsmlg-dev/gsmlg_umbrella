@@ -6,7 +6,7 @@ defmodule GSMLGWeb.Router do
       module: GSMLGWeb.Guardian,
       error_handler: GSMLGWeb.Guardian.WebAuthErrorHandler
 
-    plug(Guardian.Plug.VerifySession)
+    plug(Guardian.Plug.VerifySession, halt: false)
     plug(Guardian.Plug.LoadResource, allow_blank: true)
   end
 
@@ -15,7 +15,7 @@ defmodule GSMLGWeb.Router do
       module: GSMLGWeb.Guardian,
       error_handler: GSMLGWeb.Guardian.ApiAuthErrorHandler
 
-    plug(Guardian.Plug.VerifyHeader)
+    plug(Guardian.Plug.VerifyHeader, halt: false)
     plug(Guardian.Plug.LoadResource, allow_blank: true)
   end
 

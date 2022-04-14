@@ -33,6 +33,16 @@ config :guardian, Guardian,
   secret_key: Mix.env(),
   serializer: GSMLG.Guardian.Serializer
 
+config :guardian, Guardian.DB,
+  # Add your repository module
+  repo: GSMLG.Repo,
+  # default
+  schema_name: "user_tokens",
+  # store all token types if not set
+  # token_types: ["refresh_token"],
+  # default: 60 minutes
+  sweep_interval: 60
+
 # Swoosh API client is needed for adapters other than SMTP.
 config :swoosh, :api_client, false
 

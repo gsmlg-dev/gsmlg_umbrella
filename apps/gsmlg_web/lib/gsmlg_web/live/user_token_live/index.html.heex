@@ -6,25 +6,31 @@
 
 <section class="content-table">
   <ui5-table class="demo-table-single" mode="SingleSelect">
-    <ui5-table-column slot="columns">ID</ui5-table-column>
-    <ui5-table-column slot="columns">Token</ui5-table-column>
-    <ui5-table-column slot="columns">Token Type</ui5-table-column>
-    <ui5-table-column slot="columns">Create Time</ui5-table-column>
-    <ui5-table-column slot="columns">Expire At</ui5-table-column>
+    <ui5-table-column slot="columns">jti</ui5-table-column>
+    <ui5-table-column slot="columns">aud</ui5-table-column>
+    <ui5-table-column slot="columns">typ</ui5-table-column>
+    <ui5-table-column slot="columns">iss</ui5-table-column>
+    <ui5-table-column slot="columns">sub</ui5-table-column>
+    <ui5-table-column slot="columns">exp</ui5-table-column>
+    <ui5-table-column slot="columns">jwt</ui5-table-column>
+    <ui5-table-column slot="columns">claims</ui5-table-column>
     <ui5-table-column slot="columns"></ui5-table-column>
 
     <%= for user_token <- @user_tokens do %>
       <ui5-table-row>
-        <ui5-table-cell><%= user_token.id %></ui5-table-cell>
-        <ui5-table-cell><%= user_token.token %></ui5-table-cell>
-        <ui5-table-cell><%= user_token.token_type %></ui5-table-cell>
-        <ui5-table-cell><%= user_token.create_time %></ui5-table-cell>
-        <ui5-table-cell><%= user_token.expire_at %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.jti %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.aud %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.typ %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.iss %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.sub %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.exp %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.jwt %></ui5-table-cell>
+        <ui5-table-cell><%= Kernel.inspect(user_token.claims, []) %></ui5-table-cell>
 
         <ui5-table-cell>
-          <span><%= bx_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, user_token) %></span>
-          <span><%= bx_live_patch "Edit", to: Routes.user_token_modify_path(@socket, :edit, user_token) %></span>
-          <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: user_token.id, data: [confirm: "Are you sure?"] %></span>
+          <span><%= bx_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, user_token.jti) %></span>
+          <span><%= bx_live_patch "Edit", to: Routes.user_token_modify_path(@socket, :edit, user_token.jti) %></span>
+          <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: user_token.jti, data: [confirm: "Are you sure?"] %></span>
         </ui5-table-cell>
       </ui5-table-row>
     <% end %>
