@@ -7,16 +7,16 @@
     <%= csrf_meta_tag() %>
     <%= live_title_tag assigns[:page_title] || "GSMLG", suffix: " · BITW" %>
     <link phx-track-static rel="stylesheet" href={Routes.static_path(@conn, "/assets/app.css")}/>
-    <script phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
+    <script async phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
   </head>
   <body>
-    <ui5-shellbar
-      primary-title="GSMLG"
-      secondary-title="Best in the World"
-      show-co-pilot
-    >
-      <ui5-button icon="menu" slot="startButton" id="startButton"></ui5-button>
-    </ui5-shellbar>
+    <mwc-top-app-bar-fixed>
+      <mwc-icon-button icon="menu" slot="navigationIcon"></mwc-icon-button>
+      <div slot="title">GSMLG</div>
+      <mwc-icon-button icon="file_download" slot="actionItems"></mwc-icon-button>
+      <mwc-icon-button icon="print" slot="actionItems"></mwc-icon-button>
+      <mwc-icon-button icon="favorite" slot="actionItems"></mwc-icon-button>
+    </mwc-top-app-bar-fixed>
 
     <div class="main auth-main">
     <%= @inner_content %>

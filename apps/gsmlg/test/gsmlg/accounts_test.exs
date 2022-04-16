@@ -137,7 +137,13 @@ defmodule GSMLG.AccountsTest do
     end
 
     test "create_user_token/1 with valid data creates a user_token" do
-      valid_attrs = %{create_time: ~U[2022-04-06 16:16:00Z], expire_at: ~U[2022-04-06 16:16:00Z], id: "7488a646-e31f-11e4-aace-600308960662", token: "some token", token_type: "some token_type"}
+      valid_attrs = %{
+        create_time: ~U[2022-04-06 16:16:00Z],
+        expire_at: ~U[2022-04-06 16:16:00Z],
+        id: "7488a646-e31f-11e4-aace-600308960662",
+        token: "some token",
+        token_type: "some token_type"
+      }
 
       assert {:ok, %UserToken{} = user_token} = Accounts.create_user_token(valid_attrs)
       assert user_token.create_time == ~U[2022-04-06 16:16:00Z]
@@ -153,9 +159,18 @@ defmodule GSMLG.AccountsTest do
 
     test "update_user_token/2 with valid data updates the user_token" do
       user_token = user_token_fixture()
-      update_attrs = %{create_time: ~U[2022-04-07 16:16:00Z], expire_at: ~U[2022-04-07 16:16:00Z], id: "7488a646-e31f-11e4-aace-600308960668", token: "some updated token", token_type: "some updated token_type"}
 
-      assert {:ok, %UserToken{} = user_token} = Accounts.update_user_token(user_token, update_attrs)
+      update_attrs = %{
+        create_time: ~U[2022-04-07 16:16:00Z],
+        expire_at: ~U[2022-04-07 16:16:00Z],
+        id: "7488a646-e31f-11e4-aace-600308960668",
+        token: "some updated token",
+        token_type: "some updated token_type"
+      }
+
+      assert {:ok, %UserToken{} = user_token} =
+               Accounts.update_user_token(user_token, update_attrs)
+
       assert user_token.create_time == ~U[2022-04-07 16:16:00Z]
       assert user_token.expire_at == ~U[2022-04-07 16:16:00Z]
       assert user_token.id == "7488a646-e31f-11e4-aace-600308960668"

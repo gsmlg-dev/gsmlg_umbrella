@@ -27,6 +27,14 @@ import "@gsmlg/ui5-webcomponents-fiori/dist/Page.js";
 // import { setTheme } from "@gsmlg/ui5-webcomponents-base/dist/config/Theme.js";
 // setTheme("sap_belize_hcb");
 
+// material design
+import '@material/mwc-top-app-bar-fixed';
+import '@material/mwc-textarea';
+import '@material/mwc-icon-button';
+import '@material/mwc-formfield';
+import '@material/mwc-textfield';
+import '@material/mwc-button';
+
 import '@gsmlg/lit';
 
 import './set-node-cookie';

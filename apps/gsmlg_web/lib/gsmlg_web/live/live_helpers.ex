@@ -223,6 +223,84 @@ defmodule GSMLGWeb.LiveHelpers do
     end
   end
 
+  def mwc_submit(text, opts \\ []) do
+    opts =
+      opts
+      |> Keyword.put_new(:raised, true)
+      |> Keyword.put_new(:type, :submit)
+      |> Keyword.put_new(:icon, "save")
+
+    content_tag(:"mwc-button", text, opts)
+  end
+
+  def mwc_text_input(form, field, opts \\ []) do
+    mwc_generic_input(:text, form, field, opts)
+  end
+
+  def mwc_password_input(form, field, opts \\ []) do
+    mwc_generic_input(:password, form, field, opts)
+  end
+
+  def mwc_textarea(form, field, opts \\ []) do
+    opts =
+      opts
+      |> Keyword.put_new(:id, input_id(form, field))
+      |> Keyword.put_new(:name, input_name(form, field))
+      |> Keyword.put_new(:label, humanize(field))
+      |> Keyword.put_new(:value, html_escape(input_value(form, field) || ""))
+
+    errorList = form.errors |> Keyword.get_values(field)
+
+    unless Enum.empty?(errorList) do
+      errors =
+        Enum.map(errorList, fn error ->
+          translate_error(error)
+        end)
+        |> Enum.join("\n")
+
+      opts =
+        opts
+        |> Keyword.put_new(:validationMessage, errors)
+
+      content_tag(:"mwc-textarea", "", opts)
+    else
+      content_tag(:"mwc-textarea", "", opts)
+    end
+  end
+
+  defp mwc_generic_input(type, form, field, opts)
+       when is_list(opts) and (is_atom(field) or is_binary(field)) do
+    opts =
+      opts
+      |> Keyword.put_new(:type, type)
+      |> Keyword.put_new(:id, input_id(form, field))
+      |> Keyword.put_new(:name, input_name(form, field))
+      |> Keyword.put_new(:label, humanize(field))
+      |> Keyword.put_new(:value, input_value(form, field))
+      |> Keyword.update!(:value, &maybe_html_escape/1)
+
+    error = form.errors |> Keyword.get_values(field)
+
+    unless Enum.empty?(error) do
+      opts =
+        opts
+        |> Keyword.put_new(:value_state, "Error")
+        |> Keyword.put_new(:validationMessage, "")
+
+      content_tag(:"mwc-textfield", "", opts)
+    else
+      content_tag(:"mwc-textfield", "", opts)
+    end
+  end
+
   defp maybe_html_escape(nil), do: nil
   defp maybe_html_escape(value), do: html_escape(value)
+
+  defp translate_error({msg, opts}) do
+    if count = opts[:count] do
+      Gettext.dngettext(GSMLGWeb.Gettext, "errors", msg, msg, count, opts)
+    else
+      Gettext.dgettext(GSMLGWeb.Gettext, "errors", msg, opts)
+    end
+  end
 end

@@ -10,9 +10,7 @@ defmodule GSMLG.AccountFixtures do
   def auth_fixture(attrs \\ %{}) do
     {:ok, auth} =
       attrs
-      |> Enum.into(%{
-
-      })
+      |> Enum.into(%{})
       |> GSMLG.Account.create_auth()
 
     auth

@@ -1,8 +1,11 @@
-<ui5-page class="login-page">
+<div class="login-page">
   <%= form_for @changeset, Routes.auth_path(@conn, :sign_up), [class: "login-form"], fn f -> %>
     <ui5-title class="login-title">
       SIGN UP
     </ui5-title>
+
+    <span><%= bx_link "Sign IN", to: Routes.auth_path(@conn, :index) %></span>
+
     <div class="form-group">
       <%= bx_label f, :email %>
       <%= bx_text_input f, :email %>
@@ -25,4 +28,4 @@
       <%= bx_submit "Save" %>
     </div>
   <% end %>
-</ui5-page>
+</div>

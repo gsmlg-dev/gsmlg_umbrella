@@ -29,7 +29,7 @@ defmodule GSMLGWeb.UserSocket do
         {:ok, authed_socket}
 
       {:error, _} ->
-        :error
+        {:ok, socket}
     end
   end
 
@@ -49,14 +49,14 @@ defmodule GSMLGWeb.UserSocket do
 
       {:ok, authed_socket}
     else
-      _ -> :error
+      _ -> {:ok, socket}
     end
   end
 
   # This function will be called when there was no authentication information
   @impl true
-  def connect(_params, _socket) do
-    :error
+  def connect(_params, socket) do
+    {:ok, socket}
   end
 
   # Socket id's are topics that allow you to identify all sockets for a given user:
@@ -71,7 +71,9 @@ defmodule GSMLGWeb.UserSocket do
   # Returning `nil` makes this socket anonymous.
   @impl true
   def id(socket) do
-    resource = Guardian.Phoenix.Socket.current_resource(socket)
-    "user_sokcet:#{resource.username}"
+    case Guardian.Phoenix.Socket.current_resource(socket) do
+      %{username: username} -> "user_socket:#{username}"
+      _ -> "user_socket:$__nobody__"
+    end
   end
 end

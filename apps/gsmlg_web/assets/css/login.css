@@ -1,0 +1,30 @@
+
+/** login */
+.auth-main {
+    align-items: center;
+    justify-content: center;
+}
+.login-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 32rem;
+    width: 60rem;
+}
+.login-title{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+}
+.login-form {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+}
+.login-form .form-group {
+    width: 24rem;
+}

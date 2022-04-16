@@ -19,7 +19,7 @@ defmodule GSMLGWeb.AuthController do
       conn
       |> put_root_layout(false)
       |> put_layout("auth.html")
-      |> render("index.html", changeset: changeset)
+      |> render("sign_in.html", changeset: changeset)
     end
   end
 
@@ -40,7 +40,7 @@ defmodule GSMLGWeb.AuthController do
         |> put_flash(:error, "invalid")
         |> put_root_layout(false)
         |> put_layout("auth.html")
-        |> render("index.html", changeset: changeset)
+        |> render("sign_in.html", changeset: changeset)
     end
   end
 
@@ -64,7 +64,7 @@ defmodule GSMLGWeb.AuthController do
     conn
     |> put_root_layout(false)
     |> put_layout("auth.html")
-    |> render("new.html", changeset: changeset)
+    |> render("sign_up.html", changeset: changeset)
   end
 
   def sign_up(conn, %{"auth" => params}) do
@@ -81,7 +81,7 @@ defmodule GSMLGWeb.AuthController do
         |> put_flash(:error, "invalid")
         |> put_root_layout(false)
         |> put_layout("auth.html")
-        |> render("new.html", changeset: changeset)
+        |> render("sign_up.html", changeset: changeset)
     end
   end
 

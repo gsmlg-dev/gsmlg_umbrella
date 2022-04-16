@@ -7,25 +7,19 @@
     <%= csrf_meta_tag() %>
     <%= live_title_tag assigns[:page_title] || "GSMLG", suffix: " · BITW" %>
     <link phx-track-static rel="stylesheet" href={Routes.static_path(@conn, "/assets/app.css")}/>
-    <script phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
+    <script async phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
   </head>
   <body>
-    <ui5-shellbar
-      id="shellbar"
-      primary-title="GSMLG"
-      secondary-title="Best in the World"
-      show-co-pilot
-    >
-      <ui5-button icon="menu" slot="startButton" id="startButton"></ui5-button>
-      <img width="160" slot="logo" src={Routes.static_path(@conn, "/images/banner.svg")} />
-      <ui5-avatar slot="profile">
+    <mwc-top-app-bar-fixed>
+      <mwc-icon-button icon="menu" slot="navigationIcon"></mwc-icon-button>
+      <div slot="title">GSMLG</div>
+      <ui5-avatar slot="actionItems" id="user-avatar">
         <% user = GSMLGWeb.Guardian.Plug.current_resource(@conn); %>
         <%= unless is_nil(user) do %>
           <img src={Routes.static_path(@conn, "/images/default_portrait.svg")} />
         <% end %>
       </ui5-avatar>
-      <ui5-shellbar-item id="disc" icon="disconnected" text="Disconnect"></ui5-shellbar-item>
-    </ui5-shellbar>
+    </mwc-top-app-bar-fixed>
     <ui5-popover id="popover" placement-type="Bottom">
       <div class="popover-header">
         <ui5-title style="padding: 0.25rem 1rem 0rem 1rem; text-align: center"><%= unless is_nil(user), do: user.name %></ui5-title>
@@ -43,10 +37,13 @@
     </ui5-popover>
     <script>
       (() => {
-        const shellbar = document.getElementById('shellbar');
-        shellbar.addEventListener("profile-click", function(event) {
+        const userAvatar = document.getElementById('user-avatar');
+        const popover = document.getElementById('popover');
+        userAvatar.addEventListener("click", function(event) {
           popover.showAt(event.detail.targetRef);
+          console.log(event);
         });
+        userAvatar.style.cursor = 'pointer';
       })();
     </script>
 
@@ -79,10 +76,7 @@
               }
             });
           });
-          const sideNavigation = document.querySelector("ui5-side-navigation");
-          document.querySelector("#startButton").addEventListener("click", (event) => {
-            sideNavigation.collapsed = !sideNavigation.collapsed;
-          });
+
         })();
       </script>
       <%= @inner_content %>

@@ -4,9 +4,27 @@ defmodule GSMLGWeb.UserTokenLiveTest do
   import Phoenix.LiveViewTest
   import GSMLG.AccountsFixtures
 
-  @create_attrs %{create_time: %{day: 6, hour: 16, minute: 16, month: 4, year: 2022}, expire_at: %{day: 6, hour: 16, minute: 16, month: 4, year: 2022}, id: "7488a646-e31f-11e4-aace-600308960662", token: "some token", token_type: "some token_type"}
-  @update_attrs %{create_time: %{day: 7, hour: 16, minute: 16, month: 4, year: 2022}, expire_at: %{day: 7, hour: 16, minute: 16, month: 4, year: 2022}, id: "7488a646-e31f-11e4-aace-600308960668", token: "some updated token", token_type: "some updated token_type"}
-  @invalid_attrs %{create_time: %{day: 30, hour: 16, minute: 16, month: 2, year: 2022}, expire_at: %{day: 30, hour: 16, minute: 16, month: 2, year: 2022}, id: nil, token: nil, token_type: nil}
+  @create_attrs %{
+    create_time: %{day: 6, hour: 16, minute: 16, month: 4, year: 2022},
+    expire_at: %{day: 6, hour: 16, minute: 16, month: 4, year: 2022},
+    id: "7488a646-e31f-11e4-aace-600308960662",
+    token: "some token",
+    token_type: "some token_type"
+  }
+  @update_attrs %{
+    create_time: %{day: 7, hour: 16, minute: 16, month: 4, year: 2022},
+    expire_at: %{day: 7, hour: 16, minute: 16, month: 4, year: 2022},
+    id: "7488a646-e31f-11e4-aace-600308960668",
+    token: "some updated token",
+    token_type: "some updated token_type"
+  }
+  @invalid_attrs %{
+    create_time: %{day: 30, hour: 16, minute: 16, month: 2, year: 2022},
+    expire_at: %{day: 30, hour: 16, minute: 16, month: 2, year: 2022},
+    id: nil,
+    token: nil,
+    token_type: nil
+  }
 
   defp create_user_token(_) do
     user_token = user_token_fixture()

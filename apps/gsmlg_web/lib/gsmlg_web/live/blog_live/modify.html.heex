@@ -11,12 +11,12 @@
   <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
     <div class="form-group">
     <%= bx_label f, :slug %>
-    <%= bx_text_input f, :slug %>
+    <%= mwc_text_input f, :slug, class: "full-width" %>
     <%= error_tag f, :slug %>
     </div>
     <div class="form-group">
     <%= bx_label f, :title %>
-    <%= bx_text_input f, :title %>
+    <%= mwc_text_input f, :title, class: "full-width" %>
     <%= error_tag f, :title %>
     </div>
     <div class="form-group">
@@ -26,16 +26,16 @@
     </div>
     <div class="form-group">
     <%= bx_label f, :author %>
-    <%= bx_text_input f, :author %>
+    <%= mwc_text_input f, :author, class: "full-width" %>
     <%= error_tag f, :author %>
     </div>
     <div class="form-group">
       <%= bx_label f, :content %>
-      <div>
-        <%= bx_textarea f, :content, [rows: 50] %>
+      <div class="full-width">
+        <%= mwc_textarea f, :content, [rows: 50, class: "full-width"] %>
         <%= error_tag f, :content %>
       </div>
-      <div>
+      <div class="full-width">
         <remark-element id="content-preview"></remark-element>
       </div>
       <script>
@@ -43,7 +43,7 @@
           const ipt = document.getElementById('blog_content');
           const pre = document.getElementById('content-preview');
           const sync = () => {
-            pre.innerHTML = ipt.value;
+            pre.innerHTML = ipt.value ?? '';
             pre.requestUpdate();
           };
           ipt.addEventListener('input', sync);
@@ -52,7 +52,7 @@
       </script>
     </div>
     <div class="form-group">
-      <%= bx_submit "Save", phx_disable_with: "Saving..." %>
+      <%= mwc_submit "Save", phx_disable_with: "Saving..." %>
       <%= submit "Save", phx_disable_with: "Saving..." %>
     </div>
   </.form>
