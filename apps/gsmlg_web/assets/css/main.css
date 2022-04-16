@@ -122,12 +122,6 @@
   .form-group {
     margin-bottom: 0.3em;
   }
-  .form-group ui5-input,
-  .form-group ui5-date-picker,
-  .form-group ui5-textarea,
-  .form-group .full-width {
-    width: 100%;
-  }
   
   .show-info .show-field {
     display: flex;

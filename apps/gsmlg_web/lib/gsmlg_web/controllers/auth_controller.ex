@@ -69,7 +69,7 @@ defmodule GSMLGWeb.AuthController do
 
   def sign_up(conn, %{"auth" => params}) do
     case Auth.sign_up(params) do
-      {:ok, user} ->
+      {:ok, _user} ->
         conn
         |> put_flash(:info, "Auth created successfully.")
         |> redirect(to: Routes.auth_path(conn, :index))

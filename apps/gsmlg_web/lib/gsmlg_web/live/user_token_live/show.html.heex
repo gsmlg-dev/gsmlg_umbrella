@@ -1,49 +1,9 @@
-<ui5-title level="H1">Show User token</ui5-title>
 
 <div class="header">
-  <span><%= bx_live_redirect "Edit", to: Routes.user_token_modify_path(@socket, :edit, @user_token), kind: "primary" %></span> |
-  <span><%= bx_live_redirect "Back", to: Routes.user_token_index_path(@socket, :index), kind: "ghost" %></span>
+  <span><%= wc_live_redirect "Edit", to: Routes.user_token_modify_path(@socket, :edit, @user_token), kind: "primary" %></span> |
+  <span><%= wc_live_redirect "Back", to: Routes.user_token_index_path(@socket, :index), kind: "ghost" %></span>
 </div>
 
 <div class="show-info">
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>ID</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user_token.id %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Token</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user_token.token %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Token Type</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user_token.token_type %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Create Time</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user_token.create_time %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label">
-      <strong>Expire At</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user_token.expire_at %>
-    </ui5-label>
-  </div>
+
 </div>

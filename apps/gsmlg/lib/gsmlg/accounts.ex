@@ -185,7 +185,7 @@ defmodule GSMLG.Accounts do
   """
   def create_user_token(attrs \\ %{}) do
     %UserToken{}
-    |> UserToken.create_changeset(attrs)
+    |> UserToken.changeset(attrs)
     |> Repo.insert()
   end
 

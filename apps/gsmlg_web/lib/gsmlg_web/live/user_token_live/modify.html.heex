@@ -3,34 +3,22 @@
 
   <div class="header">
   <%= if @user_token.id do %>
-  <span><%= bx_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, @user_token) %></span> |
+  <span><%= wc_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, @user_token) %></span> |
   <% end %>
-  <span><%= bx_live_redirect "Back", to: Routes.user_token_index_path(@socket, :index) %></span>
+  <span><%= wc_live_redirect "Back", to: Routes.user_token_index_path(@socket, :index) %></span>
   </div>
 
   <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
     <div class="form-group">
-    <%= bx_label f, :user_id, required: true %>
-    <%= bx_text_input f, :user_id, required: true %>
+    <%= wc_text_input f, :jti, required: true %>
     </div>
 
     <div class="form-group">
-    <%= bx_label f, :token, required: true %>
-    <%= bx_text_input f, :token, required: true %>
+    <%= wc_text_input f, :aud, required: true %>
     </div>
 
     <div class="form-group">
-    <%= bx_label f, :token_type, required: true %>
-    <%= bx_text_input f, :token_type, required: true %>
-    </div>
-
-    <div class="form-group">
-    <%= bx_label f, :expire_at %>
-    <%= bx_datetime_select f, :expire_at, format_pattern: "yyyy-MM-dd HH:mm:ss" %>
-    </div>
-
-    <div class="form-group">
-      <%= bx_submit "Save", phx_disable_with: "Saving..." %>
+      <%= wc_submit "Save", phx_disable_with: "Saving..." %>
       <%= submit "Save", phx_disable_with: "Saving..." %>
     </div>
   </.form>

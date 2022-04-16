@@ -12,21 +12,12 @@ window.addEventListener('DOMContentLoaded', (event) => {
     joinChannels();
 });
 
-// You can include dependencies in two ways.
-//
-// The simplest option is to put them in assets/vendor and
-// import them using relative paths:
-//
-//     import "./vendor/some-package.js"
-//
-// Alternatively, you can `npm install some-package` and import
-// them using a path starting with the package name:
-//
-//     import "some-package"
-//
-
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
+
+// Inclue webcomponet material web componetn and @gsmlg/lit
+import "phoenix_webcomponent";
+
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
@@ -58,6 +49,14 @@ if (process.env.NODE_ENV === 'development') {
     window.liveSocket = liveSocket;
 
     liveSocket.enableDebug()
-    liveSocket.enableLatencySim(1000)
+    // liveSocket.enableLatencySim(100)
     console.log('NODE_ENV: ', process.env.NODE_ENV);
+}
+
+const drawer = document.getElementsByTagName('mwc-drawer')[0];
+if (drawer) {
+    const container = drawer.parentNode;
+    container.addEventListener('MDCTopAppBar:nav', () => {
+        drawer.open = !drawer.open;
+    });
 }

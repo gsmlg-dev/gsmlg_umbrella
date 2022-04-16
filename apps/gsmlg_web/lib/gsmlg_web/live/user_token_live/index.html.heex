@@ -1,7 +1,7 @@
 <ui5-title level="H1">Listing User tokens</ui5-title>
 
 <div class="header">
-  <span><%= bx_live_patch "New User Token", to: Routes.user_token_modify_path(@socket, :new) %></span>
+  <span><%= wc_live_patch "New User Token", to: Routes.user_token_modify_path(@socket, :new) %></span>
 </div>
 
 <section class="content-table">
@@ -28,9 +28,9 @@
         <ui5-table-cell><%= Kernel.inspect(user_token.claims, []) %></ui5-table-cell>
 
         <ui5-table-cell>
-          <span><%= bx_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, user_token.jti) %></span>
-          <span><%= bx_live_patch "Edit", to: Routes.user_token_modify_path(@socket, :edit, user_token.jti) %></span>
-          <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: user_token.jti, data: [confirm: "Are you sure?"] %></span>
+          <span><%= wc_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, user_token.jti) %></span>
+          <span><%= wc_live_patch "Edit", to: Routes.user_token_modify_path(@socket, :edit, user_token.jti) %></span>
+          <span><%= wc_link "Delete", to: "#", phx_click: "delete", phx_value_id: user_token.jti, data: [confirm: "Are you sure?"] %></span>
         </ui5-table-cell>
       </ui5-table-row>
     <% end %>

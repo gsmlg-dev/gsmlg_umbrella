@@ -48,7 +48,7 @@ defmodule GSMLG.Accounts.Auth do
 
   defp sign_up_user(changeset) do
     case changeset do
-      %Ecto.Changeset{errors: errors} when length(errors) > 0 ->
+      %Ecto.Changeset{errors: errors} when errors != [] ->
         {:error, changeset}
 
       %Ecto.Changeset{changes: %{username: username, password: password, email: email}} ->

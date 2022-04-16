@@ -1,7 +1,7 @@
 <ui5-title level="H1">Listing Users</ui5-title>
 
 <div class="header">
-  <span><%= bx_live_patch "New User", to: Routes.user_modify_path(@socket, :new) %></span>
+  <span><%= wc_live_patch "New User", to: Routes.user_modify_path(@socket, :new) %></span>
 </div>
 
 <section class="content-table">
@@ -28,9 +28,9 @@
         <ui5-table-cell><%= user.active_time %></ui5-table-cell>
 
         <ui5-table-cell>
-          <span><%= bx_live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
-          <span><%= bx_live_patch "Edit", to: Routes.user_modify_path(@socket, :edit, user) %></span>
-          <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
+          <span><%= wc_live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
+          <span><%= wc_live_patch "Edit", to: Routes.user_modify_path(@socket, :edit, user) %></span>
+          <span><%= wc_link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
         </ui5-table-cell>
       </ui5-table-row>
     <% end %>

@@ -82,7 +82,7 @@ defmodule GSMLG.Accounts.User do
 
   defp match_if_password(changeset) do
     case changeset do
-      %Ecto.Changeset{changes: %{password: password}} ->
+      %Ecto.Changeset{changes: %{password: password}} when password != "" > 0 ->
         update_password(changeset)
 
       _ ->

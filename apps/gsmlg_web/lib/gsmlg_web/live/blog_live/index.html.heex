@@ -1,7 +1,7 @@
 <ui5-title level="H1">Listing Blogs</ui5-title>
 
 <div class="header">
-  <span><%= bx_live_patch "New Blog", to: Routes.blog_modify_path(@socket, :new) %></span>
+  <span><%= wc_live_redirect "New Blog", to: Routes.blog_modify_path(@socket, :new) %></span>
 </div>
 
 <section class="content-table">
@@ -13,12 +13,12 @@
     <ui5-table-column slot="columns"></ui5-table-column>
     <%= for blog <- @blogs do %>
     <ui5-table-row>
-      <ui5-table-cell><%= live_redirect "#{blog.title}", to: Routes.blog_show_path(@socket, :show, blog) %></ui5-table-cell>
+      <ui5-table-cell><%= wc_live_redirect "#{blog.title}", to: Routes.blog_show_path(@socket, :show, blog) %></ui5-table-cell>
       <ui5-table-cell><%= blog.date %></ui5-table-cell>
       <ui5-table-cell><%= blog.author %></ui5-table-cell>
       <ui5-table-cell>
-        <span><%= bx_live_redirect "Edit", to: Routes.blog_modify_path(@socket, :edit, blog) %></span>
-        <span><%= bx_link "Delete", to: "#", phx_click: "delete", phx_value_id: blog.id, data: [confirm: "Are you sure?"] %></span>
+        <span><%= wc_live_redirect "Edit", to: Routes.blog_modify_path(@socket, :edit, blog) %></span>
+        <span><%= wc_link "Delete", to: "#", phx_click: "delete", phx_value_id: blog.id, data: [confirm: "Are you sure?"] %></span>
       </ui5-table-cell>
     </ui5-table-row>
     <% end %>
