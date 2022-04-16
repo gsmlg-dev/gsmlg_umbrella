@@ -2,6 +2,8 @@
 // Remove this line if you add a your own CSS build pipeline (e.g postcss).
 import "../css/app.css";
 
+
+// import { bindAppMenu } from './base-control';
 // If you want to use Phoenix channels, run `mix help phx.gen.channel`
 // to get started and then uncomment the line below.
 import { socket, resetSocketWithToken, joinChannels } from "./user_socket.js";
@@ -10,6 +12,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
     // console.log('DOM fully loaded and parsed');
     socket.connect();
     joinChannels();
+
 });
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
@@ -53,10 +56,26 @@ if (process.env.NODE_ENV === 'development') {
     console.log('NODE_ENV: ', process.env.NODE_ENV);
 }
 
-const drawer = document.getElementsByTagName('mwc-drawer')[0];
-if (drawer) {
-    const container = drawer.parentNode;
-    container.addEventListener('MDCTopAppBar:nav', () => {
-        drawer.open = !drawer.open;
+const bindAppMenu = () => {
+
+    const drawer = document.getElementsByTagName('mwc-drawer')[0];
+    if (drawer) {
+        const container = drawer.parentNode;
+        container.addEventListener('MDCTopAppBar:nav', () => {
+            drawer.open = !drawer.open;
+        });
+    }
+
+    const btn = document.getElementById('account');
+    const menu = document.getElementById('account-menu');
+    menu.anchor = btn;
+    menu.corner = 'BOTTOM_END';
+
+    btn.addEventListener('click', function (e) {
+        menu.open = true;
+        // alternatively you can use menu.show();
     });
-}
+
+};
+
+bindAppMenu();

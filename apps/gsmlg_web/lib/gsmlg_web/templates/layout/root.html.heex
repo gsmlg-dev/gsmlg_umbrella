@@ -38,26 +38,19 @@
           <mwc-icon-button icon="menu" slot="navigationIcon"></mwc-icon-button>
           <div slot="title"><%= assigns[:page_title] || "GSMLG" %></div>
           <div slot="actionItems">
+            <% user = GSMLGWeb.Guardian.Plug.current_resource(@conn); %>
             <mwc-icon-button icon="account" id="account"></mwc-icon-button>
             <mwc-menu id="account-menu">
-              <mwc-list-item>Item 0</mwc-list-item>
+              <mwc-list-item graphic="avatar">
+                <mwc-icon slot="graphic">account</mwc-icon>
+                <%= unless is_nil(user), do: user.name %>
+              </mwc-list-item>
               <mwc-list-item>Item 1</mwc-list-item>
               <mwc-list-item>Item 2</mwc-list-item>
-              <mwc-list-item>Item 3</mwc-list-item>
+              <mwc-list-item>
+                <%= wc_link("Sign out", to: Routes.auth_path(@conn, :sign_out), method: :delete, id: "user-sign-out") %>
+              </mwc-list-item>
             </mwc-menu>
-            <script>
-              (() => {
-                const btn = document.getElementById('account');
-                const menu = document.getElementById('account-menu');
-                menu.anchor = btn;
-                menu.corner = 'BOTTOM_END';
-
-                btn.addEventListener('click', function (e) {
-                  menu.open = true;
-                  // alternatively you can use menu.show();
-                });
-              })();
-            </script>
           </div>
 
           <div class="main">
