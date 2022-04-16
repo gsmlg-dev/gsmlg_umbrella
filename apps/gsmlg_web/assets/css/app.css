@@ -1,5 +1,5 @@
 /* This file is for your main application CSS */
 @import './phoenix.css';
+@import './mwc.css';
 @import './main.css';
 @import './login.css';
-@import './mwc.css';

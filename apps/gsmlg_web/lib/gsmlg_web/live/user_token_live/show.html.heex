@@ -1,9 +1,42 @@
 
 <div class="header">
-  <span><%= wc_live_redirect "Edit", to: Routes.user_token_modify_path(@socket, :edit, @user_token), kind: "primary" %></span> |
+  <span><%= wc_live_redirect "Edit", to: Routes.user_token_modify_path(@socket, :edit, @user_token.jti), kind: "primary" %></span> |
   <span><%= wc_live_redirect "Back", to: Routes.user_token_index_path(@socket, :index), kind: "ghost" %></span>
 </div>
 
 <div class="show-info">
-
+  <mwc-list>
+    <mwc-list-item graphic="medium">
+      <span slot="graphic">JTI</span>
+      <%= @user_token.jti %>
+    </mwc-list-item>
+    <mwc-list-item graphic="medium">
+      <span slot="graphic">AUD</span>
+      <%= @user_token.aud %>
+    </mwc-list-item>
+    <mwc-list-item graphic="medium">
+      <span slot="graphic">TYP</span>
+      <%= @user_token.typ %>
+    </mwc-list-item>
+    <mwc-list-item graphic="medium">
+      <span slot="graphic">ISS</span>
+      <%= @user_token.iss %>
+    </mwc-list-item>
+    <mwc-list-item graphic="medium">
+      <span slot="graphic">SUB</span>
+      <%= @user_token.sub %>
+    </mwc-list-item>
+    <mwc-list-item graphic="medium">
+      <span slot="graphic">EXP</span>
+      <%= @user_token.exp |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
+    </mwc-list-item>
+    <mwc-list-item graphic="medium">
+      <span slot="graphic">JWT</span>
+      <%= @user_token.jwt %>
+    </mwc-list-item>
+    <mwc-list-item graphic="medium">
+      <span slot="graphic">NBF</span>
+      <%= @user_token.claims |> Map.get("nbf") |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
+    </mwc-list-item>
+  </mwc-list>
 </div>

@@ -6,26 +6,22 @@
 
 <section class="content-table">
   <ui5-table class="demo-table-single" mode="SingleSelect">
-    <ui5-table-column slot="columns">jti</ui5-table-column>
     <ui5-table-column slot="columns">aud</ui5-table-column>
     <ui5-table-column slot="columns">typ</ui5-table-column>
     <ui5-table-column slot="columns">iss</ui5-table-column>
     <ui5-table-column slot="columns">sub</ui5-table-column>
     <ui5-table-column slot="columns">exp</ui5-table-column>
-    <ui5-table-column slot="columns">jwt</ui5-table-column>
-    <ui5-table-column slot="columns">claims</ui5-table-column>
+    <ui5-table-column slot="columns">nbf</ui5-table-column>
     <ui5-table-column slot="columns"></ui5-table-column>
 
     <%= for user_token <- @user_tokens do %>
       <ui5-table-row>
-        <ui5-table-cell><%= user_token.jti %></ui5-table-cell>
         <ui5-table-cell><%= user_token.aud %></ui5-table-cell>
         <ui5-table-cell><%= user_token.typ %></ui5-table-cell>
         <ui5-table-cell><%= user_token.iss %></ui5-table-cell>
         <ui5-table-cell><%= user_token.sub %></ui5-table-cell>
-        <ui5-table-cell><%= user_token.exp %></ui5-table-cell>
-        <ui5-table-cell><%= user_token.jwt %></ui5-table-cell>
-        <ui5-table-cell><%= Kernel.inspect(user_token.claims, []) %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.exp |> DateTime.from_unix!() |> DateTime.to_iso8601() %></ui5-table-cell>
+        <ui5-table-cell><%= user_token.claims |> Map.get("nbf") |> DateTime.from_unix!() |> DateTime.to_iso8601() %></ui5-table-cell>
 
         <ui5-table-cell>
           <span><%= wc_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, user_token.jti) %></span>

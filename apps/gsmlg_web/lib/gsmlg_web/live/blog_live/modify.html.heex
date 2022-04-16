@@ -5,8 +5,7 @@
   <%= if !is_nil(@blog.id) do %>
   <span><%= wc_live_redirect "Show", to: Routes.blog_show_path(@socket, :show, @blog) %></span> |
   <% end %>
-  <span><%= wc_live_redirect "Back", to: Routes.blog_index_path(@socket, :index) %></span> |
-  <span><%= wc_live_patch "New Blog", to: Routes.blog_modify_path(@socket, :new) %></span>
+  <span><%= wc_live_redirect "Back", to: Routes.blog_index_path(@socket, :index) %></span>
   </div>
 
   <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">

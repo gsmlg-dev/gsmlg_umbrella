@@ -68,14 +68,30 @@ const bindAppMenu = () => {
 
     const btn = document.getElementById('account');
     const menu = document.getElementById('account-menu');
-    menu.anchor = btn;
-    menu.corner = 'BOTTOM_END';
+    if (btn && menu) {
+        menu.anchor = btn;
+        menu.corner = 'BOTTOM_END';
 
-    btn.addEventListener('click', function (e) {
-        menu.open = true;
-        // alternatively you can use menu.show();
-    });
-
+        btn.addEventListener('click', function (e) {
+            menu.open = true;
+            // alternatively you can use menu.show();
+        });
+    }
 };
 
 bindAppMenu();
+
+const forms = document.getElementsByTagName('form');
+
+[].slice.call(forms).forEach((f) => {
+    f.addEventListener('click', (evt) => {
+        const el = evt.srcElement;
+        const t = el.getAttribute('type');
+        if (el.tagName === 'MWC-BUTTON' && t === 'submit') {
+            evt.stopPropagation();
+            console.log(evt)
+            console.log(el);
+            f.submit();
+        }
+    });
+});

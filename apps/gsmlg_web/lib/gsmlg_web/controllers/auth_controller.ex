@@ -19,7 +19,7 @@ defmodule GSMLGWeb.AuthController do
       conn
       |> put_root_layout(false)
       |> put_layout("auth.html")
-      |> render("sign_in.html", changeset: changeset)
+      |> render("sign_in.html", changeset: changeset, page_title: "SIGN IN")
     end
   end
 
@@ -64,7 +64,7 @@ defmodule GSMLGWeb.AuthController do
     conn
     |> put_root_layout(false)
     |> put_layout("auth.html")
-    |> render("sign_up.html", changeset: changeset)
+    |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
   end
 
   def sign_up(conn, %{"auth" => params}) do

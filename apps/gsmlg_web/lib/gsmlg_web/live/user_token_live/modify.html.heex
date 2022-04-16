@@ -2,8 +2,8 @@
   <ui5-title level="H1"><%= @page_title %></ui5-title>
 
   <div class="header">
-  <%= if @user_token.id do %>
-  <span><%= wc_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, @user_token) %></span> |
+  <%= if @user_token.jti do %>
+  <span><%= wc_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, @user_token.jti) %></span> |
   <% end %>
   <span><%= wc_live_redirect "Back", to: Routes.user_token_index_path(@socket, :index) %></span>
   </div>
