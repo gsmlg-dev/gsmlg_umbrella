@@ -56,12 +56,17 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
 # Watch static and templates for browser reloading.
 config :gsmlg_web, GSMLGWeb.Endpoint,
   live_reload: [
-    patterns: [
-      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"priv/gettext/.*(po)$",
-      ~r"lib/gsmlg_web/(live|views)/.*(ex)$",
-      ~r"lib/gsmlg_web/templates/.*(eex)$"
-    ]
+    patterns:
+      [
+        ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
+        ~r"priv/gettext/.*(po)$",
+        ~r"lib/gsmlg_web/(live|views)/.*(ex)$",
+        ~r"lib/gsmlg_web/templates/.*(eex)$"
+      ] ++
+        if(System.get_env("WEBCOMPONENT_PATH"),
+          do: [~r"#{System.get_env("WEBCOMPONENT_PATH")}/lib/.*(ex)$"],
+          else: []
+        )
   ]
 
 # Do not include metadata nor timestamps in development logs

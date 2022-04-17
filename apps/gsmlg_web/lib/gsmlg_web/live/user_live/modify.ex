@@ -59,6 +59,17 @@ defmodule GSMLGWeb.UserLive.Modify do
   end
 
   defp save_user(socket, :edit, user_params) do
+    IO.inspect(user_params)
+
+    is_2fa_enabled =
+      case Map.get(user_params, "is_2fa_enabled") do
+        "on" -> true
+        _ -> false
+      end
+
+    user_params = Map.put(user_params, "is_2fa_enabled", is_2fa_enabled)
+    IO.inspect(user_params)
+
     case Accounts.update_user(socket.assigns.user, user_params) do
       {:ok, user} ->
         {:noreply,

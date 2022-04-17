@@ -68,32 +68,53 @@ defmodule GSMLGWeb.AuthController do
   end
 
   def sign_up(conn, %{"auth" => params}) do
-    case Auth.sign_up(params) do
-      {:ok, _user} ->
+    case(
+      {Mix.env(),
+       Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:user_register)}
+    ) do
+      {:prod, false} ->
         conn
-        |> put_flash(:info, "Auth created successfully.")
+        |> put_flash(:error, "Not Allowed")
         |> redirect(to: Routes.auth_path(conn, :index))
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        IO.inspect(changeset)
+      _ ->
+        case Auth.sign_up(params) do
+          {:ok, _user} ->
+            conn
+            |> put_flash(:info, "Auth created successfully.")
+            |> redirect(to: Routes.auth_path(conn, :index))
 
-        conn
-        |> put_flash(:error, "invalid")
-        |> put_root_layout(false)
-        |> put_layout("auth.html")
-        |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
+          {:error, %Ecto.Changeset{} = changeset} ->
+            IO.inspect(changeset)
+
+            conn
+            |> put_flash(:error, "invalid")
+            |> put_root_layout(false)
+            |> put_layout("auth.html")
+            |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
+        end
     end
   end
 
   def sign_up(conn, params) do
-    case Auth.sign_up(params) do
-      {:ok, user} ->
+    case(
+      {Mix.env(),
+       Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:user_register)}
+    ) do
+      {:prod, false} ->
         conn
-        |> render("sign_up.json", username: user.username)
+        |> render("error.json", errors: ["Not Allowed"])
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        conn
-        |> render("error.json", changeset: changeset)
+      _ ->
+        case Auth.sign_up(params) do
+          {:ok, user} ->
+            conn
+            |> render("sign_up.json", username: user.username)
+
+          {:error, %Ecto.Changeset{} = changeset} ->
+            conn
+            |> render("error.json", changeset: changeset)
+        end
     end
   end
 

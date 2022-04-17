@@ -40,9 +40,9 @@ defmodule GSMLGWeb.Router do
     pipe_through([:browser, :maybe_browser_auth])
 
     get("/sign_in", AuthController, :index)
-    get("/sign_up", AuthController, :new)
-
     post("/sign_in", AuthController, :sign_in)
+
+    get("/sign_up", AuthController, :new)
     post("/sign_up", AuthController, :sign_up)
   end
 

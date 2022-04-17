@@ -48,6 +48,14 @@
   </div>
   <div class="show-field">
     <ui5-label class="label" show-colon>
+      <strong>Is 2FA Enabled</strong>
+    </ui5-label>
+    <ui5-label>
+      <%= @user.is_2fa_enabled %>
+    </ui5-label>
+  </div>
+  <div class="show-field">
+    <ui5-label class="label" show-colon>
       <strong>Portrait</strong>
     </ui5-label>
     <ui5-label>

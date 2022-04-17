@@ -49,6 +49,8 @@ if config_env() == :prod do
     config :gsmlg_web, GSMLGWeb.Endpoint, url: [host: host, port: port]
   end
 
+  config :gsmlg_web, GSMLGWeb.Endpoint, user_register: System.get_env("USER_REGISTER") == "on"
+
   # Then you can assemble a release by calling `mix release`.
   # See `mix help release` for more information.
 
