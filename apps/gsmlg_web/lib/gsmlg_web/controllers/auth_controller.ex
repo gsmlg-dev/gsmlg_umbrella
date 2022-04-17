@@ -40,7 +40,7 @@ defmodule GSMLGWeb.AuthController do
         |> put_flash(:error, "invalid")
         |> put_root_layout(false)
         |> put_layout("auth.html")
-        |> render("sign_in.html", changeset: changeset)
+        |> render("sign_in.html", changeset: changeset, page_title: "SIGN IN")
     end
   end
 
@@ -81,7 +81,7 @@ defmodule GSMLGWeb.AuthController do
         |> put_flash(:error, "invalid")
         |> put_root_layout(false)
         |> put_layout("auth.html")
-        |> render("sign_up.html", changeset: changeset)
+        |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
     end
   end
 

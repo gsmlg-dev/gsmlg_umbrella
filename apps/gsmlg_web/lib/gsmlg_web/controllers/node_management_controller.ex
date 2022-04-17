@@ -3,7 +3,7 @@ defmodule GSMLGWeb.NodeManagementController do
 
   def index(conn, _params) do
     nodes = Node.list()
-    render(conn, "index.html", nodes: nodes)
+    render(conn, "index.html", nodes: nodes, page_title: "Node Management")
   end
 
   def update(conn, %{"action" => "set-node-cookie", "cookie" => cookie} = _params) do
