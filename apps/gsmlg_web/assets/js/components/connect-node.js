@@ -1,14 +1,33 @@
-import {LitElement, html} from 'lit';
-import {ref, createRef} from 'lit/directives/ref.js';
+import { LitElement, html, css } from 'lit';
+import { ref, createRef } from 'lit/directives/ref.js';
 
 
 class ConnectNode extends LitElement {
+
+  static styles = css`
+    :root {
+      width: inherit;
+      height: inherit;
+      font-size: inherit;
+    }
+    .form-group input,
+    .form-group button {
+      padding: 0.3rem;
+      font-size: inherit;
+    }
+    .form-group input {
+      min-width: 400px;
+    }
+    .form-group button {
+      cursor: pointer;
+    }
+  `;
 
   inputRef = createRef();
 
   constructor() {
     super();
-    
+
     this.target_node = '';
     this._loading = false;
   }
@@ -18,7 +37,7 @@ class ConnectNode extends LitElement {
   }
 
   set loading(val) {
-    this._loading = !! val;
+    this._loading = !!val;
     this.requestUpdate();
   }
 
@@ -43,7 +62,7 @@ class ConnectNode extends LitElement {
       const el = document.getElementById('node-target_node-value');
       el.innerText = target_node;
       this.loading = false;
-    } catch(e) {
+    } catch (e) {
       this.loading = false;
     }
   }
