@@ -4,17 +4,17 @@ defmodule GSMLGDNS do
 
   ## Examples
 
-      iex> GSMLGDNS.resolve("tungdao.com")
-      {:ok, [{1, 1, 1, 1}]}
+      iex> GSMLGDNS.resolve("gsmlg.org")
+      {:ok, [{167, 179, 98, 144}]}
 
-      iex> GSMLGDNS.resolve("tungdao.com", :txt)
-      {:ok, [['v=spf1 a mx ~all']]}
+      iex> GSMLGDNS.resolve("gsmlg.net", :txt)
+      {:ok, [['v=spf1 +mx ~all']]}
 
-      iex> GSMLGDNS.resolve("tungdao.com", :a, {"8.8.8.8", 53})
-      {:ok, [{1, 1, 1, 1}]}
+      iex> GSMLGDNS.resolve("gsmlg.org", :a, {"8.8.8.8", 53})
+      {:ok, [{167, 179, 98, 144}]}
 
-      iex> GSMLGDNS.resolve("tungdao.com", :a, {"8.8.8.8", 53}, :tcp)
-      {:ok, [{1, 1, 1, 1}]}
+      iex> GSMLGDNS.resolve("gsmlg.org", :a, {"8.8.8.8", 53}, :tcp)
+      {:ok, [{167, 179, 98, 144}]}
 
   """
   @spec resolve(String.t(), atom, {String.t(), :inet.port()}, :tcp | :udp) ::
@@ -41,20 +41,20 @@ defmodule GSMLGDNS do
 
   Queries for A records:
 
-      iex> GSMLGDNS.query("tungdao.com")
+      iex> GSMLGDNS.query("gsmlg.org")
 
   Queries for the MX records:
 
-      iex> GSMLGDNS.query("tungdao.com", :mx)
+      iex> GSMLGDNS.query("gsmlg.org", :mx)
 
   Queries for A records, using OpenGSMLGDNS:
 
-      iex> GSMLGDNS.query("tungdao.com", :a, { "208.67.220.220", 53})
+      iex> GSMLGDNS.query("gsmlg.org", :a, { "208.67.220.220", 53})
 
 
   Queries for A records, using OpenGSMLGDNS, with TCP:
 
-      iex> GSMLGDNS.query("tungdao.com", :a, { "208.67.220.220", 53}, :tcp)
+      iex> GSMLGDNS.query("gsmlg.org", :a, { "208.67.220.220", 53}, :tcp)
 
   """
   @spec query(String.t(), atom, {String.t(), :inet.port()}, :tcp | :udp) :: GSMLGDNS.Record.t()

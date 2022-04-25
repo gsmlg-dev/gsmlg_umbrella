@@ -4,8 +4,8 @@ defmodule GSMLGDNS.Header do
   """
 
   record = Record.extract(:dns_header, from_lib: "kernel/src/inet_dns.hrl")
-  keys = record |> Enum.map(fn({n, _}) -> n end)
-  vals = keys |> Enum.map(&(&1, [], nil})
+  keys = record |> Enum.map(fn {n, _} -> n end)
+  vals = keys |> Enum.map(&{&1, [], nil})
   pairs = Enum.zip(keys, vals)
 
   defstruct record
