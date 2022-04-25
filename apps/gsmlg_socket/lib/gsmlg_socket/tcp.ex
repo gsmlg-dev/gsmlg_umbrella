@@ -244,7 +244,8 @@ defmodule GSMLGSocket.TCP do
   @doc """
   Set options of the socket.
   """
-  @spec options(t | GSMLGSocket.SSL.t() | port, Keyword.t()) :: :ok | {:error, GSMLGSocket.Error.t()}
+  @spec options(t | GSMLGSocket.SSL.t() | port, Keyword.t()) ::
+          :ok | {:error, GSMLGSocket.Error.t()}
   def options(socket, options) when socket |> Record.is_record(:sslsocket) do
     GSMLGSocket.SSL.options(socket, options)
   end

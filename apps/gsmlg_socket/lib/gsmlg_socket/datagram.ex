@@ -8,7 +8,8 @@ defprotocol GSMLGSocket.Datagram.Protocol do
   @doc """
   Receive a packet from the socket.
   """
-  @spec recv(t) :: {:ok, {iodata, {GSMLGSocket.Address.t(), :inet.port_number()}}} | {:error, term}
+  @spec recv(t) ::
+          {:ok, {iodata, {GSMLGSocket.Address.t(), :inet.port_number()}}} | {:error, term}
   def recv(self)
 
   @doc """
