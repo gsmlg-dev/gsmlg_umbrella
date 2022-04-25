@@ -28,4 +28,26 @@ defmodule GSMLGDNSTest do
       assert length(results) > 0
     end
   end
+
+  describe "query" do
+    test "builds a DNS Record" do
+      assert %GSMLGDNS.Record{
+               anlist: [%GSMLGDNS.Resource{}],
+               arlist: [],
+               header: %GSMLGDNS.Header{},
+               nslist: [],
+               qdlist: [%GSMLGDNS.Query{}]
+             } = GSMLGDNS.query('gsmlg.org')
+    end
+
+    test "queries different record types" do
+      assert %GSMLGDNS.Record{
+               anlist: [%GSMLGDNS.Resource{}],
+               arlist: [],
+               header: %GSMLGDNS.Header{},
+               nslist: [],
+               qdlist: [%GSMLGDNS.Query{}]
+             } = GSMLGDNS.query('gsmlg.net', :txt)
+    end
+  end
 end
