@@ -116,12 +116,4 @@ defmodule GSMLGWeb.LiveHelpers do
 
   defp maybe_html_escape(nil), do: nil
   defp maybe_html_escape(value), do: html_escape(value)
-
-  defp translate_error({msg, opts}) do
-    if count = opts[:count] do
-      Gettext.dngettext(GSMLGWeb.Gettext, "errors", msg, msg, count, opts)
-    else
-      Gettext.dgettext(GSMLGWeb.Gettext, "errors", msg, opts)
-    end
-  end
 end
