@@ -1,4 +1,4 @@
-<ui5-title level="H1">Show User</ui5-title>
+<div class="h1">Show User</div>
 
 <div class="header">
   <span><%= wc_live_redirect "Edit", to: Routes.user_modify_path(@socket, :edit, @user), kind: "primary" %></span> |
@@ -6,92 +6,20 @@
 </div>
 
 <div class="show-info">
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>ID</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.id %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Username</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.username %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Name</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.name %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Email</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.email %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Is Active</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.is_active %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Is 2FA Enabled</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.is_2fa_enabled %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label" show-colon>
-      <strong>Portrait</strong>
-    </ui5-label>
-    <ui5-label>
-    <%= @user.portrait %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label">
-    <strong>Google:</strong>
-    </ui5-label>
-    <ui5-label>
-    <%= @user.google_id %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label">
-      <strong>Apple:</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.apple_id %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label">
-      <strong>Github:</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.github_id %>
-    </ui5-label>
-  </div>
-  <div class="show-field">
-    <ui5-label class="label">
-      <strong>Active Time:</strong>
-    </ui5-label>
-    <ui5-label>
-      <%= @user.active_time %>
-    </ui5-label>
-  </div>
+  <bx-structured-list>
+    <bx-structured-list-head>
+      <bx-structured-list-header-row>
+        <bx-structured-list-header-cell>Label</bx-structured-list-header-cell>
+        <bx-structured-list-header-cell>Value</bx-structured-list-header-cell>
+      </bx-structured-list-header-row>
+    </bx-structured-list-head>
+    <bx-structured-list-body>
+      <%= for {l, v} <-  @user |> Map.from_struct() |> Map.drop([:__meta__, :tokens]) do %>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= l %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= v %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <% end %>
+    </bx-structured-list-body>
+  </bx-structured-list>
 </div>

@@ -1,5 +1,5 @@
 <div>
-  <ui5-title level="H1"><%= @page_title %></ui5-title>
+  <div class="h1"><%= @page_title %></div>
 
   <div class="header">
   <%= if !is_nil(@user.id) do %>
@@ -11,30 +11,24 @@
   <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
     <div class="form-group">
     <%= wc_text_input f, :username %>
-
     </div>
     <div class="form-group">
     <%= wc_text_input f, :name %>
-
     </div>
     <div class="form-group">
     <%= wc_text_input f, :email %>
     </div>
-
     <div class="form-group">
     <%= wc_password_input f, :password %>
     </div>
-
     <div class="form-group">
-    <%= wc_switch f, :is_active %>
+    <%= wc_switch f, :is_active, "checked-text": "Active", "unchecked-text": "Inactive" %>
     </div>
-
     <div class="form-group">
-    <%= wc_switch f, :is_2fa_enabled, true_value: true %>
+    <%= wc_switch f, :is_2fa_enabled, "checked-text": "On", "unchecked-text": "Off" %>
     </div>
-
     <div class="form-group">
-      <%= wc_submit "Save", phx_disable_with: "Saving...", phx_click: "submit" %>
+      <%= wc_submit "Save", phx_disable_with: "Saving..." %>
       <%= submit "Save", phx_disable_with: "Saving..." %>
     </div>
   </.form>

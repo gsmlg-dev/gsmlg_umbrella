@@ -5,38 +5,46 @@
 </div>
 
 <div class="show-info">
-  <mwc-list>
-    <mwc-list-item graphic="medium">
-      <span slot="graphic">JTI</span>
-      <%= @user_token.jti %>
-    </mwc-list-item>
-    <mwc-list-item graphic="medium">
-      <span slot="graphic">AUD</span>
-      <%= @user_token.aud %>
-    </mwc-list-item>
-    <mwc-list-item graphic="medium">
-      <span slot="graphic">TYP</span>
-      <%= @user_token.typ %>
-    </mwc-list-item>
-    <mwc-list-item graphic="medium">
-      <span slot="graphic">ISS</span>
-      <%= @user_token.iss %>
-    </mwc-list-item>
-    <mwc-list-item graphic="medium">
-      <span slot="graphic">SUB</span>
-      <%= @user_token.sub %>
-    </mwc-list-item>
-    <mwc-list-item graphic="medium">
-      <span slot="graphic">EXP</span>
-      <%= @user_token.exp |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
-    </mwc-list-item>
-    <mwc-list-item graphic="medium">
-      <span slot="graphic">JWT</span>
-      <%= @user_token.jwt %>
-    </mwc-list-item>
-    <mwc-list-item graphic="medium">
-      <span slot="graphic">NBF</span>
-      <%= @user_token.claims |> Map.get("nbf") |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
-    </mwc-list-item>
-  </mwc-list>
+  <bx-structured-list>
+    <bx-structured-list-head>
+      <bx-structured-list-header-row>
+        <bx-structured-list-header-cell>Label</bx-structured-list-header-cell>
+        <bx-structured-list-header-cell>Value</bx-structured-list-header-cell>
+      </bx-structured-list-header-row>
+    </bx-structured-list-head>
+    <bx-structured-list-body>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "JTI" %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= @user_token.jti %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "AUD" %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= @user_token.aud %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "TYP" %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= @user_token.typ %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "ISS" %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= @user_token.iss %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "SUB" %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= @user_token.sub %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "EXP" %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= @user_token.exp |> DateTime.from_unix!() |> DateTime.to_iso8601() %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "JWT" %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= @user_token.jwt %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "NBF" %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= @user_token.claims |> Map.get("nbf") |> DateTime.from_unix!() |> DateTime.to_iso8601() %></bx-structured-list-cell>
+      </bx-structured-list-row>
+    </bx-structured-list-body>
+  </bx-structured-list>
 </div>

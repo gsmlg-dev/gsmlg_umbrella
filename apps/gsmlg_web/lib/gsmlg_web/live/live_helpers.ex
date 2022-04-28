@@ -58,62 +58,30 @@ defmodule GSMLGWeb.LiveHelpers do
     |> JS.hide(to: "#modal-content", transition: "fade-out-scale")
   end
 
-  import Phoenix.HTML
-  import Phoenix.HTML.Tag
-  import Phoenix.HTML.Form
-
-  def bx_date_select(form, field, opts \\ []) do
-    opts =
-      opts
-      |> Keyword.put_new(:id, input_id(form, field))
-      |> Keyword.put_new(:name, input_name(form, field))
-      |> Keyword.put_new(:value, input_value(form, field))
-      |> Keyword.update!(:value, &maybe_html_escape/1)
-
-    error = form.errors |> Keyword.get_values(field)
-
-    unless Enum.empty?(error) do
-      opts = opts |> Keyword.put_new(:value_state, "Error")
-
-      content_tag(:"ui5-date-picker", opts) do
-        Enum.map(error, fn {err, _} ->
-          content_tag(:div, err,
-            slot: "valueStateMessage",
-            phx_feedback_for: input_name(form, field)
-          )
-        end)
-      end
-    else
-      content_tag(:"ui5-date-picker", "", opts)
-    end
+  def not_blank?(str) when is_binary(str) do
+    str |> String.length() > 0
   end
 
-  def bx_datetime_select(form, field, opts \\ []) do
-    opts =
-      opts
-      |> Keyword.put_new(:id, input_id(form, field))
-      |> Keyword.put_new(:name, input_name(form, field))
-      |> Keyword.put_new(:value, input_value(form, field))
-      |> Keyword.update!(:value, &maybe_html_escape/1)
-
-    error = form.errors |> Keyword.get_values(field)
-
-    unless Enum.empty?(error) do
-      opts = opts |> Keyword.put_new(:value_state, "Error")
-
-      content_tag(:"ui5-datetime-picker", opts) do
-        Enum.map(error, fn {err, _} ->
-          content_tag(:div, err,
-            slot: "valueStateMessage",
-            phx_feedback_for: input_name(form, field)
-          )
-        end)
-      end
-    else
-      content_tag(:"ui5-datetime-picker", "", opts)
-    end
+  def not_blank?(str) when is_atom(str) do
+    str != :""
   end
 
-  defp maybe_html_escape(nil), do: nil
-  defp maybe_html_escape(value), do: html_escape(value)
+  def not_blank?(l) when is_list(l) do
+    !Enum.empty?(l)
+  end
+
+  def not_blank?(n) when is_nil(n) do
+    false
+  end
+
+  def not_blank?(false) do
+    true
+  end
+
+  def not_blank?(_) do
+    false
+  end
+
+  # defp maybe_html_escape(nil), do: nil
+  # defp maybe_html_escape(value), do: html_escape(value)
 end

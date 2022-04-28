@@ -1,5 +1,5 @@
 <div>
-  <ui5-title level="H1"><%= @page_title %></ui5-title>
+  <div class="h1"><%= @page_title %></div>
 
   <div class="header">
   <%= if !is_nil(@blog.id) do %>
@@ -13,19 +13,17 @@
     <%= wc_text_input f, :slug, class: "full-width" %>
     </div>
     <div class="form-group">
-    <%= wc_text_input f, :title, class: "full-width", onload: "alert(event)" %>
+    <%= wc_text_input f, :title, class: "full-width" %>
     </div>
     <div class="form-group">
-    <%= label f, :date %>
-    <%= bx_date_select f, :date, format_pattern: "yyyy-MM-dd" %>
-    <%= error_tag f, :date %>
+    <%= wc_date_input f, :date %>
     </div>
     <div class="form-group">
     <%= wc_text_input f, :author, class: "full-width" %>
     </div>
     <div class="form-group">
       <div class="full-width">
-        <%= wc_textarea f, :content, [rows: 50, class: "full-width", charcounter: true] %>
+        <%= wc_textarea f, :content, [rows: 40, class: "full-width"] %>
       </div>
       <div class="full-width">
         <remark-element id="content-preview"></remark-element>

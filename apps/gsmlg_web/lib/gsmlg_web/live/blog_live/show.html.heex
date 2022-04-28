@@ -1,38 +1,29 @@
-<ui5-title level="H1">Show Blog</ui5-title>
+<div class="h1">Show Blog</div>
 
 <div class="header">
 <span><%= wc_live_redirect "Edit", to: Routes.blog_modify_path(@socket, :edit, @blog) %></span> |
 <span><%= wc_live_redirect "Back", to: Routes.blog_index_path(@socket, :index) %></span>
 </div>
 
-<ul>
-  <li>
-    <strong>Slug:</strong>
-    <%= @blog.slug %>
-  </li>
-
-  <li>
-    <strong>Title:</strong>
-    <%= @blog.title %>
-  </li>
-
-  <li>
-    <strong>Date:</strong>
-    <%= @blog.date %>
-  </li>
-
-  <li>
-    <strong>Author:</strong>
-    <%= @blog.author %>
-  </li>
-
-  <li>
-    <strong>Content:</strong>
-    <br/>
-    <hr />
-    <remark-element>
-<%= @blog.content |> raw %>
-    </remark-element>
-  </li>
-
-</ul>
+<div class="show-info">
+  <bx-structured-list>
+    <bx-structured-list-head>
+      <bx-structured-list-header-row>
+        <bx-structured-list-header-cell>Label</bx-structured-list-header-cell>
+        <bx-structured-list-header-cell>Value</bx-structured-list-header-cell>
+      </bx-structured-list-header-row>
+    </bx-structured-list-head>
+    <bx-structured-list-body>
+      <%= for {l, v} <-  @blog |> Map.from_struct() |> Map.drop([:__meta__, :content]) do %>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= l %></bx-structured-list-cell>
+        <bx-structured-list-cell><%= v %></bx-structured-list-cell>
+      </bx-structured-list-row>
+      <% end %>
+      <bx-structured-list-row>
+        <bx-structured-list-cell><%= "Content" %></bx-structured-list-cell>
+        <bx-structured-list-cell><remark-element><%= @blog.content %></remark-element></bx-structured-list-cell>
+      </bx-structured-list-row>
+    </bx-structured-list-body>
+  </bx-structured-list>
+</div>
