@@ -7,42 +7,42 @@ defmodule GSMLG.Application do
 
   @impl true
   def start(_type, _args) do
-    topologies =
-      case System.get_env("CLUSTER_MODE") do
-        "KUBERNETES" ->
-          [
-            gsmlg: [
-              strategy: Cluster.Strategy.Kubernetes,
-              config: [
-                mode: :ip,
-                kubernetes_ip_lookup_mode: :pods,
-                kubernetes_node_basename: "#{GSMLG.name()}",
-                kubernetes_selector: System.get_env("SELECTOR", "gsmlg.org/app=gsmlg"),
-                kubernetes_namespace: System.get_env("NAMESPACE", "#{GSMLG.name()}"),
-                polling_interval: 10_000
-              ]
-            ]
-          ]
+    # topologies =
+    #   case System.get_env("CLUSTER_MODE") do
+    #     "KUBERNETES" ->
+    #       [
+    #         gsmlg: [
+    #           strategy: Cluster.Strategy.Kubernetes,
+    #           config: [
+    #             mode: :ip,
+    #             kubernetes_ip_lookup_mode: :pods,
+    #             kubernetes_node_basename: "#{GSMLG.name()}",
+    #             kubernetes_selector: System.get_env("SELECTOR", "gsmlg.org/app=gsmlg"),
+    #             kubernetes_namespace: System.get_env("NAMESPACE", "#{GSMLG.name()}"),
+    #             polling_interval: 10_000
+    #           ]
+    #         ]
+    #       ]
 
-        _ ->
-          [
-            gsmlg: [
-              # The selected clustering strategy. Required.
-              strategy: Cluster.Strategy.Epmd,
-              # Configuration for the provided strategy. Optional.
-              config: [hosts: []],
-              # The function to use for connecting nodes. The node
-              # name will be appended to the argument list. Optional
-              connect: {:net_kernel, :connect_node, []},
-              # The function to use for disconnecting nodes. The node
-              # name will be appended to the argument list. Optional
-              disconnect: {:erlang, :disconnect_node, []},
-              # The function to use for listing nodes.
-              # This function must return a list of node names. Optional
-              list_nodes: {:erlang, :nodes, [:connected]}
-            ]
-          ]
-      end
+    #     _ ->
+    #       [
+    #         gsmlg: [
+    #           # The selected clustering strategy. Required.
+    #           strategy: Cluster.Strategy.Epmd,
+    #           # Configuration for the provided strategy. Optional.
+    #           config: [hosts: []],
+    #           # The function to use for connecting nodes. The node
+    #           # name will be appended to the argument list. Optional
+    #           connect: {:net_kernel, :connect_node, []},
+    #           # The function to use for disconnecting nodes. The node
+    #           # name will be appended to the argument list. Optional
+    #           disconnect: {:erlang, :disconnect_node, []},
+    #           # The function to use for listing nodes.
+    #           # This function must return a list of node names. Optional
+    #           list_nodes: {:erlang, :nodes, [:connected]}
+    #         ]
+    #       ]
+    #   end
 
     children = [
       {Horde.Registry, [name: GSMLG.GSMLGRegistry, keys: :unique, members: registry_members()]},
@@ -65,7 +65,7 @@ defmodule GSMLG.Application do
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
       # supervisor(GSMLG.Chess.Supervisor, []),
-      {Cluster.Supervisor, [topologies, [name: GSMLG.ClusterSupervisor]]},
+      # {Cluster.Supervisor, [topologies, [name: GSMLG.ClusterSupervisor]]},
       %{
         id: GSMLG.ClusterConnector,
         restart: :transient,
