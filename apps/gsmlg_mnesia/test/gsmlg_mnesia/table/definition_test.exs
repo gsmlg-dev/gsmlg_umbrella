@@ -32,11 +32,11 @@ defmodule GSMLGMnesia.Tests.Table.Definition do
 
   describe "#build_options" do
     @opts [attributes: @attrs, type: :ordered_set, autoincrement: true]
-    test "separates memento and mnesia options" do
-      %{memento: memento, mnesia: mnesia} = Definition.build_options(@opts)
+    test "separates gsmlg_mnesia and mnesia options" do
+      %{gsmlg_mnesia: gsmlg_mnesia, mnesia: mnesia} = Definition.build_options(@opts)
 
       assert mnesia[:type] == :ordered_set
-      assert memento[:autoincrement] == true
+      assert gsmlg_mnesia[:autoincrement] == true
     end
 
     @opts [attributes: @attrs, index: [:id], type: :bag]
@@ -52,7 +52,7 @@ defmodule GSMLGMnesia.Tests.Table.Definition do
   describe "#merge_options" do
     @existing %{
       mnesia: [type: :ordered_set, index: [:id]],
-      memento: [autoincrement: true]
+      gsmlg_mnesia: [autoincrement: true]
     }
     @new [type: :set, autoincrement: false]
 
@@ -61,26 +61,27 @@ defmodule GSMLGMnesia.Tests.Table.Definition do
     end
 
     test "overrides old options when specified" do
-      assert %{memento: memento, mnesia: mnesia} = Definition.merge_options(@existing, @new)
+      assert %{gsmlg_mnesia: gsmlg_mnesia, mnesia: mnesia} =
+               Definition.merge_options(@existing, @new)
 
-      assert Keyword.get(memento, :autoincrement) == false
+      assert Keyword.get(gsmlg_mnesia, :autoincrement) == false
       assert Keyword.get(mnesia, :type) == :set
       assert Keyword.get(mnesia, :index) == [:id]
     end
   end
 
   describe "#validate_table!" do
-    test "raises error for non memento table modules/terms" do
-      assert_raise(GSMLGMnesia.Error, ~r/is not a memento table/i, fn ->
+    test "raises error for non gsmlg_mnesia table modules/terms" do
+      assert_raise(GSMLGMnesia.Error, ~r/is not a GSMLGMnesia Table/i, fn ->
         Definition.validate_table!(SomeRandomModule)
       end)
 
-      assert_raise(GSMLGMnesia.Error, ~r/is not a memento table/i, fn ->
+      assert_raise(GSMLGMnesia.Error, ~r/is not a GSMLGMnesia Table/i, fn ->
         Definition.validate_table!(1234)
       end)
     end
 
-    test "returns :ok for valid memento tables" do
+    test "returns :ok for valid gsmlg_mnesia tables" do
       defmodule Meta.Simple do
         use GSMLGMnesia.Table, attributes: [:id, :username]
       end

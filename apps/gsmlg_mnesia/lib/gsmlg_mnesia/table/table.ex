@@ -151,7 +151,7 @@ defmodule GSMLGMnesia.Table do
 
     # Validate Options
     type = info.type
-    auto = Keyword.get(opts.memento, :autoincrement, false)
+    auto = Keyword.get(opts.gsmlg_mnesia, :autoincrement, false)
 
     cond do
       # Return error if autoincrement is used without ordered_set

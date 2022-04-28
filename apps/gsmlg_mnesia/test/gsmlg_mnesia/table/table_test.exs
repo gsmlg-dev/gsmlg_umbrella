@@ -78,7 +78,7 @@ defmodule GSMLGMnesia.Tests.Table do
   describe "#create" do
     @table Tables.User
 
-    test "creates an mnesia table from memento definition" do
+    test "creates an mnesia table from gsmlg_mnesia definition" do
       assert :ok = GSMLGMnesia.Table.create(@table)
     end
 
@@ -107,8 +107,8 @@ defmodule GSMLGMnesia.Tests.Table do
       assert message =~ ~r/can only be used with.*ordered.set/i
     end
 
-    test "raises error if module is not a memento table" do
-      assert_raise(GSMLGMnesia.Error, ~r/not a memento table/i, fn ->
+    test "raises error if module is not a gsmlg_mnesia table" do
+      assert_raise(GSMLGMnesia.Error, ~r/not a GSMLGMnesia Table/i, fn ->
         GSMLGMnesia.Table.create(RandomModule)
       end)
     end
@@ -149,13 +149,13 @@ defmodule GSMLGMnesia.Tests.Table do
   describe "#delete" do
     @table Tables.User
 
-    test "raises error if module is not a memento table" do
-      assert_raise(GSMLGMnesia.Error, ~r/not a memento table/i, fn ->
+    test "raises error if module is not a gsmlg_mnesia table" do
+      assert_raise(GSMLGMnesia.Error, ~r/not a GSMLGMnesia Table/i, fn ->
         GSMLGMnesia.Table.delete(RandomModule)
       end)
     end
 
-    test "deletes an mnesia table from memento definition" do
+    test "deletes an mnesia table from gsmlg_mnesia definition" do
       assert {:atomic, :ok} = :mnesia.create_table(@table, [])
       assert :ok = GSMLGMnesia.Table.delete!(@table)
     end
@@ -170,7 +170,7 @@ defmodule GSMLGMnesia.Tests.Table do
   describe "#delete!" do
     @table Tables.User
 
-    test "deletes an mnesia table from memento definition" do
+    test "deletes an mnesia table from gsmlg_mnesia definition" do
       assert {:atomic, :ok} = :mnesia.create_table(@table, [])
       assert :ok = GSMLGMnesia.Table.delete!(@table)
     end
@@ -186,8 +186,8 @@ defmodule GSMLGMnesia.Tests.Table do
 
     setup(do: GSMLGMnesia.Table.create(@table))
 
-    test "raises error if module is not a memento table" do
-      assert_raise(GSMLGMnesia.Error, ~r/not a memento table/i, fn ->
+    test "raises error if module is not a gsmlg_mnesia table" do
+      assert_raise(GSMLGMnesia.Error, ~r/not a GSMLGMnesia Table/i, fn ->
         GSMLGMnesia.Table.info(RandomModule)
       end)
     end
@@ -207,8 +207,8 @@ defmodule GSMLGMnesia.Tests.Table do
 
     setup(do: GSMLGMnesia.Table.create(@table))
 
-    test "raises error if module is not a memento table" do
-      assert_raise(GSMLGMnesia.Error, ~r/not a memento table/i, fn ->
+    test "raises error if module is not a gsmlg_mnesia table" do
+      assert_raise(GSMLGMnesia.Error, ~r/not a GSMLGMnesia Table/i, fn ->
         GSMLGMnesia.Table.clear(RandomModule)
       end)
     end
@@ -264,7 +264,7 @@ defmodule GSMLGMnesia.Tests.Table do
 
       assert is_map(options)
       assert Keyword.keyword?(options.mnesia)
-      assert Keyword.keyword?(options.memento)
+      assert Keyword.keyword?(options.gsmlg_mnesia)
     end
   end
 end

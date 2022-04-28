@@ -22,7 +22,7 @@ defmodule GSMLGMnesia.Tests.Error do
     # test cases for #normalize pass, since all this does is raise the
     # error resolved by that
     @mnesia_code :no_transaction
-    test "raises the correct memento error from mnesia code" do
+    test "raises the correct gsmlg_mnesia error from mnesia code" do
       assert_raise(GSMLGMnesia.NoTransactionError, fn ->
         GSMLGMnesia.Error.raise_from_code(@mnesia_code)
       end)

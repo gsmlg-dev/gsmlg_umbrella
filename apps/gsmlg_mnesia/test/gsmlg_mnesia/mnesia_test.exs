@@ -25,7 +25,7 @@ defmodule GSMLGMnesia.Tests.Mnesia do
 
     @func :schema
     @args []
-    test "re-raises mnesia exits as memento exceptions" do
+    test "re-raises mnesia exits as gsmlg_mnesia exceptions" do
       assert_raise(MnesiaException, ~r/not running/i, fn ->
         Mnesia.call_and_catch(@func, @args)
       end)

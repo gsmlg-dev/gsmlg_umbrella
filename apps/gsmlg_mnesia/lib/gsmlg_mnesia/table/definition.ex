@@ -12,7 +12,7 @@ defmodule GSMLGMnesia.Table.Definition do
   # ----------------
 
   @typedoc "Normalized options of a Table"
-  @type options :: %{memento: Keyword.t(), mnesia: Keyword.t()}
+  @type options :: %{gsmlg_mnesia: Keyword.t(), mnesia: Keyword.t()}
 
   # Helper API
   # ----------
@@ -69,29 +69,29 @@ defmodule GSMLGMnesia.Table.Definition do
   Builds the GSMLGMnesia and Mnesia options for generating
   a Table.
   """
-  @memento_opts [:autoincrement]
+  @gsmlg_mnesia_opts [:autoincrement]
   @spec build_options(Keyword.t()) :: options
   def build_options(opts) do
-    mnesia_opts = Keyword.drop(opts, [:attributes | @memento_opts])
-    memento_opts = Keyword.take(opts, @memento_opts)
+    mnesia_opts = Keyword.drop(opts, [:attributes | @gsmlg_mnesia_opts])
+    gsmlg_mnesia_opts = Keyword.take(opts, @gsmlg_mnesia_opts)
 
     # Return consolidated
     %{
       mnesia: mnesia_opts,
-      memento: memento_opts
+      gsmlg_mnesia: gsmlg_mnesia_opts
     }
   end
 
   @doc "Merges new options in to existing option map"
   @spec merge_options(options, Keyword.t()) :: options
   def merge_options(table_opts, opts) do
-    %{mnesia: old_mnesia, memento: old_memento} = table_opts
-    %{mnesia: new_mnesia, memento: new_memento} = build_options(opts)
+    %{mnesia: old_mnesia, gsmlg_mnesia: old_gsmlg_mnesia} = table_opts
+    %{mnesia: new_mnesia, gsmlg_mnesia: new_gsmlg_mnesia} = build_options(opts)
 
     # Consolidate and Return
     %{
       mnesia: Keyword.merge(old_mnesia, new_mnesia),
-      memento: Keyword.merge(old_memento, new_memento)
+      gsmlg_mnesia: Keyword.merge(old_gsmlg_mnesia, new_gsmlg_mnesia)
     }
   end
 
@@ -153,7 +153,7 @@ defmodule GSMLGMnesia.Table.Definition do
   @doc "Check if Table supports autoincrement"
   @spec has_autoincrement?(GSMLGMnesia.Table.name()) :: boolean
   def has_autoincrement?(table) do
-    opts = table.__info__().options.memento
+    opts = table.__info__().options.gsmlg_mnesia
     Keyword.get(opts, :autoincrement, false)
   end
 
