@@ -14,42 +14,49 @@
       <span class="drawer-title" slot="title">GSMLG</span>
       <span class="drawer-subtitle" slot="subtitle">Best in the World</span>
       <hr slot="subtitle" />
-      <mwc-list>
+      <bx-unordered-list>
+        <bx-list-item>
           <%= wc_live_redirect "Home", to: Routes.page_path(@conn, :index), fullwidth: true %>
-
+        </bx-list-item>
+        <bx-list-item>
           <%= wc_live_redirect "Blog List", to: Routes.blog_index_path(@conn, :index), fullwidth: true %>
-
+        </bx-list-item>
+        <bx-list-item>
           <%= wc_live_redirect "New Blog", to: Routes.blog_modify_path(@conn, :new), fullwidth: true %>
-
+        </bx-list-item>
+        <bx-list-item>
           <%= wc_live_redirect "User List", to: Routes.user_index_path(@conn, :index), fullwidth: true %>
-
+        </bx-list-item>
+        <bx-list-item>
           <%= wc_live_redirect "New user", to: Routes.user_modify_path(@conn, :new), fullwidth: true %>
-
+        </bx-list-item>
+        <bx-list-item>
           <%= wc_live_redirect "User Token List", to: Routes.user_token_index_path(@conn, :index), fullwidth: true %>
-
+        </bx-list-item>
+        <bx-list-item>
           <%= wc_live_redirect "Node Management", to: Routes.node_management_path(@conn, :index), fullwidth: true %>
-
+        </bx-list-item>
+        <bx-list-item>
           <%= if function_exported?(Routes, :live_dashboard_path, 2) do %>
             <%= wc_live_redirect "Live Dashboard", to: Routes.live_dashboard_path(@conn, :home), fullwidth: true %>
           <% end %>
-      </mwc-list>
+        </bx-list-item>
+      </bx-unordered-list>
 
       <.wc_top_app_bar fixed centerTitle slot="appContent" title={@page_title}>
         <mwc-icon-button icon="menu" slot="navigationIcon"></mwc-icon-button>
         <div slot="actionItems">
           <% user = GSMLGWeb.Guardian.Plug.current_resource(@conn); %>
-          <mwc-icon-button icon="account" id="account"></mwc-icon-button>
-          <mwc-menu id="account-menu">
-            <mwc-list-item graphic="avatar">
-              <mwc-icon slot="graphic">account</mwc-icon>
-              <%= unless is_nil(user), do: user.name %>
-            </mwc-list-item>
-            <mwc-list-item>Item 1</mwc-list-item>
-            <mwc-list-item>Item 2</mwc-list-item>
-            <mwc-list-item>
-              <%= wc_link("Sign out", to: Routes.auth_path(@conn, :sign_out), method: :delete, id: "user-sign-out") %>
-            </mwc-list-item>
-          </mwc-menu>
+          <bx-overflow-menu triggerPosition="bl">
+            <bx-overflow-menu-body alignment="end">
+              <bx-overflow-menu-item>
+                <%= unless is_nil(user), do: user.name %>
+              </bx-overflow-menu-item>
+              <bx-overflow-menu-item>
+                <%= wc_link("Sign out", to: Routes.auth_path(@conn, :sign_out), method: :delete, id: "user-sign-out") %>
+              </bx-overflow-menu-item>
+            </bx-overflow-menu-body>
+          </bx-overflow-menu>
         </div>
 
         <div class="main">

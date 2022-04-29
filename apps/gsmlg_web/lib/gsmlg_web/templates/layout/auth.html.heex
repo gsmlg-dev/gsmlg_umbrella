@@ -10,12 +10,12 @@
     <script async phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
   </head>
   <body>
-    <mwc-top-app-bar-fixed centerTitle>
+    <.wc_top_app_bar fixed centerTitle slot="appContent" title={@page_title}>
       <div slot="title"><%= assigns[:page_title] || "GSMLG" %></div>
 
       <div class="main auth-main">
         <%= @inner_content %>
       </div>
-    </mwc-top-app-bar-fixed>
+    </.wc_top_app_bar>
   </body>
 </html>

@@ -1,26 +1,22 @@
 <div class="h1">Listing Blogs</div>
 
-<div class="header">
-  <span><%= wc_live_redirect "New Blog", to: Routes.blog_modify_path(@socket, :new) %></span>
-</div>
-
 <section class="content-table">
-
-  <ui5-table class="demo-table-single" mode="SingleSelect">
-    <ui5-table-column slot="columns">Title</ui5-table-column>
-    <ui5-table-column slot="columns">Date</ui5-table-column>
-    <ui5-table-column slot="columns">Author</ui5-table-column>
-    <ui5-table-column slot="columns"></ui5-table-column>
-    <%= for blog <- @blogs do %>
-    <ui5-table-row>
-      <ui5-table-cell><%= wc_live_redirect "#{blog.title}", to: Routes.blog_show_path(@socket, :show, blog) %></ui5-table-cell>
-      <ui5-table-cell><%= blog.date %></ui5-table-cell>
-      <ui5-table-cell><%= blog.author %></ui5-table-cell>
-      <ui5-table-cell>
-        <span><%= wc_live_redirect "Edit", to: Routes.blog_modify_path(@socket, :edit, blog) %></span>
-        <span><%= wc_link "Delete", to: "#", phx_click: "delete", phx_value_id: blog.id, data: [confirm: "Are you sure?"] %></span>
-      </ui5-table-cell>
-    </ui5-table-row>
-    <% end %>
-  </ui5-table>
+  <%= wc_table(@blogs, [
+    columns: [title: "Title", date: "Create Date", author: "Author", actions__: ""],
+    content_columns: [:title, :actions__],
+    content_functions: [
+      fn(b) ->
+        wc_live_redirect "#{b.title}", to: Routes.blog_show_path(@socket, :show, b)
+      end,
+      fn(b) ->
+        [
+          content_tag(:span, wc_live_redirect("Edit", to: Routes.blog_modify_path(@socket, :edit, b))),
+          content_tag(:span, wc_link("Delete", to: "#", phx_click: "delete", phx_value_id: b.id, data: [confirm: "Are you sure?"]))
+        ]
+      end
+    ],
+    toolbar_actions: [
+      wc_live_redirect("New Blog", to: Routes.blog_modify_path(@socket, :new))
+    ]
+  ]) %>
 </section>

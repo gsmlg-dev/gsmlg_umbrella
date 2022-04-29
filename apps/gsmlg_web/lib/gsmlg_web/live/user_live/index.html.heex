@@ -1,38 +1,22 @@
 <div class="h1">Listing Users</div>
 
-<div class="header">
-  <span><%= wc_live_patch "New User", to: Routes.user_modify_path(@socket, :new) %></span>
-</div>
-
 <section class="content-table">
-  <ui5-table class="demo-table-single" mode="SingleSelect">
-    <ui5-table-column slot="columns">Name</ui5-table-column>
-    <ui5-table-column slot="columns">Email</ui5-table-column>
-    <ui5-table-column slot="columns">Is active</ui5-table-column>
-    <ui5-table-column slot="columns">Portrait</ui5-table-column>
-    <ui5-table-column slot="columns">Google</ui5-table-column>
-    <ui5-table-column slot="columns">Apple</ui5-table-column>
-    <ui5-table-column slot="columns">Github</ui5-table-column>
-    <ui5-table-column slot="columns">Active time</ui5-table-column>
-    <ui5-table-column slot="columns"></ui5-table-column>
-
-    <%= for user <- @users do %>
-      <ui5-table-row>
-        <ui5-table-cell><%= user.name %></ui5-table-cell>
-        <ui5-table-cell><%= user.email %></ui5-table-cell>
-        <ui5-table-cell><%= user.is_active %></ui5-table-cell>
-        <ui5-table-cell><%= user.portrait %></ui5-table-cell>
-        <ui5-table-cell><%= user.google_id %></ui5-table-cell>
-        <ui5-table-cell><%= user.apple_id %></ui5-table-cell>
-        <ui5-table-cell><%= user.github_id %></ui5-table-cell>
-        <ui5-table-cell><%= user.active_time %></ui5-table-cell>
-
-        <ui5-table-cell>
-          <span><%= wc_live_redirect "Show", to: Routes.user_show_path(@socket, :show, user) %></span>
-          <span><%= wc_live_patch "Edit", to: Routes.user_modify_path(@socket, :edit, user) %></span>
-          <span><%= wc_link "Delete", to: "#", phx_click: "delete", phx_value_id: user.id, data: [confirm: "Are you sure?"] %></span>
-        </ui5-table-cell>
-      </ui5-table-row>
-    <% end %>
-  </ui5-table>
+  <%= wc_table(@users, [
+    columns: [name: "Name", email: "email", is_active: "Is Active", portrait: "Portrait", google_id: "Google ID", apple_id: "Apple ID", github_id: "Github ID", active_time: "Active Time", actions__: ""],
+    content_columns: [:name, :actions__],
+    content_functions: [
+      fn(b) ->
+        wc_live_redirect "#{b.name}", to: Routes.user_show_path(@socket, :show, b)
+      end,
+      fn(b) ->
+        [
+          content_tag(:span, wc_live_redirect("Edit", to: Routes.user_modify_path(@socket, :edit, b))),
+          content_tag(:span, wc_link("Delete", to: "#", phx_click: "delete", phx_value_id: b.id, data: [confirm: "Are you sure?"]))
+        ]
+      end
+    ],
+    toolbar_actions: [
+      wc_live_redirect("Add User", to: Routes.user_modify_path(@socket, :new))
+    ]
+  ]) %>
 </section>
