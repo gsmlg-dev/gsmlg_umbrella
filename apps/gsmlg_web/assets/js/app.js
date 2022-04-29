@@ -87,10 +87,10 @@ const forms = document.getElementsByTagName('form');
     f.addEventListener('click', (evt) => {
         const el = evt.srcElement;
         const t = el.getAttribute('type');
-        if (el.tagName === 'MWC-BUTTON' && t === 'submit') {
+        // console.log(evt)
+        // console.log(el, el.tagName, t);
+        if (el.tagName === 'BX-BTN' && t === 'submit') {
             evt.stopPropagation();
-            console.log(evt)
-            console.log(el);
             f.submit();
         }
     });

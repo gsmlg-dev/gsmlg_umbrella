@@ -11,8 +11,6 @@
   </head>
   <body>
     <.wc_top_app_bar fixed centerTitle slot="appContent" title={@page_title}>
-      <div slot="title"><%= assigns[:page_title] || "GSMLG" %></div>
-
       <div class="main auth-main">
         <%= @inner_content %>
       </div>
