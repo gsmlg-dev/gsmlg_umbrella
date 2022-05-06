@@ -1,18 +1,23 @@
-repositoryUrl: https://github.com/gsmlg-dev/gsmlg_umbrella
+repositoryUrl: https://git.gsmlg.net/gsmlg/gsmlg_umbrella.git
 plugins:
   - "@semantic-release/commit-analyzer"
   - "@semantic-release/release-notes-generator"
-  - "@semantic-release/github"
+  - "@semantic-release/changelog"
+  - - "@semantic-release/git"
+    - "assets":
+        - "CHANGELOG.md"
+        - "mix.exs"
   - - "@semantic-release/exec"
-    - "prepareCmd": |-
-        echo ${nextRelease.version} \
-          && sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' mix.exs \
-          && sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg/mix.exs \
-          && sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_socket/mix.exs \
-          && sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_dns/mix.exs \
-          && sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_mnesia/mix.exs \
-          && sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_web/mix.exs
-      "publishCmd": "echo pubhlish gsmlg ${nextRelease.version}"
+    - "prepareCmd": |
+        echo ${nextRelease.version};
+        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' mix.exs;
+        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg/mix.exs;
+        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_socket/mix.exs;
+        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_dns/mix.exs;
+        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_mnesia/mix.exs;
+        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_yellow_dog/mix.exs;
+        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_web/mix.exs;
+      "publishCmd": "echo Publish version ${nextRelease.version}"
 branches:
   - +([0-9])?(.{+([0-9]),x}).x
   - main

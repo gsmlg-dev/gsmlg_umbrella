@@ -17,3 +17,12 @@ steps:
       - mix deps.get --only test
       - mix format --check-formatted
       - mix test
+
+  - name: Release
+    image: gsmlg/phoenix
+    environment:
+      MIX_ENV: prod
+    commands:
+      - mix deps.get --only prod
+      - npm i semantic-release "@semantic-release/changelog" "@semantic-release/git" "@semantic-release/exec"
+      - npx semantic-release
