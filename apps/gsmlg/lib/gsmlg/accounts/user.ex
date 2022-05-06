@@ -53,6 +53,8 @@ defmodule GSMLG.Accounts.User do
       :password
     ])
     |> validate_required([:username, :email, :password])
+    |> validate_format(:email, ~r/@/)
+    |> validate_format(:username, ~r/^[a-zA-Z][a-zA-Z0-9_-]+$/)
     |> put_change(:id, Ecto.UUID.generate())
     |> put_change(:password_salt, Auth.gen_salt())
     |> update_password()
@@ -71,18 +73,33 @@ defmodule GSMLG.Accounts.User do
       :is_2fa_enabled
     ])
     |> match_if_password()
+    |> validate_format(:email, ~r/@/)
   end
 
   defp update_password(
-         %Ecto.Changeset{changes: %{password_salt: salt, password: password}} = changeset
+         %Ecto.Changeset{changes: %{password: password, password_salt: salt}} = changeset
        ) do
-    real_password = :crypto.mac(:hmac, :sha256, salt, password) |> Base.encode16()
-    put_change(changeset, :password, real_password)
+    case changeset.errors do
+      [password: _] ->
+        changeset
+
+      [_] ->
+        changeset
+
+      _ ->
+        real_password = :crypto.mac(:hmac, :sha256, salt, password) |> Base.encode16()
+        put_change(changeset, :password, real_password)
+    end
+  end
+
+  defp update_password(changeset) do
+    changeset
   end
 
   defp match_if_password(changeset) do
     case changeset do
-      %Ecto.Changeset{changes: %{password: password}} when password != "" > 0 ->
+      %Ecto.Changeset{changes: %{password: password, password_salt: salt}}
+      when is_binary(password) and is_binary(salt) and password != "" ->
         update_password(changeset)
 
       _ ->

@@ -166,9 +166,9 @@ defmodule GSMLG.Accounts do
       ** (Ecto.NoResultsError)
 
   """
-  def get_user_token!(id) do
-    query = from(ut in UserToken, where: [jti: ^id])
-    Repo.one(query)
+  def get_user_token!(jti) do
+    query = from(ut in UserToken, where: [jti: ^jti])
+    Repo.one!(query)
   end
 
   @doc """
@@ -203,7 +203,7 @@ defmodule GSMLG.Accounts do
   """
   def update_user_token(%UserToken{} = user_token, attrs) do
     user_token
-    |> UserToken.changeset(attrs)
+    |> UserToken.update_changeset(attrs)
     |> Repo.update()
   end
 

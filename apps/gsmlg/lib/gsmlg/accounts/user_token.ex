@@ -22,4 +22,10 @@ defmodule GSMLG.Accounts.UserToken do
     |> cast(attrs, [:jti, :aud, :typ, :iss, :sub, :exp, :jwt, :claims])
     |> validate_required([:jti, :aud])
   end
+
+  def update_changeset(user_token, attrs) do
+    user_token
+    |> cast(attrs, [:aud, :typ, :iss, :sub, :exp, :jwt, :claims])
+    |> validate_required([:jwt, :iss])
+  end
 end

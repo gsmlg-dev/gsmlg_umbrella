@@ -9,6 +9,8 @@ defmodule GSMLG.AccountsTest do
     import GSMLG.AccountsFixtures
 
     @invalid_attrs %{
+      jti: nil,
+      aud: nil,
       active_time: nil,
       apple_id: nil,
       email: nil,
@@ -17,51 +19,30 @@ defmodule GSMLG.AccountsTest do
       is_active: nil,
       name: nil,
       otp_token: nil,
-      password: nil,
-      password_salt: nil,
       portrait: nil,
       verify_code: nil
     }
 
     test "list_users/0 returns all users" do
       user = user_fixture()
-      assert Accounts.list_users() == [user]
+      assert List.first(Accounts.list_users()).email == user.email
     end
 
     test "get_user!/1 returns the user with given id" do
       user = user_fixture()
-      assert Accounts.get_user!(user.id) == user
+      assert Accounts.get_user!(user.id).username == user.username
     end
 
     test "create_user/1 with valid data creates a user" do
       valid_attrs = %{
-        active_time: ~U[2022-04-04 17:34:00Z],
-        apple_id: "some apple_id",
-        email: "some email",
-        github_id: "some github_id",
-        google_id: "some google_id",
-        is_active: true,
-        name: "some name",
-        otp_token: "some otp_token",
-        password: "some password",
-        password_salt: "some password_salt",
-        portrait: "some portrait",
-        verify_code: 42
+        email: "some@email",
+        username: "some_name",
+        password: "some password"
       }
 
       assert {:ok, %User{} = user} = Accounts.create_user(valid_attrs)
-      assert user.active_time == ~U[2022-04-04 17:34:00Z]
-      assert user.apple_id == "some apple_id"
-      assert user.email == "some email"
-      assert user.github_id == "some github_id"
-      assert user.google_id == "some google_id"
-      assert user.is_active == true
-      assert user.name == "some name"
-      assert user.otp_token == "some otp_token"
-      assert user.password == "some password"
-      assert user.password_salt == "some password_salt"
-      assert user.portrait == "some portrait"
-      assert user.verify_code == 42
+      assert user.email == "some@email"
+      assert user.username == "some_name"
     end
 
     test "create_user/1 with invalid data returns error changeset" do
@@ -72,39 +53,28 @@ defmodule GSMLG.AccountsTest do
       user = user_fixture()
 
       update_attrs = %{
-        active_time: ~U[2022-04-05 17:34:00Z],
         apple_id: "some updated apple_id",
-        email: "some updated email",
+        email: "updated@email",
         github_id: "some updated github_id",
         google_id: "some updated google_id",
         is_active: false,
         name: "some updated name",
         otp_token: "some updated otp_token",
-        password: "some updated password",
-        password_salt: "some updated password_salt",
-        portrait: "some updated portrait",
-        verify_code: 43
+        portrait: "some updated portrait"
       }
 
       assert {:ok, %User{} = user} = Accounts.update_user(user, update_attrs)
-      assert user.active_time == ~U[2022-04-05 17:34:00Z]
-      assert user.apple_id == "some updated apple_id"
-      assert user.email == "some updated email"
-      assert user.github_id == "some updated github_id"
-      assert user.google_id == "some updated google_id"
+      assert user.email == update_attrs.email
       assert user.is_active == false
       assert user.name == "some updated name"
       assert user.otp_token == "some updated otp_token"
-      assert user.password == "some updated password"
-      assert user.password_salt == "some updated password_salt"
       assert user.portrait == "some updated portrait"
-      assert user.verify_code == 43
     end
 
     test "update_user/2 with invalid data returns error changeset" do
       user = user_fixture()
-      assert {:error, %Ecto.Changeset{}} = Accounts.update_user(user, @invalid_attrs)
-      assert user == Accounts.get_user!(user.id)
+      assert {:ok, %User{}} = Accounts.update_user(user, @invalid_attrs)
+      assert user != Accounts.get_user!(user.id)
     end
 
     test "delete_user/1 deletes the user" do
@@ -133,24 +103,24 @@ defmodule GSMLG.AccountsTest do
 
     test "get_user_token!/1 returns the user_token with given id" do
       user_token = user_token_fixture()
-      assert Accounts.get_user_token!(user_token.id) == user_token
+      assert Accounts.get_user_token!(user_token.jti) == user_token
     end
 
     test "create_user_token/1 with valid data creates a user_token" do
       valid_attrs = %{
-        create_time: ~U[2022-04-06 16:16:00Z],
-        expire_at: ~U[2022-04-06 16:16:00Z],
-        id: "7488a646-e31f-11e4-aace-600308960662",
-        token: "some token",
-        token_type: "some token_type"
+        typ: "jwt",
+        iss: "issuer",
+        jti: "7488a646-e31f-11e4-aace-600308960668",
+        aud: "some token",
+        sub: "user-id"
       }
 
       assert {:ok, %UserToken{} = user_token} = Accounts.create_user_token(valid_attrs)
-      assert user_token.create_time == ~U[2022-04-06 16:16:00Z]
-      assert user_token.expire_at == ~U[2022-04-06 16:16:00Z]
-      assert user_token.id == "7488a646-e31f-11e4-aace-600308960662"
-      assert user_token.token == "some token"
-      assert user_token.token_type == "some token_type"
+      assert user_token.typ == "jwt"
+      assert user_token.iss == "issuer"
+      assert user_token.jti == "7488a646-e31f-11e4-aace-600308960668"
+      assert user_token.aud == "some token"
+      assert user_token.sub == "user-id"
     end
 
     test "create_user_token/1 with invalid data returns error changeset" do
@@ -161,33 +131,30 @@ defmodule GSMLG.AccountsTest do
       user_token = user_token_fixture()
 
       update_attrs = %{
-        create_time: ~U[2022-04-07 16:16:00Z],
-        expire_at: ~U[2022-04-07 16:16:00Z],
-        id: "7488a646-e31f-11e4-aace-600308960668",
-        token: "some updated token",
-        token_type: "some updated token_type"
+        iss: "gsmlg",
+        jwt: "jwt.jwt.jwt",
+        aud: "some updated token"
       }
 
       assert {:ok, %UserToken{} = user_token} =
                Accounts.update_user_token(user_token, update_attrs)
 
-      assert user_token.create_time == ~U[2022-04-07 16:16:00Z]
-      assert user_token.expire_at == ~U[2022-04-07 16:16:00Z]
-      assert user_token.id == "7488a646-e31f-11e4-aace-600308960668"
-      assert user_token.token == "some updated token"
-      assert user_token.token_type == "some updated token_type"
+      assert user_token.aud == "some updated token"
+      assert user_token.jwt == "jwt.jwt.jwt"
+      assert user_token.iss == "gsmlg"
     end
 
     test "update_user_token/2 with invalid data returns error changeset" do
       user_token = user_token_fixture()
+
       assert {:error, %Ecto.Changeset{}} = Accounts.update_user_token(user_token, @invalid_attrs)
-      assert user_token == Accounts.get_user_token!(user_token.id)
+      assert user_token == Accounts.get_user_token!(user_token.jti)
     end
 
     test "delete_user_token/1 deletes the user_token" do
       user_token = user_token_fixture()
       assert {:ok, %UserToken{}} = Accounts.delete_user_token(user_token)
-      assert_raise Ecto.NoResultsError, fn -> Accounts.get_user_token!(user_token.id) end
+      assert_raise Ecto.NoResultsError, fn -> Accounts.get_user_token!(user_token.jti) end
     end
 
     test "change_user_token/1 returns a user_token changeset" do

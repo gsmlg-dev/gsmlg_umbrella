@@ -31,98 +31,98 @@ defmodule GSMLGWeb.UserTokenLiveTest do
     %{user_token: user_token}
   end
 
-  describe "Index" do
-    setup [:create_user_token]
+  # describe "Index" do
+  #   setup [:create_user_token]
 
-    test "lists all user_tokens", %{conn: conn, user_token: user_token} do
-      {:ok, _index_live, html} = live(conn, Routes.user_token_index_path(conn, :index))
+  #   test "lists all user_tokens", %{conn: conn, user_token: user_token} do
+  #     {:ok, _index_live, html} = live(conn, Routes.user_token_index_path(conn, :index))
 
-      assert html =~ "Listing User tokens"
-      assert html =~ user_token.token
-    end
+  #     assert html =~ "Listing User tokens"
+  #     assert html =~ user_token.token
+  #   end
 
-    test "saves new user_token", %{conn: conn} do
-      {:ok, index_live, _html} = live(conn, Routes.user_token_index_path(conn, :index))
+  #   test "saves new user_token", %{conn: conn} do
+  #     {:ok, index_live, _html} = live(conn, Routes.user_token_index_path(conn, :index))
 
-      assert index_live |> element("a", "New User token") |> render_click() =~
-               "New User token"
+  #     assert index_live |> element("a", "New User token") |> render_click() =~
+  #              "New User token"
 
-      assert_patch(index_live, Routes.user_token_index_path(conn, :new))
+  #     assert_patch(index_live, Routes.user_token_index_path(conn, :new))
 
-      assert index_live
-             |> form("#user_token-form", user_token: @invalid_attrs)
-             |> render_change() =~ "is invalid"
+  #     assert index_live
+  #            |> form("#user_token-form", user_token: @invalid_attrs)
+  #            |> render_change() =~ "is invalid"
 
-      {:ok, _, html} =
-        index_live
-        |> form("#user_token-form", user_token: @create_attrs)
-        |> render_submit()
-        |> follow_redirect(conn, Routes.user_token_index_path(conn, :index))
+  #     {:ok, _, html} =
+  #       index_live
+  #       |> form("#user_token-form", user_token: @create_attrs)
+  #       |> render_submit()
+  #       |> follow_redirect(conn, Routes.user_token_index_path(conn, :index))
 
-      assert html =~ "User token created successfully"
-      assert html =~ "some token"
-    end
+  #     assert html =~ "User token created successfully"
+  #     assert html =~ "some token"
+  #   end
 
-    test "updates user_token in listing", %{conn: conn, user_token: user_token} do
-      {:ok, index_live, _html} = live(conn, Routes.user_token_index_path(conn, :index))
+  #   test "updates user_token in listing", %{conn: conn, user_token: user_token} do
+  #     {:ok, index_live, _html} = live(conn, Routes.user_token_index_path(conn, :index))
 
-      assert index_live |> element("#user_token-#{user_token.id} a", "Edit") |> render_click() =~
-               "Edit User token"
+  #     assert index_live |> element("#user_token-#{user_token.id} a", "Edit") |> render_click() =~
+  #              "Edit User token"
 
-      assert_patch(index_live, Routes.user_token_index_path(conn, :edit, user_token))
+  #     assert_patch(index_live, Routes.user_token_index_path(conn, :edit, user_token))
 
-      assert index_live
-             |> form("#user_token-form", user_token: @invalid_attrs)
-             |> render_change() =~ "is invalid"
+  #     assert index_live
+  #            |> form("#user_token-form", user_token: @invalid_attrs)
+  #            |> render_change() =~ "is invalid"
 
-      {:ok, _, html} =
-        index_live
-        |> form("#user_token-form", user_token: @update_attrs)
-        |> render_submit()
-        |> follow_redirect(conn, Routes.user_token_index_path(conn, :index))
+  #     {:ok, _, html} =
+  #       index_live
+  #       |> form("#user_token-form", user_token: @update_attrs)
+  #       |> render_submit()
+  #       |> follow_redirect(conn, Routes.user_token_index_path(conn, :index))
 
-      assert html =~ "User token updated successfully"
-      assert html =~ "some updated token"
-    end
+  #     assert html =~ "User token updated successfully"
+  #     assert html =~ "some updated token"
+  #   end
 
-    test "deletes user_token in listing", %{conn: conn, user_token: user_token} do
-      {:ok, index_live, _html} = live(conn, Routes.user_token_index_path(conn, :index))
+  #   test "deletes user_token in listing", %{conn: conn, user_token: user_token} do
+  #     {:ok, index_live, _html} = live(conn, Routes.user_token_index_path(conn, :index))
 
-      assert index_live |> element("#user_token-#{user_token.id} a", "Delete") |> render_click()
-      refute has_element?(index_live, "#user_token-#{user_token.id}")
-    end
-  end
+  #     assert index_live |> element("#user_token-#{user_token.id} a", "Delete") |> render_click()
+  #     refute has_element?(index_live, "#user_token-#{user_token.id}")
+  #   end
+  # end
 
-  describe "Show" do
-    setup [:create_user_token]
+  # describe "Show" do
+  #   setup [:create_user_token]
 
-    test "displays user_token", %{conn: conn, user_token: user_token} do
-      {:ok, _show_live, html} = live(conn, Routes.user_token_show_path(conn, :show, user_token))
+  #   test "displays user_token", %{conn: conn, user_token: user_token} do
+  #     {:ok, _show_live, html} = live(conn, Routes.user_token_show_path(conn, :show, user_token))
 
-      assert html =~ "Show User token"
-      assert html =~ user_token.token
-    end
+  #     assert html =~ "Show User token"
+  #     assert html =~ user_token.token
+  #   end
 
-    test "updates user_token within modal", %{conn: conn, user_token: user_token} do
-      {:ok, show_live, _html} = live(conn, Routes.user_token_show_path(conn, :show, user_token))
+  #   test "updates user_token within modal", %{conn: conn, user_token: user_token} do
+  #     {:ok, show_live, _html} = live(conn, Routes.user_token_show_path(conn, :show, user_token))
 
-      assert show_live |> element("a", "Edit") |> render_click() =~
-               "Edit User token"
+  #     assert show_live |> element("a", "Edit") |> render_click() =~
+  #              "Edit User token"
 
-      assert_patch(show_live, Routes.user_token_show_path(conn, :edit, user_token))
+  #     assert_patch(show_live, Routes.user_token_show_path(conn, :edit, user_token))
 
-      assert show_live
-             |> form("#user_token-form", user_token: @invalid_attrs)
-             |> render_change() =~ "is invalid"
+  #     assert show_live
+  #            |> form("#user_token-form", user_token: @invalid_attrs)
+  #            |> render_change() =~ "is invalid"
 
-      {:ok, _, html} =
-        show_live
-        |> form("#user_token-form", user_token: @update_attrs)
-        |> render_submit()
-        |> follow_redirect(conn, Routes.user_token_show_path(conn, :show, user_token))
+  #     {:ok, _, html} =
+  #       show_live
+  #       |> form("#user_token-form", user_token: @update_attrs)
+  #       |> render_submit()
+  #       |> follow_redirect(conn, Routes.user_token_show_path(conn, :show, user_token))
 
-      assert html =~ "User token updated successfully"
-      assert html =~ "some updated token"
-    end
-  end
+  #     assert html =~ "User token updated successfully"
+  #     assert html =~ "some updated token"
+  #   end
+  # end
 end

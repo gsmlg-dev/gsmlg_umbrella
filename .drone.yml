@@ -1,0 +1,19 @@
+---
+kind: pipeline
+type: docker
+name: Release
+
+steps:
+  - name: Fetch
+    image: alpine/git
+    commands:
+      - git fetch --tags
+
+  - name: Validate and Test
+    image: gsmlg/phoenix
+    environment:
+      MIX_ENV: test
+    commands:
+      - mix deps.get --only test
+      - mix format --check-formatted
+      - mix test
