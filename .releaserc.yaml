@@ -8,7 +8,7 @@ plugins:
         - "CHANGELOG.md"
         - "mix.exs"
         - "apps/*/mix.exs"
-    - "message": |
+      "message": |
         chore(release): ${nextRelease.version} [skip ci] [ci skip]
 
         ${nextRelease.notes}
