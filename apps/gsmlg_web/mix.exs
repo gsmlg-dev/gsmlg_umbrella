@@ -54,7 +54,6 @@ defmodule GSMLGWeb.MixProject do
       {:swoosh, "~> 1.3"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
-      {:earmark, ">= 1.4.15"},
       {:guardian, "~> 2.0"},
       {:guardian_phoenix, "~> 2.0"},
       {:guardian_db, "~> 2.0"},
