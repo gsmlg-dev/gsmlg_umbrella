@@ -24,7 +24,7 @@ defmodule GSMLGYellowDog.Server do
     #     unicast_response: false
     #   }]
     # }
-    Logger.info(fn -> "#{inspect(record)}" end)
+    # Logger.info(fn -> "#{inspect(record)}" end)
     query = hd(record.qdlist)
     # query: %GSMLGDNS.Query{class: :in, domain: 'zdns.cn', type: :a, unicast_response: false}
     Logger.info(fn -> "Query: #{inspect(query)}" end)

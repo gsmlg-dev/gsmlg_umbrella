@@ -6,10 +6,8 @@ defmodule GSMLGYellowDog.Application do
 
   @impl true
   def start(_type, _args) do
-    # IO.inspect(_type, _args)
     config = Application.get_env(:gsmlg_yellow_dog, GSMLGYellowDog.Server)
-    port = Keyword.get(config, :port, 53)
-    IO.inspect(config)
+    port = Keyword.get(config, :port, 5353)
 
     children = [
       {GSMLGYellowDog.Server, [name: GSMLGYellowDog.Server, port: port]}
