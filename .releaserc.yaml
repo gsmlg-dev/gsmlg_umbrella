@@ -7,6 +7,7 @@ plugins:
     - "assets":
         - "CHANGELOG.md"
         - "mix.exs"
+        - "apps/*/mix.exs"
   - - "@semantic-release/exec"
     - "prepareCmd": |
         echo ${nextRelease.version};
