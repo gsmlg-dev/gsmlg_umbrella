@@ -40,6 +40,9 @@ steps:
 
   - name: Publish
     image: plugins/docker
+    environment:
+      HEX_MIRROR: "https://nexus.gsmlg.net/repository/hex-pm/"
+      NPM_CONFIG_REGISTRY: "https://nexus.gsmlg.net/repository/npm-org/"
     settings:
       repo: docker.io/gsmlg/gsmlg.org
       username:
@@ -48,6 +51,6 @@ steps:
         from_secret: DOCKERHUB_PASSWORD
       build_args_from_env:
         - RELEASE_VERSION
-    commands:
-      - source .env
-      - /usr/local/bin/dockerd-entrypoint.sh /bin/drone-docker
+        - WEB_VERSION
+        - HEX_MIRROR
+        - NPM_CONFIG_REGISTRY

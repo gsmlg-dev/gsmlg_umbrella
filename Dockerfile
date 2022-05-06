@@ -5,11 +5,15 @@ ARG NAME=gsmlg
 ARG RELEASE_VERSION=0.1.0
 ARG WEB_VERSION=1.39.0
 
+ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
+ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm/
+
 COPY . /build
 
 WORKDIR /build
 
-RUN apk update && apk add curl jq git npm \
+RUN apk update && apk add curl git npm \
+    && test -f .env && source .env || echo env \
     && mix do deps.get, compile \
     && cd apps/gsmlg_web && npm install --prefix assets && mix assets.deploy && cd ../.. \
     && curl -Lf "https://registry.npmjs.org/@gsmlg/website/-/website-${WEB_VERSION}.tgz" -o website.tgz \
