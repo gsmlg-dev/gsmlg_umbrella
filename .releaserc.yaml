@@ -15,6 +15,7 @@ plugins:
   - - "@semantic-release/exec"
     - "prepareCmd": |
         echo ${nextRelease.version};
+        touch .env;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg/mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_socket/mix.exs;
@@ -23,8 +24,12 @@ plugins:
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_yellow_dog/mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_web/mix.exs;
       "publishCmd": |
-        echo "latest" > .tags;
-        test -z "${nextRelease.version}" || echo "v${nextRelease.version}" >> .tags;
+        echo -n "latest" > .tags;
+        if [[ "${nextRelease.version}" != "" ]];
+        then
+          echo -n ",v${nextRelease.version}" >> .tags;
+          echo "RELEASE_VERSION=${nextRelease.version}" >> .env;
+        fi
 branches:
   - +([0-9])?(.{+([0-9]),x}).x
   - main

@@ -2,7 +2,7 @@ name: elixir-gsmlg-build-and-release
 on:
   push:
     branches:
-      - "main"
+      - diabled
 jobs:
   release:
     name: Create semantic release
@@ -89,7 +89,7 @@ jobs:
         env:
           MIX_ENV: prod
           RELEASE_NAME: gsmlg_umbrella
-          RELEASE_VSN: ${{ needs.release.outputs.version }}
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
         run: ./build.sh
 
       - name: ⬆️ Upload binaries to release
@@ -125,7 +125,7 @@ jobs:
         env:
           MIX_ENV: prod
           RELEASE_NAME: gsmlg_umbrella
-          RELEASE_VSN: ${{ needs.release.outputs.version }}
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
         run: ./build.sh
 
       - name: ⬆️ Upload binaries to release

@@ -3,6 +3,10 @@ kind: pipeline
 type: docker
 name: Release
 
+trigger:
+  branch:
+    - main
+
 steps:
   - name: Fetch
     image: alpine/git
@@ -36,3 +40,7 @@ steps:
         from_secret: DOCKERHUB_USERNAME
       password:
         from_secret: DOCKERHUB_PASSWORD
+      build_args_from_env:
+        - RELEASE_VERSION
+    commands:
+      - source .env
