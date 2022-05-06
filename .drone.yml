@@ -12,7 +12,7 @@ steps:
     image: alpine/git
     commands:
       - git fetch --tags
-      - echo "RELEASE_VERSION=$(git describe --tags --abbrev=0 | cut -c 2-)" >> .env;
+      - echo "RELEASE_VERSION=$(git describe --tags --abbrev=0 | cut -c 2-)" | tee -a .env;
 
   - name: Validate and Test
     image: gsmlg/phoenix
@@ -33,6 +33,11 @@ steps:
     commands:
       - semantic-release
 
+  - name: Set web version
+    image: gsmlg/curl
+    commands:
+      - echo WEB_VERSION=$(curl -s https://registry.npmjs.org/@gsmlg/website | jq -r '.["dist-tags"].latest') | tee -a .env
+
   - name: Publish
     image: plugins/docker
     settings:
@@ -45,3 +50,4 @@ steps:
         - RELEASE_VERSION
     commands:
       - source .env
+      - /usr/local/bin/dockerd-entrypoint.sh /bin/drone-docker
