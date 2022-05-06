@@ -21,7 +21,9 @@ steps:
   - name: Release
     image: node:lts-alpine
     environment:
+      NPM_CONFIG_REGISTRY: "https://nexus.gsmlg.net/repository/npm-org/"
       MIX_ENV: prod
     commands:
+      - apk add git
       - npm i semantic-release "@semantic-release/changelog" "@semantic-release/git" "@semantic-release/exec"
       - npx semantic-release
