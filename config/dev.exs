@@ -63,6 +63,10 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
         ~r"lib/gsmlg_web/(live|views)/.*(ex)$",
         ~r"lib/gsmlg_web/templates/.*(eex)$"
       ] ++
+        [
+          ~r"lib/gsmlg_yellow_dog/.*(ex)$",
+          ~r"lib/gsmlg/.*(ex)$"
+        ] ++
         if(System.get_env("WEBCOMPONENT_PATH"),
           do: [~r"#{System.get_env("WEBCOMPONENT_PATH")}/lib/.*(ex)$"],
           else: []
@@ -78,3 +82,5 @@ config :phoenix, :plug_init_mode, :runtime
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20
+
+config :gsmlg_yellow_dog, GSMLGYellowDog.Server, port: 5353

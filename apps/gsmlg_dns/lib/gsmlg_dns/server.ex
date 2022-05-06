@@ -16,13 +16,13 @@ defmodule GSMLGDNS.Server do
 
       * `:port` - set the port number for the server
       """
-      def start_link(port) do
-        GenServer.start_link(__MODULE__, [port])
+      def start_link(name: name, port: port) do
+        GenServer.start_link(name, [port])
       end
 
       def init([port]) do
         socket = GSMLGSocket.UDP.open!(port, as: :binary, mode: :active)
-        IO.puts("Server listening at #{port}")
+        IO.puts("DNS Server listening at #{port}")
 
         # accept_loop(socket, handler)
         {:ok, %{port: port, socket: socket}}
