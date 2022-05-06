@@ -12,6 +12,8 @@ steps:
   - name: Validate and Test
     image: gsmlg/phoenix
     environment:
+      HEX_MIRROR: "https://nexus.gsmlg.net/repository/hex-pm/"
+      HEX_CDN: "https://nexus.gsmlg.net/repository/hex-pm/"
       MIX_ENV: test
     commands:
       - mix deps.get --only test
@@ -19,11 +21,18 @@ steps:
       - mix test
 
   - name: Release
-    image: node:lts-alpine
+    image: gsmlg/semantic-release
     environment:
       NPM_CONFIG_REGISTRY: "https://nexus.gsmlg.net/repository/npm-org/"
       MIX_ENV: prod
     commands:
-      - apk add git
-      - npm i semantic-release "@semantic-release/changelog" "@semantic-release/git" "@semantic-release/exec"
-      - npx semantic-release
+      - semantic-release
+
+  - name: Publish
+    image: plugins/docker
+    settings:
+      repo: docker.io/gsmlg/gsmlg.org
+      username:
+        from_secret: DOCKERHUB_USERNAME
+      password:
+        from_secret: DOCKERHUB_PASSWORD

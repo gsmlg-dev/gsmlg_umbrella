@@ -8,6 +8,10 @@ plugins:
         - "CHANGELOG.md"
         - "mix.exs"
         - "apps/*/mix.exs"
+    - "message": |
+        chore(release): ${nextRelease.version} [skip ci] [ci skip]
+
+        ${nextRelease.notes}
   - - "@semantic-release/exec"
     - "prepareCmd": |
         echo ${nextRelease.version};
@@ -18,7 +22,9 @@ plugins:
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_mnesia/mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_yellow_dog/mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_web/mix.exs;
-      "publishCmd": "echo Publish version ${nextRelease.version}"
+      "publishCmd": |
+        echo "latest" > .tags;
+        test -z "${nextRelease.version}" || echo "v${nextRelease.version}" >> .tags;
 branches:
   - +([0-9])?(.{+([0-9]),x}).x
   - main
