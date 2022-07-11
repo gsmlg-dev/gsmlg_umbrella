@@ -30,18 +30,30 @@ defmodule GSMLGYellowDog.Server do
     Logger.info(fn -> "Query: #{inspect(query)}" end)
 
     case GSMLGYellowDog.Zone.findByDomain(query.domain, query.type) do
-      {:ok, resourcs} ->
+      {:noerror, resourcs} ->
         %{
           record
-          | header: %{record.header | qr: true, ra: false, aa: true},
+          | header: %{
+              record.header
+              | qr: true,
+                ra: false,
+                aa: true,
+                rcode: GSMLGYellowDog.RCode.to_code(:noerror)
+            },
             anlist: resourcs,
             arlist: []
         }
 
-      {:nxdomain} ->
+      {:refused} ->
         %{
           record
-          | header: %{record.header | qr: true, ra: false, aa: true, rcode: 3},
+          | header: %{
+              record.header
+              | qr: true,
+                ra: false,
+                aa: true,
+                rcode: GSMLGYellowDog.RCode.to_code(:refused)
+            },
             anlist: [],
             arlist: []
         }

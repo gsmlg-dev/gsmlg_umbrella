@@ -10,7 +10,9 @@ defmodule GSMLGYellowDog.Application do
     port = Keyword.get(config, :port, 5353)
 
     children = [
-      {GSMLGYellowDog.Server, [name: GSMLGYellowDog.Server, port: port]}
+      {GSMLGYellowDog.Server, [name: GSMLGYellowDog.Server, port: port]},
+      {GSMLGYellowDog.Zone.Registry, []},
+      {GSMLGYellowDog.Zone.Supervisor, []}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: GSMLGYellowDog.Supervisor)

@@ -1,40 +1,23 @@
 defmodule GSMLGYellowDog.Zone do
   @moduledoc """
-  Example implementing GSMLGDNS.Zone behaviour
+  GSMLGYellowDog.Zone
   """
-  def getZone(domain) do
-  end
 
-  def findByDomain(domain, type) do
-    list = domain |> to_string |> String.split(".") |> Enum.reverse()
+  def findByDomain(domain, _type) do
+    {:ok, zones} = GSMLGYellowDog.Zone.Registry.get_zones()
 
-    case list do
-      ["tld", "sld" | rest] ->
-        r = %GSMLGDNS.Resource{
-          domain: domain,
-          type: type,
-          ttl: 0,
-          data: {1, 2, 3, 4}
-        }
+    zone =
+      Enum.find(zones, fn {name, _} ->
+        name == domain || String.ends_with?(domain, ".#{name}")
+      end)
 
-        if type == :a do
-          {:ok, [r]}
-        else
-          {:ok, []}
-        end
+    case zone do
+      nil ->
+        {:refused}
 
-      ["com", "gsmlg" | rest] ->
-        r = %GSMLGDNS.Resource{
-          domain: domain,
-          type: type,
-          ttl: 0,
-          data: {1, 2, 3, 4}
-        }
-
-        {:ok, [r]}
-
-      _ ->
-        {:nxdomain}
+      zone when is_binary(zone) ->
+        rrs = []
+        {:noerror, rrs}
     end
   end
 end
