@@ -1,3 +1,11 @@
+# [3.19.0](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/compare/v3.18.0...v3.19.0) (2022-07-31)
+
+
+### Features
+
+* Remove DNS to gsmlg-dev/YellowDogDNS. ([7ee2b5e](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/commit/7ee2b5eefa52d72d6960890b850fadc5aa715b21))
+* Update website to version 1.41.2. ([9d38d13](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/commit/9d38d130135bbf1dc485765dc03e99e43719b3c5))
+
 # [3.18.0](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/compare/v3.17.3...v3.18.0) (2022-07-11)
 
 
