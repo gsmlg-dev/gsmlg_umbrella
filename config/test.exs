@@ -27,5 +27,3 @@ config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
-
-config :gsmlg_yellow_dog, GSMLGYellowDog.Server, port: 4053

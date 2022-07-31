@@ -11,13 +11,9 @@ defmodule GSMLG.Umbrella.MixProject do
       releases: [
         gsmlg_umbrella: [
           applications: [
-            gsmlg_yellow_dog: :permanent,
             gsmlg: :permanent,
             gsmlg_web: :permanent
           ]
-        ],
-        gsmlg_yellow_dog: [
-          applications: [gsmlg_yellow_dog: :permanent]
         ],
         gsmlg_web_only: [
           applications: [gsmlg_web: :permanent]

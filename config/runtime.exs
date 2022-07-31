@@ -51,9 +51,6 @@ if config_env() == :prod do
 
   config :gsmlg_web, GSMLGWeb.Endpoint, user_register: System.get_env("USER_REGISTER") == "on"
 
-  config :gsmlg_yellow_dog, GSMLGYellowDog.Server,
-    port: String.to_integer(System.get_env("DNS_PORT", "53"))
-
   # Then you can assemble a release by calling `mix release`.
   # See `mix help release` for more information.
 
