@@ -3,7 +3,7 @@ FROM gsmlg/phoenix:alpine AS builder
 ARG MIX_ENV=prod
 ARG NAME=gsmlg
 ARG RELEASE_VERSION=0.1.0
-ARG WEB_VERSION=1.41.1
+ARG WEB_VERSION=1.41.2
 
 ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm/
