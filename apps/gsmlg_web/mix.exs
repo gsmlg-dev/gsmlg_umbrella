@@ -42,7 +42,7 @@ defmodule GSMLGWeb.MixProject do
       {:phoenix_html, "~> 3.2.0"},
       {:phoenix_live_reload, "~> 1.3.0", only: :dev},
       {:phoenix_live_view, "~> 0.17.0"},
-      {:phoenix_webcomponent, "~> 1.0"},
+      {:phoenix_webcomponent, "~> 1.6.0"},
       {:floki, ">= 0.32.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.6.0"},
       {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
