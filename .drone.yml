@@ -6,6 +6,8 @@ name: Release
 trigger:
   branch:
     - main
+  event:
+    - push
 
 steps:
   - name: Fetch
