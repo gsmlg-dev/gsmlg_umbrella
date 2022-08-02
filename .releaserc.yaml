@@ -18,9 +18,7 @@ plugins:
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg/mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_socket/mix.exs;
-        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_dns/mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_mnesia/mix.exs;
-        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_yellow_dog/mix.exs;
         sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_web/mix.exs;
       "publishCmd": |
         echo -n "latest" > .tags;
