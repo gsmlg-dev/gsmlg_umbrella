@@ -22,10 +22,7 @@
     <%= wc_password_input f, :password %>
     </div>
     <div class="form-group">
-    <%= wc_switch f, :is_active, "checked-text": "Active", "unchecked-text": "Inactive" %>
-    </div>
-    <div class="form-group">
-    <%= wc_switch f, :is_2fa_enabled, "checked-text": "On", "unchecked-text": "Off" %>
+    <%= wc_switch f, :is_2fa_enabled %>
     </div>
     <div class="form-group">
       <%= wc_submit "Save", phx_disable_with: "Saving..." %>

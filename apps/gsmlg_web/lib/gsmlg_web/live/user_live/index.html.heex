@@ -2,7 +2,7 @@
 
 <section class="content-table">
   <%= wc_table(@users, [
-    columns: [name: "Name", email: "email", is_active: "Is Active", portrait: "Portrait", google_id: "Google ID", apple_id: "Apple ID", github_id: "Github ID", active_time: "Active Time", actions__: ""],
+    columns: [name: "Name", username: "Username", email: "email", is_active: "Is Active", portrait: "Portrait", google_id: "Google ID", apple_id: "Apple ID", github_id: "Github ID", active_time: "Active Time", actions__: ""],
     content_columns: [:name, :actions__],
     content_functions: [
       fn(b) ->
