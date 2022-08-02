@@ -1,3 +1,10 @@
+## [3.19.1](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/compare/v3.19.0...v3.19.1) (2022-08-01)
+
+
+### Bug Fixes
+
+* Update deps. ([ab81016](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/commit/ab81016a53d6d433a3d03aaf13cf68d7eb7c2f99))
+
 # [3.19.0](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/compare/v3.18.0...v3.19.0) (2022-07-31)
 
 
