@@ -1,3 +1,10 @@
+## [3.19.2](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/compare/v3.19.1...v3.19.2) (2022-08-02)
+
+
+### Bug Fixes
+
+* Fix user modify form. ([a5f70a8](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/commit/a5f70a89d01539e9c2bad72372e0fe05c436740b))
+
 ## [3.19.1](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/compare/v3.19.0...v3.19.1) (2022-08-01)
 
 
