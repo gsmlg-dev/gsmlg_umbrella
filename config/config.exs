@@ -80,6 +80,10 @@ config :mnesia,
   # Notice the single quotes
   dir: Path.expand("../apps/gsmlg_mnesia/priv/mnesia/#{Mix.env()}", __DIR__)
 
+config :amqp,
+  connections: [],
+  channels: []
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

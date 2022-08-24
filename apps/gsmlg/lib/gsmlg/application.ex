@@ -77,7 +77,8 @@ defmodule GSMLG.Application do
                Horde.DynamicSupervisor.start_child(GSMLG.GSMLGSupervisor, GSMLG.Node.Others)
              end
            ]}
-      }
+      },
+      {GSMLG.AMQP.Supervisor, name: GSMLG.AMQP.Supervisor}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Supervisor)
