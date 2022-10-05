@@ -49,3 +49,7 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
 
 # Do not print debug messages in production
 config :logger, level: :info
+
+# CouchDB Server Connection, maybe use https in procution
+config :gsmlg_couchdb, GSMLG_CouchDB.Connection,
+  scheme: :http

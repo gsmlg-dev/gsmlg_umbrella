@@ -71,4 +71,13 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Hackney
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+
+  # CouchDB Server Connection
+  if System.get_env("COUCH_HOST") do
+    config :gsmlg_couchdb, GSMLG_CouchDB.Connection,
+      host: System.get_env("COUCH_HOST"),
+      port: System.get_env("COUCH_PORT") |> String.to_integer(),
+      username: System.get_env("COUCH_USER"),
+      password: System.get_env("COUCH_PASS")
+  end
 end

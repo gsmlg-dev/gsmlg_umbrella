@@ -90,3 +90,9 @@ config :amqp,
   channels: [
     # mychan: [connection: :myconn]
   ]
+
+config :gsmlg_couchdb, GSMLG_CouchDB.Connection,
+  host: "127.0.0.1",
+  port: 5984,
+  username: System.get_env("COUCH_USER", "couch_user"),
+  password: System.get_env("COUCH_PASS", "couch_pass")
