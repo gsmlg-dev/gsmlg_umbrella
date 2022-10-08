@@ -19,12 +19,12 @@ defmodule GSMLG_CouchDB.Connection do
     GenServer.start_link(__MODULE__, {scheme, host, port, username, password}, name: __MODULE__)
   end
 
-  def request(method, path, headers, body) do
-    GenServer.call(__MODULE__, {:request, method, path, headers, body})
+  def get_state() do
+    GenServer.call(__MODULE__, {:get_state})
   end
 
-  def request(method, path, body) when is_binary(body) do
-    GenServer.call(__MODULE__, {:request, method, path, [], body})
+  def request(method, path) do
+    GenServer.call(__MODULE__, {:request, method, path, [], ""})
   end
 
   def request(method, path, body) when is_map(body) do
@@ -32,36 +32,148 @@ defmodule GSMLG_CouchDB.Connection do
     GenServer.call(__MODULE__, {:request, method, path, [], body})
   end
 
-  def request(method, path) do
-    GenServer.call(__MODULE__, {:request, method, path, [], ""})
+  def request(method, path, body) when is_binary(body) do
+    GenServer.call(__MODULE__, {:request, method, path, [], body})
   end
 
-  def get(path, params) do
-    path = path <> "?" <> URI.encode_query(params)
-    GenServer.call(__MODULE__, {:request, "GET", path, [], ""})
+  def request(method, path, headers, body) do
+    GenServer.call(__MODULE__, {:request, method, path, headers, body})
   end
 
-  def get(path) do
-    GenServer.call(__MODULE__, {:request, "GET", path, [], ""})
+  def get(path, params \\ nil, headers \\ []) do
+    path =
+      if is_nil(params) do
+        path
+      else
+        path <> "?" <> URI.encode_query(params)
+      end
+
+    case GenServer.call(__MODULE__, {:request, "GET", path, headers, ""}) do
+      {:ok, %{data: data, status: status, headers: headers}}
+      when status >= 200 and status < 300 ->
+        data = parse_response_data(headers, data)
+        {:ok, data}
+
+      {:ok, %{data: data, status: status, headers: headers}} when status >= 400 ->
+        data = parse_response_data(headers, data)
+        {:error, data}
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
-  def post(path, data \\ "{}") do
+  def get!(path, params \\ nil, headers \\ []) do
+    {:ok, data} = get(path, params, headers)
+    data
+  end
+
+  def post(path, data \\ %{}, headers \\ []) do
     data = Jason.encode!(data)
-    GenServer.call(__MODULE__, {:request, "POST", path, [], data})
+
+    case GenServer.call(
+           __MODULE__,
+           {:request, "POST", path, [{"Content-Type", "application/json"}] ++ headers, data}
+         ) do
+      {:ok, %{data: data, status: status, headers: headers}}
+      when status >= 200 and status < 300 ->
+        data = parse_response_data(headers, data)
+        {:ok, data}
+
+      {:ok, %{data: data, status: status, headers: headers}} when status >= 400 ->
+        data = parse_response_data(headers, data)
+        {:error, data}
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
-  def put(path, data \\ "{}") do
+  def post!(path, data \\ %{}, headers \\ []) do
+    {:ok, data} = post(path, data, headers)
+    data
+  end
+
+  def put(path, data \\ %{}, headers \\ []) do
     data = Jason.encode!(data)
-    GenServer.call(__MODULE__, {:request, "PUT", path, [], data})
+
+    case GenServer.call(
+           __MODULE__,
+           {:request, "PUT", path, [{"Content-Type", "application/json"}] ++ headers, data}
+         ) do
+      {:ok, %{data: data, status: status, headers: headers}}
+      when status >= 200 and status < 300 ->
+        data = parse_response_data(headers, data)
+        {:ok, data}
+
+      {:ok, %{data: data, status: status, headers: headers}} when status >= 400 ->
+        data = parse_response_data(headers, data)
+        {:error, data}
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
-  def delete(path, params) do
-    path = path <> "?" <> URI.encode_query(params)
-    GenServer.call(__MODULE__, {:request, "DELETE", path, [], ""})
+  def put!(path, data \\ %{}, headers \\ []) do
+    {:ok, data} = put(path, data, headers)
+    data
   end
 
-  def delete(path) do
-    GenServer.call(__MODULE__, {:request, "DELETE", path, [], ""})
+  def delete(path, params \\ nil, headers \\ []) do
+    path =
+      if is_nil(params) do
+        path
+      else
+        path <> "?" <> URI.encode_query(params)
+      end
+
+    case GenServer.call(__MODULE__, {:request, "DELETE", path, headers, ""}) do
+      {:ok, %{data: data, status: status, headers: headers}}
+      when status >= 200 and status < 300 ->
+        data = parse_response_data(headers, data)
+        {:ok, data}
+
+      {:ok, %{data: data, status: status, headers: headers}} when status >= 400 ->
+        data = parse_response_data(headers, data)
+        {:error, data}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  def delete!(path, params \\ nil, headers \\ []) do
+    {:ok, data} = delete(path, params, headers)
+    data
+  end
+
+  def copy(path, params \\ nil, headers \\ []) do
+    path =
+      if is_nil(params) do
+        path
+      else
+        path <> "?" <> URI.encode_query(params)
+      end
+
+    case GenServer.call(__MODULE__, {:request, "COPY", path, headers, ""}) do
+      {:ok, %{data: data, status: status, headers: headers}}
+      when status >= 200 and status < 300 ->
+        data = parse_response_data(headers, data)
+        {:ok, data}
+
+      {:ok, %{data: data, status: status, headers: headers}} when status >= 400 ->
+        data = parse_response_data(headers, data)
+        {:error, data}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  def copy!(path, params \\ nil, headers \\ []) do
+    {:ok, data} = copy(path, params, headers)
+    data
   end
 
   ## Callbacks
@@ -103,6 +215,15 @@ defmodule GSMLG_CouchDB.Connection do
     end
   end
 
+  def handle_call({:get_state}, _from, state) do
+    rs = %__MODULE__{
+      conn: state.conn,
+      requests: state.requests
+    }
+
+    {:reply, rs, state}
+  end
+
   @impl true
   def handle_info(message, state) do
     # We should handle the error case here as well, but we're omitting it for brevity.
@@ -127,12 +248,7 @@ defmodule GSMLG_CouchDB.Connection do
   end
 
   defp process_response({:data, request_ref, new_data}, state) do
-    update_in(state.requests[request_ref].response[:data], fn data ->
-      case Jason.decode((data || "") <> new_data, keys: :atoms) do
-        {:ok, data} -> data
-        {:error, _} -> (data || "") <> new_data
-      end
-    end)
+    update_in(state.requests[request_ref].response[:data], fn data -> (data || "") <> new_data end)
   end
 
   # When the request is done, we use GenServer.reply/2 to reply to the caller that was
@@ -145,4 +261,12 @@ defmodule GSMLG_CouchDB.Connection do
 
   # A request can also error, but we're not handling the erroneous responses for
   # brevity.
+
+  # parse data if response is json
+  defp parse_response_data(headers, data) do
+    case Enum.find(headers, &(elem(&1, 0) == "content-type")) do
+      {"content-type", "application/json"} -> Jason.decode!(data, keys: :atoms)
+      _ -> data
+    end
+  end
 end
