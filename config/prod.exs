@@ -51,5 +51,4 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
 config :logger, level: :info
 
 # CouchDB Server Connection, maybe use https in procution
-config :gsmlg_couchdb, GSMLG_CouchDB.Connection,
-  scheme: :http
+config :gsmlg_couchdb, GSMLG_CouchDB.Connection, scheme: :http

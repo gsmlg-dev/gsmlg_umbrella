@@ -40,6 +40,32 @@ defmodule GSMLG_CouchDB.Connection do
     GenServer.call(__MODULE__, {:request, method, path, headers, body})
   end
 
+  def head(path, params \\ nil, headers \\ []) do
+    path =
+      if is_nil(params) do
+        path
+      else
+        path <> "?" <> URI.encode_query(params)
+      end
+
+    case GenServer.call(__MODULE__, {:request, "GET", path, headers, ""}) do
+      {:ok, %{status: status, headers: _headers}}
+      when status >= 200 and status < 300 ->
+        {:ok, status}
+
+      {:ok, %{status: status, headers: _headers}} when status >= 400 ->
+        {:ok, status}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  def head!(path, params \\ nil, headers \\ []) do
+    {:ok, status} = get(path, params, headers)
+    status
+  end
+
   def get(path, params \\ nil, headers \\ []) do
     path =
       if is_nil(params) do
@@ -68,12 +94,12 @@ defmodule GSMLG_CouchDB.Connection do
     data
   end
 
-  def post(path, data \\ %{}, headers \\ []) do
+  def post(path, data \\ %{}, headers \\ [{"Content-Type", "application/json"}]) do
     data = Jason.encode!(data)
 
     case GenServer.call(
            __MODULE__,
-           {:request, "POST", path, [{"Content-Type", "application/json"}] ++ headers, data}
+           {:request, "POST", path, headers, data}
          ) do
       {:ok, %{data: data, status: status, headers: headers}}
       when status >= 200 and status < 300 ->
@@ -94,12 +120,12 @@ defmodule GSMLG_CouchDB.Connection do
     data
   end
 
-  def put(path, data \\ %{}, headers \\ []) do
+  def put(path, data \\ %{}, headers \\ [{"Content-Type", "application/json"}]) do
     data = Jason.encode!(data)
 
     case GenServer.call(
            __MODULE__,
-           {:request, "PUT", path, [{"Content-Type", "application/json"}] ++ headers, data}
+           {:request, "PUT", path, headers, data}
          ) do
       {:ok, %{data: data, status: status, headers: headers}}
       when status >= 200 and status < 300 ->

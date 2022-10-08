@@ -99,6 +99,7 @@ defmodule GSMLG_CouchDB.Docs do
 
   # DELETE /db/_index/_design/a5f4711fc9448864a13c81dc71e660b524d7410c/json/foo-index
   def delete_index(db_name, design_doc, index_name) do
+    check_name!(db_name)
     Connection.delete!("/#{db_name}/_index/_design/#{design_doc}/json/#{index_name}")
   end
 
@@ -106,7 +107,34 @@ defmodule GSMLG_CouchDB.Docs do
   explain which index is used, params is as same as find
   """
   def explain_query(db_name, params) do
+    check_name!(db_name)
     Connection.post!("/#{db_name}/_explain", params)
+  end
+
+  def attachment_exists?(db_name, docid, attachment_name, params \\ %{}, headers \\ []) do
+    check_name!(db_name)
+    200 == Connection.head!("/#{db_name}/#{docid}/#{attachment_name}", params, headers)
+  end
+
+  def get_attachment(db_name, docid, attachment_name, params \\ %{}, headers \\ []) do
+    check_name!(db_name)
+    Connection.get!("/#{db_name}/#{docid}/#{attachment_name}", params, headers)
+  end
+
+  def put_attachment(
+        db_name,
+        docid,
+        attachment_name,
+        data \\ %{},
+        headers \\ [{"Content-Type", "application/octet-stream"}]
+      ) do
+    check_name!(db_name)
+    Connection.put!("/#{db_name}/#{docid}/#{attachment_name}", data, headers)
+  end
+
+  def delete_attachment(db_name, docid, attachment_name, params \\ %{}, headers \\ []) do
+    check_name!(db_name)
+    Connection.delete!("/#{db_name}/#{docid}/#{attachment_name}", params, headers)
   end
 
   defp check_name(db_name) do
