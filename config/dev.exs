@@ -61,10 +61,10 @@ config :phoenix, :stacktrace_depth, 20
 
 config :amqp,
   connections: [
-    myconn: [url: System.get_env("AMQP_URL", "amqp://guest:guest@localhost:12345")]
+    mybunny: [url: System.get_env("AMQP_URL", "amqp://guest:guest@localhost:5672")]
   ],
   channels: [
-    # mychan: [connection: :myconn]
+    bunny: [connection: :mybunny]
   ]
 
 config :gsmlg_couchdb, GSMLG_CouchDB.Connection,
@@ -72,5 +72,3 @@ config :gsmlg_couchdb, GSMLG_CouchDB.Connection,
   port: 5984,
   username: System.get_env("COUCH_USER", "couch_user"),
   password: System.get_env("COUCH_PASS", "couch_pass")
-
-

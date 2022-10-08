@@ -8,8 +8,9 @@ defmodule GSMLG_AMQP.ConnSupervisor do
   def start_child(name, url) do
     # If MyWorker is not using the new child specs, we need to pass a map:
     # spec = %{id: MyWorker, start: {MyWorker, :start_link, [foo, bar, baz]}}
-    spec = {GSMLG_AMQP.Consumer, name: name, url: url}
-    DynamicSupervisor.start_child(__MODULE__, spec)
+    spec = {GSMLG_AMQP.Consumer, [[name: name, url: url]]}
+    IO.inspect(spec)
+    DynamicSupervisor.start_child(GSMLG_AMQP.Consumer, spec)
   end
 
   @impl true

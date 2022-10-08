@@ -3,6 +3,7 @@ defmodule GSMLG_AMQP.Consumer do
   use AMQP
 
   def start_link(init_arg) do
+    IO.inspect(init_arg)
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
 
@@ -43,7 +44,7 @@ defmodule GSMLG_AMQP.Consumer do
   end
 
   def handle_call(:get_chan, _from, state) do
-    {:reply, {:ok, state}, state}
+    {:reply, {:ok, Keyword.get(state, :chan)}, state}
   end
 
   # Confirmation sent by the broker after registering this process as a consumer
@@ -88,6 +89,7 @@ defmodule GSMLG_AMQP.Consumer do
   end
 
   defp consume(channel, tag, redelivered, payload) do
+    IO.inspect({"consume", channel, tag, redelivered, payload})
     number = String.to_integer(payload)
 
     if number <= 10 do
