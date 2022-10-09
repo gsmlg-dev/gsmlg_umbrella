@@ -45,4 +45,20 @@ defmodule GSMLG_CouchDB.Node do
     rev = local_node(node_name) |> Map.get(:_rev)
     Connection.delete!("/_node/_local/_nodes/" <> node_name <> "?rev=" <> rev)
   end
+
+  def maintenance(node_name, true) do
+    Connection.put!("/_node/#{node_name}/_config/couchdb/maintenance_mode", "true")
+  end
+
+  def maintenance(node_name, false) do
+    Connection.put!("/_node/#{node_name}/_config/couchdb/maintenance_mode", "false")
+  end
+
+  def get_reshard() do
+    Connection.get!("/_reshard")
+  end
+
+  def stop_reshard(reason \\ "Stop sharding") do
+    Connection.put!("/_reshard/state", %{state: "stopped", reason: reason})
+  end
 end

@@ -1,11 +1,18 @@
 import Config
 
 # Configure your database
+# config :gsmlg, GSMLG.Repo,
+#   username: "gsmlg_dev",
+#   password: "gsmlg_dev",
+#   database: "gsmlg_dev",
+#   hostname: System.get_env("DB_HOST", "mariadb-server.gsmlg.net"),
+#   show_sensitive_data_on_connection_error: true,
+#   pool_size: 10
 config :gsmlg, GSMLG.Repo,
-  username: "gsmlg_dev",
-  password: "gsmlg_dev",
-  database: "gsmlg_dev",
-  hostname: System.get_env("DB_HOST", "mariadb-server.gsmlg.net"),
+  username: System.get_env("MARIADB_USER", "zuixiaoshuo_dev"),
+  password: System.get_env("MARIADB_PASS", "zuixiaoshuo_dev"),
+  hostname: System.get_env("MARIADB_HOST", "mariadb-server.gsmlg.net"),
+  database: "zuixiaoshuo_dev",
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
 

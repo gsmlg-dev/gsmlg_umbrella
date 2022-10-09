@@ -33,7 +33,7 @@ defmodule GSMLG_CouchDB.DB do
 
   def sync_shards(db_name) do
     check_name!(db_name)
-    Connection.post!("/" <> db_name <> "/_shards")
+    Connection.post!("/" <> db_name <> "/_sync_shards")
   end
 
   def changes(db_name) do

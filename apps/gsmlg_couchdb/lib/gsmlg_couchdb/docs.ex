@@ -61,6 +61,7 @@ defmodule GSMLG_CouchDB.Docs do
     Connection.post!("/#{db_name}/_bulk_docs", %{docs: params})
   end
 
+  @spec find(binary, any) :: any
   @doc """
   `keys` of params
   * selector (json) – JSON object describing criteria used to select documents. More information provided in the section on selector syntax. Required

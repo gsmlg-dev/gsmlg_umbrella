@@ -115,7 +115,7 @@ defmodule GSMLG_CouchDB.Connection do
     end
   end
 
-  def post!(path, data \\ %{}, headers \\ []) do
+  def post!(path, data \\ %{}, headers \\ [{"Content-Type", "application/json"}]) do
     {:ok, data} = post(path, data, headers)
     data
   end
@@ -141,7 +141,7 @@ defmodule GSMLG_CouchDB.Connection do
     end
   end
 
-  def put!(path, data \\ %{}, headers \\ []) do
+  def put!(path, data \\ %{}, headers \\ [{"Content-Type", "application/json"}]) do
     {:ok, data} = put(path, data, headers)
     data
   end
