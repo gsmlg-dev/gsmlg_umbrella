@@ -7,8 +7,8 @@ defmodule GSMLG_AMQP.Consumer do
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
 
-  @exchange "gen_server_test_exchange"
-  @queue "gen_server_test_queue"
+  @exchange "gsmlg_exchange"
+  @queue "gsmlg_queue"
   @queue_error "#{@queue}_error"
 
   @spec publish(binary) :: :ok | {:error, :blocked | :closing}
