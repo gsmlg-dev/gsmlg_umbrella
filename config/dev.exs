@@ -9,10 +9,10 @@ import Config
 #   show_sensitive_data_on_connection_error: true,
 #   pool_size: 10
 config :gsmlg, GSMLG.Repo,
-  username: System.get_env("MARIADB_USER", "zuixiaoshuo_dev"),
-  password: System.get_env("MARIADB_PASS", "zuixiaoshuo_dev"),
+  username: System.get_env("MARIADB_USER", "gsmlg_dev"),
+  password: System.get_env("MARIADB_PASS", "gsmlg_dev"),
   hostname: System.get_env("MARIADB_HOST", "mariadb-server.gsmlg.net"),
-  database: "zuixiaoshuo_dev",
+  database: "gsmlg_dev",
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
 

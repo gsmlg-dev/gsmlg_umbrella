@@ -62,22 +62,22 @@ defmodule GSMLG.Application do
       # Start a worker by calling: GSMLG.Worker.start_link(arg)
       # {GSMLG.Worker, arg}
       # Start distribute Node
-      {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
+      # {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
       # supervisor(GSMLG.Chess.Supervisor, []),
       # {Cluster.Supervisor, [topologies, [name: GSMLG.ClusterSupervisor]]},
-      %{
-        id: GSMLG.ClusterConnector,
-        restart: :transient,
-        start:
-          {Task, :start_link,
-           [
-             fn ->
-               Horde.DynamicSupervisor.wait_for_quorum(GSMLG.GSMLGSupervisor, 30_000)
-               Horde.DynamicSupervisor.start_child(GSMLG.GSMLGSupervisor, GSMLG.Node.Others)
-             end
-           ]}
-      }
+      # %{
+      #   id: GSMLG.ClusterConnector,
+      #   restart: :transient,
+      #   start:
+      #     {Task, :start_link,
+      #      [
+      #        fn ->
+      #          Horde.DynamicSupervisor.wait_for_quorum(GSMLG.GSMLGSupervisor, 30_000)
+      #          Horde.DynamicSupervisor.start_child(GSMLG.GSMLGSupervisor, GSMLG.Node.Others)
+      #        end
+      #      ]}
+      # }
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Supervisor)
