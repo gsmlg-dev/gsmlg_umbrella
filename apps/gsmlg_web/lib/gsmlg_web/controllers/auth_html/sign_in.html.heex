@@ -1,3 +1,17 @@
 <div class="sign-up-page">
-
+    <.simple_form
+        :let={f}
+        for={@changeset}
+        id="user-form"
+        method={:post}
+        phx-change="validate"
+        phx-submit="save"
+    >
+        <input name={"_csrf_token"} type="hidden" value={get_csrf_token()} />
+        <.input field={{f, :username}} type="text" label="username" />
+        <.input field={{f, :password}} type="password" label="password" />
+        <:actions>
+            <.button phx-disable-with="Saving...">Sign in</.button>
+        </:actions>
+    </.simple_form>
 </div>

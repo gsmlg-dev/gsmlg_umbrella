@@ -11,21 +11,18 @@ defmodule GSMLGWeb.AuthController do
 
       conn
       |> put_flash(:info, "Auth created successfully.")
-      |> redirect(to: Routes.user_show_path(conn, :show, user))
+      |> redirect(to: ~p"/admin/users/#{user.id}")
     else
       # No user
       changeset = Auth.sign_in_changeset(%Auth{}, %{})
 
       conn
-      |> put_root_layout(false)
-      |> put_layout("auth.html")
-      |> render("sign_in.html", changeset: changeset, page_title: "SIGN IN")
+      # |> put_layout("auth.html")
+      |> render(:sign_in, changeset: changeset, page_title: "SIGN IN")
     end
   end
 
   def sign_in(conn, %{"auth" => params}) do
-    IO.inspect(params)
-
     case Auth.sign_in(params) do
       {:ok, %User{} = user} ->
         # Use access tokens.
@@ -33,14 +30,13 @@ defmodule GSMLGWeb.AuthController do
         conn
         |> put_flash(:info, "Sign in successfully.")
         |> Guardian.Plug.sign_in(user)
-        |> redirect(to: Routes.user_show_path(conn, :show, user))
+        |> redirect(to: ~p"/admin/users/#{user.id}")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
         |> put_flash(:error, "invalid")
-        |> put_root_layout(false)
-        |> put_layout("auth.html")
-        |> render("sign_in.html", changeset: changeset, page_title: "SIGN IN")
+        # |> put_layout("auth.html")
+        |> render(:sign_in, changeset: changeset, page_title: "SIGN IN")
     end
   end
 
@@ -75,21 +71,18 @@ defmodule GSMLGWeb.AuthController do
       {:prod, false} ->
         conn
         |> put_flash(:error, "Not Allowed")
-        |> redirect(to: Routes.auth_path(conn, :index))
+        |> redirect(to: ~p"/admin/sign_in")
 
       _ ->
         case Auth.sign_up(params) do
           {:ok, _user} ->
             conn
             |> put_flash(:info, "Auth created successfully.")
-            |> redirect(to: Routes.auth_path(conn, :index))
+            |> redirect(to: ~p"/admin/sign_in")
 
           {:error, %Ecto.Changeset{} = changeset} ->
-            IO.inspect(changeset)
-
             conn
             |> put_flash(:error, "invalid")
-            |> put_root_layout(false)
             |> put_layout("auth.html")
             |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
         end
@@ -121,6 +114,6 @@ defmodule GSMLGWeb.AuthController do
   def sign_out(conn, _params) do
     conn
     |> Guardian.Plug.sign_out()
-    |> redirect(to: Routes.auth_path(conn, :index))
+    |> redirect(to: ~p"/admin/sign_in")
   end
 end

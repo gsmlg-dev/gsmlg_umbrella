@@ -11,6 +11,6 @@ defmodule GSMLGWeb.Guardian.WebAuthErrorHandler do
     conn
     |> GSMLGWeb.Guardian.Plug.sign_out()
     |> put_flash(:error, "#{type}: #{reason}")
-    |> redirect(to: Routes.auth_path(conn, :index))
+    |> redirect(to: ~p"/admin/sign_in")
   end
 end
