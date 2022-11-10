@@ -1,3 +1,8 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+@import "phoenix_webcomponent/priv/static/phoenix_webcomponent.css";
+
 /* This file is for your main application CSS */
 @import './phoenix.css';
 @import './mwc.css';

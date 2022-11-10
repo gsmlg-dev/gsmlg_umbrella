@@ -26,7 +26,8 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
     # Start the esbuild watcher by calling Esbuild.install_and_run(:default, args)
     esbuild:
       {Esbuild, :install_and_run,
-       [:default, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
+       [:default, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]},
+    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
   ]
 
 # ## SSL Support

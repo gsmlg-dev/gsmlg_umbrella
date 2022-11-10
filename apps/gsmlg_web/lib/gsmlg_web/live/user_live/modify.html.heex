@@ -1,32 +1,4 @@
 <div>
   <div class="h1"><%= @page_title %></div>
 
-  <div class="header">
-  <%= if !is_nil(@user.id) do %>
-  <span><%= wc_live_redirect "Show", to: Routes.user_show_path(@socket, :show, @user) %></span> |
-  <% end %>
-  <span><%= wc_live_redirect "Back", to: Routes.user_index_path(@socket, :index) %></span>
-  </div>
-
-  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
-    <div class="form-group">
-    <%= wc_text_input f, :username %>
-    </div>
-    <div class="form-group">
-    <%= wc_text_input f, :name %>
-    </div>
-    <div class="form-group">
-    <%= wc_text_input f, :email %>
-    </div>
-    <div class="form-group">
-    <%= wc_password_input f, :password %>
-    </div>
-    <div class="form-group">
-    <%= wc_switch f, :is_2fa_enabled %>
-    </div>
-    <div class="form-group">
-      <%= wc_submit "Save", phx_disable_with: "Saving..." %>
-      <%= submit "Save", phx_disable_with: "Saving..." %>
-    </div>
-  </.form>
 </div>

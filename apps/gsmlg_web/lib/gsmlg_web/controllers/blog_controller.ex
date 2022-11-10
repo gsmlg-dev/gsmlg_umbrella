@@ -4,7 +4,7 @@ defmodule GSMLGWeb.BlogController do
   alias GSMLG.Content
   alias GSMLG.Content.Blog
 
-  action_fallback GSMLGWeb.FallbackController
+  # action_fallback GSMLGWeb.FallbackController
 
   def index(conn, _params) do
     blogs = Content.list_blogs()
