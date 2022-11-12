@@ -8,7 +8,7 @@ defmodule GSMLGWeb.BlogLive.Index do
   def mount(_params, _session, socket) do
     Process.send_after(__MODULE__, :refresh_list, 15_000)
 
-    {:ok, assign(socket, :blogs, list_blogs())}
+    {:ok, socket |> apply_blogs()}
   end
 
   @impl true
@@ -16,22 +16,10 @@ defmodule GSMLGWeb.BlogLive.Index do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  defp apply_action(socket, :edit, %{"id" => id}) do
-    socket
-    |> assign(:page_title, "Edit Blog")
-    |> assign(:blog, Content.get_blog!(id))
-  end
-
-  defp apply_action(socket, :new, _params) do
-    socket
-    |> assign(:page_title, "New Blog")
-    |> assign(:blog, %Blog{})
-  end
-
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Listing Blogs")
-    |> assign(:blog, nil)
+    |> apply_blogs()
   end
 
   @impl true
@@ -39,16 +27,17 @@ defmodule GSMLGWeb.BlogLive.Index do
     blog = Content.get_blog!(id)
     {:ok, _} = Content.delete_blog(blog)
 
-    {:noreply, assign(socket, :blogs, list_blogs())}
+    {:noreply, socket |> apply_blogs()}
   end
 
   @impl true
   def handle_info(:refresh_list, socket) do
     Process.send_after(__MODULE__, :refresh_list, 15_000)
-    {:noreply, assign(socket, :blogs, list_blogs())}
+    {:noreply, socket |> apply_blogs()}
   end
 
-  defp list_blogs do
-    Content.list_blogs()
+  defp apply_blogs(socket) do
+    socket
+    |> assign(:blogs, Content.list_blogs())
   end
 end

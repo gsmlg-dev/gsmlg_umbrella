@@ -6,7 +6,7 @@ defmodule GSMLGWeb.UserTokenLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :user_tokens, list_user_tokens())}
+    {:ok, assign(socket, :user_tokens, [])}
   end
 
   @impl true
@@ -29,7 +29,7 @@ defmodule GSMLGWeb.UserTokenLive.Index do
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Listing User tokens")
-    |> assign(:user_token, nil)
+    |> apply_user_tokens()
   end
 
   @impl true
@@ -37,10 +37,15 @@ defmodule GSMLGWeb.UserTokenLive.Index do
     user_token = Accounts.get_user_token!(id)
     {:ok, _} = Accounts.delete_user_token(user_token)
 
-    {:noreply, assign(socket, :user_tokens, list_user_tokens())}
+    {:noreply, socket |> apply_user_tokens()}
   end
 
   defp list_user_tokens do
     Accounts.list_user_tokens()
+  end
+
+  defp apply_user_tokens(socket) do
+    socket
+    |> assign(:user_tokens, Accounts.list_user_tokens())
   end
 end

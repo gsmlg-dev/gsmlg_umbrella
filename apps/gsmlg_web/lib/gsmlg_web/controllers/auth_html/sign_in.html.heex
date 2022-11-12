@@ -1,0 +1,24 @@
+<div class="flex flex-col">
+    <h3 class="text-3xl text-center text-cyan-400">Sign in</h3>
+    <.simple_form
+        :let={f}
+        for={@changeset}
+        id="user-form"
+        method={:post}
+        phx-change="validate"
+        phx-submit="save"
+    >
+        <input name={"_csrf_token"} type="hidden" value={get_csrf_token()} />
+        <.input field={{f, :username}} type="text" label="Username" />
+        <.input field={{f, :password}} type="password" label="Password" />
+        <:actions>
+            <.button class="w-full" phx-disable-with="Saving...">Sign in</.button>
+        </:actions>
+    </.simple_form>
+
+    <hr class="my-12" />
+
+    <.link class="w-full rounded-lg bg-blue-900 hover:bg-blue-700 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/sign_up"}>
+        Sign up
+    </.link>
+</div>

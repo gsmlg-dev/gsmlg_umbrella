@@ -2,7 +2,7 @@ defmodule GSMLGWeb.PageController do
   use GSMLGWeb, :controller
 
   def index(conn, _params) do
-    render(conn, "index.html", page_title: "Home")
+    render(conn, :index, page_title: "Home")
   end
 
   def not_found(conn, _params) do
@@ -20,7 +20,6 @@ defmodule GSMLGWeb.PageController do
       _ ->
         conn
         |> put_status(:not_found)
-        |> put_view(GSMLGWeb.ErrorView)
         |> render(:"404", page_title: "404")
     end
   end

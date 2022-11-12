@@ -46,11 +46,14 @@ defmodule GSMLGWeb.BlogLive.Modify do
 
   @impl true
   def handle_event("validate", %{"blog" => blog_params}, socket) do
+    IO.inspect(blog_params)
+
     changeset =
       socket.assigns.blog
       |> Content.change_blog(blog_params)
       |> Map.put(:action, :validate)
 
+    IO.inspect(changeset)
     {:noreply, assign(socket, :changeset, changeset)}
   end
 
@@ -64,7 +67,7 @@ defmodule GSMLGWeb.BlogLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "Blog updated successfully")
-         |> push_redirect(to: Routes.blog_show_path(socket, :show, blog))}
+         |> push_redirect(to: ~p"/admin/blogs/#{blog.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
@@ -77,7 +80,7 @@ defmodule GSMLGWeb.BlogLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "Blog created successfully")
-         |> push_redirect(to: Routes.blog_show_path(socket, :show, blog))}
+         |> push_redirect(to: ~p"/admin/blogs/#{blog.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}

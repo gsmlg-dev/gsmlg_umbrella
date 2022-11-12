@@ -64,7 +64,7 @@ defmodule GSMLGWeb.UserTokenLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "User Token updated successfully")
-         |> push_redirect(to: Routes.user_token_show_path(socket, :show, user_token))}
+         |> push_redirect(to: ~p"/admin/user_tokens/#{user_token.jti}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
@@ -77,7 +77,7 @@ defmodule GSMLGWeb.UserTokenLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "User Token created successfully")
-         |> push_redirect(to: Routes.user_token_show_path(socket, :show, user_token))}
+         |> push_redirect(to: ~p"/admin/user_tokens/#{user_token.jti}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}
