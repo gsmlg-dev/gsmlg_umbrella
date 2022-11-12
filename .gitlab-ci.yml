@@ -1,0 +1,108 @@
+variables:
+  DOCKER_REGISTRY: gsmlg.dev
+  DOCKER_IMAGE_NAME: apps/gsmlg
+
+stages: # List of stages for jobs, and their order of execution
+  - test
+  - release
+  - build
+  - publish
+
+cache:
+  - key:
+      files:
+        - mix.lock
+    paths:
+      - deps
+      - _build
+
+unit-test:
+  tags:
+    - docker
+    - linux
+  stage: test
+  image:
+    name: gsmlg/phoenix:alpine
+    entrypoint:
+      - /bin/bash
+      - "-c"
+  script:
+    - mix deps.get --only test
+    - mix format --check-formatted
+    - mix test
+
+release:
+  dependencies:
+    - "unit-test"
+  tags:
+    - docker
+    - linux
+  stage: release
+  environment: production
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(main|beta|alpha)$/
+      exists:
+        - Dockerfile.lite
+      changes:
+        - "apps/**/*"
+  image: gsmlg/semantic-release
+  script:
+    - semantic-release
+  artifacts:
+    paths:
+      - releaseVersion
+
+build:
+  dependencies:
+    - release
+  tags:
+    - docker
+    - linux
+  stage: build
+  environment: production
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(main|beta|alpha)$/
+      exists:
+        - Dockerfile.lite
+      changes:
+        - "apps/**/*"
+  image: gsmlg/phoenix:alpine
+  variables:
+    MIX_ENV: prod
+  script:
+    - mix deps.get
+    - cd apps/gsmlg_web/assets && npm install && cd ../../..
+    - cd apps/gsmlg_web && mix assets.deploy && cd ../..
+    - export RELEASE_VERSION=$(cat releaseVersion) && ./update_version.sh "${RELEASE_VERSION}" && mix release gsmlg_umbrella --version "${RELEASE_VERSION}"
+    - cp -r _build/prod/rel/gsmlg_umbrella app
+  artifacts:
+    paths:
+      - app
+
+build-image:
+  dependencies:
+    - release
+    - build
+  tags:
+    - docker
+    - linux
+  stage: publish
+  environment: production
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(main|beta|alpha)$/
+      exists:
+        - Dockerfile.lite
+      changes:
+        - "apps/**/*"
+  image:
+    name: docker.io/gsmlg/kaniko-executor:debug
+    entrypoint: [""]
+  before_script:
+    - echo $DOCKER_AUTH_CONFIG > /kaniko/.docker/config.json
+  script:
+    - |
+      /kaniko/executor \
+        --context $CI_PROJECT_DIR \
+        --dockerfile $CI_PROJECT_DIR/Dockerfile.lite \
+        --destination "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
+        --destination "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest"

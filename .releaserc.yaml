@@ -14,19 +14,10 @@ plugins:
         ${nextRelease.notes}
   - - "@semantic-release/exec"
     - "prepareCmd": |
-        echo ${nextRelease.version};
-        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' mix.exs;
-        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg/mix.exs;
-        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_socket/mix.exs;
-        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_mnesia/mix.exs;
-        sed -i 's%version: "[^"]\\+"%version: "${nextRelease.version}"%' apps/gsmlg_web/mix.exs;
+        echo "Next Version: ${nextRelease.version}"
+        ./update_version.sh ${nextRelease.version}
       "publishCmd": |
-        echo -n "latest" > .tags;
-        if [[ "${nextRelease.version}" != "" ]];
-        then
-          echo -n ",v${nextRelease.version}" >> .tags;
-          echo "RELEASE_VERSION=${nextRelease.version}" >> .env;
-        fi
+        echo "${nextRelease.version}" | tee releaseVersion
 branches:
   - +([0-9])?(.{+([0-9]),x}).x
   - main
