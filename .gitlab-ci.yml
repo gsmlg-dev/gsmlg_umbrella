@@ -105,4 +105,6 @@ build-image:
         --context $CI_PROJECT_DIR \
         --dockerfile $CI_PROJECT_DIR/Dockerfile.lite \
         --destination "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
-        --destination "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest"
+        --destination "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest" \
+        --destination "docker.io/gsmlg/gsmlg.org:v$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
+        --destination "docker.io/gsmlg/gsmlg.org:latest"
