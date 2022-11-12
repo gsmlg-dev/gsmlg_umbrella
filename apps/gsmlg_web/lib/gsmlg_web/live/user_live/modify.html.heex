@@ -1,32 +1,32 @@
-<div>
-  <div class="h1"><%= @page_title %></div>
+<h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %></h3>
 
-  <div class="header">
-  <%= if !is_nil(@user.id) do %>
-  <span><%= wc_live_redirect "Show", to: Routes.user_show_path(@socket, :show, @user) %></span> |
-  <% end %>
-  <span><%= wc_live_redirect "Back", to: Routes.user_index_path(@socket, :index) %></span>
-  </div>
+<div class="mx-4 my-2 flex gap-2">
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users"}>
+        All User List
+    </.link>
+    <%= if !is_nil(@user.id) do %>
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users/#{@user.id}"}>
+        Show User
+    </.link>
+    <% end %>
+</div>
 
-  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
-    <div class="form-group">
-    <%= wc_text_input f, :username %>
-    </div>
-    <div class="form-group">
-    <%= wc_text_input f, :name %>
-    </div>
-    <div class="form-group">
-    <%= wc_text_input f, :email %>
-    </div>
-    <div class="form-group">
-    <%= wc_password_input f, :password %>
-    </div>
-    <div class="form-group">
-    <%= wc_switch f, :is_2fa_enabled %>
-    </div>
-    <div class="form-group">
-      <%= wc_submit "Save", phx_disable_with: "Saving..." %>
-      <%= submit "Save", phx_disable_with: "Saving..." %>
-    </div>
-  </.form>
+<div class="mx-4 my-2">
+  <.simple_form
+      :let={f}
+      for={@changeset}
+      id="user-form"
+      method={:post}
+      phx-submit="save"
+  >
+      <.input field={{f, :email}} type="text" label="Email" />
+      <.input field={{f, :username}} type="text" label="Username" />
+      <.input field={{f, :name}} type="text" label="Name" />
+      <.input field={{f, :portrait}} type="text" label="Portrait" />
+      <.input field={{f, :otp_token}} type="text" label="TOTP Token" />
+      <.input field={{f, :is_2fa_enabled}} type="checkbox" label="2FA" />
+      <:actions>
+          <.button class="w-full" phx-disable-with="Saving...">Save</.button>
+      </:actions>
+  </.simple_form>
 </div>

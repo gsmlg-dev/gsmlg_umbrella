@@ -1,25 +1,28 @@
-<div>
-  <div class="h1"><%= @page_title %></div>
+<h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %> | <%= @user_token.aud %></h3>
 
-  <div class="header">
-  <%= if @user_token.jti do %>
-  <span><%= wc_live_redirect "Show", to: Routes.user_token_show_path(@socket, :show, @user_token.jti) %></span> |
-  <% end %>
-  <span><%= wc_live_redirect "Back", to: Routes.user_token_index_path(@socket, :index) %></span>
-  </div>
+<div class="mx-4 my-2 flex gap-2">
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/user_tokens"}>
+    All User List
+    </.link>
 
-  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
-    <div class="form-group">
-    <%= wc_text_input f, :jti, required: true %>
-    </div>
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/user_tokens/#{@user_token.jti}"}>
+    Show User
+    </.link>
+</div>
 
-    <div class="form-group">
-    <%= wc_text_input f, :aud, required: true %>
-    </div>
-
-    <div class="form-group">
-      <%= wc_submit "Save", phx_disable_with: "Saving..." %>
-      <%= submit "Save", phx_disable_with: "Saving..." %>
-    </div>
-  </.form>
+<div class="mx-4 my-2">
+    <.simple_form
+        :let={f}
+        for={@changeset}
+        id="user-form"
+        method={:post}
+        phx-change="validate"
+        phx-submit="save"
+    >
+        <.input field={{f, :jti}} type="text" label="Jti" />
+        <.input field={{f, :aud}} type="text" label="Aud" />
+        <:actions>
+            <.button class="w-full" phx-disable-with="Saving...">Save</.button>
+        </:actions>
+    </.simple_form>
 </div>

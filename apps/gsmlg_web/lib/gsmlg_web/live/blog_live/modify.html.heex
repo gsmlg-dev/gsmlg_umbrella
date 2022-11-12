@@ -1,49 +1,36 @@
-<div>
-  <div class="h1"><%= @page_title %></div>
+<h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %></h3>
 
-  <div class="header">
-  <%= if !is_nil(@blog.id) do %>
-  <span><%= wc_live_redirect "Show", to: Routes.blog_show_path(@socket, :show, @blog) %></span> |
-  <% end %>
-  <span><%= wc_live_redirect "Back", to: Routes.blog_index_path(@socket, :index) %></span>
-  </div>
+<div class="mx-4 my-2 flex gap-2">
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/blogs"}>
+        All Blog List
+    </.link>
+    <%= if !is_nil(@blog.id) do %>
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/blogs/#{@blog.id}"}>
+        Show Blog
+    </.link>
+    <% end %>
+</div>
 
-  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save">
-    <div class="form-group">
-    <%= wc_text_input f, :slug, class: "full-width" %>
+<div class="mx-4 my-2">
+  <.simple_form
+      :let={f}
+      for={@changeset}
+      id="blog-form"
+      method={:post}
+      phx-change="validate"
+      phx-submit="save"
+  >
+    <.input field={{f, :slug}} type="text" label="Slug" />
+    <.input field={{f, :title}} type="text" label="Title" />
+    <.input field={{f, :author}} type="text" label="Author" />
+    <.input field={{f, :date}} type="date" label="Date" />
+    <.input field={{f, :content}} type="textarea" label="Content" rows="24" />
+    <div>
+        <span class="cursor-pointer rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" onclick="document.querySelector('remark-element').update();">Preview</span>
+        <remark-element id="blog-form_content-preview"><%= Phoenix.HTML.Form.input_value(f, :content) %></remark-element>
     </div>
-    <div class="form-group">
-    <%= wc_text_input f, :title, class: "full-width" %>
-    </div>
-    <div class="form-group">
-    <%= wc_date_input f, :date %>
-    </div>
-    <div class="form-group">
-    <%= wc_text_input f, :author, class: "full-width" %>
-    </div>
-    <div class="form-group">
-      <div class="full-width">
-        <%= wc_textarea f, :content, [rows: 40, class: "full-width"] %>
-      </div>
-      <div class="full-width">
-        <remark-element id="content-preview"></remark-element>
-      </div>
-      <script>
-        (() => {
-          const ipt = document.getElementById('blog_content');
-          const pre = document.getElementById('content-preview');
-          const sync = () => {
-            pre.innerHTML = ipt.value ?? '';
-            pre.requestUpdate();
-          };
-          ipt.addEventListener('input', sync);
-          setTimeout(sync, 1000);
-        })()
-      </script>
-    </div>
-    <div class="form-group">
-      <%= wc_submit "Save", phx_disable_with: "Saving..." %>
-      <%= submit "Save", phx_disable_with: "Saving..." %>
-    </div>
-  </.form>
+    <:actions>
+        <.button class="" phx-disable-with="Saving...">Save</.button>
+    </:actions>
+  </.simple_form>
 </div>

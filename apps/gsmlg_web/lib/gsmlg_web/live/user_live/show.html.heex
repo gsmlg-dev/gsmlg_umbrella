@@ -1,25 +1,24 @@
-<div class="h1">Show User</div>
+<h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %></h3>
 
-<div class="header">
-  <span><%= wc_live_redirect "Edit", to: Routes.user_modify_path(@socket, :edit, @user), kind: "primary" %></span> |
-  <span><%= wc_live_redirect "Back", to: Routes.user_index_path(@socket, :index), kind: "ghost" %></span>
+<div class="mx-4 my-2 flex gap-2">
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users"}>
+        All User List
+    </.link>
+
+    <.link class="rounded-lg bg-blue-600 hover:bg-blue-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users/#{@user.id}/edit"}>
+        Edit User
+    </.link>
 </div>
 
-<div class="show-info">
-  <bx-structured-list>
-    <bx-structured-list-head>
-      <bx-structured-list-header-row>
-        <bx-structured-list-header-cell>Label</bx-structured-list-header-cell>
-        <bx-structured-list-header-cell>Value</bx-structured-list-header-cell>
-      </bx-structured-list-header-row>
-    </bx-structured-list-head>
-    <bx-structured-list-body>
-      <%= for {l, v} <-  @user |> Map.from_struct() |> Map.drop([:__meta__, :tokens]) do %>
-      <bx-structured-list-row>
-        <bx-structured-list-cell><%= l %></bx-structured-list-cell>
-        <bx-structured-list-cell><%= v %></bx-structured-list-cell>
-      </bx-structured-list-row>
-      <% end %>
-    </bx-structured-list-body>
-  </bx-structured-list>
+<div class="mx-8 my-2">
+    <%= for name <- Map.keys(@user) do %>
+    <div class="flex flex-row">
+        <div class="flex-1 text-blue-400">
+            <%= name %>
+        </div>
+        <div class="flex-1">
+            <%= Map.get(@user, name) |> inspect %>
+        </div>
+    </div>
+    <% end %>
 </div>

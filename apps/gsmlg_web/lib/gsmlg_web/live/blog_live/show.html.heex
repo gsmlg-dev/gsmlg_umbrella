@@ -1,29 +1,56 @@
-<div class="h1">Show Blog</div>
+<h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %></h3>
 
-<div class="header">
-<span><%= wc_live_redirect "Edit", to: Routes.blog_modify_path(@socket, :edit, @blog) %></span> |
-<span><%= wc_live_redirect "Back", to: Routes.blog_index_path(@socket, :index) %></span>
+<div class="mx-4 my-2 flex gap-2">
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/blogs"}>
+        All Blog List
+    </.link>
+
+    <.link class="rounded-lg bg-blue-600 hover:bg-blue-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/blogs/#{@blog.id}/edit"}>
+        Edit Blog
+    </.link>
 </div>
 
-<div class="show-info">
-  <bx-structured-list>
-    <bx-structured-list-head>
-      <bx-structured-list-header-row>
-        <bx-structured-list-header-cell>Label</bx-structured-list-header-cell>
-        <bx-structured-list-header-cell>Value</bx-structured-list-header-cell>
-      </bx-structured-list-header-row>
-    </bx-structured-list-head>
-    <bx-structured-list-body>
-      <%= for {l, v} <-  @blog |> Map.from_struct() |> Map.drop([:__meta__, :content]) do %>
-      <bx-structured-list-row>
-        <bx-structured-list-cell><%= l %></bx-structured-list-cell>
-        <bx-structured-list-cell><%= v %></bx-structured-list-cell>
-      </bx-structured-list-row>
-      <% end %>
-      <bx-structured-list-row>
-        <bx-structured-list-cell><%= "Content" %></bx-structured-list-cell>
-        <bx-structured-list-cell><remark-element><%= @blog.content %></remark-element></bx-structured-list-cell>
-      </bx-structured-list-row>
-    </bx-structured-list-body>
-  </bx-structured-list>
+<div class="mx-8 my-2">
+    <div class="flex flex-row">
+        <div class="flex-1 text-blue-400">
+            Slug
+        </div>
+        <div class="flex-1">
+            <%= Map.get(@blog, :slug) %>
+        </div>
+    </div>
+    <div class="flex flex-row">
+        <div class="flex-1 text-blue-400">
+            Title
+        </div>
+        <div class="flex-1">
+            <%= Map.get(@blog, :title) %>
+        </div>
+    </div>
+    <div class="flex flex-row">
+        <div class="flex-1 text-blue-400">
+            Author
+        </div>
+        <div class="flex-1">
+            <%= Map.get(@blog, :author) %>
+        </div>
+    </div>
+    <div class="flex flex-row">
+        <div class="flex-1 text-blue-400">
+            Date
+        </div>
+        <div class="flex-1">
+            <%= Map.get(@blog, :date) %>
+        </div>
+    </div>
+    <div class="flex flex-col">
+        <div class="flex-1 text-blue-400">
+            Content
+        </div>
+        <div class="flex-1">
+            <remark-element>
+            <%= Map.get(@blog, :content) %>
+            </remark-element>
+        </div>
+    </div>
 </div>
