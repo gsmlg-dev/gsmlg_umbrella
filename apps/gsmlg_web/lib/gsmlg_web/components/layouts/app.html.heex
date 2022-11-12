@@ -1,7 +1,9 @@
 <.wc_appbar
   title={assigns[:page_title]}
   menus={[
-
+    %{label: "User", to: ~p"/admin/users"},
+    %{label: "User Token", to: ~p"/admin/user_tokens"},
+    %{label: "Blog", to: ~p"/admin/blogs"},
   ]}
   class="h-[60px]"
 >
@@ -13,7 +15,7 @@
   </:user_profile>
 </.wc_appbar>
 <main class="px-4 sm:px-6 lg:px-8">
-  <div class="mx-auto max-w-2xl">
+  <div class="mx-auto max-w-screen-2xl">
     <.flash kind={:info} title="Success!" flash={@flash} />
     <.flash kind={:error} title="Error!" flash={@flash} />
     <.flash

@@ -1,33 +1,40 @@
-<h3 class="mx-4 my-2 text-3xl text-blue-600">List User</h3>
+<h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %></h3>
 
-<.wc_table rows={@users}>
-  <:col let={u} label="Email">
-    <%= u.email %>
-  </:col>
-    <:col let={u} label="Username">
-    <%= u.username %>
+<div class="mx-4 my-2 flex flex-col w-full">
+  <div  class="mx-4 my-2 flex flex-row justify-end">
+    <.link class="w-32 rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users/new"}>
+        Add User
+    </.link>
+  </div>
+  <.wc_table rows={@users}>
+    <:col let={u} label="Email">
+      <%= u.email %>
     </:col>
-    <:col let={u} label="Name">
-    <%= u.name %>
-    </:col>
-    <:col let={u} label="Active">
-    <%= u.is_active %>
-    </:col>
-    <:col let={u} label="Enable 2FA">
-    <%= u.is_2fa_enabled %>
-    </:col>
+      <:col let={u} label="Username">
+      <%= u.username %>
+      </:col>
+      <:col let={u} label="Name">
+      <%= u.name %>
+      </:col>
+      <:col let={u} label="Active">
+      <%= u.is_active %>
+      </:col>
+      <:col let={u} label="Enable 2FA">
+      <%= u.is_2fa_enabled %>
+      </:col>
 
-    <:col let={u} label="">
-      <div class="flex gap-2">
-        <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users/#{u.id}"}>
-            Show
-        </.link>
-        <.link class="rounded-lg bg-blue-600 hover:bg-blue-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users/#{u.id}/edit"}>
-            Edit
-        </.link>
-        <.link class="rounded-lg bg-red-600 hover:bg-red-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" phx-click={JS.push("delete", value: %{id: u.id})} data-confirm="Are you sure?">
-            Delete
-        </.link>
-      </div>
-    </:col>
-</.wc_table>
+      <:col let={u} label="">
+        <div class="flex gap-2">
+          <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users/#{u.id}"}>
+              Show
+          </.link>
+          <.link class="rounded-lg bg-blue-600 hover:bg-blue-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/users/#{u.id}/edit"}>
+              Edit
+          </.link>
+          <.link class="rounded-lg bg-red-600 hover:bg-red-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" phx-click={JS.push("delete", value: %{id: u.id})} data-confirm="Are you sure?">
+              Delete
+          </.link>
+        </div>
+      </:col>
+  </.wc_table>
+</div>
