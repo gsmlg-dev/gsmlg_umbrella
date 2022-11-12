@@ -72,7 +72,7 @@ defmodule GSMLGWeb.UserLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "User updated successfully")
-         |> push_redirect(to: Routes.user_show_path(socket, :show, user))}
+         |> push_redirect(to: ~p"/admin/users/#{user.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}

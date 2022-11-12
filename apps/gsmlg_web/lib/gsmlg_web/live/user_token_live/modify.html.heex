@@ -1,0 +1,27 @@
+<h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %> | <%= @user_token.aud %></h3>
+
+<div class="mx-4 my-2 flex gap-2">
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/user_tokens"}>
+        All User List
+    </.link>
+
+    <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/admin/user_tokens/#{@user_token.jti}"}>
+        Show User
+    </.link>
+</div>
+
+<div class="mx-4 my-2">
+  <.simple_form
+      :let={f}
+      for={@changeset}
+      id="user-form"
+      method={:post}
+      phx-change="validate"
+      phx-submit="save"
+  >
+      <.input field={{f, :aud}} type="text" label="Aud" />
+      <:actions>
+          <.button class="w-full" phx-disable-with="Saving...">Save</.button>
+      </:actions>
+  </.simple_form>
+</div>

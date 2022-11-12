@@ -1,18 +1,4 @@
-<.wc_appbar
-  title={assigns[:page_title]}
-  menus={[
-
-  ]}
-  class="h-[60px]"
->
-  <:logo>
-    <logo-gsmlg-dev />
-  </:logo>
-  <:user_profile>
-    <.link href={~p"/admin/sign_out"} method={:delete} data-confirm="Really?">Sign Out</.link>
-  </:user_profile>
-</.wc_appbar>
-<main class="px-4 sm:px-6 lg:px-8">
+<main class="px-4 py-20 sm:px-6 lg:px-8">
   <div class="mx-auto max-w-2xl">
     <.flash kind={:info} title="Success!" flash={@flash} />
     <.flash kind={:error} title="Error!" flash={@flash} />

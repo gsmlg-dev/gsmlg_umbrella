@@ -70,7 +70,6 @@ defmodule GSMLGWeb do
   def html do
     quote do
       use Phoenix.Component
-      use Phoenix.WebComponent
 
       # Import convenience functions from controllers
       import Phoenix.Controller,
@@ -85,6 +84,7 @@ defmodule GSMLGWeb do
     quote do
       # HTML escaping functionality
       import Phoenix.HTML
+      use Phoenix.WebComponent
       # Core UI components and translation
       import GSMLGWeb.CoreComponents
       import GSMLGWeb.Gettext

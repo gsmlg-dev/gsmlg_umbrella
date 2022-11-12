@@ -14,6 +14,7 @@ import "phoenix_html";
 
 // Inclue webcomponet material web componetn and @gsmlg/lit
 import "phoenix_webcomponent";
+import "@gsmlg/lit/dist/json-viewer";
 
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
