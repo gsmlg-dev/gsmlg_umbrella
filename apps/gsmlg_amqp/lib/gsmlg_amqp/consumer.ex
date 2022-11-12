@@ -3,7 +3,6 @@ defmodule GSMLG_AMQP.Consumer do
   use AMQP
 
   def start_link(init_arg) do
-    IO.inspect(init_arg)
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
 

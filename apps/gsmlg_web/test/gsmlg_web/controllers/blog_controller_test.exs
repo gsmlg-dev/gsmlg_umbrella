@@ -27,7 +27,7 @@ defmodule GSMLGWeb.BlogControllerTest do
 
   describe "index" do
     test "lists all blogs", %{conn: conn} do
-      conn = get(conn, Routes.blog_path(conn, :index))
+      conn = get(conn, ~p"/api/blogs")
       assert json_response(conn, 200)["data"] == []
     end
   end

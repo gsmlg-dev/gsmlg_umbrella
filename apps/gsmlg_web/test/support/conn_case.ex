@@ -19,15 +19,15 @@ defmodule GSMLGWeb.ConnCase do
 
   using do
     quote do
+      # The default endpoint for testing
+      @endpoint GSMLGWeb.Endpoint
+
+      use GSMLGWeb, :verified_routes
+
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
       import GSMLGWeb.ConnCase
-
-      alias GSMLGWeb.Router.Helpers, as: Routes
-
-      # The default endpoint for testing
-      @endpoint GSMLGWeb.Endpoint
     end
   end
 
