@@ -8,7 +8,7 @@ defmodule GSMLG_CouchDB.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {GSMLG_CouchDB.Connection, []}
+      # {GSMLG_CouchDB.Connection, []}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG_CouchDB.Supervisor)

@@ -2,7 +2,6 @@ defmodule GSMLGWeb.BlogLive.Index do
   use GSMLGWeb, :live_view
 
   alias GSMLG.Content
-  alias GSMLG.Content.Blog
 
   @impl true
   def mount(_params, _session, socket) do

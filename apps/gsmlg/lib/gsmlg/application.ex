@@ -62,8 +62,8 @@ defmodule GSMLG.Application do
       # Start a worker by calling: GSMLG.Worker.start_link(arg)
       # {GSMLG.Worker, arg}
       # Start distribute Node
-      # {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
-      {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
+      {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
+      {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor}
       # {Cluster.Supervisor, [topologies, [name: GSMLG.ClusterSupervisor]]},
       # %{
       #   id: GSMLG.ClusterConnector,

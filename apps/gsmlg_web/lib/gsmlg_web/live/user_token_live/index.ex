@@ -40,10 +40,6 @@ defmodule GSMLGWeb.UserTokenLive.Index do
     {:noreply, socket |> apply_user_tokens()}
   end
 
-  defp list_user_tokens do
-    Accounts.list_user_tokens()
-  end
-
   defp apply_user_tokens(socket) do
     socket
     |> assign(:user_tokens, Accounts.list_user_tokens())
