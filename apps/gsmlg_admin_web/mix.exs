@@ -62,17 +62,6 @@ defmodule GSMLGAdminWeb.MixProject do
       {:absinthe_plug, "~> 1.5"},
       {:absinthe_phoenix, "~> 2.0.0"}
     ]
-    |> Enum.map(fn pkg ->
-      case pkg do
-        {:phoenix_webcomponent, rest} ->
-          if System.get_env("WEBCOMPONENT_PATH"),
-            do: {:phoenix_webcomponent, path: System.get_env("WEBCOMPONENT_PATH")},
-            else: {:phoenix_webcomponent, rest}
-
-        _ ->
-          pkg
-      end
-    end)
   end
 
   # Aliases are shortcuts or tasks specific to the current project.
@@ -82,7 +71,7 @@ defmodule GSMLGAdminWeb.MixProject do
     [
       setup: ["deps.get"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"]
+      "assets.deploy": ["tailwind admin --minify", "esbuild admin --minify", "phx.digest"]
     ]
   end
 end

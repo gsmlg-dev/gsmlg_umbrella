@@ -11,10 +11,6 @@ window.addEventListener('DOMContentLoaded', (event) => {
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
 
-// Inclue webcomponet material web componetn and @gsmlg/lit
-// import "phoenix_webcomponent";
-// import "@gsmlg/lit/dist/json-viewer";
-
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";

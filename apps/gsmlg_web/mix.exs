@@ -42,7 +42,6 @@ defmodule GSMLGWeb.MixProject do
       {:phoenix_html, "~> 3.2.0"},
       {:phoenix_live_reload, "~> 1.4.0", only: :dev},
       {:phoenix_live_view, "~> 0.18.0"},
-      {:phoenix_webcomponent, "~> 2.3.0"},
       {:heroicons, "~> 0.5"},
       {:floki, ">= 0.32.0", only: :test},
       # {:phoenix_live_dashboard, "~> 0.7"},
@@ -62,17 +61,6 @@ defmodule GSMLGWeb.MixProject do
       {:absinthe_plug, "~> 1.5"},
       {:absinthe_phoenix, "~> 2.0.0"}
     ]
-    |> Enum.map(fn pkg ->
-      case pkg do
-        {:phoenix_webcomponent, rest} ->
-          if System.get_env("WEBCOMPONENT_PATH"),
-            do: {:phoenix_webcomponent, path: System.get_env("WEBCOMPONENT_PATH")},
-            else: {:phoenix_webcomponent, rest}
-
-        _ ->
-          pkg
-      end
-    end)
   end
 
   # Aliases are shortcuts or tasks specific to the current project.

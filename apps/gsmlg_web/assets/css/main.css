@@ -9,8 +9,3 @@ body {
   width: 100vw;
   min-height: 100vh;
 }
-
-app-bar {
-  --btn-link: #fdfdfd;
-  --btn-hover: #9eccf2;
-}
