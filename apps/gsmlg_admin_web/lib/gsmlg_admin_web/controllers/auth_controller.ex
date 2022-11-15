@@ -69,7 +69,8 @@ defmodule GSMLGAdminWeb.AuthController do
   def sign_up(conn, %{"auth" => params}) do
     case(
       {Mix.env(),
-       Application.get_env(:gsmlg_admin_web, GSMLGAdminWeb.Endpoint) |> Keyword.get(:user_register)}
+       Application.get_env(:gsmlg_admin_web, GSMLGAdminWeb.Endpoint)
+       |> Keyword.get(:user_register)}
     ) do
       {:prod, false} ->
         conn
@@ -95,7 +96,8 @@ defmodule GSMLGAdminWeb.AuthController do
   def sign_up(conn, params) do
     case(
       {Mix.env(),
-       Application.get_env(:gsmlg_admin_web, GSMLGAdminWeb.Endpoint) |> Keyword.get(:user_register)}
+       Application.get_env(:gsmlg_admin_web, GSMLGAdminWeb.Endpoint)
+       |> Keyword.get(:user_register)}
     ) do
       {:prod, false} ->
         conn

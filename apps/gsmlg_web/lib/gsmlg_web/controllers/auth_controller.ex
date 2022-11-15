@@ -11,7 +11,7 @@ defmodule GSMLGWeb.AuthController do
 
       conn
       |> put_flash(:info, "Auth created successfully.")
-      |> redirect(to: ~p"/admin/users/#{user.id}")
+      |> redirect(to: ~p"/users/#{user.id}")
     else
       # No user
       changeset = Auth.sign_in_changeset(%Auth{}, %{})
@@ -30,7 +30,7 @@ defmodule GSMLGWeb.AuthController do
         conn
         |> put_flash(:info, "Sign in successfully.")
         |> Guardian.Plug.sign_in(user)
-        |> redirect(to: ~p"/admin/users/#{user.id}")
+        |> redirect(to: ~p"/users/#{user.id}")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
@@ -74,14 +74,14 @@ defmodule GSMLGWeb.AuthController do
       {:prod, false} ->
         conn
         |> put_flash(:error, "Not Allowed")
-        |> redirect(to: ~p"/admin/sign_in")
+        |> redirect(to: ~p"/sign_in")
 
       _ ->
         case Auth.sign_up(params) do
           {:ok, _user} ->
             conn
             |> put_flash(:info, "Auth created successfully.")
-            |> redirect(to: ~p"/admin/sign_in")
+            |> redirect(to: ~p"/sign_in")
 
           {:error, %Ecto.Changeset{} = changeset} ->
             conn
@@ -117,6 +117,6 @@ defmodule GSMLGWeb.AuthController do
   def sign_out(conn, _params) do
     conn
     |> Guardian.Plug.sign_out()
-    |> redirect(to: ~p"/admin/sign_in")
+    |> redirect(to: ~p"/sign_in")
   end
 end

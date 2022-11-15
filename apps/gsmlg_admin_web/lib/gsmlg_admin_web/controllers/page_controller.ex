@@ -36,12 +36,19 @@ defmodule GSMLGAdminWeb.PageController do
 
       File.exists?(
         file_path =
-            Path.join([Application.app_dir(:gsmlg_admin_web), "priv", "static", path, "/index.html"])
+            Path.join([
+              Application.app_dir(:gsmlg_admin_web),
+              "priv",
+              "static",
+              path,
+              "/index.html"
+            ])
       ) ->
         {:html, file_path}
 
       File.exists?(
-        file_path = Path.join([Application.app_dir(:gsmlg_admin_web), "priv", "static", "404.html"])
+        file_path =
+            Path.join([Application.app_dir(:gsmlg_admin_web), "priv", "static", "404.html"])
       ) ->
         {:not_found_page, file_path}
 

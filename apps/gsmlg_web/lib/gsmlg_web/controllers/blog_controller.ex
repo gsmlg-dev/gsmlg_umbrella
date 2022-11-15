@@ -15,7 +15,7 @@ defmodule GSMLGWeb.BlogController do
     with {:ok, %Blog{} = blog} <- Content.create_blog(blog_params) do
       conn
       |> put_status(:created)
-      |> put_resp_header("location", ~p"/admin/blogs/#{blog.id}")
+      |> put_resp_header("location", ~p"/blogs/#{blog.id}")
       |> render(:show, blog: blog)
     end
   end

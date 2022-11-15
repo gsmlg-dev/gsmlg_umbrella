@@ -9,14 +9,14 @@ defmodule GSMLGWeb.AuthControllerTest do
 
   describe "index" do
     test "lists all users", %{conn: conn} do
-      conn = get(conn, ~p"/admin/sign_in")
+      conn = get(conn, ~p"/sign_in")
       assert html_response(conn, 200) =~ "SIGN IN"
     end
   end
 
   describe "new auth" do
     test "renders form", %{conn: conn} do
-      conn = get(conn, ~p"/admin/sign_up")
+      conn = get(conn, ~p"/sign_up")
       assert html_response(conn, 200) =~ "SIGN UP"
     end
   end
