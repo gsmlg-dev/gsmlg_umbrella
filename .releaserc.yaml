@@ -8,15 +8,6 @@ plugins:
         - "CHANGELOG.md"
         - "mix.exs"
         - "apps/*/mix.exs"
-  - - "@semantic-release/git"
-    - "assets":
-        - "CHANGELOG.md"
-        - "mix.exs"
-        - "apps/*/mix.exs"
-      "message": |
-        chore(release): ${nextRelease.version} [skip ci] [ci skip]
-
-        ${nextRelease.notes}
   - - "@semantic-release/exec"
     - "prepareCmd": |
         echo "Next Version: ${nextRelease.version}"
