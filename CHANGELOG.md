@@ -1,3 +1,10 @@
+## [4.1.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.1.0...v4.1.1) (2022-11-15)
+
+
+### Bug Fixes
+
+* Fix test. ([6e53d85](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/6e53d857d2814ef81455225e2f40e8a163c05278))
+
 # [4.1.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.0.1...v4.1.0) (2022-11-15)
 
 
