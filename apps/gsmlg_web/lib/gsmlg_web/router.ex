@@ -29,7 +29,7 @@ defmodule GSMLGWeb.Router do
     plug(:accepts, ["html"])
     plug(:fetch_session)
     plug(:fetch_live_flash)
-    plug :put_root_layout, {GSMLGWeb.Layouts, :root}
+    plug(:put_root_layout, {GSMLGWeb.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
   end
@@ -73,11 +73,11 @@ defmodule GSMLGWeb.Router do
     live("/user_tokens/:id/edit", UserTokenLive.Modify, :edit)
     live("/user_tokens/:id", UserTokenLive.Show, :show)
 
-    if Mix.env() in [:prod] do
-      import Phoenix.LiveDashboard.Router
+    # if Mix.env() in [:prod] do
+    # import Phoenix.LiveDashboard.Router
 
-      live_dashboard("/dashboard", metrics: GSMLGWeb.Telemetry)
-    end
+    # live_dashboard("/dashboard", metrics: GSMLGWeb.Telemetry)
+    # end
   end
 
   scope "/api", GSMLGWeb do
@@ -117,13 +117,13 @@ defmodule GSMLGWeb.Router do
     # If your application does not have an admins-only section yet,
     # you can use Plug.BasicAuth to set up some basic authentication
     # as long as you are also using SSL (which you should anyway).
-    import Phoenix.LiveDashboard.Router
+    # import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      live_dashboard "/dashboard", metrics: PhxNextWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
+      # live_dashboard "/dashboard", metrics: PhxNextWeb.Telemetry
+      forward("/mailbox", Plug.Swoosh.MailboxPreview)
     end
   end
 

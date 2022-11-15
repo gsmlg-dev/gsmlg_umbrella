@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   border: none;
@@ -7,4 +8,9 @@ html, body {
 body {
   width: 100vw;
   min-height: 100vh;
+}
+
+app-bar {
+  --btn-link: #fdfdfd;
+  --btn-hover: #9eccf2;
 }
