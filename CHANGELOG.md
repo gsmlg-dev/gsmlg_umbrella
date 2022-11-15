@@ -1,3 +1,38 @@
+# [4.0.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v3.19.2...v4.0.0) (2022-11-15)
+
+
+### Bug Fixes
+
+* Fix amqp. ([101637d](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/101637d32169880ccf500bbdbfc5eb284a1429b2))
+* Fix appbar style. ([8e1e11d](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/8e1e11d8b88d9dc0e7474300295fbe780107e1d2))
+* Fix dev config. ([d300edc](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/d300edcef35de983f174f6a8367131c7b7878f33))
+* Fix exchange name. ([c5835ed](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/c5835edc0822ce5a0424310d9bebee1b71fd66e3))
+* Fix release file. ([0c0c61b](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/0c0c61b8ae9031ceb7bb0e79fc3d33cf7407390d))
+* Fix sign in. ([9675159](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/96751598579f543fb80463de6b6c6283fffcad0b))
+* Fix test. ([5ccc0fc](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/5ccc0fc89d66bf329aaf9b466c3123fd9f78fda6))
+* Fix update issue. ([d68a11e](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/d68a11e1fb4ba957188cd942b5e9ca1fa0eedc39))
+* Fix update. ([4f3e3fd](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/4f3e3fd51a33c051b184483769c0d325f7752c98))
+* Fix url in release file. ([1ed8be4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/1ed8be4a4ad41e34b0732f156d9e6d28fc020a6f))
+* Fix. ([d35f3b8](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/d35f3b828895206e58045769e9bd5a14f2721213))
+
+
+### Features
+
+* Add amqp module. ([f8de281](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/f8de2817e5bf91e1dac54ac12b7c32dee7f61292))
+* Add amqp. ([87af51f](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/87af51fdccf4abd75e2a3861bb69f15c69626551))
+* Add attachement in couchdb. ([e9e0a03](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/e9e0a03ad3a3eec6ac3df3be2d43ae811e134070))
+* Add couchdb docs and node manage. ([3c84c82](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/3c84c824b8c1ef361b23eefb34d0e3d8045dcd55))
+* Add couchdb managment. ([df7c346](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/df7c3460babadfb4a77e312b61d9cd1f2a672b27))
+* Add new Admin view. ([654b6cf](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/654b6cf748ce9c8fed6980f573fdbf2b9dc9a540))
+* Fix Couchdb. ([ee09e38](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/ee09e3833f895a246fae02c7f69f3e263f251f76))
+* Update Phoenix to 1.7.0-rc.0. ([4cfd225](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/4cfd2251d94cb335e16a01477e1fa6302943a02c))
+
+
+### BREAKING CHANGES
+
+* Update to Phoenix 1.7 and live_view 0.18
+All templates are now componennt
+
 ## [3.19.2](https://git.gsmlg.net/gsmlg/gsmlg_umbrella/compare/v3.19.1...v3.19.2) (2022-08-02)
 
 
