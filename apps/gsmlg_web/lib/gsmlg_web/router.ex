@@ -38,7 +38,7 @@ defmodule GSMLGWeb.Router do
     plug(:accepts, ["json"])
   end
 
-  scope "/", GSMLGAdminWeb do
+  scope "/", GSMLGWeb do
     pipe_through([:browser, :maybe_browser_auth])
 
     get("/", PageController, :index)

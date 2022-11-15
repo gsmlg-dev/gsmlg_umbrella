@@ -10,8 +10,8 @@ defmodule GSMLGWeb.AuthController do
       user = Guardian.Plug.current_resource(conn)
 
       conn
-      |> put_flash(:info, "Auth created successfully.")
-      |> redirect(to: ~p"/users/#{user.id}")
+      |> put_flash(:info, "Alredy sign in.")
+      |> redirect(to: ~p"/")
     else
       # No user
       changeset = Auth.sign_in_changeset(%Auth{}, %{})
@@ -30,7 +30,7 @@ defmodule GSMLGWeb.AuthController do
         conn
         |> put_flash(:info, "Sign in successfully.")
         |> Guardian.Plug.sign_in(user)
-        |> redirect(to: ~p"/users/#{user.id}")
+        |> redirect(to: ~p"/")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
