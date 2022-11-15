@@ -1,3 +1,11 @@
+## [4.0.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.0.0...v4.0.1) (2022-11-15)
+
+
+### Bug Fixes
+
+* Fix download frontend. ([ba177d2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/ba177d2fbc94c72b0daaef6a2fe54c751976ba44))
+* Fix release of gitlab assets. ([8cb07c6](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/8cb07c665938e9b3ea5de780535f2b31dad2d820))
+
 # [4.0.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v3.19.2...v4.0.0) (2022-11-15)
 
 
