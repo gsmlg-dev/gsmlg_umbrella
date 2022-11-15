@@ -72,7 +72,7 @@ defmodule GSMLGWeb.Router do
   scope "/", GSMLGWeb do
     pipe_through(:browser)
 
-    get("/*request_path", PageController, :index)
+    get("/", PageController, :index)
     get("/*request_path", PageController, :not_found)
   end
 end
