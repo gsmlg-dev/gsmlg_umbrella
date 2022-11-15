@@ -28,6 +28,10 @@ config :gsmlg_web, GSMLGWeb.Guardian,
   issuer: "gsmlg",
   secret_key: "s5XC5yzTm66tg+1pbiQiJxWNUAvPK4UeAOUJVO1VYkrT2cyr/1usjyYHr8K2ymLc"
 
+config :gsmlg_admin_web, GSMLGAdminWeb.Guardian,
+  issuer: "gsmlg",
+  secret_key: "s5XC5yzTm66tg+1pbiQiJxWNUAvPK4UeAOUJVO1VYkrT2cyr/1usjyYHr8K2ymLc"
+
 config :guardian, Guardian,
   issuer: "gsmlg",
   secret_key: Mix.env(),
@@ -78,6 +82,36 @@ config :tailwind,
       --output=../priv/static/assets/app.css
     ),
     cd: Path.expand("../apps/gsmlg_web/assets", __DIR__),
+    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ]
+
+# Configures the endpoint
+config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+  url: [host: "localhost"],
+  secret_key_base: "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr",
+  render_errors: [view: GSMLGAdminWeb.ErrorView, accepts: ~w(html json), layout: false],
+  pubsub_server: GSMLG.PubSub,
+  live_view: [signing_salt: "gmmaSSOy"]
+
+# Configure esbuild (the version is required)
+config :esbuild,
+  version: "0.12.18",
+  admin: [
+    args: ~w(js/app.js --bundle --target=esnext --outdir=../priv/static/assets),
+    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__),
+    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ]
+
+# Configure tailwind (the version is required)
+config :tailwind,
+  version: "3.1.8",
+  admin: [
+    args: ~w(
+      --config=tailwind.config.js
+      --input=css/app.css
+      --output=../priv/static/assets/app.css
+    ),
+    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
 

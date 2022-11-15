@@ -51,6 +51,33 @@ if config_env() == :prod do
 
   config :gsmlg_web, GSMLGWeb.Endpoint, user_register: System.get_env("USER_REGISTER") == "on"
 
+  admin_secret_key_base =
+    System.get_env("ADMIN_SECRET_KEY_BASE") || System.get_env("SECRET_KEY_BASE") ||
+      raise """
+      environment variable ADMIN_SECRET_KEY_BASE is missing.
+      You can generate one by calling: mix phx.gen.secret
+      """
+
+  config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+    http: [
+      # Enable IPv6 and bind on all interfaces.
+      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
+      ip: {0, 0, 0, 0, 0, 0, 0, 0},
+      port: String.to_integer(System.get_env("ADMIN_PORT") || "4111")
+    ],
+    secret_key_base: admin_secret_key_base
+
+  config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint, server: true
+
+  if System.get_env("ADMIN_HOST") do
+    host = System.get_env("ADMIN_HOST")
+    port = System.get_env("ADMIN_HOST_PORT", "80") |> String.to_integer()
+    config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint, url: [host: host, port: port]
+  end
+
+  config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+    user_register: System.get_env("USER_REGISTER") == "on"
+
   # Then you can assemble a release by calling `mix release`.
   # See `mix help release` for more information.
 

@@ -13,6 +13,10 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
   url: [host: "gsmlg.org", port: 80],
   cache_static_manifest: "priv/static/cache_manifest.json"
 
+config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+  url: [host: "admin.gsmlg.org", port: 80],
+  cache_static_manifest: "priv/static/cache_manifest.json"
+
 # ## SSL Support
 #
 # To get SSL working, you will need to add the `https` key

@@ -1,9 +1,6 @@
 <.wc_appbar
   title={assigns[:page_title]}
   menus={[
-    %{label: "User", to: ~p"/admin/users"},
-    %{label: "User Token", to: ~p"/admin/user_tokens"},
-    %{label: "Blog", to: ~p"/admin/blogs"},
   ]}
   class="h-[60px]"
 >
@@ -11,7 +8,7 @@
     <logo-gsmlg-dev />
   </:logo>
   <:user_profile>
-    <.wc_link href={~p"/admin/sign_out"} method={"DELETE"} data-confirm="Really?">Sign Out</.wc_link>
+    <.wc_link href={"https://github.com/gsmlg-dev"}>Github</.wc_link>
   </:user_profile>
 </.wc_appbar>
 <main class="px-4 sm:px-6 lg:px-8">

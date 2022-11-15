@@ -30,14 +30,18 @@ LABEL maintainer="GSMLG <gsmlg.com@gmail.com>"
 LABEL RELEASE_VERSION="${RELEASE_VERSION}"
 
 ENV PORT=80 \
+    ADMIN_PORT=1080 \
     REPLACE_OS_VARS=true \
     ERL_EPMD_PORT=4369 \
     POD_IP=127.0.0.1 \
     ERLCOOKIE=erlang_cookie \
-    HOST=gsmlg.com \
+    HOST=gsmlg.org \
     HOST_PORT=80 \
+    ADMIN_HOST=admin.gsmlg.org \
+    ADMIN_HOST_PORT=80 \
     DATABASE_URL=ecto://USER:PASS@HOST/DATABASE \
     POOL_SIZE=10 \
+    ADMIN_SECRET_KEY_BASE=gsmlg-admin \
     SECRET_KEY_BASE=gsmlg_umbrella
 
 RUN apk update \
@@ -47,6 +51,6 @@ RUN apk update \
 
 COPY --from=builder /app /app
 
-EXPOSE 80 4369
+EXPOSE 80 1080 4369
 
 CMD ["/app/bin/gsmlg_umbrella", "start"]
