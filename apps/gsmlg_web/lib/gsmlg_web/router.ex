@@ -38,6 +38,18 @@ defmodule GSMLGWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  scope "/", GSMLGAdminWeb do
+    pipe_through([:browser, :maybe_browser_auth])
+
+    get("/", PageController, :index)
+
+    get("/sign_in", AuthController, :index)
+    # post("/sign_in", AuthController, :sign_in)
+
+    get("/sign_up", AuthController, :new)
+    # post("/sign_up", AuthController, :sign_up)
+  end
+
   scope "/api", GSMLGWeb do
     pipe_through([:api, :maybe_api_auth])
 
@@ -72,7 +84,6 @@ defmodule GSMLGWeb.Router do
   scope "/", GSMLGWeb do
     pipe_through(:browser)
 
-    get("/", PageController, :index)
     get("/*request_path", PageController, :not_found)
   end
 end
