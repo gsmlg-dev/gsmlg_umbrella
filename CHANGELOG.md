@@ -1,3 +1,17 @@
+# [4.1.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.0.1...v4.1.0) (2022-11-15)
+
+
+### Bug Fixes
+
+* Fix page. ([dc5ef5d](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/dc5ef5d2ead6e97504ba0373f44b95f74ffb3c71))
+* Fix test. ([a320a4f](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/a320a4fc8b63fe44c5d44d57f7ec0f26b4237503))
+* Fix test. ([dece0af](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/dece0af97f46c213ceb34ecbdba56510a1d6fb06))
+
+
+### Features
+
+* Move admin module to new app. ([292c76e](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/292c76e5b8fe42d756cb197a0092b9a3a51b930b))
+
 ## [4.0.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.0.0...v4.0.1) (2022-11-15)
 
 
