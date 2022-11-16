@@ -41,7 +41,7 @@ defmodule GSMLGWeb do
       use Phoenix.Controller,
         namespace: GSMLGWeb,
         formats: [:html, :json],
-        layouts: [html: GSMLGWeb.Layouts]
+        layouts: [html: {GSMLGWeb.Layouts, :app}]
 
       import Plug.Conn
       import GSMLGWeb.Gettext
