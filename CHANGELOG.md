@@ -1,3 +1,10 @@
+# [4.2.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.1.2...v4.2.0) (2022-11-16)
+
+
+### Features
+
+* Add new home page. ([e291394](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/e291394ea3ff564d3510d751c95c1e62ae6a1f21))
+
 ## [4.1.2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.1.1...v4.1.2) (2022-11-16)
 
 
