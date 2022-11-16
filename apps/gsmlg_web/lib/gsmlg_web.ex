@@ -85,7 +85,6 @@ defmodule GSMLGWeb do
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components and translation
-      use Phoenix.WebComponent
       import GSMLGWeb.CoreComponents
       import GSMLGWeb.AppComponents
       import GSMLGWeb.Gettext
