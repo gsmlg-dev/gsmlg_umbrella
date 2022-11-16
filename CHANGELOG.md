@@ -1,3 +1,10 @@
+## [4.3.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.3.0...v4.3.1) (2022-11-16)
+
+
+### Bug Fixes
+
+* Fix missing admin web build. ([e31b33a](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/e31b33a99f7a9f78f190f0c230c82195f8f7743c))
+
 # [4.3.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.2.0...v4.3.0) (2022-11-16)
 
 
