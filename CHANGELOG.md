@@ -1,3 +1,10 @@
+# [4.4.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.3.4...v4.4.0) (2022-11-16)
+
+
+### Features
+
+* Add blog import. ([90c0186](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/90c018664877a2d0fe7c3e46d55279f5738708e6))
+
 ## [4.3.4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.3.3...v4.3.4) (2022-11-16)
 
 
