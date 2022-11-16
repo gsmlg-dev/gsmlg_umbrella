@@ -2,7 +2,25 @@ defmodule GSMLGWeb.PageController do
   use GSMLGWeb, :controller
 
   def index(conn, _params) do
-    render(conn, :index, page_title: "Home")
+    repos =
+      case GSMLG.GitHub.get("/orgs/gsmlg-dev/repos") do
+        {:ok, %HTTPoison.Response{status_code: 200, body: repos}} ->
+          repos
+
+        _ ->
+          [
+            %{
+              name: "Foundation",
+              full_name: "gsmlg-dev/Foundation",
+              stargazers_count: 50,
+              updated_at: "",
+              description: ""
+            }
+          ]
+      end
+      |> Enum.sort(&(&1.stargazers_count > &2.stargazers_count))
+
+    render(conn, :index, page_title: "Home", repos: repos)
   end
 
   def not_found(conn, _params) do

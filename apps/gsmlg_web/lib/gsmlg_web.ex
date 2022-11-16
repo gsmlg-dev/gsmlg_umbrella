@@ -87,6 +87,7 @@ defmodule GSMLGWeb do
       # Core UI components and translation
       use Phoenix.WebComponent
       import GSMLGWeb.CoreComponents
+      import GSMLGWeb.AppComponents
       import GSMLGWeb.Gettext
 
       # Shortcut for generating JS commands

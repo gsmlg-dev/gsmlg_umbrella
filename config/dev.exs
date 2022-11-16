@@ -40,17 +40,12 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
 # Watch static and templates for browser reloading.
 config :gsmlg_web, GSMLGWeb.Endpoint,
   live_reload: [
-    patterns:
-      [
-        ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
-        ~r"priv/gettext/.*(po)$",
-        ~r"lib/gsmlg_web/(live|views)/.*(ex)$",
-        ~r"lib/gsmlg_web/templates/.*(eex)$"
-      ] ++
-        [
-          ~r"lib/gsmlg_yellow_dog/.*(ex)$",
-          ~r"lib/gsmlg/.*(ex)$"
-        ]
+    patterns: [
+      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/gettext/.*(po)$",
+      ~r"lib/gsmlg_web/(components)/.*(ex)$",
+      ~r"lib/gsmlg_web/controller/.*(heex)$"
+    ]
   ]
 
 # For development, we disable any cache and enable
@@ -77,17 +72,12 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
 # Watch static and templates for browser reloading.
 config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   live_reload: [
-    patterns:
-      [
-        ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
-        ~r"priv/gettext/.*(po)$",
-        ~r"lib/gsmlg_admin_web/(live|views)/.*(ex)$",
-        ~r"lib/gsmlg_admin_web/templates/.*(eex)$"
-      ] ++
-        [
-          ~r"lib/gsmlg_yellow_dog/.*(ex)$",
-          ~r"lib/gsmlg/.*(ex)$"
-        ]
+    patterns: [
+      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/gettext/.*(po)$",
+      ~r"lib/gsmlg_admin_web/(components)/.*(ex)$",
+      ~r"lib/gsmlg_admin_web/controller/.*(eex)$"
+    ]
   ]
 
 # Enable dev routes for dashboard and mailbox
