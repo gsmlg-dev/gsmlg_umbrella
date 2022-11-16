@@ -1,3 +1,15 @@
+# [4.3.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.2.0...v4.3.0) (2022-11-16)
+
+
+### Bug Fixes
+
+* Fix Phoenix.WebComponent. ([ea70cd2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/ea70cd258b7fc57c221f2022757959fde257a766))
+
+
+### Features
+
+* Add blog view. ([8765776](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/8765776abe7e908473ff26f9c6769354b1f94d8c))
+
 # [4.2.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.1.2...v4.2.0) (2022-11-16)
 
 
