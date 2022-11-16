@@ -2,7 +2,9 @@ defmodule GSMLG.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
   alias GSMLG.Accounts.UserToken
+  alias GSMLG.Accounts.User
   alias GSMLG.Accounts.Auth
+  alias GSMLG.Repo
 
   @primary_key {:id, :string, autogenerate: false}
   schema "users" do
@@ -105,5 +107,9 @@ defmodule GSMLG.Accounts.User do
       _ ->
         changeset
     end
+  end
+
+  def count() do
+    Repo.aggregate(User, :count)
   end
 end

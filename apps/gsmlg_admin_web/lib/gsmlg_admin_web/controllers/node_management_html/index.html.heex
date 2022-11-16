@@ -1,35 +1,38 @@
-<h1>Current Node</h1>
+<.wc_card>
+<:title>
+  <h1>Current Node</h1>
+</:title>
 
 <section>
-  <h3>
-    Name: 
-    <span>
-      <%= Node.self() %>
-    </span>
-  </h3>
+  <div class="flex flex-row">
+    <label class="w-24 after:content-[':']">Name</label>
+    <span><%= Node.self() %></span>
+  </div>
 
-  <h3>
-    State: 
+  <div class="flex flex-row">
+    <label class="w-24 after:content-[':']">State</label>
     <span>
       <%= if Node.alive?, do: "Started", else: "Stopped" %>
     </span>
-  </h3>
+  </div>
 
-  <h3>
-    Cookie: 
+  <div class="flex flex-row">
+    <label class="w-24 after:content-[':']">Cookie</label>
     <span id="node-cookie-value">
       <%= Node.get_cookie() %>
     </span>
-  </h3>
+  </div>
 
   <div>
     <set-node-cookie />
   </div>
 </section>
-
+</.wc_card>
 <hr />
-
-<h1>Listing Nodes</h1>
+<.wc_card>
+<:title>
+  <h1>Connected Nodes</h1>
+</:title>
 
 <div>
   <connect-node />
@@ -52,3 +55,4 @@
   </h3>
   <% end %>
 </section>
+</.wc_card>

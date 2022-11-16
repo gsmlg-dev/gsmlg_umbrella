@@ -1,5 +1,39 @@
-<section class="phx-hero">
-  <h1><%= gettext "Welcome to %{name}!", name: "GSMLG" %></h1>
-  <p>Peace of mind from prototype to production</p>
+<section class="flex justify-center items-center h-16">
+  <h1 class="text-2xl">Content Overview</h1>
+</section>
+<section class="flex flex-row gap-4">
+  <div class="flex flex-col border border-green-200 p-4">
+    <.wc_link navigate={~p"/users"}>User List</.wc_link>
+    <div class="flex flex-row gap-2 justify-center items-center">
+      <label class="after:content-[':']">User Count</label>
+      <span class="text-cyan-600"><%= @data.user_count %></span>
+    </div>
+  </div>
+  <div class="flex flex-col border border-green-200 p-4">
+    <.wc_link navigate={~p"/user_tokens"}>User Token List</.wc_link>
+    <div class="flex flex-row gap-2 justify-center items-center">
+      <label class="after:content-[':']">Logined User Count</label>
+      <span class="text-cyan-600"><%= @data.token_count %></span>
+    </div>
+  </div>
+  <div class="flex flex-col border border-green-200 p-4">
+    <.wc_link navigate={~p"/blogs"}>Blog List</.wc_link>
+    <div class="flex flex-row gap-2 justify-center items-center">
+      <label class="after:content-[':']">Blog Count</label>
+      <span class="text-cyan-600"><%= @data.blog_count %></span>
+    </div>
+  </div>
 </section>
 
+<section class="flex justify-center items-center h-16">
+  <h1 class="text-2xl">Cluster Overview</h1>
+</section>
+<section class="flex flex-row gap-4">
+  <div class="flex flex-col border border-green-200 p-4">
+    <.wc_link navigate={~p"/node_management"}>Node Management</.wc_link>
+    <div class="flex flex-row gap-2 justify-center items-center">
+      <label class="after:content-[':']">Node Count</label>
+      <span class="text-cyan-600"><%= Node.list |> length %></span>
+    </div>
+  </div>
+</section>

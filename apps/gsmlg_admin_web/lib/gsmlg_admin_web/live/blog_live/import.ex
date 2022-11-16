@@ -1,5 +1,5 @@
 defmodule GSMLGAdminWeb.BlogLive.Import do
-  use GSMLGAdminWeb, :live_view
+  use GSMLGAdminWeb, :user_live_view
 
   alias GSMLG.Content
   alias GSMLG.Content.BlogImport

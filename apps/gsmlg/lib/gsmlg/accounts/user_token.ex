@@ -1,7 +1,9 @@
 defmodule GSMLG.Accounts.UserToken do
   use Ecto.Schema
   import Ecto.Changeset
+  alias GSMLG.Accounts.UserToken
   alias GSMLG.Accounts.User
+  alias GSMLG.Repo
 
   @primary_key {:jti, :string, autogenerate: false}
   schema "user_tokens" do
@@ -27,5 +29,9 @@ defmodule GSMLG.Accounts.UserToken do
     user_token
     |> cast(attrs, [:aud, :typ, :iss, :sub, :exp, :jwt, :claims])
     |> validate_required([:jwt, :iss])
+  end
+
+  def count() do
+    Repo.aggregate(UserToken, :count)
   end
 end

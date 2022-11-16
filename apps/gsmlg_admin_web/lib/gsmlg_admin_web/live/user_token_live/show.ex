@@ -1,5 +1,5 @@
 defmodule GSMLGAdminWeb.UserTokenLive.Show do
-  use GSMLGAdminWeb, :live_view
+  use GSMLGAdminWeb, :user_live_view
 
   alias GSMLG.Accounts
 

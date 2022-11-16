@@ -44,7 +44,7 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
       ~r"lib/gsmlg_web/(components)/.*(ex)$",
-      ~r"lib/gsmlg_web/controller/.*(heex)$"
+      ~r"lib/gsmlg_web/controllers/.*(heex)$"
     ]
   ]
 
@@ -76,7 +76,7 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
       ~r"lib/gsmlg_admin_web/(components)/.*(ex)$",
-      ~r"lib/gsmlg_admin_web/controller/.*(eex)$"
+      ~r"lib/gsmlg_admin_web/controllers/.*(heex)$"
     ]
   ]
 
