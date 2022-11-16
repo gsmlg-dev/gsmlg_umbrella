@@ -24,7 +24,10 @@ defmodule GSMLGWeb.PageController do
       end
       |> Enum.sort(&(&1.stargazers_count > &2.stargazers_count))
 
-    render(conn, :index, page_title: "Home", repos: repos)
+    paget_title =
+      Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:home_page_title)
+
+    render(conn, :index, page_title: paget_title, repos: repos)
   end
 
   def not_found(conn, _params) do
@@ -42,7 +45,7 @@ defmodule GSMLGWeb.PageController do
       _ ->
         conn
         |> put_status(:not_found)
-        |> render(:"404", page_title: "404")
+        |> render(:"404", page_title: "404 Page Not Found")
     end
   end
 

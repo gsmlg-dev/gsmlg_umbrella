@@ -61,6 +61,7 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
   secret_key_base: "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr",
   render_errors: [view: GSMLGWeb.ErrorView, accepts: ~w(html json), layout: false],
   pubsub_server: GSMLG.PubSub,
+  home_page_title: "Home",
   live_view: [signing_salt: "gmmaSSOy"]
 
 # Configure esbuild (the version is required)

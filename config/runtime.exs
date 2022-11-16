@@ -18,7 +18,7 @@ if config_env() == :prod do
     # ssl: true,
     # socket_options: [:inet6],
     url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+    pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
 
   secret_key_base =
     System.get_env("SECRET_KEY_BASE") ||
@@ -28,11 +28,12 @@ if config_env() == :prod do
       """
 
   config :gsmlg_web, GSMLGWeb.Endpoint,
+    home_page_title: System.get_env("HOME_PAGE_TITLE", "Home"),
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
-      port: String.to_integer(System.get_env("PORT") || "4110")
+      port: String.to_integer(System.get_env("PORT", "4110"))
     ],
     secret_key_base: secret_key_base
 
@@ -45,7 +46,7 @@ if config_env() == :prod do
 
   if System.get_env("HOST") do
     host = System.get_env("HOST")
-    port = System.get_env("HOST_PORT", "80") |> String.to_integer()
+    port = String.to_integer(System.get_env("HOST_PORT", "80"))
     config :gsmlg_web, GSMLGWeb.Endpoint, url: [host: host, port: port]
   end
 
@@ -63,7 +64,7 @@ if config_env() == :prod do
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
-      port: String.to_integer(System.get_env("ADMIN_PORT") || "4111")
+      port: String.to_integer(System.get_env("ADMIN_PORT", "4111"))
     ],
     secret_key_base: admin_secret_key_base
 
