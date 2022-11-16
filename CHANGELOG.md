@@ -1,3 +1,10 @@
+## [4.4.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.4.0...v4.4.1) (2022-11-16)
+
+
+### Bug Fixes
+
+* Optimize Error page. ([20f3e7e](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/20f3e7e997bb4e4e70d50b525ea27d9a8f30e4dc))
+
 # [4.4.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.3.4...v4.4.0) (2022-11-16)
 
 
