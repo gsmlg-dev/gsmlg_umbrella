@@ -6,7 +6,7 @@ defmodule GSMLGAdminWeb.UserLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :users, [])}
+    {:ok, assign(socket, users: [], active_menu: "user_list")}
   end
 
   @impl true

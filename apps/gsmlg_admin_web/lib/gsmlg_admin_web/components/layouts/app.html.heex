@@ -1,9 +1,6 @@
 <.wc_appbar
   title={assigns[:page_title]}
   menus={[
-    %{label: "User", to: ~p"/users"},
-    %{label: "User Token", to: ~p"/user_tokens"},
-    %{label: "Blog", to: ~p"/blogs"},
   ]}
   class="h-[60px]"
 >
@@ -14,8 +11,20 @@
     <.wc_link href={~p"/sign_out"} method={"DELETE"} data-confirm="Really?">Sign Out</.wc_link>
   </:user_profile>
 </.wc_appbar>
-<main class="px-4 sm:px-6 lg:px-8">
-  <div class="mx-auto max-w-screen-2xl">
+<main class="flex flex-row px-4 sm:px-6 lg:px-8">
+  <.wc_left_menu
+    active={assigns[:active_menu]}
+    menus={[
+      {"User Managment", [
+        {"user_list", "User List", ~p"/users"},
+        {"user_token_list", "User Token", ~p"/user_tokens"},
+      ]},
+      {"Blog Management", [
+        {"blog_list", "Blog List", ~p"/blogs"},
+      ]}
+    ]}
+  ></.wc_left_menu>
+  <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
     <.flash kind={:info} title="Success!" flash={@flash} />
     <.flash kind={:error} title="Error!" flash={@flash} />
     <.flash

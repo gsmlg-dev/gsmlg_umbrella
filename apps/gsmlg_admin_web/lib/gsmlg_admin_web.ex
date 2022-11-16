@@ -85,9 +85,9 @@ defmodule GSMLGAdminWeb do
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components and translation
-      use Phoenix.WebComponent
       import GSMLGAdminWeb.CoreComponents
       import GSMLGAdminWeb.Gettext
+      use Phoenix.WebComponent
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

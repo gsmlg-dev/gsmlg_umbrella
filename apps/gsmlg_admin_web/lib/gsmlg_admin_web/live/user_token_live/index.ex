@@ -6,7 +6,7 @@ defmodule GSMLGAdminWeb.UserTokenLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :user_tokens, [])}
+    {:ok, assign(socket, user_tokens: [], active_menu: "user_token_list")}
   end
 
   @impl true

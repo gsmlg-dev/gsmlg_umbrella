@@ -7,7 +7,7 @@ defmodule GSMLGAdminWeb.BlogLive.Index do
   def mount(_params, _session, socket) do
     Process.send_after(__MODULE__, :refresh_list, 15_000)
 
-    {:ok, socket |> apply_blogs()}
+    {:ok, assign(socket, blogs: [], active_menu: "blog_list")}
   end
 
   @impl true
