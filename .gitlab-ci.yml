@@ -72,6 +72,8 @@ build:
     WEB_VERSION: 1.42.0
   script:
     - mix deps.get
+    - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web/assets && npm install
+    - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web && mix assets.deploy
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_web/assets && npm install
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_web && mix assets.deploy
     - cd ${CI_PROJECT_DIR}
