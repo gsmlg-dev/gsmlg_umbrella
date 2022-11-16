@@ -1,3 +1,11 @@
+## [4.4.2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.4.1...v4.4.2) (2022-11-16)
+
+
+### Bug Fixes
+
+* Optimize admin home page. ([deb72a9](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/deb72a9ae8b022f53c262246938b129e0705883c))
+* Optmize use controller code format. ([dfc441b](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/dfc441b984b09d74d09543c49d2b34b2c1cc413f))
+
 ## [4.4.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.4.0...v4.4.1) (2022-11-16)
 
 
