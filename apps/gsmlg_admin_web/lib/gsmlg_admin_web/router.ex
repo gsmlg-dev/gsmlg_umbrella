@@ -59,6 +59,7 @@ defmodule GSMLGAdminWeb.Router do
     post("/node_management", NodeManagementController, :update)
 
     live("/blogs", BlogLive.Index, :index)
+    live("/blogs/import", BlogLive.Import, :import)
     live("/blogs/new", BlogLive.Modify, :new)
     live("/blogs/:id", BlogLive.Show, :show)
     live("/blogs/:id/edit", BlogLive.Modify, :edit)

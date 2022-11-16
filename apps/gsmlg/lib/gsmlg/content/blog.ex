@@ -3,11 +3,11 @@ defmodule GSMLG.Content.Blog do
   import Ecto.Changeset
 
   schema "blogs" do
-    field :author, :string
-    field :content, :string
-    field :date, :date
-    field :slug, :string
-    field :title, :string
+    field(:author, :string)
+    field(:content, :string)
+    field(:date, :date)
+    field(:slug, :string)
+    field(:title, :string)
 
     timestamps()
   end
@@ -15,7 +15,7 @@ defmodule GSMLG.Content.Blog do
   @doc false
   def changeset(blog, attrs) do
     blog
-    |> cast(attrs, [:slug, :title, :date, :author, :content])
+    |> cast(attrs, [:slug, :title, :date, :author, :content, :id])
     |> validate_required([:slug, :title, :date, :author, :content])
   end
 end
