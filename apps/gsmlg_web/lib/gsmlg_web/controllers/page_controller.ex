@@ -14,7 +14,11 @@ defmodule GSMLGWeb.PageController do
               full_name: "gsmlg-dev/Foundation",
               stargazers_count: 50,
               updated_at: "",
-              description: ""
+              description: "",
+              has_pages: false,
+              owner: %{
+                login: "gsmlg-dev"
+              }
             }
           ]
       end

@@ -48,6 +48,9 @@ defmodule GSMLGWeb.Router do
 
     get("/sign_up", AuthController, :new)
     # post("/sign_up", AuthController, :sign_up)
+
+    get("/blogs", BlogController, :index)
+    get("/blogs/:slug", BlogController, :show)
   end
 
   scope "/api", GSMLGWeb do

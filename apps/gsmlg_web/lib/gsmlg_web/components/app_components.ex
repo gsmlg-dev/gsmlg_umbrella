@@ -35,6 +35,13 @@ defmodule GSMLGWeb.AppComponents do
       </div>
 
       <div class="text-medium text-cyan-400">
+        <%= if @repo.has_pages do %>
+        <.link
+          class="text-pink-500 font-light text-lg"
+          href={"https://#{@repo.owner.login}.github.io/#{@repo.name}"}
+          target="_blank"
+        >PAGES</.link>
+        <% end %>
         <label class="after:content-[':']">Stars</label>
         <time><%= @repo.stargazers_count %></time>
       </div>

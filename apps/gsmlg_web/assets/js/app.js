@@ -8,6 +8,8 @@ window.addEventListener('DOMContentLoaded', (event) => {
     joinChannels();
 });
 
+import '@gsmlg/lit/dist/remark-element';
+
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
 
