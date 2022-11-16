@@ -77,7 +77,7 @@ build:
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_web/assets && npm install
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_web && mix assets.deploy
     - cd ${CI_PROJECT_DIR}
-    - curl -Lf "https://registry.npmjs.org/@gsmlg/website/-/website-${WEB_VERSION}.tgz" -o website.tgz
+    - curl -Lf "${NPM_CONFIG_REGISTRY}/@gsmlg/website/-/website-${WEB_VERSION}.tgz" -o website.tgz
     - tar xzf website.tgz --strip-components=2 -C ${CI_PROJECT_DIR}/apps/gsmlg_web/priv/static
     - ./update_version.sh "$(cat ${CI_PROJECT_DIR}/releaseVersion)"
     - mix release gsmlg_umbrella --version "$(cat ${CI_PROJECT_DIR}/releaseVersion)"
