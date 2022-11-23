@@ -7,8 +7,6 @@ defmodule GSMLGWeb.AuthController do
 
   def index(conn, _params) do
     if Guardian.Plug.authenticated?(conn) do
-      user = Guardian.Plug.current_resource(conn)
-
       conn
       |> put_flash(:info, "Alredy sign in.")
       |> redirect(to: ~p"/")
