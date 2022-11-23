@@ -1,0 +1,43 @@
+<h3 class="text-2xl text-center">GeoIP2</h3>
+
+<div class="flex justify-center items-center">
+    <.simple_form
+        :let={f}
+        for={@conn}
+        id="ip-form"
+        method={:post}
+        phx-change="validate"
+        phx-submit="save"
+    >
+        <input name={"_csrf_token"} type="hidden" value={get_csrf_token()} />
+        <.input field={{f, :ip}} type="text" label="IP" />
+        <.input field={{f, :lang}} type="select" label="Language" options={@langs} />
+        <:actions>
+            <.button class="w-full" phx-disable-with="Finding...">Find</.button>
+        </:actions>
+    </.simple_form>
+</div>
+
+<%= unless is_nil(@ipInfo) do %>
+<div class="mt-4 flex flex-col justify-center items-center">
+    <div class="w-96 flex flex-row justify-start items-start">
+        <div class="w-24 text-right pr-2 after:content-[':']">大洲</div>
+        <div class=""><%= @ipInfo.continent %></div>
+    </div>
+    <div class="w-96 flex flex-row justify-start items-start">
+        <div class="w-24 text-right pr-2 after:content-[':']">国家</div>
+        <div class=""><%= @ipInfo.country %></div>
+    </div>
+    <div class="w-96 flex flex-row justify-start items-start">
+        <div class="w-24 text-right pr-2 after:content-[':']">城市</div>
+        <div class=""><%= @ipInfo.city %></div>
+    </div>
+    <div class="w-96 flex flex-row justify-start items-start">
+        <div class="w-24 text-right pr-2 after:content-[':']">经纬度</div>
+        <div class="">
+            latitude: <%= @ipInfo.latitude %>
+            longitude: <%= @ipInfo.longitude %>
+        </div>
+    </div>
+</div>
+<% end %>

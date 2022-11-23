@@ -51,6 +51,10 @@ defmodule GSMLGWeb.Router do
 
     get("/blogs", BlogController, :index)
     get("/blogs/:slug", BlogController, :show)
+
+    get "/tools", ToolboxController, :index
+    get "/tools/geoip2", ToolboxController, :geoip2
+    post "/tools/geoip2", ToolboxController, :geoip2_find
   end
 
   scope "/api", GSMLGWeb do
