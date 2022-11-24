@@ -1,3 +1,10 @@
+## [4.5.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.5.0...v4.5.1) (2022-11-24)
+
+
+### Bug Fixes
+
+* Fix node management page and toolbox layout. ([fc9a93d](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/fc9a93dee269996dc5d345fd92039d3bc3902a35))
+
 # [4.5.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.4.2...v4.5.0) (2022-11-24)
 
 
