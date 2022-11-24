@@ -1,58 +1,99 @@
-<.wc_card>
-<:title>
-  <h1>Current Node</h1>
-</:title>
+<div class="flex flex-col">
+  <.wc_card>
+    <:title>
+      <h1>Current Node</h1>
+    </:title>
 
-<section>
-  <div class="flex flex-row">
-    <label class="w-24 after:content-[':']">Name</label>
-    <span><%= Node.self() %></span>
-  </div>
+    <section>
+      <div class="flex flex-row">
+        <label class="w-24 after:content-[':']">Name</label>
+        <span><%= Node.self() %></span>
+      </div>
 
-  <div class="flex flex-row">
-    <label class="w-24 after:content-[':']">State</label>
-    <span>
-      <%= if Node.alive?, do: "Started", else: "Stopped" %>
-    </span>
-  </div>
+      <div class="flex flex-row">
+        <label class="w-24 after:content-[':']">State</label>
+        <span>
+          <%= if Node.alive?, do: "Started", else: "Stopped" %>
+        </span>
+      </div>
 
-  <div class="flex flex-row">
-    <label class="w-24 after:content-[':']">Cookie</label>
-    <span id="node-cookie-value">
-      <%= Node.get_cookie() %>
-    </span>
-  </div>
+      <div class="flex flex-row">
+        <label class="w-24 after:content-[':']">Cookie</label>
+        <span id="node-cookie-value">
+          <%= Node.get_cookie() %>
+        </span>
+      </div>
+    </section>
+  </.wc_card>
 
-  <div>
-    <set-node-cookie />
-  </div>
-</section>
-</.wc_card>
-<hr />
-<.wc_card>
-<:title>
-  <h1>Connected Nodes</h1>
-</:title>
+    <.wc_card>
+    <:title>
+      <h1>Connected Nodes</h1>
+    </:title>
 
-<div>
-  <connect-node />
+    <section>
+      <%= if Enum.count(@nodes) > 0 do %>
+      <div class="flex flex-row flex-wrap gap-4">
+        <%= for no <- @nodes do %>
+        <div class="flex justify-center items-center">
+          <h3>
+            <%= no %>
+          </h3>
+        </div>
+        <% end %>
+      </div>
+      <% else %>
+      <h3>
+        No node connected yet!
+      </h3>
+      <% end %>
+    </section>
+  </.wc_card>
+
 </div>
 
-<section>
-  <%= if Enum.count(@nodes) > 0 do %>
-  <ul>
-    <%= for no <- @nodes do %>
-    <li>
-      <h3>
-        <%= no %>
-      </h3>
-    </li>
-    <% end %>
-  </ul>
-  <% else %>
-  <h3>
-    No node connected yet!
-  </h3>
-  <% end %>
-</section>
-</.wc_card>
+<hr />
+
+<div class="flex flex-row">
+  <.wc_card>
+    <:title>
+      <h1>Set Node Cookie</h1>
+    </:title>
+    <.simple_form
+      :let={f}
+      for={@conn}
+      id="user-form"
+      method={:post}
+      phx-change="validate"
+      phx-submit="save"
+    >
+      <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
+      <input name="action" type="hidden" value="set-node-cookie" />
+      <.input field={{f, :cookie}} type="text" label="Cookie" />
+      <:actions>
+        <.button class="w-full" phx-disable-with="Updating...">Update</.button>
+      </:actions>
+    </.simple_form>
+  </.wc_card>
+
+  <.wc_card>
+    <:title>
+      <h1>Connect to Node</h1>
+    </:title>
+    <.simple_form
+      :let={f}
+      for={@conn}
+      id="user-form"
+      method={:post}
+      phx-change="validate"
+      phx-submit="save"
+    >
+      <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
+      <input name="action" type="hidden" value="connect-node" />
+      <.input field={{f, :target_node}} type="text" label="Target Node" />
+      <:actions>
+        <.button class="w-full" phx-disable-with="Connecting...">Connect</.button>
+      </:actions>
+    </.simple_form>
+  </.wc_card>
+</div>

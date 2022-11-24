@@ -1,5 +1,5 @@
 defmodule GSMLGWeb.ToolboxController do
-  use GSMLGWeb, :controller
+  use GSMLGWeb, :tool_controller
 
   def index(conn, _params) do
     tools = []

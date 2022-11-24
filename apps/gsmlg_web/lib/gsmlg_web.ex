@@ -50,6 +50,20 @@ defmodule GSMLGWeb do
     end
   end
 
+  def tool_controller do
+    quote do
+      use Phoenix.Controller,
+        namespace: GSMLGWeb,
+        formats: [:html, :json],
+        layouts: [html: {GSMLGWeb.Layouts, :tool}]
+
+      import Plug.Conn
+      import GSMLGWeb.Gettext
+
+      unquote(verified_routes())
+    end
+  end
+
   def live_view do
     quote do
       use Phoenix.LiveView,
