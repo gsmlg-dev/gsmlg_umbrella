@@ -1,3 +1,16 @@
+# [4.5.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.4.2...v4.5.0) (2022-11-24)
+
+
+### Bug Fixes
+
+* Fix unit test. ([dc62a90](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/dc62a900a961aeee61fec300afdf87f6305b4d64))
+* Remove useless var. ([5df89a7](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/5df89a7f33655f50a26df84b83dbef4e40867994))
+
+
+### Features
+
+* Add toolbox, geoip2. ([50d16f7](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/50d16f7e24c47f58241452d093961f8057efa401))
+
 ## [4.4.2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.4.1...v4.4.2) (2022-11-16)
 
 
