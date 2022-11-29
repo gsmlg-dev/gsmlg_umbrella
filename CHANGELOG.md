@@ -1,3 +1,10 @@
+# [4.6.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.5.1...v4.6.0) (2022-11-29)
+
+
+### Features
+
+* Add map to geoip2. ([026af23](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/026af23182e6469f519dce36c8d24909c611235c))
+
 ## [4.5.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.5.0...v4.5.1) (2022-11-24)
 
 
