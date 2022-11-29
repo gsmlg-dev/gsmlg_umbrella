@@ -1,3 +1,10 @@
+## [4.7.2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.1...v4.7.2) (2022-11-29)
+
+
+### Bug Fixes
+
+* Update deps. ([f638424](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/f6384248e948f2b2a1545da36cfc83d75ecb13b9))
+
 ## [4.7.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.0...v4.7.1) (2022-11-29)
 
 
