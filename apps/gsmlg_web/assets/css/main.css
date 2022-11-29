@@ -3,6 +3,8 @@ body {
   margin: 0;
   padding: 0;
   border: none;
+  width: 100vw;
+  min-height: 100vh;
 }
 
 body {

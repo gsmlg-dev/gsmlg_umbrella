@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@gsmlg/lit": "^1.29.3",
+    "@gsmlg/lit": "^1.29.4",
     "lit": "^2.4.1"
   }
 }
