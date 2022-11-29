@@ -8,8 +8,11 @@
       <%= assigns[:page_title] || "GSMLG Web" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
-    </script>
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}></script>
+    <%= if Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:enable_adsense) |> Kernel.==("yes") do %>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2900591828353755"
+     crossorigin="anonymous"></script>
+    <% end %>
   </head>
   <body class="bg-fuchsia-100 antialiased flex flex-col overflow-x-hidden text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
     <%= @inner_content %>

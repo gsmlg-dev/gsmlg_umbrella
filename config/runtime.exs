@@ -50,7 +50,9 @@ if config_env() == :prod do
     config :gsmlg_web, GSMLGWeb.Endpoint, url: [host: host, port: port]
   end
 
-  config :gsmlg_web, GSMLGWeb.Endpoint, user_register: System.get_env("USER_REGISTER") == "on"
+  config :gsmlg_web, GSMLGWeb.Endpoint,
+    user_register: System.get_env("USER_REGISTER") == "on",
+    enable_adsense: System.get_env("ENABLE_ADSENSE", "no")
 
   admin_secret_key_base =
     System.get_env("ADMIN_SECRET_KEY_BASE") || System.get_env("SECRET_KEY_BASE") ||
