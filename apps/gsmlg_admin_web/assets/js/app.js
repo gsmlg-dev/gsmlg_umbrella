@@ -3,9 +3,9 @@
 import { socket, resetSocketWithToken, joinChannels } from "./user_socket.js";
 
 window.addEventListener('DOMContentLoaded', (event) => {
-    // console.log('DOM fully loaded and parsed');
-    socket.connect();
-    joinChannels();
+  // console.log('DOM fully loaded and parsed');
+  socket.connect();
+  joinChannels();
 });
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
@@ -13,7 +13,7 @@ import "phoenix_html";
 
 // Inclue webcomponet material web componetn and @gsmlg/lit
 import "phoenix_webcomponent";
-import "@gsmlg/lit/dist/json-viewer";
+import "@gsmlg/lit/json-viewer";
 
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
@@ -34,16 +34,16 @@ liveSocket.connect();
 
 if (process.env.NODE_ENV === 'development') {
 
-    window.socket = socket;
-    window.resetSocketWithToken = resetSocketWithToken;
+  window.socket = socket;
+  window.resetSocketWithToken = resetSocketWithToken;
 
-    // expose liveSocket on window for web console debug logs and latency simulation:
-    // >> liveSocket.enableDebug()
-    // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
-    // >> liveSocket.disableLatencySim()
-    window.liveSocket = liveSocket;
+  // expose liveSocket on window for web console debug logs and latency simulation:
+  // >> liveSocket.enableDebug()
+  // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
+  // >> liveSocket.disableLatencySim()
+  window.liveSocket = liveSocket;
 
-    liveSocket.enableDebug()
-    // liveSocket.enableLatencySim(100)
-    console.log('NODE_ENV: ', process.env.NODE_ENV);
+  liveSocket.enableDebug()
+  // liveSocket.enableLatencySim(100)
+  console.log('NODE_ENV: ', process.env.NODE_ENV);
 }
