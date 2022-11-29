@@ -1,3 +1,10 @@
+# [4.7.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.6.0...v4.7.0) (2022-11-29)
+
+
+### Features
+
+* Add adsense. ([84e7667](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/84e7667efb869a85079892031d1953258335828f))
+
 # [4.6.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.5.1...v4.6.0) (2022-11-29)
 
 
