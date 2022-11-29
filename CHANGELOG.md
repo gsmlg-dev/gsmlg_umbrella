@@ -1,3 +1,10 @@
+## [4.7.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.0...v4.7.1) (2022-11-29)
+
+
+### Bug Fixes
+
+* Update @gsmlg/lit version. ([302ece4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/302ece481a50deddb0d71bcc98c87122c390d279))
+
 # [4.7.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.6.0...v4.7.0) (2022-11-29)
 
 
