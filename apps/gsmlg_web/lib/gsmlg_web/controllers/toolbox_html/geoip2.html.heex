@@ -39,5 +39,10 @@
             longitude: <%= @ipInfo.longitude %>
         </div>
     </div>
+    <div class="w-2/3 h-96 flex flex-row justify-center items-center">
+      <d3-world-map
+        points={Jason.encode!([[@ipInfo.longitude, @ipInfo.latitude]])}
+      ></d3-world-map>
+    </div>
 </div>
 <% end %>
