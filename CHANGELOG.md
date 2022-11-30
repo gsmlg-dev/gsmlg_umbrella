@@ -1,3 +1,10 @@
+## [4.7.3](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.2...v4.7.3) (2022-11-30)
+
+
+### Bug Fixes
+
+* Add resposive design. ([f346082](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/f346082df9dbf9ecdf43ca73b23ff222a1656e24))
+
 ## [4.7.2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.1...v4.7.2) (2022-11-29)
 
 
