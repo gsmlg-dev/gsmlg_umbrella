@@ -55,6 +55,8 @@ defmodule GSMLGWeb.Router do
     get "/tools", ToolboxController, :index
     get "/tools/geoip2", ToolboxController, :geoip2
     post "/tools/geoip2", ToolboxController, :geoip2_find
+    get "/tools/whois", ToolboxController, :whois
+    post "/tools/whois", ToolboxController, :whois_find
   end
 
   scope "/api", GSMLGWeb do

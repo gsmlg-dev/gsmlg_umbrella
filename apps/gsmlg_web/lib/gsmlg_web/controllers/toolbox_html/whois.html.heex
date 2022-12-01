@@ -1,0 +1,28 @@
+<h3 class="text-2xl text-center mt-4">Whois</h3>
+
+<div class="flex justify-center items-center">
+    <.simple_form
+        :let={f}
+        for={@conn}
+        id="ip-form"
+        method={:post}
+        phx-change="validate"
+        phx-submit="save"
+    >
+        <input name={"_csrf_token"} type="hidden" value={get_csrf_token()} />
+        <.input field={{f, :domain}} type="text" label="Domain" />
+        <:actions>
+            <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
+        </:actions>
+    </.simple_form>
+</div>
+
+<%= unless is_nil(@domainInfo) do %>
+<div class="mt-4 flex flex-col justify-center items-center">
+  <h3 class="text-xl">Whois Informaion</h3>
+  <pre><%= @domainInfo %></pre>
+  <%= unless is_nil(@reason) do %>
+  <pre class="text-red-500"><%= @reason %></pre>
+  <% end %>
+</div>
+<% end %>

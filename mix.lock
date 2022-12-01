@@ -73,4 +73,5 @@
   "unicode_util_compat": {:hex, :unicode_util_compat, "0.7.0", "bc84380c9ab48177092f43ac89e4dfa2c6d62b40b8bd132b1059ecc7232f9a78", [:rebar3], [], "hexpm", "25eee6d67df61960cf6a794239566599b09e17e668d3700247bc498638152521"},
   "websock": {:hex, :websock, "0.4.3", "184ac396bdcd3dfceb5b74c17d221af659dd559a95b1b92041ecb51c9b728093", [:mix], [], "hexpm", "5e4dd85f305f43fd3d3e25d70bec4a45228dfed60f0f3b072d8eddff335539cf"},
   "websock_adapter": {:hex, :websock_adapter, "0.4.5", "30038a3715067f51a9580562c05a3a8d501126030336ffc6edb53bf57d6d2d26", [:mix], [{:bandit, "~> 0.6", [hex: :bandit, repo: "hexpm", optional: true]}, {:plug, "~> 1.14", [hex: :plug, repo: "hexpm", optional: false]}, {:plug_cowboy, "~> 2.6", [hex: :plug_cowboy, repo: "hexpm", optional: true]}, {:websock, "~> 0.4", [hex: :websock, repo: "hexpm", optional: false]}], "hexpm", "1d9812dc7e703c205049426fd4fe0852a247a825f91b099e53dc96f68bafe4c8"},
+  "whois": {:hex, :whois, "0.1.1", "2bd7d6cd39f3aa2c82cae2b6da0d044ce641a7cca34e68ac12efe20abc97fc04", [:mix], [], "hexpm", "818cbf3ae7dd4df21b1f544718a8fc62d05bd7ea98eb012bcef9d315190702b7"},
 }

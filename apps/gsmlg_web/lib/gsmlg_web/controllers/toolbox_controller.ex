@@ -17,4 +17,18 @@ defmodule GSMLGWeb.ToolboxController do
 
     render(conn, :geoip2, ipInfo: ipInfo, langs: GSMLG.GeoIP2.langs())
   end
+
+  def whois(conn, _params) do
+    render(conn, :whois, domainInfo: nil)
+  end
+
+  def whois_find(conn, %{"domain" => domain} = params) do
+    case GSMLG.Whois.lookup_raw(domain) do
+      {:ok, info} ->
+        render(conn, :whois, domainInfo: info, reason: nil)
+
+      {:error, reason} ->
+        render(conn, :whois, domainInfo: :error, reason: reason)
+    end
+  end
 end
