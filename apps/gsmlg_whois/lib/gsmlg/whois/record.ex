@@ -141,6 +141,6 @@ defimpl Inspect, for: GSMLG.Whois.Record do
     record
     |> Map.put(:raw, "…")
     |> Map.delete(:__struct__)
-    |> inspect
+    |> Inspect.Map.inspect(opts)
   end
 end
