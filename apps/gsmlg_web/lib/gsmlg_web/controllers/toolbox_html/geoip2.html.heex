@@ -43,6 +43,7 @@
       <d3-world-map
         class="w-full"
         points={Jason.encode!([[@ipInfo.longitude, @ipInfo.latitude]])}
+        center-longitude={@ipInfo.longitude}
       ></d3-world-map>
     </div>
 </div>
