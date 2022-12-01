@@ -1,3 +1,10 @@
+## [4.7.4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.3...v4.7.4) (2022-12-01)
+
+
+### Bug Fixes
+
+* Fix in phone screen. ([5caf473](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/5caf473c12a5c9ca1ab4d1b7679c3f0a64486096))
+
 ## [4.7.3](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.2...v4.7.3) (2022-11-30)
 
 
