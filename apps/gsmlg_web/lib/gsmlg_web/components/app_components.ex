@@ -15,12 +15,8 @@ defmodule GSMLGWeb.AppComponents do
   import GSMLGWeb.Gettext
 
   @doc """
-  Renders a header with title.
+  Renders app logo.
   """
-  attr(:class, :string, default: nil)
-  attr(:home, :string, default: "/")
-  attr(:menus, :list, default: [])
-
   def app_logo(assigns) do
     ~H"""
     <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" stroke-linecap="round" stroke-linejoin="round" clip-rule="evenodd" viewBox="0 0 2000 400" width="200" height="40">
@@ -226,51 +222,6 @@ defmodule GSMLGWeb.AppComponents do
         <path fill="#fff8ff" stroke="#fff8ff" d="M1172 160h2c.86 20.708 0 22.851 0 41h-2c0-13.206 3.09-28.63 0-41Z"></path>
       </g>
     </svg>
-    """
-  end
-
-  @doc """
-  Renders a header with title.
-  """
-  attr(:class, :string, default: nil)
-  attr(:home, :string, default: "/")
-  attr(:menus, :list, default: [])
-
-  def app_header(assigns) do
-    ~H"""
-    <header
-      class="h-14 w-screen bg-sky-900 text-white text-xl flex items-center justify-center relative"
-    >
-      <div class="container h-full flex items-center justify-between select-none ">
-        <div class="flex flex-row items-center justify-start">
-          <.link href={@home}>
-            <.app_logo />
-          </.link>
-          <h1 class="select-none text-blod hidden lg:inline-flex">
-            <.link href={@home}>GSMLG Web</.link>
-          </h1>
-          <nav class="text-fuchsia-200 mx-12 hidden md:flex flex-row items-center gap-4">
-            <%= for menu <- @menus do %>
-            <.link class="rounded-lg bg-cyan-600 hover:bg-cyan-400 py-2 px-6 text-lg font-semibold leading-6 text-center text-white active:text-white/80" href={menu.url}><%= menu.name %></.link>
-            <% end %>
-          </nav>
-        </div>
-        <div class="flex flex-row items-center justify-end">
-          <.link class="hidden md:inline-flex" href={"https://github.com/gsmlg-dev"} target="_blank">Github</.link>
-
-          <button class="inline-flex md:hidden w-10 h-10 justify-center items-center" onclick="document.getElementById('header-md-menu').classList.toggle('flex')">
-            <Heroicons.bars_3 class="w-8 h-8" />
-          </button>
-        </div>
-      </div>
-      <div id="header-md-menu" class="absolute z-50 top-14 w-full bg-sky-900 flex-col md:hidden hidden">
-        <%= for menu <- @menus do %>
-        <.link class="w-full bg-cyan-600 hover:bg-cyan-400 py-2 px-6 text-lg font-semibold leading-6 text-center text-white active:text-white/80" href={menu.url}><%= menu.name %></.link>
-        <% end %>
-        <hr />
-        <.link class="w-full py-2 px-6 text-lg font-semibold leading-6 text-center text-white" href={"https://github.com/gsmlg-dev"} target="_blank">Github</.link>
-      </div>
-    </header>
     """
   end
 

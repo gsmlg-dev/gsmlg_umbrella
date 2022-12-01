@@ -102,6 +102,7 @@ defmodule GSMLGWeb do
       import GSMLGWeb.CoreComponents
       import GSMLGWeb.AppComponents
       import GSMLGWeb.Gettext
+      use Phoenix.WebComponent
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

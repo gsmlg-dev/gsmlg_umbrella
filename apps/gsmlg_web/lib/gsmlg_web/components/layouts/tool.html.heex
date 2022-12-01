@@ -1,7 +1,16 @@
-<.app_header home={~p"/"} menus={[
-  %{ name: "Blog", url: ~p"/blogs" },
-  %{ name: "Toolbox", url: ~p"/tools" },
-]}></.app_header>
+<.wc_simple_appbar
+  home={~p"/"}
+  title="GSMLG Web"
+  menus={[
+    %{ label: "Blog", to: ~p"/blogs" },
+    %{ label: "Toolbox", to: ~p"/tools" },
+  ]}
+>
+<:logo><.app_logo /></:logo>
+<:user_profile>
+  <.link class="hidden md:inline-flex" href={"https://github.com/gsmlg-dev"} target="_blank">Github</.link>
+</:user_profile>
+</.wc_simple_appbar>
 <main class="px-4 sm:px-6 lg:px-8">
   <div class="mx-auto max-w-screen-2xl">
     <.flash kind={:info} title="Success!" flash={@flash} />
