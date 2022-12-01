@@ -239,7 +239,7 @@ defmodule GSMLGWeb.AppComponents do
   def app_header(assigns) do
     ~H"""
     <header
-      class="h-14 w-screen bg-sky-900 text-white text-xl flex items-center justify-center"
+      class="h-14 w-screen bg-sky-900 text-white text-xl flex items-center justify-center relative"
     >
       <div class="container h-full flex items-center justify-between select-none ">
         <div class="flex flex-row items-center justify-start">
@@ -249,15 +249,26 @@ defmodule GSMLGWeb.AppComponents do
           <h1 class="select-none text-blod hidden lg:inline-flex">
             <.link href={@home}>GSMLG Web</.link>
           </h1>
-          <nav class="select-none text-fuchsia-200 mx-12 hidden md:flex flex-row items-center gap-4">
+          <nav class="text-fuchsia-200 mx-12 hidden md:flex flex-row items-center gap-4">
             <%= for menu <- @menus do %>
             <.link class="rounded-lg bg-cyan-600 hover:bg-cyan-400 py-2 px-6 text-lg font-semibold leading-6 text-center text-white active:text-white/80" href={menu.url}><%= menu.name %></.link>
             <% end %>
           </nav>
         </div>
-        <div class="hidden md:flex">
-          <.link href={"https://github.com/gsmlg-dev"} target="_blank">Github</.link>
+        <div class="flex flex-row items-center justify-end">
+          <.link class="hidden md:inline-flex" href={"https://github.com/gsmlg-dev"} target="_blank">Github</.link>
+
+          <button class="inline-flex md:hidden w-10 h-10 justify-center items-center" onclick="document.getElementById('header-md-menu').classList.toggle('flex')">
+            <Heroicons.bars_3 class="w-8 h-8" />
+          </button>
         </div>
+      </div>
+      <div id="header-md-menu" class="absolute z-50 top-14 w-full bg-sky-900 flex-col md:hidden hidden">
+        <%= for menu <- @menus do %>
+        <.link class="w-full bg-cyan-600 hover:bg-cyan-400 py-2 px-6 text-lg font-semibold leading-6 text-center text-white active:text-white/80" href={menu.url}><%= menu.name %></.link>
+        <% end %>
+        <hr />
+        <.link class="w-full py-2 px-6 text-lg font-semibold leading-6 text-center text-white" href={"https://github.com/gsmlg-dev"} target="_blank">Github</.link>
       </div>
     </header>
     """
