@@ -1,3 +1,10 @@
+## [4.7.5](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.4...v4.7.5) (2022-12-01)
+
+
+### Bug Fixes
+
+* Set ip location to center of map in geoip2. ([fcc42aa](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/fcc42aae31adb8d56d3960e67361c66246bf9dce))
+
 ## [4.7.4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.3...v4.7.4) (2022-12-01)
 
 
