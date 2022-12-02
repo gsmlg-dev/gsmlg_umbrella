@@ -9,7 +9,7 @@ defmodule GSMLG.Whois do
 
   @doc """
   Queries the appropriate WHOIS server for the domain name `domain` and returns
-  a `{:ok, %Whois.Record{}}` tuple on success, and `{:error, reason}` on
+  a `{:ok, %GSMLG.Whois.Record{}}` tuple on success, and `{:error, reason}` on
   failure.
   """
   @spec lookup(String.t(), [lookup_option]) :: {:ok, Record.t()} | {:error, atom}
