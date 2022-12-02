@@ -10,17 +10,17 @@
         phx-submit="save"
     >
         <input name={"_csrf_token"} type="hidden" value={get_csrf_token()} />
-        <.input field={{f, :domain}} type="text" label="Domain" />
+        <.input field={{f, :look_for}} type="text" label="Domain / IP / ASN" />
         <:actions>
             <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
         </:actions>
     </.simple_form>
 </div>
 
-<%= unless is_nil(@domainInfo) do %>
+<%= unless is_nil(@whois_info) do %>
 <div class="mt-4 flex flex-col justify-center items-center">
   <h3 class="text-xl">Whois Informaion</h3>
-  <pre><%= @domainInfo %></pre>
+  <pre><%= @whois_info %></pre>
   <%= unless is_nil(@reason) do %>
   <pre class="text-red-500"><%= @reason %></pre>
   <% end %>

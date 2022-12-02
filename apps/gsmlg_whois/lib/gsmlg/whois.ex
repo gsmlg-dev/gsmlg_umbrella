@@ -3,15 +3,6 @@ defmodule GSMLG.Whois do
   Documentation for `GSMLG.Whois`.
   """
 
-  @doc """
-  GSMLG.Whois.lookup
-
-  ## Examples
-
-      iex> GSMLG.Whois.lookup("google.com")
-      :world
-
-  """
   alias GSMLG.Whois.{Record, Server}
 
   @type lookup_option :: {:server, String.t() | Server.t()}
@@ -33,7 +24,7 @@ defmodule GSMLG.Whois do
       case Keyword.fetch(opts, :server) do
         {:ok, host} when is_binary(host) -> {:ok, %Server{host: host}}
         {:ok, %Server{} = server} -> {:ok, server}
-        :error -> Server.for(domain)
+        :error -> Server.for_domain(domain)
       end
 
     case server do
@@ -54,6 +45,78 @@ defmodule GSMLG.Whois do
               opts = opts |> Keyword.put(:server, next_server)
 
               with {:ok, raw2} <- lookup_raw(domain, opts) do
+                {:ok, raw <> raw2}
+              end
+          end
+        end
+
+      :error ->
+        {:error, :unsupported}
+    end
+  end
+
+  def lookup_ip_raw(ipaddr, opts \\ []) do
+    server =
+      case Keyword.fetch(opts, :server) do
+        {:ok, host} when is_binary(host) -> {:ok, %Server{host: host}}
+        {:ok, %Server{} = server} -> {:ok, server}
+        :error -> Server.for_ip(ipaddr)
+      end
+
+    case server do
+      {:ok, %Server{host: host}} ->
+        with {:ok, socket} <-
+               :gen_tcp.connect(String.to_charlist(host), 43, [:binary, active: false]),
+             :ok <- :gen_tcp.send(socket, [ipaddr, "\r\n"]) do
+          raw = recv(socket)
+
+          case next_server(raw) do
+            nil ->
+              {:ok, raw}
+
+            ^host ->
+              {:ok, raw}
+
+            next_server ->
+              opts = opts |> Keyword.put(:server, next_server)
+
+              with {:ok, raw2} <- lookup_raw(ipaddr, opts) do
+                {:ok, raw <> raw2}
+              end
+          end
+        end
+
+      :error ->
+        {:error, :unsupported}
+    end
+  end
+
+  def lookup_as_raw(asn, opts \\ []) do
+    server =
+      case Keyword.fetch(opts, :server) do
+        {:ok, host} when is_binary(host) -> {:ok, %Server{host: host}}
+        {:ok, %Server{} = server} -> {:ok, server}
+        :error -> Server.for_asn(asn)
+      end
+
+    case server do
+      {:ok, %Server{host: host}} ->
+        with {:ok, socket} <-
+               :gen_tcp.connect(String.to_charlist(host), 43, [:binary, active: false]),
+             :ok <- :gen_tcp.send(socket, [asn, "\r\n"]) do
+          raw = recv(socket)
+
+          case next_server(raw) do
+            nil ->
+              {:ok, raw}
+
+            ^host ->
+              {:ok, raw}
+
+            next_server ->
+              opts = opts |> Keyword.put(:server, next_server)
+
+              with {:ok, raw2} <- lookup_raw(asn, opts) do
                 {:ok, raw <> raw2}
               end
           end
