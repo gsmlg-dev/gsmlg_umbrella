@@ -1,3 +1,20 @@
+# [4.8.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.5...v4.8.0) (2022-12-02)
+
+
+### Bug Fixes
+
+* Fix class. ([f6033a4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/f6033a47e9c90b5d67678bd50ffe66bd3e30e6bb))
+* Fix whois format. ([778b828](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/778b828cc7ab9d0203d262df4e85a48a68c4fb14))
+* Fix whois unit test. ([ed26a5a](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/ed26a5a5a00e27365242912d0db670dba9979c9e))
+* Fix whois. ([bff0455](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/bff04557d8d26d10c7d3cb7699528e0b95345904))
+* Update phoenix_webcomponent and use simple appbar. ([7ccb963](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/7ccb963fd6c5e12293fe2293bbdf3e258a0e19f4))
+
+
+### Features
+
+* Add whois module. ([c6fa33f](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/c6fa33fbfc59ac3b981b8306e029e85b30078a57))
+* Add whois tool. ([b872ff8](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/b872ff8c471ece999f558a1937335d719a483846))
+
 ## [4.7.5](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.4...v4.7.5) (2022-12-01)
 
 
