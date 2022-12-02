@@ -1,7 +1,7 @@
 defmodule GSMLGAdminWeb.BlogLive.Import do
   use GSMLGAdminWeb, :user_live_view
 
-  alias GSMLG.Content
+  # alias GSMLG.Content
   alias GSMLG.Content.BlogImport
 
   @impl true
@@ -36,7 +36,7 @@ defmodule GSMLGAdminWeb.BlogLive.Import do
 
   defp import_blog(socket, import_params) do
     case BlogImport.import(import_params) do
-      {:ok, blog} ->
+      {:ok, _blog} ->
         {:noreply,
          socket
          |> put_flash(:info, "Blog import successfully")

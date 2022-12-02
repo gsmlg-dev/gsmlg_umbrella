@@ -26,7 +26,7 @@ defmodule GSMLGWeb.ToolboxController do
     render(conn, :whois, whois_info: nil)
   end
 
-  def whois_find(conn, %{"look_for" => look_for} = params) do
+  def whois_find(conn, %{"look_for" => look_for} = _params) do
     cond do
       Regex.match?(@asn_regex, look_for) ->
         case GSMLG.Whois.lookup_as_raw(look_for) do

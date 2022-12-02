@@ -11,8 +11,8 @@ defmodule GSMLGWeb.AppComponents do
   """
   use Phoenix.Component
 
-  alias Phoenix.LiveView.JS
-  import GSMLGWeb.Gettext
+  # alias Phoenix.LiveView.JS
+  # import GSMLGWeb.Gettext
 
   @doc """
   Renders app logo.
