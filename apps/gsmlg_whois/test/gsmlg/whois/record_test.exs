@@ -36,7 +36,8 @@ defmodule GSMLG.Whois.RecordTest do
                  country: "US",
                  phone: "+1.4089961010",
                  fax: "+1.4089741560",
-                 email: if(key == :technical, do: "apple-noc@apple.com", else: "domains@apple.com")
+                 email:
+                   if(key == :technical, do: "apple-noc@apple.com", else: "domains@apple.com")
                }
       end
     end
