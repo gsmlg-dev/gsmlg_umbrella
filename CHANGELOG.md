@@ -1,3 +1,10 @@
+# [4.9.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.8.0...v4.9.0) (2022-12-02)
+
+
+### Features
+
+* Update whois, support ASN adn IP lookup. ([4c915bf](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/4c915bf4fdda1a9f7a16e689fb31c6587378c3cf))
+
 # [4.8.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.7.5...v4.8.0) (2022-12-02)
 
 
