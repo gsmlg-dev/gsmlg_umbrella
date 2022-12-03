@@ -1,6 +1,6 @@
 <.wc_simple_appbar
   home={~p"/"}
-  title={assigns[:page_title]}
+  title={assigns[:title]}
   menus={[
     %{ label: "Blog", to: ~p"/blogs" },
     %{ label: "Toolbox", to: ~p"/tools" },
@@ -8,7 +8,9 @@
 >
 <:logo><.app_logo /></:logo>
 <:user_profile>
-  <.link class="flex flex-row gap-2" href={"https://github.com/gsmlg-dev"} target="_blank"><Heroicons.link class="h-6 w-6" />Github</.link>
+  <.link class="flex flex-row gap-2" href={"https://github.com/gsmlg-dev"} target="_blank">
+    <.wc_mdi name="github" class="h-10 w-10" />
+  </.link>
 </:user_profile>
 </.wc_simple_appbar>
 <section class="flex flex-col justify-evenly items-center w-screen h-64 bg-sky-500 text-purple-300">

@@ -12,6 +12,9 @@ defmodule GSMLG.Whois.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      name: "GSMLG.Whois",
+      description: "Whois lookup for Domain / IP / ASN",
+      package: package(),
       deps: deps()
     ]
   end
@@ -29,7 +32,20 @@ defmodule GSMLG.Whois.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:inet_cidr, "~> 1.0.0"}
+      {:inet_cidr, "~> 1.0.0"},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Jonathan Gao"],
+      licenses: ["MIT"],
+      files: ~w(lib priv LICENSE mix.exs README.md),
+      links: %{
+        Changelog: "https://hexdocs.pm/gsmlg_whois/changelog.html",
+        # GitHub: @source_url
+      }
     ]
   end
 end
