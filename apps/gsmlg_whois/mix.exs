@@ -43,8 +43,7 @@ defmodule GSMLG.Whois.MixProject do
       licenses: ["MIT"],
       files: ~w(lib priv LICENSE mix.exs README.md),
       links: %{
-        Changelog: "https://hexdocs.pm/gsmlg_whois/changelog.html",
-        # GitHub: @source_url
+        Changelog: "https://hexdocs.pm/gsmlg_whois/changelog.html"
       }
     ]
   end
