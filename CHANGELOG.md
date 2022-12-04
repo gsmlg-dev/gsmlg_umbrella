@@ -1,3 +1,11 @@
+## [4.9.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.9.0...v4.9.1) (2022-12-04)
+
+
+### Bug Fixes
+
+* Fix format. ([cae45c5](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/cae45c531d87dbdfec9befde2bb6b612af137509))
+* Fix logo. ([d398db5](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/d398db52489905e88d1042ed4cb0e1535b22395a))
+
 # [4.9.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.8.0...v4.9.0) (2022-12-02)
 
 
