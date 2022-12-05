@@ -3,25 +3,7 @@ defmodule GSMLGWeb.PageController do
 
   def index(conn, _params) do
     repos =
-      case GSMLG.GitHub.get("/orgs/gsmlg-dev/repos") do
-        {:ok, %HTTPoison.Response{status_code: 200, body: repos}} ->
-          repos
-
-        _ ->
-          [
-            %{
-              name: "Foundation",
-              full_name: "gsmlg-dev/Foundation",
-              stargazers_count: 50,
-              updated_at: "",
-              description: "",
-              has_pages: false,
-              owner: %{
-                login: "gsmlg-dev"
-              }
-            }
-          ]
-      end
+      GSMLG.GitHub.repos()
       |> Enum.sort(&(&1.stargazers_count > &2.stargazers_count))
 
     paget_title =
