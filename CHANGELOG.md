@@ -1,3 +1,10 @@
+## [4.9.2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.9.1...v4.9.2) (2022-12-05)
+
+
+### Bug Fixes
+
+* Cache github repos in one hour. ([858f052](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/858f052e2f031735de21c5b058cefea71682960c))
+
 ## [4.9.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.9.0...v4.9.1) (2022-12-04)
 
 
