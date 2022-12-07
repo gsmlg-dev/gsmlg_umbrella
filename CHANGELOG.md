@@ -1,3 +1,10 @@
+## [4.9.5](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.9.4...v4.9.5) (2022-12-07)
+
+
+### Bug Fixes
+
+* Fix icp footer. ([76cade8](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/76cade8ddd9724b11886c78419e11b1b96057946))
+
 ## [4.9.4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.9.3...v4.9.4) (2022-12-06)
 
 
