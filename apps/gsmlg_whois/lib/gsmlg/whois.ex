@@ -29,9 +29,9 @@ defmodule GSMLG.Whois do
 
     case server do
       {:ok, %Server{host: host}} ->
-        with {:ok, socket} <- GSMLGSocket.TCP.connect(host, 43),
-             :ok <- GSMLGSocket.Stream.send(socket, [domain, "\r\n"]) do
-          raw = GSMLGSocket.Stream.recv_all!(socket)
+        with {:ok, socket} <- GSMLG.Socket.TCP.connect(host, 43),
+             :ok <- GSMLG.Socket.Stream.send(socket, [domain, "\r\n"]) do
+          raw = GSMLG.Socket.Stream.recv_all!(socket)
 
           case next_server(raw) do
             nil ->
@@ -64,9 +64,9 @@ defmodule GSMLG.Whois do
 
     case server do
       {:ok, %Server{host: host}} ->
-        with {:ok, socket} <- GSMLGSocket.TCP.connect(host, 43),
-             :ok <- GSMLGSocket.Stream.send(socket, [ipaddr, "\r\n"]) do
-          raw = GSMLGSocket.Stream.recv_all!(socket)
+        with {:ok, socket} <- GSMLG.Socket.TCP.connect(host, 43),
+             :ok <- GSMLG.Socket.Stream.send(socket, [ipaddr, "\r\n"]) do
+          raw = GSMLG.Socket.Stream.recv_all!(socket)
 
           case next_server(raw) do
             nil ->
@@ -99,9 +99,9 @@ defmodule GSMLG.Whois do
 
     case server do
       {:ok, %Server{host: host}} ->
-        with {:ok, socket} <- GSMLGSocket.TCP.connect(host, 43),
-             :ok <- GSMLGSocket.Stream.send(socket, [asn, "\r\n"]) do
-          raw = GSMLGSocket.Stream.recv_all!(socket)
+        with {:ok, socket} <- GSMLG.Socket.TCP.connect(host, 43),
+             :ok <- GSMLG.Socket.Stream.send(socket, [asn, "\r\n"]) do
+          raw = GSMLG.Socket.Stream.recv_all!(socket)
 
           case next_server(raw) do
             nil ->

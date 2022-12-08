@@ -1,4 +1,4 @@
-defmodule GSMLGSocketTest do
+defmodule GSMLG.SocketTest do
   use ExUnit.Case
-  doctest GSMLGSocket
+  doctest GSMLG.Socket
 end

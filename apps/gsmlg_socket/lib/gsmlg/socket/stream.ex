@@ -1,4 +1,4 @@
-defprotocol GSMLGSocket.Stream.Protocol do
+defprotocol GSMLG.Socket.Stream.Protocol do
   @doc """
   Send data through the socket.
   """
@@ -49,39 +49,39 @@ defprotocol GSMLGSocket.Stream.Protocol do
   def close(self)
 end
 
-defmodule GSMLGSocket.Stream do
-  @type t :: GSMLGSocket.Stream.Protocol.t()
+defmodule GSMLG.Socket.Stream do
+  @type t :: GSMLG.Socket.Stream.Protocol.t()
 
-  use GSMLGSocket.Helpers
+  use GSMLG.Socket.Helpers
   import Kernel, except: [send: 2]
 
-  defdelegate send(self, data), to: GSMLGSocket.Stream.Protocol
-  defbang(send(self, data), to: GSMLGSocket.Stream.Protocol)
+  defdelegate send(self, data), to: GSMLG.Socket.Stream.Protocol
+  defbang(send(self, data), to: GSMLG.Socket.Stream.Protocol)
 
-  defdelegate file(self, path), to: GSMLGSocket.Stream.Protocol
-  defbang(file(self, path), to: GSMLGSocket.Stream.Protocol)
-  defdelegate file(self, path, options), to: GSMLGSocket.Stream.Protocol
-  defbang(file(self, path, options), to: GSMLGSocket.Stream.Protocol)
+  defdelegate file(self, path), to: GSMLG.Socket.Stream.Protocol
+  defbang(file(self, path), to: GSMLG.Socket.Stream.Protocol)
+  defdelegate file(self, path, options), to: GSMLG.Socket.Stream.Protocol
+  defbang(file(self, path, options), to: GSMLG.Socket.Stream.Protocol)
 
-  defdelegate recv(self), to: GSMLGSocket.Stream.Protocol
-  defbang(recv(self), to: GSMLGSocket.Stream.Protocol)
-  defdelegate recv(self, length_or_options), to: GSMLGSocket.Stream.Protocol
-  defbang(recv(self, length_or_options), to: GSMLGSocket.Stream.Protocol)
-  defdelegate recv(self, length, options), to: GSMLGSocket.Stream.Protocol
-  defbang(recv(self, length, options), to: GSMLGSocket.Stream.Protocol)
+  defdelegate recv(self), to: GSMLG.Socket.Stream.Protocol
+  defbang(recv(self), to: GSMLG.Socket.Stream.Protocol)
+  defdelegate recv(self, length_or_options), to: GSMLG.Socket.Stream.Protocol
+  defbang(recv(self, length_or_options), to: GSMLG.Socket.Stream.Protocol)
+  defdelegate recv(self, length, options), to: GSMLG.Socket.Stream.Protocol
+  defbang(recv(self, length, options), to: GSMLG.Socket.Stream.Protocol)
 
-  defdelegate recv_all!(self), to: GSMLGSocket.Stream.Protocol
-  defbang(recv_all!(self), to: GSMLGSocket.Stream.Protocol)
-  defdelegate recv_all!(self, acc), to: GSMLGSocket.Stream.Protocol
-  defbang(recv_all!(self, acc), to: GSMLGSocket.Stream.Protocol)
+  defdelegate recv_all!(self), to: GSMLG.Socket.Stream.Protocol
+  defbang(recv_all!(self), to: GSMLG.Socket.Stream.Protocol)
+  defdelegate recv_all!(self, acc), to: GSMLG.Socket.Stream.Protocol
+  defbang(recv_all!(self, acc), to: GSMLG.Socket.Stream.Protocol)
 
-  defdelegate shutdown(self), to: GSMLGSocket.Stream.Protocol
-  defbang(shutdown(self), to: GSMLGSocket.Stream.Protocol)
-  defdelegate shutdown(self, how), to: GSMLGSocket.Stream.Protocol
-  defbang(shutdown(self, how), to: GSMLGSocket.Stream.Protocol)
+  defdelegate shutdown(self), to: GSMLG.Socket.Stream.Protocol
+  defbang(shutdown(self), to: GSMLG.Socket.Stream.Protocol)
+  defdelegate shutdown(self, how), to: GSMLG.Socket.Stream.Protocol
+  defbang(shutdown(self, how), to: GSMLG.Socket.Stream.Protocol)
 
-  defdelegate close(self), to: GSMLGSocket.Stream.Protocol
-  defbang(close(self), to: GSMLGSocket.Stream.Protocol)
+  defdelegate close(self), to: GSMLG.Socket.Stream.Protocol
+  defbang(close(self), to: GSMLG.Socket.Stream.Protocol)
 
   @doc """
   Read from the IO device and send to the socket following the given options.
@@ -146,7 +146,7 @@ defmodule GSMLGSocket.Stream do
   defbang(io(self, io, options))
 end
 
-defimpl GSMLGSocket.Stream.Protocol, for: Port do
+defimpl GSMLG.Socket.Stream.Protocol, for: Port do
   def send(self, data) do
     :gen_tcp.send(self, data)
   end
@@ -216,7 +216,7 @@ defimpl GSMLGSocket.Stream.Protocol, for: Port do
   end
 end
 
-defimpl GSMLGSocket.Stream.Protocol, for: Tuple do
+defimpl GSMLG.Socket.Stream.Protocol, for: Tuple do
   require Record
 
   def send(self, data) when self |> Record.is_record(:sslsocket) do
@@ -244,7 +244,7 @@ defimpl GSMLGSocket.Stream.Protocol, for: Tuple do
     case File.open!(
            path,
            [:read],
-           &GSMLGSocket.Stream.io(self, &1, offset: offset, size: size, chunk_size: chunk_size)
+           &GSMLG.Socket.Stream.io(self, &1, offset: offset, size: size, chunk_size: chunk_size)
          ) do
       {:ok, :ok} ->
         :ok

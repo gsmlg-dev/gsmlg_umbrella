@@ -1,5 +1,5 @@
-defmodule GSMLGSocket.SOCKS do
-  use GSMLGSocket.Helpers
+defmodule GSMLG.Socket.SOCKS do
+  use GSMLG.Socket.Helpers
 
   def connect(to, through, options \\ []) do
     [address, port | auth] = through |> Tuple.to_list()
@@ -26,7 +26,7 @@ defmodule GSMLGSocket.SOCKS do
         options
       end
 
-    GSMLGSocket.TCP.connect(address, port, options)
+    GSMLG.Socket.TCP.connect(address, port, options)
   end
 
   defp handshake(socket, 4, auth, {address, port}) do
@@ -37,10 +37,10 @@ defmodule GSMLGSocket.SOCKS do
         ""
       end
 
-    case GSMLGSocket.Address.parse(address) do
+    case GSMLG.Socket.Address.parse(address) do
       {a, b, c, d} ->
         case socket
-             |> GSMLGSocket.Stream.send(<<
+             |> GSMLG.Socket.Stream.send(<<
                # version
                0x04::8,
 
@@ -69,7 +69,7 @@ defmodule GSMLGSocket.SOCKS do
 
       nil ->
         case socket
-             |> GSMLGSocket.Stream.send(<<
+             |> GSMLG.Socket.Stream.send(<<
                # version
                0x04::8,
 
@@ -107,7 +107,7 @@ defmodule GSMLGSocket.SOCKS do
   end
 
   defp response(socket, 4) do
-    case socket |> GSMLGSocket.Stream.recv(8) do
+    case socket |> GSMLG.Socket.Stream.recv(8) do
       # request granted
       {:ok, <<0x00::8, 0x5A::8, _::16, _::32>>} ->
         :ok
@@ -138,10 +138,10 @@ defmodule GSMLGSocket.SOCKS do
   defp post(socket, options) do
     cond do
       options[:mode] == :active ->
-        socket |> GSMLGSocket.active()
+        socket |> GSMLG.Socket.active()
 
       options[:mode] == :once ->
-        socket |> GSMLGSocket.active(:once)
+        socket |> GSMLG.Socket.active(:once)
 
       true ->
         :ok

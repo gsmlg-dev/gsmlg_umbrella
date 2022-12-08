@@ -1,7 +1,7 @@
-defmodule GSMLGSocket.Host do
+defmodule GSMLG.Socket.Host do
   defstruct [:name, :aliases, :type, :length, :list]
 
-  @type t :: %GSMLGSocket.Host{
+  @type t :: %GSMLG.Socket.Host{
           name: String.t(),
           aliases: [String.t()],
           type: :inet | :inet6,
@@ -10,7 +10,7 @@ defmodule GSMLGSocket.Host do
         }
 
   defp convert({_, name, aliases, type, length, list}) do
-    %GSMLGSocket.Host{
+    %GSMLG.Socket.Host{
       name: List.to_string(name),
       aliases: aliases |> Enum.map(&List.to_string/1),
       type: type,
@@ -22,9 +22,9 @@ defmodule GSMLGSocket.Host do
   @doc """
   Get the hostent by address.
   """
-  @spec by_address(GSMLGSocket.Address.t()) :: {:ok, t} | {:error, :inet.posix()}
+  @spec by_address(GSMLG.Socket.Address.t()) :: {:ok, t} | {:error, :inet.posix()}
   def by_address(address) do
-    case :inet.gethostbyaddr(GSMLGSocket.Address.parse(address)) do
+    case :inet.gethostbyaddr(GSMLG.Socket.Address.parse(address)) do
       {:ok, host} ->
         {:ok, convert(host)}
 
@@ -36,14 +36,14 @@ defmodule GSMLGSocket.Host do
   @doc """
   Get the hostent by address, raising if an error occurs.
   """
-  @spec by_address!(GSMLGSocket.Address.t()) :: t | no_return
+  @spec by_address!(GSMLG.Socket.Address.t()) :: t | no_return
   def by_address!(address) do
-    case :inet.gethostbyaddr(GSMLGSocket.Address.parse(address)) do
+    case :inet.gethostbyaddr(GSMLG.Socket.Address.parse(address)) do
       {:ok, host} ->
         convert(host)
 
       {:error, code} ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 
@@ -85,7 +85,7 @@ defmodule GSMLGSocket.Host do
         convert(host)
 
       {:error, code} ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 
@@ -99,7 +99,7 @@ defmodule GSMLGSocket.Host do
         convert(host)
 
       {:error, code} ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 
@@ -132,7 +132,7 @@ defmodule GSMLGSocket.Host do
         ifs
 
       {:error, code} ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 end

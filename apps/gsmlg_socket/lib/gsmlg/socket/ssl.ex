@@ -1,4 +1,4 @@
-defmodule GSMLGSocket.SSL do
+defmodule GSMLG.Socket.SSL do
   @moduledoc """
   This module allows usage of SSL sockets and promotion of TCP sockets to SSL
   sockets.
@@ -30,11 +30,11 @@ defmodule GSMLGSocket.SSL do
 
   Normally sockets in Erlang are closed when the controlling process exits,
   with smart garbage collection the controlling process will be the
-  `GSMLGSocket.Manager` and it will be closed when there are no more references to
+  `GSMLG.Socket.Manager` and it will be closed when there are no more references to
   it.
   """
 
-  use GSMLGSocket.Helpers
+  use GSMLG.Socket.Helpers
   require Record
 
   @opaque t :: port
@@ -73,7 +73,7 @@ defmodule GSMLGSocket.SSL do
   @doc """
   Connect to the given address and port tuple or SSL connect the given socket.
   """
-  @spec connect(GSMLGSocket.t() | {GSMLGSocket.t(), :inet.port_number()}) ::
+  @spec connect(GSMLG.Socket.t() | {GSMLG.Socket.t(), :inet.port_number()}) ::
           {:ok, t} | {:error, term}
   def connect({address, port}) do
     connect(address, port)
@@ -87,7 +87,7 @@ defmodule GSMLGSocket.SSL do
   Connect to the given address and port tuple or SSL connect the given socket,
   raising if an error occurs.
   """
-  @spec connect!(GSMLGSocket.t() | {GSMLGSocket.t(), :inet.port_number()}) :: t | no_return
+  @spec connect!(GSMLG.Socket.t() | {GSMLG.Socket.t(), :inet.port_number()}) :: t | no_return
   defbang(connect(socket_or_descriptor))
 
   @doc """
@@ -96,9 +96,9 @@ defmodule GSMLGSocket.SSL do
   address and port.
   """
   @spec connect(
-          {GSMLGSocket.Address.t(), :inet.port_number()}
-          | GSMLGSocket.t()
-          | GSMLGSocket.Address.t(),
+          {GSMLG.Socket.Address.t(), :inet.port_number()}
+          | GSMLG.Socket.t()
+          | GSMLG.Socket.Address.t(),
           Keyword.t() | :inet.port_number()
         ) :: {:ok, t} | {:error, term}
   def connect({address, port}, options) when options |> is_list do
@@ -129,9 +129,9 @@ defmodule GSMLGSocket.SSL do
   address and port, raising if an error occurs.
   """
   @spec connect!(
-          {GSMLGSocket.Address.t(), :inet.port_number()}
-          | GSMLGSocket.t()
-          | GSMLGSocket.Address.t(),
+          {GSMLG.Socket.Address.t(), :inet.port_number()}
+          | GSMLG.Socket.t()
+          | GSMLG.Socket.Address.t(),
           Keyword.t() | :inet.port_number()
         ) :: t | no_return
   defbang(connect(descriptor, options))
@@ -139,7 +139,7 @@ defmodule GSMLGSocket.SSL do
   @doc """
   Connect to the given address and port with the given options.
   """
-  @spec connect(GSMLGSocket.Address.t(), :inet.port_number(), Keyword.t()) ::
+  @spec connect(GSMLG.Socket.Address.t(), :inet.port_number(), Keyword.t()) ::
           {:ok, t} | {:error, term}
   def connect(address, port, options) do
     address =
@@ -159,7 +159,7 @@ defmodule GSMLGSocket.SSL do
   Connect to the given address and port with the given options, raising if an
   error occurs.
   """
-  @spec connect!(GSMLGSocket.Address.t(), :inet.port_number(), Keyword.t()) :: t | no_return
+  @spec connect!(GSMLG.Socket.Address.t(), :inet.port_number(), Keyword.t()) :: t | no_return
   defbang(connect(address, port, options))
 
   @doc """
@@ -220,7 +220,7 @@ defmodule GSMLGSocket.SSL do
   Accept a connection from a listening SSL socket or start an SSL connection on
   the given client socket.
   """
-  @spec accept(GSMLGSocket.t() | t) :: {:ok, t} | {:error, term}
+  @spec accept(GSMLG.Socket.t() | t) :: {:ok, t} | {:error, term}
   def accept(self) do
     accept(self, [])
   end
@@ -229,14 +229,14 @@ defmodule GSMLGSocket.SSL do
   Accept a connection from a listening SSL socket or start an SSL connection on
   the given client socket, raising if an error occurs.
   """
-  @spec accept!(GSMLGSocket.t() | t) :: t | no_return
+  @spec accept!(GSMLG.Socket.t() | t) :: t | no_return
   defbang(accept(socket))
 
   @doc """
   Accept a connection from a listening SSL socket with the given options or
   start an SSL connection on the given client socket with the given options.
   """
-  @spec accept(GSMLGSocket.t(), Keyword.t()) :: {:ok, t} | {:error, term}
+  @spec accept(GSMLG.Socket.t(), Keyword.t()) :: {:ok, t} | {:error, term}
   def accept(socket, options) when socket |> Record.is_record(:sslsocket) do
     timeout = options[:timeout] || :infinity
 
@@ -263,7 +263,7 @@ defmodule GSMLGSocket.SSL do
   start an SSL connection on the given client socket with the given options,
   raising if an error occurs.
   """
-  @spec accept!(GSMLGSocket.t(), t | Keyword.t()) :: t | no_return
+  @spec accept!(GSMLG.Socket.t(), t | Keyword.t()) :: t | no_return
   defbang(accept(socket, options))
 
   @doc """
@@ -311,14 +311,14 @@ defmodule GSMLGSocket.SSL do
         raise RuntimeError, message: "the current process isn't the owner"
 
       code ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 
   @doc """
   Set options of the socket.
   """
-  @spec options(t | :ssl.sslsocket(), Keyword.t()) :: :ok | {:error, GSMLGSocket.Error.t()}
+  @spec options(t | :ssl.sslsocket(), Keyword.t()) :: :ok | {:error, GSMLG.Socket.Error.t()}
   def options(socket, options) when socket |> Record.is_record(:sslsocket) do
     :ssl.setopts(socket, arguments(options))
   end
@@ -326,7 +326,7 @@ defmodule GSMLGSocket.SSL do
   @doc """
   Set options of the socket, raising if an error occurs.
   """
-  @spec options!(t | GSMLGSocket.SSL.t() | port, Keyword.t()) :: :ok | no_return
+  @spec options!(t | GSMLG.Socket.SSL.t() | port, Keyword.t()) :: :ok | no_return
   defbang(options(socket, options))
 
   @doc """
@@ -362,7 +362,7 @@ defmodule GSMLGSocket.SSL do
       Map.get(options, false, [])
     }
 
-    GSMLGSocket.TCP.arguments(global) ++
+    GSMLG.Socket.TCP.arguments(global) ++
       Enum.flat_map(local, fn
         {:server_name, false} ->
           [{:server_name_indication, :disable}]

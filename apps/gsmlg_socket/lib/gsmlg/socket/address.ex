@@ -1,4 +1,4 @@
-defmodule GSMLGSocket.Address do
+defmodule GSMLG.Socket.Address do
   require Bitwise
 
   @type t :: String.t() | charlist | :inet.ip_address()
@@ -67,7 +67,7 @@ defmodule GSMLGSocket.Address do
         addresses
 
       {:error, code} ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 

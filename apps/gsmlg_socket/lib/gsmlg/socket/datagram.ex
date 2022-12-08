@@ -1,4 +1,4 @@
-defprotocol GSMLGSocket.Datagram.Protocol do
+defprotocol GSMLG.Socket.Datagram.Protocol do
   @doc """
   Send a packet to the given recipient.
   """
@@ -9,41 +9,41 @@ defprotocol GSMLGSocket.Datagram.Protocol do
   Receive a packet from the socket.
   """
   @spec recv(t) ::
-          {:ok, {iodata, {GSMLGSocket.Address.t(), :inet.port_number()}}} | {:error, term}
+          {:ok, {iodata, {GSMLG.Socket.Address.t(), :inet.port_number()}}} | {:error, term}
   def recv(self)
 
   @doc """
   Receive a packet with the given options or with the given size.
   """
   @spec recv(t, non_neg_integer | Keyword.t()) ::
-          {:ok, {iodata, {GSMLGSocket.Address.t(), :inet.port_number()}}} | {:error, term}
+          {:ok, {iodata, {GSMLG.Socket.Address.t(), :inet.port_number()}}} | {:error, term}
   def recv(self, length_or_options)
 
   @doc """
   Receive a packet with the given size and options.
   """
   @spec recv(t, non_neg_integer, Keyword.t()) ::
-          {:ok, {iodata, {GSMLGSocket.Address.t(), :inet.port_number()}}} | {:error, term}
+          {:ok, {iodata, {GSMLG.Socket.Address.t(), :inet.port_number()}}} | {:error, term}
   def recv(self, length, options)
 end
 
-defmodule GSMLGSocket.Datagram do
-  @type t :: GSMLGSocket.Datagram.Protocol.t()
+defmodule GSMLG.Socket.Datagram do
+  @type t :: GSMLG.Socket.Datagram.Protocol.t()
 
-  use GSMLGSocket.Helpers
+  use GSMLG.Socket.Helpers
 
-  defdelegate send(self, packet, to), to: GSMLGSocket.Datagram.Protocol
-  defbang(send(self, packet, to), to: GSMLGSocket.Datagram.Protocol)
+  defdelegate send(self, packet, to), to: GSMLG.Socket.Datagram.Protocol
+  defbang(send(self, packet, to), to: GSMLG.Socket.Datagram.Protocol)
 
-  defdelegate recv(self), to: GSMLGSocket.Datagram.Protocol
-  defbang(recv(self), to: GSMLGSocket.Datagram.Protocol)
-  defdelegate recv(self, length_or_options), to: GSMLGSocket.Datagram.Protocol
-  defbang(recv(self, length_or_options), to: GSMLGSocket.Datagram.Protocol)
-  defdelegate recv(self, length, options), to: GSMLGSocket.Datagram.Protocol
-  defbang(recv(self, length, options), to: GSMLGSocket.Datagram.Protocol)
+  defdelegate recv(self), to: GSMLG.Socket.Datagram.Protocol
+  defbang(recv(self), to: GSMLG.Socket.Datagram.Protocol)
+  defdelegate recv(self, length_or_options), to: GSMLG.Socket.Datagram.Protocol
+  defbang(recv(self, length_or_options), to: GSMLG.Socket.Datagram.Protocol)
+  defdelegate recv(self, length, options), to: GSMLG.Socket.Datagram.Protocol
+  defbang(recv(self, length, options), to: GSMLG.Socket.Datagram.Protocol)
 end
 
-defimpl GSMLGSocket.Datagram.Protocol, for: Port do
+defimpl GSMLG.Socket.Datagram.Protocol, for: Port do
   def send(self, data, {address, port}) do
     address =
       if address |> is_binary do

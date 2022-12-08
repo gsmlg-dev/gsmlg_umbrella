@@ -1,4 +1,4 @@
-# GSMLGSocket
+# GSMLG.Socket
 
 **TODO: Add description**
 

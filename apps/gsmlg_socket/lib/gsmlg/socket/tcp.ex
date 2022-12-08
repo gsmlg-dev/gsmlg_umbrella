@@ -1,4 +1,4 @@
-defmodule GSMLGSocket.TCP do
+defmodule GSMLG.Socket.TCP do
   @moduledoc """
   This module wraps a passive TCP socket using `gen_tcp`.
 
@@ -26,15 +26,15 @@ defmodule GSMLGSocket.TCP do
 
   ## Examples
 
-      server = GSMLGSocket.TCP.listen!(1337, packet: :line)
+      server = GSMLG.Socket.TCP.listen!(1337, packet: :line)
 
-      client = server |> GSMLGSocket.accept!
-      client |> GSMLGSocket.Stream.send!(client |> GSMLGSocket.Stream.recv!)
-      client |> GSMLGSocket.Stream.close
+      client = server |> GSMLG.Socket.accept!
+      client |> GSMLG.Socket.Stream.send!(client |> GSMLG.Socket.Stream.recv!)
+      client |> GSMLG.Socket.Stream.close
 
   """
 
-  use GSMLGSocket.Helpers
+  use GSMLG.Socket.Helpers
   require Record
 
   @opaque t :: port
@@ -57,8 +57,8 @@ defmodule GSMLGSocket.TCP do
   @doc """
   Create a TCP socket connecting to the given host and port tuple.
   """
-  @spec connect({GSMLGSocket.Address.t(), :inet.port_number()}) ::
-          {:ok, t} | {:error, GSMLGSocket.Error.t()}
+  @spec connect({GSMLG.Socket.Address.t(), :inet.port_number()}) ::
+          {:ok, t} | {:error, GSMLG.Socket.Error.t()}
   def connect({address, port}) do
     connect(address, port)
   end
@@ -67,7 +67,7 @@ defmodule GSMLGSocket.TCP do
   Create a TCP socket connecting to the given host and port tuple, raising if
   an error occurs.
   """
-  @spec connect!({GSMLGSocket.Address.t(), :inet.port_number()}) :: t | no_return
+  @spec connect!({GSMLG.Socket.Address.t(), :inet.port_number()}) :: t | no_return
   defbang(connect(descriptor))
 
   @doc """
@@ -75,9 +75,9 @@ defmodule GSMLGSocket.TCP do
   or to the given host and port.
   """
   @spec connect(
-          {GSMLGSocket.Address.t(), :inet.port_number()} | GSMLGSocket.Address.t(),
+          {GSMLG.Socket.Address.t(), :inet.port_number()} | GSMLG.Socket.Address.t(),
           Keyword.t() | :inet.port_number()
-        ) :: {:ok, t} | {:error, GSMLGSocket.Error.t()}
+        ) :: {:ok, t} | {:error, GSMLG.Socket.Error.t()}
   def connect({address, port}, options) when options |> is_list do
     connect(address, port, options)
   end
@@ -91,7 +91,7 @@ defmodule GSMLGSocket.TCP do
   or to the given host and port, raising if an error occurs.
   """
   @spec connect!(
-          {GSMLGSocket.Address.t(), :inet.port_number()} | GSMLGSocket.Address.t(),
+          {GSMLG.Socket.Address.t(), :inet.port_number()} | GSMLG.Socket.Address.t(),
           Keyword.t() | :inet.port_number()
         ) :: t | no_return
   defbang(connect(address, port))
@@ -100,7 +100,7 @@ defmodule GSMLGSocket.TCP do
   Create a TCP socket connecting to the given host and port.
   """
   @spec connect(String.t() | :inet.ip_address(), :inet.port_number(), Keyword.t()) ::
-          {:ok, t} | {:error, GSMLGSocket.Error.t()}
+          {:ok, t} | {:error, GSMLG.Socket.Error.t()}
   def connect(address, port, options) when address |> is_binary do
     timeout = options[:timeout] || :infinity
     options = Keyword.delete(options, :timeout)
@@ -120,7 +120,7 @@ defmodule GSMLGSocket.TCP do
   Create a TCP socket listening on an OS chosen port, use `local` to know the
   port it was bound on.
   """
-  @spec listen :: {:ok, t} | {:error, GSMLGSocket.Error.t()}
+  @spec listen :: {:ok, t} | {:error, GSMLG.Socket.Error.t()}
   def listen do
     listen(0, [])
   end
@@ -136,7 +136,7 @@ defmodule GSMLGSocket.TCP do
   Create a TCP socket listening on an OS chosen port using the given options or
   listening on the given port.
   """
-  @spec listen(:inet.port_number() | Keyword.t()) :: {:ok, t} | {:error, GSMLGSocket.Error.t()}
+  @spec listen(:inet.port_number() | Keyword.t()) :: {:ok, t} | {:error, GSMLG.Socket.Error.t()}
   def listen(port) when port |> is_integer do
     listen(port, [])
   end
@@ -155,7 +155,7 @@ defmodule GSMLGSocket.TCP do
   @doc """
   Create a TCP socket listening on the given port and using the given options.
   """
-  @spec listen(:inet.port_number(), Keyword.t()) :: {:ok, t} | {:error, GSMLGSocket.Error.t()}
+  @spec listen(:inet.port_number(), Keyword.t()) :: {:ok, t} | {:error, GSMLG.Socket.Error.t()}
   def listen(port, options) when options |> is_list do
     options =
       options
@@ -237,17 +237,17 @@ defmodule GSMLGSocket.TCP do
         raise RuntimeError, message: "the current process isn't the owner"
 
       code ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 
   @doc """
   Set options of the socket.
   """
-  @spec options(t | GSMLGSocket.SSL.t() | port, Keyword.t()) ::
-          :ok | {:error, GSMLGSocket.Error.t()}
+  @spec options(t | GSMLG.Socket.SSL.t() | port, Keyword.t()) ::
+          :ok | {:error, GSMLG.Socket.Error.t()}
   def options(socket, options) when socket |> Record.is_record(:sslsocket) do
-    GSMLGSocket.SSL.options(socket, options)
+    GSMLG.Socket.SSL.options(socket, options)
   end
 
   def options(socket, options) when socket |> is_port do
@@ -257,7 +257,7 @@ defmodule GSMLGSocket.TCP do
   @doc """
   Set options of the socket, raising if an error occurs.
   """
-  @spec options!(t | GSMLGSocket.SSL.t() | port, Keyword.t()) :: :ok | no_return
+  @spec options!(t | GSMLG.Socket.SSL.t() | port, Keyword.t()) :: :ok | no_return
   defbang(options(socket, options))
 
   @doc """
@@ -287,7 +287,7 @@ defmodule GSMLGSocket.TCP do
       Map.get(options, false, [])
     }
 
-    GSMLGSocket.arguments(global) ++
+    GSMLG.Socket.arguments(global) ++
       Enum.flat_map(local, fn
         {:as, :binary} ->
           [:binary]
@@ -316,7 +316,7 @@ defmodule GSMLGSocket.TCP do
         {:local, options} ->
           Enum.flat_map(options, fn
             {:address, address} ->
-              [{:ip, GSMLGSocket.Address.parse(address)}]
+              [{:ip, GSMLG.Socket.Address.parse(address)}]
 
             {:port, port} ->
               [{:port, port}]

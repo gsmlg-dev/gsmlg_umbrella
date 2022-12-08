@@ -1,4 +1,4 @@
-defmodule GSMLGSocket.MixProject do
+defmodule GSMLG.Socket.MixProject do
   use Mix.Project
 
   def project do

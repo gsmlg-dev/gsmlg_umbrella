@@ -1,25 +1,25 @@
-defmodule GSMLGSocket.Web do
+defmodule GSMLG.Socket.Web do
   @moduledoc ~S"""
-  This module implements RFC 6455 WebGSMLGSockets.
+  This module implements RFC 6455 WebGSMLG.Sockets.
 
   ## Client example
 
-      socket = GSMLGSocket.Web.connect! "echo.websocket.org"
-      socket |> GSMLGSocket.Web.send! { :text, "test" }
-      socket |> GSMLGSocket.Web.recv! # => {:text, "test"}
+      socket = GSMLG.Socket.Web.connect! "echo.websocket.org"
+      socket |> GSMLG.Socket.Web.send! { :text, "test" }
+      socket |> GSMLG.Socket.Web.recv! # => {:text, "test"}
 
   ## Server example
 
-      server = GSMLGSocket.Web.listen! 80
-      client = server |> GSMLGSocket.Web.accept!
+      server = GSMLG.Socket.Web.listen! 80
+      client = server |> GSMLG.Socket.Web.accept!
 
       # here you can verify if you want to accept the request or not, call
-      # `GSMLGSocket.Web.close!` if you don't want to accept it, or else call
-      # `GSMLGSocket.Web.accept!`
-      client |> GSMLGSocket.Web.accept!
+      # `GSMLG.Socket.Web.close!` if you don't want to accept it, or else call
+      # `GSMLG.Socket.Web.accept!`
+      client |> GSMLG.Socket.Web.accept!
 
       # echo the first message
-      client |> GSMLGSocket.Web.send!(client |> GSMLGSocket.Web.recv!)
+      client |> GSMLG.Socket.Web.send!(client |> GSMLG.Socket.Web.recv!)
 
   """
 
@@ -27,7 +27,7 @@ defmodule GSMLGSocket.Web do
   import Kernel, except: [length: 1, send: 2]
   alias __MODULE__, as: W
 
-  @type error :: GSMLGSocket.TCP.error() | GSMLGSocket.SSL.error()
+  @type error :: GSMLG.Socket.TCP.error() | GSMLG.Socket.SSL.error()
 
   @type packet ::
           {:text, String.t()}
@@ -97,7 +97,7 @@ defmodule GSMLGSocket.Web do
     {:headers, %{}}
   ]
 
-  @type t :: %GSMLGSocket.Web{
+  @type t :: %GSMLG.Socket.Web{
           socket: term,
           version: 13,
           path: String.t(),
@@ -108,11 +108,11 @@ defmodule GSMLGSocket.Web do
           mask: boolean
         }
 
-  @spec headers(%{String.t() => String.t()}, GSMLGSocket.t(), Keyword.t()) :: %{
+  @spec headers(%{String.t() => String.t()}, GSMLG.Socket.t(), Keyword.t()) :: %{
           String.t() => String.t()
         }
   defp headers(acc, socket, options) do
-    case socket |> GSMLGSocket.Stream.recv!(options) do
+    case socket |> GSMLG.Socket.Stream.recv!(options) do
       {:http_header, _, name, _, value} when name |> is_atom ->
         acc
         |> Map.put(Atom.to_string(name) |> String.downcase(), value)
@@ -134,7 +134,7 @@ defmodule GSMLGSocket.Web do
   @doc """
   Connects to the given address or { address, port } tuple.
   """
-  @spec connect({GSMLGSocket.Address.t(), :inet.port_number()}) :: {:ok, t} | {:error, error}
+  @spec connect({GSMLG.Socket.Address.t(), :inet.port_number()}) :: {:ok, t} | {:error, error}
   def connect({address, port}) do
     connect(address, port, [])
   end
@@ -148,7 +148,7 @@ defmodule GSMLGSocket.Web do
   options or address and port.
   """
   @spec connect(
-          {GSMLGSocket.Address.t(), :inet.port_number()} | GSMLGSocket.Address.t(),
+          {GSMLG.Socket.Address.t(), :inet.port_number()} | GSMLG.Socket.Address.t(),
           Keyword.t() | :inet.port_number()
         ) :: {:ok, t} | {:error, error}
   def connect({address, port}, options) do
@@ -175,7 +175,7 @@ defmodule GSMLGSocket.Web do
   You can also pass TCP or SSL options, depending if you're using secure
   websockets or not.
   """
-  @spec connect(GSMLGSocket.Address.t(), :inet.port_number(), Keyword.t()) ::
+  @spec connect(GSMLG.Socket.Address.t(), :inet.port_number(), Keyword.t()) ::
           {:ok, t} | {:error, error}
   def connect(address, port, options) do
     try do
@@ -190,10 +190,10 @@ defmodule GSMLGSocket.Web do
       e in [RuntimeError] ->
         {:error, e.message}
 
-      e in [GSMLGSocket.Error] ->
+      e in [GSMLG.Socket.Error] ->
         {:error, e.message}
 
-      e in [GSMLGSocket.TCP.Error, GSMLGSocket.SSL.Error] ->
+      e in [GSMLG.Socket.TCP.Error, GSMLG.Socket.SSL.Error] ->
         {:error, e.code}
     end
   end
@@ -202,7 +202,7 @@ defmodule GSMLGSocket.Web do
   Connects to the given address or { address, port } tuple, raising if an error
   occurs.
   """
-  @spec connect!({GSMLGSocket.Address.t(), :inet.port_number()}) :: t | no_return
+  @spec connect!({GSMLG.Socket.Address.t(), :inet.port_number()}) :: t | no_return
   def connect!({address, port}) do
     connect!(address, port, [])
   end
@@ -216,7 +216,7 @@ defmodule GSMLGSocket.Web do
   options or address and port, raising if an error occurs.
   """
   @spec connect!(
-          {GSMLGSocket.Address.t(), :inet.port_number()} | GSMLGSocket.Address.t(),
+          {GSMLG.Socket.Address.t(), :inet.port_number()} | GSMLG.Socket.Address.t(),
           Keyword.t() | :inet.port_number()
         ) :: t | no_return
   def connect!({address, port}, options) do
@@ -244,15 +244,15 @@ defmodule GSMLGSocket.Web do
   You can also pass TCP or SSL options, depending if you're using secure
   websockets or not.
   """
-  @spec connect!(GSMLGSocket.Address.t(), :inet.port_number(), Keyword.t()) :: t | no_return
+  @spec connect!(GSMLG.Socket.Address.t(), :inet.port_number(), Keyword.t()) :: t | no_return
   def connect!(address, port, options) do
     {local, global} = arguments(options)
 
     mod =
       if local[:secure] do
-        GSMLGSocket.SSL
+        GSMLG.Socket.SSL
       else
-        GSMLGSocket.TCP
+        GSMLG.Socket.TCP
       end
 
     path = local[:path] || "/"
@@ -263,10 +263,10 @@ defmodule GSMLGSocket.Web do
     headers = Enum.map(local[:headers] || %{}, fn {k, v} -> ["#{k}: #{v}", "\r\n"] end)
 
     client = mod.connect!(address, port, global)
-    client |> GSMLGSocket.packet!(:raw)
+    client |> GSMLG.Socket.packet!(:raw)
 
     client
-    |> GSMLGSocket.Stream.send!([
+    |> GSMLG.Socket.Stream.send!([
       "GET #{path} HTTP/1.1",
       "\r\n",
       headers,
@@ -277,45 +277,45 @@ defmodule GSMLGSocket.Web do
       "\r\n",
       "Connection: Upgrade",
       "\r\n",
-      "Sec-WebGSMLGSocket-Key: #{handshake}",
+      "Sec-WebGSMLG.Socket-Key: #{handshake}",
       "\r\n",
       if(protocols,
-        do: ["Sec-WebGSMLGSocket-Protocol: #{Enum.join(protocols, ", ")}", "\r\n"],
+        do: ["Sec-WebGSMLG.Socket-Protocol: #{Enum.join(protocols, ", ")}", "\r\n"],
         else: []
       ),
       if(extensions,
-        do: ["Sec-WebGSMLGSocket-Extensions: #{Enum.join(extensions, ", ")}", "\r\n"],
+        do: ["Sec-WebGSMLG.Socket-Extensions: #{Enum.join(extensions, ", ")}", "\r\n"],
         else: []
       ),
-      "Sec-WebGSMLGSocket-Version: 13",
+      "Sec-WebGSMLG.Socket-Version: 13",
       "\r\n",
       "\r\n"
     ])
 
-    client |> GSMLGSocket.packet(:http_bin)
-    {:http_response, _, 101, _} = client |> GSMLGSocket.Stream.recv!(global)
+    client |> GSMLG.Socket.packet(:http_bin)
+    {:http_response, _, 101, _} = client |> GSMLG.Socket.Stream.recv!(global)
     headers = headers(%{}, client, local)
 
     if String.downcase(headers["upgrade"] || "") != "websocket" or
          String.downcase(headers["connection"] || "") != "upgrade" do
-      client |> GSMLGSocket.close()
+      client |> GSMLG.Socket.close()
 
       raise RuntimeError, message: "malformed upgrade response"
     end
 
     if headers["sec-websocket-version"] && headers["sec-websocket-version"] != "13" do
-      client |> GSMLGSocket.close()
+      client |> GSMLG.Socket.close()
 
       raise RuntimeError, message: "unsupported version"
     end
 
     if !headers["sec-websocket-accept"] or headers["sec-websocket-accept"] != key(handshake) do
-      client |> GSMLGSocket.close()
+      client |> GSMLG.Socket.close()
 
       raise RuntimeError, message: "wrong key response"
     end
 
-    client |> GSMLGSocket.packet!(:raw)
+    client |> GSMLG.Socket.packet!(:raw)
 
     %W{socket: client, version: 13, path: path, origin: origin, key: handshake, mask: true}
   end
@@ -360,9 +360,9 @@ defmodule GSMLGSocket.Web do
 
     mod =
       if local[:secure] do
-        GSMLGSocket.SSL
+        GSMLG.Socket.SSL
       else
-        GSMLGSocket.TCP
+        GSMLG.Socket.TCP
       end
 
     case mod.listen(port, global) do
@@ -415,9 +415,9 @@ defmodule GSMLGSocket.Web do
 
     mod =
       if local[:secure] do
-        GSMLGSocket.SSL
+        GSMLG.Socket.SSL
       else
-        GSMLGSocket.TCP
+        GSMLG.Socket.TCP
       end
 
     %W{socket: mod.listen!(port, global)}
@@ -442,7 +442,7 @@ defmodule GSMLGSocket.Web do
       e in [RuntimeError] ->
         {:error, e.message}
 
-      e in [GSMLGSocket.Error] ->
+      e in [GSMLG.Socket.Error] ->
         {:error, e.code}
     end
   end
@@ -463,11 +463,11 @@ defmodule GSMLGSocket.Web do
   def accept!(%W{socket: socket, key: nil}, options) do
     {local, global} = arguments(options)
 
-    client = socket |> GSMLGSocket.accept!(global)
-    client |> GSMLGSocket.packet!(:http_bin)
+    client = socket |> GSMLG.Socket.accept!(global)
+    client |> GSMLG.Socket.packet!(:http_bin)
 
     path =
-      case client |> GSMLGSocket.Stream.recv!(global) do
+      case client |> GSMLG.Socket.Stream.recv!(global) do
         {:http_request, :GET, {:abs_path, path}, _} ->
           path
       end
@@ -475,13 +475,13 @@ defmodule GSMLGSocket.Web do
     headers = headers(%{}, client, local)
 
     if headers["upgrade"] != "websocket" and headers["connection"] != "Upgrade" do
-      client |> GSMLGSocket.close()
+      client |> GSMLG.Socket.close()
 
       raise RuntimeError, message: "malformed upgrade request"
     end
 
     unless headers["sec-websocket-key"] do
-      client |> GSMLGSocket.close()
+      client |> GSMLG.Socket.close()
 
       raise RuntimeError, message: "missing key"
     end
@@ -496,7 +496,7 @@ defmodule GSMLGSocket.Web do
         String.split(e, ~r/\s*,\s*/)
       end
 
-    client |> GSMLGSocket.packet!(:raw)
+    client |> GSMLG.Socket.packet!(:raw)
 
     %W{
       socket: client,
@@ -516,25 +516,25 @@ defmodule GSMLGSocket.Web do
     extensions = local[:extensions]
     protocol = local[:protocol]
 
-    socket |> GSMLGSocket.packet!(:raw)
+    socket |> GSMLG.Socket.packet!(:raw)
 
     socket
-    |> GSMLGSocket.Stream.send!([
+    |> GSMLG.Socket.Stream.send!([
       "HTTP/1.1 101 Switching Protocols",
       "\r\n",
       "Upgrade: websocket",
       "\r\n",
       "Connection: Upgrade",
       "\r\n",
-      "Sec-WebGSMLGSocket-Accept: #{key(key)}",
+      "Sec-WebGSMLG.Socket-Accept: #{key(key)}",
       "\r\n",
-      "Sec-WebGSMLGSocket-Version: 13",
+      "Sec-WebGSMLG.Socket-Version: 13",
       "\r\n",
       if(extensions,
-        do: ["Sec-WebGSMLGSocket-Extensions: ", Enum.join(extensions, ", "), "\r\n"],
+        do: ["Sec-WebGSMLG.Socket-Extensions: ", Enum.join(extensions, ", "), "\r\n"],
         else: []
       ),
-      if(protocol, do: ["Sec-WebGSMLGSocket-Protocol: ", protocol, "\r\n"], else: []),
+      if(protocol, do: ["Sec-WebGSMLG.Socket-Protocol: ", protocol, "\r\n"], else: []),
       "\r\n"
     ])
 
@@ -566,7 +566,7 @@ defmodule GSMLGSocket.Web do
   """
   @spec local(t) :: {:ok, {:inet.ip_address(), :inet.port_number()}} | {:error, error}
   def local(%W{socket: socket}) do
-    socket |> GSMLGSocket.local()
+    socket |> GSMLG.Socket.local()
   end
 
   @doc """
@@ -574,7 +574,7 @@ defmodule GSMLGSocket.Web do
   """
   @spec local!(t) :: {:inet.ip_address(), :inet.port_number()} | no_return
   def local!(%W{socket: socket}) do
-    socket |> GSMLGSocket.local!()
+    socket |> GSMLG.Socket.local!()
   end
 
   @doc """
@@ -582,7 +582,7 @@ defmodule GSMLGSocket.Web do
   """
   @spec remote(t) :: {:ok, {:inet.ip_address(), :inet.port_number()}} | {:error, error}
   def remote(%W{socket: socket}) do
-    socket |> GSMLGSocket.remote()
+    socket |> GSMLG.Socket.remote()
   end
 
   @doc """
@@ -590,7 +590,7 @@ defmodule GSMLGSocket.Web do
   """
   @spec remote!(t) :: {:inet.ip_address(), :inet.port_number()} | no_return
   def remote!(%W{socket: socket}) do
-    socket |> GSMLGSocket.remote!()
+    socket |> GSMLG.Socket.remote!()
   end
 
   @spec mask(binary) :: {integer, binary}
@@ -645,7 +645,7 @@ defmodule GSMLGSocket.Web do
     length =
       cond do
         length == 127 ->
-          case socket |> GSMLGSocket.Stream.recv(8, options) do
+          case socket |> GSMLG.Socket.Stream.recv(8, options) do
             {:ok, <<length::64>>} ->
               length
 
@@ -654,7 +654,7 @@ defmodule GSMLGSocket.Web do
           end
 
         length == 126 ->
-          case socket |> GSMLGSocket.Stream.recv(2, options) do
+          case socket |> GSMLG.Socket.Stream.recv(2, options) do
             {:ok, <<length::16>>} ->
               length
 
@@ -672,10 +672,10 @@ defmodule GSMLGSocket.Web do
 
       length ->
         if mask do
-          case socket |> GSMLGSocket.Stream.recv(4, options) do
+          case socket |> GSMLG.Socket.Stream.recv(4, options) do
             {:ok, <<key::32>>} ->
               if length > 0 do
-                case socket |> GSMLGSocket.Stream.recv(length, options) do
+                case socket |> GSMLG.Socket.Stream.recv(length, options) do
                   {:ok, data} ->
                     {:ok, unmask(key, data)}
 
@@ -691,7 +691,7 @@ defmodule GSMLGSocket.Web do
           end
         else
           if length > 0 do
-            case socket |> GSMLGSocket.Stream.recv(length, options) do
+            case socket |> GSMLG.Socket.Stream.recv(length, options) do
               {:ok, data} ->
                 {:ok, data}
 
@@ -724,7 +724,7 @@ defmodule GSMLGSocket.Web do
   def recv(self, options \\ [])
 
   def recv(%W{socket: socket, version: 13} = self, options) do
-    case socket |> GSMLGSocket.Stream.recv(2, options) do
+    case socket |> GSMLG.Socket.Stream.recv(2, options) do
       # a non fragmented message packet
       {:ok, <<1::1, 0::3, opcode::4, mask::1, length::7>>} when known?(opcode) and data?(opcode) ->
         case on_success({opcode(opcode), data}, options) do
@@ -799,7 +799,7 @@ defmodule GSMLGSocket.Web do
         raise RuntimeError, message: "protocol error"
 
       {:error, code} ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 
@@ -845,13 +845,13 @@ defmodule GSMLGSocket.Web do
     mask = if Keyword.has_key?(options, :mask), do: options[:mask], else: mask
 
     socket
-    |> GSMLGSocket.Stream.send(<<1::1, 0::3, opcode(opcode)::4, forge(mask, data)::binary>>)
+    |> GSMLG.Socket.Stream.send(<<1::1, 0::3, opcode(opcode)::4, forge(mask, data)::binary>>)
   end
 
   def send(%W{socket: socket, version: 13, mask: mask}, {:fragmented, :end, data}, options) do
     mask = if Keyword.has_key?(options, :mask), do: options[:mask], else: mask
 
-    socket |> GSMLGSocket.Stream.send(<<1::1, 0::3, 0::4, forge(mask, data)::binary>>)
+    socket |> GSMLG.Socket.Stream.send(<<1::1, 0::3, 0::4, forge(mask, data)::binary>>)
   end
 
   def send(
@@ -861,14 +861,14 @@ defmodule GSMLGSocket.Web do
       ) do
     mask = if Keyword.has_key?(options, :mask), do: options[:mask], else: mask
 
-    socket |> GSMLGSocket.Stream.send(<<0::1, 0::3, 0::4, forge(mask, data)::binary>>)
+    socket |> GSMLG.Socket.Stream.send(<<0::1, 0::3, 0::4, forge(mask, data)::binary>>)
   end
 
   def send(%W{socket: socket, version: 13, mask: mask}, {:fragmented, opcode, data}, options) do
     mask = if Keyword.has_key?(options, :mask), do: options[:mask], else: mask
 
     socket
-    |> GSMLGSocket.Stream.send(<<0::1, 0::3, opcode(opcode)::4, forge(mask, data)::binary>>)
+    |> GSMLG.Socket.Stream.send(<<0::1, 0::3, opcode(opcode)::4, forge(mask, data)::binary>>)
   end
 
   @doc """
@@ -882,7 +882,7 @@ defmodule GSMLGSocket.Web do
         :ok
 
       {:error, code} ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 
@@ -934,7 +934,7 @@ defmodule GSMLGSocket.Web do
   """
   @spec close(t) :: :ok | {:error, error}
   def close(%W{socket: socket, version: 13}) do
-    socket |> GSMLGSocket.Stream.send(<<1::1, 0::3, opcode(:close)::4, forge(nil, <<>>)::binary>>)
+    socket |> GSMLG.Socket.Stream.send(<<1::1, 0::3, opcode(:close)::4, forge(nil, <<>>)::binary>>)
   end
 
   @doc """
@@ -950,7 +950,7 @@ defmodule GSMLGSocket.Web do
     mask = if Keyword.has_key?(options, :mask), do: options[:mask], else: mask
 
     socket
-    |> GSMLGSocket.Stream.send(
+    |> GSMLG.Socket.Stream.send(
       <<1::1, 0::3, opcode(:close)::4,
         forge(
           mask,
@@ -990,6 +990,6 @@ defmodule GSMLGSocket.Web do
   """
   @spec abort(t) :: :ok | {:error, error}
   def abort(%W{socket: socket}) do
-    GSMLGSocket.Stream.close(socket)
+    GSMLG.Socket.Stream.close(socket)
   end
 end

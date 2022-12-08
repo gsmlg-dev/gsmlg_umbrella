@@ -1,5 +1,5 @@
-defmodule GSMLGSocket do
-  @type t :: GSMLGSocket.Protocol.t()
+defmodule GSMLG.Socket do
+  @type t :: GSMLG.Socket.Protocol.t()
 
   @default_port_ws 80
   @default_port_wss 443
@@ -10,10 +10,10 @@ defmodule GSMLGSocket do
     def exception(reason: reason) do
       message =
         cond do
-          msg = GSMLGSocket.TCP.error(reason) ->
+          msg = GSMLG.Socket.TCP.error(reason) ->
             msg
 
-          msg = GSMLGSocket.SSL.error(reason) ->
+          msg = GSMLG.Socket.SSL.error(reason) ->
             msg
 
           true ->
@@ -27,98 +27,98 @@ defmodule GSMLGSocket do
   @doc ~S"""
   Create a socket connecting to somewhere using an URI.
   ## Supported URIs
-  * `tcp://host:port` for GSMLGSocket.TCP
-  * `ssl://host:port` for GSMLGSocket.SSL
-  * `ws://host:port/path` for GSMLGSocket.Web (using GSMLGSocket.TCP)
-  * `wss://host:port/path` for GSMLGSocket.Web (using GSMLGSocket.SSL)
-  * `udp://host:port` for GSMLGSocket:UDP
+  * `tcp://host:port` for GSMLG.Socket.TCP
+  * `ssl://host:port` for GSMLG.Socket.SSL
+  * `ws://host:port/path` for GSMLG.Socket.Web (using GSMLG.Socket.TCP)
+  * `wss://host:port/path` for GSMLG.Socket.Web (using GSMLG.Socket.SSL)
+  * `udp://host:port` for GSMLG.Socket:UDP
   ## Example
-      { :ok, client } = GSMLGSocket.connect "tcp://google.com:80"
+      { :ok, client } = GSMLG.Socket.connect "tcp://google.com:80"
       client.send "GET / HTTP/1.1\r\n"
       client.recv
   """
-  @spec connect(String.t() | URI.t()) :: {:ok, GSMLGSocket.t()} | {:error, any}
+  @spec connect(String.t() | URI.t()) :: {:ok, GSMLG.Socket.t()} | {:error, any}
   def connect(uri) when uri |> is_list or uri |> is_binary do
     connect(URI.parse(uri))
   end
 
   def connect(%URI{scheme: "tcp", host: host, port: port}) do
-    GSMLGSocket.TCP.connect(host, port)
+    GSMLG.Socket.TCP.connect(host, port)
   end
 
   def connect(%URI{scheme: "ssl", host: host, port: port}) do
-    GSMLGSocket.SSL.connect(host, port)
+    GSMLG.Socket.SSL.connect(host, port)
   end
 
   def connect(%URI{scheme: "ws", host: host, port: port, path: path}) do
-    GSMLGSocket.Web.connect(host, port || @default_port_ws, path: path)
+    GSMLG.Socket.Web.connect(host, port || @default_port_ws, path: path)
   end
 
   def connect(%URI{scheme: "wss", host: host, port: port, path: path}) do
-    GSMLGSocket.Web.connect(host, port || @default_port_wss, path: path, secure: true)
+    GSMLG.Socket.Web.connect(host, port || @default_port_wss, path: path, secure: true)
   end
 
   @doc """
   Create a socket connecting to somewhere using an URI, raising if an error
   occurs, see `connect`.
   """
-  @spec connect!(String.t() | URI.t()) :: GSMLGSocket.t() | no_return
+  @spec connect!(String.t() | URI.t()) :: GSMLG.Socket.t() | no_return
   def connect!(uri) when uri |> is_list or uri |> is_binary do
     connect!(URI.parse(uri))
   end
 
   def connect!(%URI{scheme: "tcp", host: host, port: port}) do
-    GSMLGSocket.TCP.connect!(host, port)
+    GSMLG.Socket.TCP.connect!(host, port)
   end
 
   def connect!(%URI{scheme: "ssl", host: host, port: port}) do
-    GSMLGSocket.SSL.connect!(host, port)
+    GSMLG.Socket.SSL.connect!(host, port)
   end
 
   def connect!(%URI{scheme: "ws", host: host, port: port, path: path}) do
-    GSMLGSocket.Web.connect!(host, port || @default_port_ws, path: path)
+    GSMLG.Socket.Web.connect!(host, port || @default_port_ws, path: path)
   end
 
   def connect!(%URI{scheme: "wss", host: host, port: port, path: path}) do
-    GSMLGSocket.Web.connect!(host, port || @default_port_wss, path: path, secure: true)
+    GSMLG.Socket.Web.connect!(host, port || @default_port_wss, path: path, secure: true)
   end
 
   @doc """
   Create a socket listening somewhere using an URI.
   ## Supported URIs
   If host is `*` it will be converted to `0.0.0.0`.
-  * `tcp://host:port` for GSMLGSocket.TCP
-  * `ssl://host:port` for GSMLGSocket.SSL
-  * `ws://host:port/path` for GSMLGSocket.Web (using GSMLGSocket.TCP)
-  * `wss://host:port/path` for GSMLGSocket.Web (using GSMLGSocket.SSL)
-  * `udp://host:port` for GSMLGSocket:UDP
+  * `tcp://host:port` for GSMLG.Socket.TCP
+  * `ssl://host:port` for GSMLG.Socket.SSL
+  * `ws://host:port/path` for GSMLG.Socket.Web (using GSMLG.Socket.TCP)
+  * `wss://host:port/path` for GSMLG.Socket.Web (using GSMLG.Socket.SSL)
+  * `udp://host:port` for GSMLG.Socket:UDP
   ## Example
-      { :ok, server } = GSMLGSocket.listen "tcp://*:1337"
-      client = server |> GSMLGSocket.accept!(packet: :line)
-      client |> GSMLGSocket.Stream.send(client.recv)
-      client |> GSMLGSocket.Stream.close
+      { :ok, server } = GSMLG.Socket.listen "tcp://*:1337"
+      client = server |> GSMLG.Socket.accept!(packet: :line)
+      client |> GSMLG.Socket.Stream.send(client.recv)
+      client |> GSMLG.Socket.Stream.close
   """
-  @spec listen(String.t() | URI.t()) :: {:ok, GSMLGSocket.t()} | {:error, any}
+  @spec listen(String.t() | URI.t()) :: {:ok, GSMLG.Socket.t()} | {:error, any}
   def listen(uri) when uri |> is_list or uri |> is_binary do
     listen(URI.parse(uri))
   end
 
   def listen(%URI{scheme: "tcp", host: host, port: port}) do
-    GSMLGSocket.TCP.listen(port, local: [address: if(host == "*", do: "0.0.0.0", else: host)])
+    GSMLG.Socket.TCP.listen(port, local: [address: if(host == "*", do: "0.0.0.0", else: host)])
   end
 
   def listen(%URI{scheme: "ssl", host: host, port: port}) do
-    GSMLGSocket.SSL.listen(port, local: [address: if(host == "*", do: "0.0.0.0", else: host)])
+    GSMLG.Socket.SSL.listen(port, local: [address: if(host == "*", do: "0.0.0.0", else: host)])
   end
 
   def listen(%URI{scheme: "ws", host: host, port: port}) do
-    GSMLGSocket.Web.listen(port || @default_port_ws,
+    GSMLG.Socket.Web.listen(port || @default_port_ws,
       local: [address: if(host == "*", do: "0.0.0.0", else: host)]
     )
   end
 
   def listen(%URI{scheme: "wss", host: host, port: port}) do
-    GSMLGSocket.Web.listen(port || @default_port_wss,
+    GSMLG.Socket.Web.listen(port || @default_port_wss,
       secure: true,
       local: [address: if(host == "*", do: "0.0.0.0", else: host)]
     )
@@ -128,27 +128,27 @@ defmodule GSMLGSocket do
   Create a socket listening somewhere using an URI, raising if an error occurs,
   see `listen`.
   """
-  @spec listen!(String.t() | URI.t()) :: GSMLGSocket.t() | no_return
+  @spec listen!(String.t() | URI.t()) :: GSMLG.Socket.t() | no_return
   def listen!(uri) when uri |> is_list or uri |> is_binary do
     listen!(URI.parse(uri))
   end
 
   def listen!(%URI{scheme: "tcp", host: host, port: port}) do
-    GSMLGSocket.TCP.listen!(port, local: [address: if(host == "*", do: "0.0.0.0", else: host)])
+    GSMLG.Socket.TCP.listen!(port, local: [address: if(host == "*", do: "0.0.0.0", else: host)])
   end
 
   def listen!(%URI{scheme: "ssl", host: host, port: port}) do
-    GSMLGSocket.SSL.listen!(port, local: [address: if(host == "*", do: "0.0.0.0", else: host)])
+    GSMLG.Socket.SSL.listen!(port, local: [address: if(host == "*", do: "0.0.0.0", else: host)])
   end
 
   def listen!(%URI{scheme: "ws", host: host, port: port}) do
-    GSMLGSocket.Web.listen!(port || @default_port_ws,
+    GSMLG.Socket.Web.listen!(port || @default_port_ws,
       local: [address: if(host == "*", do: "0.0.0.0", else: host)]
     )
   end
 
   def listen!(%URI{scheme: "wss", host: host, port: port}) do
-    GSMLGSocket.Web.listen!(port || @default_port_wss,
+    GSMLG.Socket.Web.listen!(port || @default_port_wss,
       secure: true,
       local: [address: if(host == "*", do: "0.0.0.0", else: host)]
     )
@@ -214,45 +214,45 @@ defmodule GSMLGSocket do
     end)
   end
 
-  use GSMLGSocket.Helpers
+  use GSMLG.Socket.Helpers
 
-  defdelegate equal?(self, other), to: GSMLGSocket.Protocol
+  defdelegate equal?(self, other), to: GSMLG.Socket.Protocol
 
-  defdelegate accept(self), to: GSMLGSocket.Protocol
-  defbang(accept(self), to: GSMLGSocket.Protocol)
+  defdelegate accept(self), to: GSMLG.Socket.Protocol
+  defbang(accept(self), to: GSMLG.Socket.Protocol)
 
-  defdelegate accept(self, options), to: GSMLGSocket.Protocol
-  defbang(accept(self, options), to: GSMLGSocket.Protocol)
+  defdelegate accept(self, options), to: GSMLG.Socket.Protocol
+  defbang(accept(self, options), to: GSMLG.Socket.Protocol)
 
-  defdelegate options(self, opts), to: GSMLGSocket.Protocol
-  defbang(options(self, opts), to: GSMLGSocket.Protocol)
+  defdelegate options(self, opts), to: GSMLG.Socket.Protocol
+  defbang(options(self, opts), to: GSMLG.Socket.Protocol)
 
-  defdelegate packet(self, type), to: GSMLGSocket.Protocol
-  defbang(packet(self, type), to: GSMLGSocket.Protocol)
+  defdelegate packet(self, type), to: GSMLG.Socket.Protocol
+  defbang(packet(self, type), to: GSMLG.Socket.Protocol)
 
-  defdelegate process(self, pid), to: GSMLGSocket.Protocol
-  defbang(process(self, pid), to: GSMLGSocket.Protocol)
+  defdelegate process(self, pid), to: GSMLG.Socket.Protocol
+  defbang(process(self, pid), to: GSMLG.Socket.Protocol)
 
-  defdelegate active(self), to: GSMLGSocket.Protocol
-  defbang(active(self), to: GSMLGSocket.Protocol)
+  defdelegate active(self), to: GSMLG.Socket.Protocol
+  defbang(active(self), to: GSMLG.Socket.Protocol)
 
-  defdelegate active(self, mode), to: GSMLGSocket.Protocol
-  defbang(active(self, mode), to: GSMLGSocket.Protocol)
+  defdelegate active(self, mode), to: GSMLG.Socket.Protocol
+  defbang(active(self, mode), to: GSMLG.Socket.Protocol)
 
-  defdelegate passive(self), to: GSMLGSocket.Protocol
-  defbang(passive(self), to: GSMLGSocket.Protocol)
+  defdelegate passive(self), to: GSMLG.Socket.Protocol
+  defbang(passive(self), to: GSMLG.Socket.Protocol)
 
-  defdelegate local(self), to: GSMLGSocket.Protocol
-  defbang(local(self), to: GSMLGSocket.Protocol)
+  defdelegate local(self), to: GSMLG.Socket.Protocol
+  defbang(local(self), to: GSMLG.Socket.Protocol)
 
-  defdelegate remote(self), to: GSMLGSocket.Protocol
-  defbang(remote(self), to: GSMLGSocket.Protocol)
+  defdelegate remote(self), to: GSMLG.Socket.Protocol
+  defbang(remote(self), to: GSMLG.Socket.Protocol)
 
-  defdelegate close(self), to: GSMLGSocket.Protocol
-  defbang(close(self), to: GSMLGSocket.Protocol)
+  defdelegate close(self), to: GSMLG.Socket.Protocol
+  defbang(close(self), to: GSMLG.Socket.Protocol)
 end
 
-defprotocol GSMLGSocket.Protocol do
+defprotocol GSMLG.Socket.Protocol do
   @doc """
   Check the two sockets are the same.
   """
@@ -321,7 +321,7 @@ defprotocol GSMLGSocket.Protocol do
   def close(self)
 end
 
-defimpl GSMLGSocket.Protocol, for: Port do
+defimpl GSMLG.Socket.Protocol, for: Port do
   def equal?(self, other) when other |> is_port do
     self == other
   end
@@ -333,7 +333,7 @@ defimpl GSMLGSocket.Protocol, for: Port do
   def accept(self, options \\ []) do
     case :inet_db.lookup_socket(self) do
       {:ok, mod} when mod in [:inet_tcp, :inet6_tcp] ->
-        GSMLGSocket.TCP.accept(self, options)
+        GSMLG.Socket.TCP.accept(self, options)
 
       {:ok, mod} when mod in [:inet_udp, :inet6_udp] ->
         {:error, :einval}
@@ -341,7 +341,7 @@ defimpl GSMLGSocket.Protocol, for: Port do
   end
 
   def options(self, opts) do
-    :inet.setopts(self, GSMLGSocket.arguments(opts))
+    :inet.setopts(self, GSMLG.Socket.arguments(opts))
   end
 
   def packet(self, type) do
@@ -383,7 +383,7 @@ defimpl GSMLGSocket.Protocol, for: Port do
   end
 end
 
-defimpl GSMLGSocket.Protocol, for: Tuple do
+defimpl GSMLG.Socket.Protocol, for: Tuple do
   require Record
 
   def equal?(self, other)
@@ -400,11 +400,11 @@ defimpl GSMLGSocket.Protocol, for: Tuple do
   end
 
   def accept(self, options \\ []) when self |> Record.is_record(:sslsocket) do
-    GSMLGSocket.SSL.accept(self, options)
+    GSMLG.Socket.SSL.accept(self, options)
   end
 
   def options(self, opts) when self |> Record.is_record(:sslsocket) do
-    GSMLGSocket.SSL.options(self, opts)
+    GSMLG.Socket.SSL.options(self, opts)
   end
 
   def packet(self, type) when self |> Record.is_record(:sslsocket) do

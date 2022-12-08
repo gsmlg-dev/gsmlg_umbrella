@@ -1,7 +1,7 @@
-defmodule GSMLGSocket.Helpers do
+defmodule GSMLG.Socket.Helpers do
   defmacro __using__(_opts) do
     quote do
-      import GSMLGSocket.Helpers
+      import GSMLG.Socket.Helpers
     end
   end
 
@@ -18,7 +18,7 @@ defmodule GSMLGSocket.Helpers do
             result
 
           {:error, reason} ->
-            raise GSMLGSocket.Error, reason: reason
+            raise GSMLG.Socket.Error, reason: reason
         end
       end
     end
@@ -41,7 +41,7 @@ defmodule GSMLGSocket.Helpers do
             result
 
           {:error, reason} ->
-            raise GSMLGSocket.Error, reason: reason
+            raise GSMLG.Socket.Error, reason: reason
         end
       end
     end

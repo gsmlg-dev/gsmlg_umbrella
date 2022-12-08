@@ -1,4 +1,4 @@
-defmodule GSMLGSocket.UDP do
+defmodule GSMLG.Socket.UDP do
   @moduledoc """
   This module wraps a UDP socket using `gen_udp`.
 
@@ -17,16 +17,16 @@ defmodule GSMLGSocket.UDP do
 
   ## Examples
 
-      server = GSMLGSocket.UDP.open!(1337)
+      server = GSMLG.Socket.UDP.open!(1337)
 
-      { data, client } = server |> GSMLGSocket.Datagram.recv!
-      server |> GSMLGSocket.Datagram.send! data, client
+      { data, client } = server |> GSMLG.Socket.Datagram.recv!
+      server |> GSMLG.Socket.Datagram.send! data, client
 
   """
 
   @type t :: port
 
-  use GSMLGSocket.Helpers
+  use GSMLG.Socket.Helpers
 
   @doc """
   Create a UDP socket listening on an OS chosen port, use `local` to know the
@@ -104,7 +104,7 @@ defmodule GSMLGSocket.UDP do
         raise RuntimeError, message: "the current process isn't the owner"
 
       code ->
-        raise GSMLGSocket.Error, reason: code
+        raise GSMLG.Socket.Error, reason: code
     end
   end
 
@@ -141,7 +141,7 @@ defmodule GSMLGSocket.UDP do
       Map.get(options, false, [])
     }
 
-    GSMLGSocket.arguments(global) ++
+    GSMLG.Socket.arguments(global) ++
       Enum.flat_map(local, fn
         {:as, :binary} ->
           [:binary]
@@ -152,7 +152,7 @@ defmodule GSMLGSocket.UDP do
         {:local, options} ->
           Enum.flat_map(options, fn
             {:address, address} ->
-              [{:ip, GSMLGSocket.Address.parse(address)}]
+              [{:ip, GSMLG.Socket.Address.parse(address)}]
 
             {:fd, fd} ->
               [{:fd, fd}]
@@ -170,7 +170,7 @@ defmodule GSMLGSocket.UDP do
         {:multicast, options} ->
           Enum.flat_map(options, fn
             {:address, address} ->
-              [{:multicast_if, GSMLGSocket.Address.parse(address)}]
+              [{:multicast_if, GSMLG.Socket.Address.parse(address)}]
 
             {:loop, loop} ->
               [{:multicast_loop, loop}]
