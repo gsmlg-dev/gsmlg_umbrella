@@ -1,6 +1,6 @@
-defmodule GSMLG_CouchDB.Connection do
+defmodule GSMLG.CouchDB.Connection do
   @moduledoc """
-  Documentation for `GSMLG_CouchDB.Connection`.
+  Documentation for `GSMLG.CouchDB.Connection`.
   """
   use GenServer
 
@@ -10,7 +10,7 @@ defmodule GSMLG_CouchDB.Connection do
 
   def start_link(_) do
     # {scheme, host, port}
-    conn_conf = Application.get_env(:gsmlg_couchdb, GSMLG_CouchDB.Connection)
+    conn_conf = Application.get_env(:gsmlg_couchdb, GSMLG.CouchDB.Connection)
     scheme = Keyword.get(conn_conf, :scheme)
     host = Keyword.get(conn_conf, :host)
     port = Keyword.get(conn_conf, :port)

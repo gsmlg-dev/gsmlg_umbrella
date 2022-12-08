@@ -1,6 +1,6 @@
-defmodule GSMLG_CouchDB do
+defmodule GSMLG.CouchDB do
   @moduledoc """
-  Documentation for `GSMLG_CouchDB`.
+  Documentation for `GSMLG.CouchDB`.
   """
 
   @doc """
@@ -8,7 +8,7 @@ defmodule GSMLG_CouchDB do
 
   ## Examples
 
-      iex> GSMLG_CouchDB.hello()
+      iex> GSMLG.CouchDB.hello()
       :world
 
   """

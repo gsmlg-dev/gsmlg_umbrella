@@ -1,5 +1,5 @@
-defmodule GSMLG_CouchDB.Docs do
-  alias GSMLG_CouchDB.Connection
+defmodule GSMLG.CouchDB.Docs do
+  alias GSMLG.CouchDB.Connection
 
   def create_doc(db_name, doc) do
     check_name!(db_name)

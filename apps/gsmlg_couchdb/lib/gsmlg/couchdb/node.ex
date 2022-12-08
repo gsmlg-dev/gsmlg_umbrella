@@ -1,5 +1,5 @@
-defmodule GSMLG_CouchDB.Node do
-  alias GSMLG_CouchDB.Connection
+defmodule GSMLG.CouchDB.Node do
+  alias GSMLG.CouchDB.Connection
 
   def membership() do
     Connection.get!("/_membership")

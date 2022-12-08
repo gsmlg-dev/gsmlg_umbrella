@@ -101,7 +101,7 @@ config :phoenix, :stacktrace_depth, 20
 #     bunny: [connection: :bunny]
 #   ]
 
-config :gsmlg_couchdb, GSMLG_CouchDB.Connection,
+config :gsmlg_couchdb, GSMLG.CouchDB.Connection,
   host: System.get_env("COUCH_HOST", "127.0.0.1"),
   port: 5984,
   username: System.get_env("COUCH_USER", "couch_user"),

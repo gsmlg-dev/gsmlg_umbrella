@@ -1,4 +1,4 @@
-defmodule GSMLG_CouchDB.Application do
+defmodule GSMLG.CouchDB.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -8,9 +8,9 @@ defmodule GSMLG_CouchDB.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # {GSMLG_CouchDB.Connection, []}
+      # {GSMLG.CouchDB.Connection, []}
     ]
 
-    Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG_CouchDB.Supervisor)
+    Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.CouchDB.Supervisor)
   end
 end

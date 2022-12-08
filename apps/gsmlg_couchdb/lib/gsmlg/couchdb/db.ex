@@ -1,5 +1,5 @@
-defmodule GSMLG_CouchDB.DB do
-  alias GSMLG_CouchDB.Connection
+defmodule GSMLG.CouchDB.DB do
+  alias GSMLG.CouchDB.Connection
 
   def all_dbs() do
     Connection.get!("/_all_dbs")

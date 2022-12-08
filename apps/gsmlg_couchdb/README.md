@@ -1,4 +1,4 @@
-# GSMLG_CouchDB
+# GSMLG.CouchDB
 
 **TODO: Add description**
 

@@ -105,7 +105,7 @@ if config_env() == :prod do
 
   # CouchDB Server Connection
   if System.get_env("COUCH_HOST") do
-    config :gsmlg_couchdb, GSMLG_CouchDB.Connection,
+    config :gsmlg_couchdb, GSMLG.CouchDB.Connection,
       host: System.get_env("COUCH_HOST"),
       port: System.get_env("COUCH_PORT") |> String.to_integer(),
       username: System.get_env("COUCH_USER"),

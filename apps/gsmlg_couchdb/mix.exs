@@ -1,4 +1,4 @@
-defmodule GSMLG_CouchDB.MixProject do
+defmodule GSMLG.CouchDB.MixProject do
   use Mix.Project
 
   def project do
@@ -18,7 +18,7 @@ defmodule GSMLG_CouchDB.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {GSMLG_CouchDB.Application, []},
+      mod: {GSMLG.CouchDB.Application, []},
       extra_applications: [:logger]
     ]
   end
