@@ -31,6 +31,12 @@ defprotocol GSMLGSocket.Stream.Protocol do
   def recv(self, length, options)
 
   @doc """
+  Receive data from the socket until `{:error, :closed}` is returned.
+  """
+  @spec recv_all!(t, String.t()) :: String.t()
+  def recv_all!(self, acc \\ "")
+
+  @doc """
   Shutdown the socket in the given mode, either `:both`, `:read`, or `:write`.
   """
   @spec shutdown(t, :both | :read | :write) :: :ok | {:error, term}
@@ -63,6 +69,11 @@ defmodule GSMLGSocket.Stream do
   defbang(recv(self, length_or_options), to: GSMLGSocket.Stream.Protocol)
   defdelegate recv(self, length, options), to: GSMLGSocket.Stream.Protocol
   defbang(recv(self, length, options), to: GSMLGSocket.Stream.Protocol)
+
+  defdelegate recv_all!(self), to: GSMLGSocket.Stream.Protocol
+  defbang(recv_all!(self), to: GSMLGSocket.Stream.Protocol)
+  defdelegate recv_all!(self, acc), to: GSMLGSocket.Stream.Protocol
+  defbang(recv_all!(self, acc), to: GSMLGSocket.Stream.Protocol)
 
   defdelegate shutdown(self), to: GSMLGSocket.Stream.Protocol
   defbang(shutdown(self), to: GSMLGSocket.Stream.Protocol)
@@ -182,6 +193,13 @@ defimpl GSMLGSocket.Stream.Protocol, for: Port do
     end
   end
 
+  def recv_all!(self, acc \\ "") do
+    case :gen_tcp.recv(self, 0) do
+      {:ok, data} -> recv_all!(self, acc <> data)
+      {:error, :closed} -> acc
+    end
+  end
+
   def shutdown(self, how \\ :both) do
     :gen_tcp.shutdown(
       self,
@@ -263,6 +281,13 @@ defimpl GSMLGSocket.Stream.Protocol, for: Tuple do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  def recv_all!(self, acc \\ "") do
+    case :ssl.recv(self, 0, :infinity) do
+      {:ok, data} -> recv_all!(self, acc <> data)
+      {:error, :closed} -> acc
     end
   end
 
