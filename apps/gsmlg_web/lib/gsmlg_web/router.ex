@@ -57,6 +57,8 @@ defmodule GSMLGWeb.Router do
     post "/tools/geoip2", ToolboxController, :geoip2_find
     get "/tools/whois", ToolboxController, :whois
     post "/tools/whois", ToolboxController, :whois_find
+    get "/tools/svg2react", ToolboxController, :svg2react
+    post "/tools/svg2react", ToolboxController, :svg2react_convert
   end
 
   scope "/api", GSMLGWeb do

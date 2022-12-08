@@ -56,4 +56,52 @@ defmodule GSMLGWeb.ToolboxController do
         end
     end
   end
+
+  def svg2react(conn, _params) do
+    render(conn, :svg2react)
+  end
+
+  def svg2react_convert(conn, params) do
+    IO.inspect(params)
+    %{"code" => code} = params
+
+    data = %{
+      "code" => code,
+      "options" => %{
+        "icon" => true,
+        "native" => false,
+        "typescript" => false,
+        "ref" => true,
+        "memo" => false,
+        "titleProp" => false,
+        "descProp" => false,
+        "expandProps" => "end",
+        "replaceAttrValues" => %{},
+        "svgProps" => %{},
+        "svgo" => true,
+        "svgoConfig" => %{
+          "plugins" => [
+            %{
+              "name" => "preset-default",
+              "params" => %{
+                "overrides" => %{
+                  "removeTitle" => false
+                }
+              }
+            }
+          ]
+        },
+        "prettier" => true,
+        "prettierConfig" => %{"semi" => false}
+      }
+    }
+
+    case GSMLG.SVG2React.convert(data) do
+      {:ok, result} ->
+        conn |> json(%{data: result})
+
+      {:error, error} ->
+        conn |> put_status(422) |> json(%{error: error})
+    end
+  end
 end
