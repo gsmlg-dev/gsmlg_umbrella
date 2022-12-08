@@ -1,4 +1,4 @@
-defmodule GSMLG_AMQP.MixProject do
+defmodule GSMLG.AMQP.MixProject do
   use Mix.Project
 
   def project do
@@ -18,7 +18,7 @@ defmodule GSMLG_AMQP.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {GSMLG_AMQP.Application, []},
+      mod: {GSMLG.AMQP.Application, []},
       extra_applications: [:logger]
     ]
   end

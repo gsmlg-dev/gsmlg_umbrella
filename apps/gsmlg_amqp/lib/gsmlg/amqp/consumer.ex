@@ -1,4 +1,4 @@
-defmodule GSMLG_AMQP.Consumer do
+defmodule GSMLG.AMQP.Consumer do
   use GenServer
   use AMQP
 

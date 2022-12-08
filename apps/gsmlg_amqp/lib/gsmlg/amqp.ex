@@ -1,6 +1,6 @@
-defmodule GSMLG_AMQP do
+defmodule GSMLG.AMQP do
   @moduledoc """
-  Documentation for `GSMLG_AMQP`.
+  Documentation for `GSMLG.AMQP`.
   """
 
   @doc """
@@ -8,7 +8,7 @@ defmodule GSMLG_AMQP do
 
   ## Examples
 
-      iex> GSMLG_AMQP.hello()
+      iex> GSMLG.AMQP.hello()
       :world
 
   """

@@ -1,4 +1,4 @@
-# GSMLG_AMQP
+# GSMLG.AMQP
 
 **TODO: Add description**
 

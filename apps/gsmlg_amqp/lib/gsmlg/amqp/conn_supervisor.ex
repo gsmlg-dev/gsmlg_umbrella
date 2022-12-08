@@ -1,4 +1,4 @@
-defmodule GSMLG_AMQP.ConnSupervisor do
+defmodule GSMLG.AMQP.ConnSupervisor do
   use DynamicSupervisor
 
   def start_link(init_arg) do
@@ -6,8 +6,8 @@ defmodule GSMLG_AMQP.ConnSupervisor do
   end
 
   def start_child(name, url) do
-    # spec = {GSMLG_AMQP.Consumer, [name: name, url: url]}
-    spec = {GSMLG_AMQP.Consumer, [name: name, url: url]}
+    # spec = {GSMLG.AMQP.Consumer, [name: name, url: url]}
+    spec = {GSMLG.AMQP.Consumer, [name: name, url: url]}
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
