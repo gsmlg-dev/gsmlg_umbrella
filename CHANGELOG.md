@@ -1,3 +1,15 @@
+# [4.11.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.10.1...v4.11.0) (2022-12-08)
+
+
+### Bug Fixes
+
+* Use GSMLGSocket in whois. ([6341d5a](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/6341d5a2da9913ffbdef55a6eb8aa2baebe44698))
+
+
+### Features
+
+* Add svg optimize tool. ([4a28fa7](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/4a28fa7b4956d329e610f919e258f31f378436cb))
+
 ## [4.10.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.10.0...v4.10.1) (2022-12-08)
 
 
