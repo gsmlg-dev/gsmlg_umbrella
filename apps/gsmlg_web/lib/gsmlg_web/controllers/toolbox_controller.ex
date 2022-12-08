@@ -61,17 +61,14 @@ defmodule GSMLGWeb.ToolboxController do
     render(conn, :svg2react)
   end
 
-  def svg2react_convert(conn, params) do
-    IO.inspect(params)
-    %{"code" => code} = params
-
+  def svg2react_convert(conn, %{"code" => code, "options" => options} = _params) do
     data = %{
       "code" => code,
       "options" => %{
         "icon" => true,
-        "native" => false,
+        "native" => Map.get(options, "native", false),
         "typescript" => false,
-        "ref" => true,
+        "ref" => Map.get(options, "ref", true),
         "memo" => false,
         "titleProp" => false,
         "descProp" => false,

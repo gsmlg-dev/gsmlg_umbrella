@@ -1,7 +1,7 @@
 <h3 class="text-2xl text-center mt-4">SVG to React Component</h3>
 
 <div class="min-w-2/3 flex flex-col justify-center items-center">
-  <div class="w-full flex justify-center items-center gap-4">
+  <div class="w-full flex flex-col md:flex-row justify-center items-center gap-4">
     <div class="w-full flex flex-col justify-center items-center">
       <label>SVG</label>
       <textarea id="svg-input" class="w-full" rows={20} ></textarea>
@@ -11,7 +11,7 @@
       <textarea id="svg-output" class="w-full" rows={20}></textarea>
     </div>
   </div>
-  <div class="w-full mt-4 flex justify-center items-center">
+  <div class="w-full my-4 flex justify-center items-center">
     <.button id="svg-convert">Convert</.button>
   </div>
   <script>
