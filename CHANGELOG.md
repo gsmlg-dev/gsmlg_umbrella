@@ -1,3 +1,10 @@
+## [4.10.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.10.0...v4.10.1) (2022-12-08)
+
+
+### Bug Fixes
+
+* Fix svg2react. ([86eef4f](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/86eef4f8fce8f79c1b0fb11ea380645fbb355f47))
+
 # [4.10.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.9.5...v4.10.0) (2022-12-08)
 
 
