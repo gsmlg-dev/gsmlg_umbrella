@@ -101,4 +101,18 @@ defmodule GSMLGWeb.ToolboxController do
         conn |> put_status(422) |> json(%{error: error})
     end
   end
+
+  def svg_autocrop(conn, _params) do
+    render(conn, :svg_autocrop)
+  end
+
+  def svg_autocrop_convert(conn, %{"code" => code} = _params) do
+    case GSMLG.SVG_Autocrop.convert(%{"code" => code}) do
+      {:ok, result} ->
+        conn |> json(%{data: result})
+
+      {:error, error} ->
+        conn |> put_status(422) |> json(%{error: error})
+    end
+  end
 end

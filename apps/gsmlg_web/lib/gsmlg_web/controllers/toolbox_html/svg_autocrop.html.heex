@@ -3,16 +3,16 @@
 <div class="min-w-2/3 flex flex-col justify-center items-center">
   <div class="w-full flex flex-col md:flex-row justify-center items-center gap-4">
     <div class="w-full flex flex-col justify-center items-center">
-      <label>SVG</label>
+      <label>Origin SVG</label>
       <textarea id="svg-input" class="w-full dark:bg-slate-800 dark:text-slate-300" rows={20} ></textarea>
     </div>
     <div class="w-full flex flex-col justify-center items-center">
-      <label>JSX</label>
+      <label>Optimized SVG</label>
       <textarea id="svg-output" class="w-full dark:bg-slate-800 dark:text-slate-300" rows={20}></textarea>
     </div>
   </div>
   <div class="w-full my-4 flex justify-center items-center">
-    <.button id="svg-convert">Convert</.button>
+    <.button id="svg-convert">Optimize</.button>
   </div>
   <script>
   const path = window.location.pathname;

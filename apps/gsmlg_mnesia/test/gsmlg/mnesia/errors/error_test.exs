@@ -31,7 +31,8 @@ defmodule GSMLG.Mnesia.Tests.Error do
 
   describe "#normalize" do
     test "resolves to AlreadyExistsError for :already_exists" do
-      assert %GSMLG.Mnesia.AlreadyExistsError{} = GSMLG.Mnesia.Error.normalize({:already_exists, X})
+      assert %GSMLG.Mnesia.AlreadyExistsError{} =
+               GSMLG.Mnesia.Error.normalize({:already_exists, X})
     end
 
     test "resolves to DoesNotExistError for :no_exists" do
