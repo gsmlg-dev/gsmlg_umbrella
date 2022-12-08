@@ -1,4 +1,4 @@
-# GSMLGMnesia
+# GSMLG.Mnesia
 
 **TODO: Add description**
 

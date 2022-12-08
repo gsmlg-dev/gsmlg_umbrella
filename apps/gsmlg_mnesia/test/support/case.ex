@@ -1,4 +1,4 @@
-defmodule GSMLGMnesia.Support.Case do
+defmodule GSMLG.Mnesia.Support.Case do
   use ExUnit.CaseTemplate
 
   @moduledoc """
@@ -7,8 +7,8 @@ defmodule GSMLGMnesia.Support.Case do
 
   using do
     quote do
-      alias GSMLGMnesia.Support
-      alias GSMLGMnesia.Support.Definitions.Tables
+      alias GSMLG.Mnesia.Support
+      alias GSMLG.Mnesia.Support.Definitions.Tables
 
       import Support.Mnesia,
         only: [
@@ -20,7 +20,7 @@ defmodule GSMLGMnesia.Support.Case do
 
   setup tags do
     unless tags[:async] do
-      GSMLGMnesia.Support.Mnesia.reset()
+      GSMLG.Mnesia.Support.Mnesia.reset()
     end
 
     :ok

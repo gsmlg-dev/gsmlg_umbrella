@@ -1,16 +1,16 @@
-defmodule GSMLGMnesia.Support.Definitions do
+defmodule GSMLG.Mnesia.Support.Definitions do
   defmodule Tables do
     @moduledoc "Helper table definitions"
 
     defmodule User do
       alias __MODULE__
-      use GSMLGMnesia.Table, attributes: [:id, :name]
+      use GSMLG.Mnesia.Table, attributes: [:id, :name]
 
       def seed do
-        GSMLGMnesia.Support.Mnesia.transaction(fn ->
+        GSMLG.Mnesia.Support.Mnesia.transaction(fn ->
           1..10
           |> Enum.map(&%User{id: &1, name: "User #{&1}"})
-          |> Enum.each(&GSMLGMnesia.Query.write/1)
+          |> Enum.each(&GSMLG.Mnesia.Query.write/1)
         end)
       end
     end
@@ -18,7 +18,7 @@ defmodule GSMLGMnesia.Support.Definitions do
     defmodule Email do
       alias __MODULE__
 
-      use GSMLGMnesia.Table,
+      use GSMLG.Mnesia.Table,
         type: :bag,
         attributes: [:user_id, :email]
 
@@ -32,8 +32,8 @@ defmodule GSMLGMnesia.Support.Definitions do
           %Email{user_id: 3, email: "user.3@gmail.com"}
         ]
 
-        GSMLGMnesia.Support.Mnesia.transaction(fn ->
-          Enum.each(emails, &GSMLGMnesia.Query.write/1)
+        GSMLG.Mnesia.Support.Mnesia.transaction(fn ->
+          Enum.each(emails, &GSMLG.Mnesia.Query.write/1)
         end)
       end
     end
@@ -41,7 +41,7 @@ defmodule GSMLGMnesia.Support.Definitions do
     defmodule Movie do
       alias __MODULE__
 
-      use GSMLGMnesia.Table,
+      use GSMLG.Mnesia.Table,
         type: :ordered_set,
         autoincrement: true,
         attributes: [:id, :title, :year, :director]
@@ -62,8 +62,8 @@ defmodule GSMLGMnesia.Support.Definitions do
           %Movie{id: 12, title: "The Post", year: 2017, director: "Steven Spielberg"}
         ]
 
-        GSMLGMnesia.Support.Mnesia.transaction(fn ->
-          Enum.each(movies, &GSMLGMnesia.Query.write/1)
+        GSMLG.Mnesia.Support.Mnesia.transaction(fn ->
+          Enum.each(movies, &GSMLG.Mnesia.Query.write/1)
         end)
       end
     end
@@ -71,7 +71,7 @@ defmodule GSMLGMnesia.Support.Definitions do
     defmodule Nested do
       alias __MODULE__
 
-      use GSMLGMnesia.Table,
+      use GSMLG.Mnesia.Table,
         type: :ordered_set,
         autoincrement: true,
         attributes: [:id, :data]
@@ -80,13 +80,13 @@ defmodule GSMLGMnesia.Support.Definitions do
         nested = [
           %Nested{id: 1, data: %{title: "Elixir", type: :language, stars: 15000}},
           %Nested{id: 2, data: %{title: "Phoenix", type: :framework, stars: 13000}},
-          %Nested{id: 3, data: %{title: "GSMLGMnesia", type: :library, stars: 160}},
+          %Nested{id: 3, data: %{title: "GSMLG.Mnesia", type: :library, stars: 160}},
           %Nested{id: 4, data: %{title: "Ecto", type: :library, stars: 4000}},
           %Nested{id: 5, data: %{title: "Ruby", type: :language, stars: 16000}}
         ]
 
-        GSMLGMnesia.Support.Mnesia.transaction(fn ->
-          Enum.each(nested, &GSMLGMnesia.Query.write/1)
+        GSMLG.Mnesia.Support.Mnesia.transaction(fn ->
+          Enum.each(nested, &GSMLG.Mnesia.Query.write/1)
         end)
       end
     end

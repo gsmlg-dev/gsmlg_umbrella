@@ -1,5 +1,5 @@
-defmodule GSMLGMnesia.Support do
-  alias GSMLGMnesia.Support
+defmodule GSMLG.Mnesia.Support do
+  alias GSMLG.Mnesia.Support
 
   @moduledoc "Helper functions for tests"
 
@@ -20,11 +20,11 @@ defmodule GSMLGMnesia.Support do
     def stop, do: Support.capture_log(fn -> Application.stop(:mnesia) end)
 
     def transaction!(fun) do
-      GSMLGMnesia.Transaction.execute!(fun)
+      GSMLG.Mnesia.Transaction.execute!(fun)
     end
 
     def transaction(fun) when is_function(fun) do
-      GSMLGMnesia.Transaction.execute(fun)
+      GSMLG.Mnesia.Transaction.execute(fun)
     end
 
     def transaction({module, method, args})
@@ -35,10 +35,10 @@ defmodule GSMLGMnesia.Support do
     end
 
     def transaction({method, args}) when is_atom(method) do
-      require GSMLGMnesia.Mnesia
+      require GSMLG.Mnesia.Mnesia
 
       transaction(fn ->
-        GSMLGMnesia.Mnesia.call(method, args)
+        GSMLG.Mnesia.Mnesia.call(method, args)
       end)
     end
   end

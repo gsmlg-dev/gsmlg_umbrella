@@ -1,4 +1,4 @@
-defmodule GSMLGMnesia.MixProject do
+defmodule GSMLG.Mnesia.MixProject do
   use Mix.Project
 
   def project do
