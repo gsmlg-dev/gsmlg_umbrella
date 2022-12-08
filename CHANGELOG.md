@@ -1,3 +1,15 @@
+# [4.10.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.9.5...v4.10.0) (2022-12-08)
+
+
+### Bug Fixes
+
+* Fix logo url. ([6870a51](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/6870a51fb3aa00a6711263a5b90326bd01560ecf))
+
+
+### Features
+
+* Add svg2react. ([f70420f](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/f70420f32193d957dc165e2765d614f3bebcb470))
+
 ## [4.9.5](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.9.4...v4.9.5) (2022-12-07)
 
 
