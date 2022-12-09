@@ -16,6 +16,6 @@ defmodule GSMLG.MAC do
       {:ok, "OmronTat", "Omron Tateisi Electronics Co."}
 
   """
-  @spec lookup(String.t()) :: {:ok, String.t(), String.t()} | :error
+  @spec lookup_vendor(String.t()) :: {:ok, String.t(), String.t()} | :error
   defdelegate lookup_vendor(mac), to: GSMLG.MAC.Vendor, as: :lookup
 end

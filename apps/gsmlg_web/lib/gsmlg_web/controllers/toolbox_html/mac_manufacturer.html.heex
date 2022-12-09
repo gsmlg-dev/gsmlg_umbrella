@@ -1,0 +1,33 @@
+<h3 class="text-2xl text-center mt-4">MAC Manufacturer</h3>
+
+<div class="flex justify-center items-center">
+  <.simple_form
+    :let={f}
+    for={@conn}
+    id="mac-manufacturer-form"
+    method={:post}
+    phx-change="validate"
+    phx-submit="save"
+  >
+    <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
+    <.input field={{f, :mac}} type="text" label="MAC" />
+    <:actions>
+      <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
+    </:actions>
+  </.simple_form>
+</div>
+
+<%= unless is_nil(assigns[:short]) do %>
+  <div class="mt-4 flex flex-col justify-center items-center">
+    <div class="w-96 flex flex-row justify-start items-start">
+      <div class="w-32 text-right pr-2 after:content-[':']">Short</div>
+      <div class=""><%= @short %></div>
+    </div>
+    <%= unless is_nil(assigns[:full]) do %>
+      <div class="w-96 flex flex-row justify-start items-start">
+        <div class="w-32 text-right pr-2 after:content-[':']">Full Information</div>
+        <div class=""><%= @full %></div>
+      </div>
+    <% end %>
+  </div>
+<% end %>

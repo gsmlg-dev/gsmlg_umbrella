@@ -53,6 +53,7 @@ defmodule GSMLGWeb.MixProject do
       {:gettext, "~> 0.18"},
       {:gsmlg, in_umbrella: true},
       {:gsmlg_whois, in_umbrella: true},
+      {:gsmlg_mac, in_umbrella: true},
       {:swoosh, "~> 1.3"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},

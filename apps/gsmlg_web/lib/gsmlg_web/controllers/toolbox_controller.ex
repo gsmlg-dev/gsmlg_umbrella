@@ -115,4 +115,18 @@ defmodule GSMLGWeb.ToolboxController do
         conn |> put_status(422) |> json(%{error: error})
     end
   end
+
+  def mac_manufacturer(conn, _params) do
+    render(conn, :mac_manufacturer)
+  end
+
+  def mac_manufacturer_lookup(conn, %{"mac" => mac} = _params) do
+    case GSMLG.MAC.lookup_vendor(mac) do
+      {:ok, short, full} ->
+        render(conn, :mac_manufacturer, short: short, full: full)
+
+      :error ->
+        render(conn, :mac_manufacturer, short: "Unkown")
+    end
+  end
 end

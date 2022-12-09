@@ -61,6 +61,8 @@ defmodule GSMLGWeb.Router do
     post "/tools/svg2react", ToolboxController, :svg2react_convert
     get "/tools/svg_autocrop", ToolboxController, :svg_autocrop
     post "/tools/svg_autocrop", ToolboxController, :svg_autocrop_convert
+    get "/tools/mac_manufacturer", ToolboxController, :mac_manufacturer
+    post "/tools/mac_manufacturer", ToolboxController, :mac_manufacturer_lookup
   end
 
   scope "/api", GSMLGWeb do
