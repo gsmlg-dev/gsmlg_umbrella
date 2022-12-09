@@ -1,32 +1,30 @@
-<.wc_appbar
-  title={assigns[:page_title]}
-  menus={[
-  ]}
-  class="h-[60px]"
->
+<.wc_appbar title={assigns[:page_title]} menus={[]} class="h-[60px]">
   <:logo>
     <.wc_link href={~p"/"}>
       <logo-gsmlg-dev />
     </.wc_link>
   </:logo>
   <:user_profile>
-    <.wc_link href={~p"/sign_out"} method={"DELETE"} data-confirm="Really?">Sign Out</.wc_link>
+    <.wc_link href={~p"/sign_out"} method="DELETE" data-confirm="Really?">Sign Out</.wc_link>
   </:user_profile>
 </.wc_appbar>
 <main class="flex flex-row px-4 sm:px-6 lg:px-8">
   <.wc_left_menu
     active={assigns[:active_menu]}
     menus={[
-      {"User Managment", [
-        {"user_list", "User List", ~p"/users"},
-        {"user_token_list", "User Token", ~p"/user_tokens"},
-      ]},
-      {"Blog Management", [
-        {"blog_list", "Blog List", ~p"/blogs"},
-        {"blog_import", "Blog Import", ~p"/blogs/import"},
-      ]}
+      {"User Managment",
+       [
+         {"user_list", "User List", ~p"/users"},
+         {"user_token_list", "User Token", ~p"/user_tokens"}
+       ]},
+      {"Blog Management",
+       [
+         {"blog_list", "Blog List", ~p"/blogs"},
+         {"blog_import", "Blog Import", ~p"/blogs/import"}
+       ]}
     ]}
-  ></.wc_left_menu>
+  >
+  </.wc_left_menu>
   <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
     <.flash kind={:info} title="Success!" flash={@flash} />
     <.flash kind={:error} title="Error!" flash={@flash} />

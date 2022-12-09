@@ -1,16 +1,11 @@
-<.wc_appbar
-  title={assigns[:page_title]}
-  menus={[
-  ]}
-  class="h-[60px]"
->
+<.wc_appbar title={assigns[:page_title]} menus={[]} class="h-[60px]">
   <:logo>
     <.wc_link href={~p"/"}>
       <logo-gsmlg-dev />
     </.wc_link>
   </:logo>
   <:user_profile>
-    <.wc_link href={~p"/sign_out"} method={"DELETE"} data-confirm="Really?">Sign Out</.wc_link>
+    <.wc_link href={~p"/sign_out"} method="DELETE" data-confirm="Really?">Sign Out</.wc_link>
   </:user_profile>
 </.wc_appbar>
 <main class="flex flex-row px-4 sm:px-6 lg:px-8">

@@ -8,20 +8,25 @@
       <%= assigns[:page_title] || "GSMLG Web" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}></script>
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+    </script>
     <%= if Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:enable_adsense) |> Kernel.==("yes") do %>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2900591828353755"
-     crossorigin="anonymous"></script>
+      <script
+        async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2900591828353755"
+        crossorigin="anonymous"
+      >
+      </script>
     <% end %>
   </head>
   <body class="bg-fuchsia-100 antialiased flex flex-col overflow-x-hidden text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
     <%= @inner_content %>
     <%= if Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:show_icp) |> Kernel.==("yes") do %>
-    <footer class="w-full h-16 mt-4 md:mt-0 flex flex-col md:flex-row justify-center items-center gap-4">
-      <span>京ICP备20014476号</span>
-      <span class="text-slate-400 dark:text-slate-800 hidden md:inline-flex">|</span>
-      <span>Copyright© Jonathan Gao. All rights reserved</span>
-    </footer>
+      <footer class="w-full h-16 mt-4 md:mt-0 flex flex-col md:flex-row justify-center items-center gap-4">
+        <span>京ICP备20014476号</span>
+        <span class="text-slate-400 dark:text-slate-800 hidden md:inline-flex">|</span>
+        <span>Copyright© Jonathan Gao. All rights reserved</span>
+      </footer>
     <% end %>
   </body>
 </html>

@@ -13,7 +13,7 @@
       <div class="flex flex-row">
         <label class="w-24 after:content-[':']">State</label>
         <span>
-          <%= if Node.alive?, do: "Started", else: "Stopped" %>
+          <%= if Node.alive?(), do: "Started", else: "Stopped" %>
         </span>
       </div>
 
@@ -26,30 +26,29 @@
     </section>
   </.wc_card>
 
-    <.wc_card>
+  <.wc_card>
     <:title>
       <h1>Connected Nodes</h1>
     </:title>
 
     <section>
       <%= if Enum.count(@nodes) > 0 do %>
-      <div class="flex flex-row flex-wrap gap-4">
-        <%= for no <- @nodes do %>
-        <div class="flex justify-center items-center">
-          <h3>
-            <%= no %>
-          </h3>
+        <div class="flex flex-row flex-wrap gap-4">
+          <%= for no <- @nodes do %>
+            <div class="flex justify-center items-center">
+              <h3>
+                <%= no %>
+              </h3>
+            </div>
+          <% end %>
         </div>
-        <% end %>
-      </div>
       <% else %>
-      <h3>
-        No node connected yet!
-      </h3>
+        <h3>
+          No node connected yet!
+        </h3>
       <% end %>
     </section>
   </.wc_card>
-
 </div>
 
 <hr />

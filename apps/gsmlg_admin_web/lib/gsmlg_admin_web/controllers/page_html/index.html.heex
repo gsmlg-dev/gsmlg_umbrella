@@ -33,7 +33,7 @@
     <.wc_link navigate={~p"/node_management"}>Node Management</.wc_link>
     <div class="flex flex-row gap-2 justify-center items-center">
       <label class="after:content-[':']">Node Count</label>
-      <span class="text-cyan-600"><%= Node.list |> length %></span>
+      <span class="text-cyan-600"><%= Node.list() |> length %></span>
     </div>
   </div>
 </section>

@@ -1,40 +1,53 @@
 <h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %></h3>
 
 <div class="mx-4 my-2 flex flex-col w-full">
-  <div  class="mx-4 my-2 flex flex-row justify-end">
-    <.link class="w-32 rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/blogs/new"}>
-        Compose
+  <div class="mx-4 my-2 flex flex-row justify-end">
+    <.link
+      class="w-32 rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
+      navigate={~p"/blogs/new"}
+    >
+      Compose
     </.link>
   </div>
   <.wc_table rows={@blogs}>
-    <:col let={b} label="ID">
-        <%= b.id %>
+    <:col :let={b} label="ID">
+      <%= b.id %>
     </:col>
-    <:col let={b} label="Slug">
-        <%= b.slug %>
+    <:col :let={b} label="Slug">
+      <%= b.slug %>
     </:col>
-    <:col let={b} label="Title">
-        <%= b.title %>
+    <:col :let={b} label="Title">
+      <%= b.title %>
     </:col>
-    <:col let={b} label="Author">
-        <%= b.author %>
+    <:col :let={b} label="Author">
+      <%= b.author %>
     </:col>
-    <:col let={b} label="Date">
-        <%= b.date %>
+    <:col :let={b} label="Date">
+      <%= b.date %>
     </:col>
 
-    <:col let={b} label="">
-        <div class="flex gap-2">
-            <.link class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/blogs/#{b.id}"}>
-                Show
-            </.link>
-            <.link class="rounded-lg bg-blue-600 hover:bg-blue-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" navigate={~p"/blogs/#{b.id}/edit"}>
-                Edit
-            </.link>
-            <.link class="rounded-lg bg-red-600 hover:bg-red-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80" phx-click={JS.push("delete", value: %{id: b.id})} data-confirm="Are you sure?">
-                Delete
-            </.link>
-        </div>
+    <:col :let={b} label="">
+      <div class="flex gap-2">
+        <.link
+          class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
+          navigate={~p"/blogs/#{b.id}"}
+        >
+          Show
+        </.link>
+        <.link
+          class="rounded-lg bg-blue-600 hover:bg-blue-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
+          navigate={~p"/blogs/#{b.id}/edit"}
+        >
+          Edit
+        </.link>
+        <.link
+          class="rounded-lg bg-red-600 hover:bg-red-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
+          phx-click={JS.push("delete", value: %{id: b.id})}
+          data-confirm="Are you sure?"
+        >
+          Delete
+        </.link>
+      </div>
     </:col>
   </.wc_table>
 </div>
