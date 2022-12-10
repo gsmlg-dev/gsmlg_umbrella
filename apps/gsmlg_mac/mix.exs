@@ -11,6 +11,9 @@ defmodule GSMLG.MAC.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      name: "GSMLG.MAC",
+      description: "MAC's manufacturer lookup for",
+      package: package(),
       deps: deps()
     ]
   end
@@ -25,9 +28,18 @@ defmodule GSMLG.MAC.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"},
-      # {:sibling_app_in_umbrella, in_umbrella: true}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Jonathan Gao"],
+      licenses: ["MIT"],
+      files: ~w(lib priv LICENSE mix.exs README.md),
+      links: %{
+        Changelog: "https://hexdocs.pm/gsmlg_mac/changelog.html"
+      }
     ]
   end
 end
