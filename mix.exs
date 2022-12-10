@@ -39,7 +39,10 @@ defmodule GSMLG.Umbrella.MixProject do
   # Dependencies listed here are available only for this project
   # and cannot be accessed from applications inside the apps/ folder.
   defp deps do
-    []
+    [
+      {:phoenix, "~> 1.7.0-rc.0", override: true},
+      {:phoenix_live_view, "~> 0.18.0"}
+    ]
   end
 
   # Aliases are shortcuts or tasks specific to the current project.
