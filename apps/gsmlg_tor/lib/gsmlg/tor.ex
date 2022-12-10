@@ -17,7 +17,7 @@ defmodule GSMLG.Tor do
   GSMLG.Tor.start()
   ```
 
-
+  To start server, libevent must be installed.
   """
   def start() do
     File.mkdir_p(Application.app_dir(:gsmlg_tor, "priv") <> "/etc")
