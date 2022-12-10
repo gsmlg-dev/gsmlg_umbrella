@@ -1,3 +1,16 @@
+# [4.12.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.11.0...v4.12.0) (2022-12-10)
+
+
+### Bug Fixes
+
+* Add newo tool, lookup mac manufacturer. ([06141fd](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/06141fda5dff7c281687238b71d9b42d434a9561))
+* Fix test. ([a935bbe](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/a935bbe2cc311fd6eb722a67b369a8e1d26a2fde))
+
+
+### Features
+
+* Add gsmlg_mac. ([87df790](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/87df790b3ff11ac5a1a6c357806bfc0ea6bcb741))
+
 # [4.11.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.10.1...v4.11.0) (2022-12-08)
 
 
