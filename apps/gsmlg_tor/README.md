@@ -10,7 +10,31 @@ Generate torrc and run tor from elixir
 
 Start tor server
 
-## TODO
+# Config
 
-Manage `tor` throught control port and start tor through supervisor
+Start tor in application supervisor
 
+```elixir
+# set in Application Supervisor
+  [
+    ...
+    {GSMLG.Tor}
+  ]
+```
+
+Manual start/stop
+```
+GSMLG.Tor.start()
+GSMLG.Tor.stop()
+```
+
+Config tor in config.exs
+
+```elixir
+config :gsmlg_tor, GSMLG.Tor.Config,
+  auto_download: true, # autodownload if tor is not exists
+  bin_path: nil, # set tor bin path
+  conf_path: nil, # set tor config file path
+  conf: nil # if conf_path is not set, use conf as binary content
+
+```

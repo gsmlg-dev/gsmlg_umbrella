@@ -19,6 +19,45 @@ defmodule GSMLG.Tor.Config do
   end
 
   def torrc() do
+    case Application.get_env(:gsmlg_tor, GSMLG.Tor.Config) |> Keyword.fetch(:conf_path) do
+      {:ok, conf_path} when is_binary(conf_path) ->
+        Logger.debug("using config file setted in application env: #{conf_path}")
+        File.read!(conf_path)
+
+      _ ->
+        conf = Application.get_env(:gsmlg_tor, GSMLG.Tor.Config) |> Keyword.get(:conf)
+
+        if is_nil(conf) do
+          default_torrc()
+        else
+          conf
+        end
+    end
+  end
+
+  def command_path() do
+    case Application.get_env(:gsmlg_tor, GSMLG.Tor.Config) |> Keyword.fetch(:bin_path) do
+      {:ok, bin_path} when is_binary(bin_path) ->
+        Logger.debug("using bin_path setted in application env: #{bin_path}")
+        bin_path
+
+      _ ->
+        bin_path = Application.app_dir(:gsmlg_tor, "priv/tor/tor")
+
+        unless File.exists?(bin_path) do
+          Logger.info("cmd not exists, downloading...")
+
+          case Downloader.download() do
+            0 -> bin_path
+            _ -> :error
+          end
+        else
+          bin_path
+        end
+    end
+  end
+
+  defp default_torrc() do
     """
 
     SOCKSPort 127.0.0.1:9050 # localhost IPv4
@@ -43,20 +82,5 @@ defmodule GSMLG.Tor.Config do
     HardwareAccel 1
 
     """
-  end
-
-  def command_path() do
-    tor_cmd = Application.app_dir(:gsmlg_tor, "priv/tor/tor")
-
-    unless File.exists?(tor_cmd) do
-      Logger.info("cmd not exists, downloading...")
-
-      case Downloader.download() do
-        0 -> tor_cmd
-        _ -> :error
-      end
-    else
-      tor_cmd
-    end
   end
 end
