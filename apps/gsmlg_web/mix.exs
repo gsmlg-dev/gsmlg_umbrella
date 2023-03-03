@@ -37,14 +37,14 @@ defmodule GSMLGWeb.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.7.0-rc.0", override: true},
-      {:phoenix_ecto, "~> 4.4.0"},
-      {:phoenix_html, "~> 3.2.0"},
-      {:phoenix_live_reload, "~> 1.4.0", only: :dev},
-      {:phoenix_live_view, "~> 0.18.0"},
+      {:phoenix, "~> 1.7.1"},
+      {:phoenix_ecto, "~> 4.4"},
+      {:phoenix_html, "~> 3.2"},
+      {:phoenix_live_reload, "~> 1.4", only: :dev},
+      {:phoenix_live_view, "~> 0.18"},
       {:phoenix_webcomponent, "~> 2.0"},
       {:heroicons, "~> 0.5"},
-      {:floki, ">= 0.32.0", only: :test},
+      {:floki, "~> 0.32", only: :test},
       # {:phoenix_live_dashboard, "~> 0.7"},
       {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
@@ -62,7 +62,7 @@ defmodule GSMLGWeb.MixProject do
       {:guardian_db, "~> 2.0"},
       {:absinthe, "~> 1.7.0"},
       {:absinthe_plug, "~> 1.5"},
-      {:absinthe_phoenix, "~> 2.0.0"}
+      {:absinthe_phoenix, "~> 2.0"}
     ]
   end
 

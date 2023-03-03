@@ -44,7 +44,7 @@ defmodule GSMLG.MixProject do
       {:libcluster, "~> 3.0"},
       {:horde, "~> 0.8.5"},
       {:swoosh, "~> 1.3"},
-      {:httpoison, "~> 1.8"},
+      {:httpoison, "~> 2.0"},
       {:absinthe, "~> 1.7.0"}
     ]
   end
