@@ -59,7 +59,7 @@ defmodule GSMLG.Tor do
         {:spawn_executable, cmd()},
         [
           {:args, ["-f", Config.torrc_file()]},
-          cd: Application.app_dir(:gsmlg_tor, "priv") <> "/tor",
+          {:cd, Application.app_dir(:gsmlg_tor, "priv/tor")},
           :stream,
           :binary,
           :exit_status,
