@@ -18,10 +18,10 @@
 </.wc_simple_appbar>
 <section class="flex flex-col justify-evenly items-center w-screen h-64 bg-sky-500 text-purple-300">
   <h2 class="text-2xl lg:text-4xl xl:text-6xl flex justify-center">
-    长<span class="animate-bounce">风</span>破浪会有时
+    亦余心之所<span class="animate-bounce">善</span>兮
   </h2>
   <h2 class="text-2xl lg:text-4xl xl:text-6xl flex justify-center">
-    直挂云帆<span class="animate-bounce">济</span>沧海
+    虽九<span class="animate-bounce">死</span>其犹未悔
   </h2>
 </section>
 <main class="px-4 sm:px-6 lg:px-8">
@@ -37,7 +37,8 @@
       phx-disconnected={show("#disconnected")}
       phx-connected={hide("#disconnected")}
     >
-      Attempting to reconnect <Heroicons.arrow_path class="ml-1 w-3 h-3 inline animate-spin" />
+      Attempting to reconnect
+      <.wc_bsi name="arrow-repeat" class="ml-1 w-3 h-3 inline animate-spin" />
     </.flash>
     <%= @inner_content %>
   </div>
