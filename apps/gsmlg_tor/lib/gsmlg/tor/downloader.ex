@@ -50,16 +50,22 @@ defmodule GSMLG.Tor.Downloader do
     code
   end
 
+  @doc """
+  Return url for download.
+
+  `https://dist.torproject.org/torbrowser/12.0/tor-expert-bundle-12.0-{os}-{arch}.tar.gz`
+
+  """
   def download_url() do
     "https://dist.torproject.org/torbrowser/12.0/" <> filename()
   end
 
-  def filename() do
+  defp filename() do
     {os, arch} = os_arch()
     "tor-expert-bundle-12.0-#{os}-#{arch}.tar.gz"
   end
 
-  def os_arch() do
+  defp os_arch() do
     {arch, os_str} =
       case :erlang.system_info(:system_architecture) |> to_string() do
         "aarch64-" <> os_info ->

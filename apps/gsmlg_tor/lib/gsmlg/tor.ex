@@ -1,6 +1,9 @@
 defmodule GSMLG.Tor do
   @moduledoc """
-  Documentation for `GSMLG.Tor`.
+  Starting a tor server in elixir using Port.
+
+  The Tor Project [https://www.torproject.org](https://www.torproject.org)
+
   """
 
   alias GSMLG.Tor.Config
@@ -8,17 +11,17 @@ defmodule GSMLG.Tor do
   use GenServer
 
   @doc """
-  Start tor server at
-
-  - `127.0.0.1:9050`
-  - `[::1]:9050`
-
-  Accept accesss from `127.0.0.1/8` or `::1/128`
+  Start tor server at using config file return by `GSMLG.Tor.Config.torrc()`
 
   Start server with
 
   ```
   GSMLG.Tor.start()
+  ```
+
+  or add to supervisor tree
+  ```
+  {GSMLG.Tor, []}
   ```
 
   To start server, libevent must be installed.
@@ -27,10 +30,19 @@ defmodule GSMLG.Tor do
     GenServer.start(__MODULE__, [], name: __MODULE__)
   end
 
+  @doc """
+  Return GenServer state.
+
+  `%{port: <port>}`
+
+  """
   def get_state() do
     GenServer.call(__MODULE__, :get_state)
   end
 
+  @doc """
+  Stop Tor server using system kill
+  """
   def stop() do
     {:os_pid, pid} = get_state() |> Map.get(:port) |> Port.info(:os_pid)
     {_, code} = System.cmd("kill", ["#{pid}"])
@@ -93,13 +105,6 @@ defmodule GSMLG.Tor do
     cleanup(reason, state)
     # see GenServer docs for other return types
     {:stop, reason, state}
-  end
-
-  # handle termination
-  def terminate(reason, state) do
-    Logger.info("terminating")
-    cleanup(reason, state)
-    state
   end
 
   defp cleanup(_reason, state) do
