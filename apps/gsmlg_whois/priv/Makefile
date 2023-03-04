@@ -1,3 +1,5 @@
+.PHONY: clean default tld.csv ipv6.csv ipv4.csv asn32.csv asn16.csv asn16.json asn32.json ipv4.json ipv6.json tld.json
+
 # support whois type:
 #   asn16.json
 # 	asn32.json
@@ -37,4 +39,4 @@ tld.csv: tld.json
 	cat tld.json | jq -r 'to_entries | .[] | select(.value.host) | .key + "," + .value.host' > tld.csv
 
 clean:
-	rm -f tld.json tld.csv
+	rm -f *.json
