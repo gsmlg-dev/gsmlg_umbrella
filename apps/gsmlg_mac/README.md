@@ -10,7 +10,7 @@ iex> GSMLG.MAC.lookup_vendor("00:00:0A:BB:28:FC")
 ## Update database
 
 ```bash
-curl -sSLf https://gitlab.com/wireshark/wireshark/-/raw/master/manuf -o priv/manuf
+curl -sSLf https://gitlab.com/wireshark/wireshark/-/raw/master/manuf -o priv/manuf.txt
 ```
 
 ## Installation
