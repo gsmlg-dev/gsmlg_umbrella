@@ -49,6 +49,13 @@ defmodule GSMLG.Tor do
     code
   end
 
+  @doc """
+  Get current config file content
+  """
+  def get_torrc() do
+    GSMLG.Tor.Config.torrc_file() |> File.read!()
+  end
+
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
