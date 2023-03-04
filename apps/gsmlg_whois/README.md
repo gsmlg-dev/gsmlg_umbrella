@@ -22,7 +22,7 @@ by adding `gsmlg_whois` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_whois, "~> 1.0.0"}
+    {:gsmlg_whois, "~> 0.1.0"}
   ]
 end
 ```
