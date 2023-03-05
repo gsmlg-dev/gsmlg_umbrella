@@ -1,17 +1,10 @@
 <h3 class="text-2xl text-center mt-4">GeoIP2</h3>
 
 <div class="flex justify-center items-center">
-  <.simple_form
-    :let={f}
-    for={@conn}
-    id="ip-form"
-    method={:post}
-    phx-change="validate"
-    phx-submit="save"
-  >
+  <.simple_form for={@conn} id="ip-form" method={:post} phx-change="validate" phx-submit="save">
     <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-    <.input field={{f, :ip}} type="text" label="IP" />
-    <.input field={{f, :lang}} type="select" label="Language" options={@langs} />
+    <.input type="text" name="ip" label="IP" value={@ip} />
+    <.input type="select" name="lang" label="Language" options={@langs} value={@lang} />
     <:actions>
       <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
     </:actions>

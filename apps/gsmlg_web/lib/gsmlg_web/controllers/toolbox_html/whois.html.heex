@@ -10,7 +10,7 @@
     phx-submit="save"
   >
     <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-    <.input field={{f, :look_for}} type="text" label="Domain / IP / ASN" />
+    <.input type="text" label="Domain / IP / ASN" name="look_for" value={@look_for} />
     <:actions>
       <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
     </:actions>

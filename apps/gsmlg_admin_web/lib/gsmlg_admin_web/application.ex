@@ -13,7 +13,7 @@ defmodule GSMLGAdminWeb.Application do
       # Start the Endpoint (http/https)
       GSMLGAdminWeb.Endpoint,
       # GraphQL subscriptions
-      {Absinthe.Subscription, [GSMLGAdminWeb.Endpoint]},
+      {Absinthe.Subscription, [pubsub: GSMLGAdminWeb.Endpoint]},
       {Guardian.DB.Token.SweeperServer, []}
       # Start a worker by calling: GSMLGAdminWeb.Worker.start_link(arg)
       # {GSMLGAdminWeb.Worker, arg}
