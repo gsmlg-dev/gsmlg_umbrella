@@ -25,8 +25,8 @@
     phx-change="validate"
     phx-submit="save"
   >
-    <.input field={{f, :jti}} type="text" label="Jti" />
-    <.input field={{f, :aud}} type="text" label="Aud" />
+    <.input field={f[:jti]} type="text" label="Jti" />
+    <.input field={f[:aud]} type="text" label="Aud" />
     <:actions>
       <.button class="w-full" phx-disable-with="Saving...">Save</.button>
     </:actions>

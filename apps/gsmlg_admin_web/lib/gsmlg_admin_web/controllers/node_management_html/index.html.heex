@@ -68,7 +68,7 @@
     >
       <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
       <input name="action" type="hidden" value="set-node-cookie" />
-      <.input field={{f, :cookie}} type="text" label="Cookie" />
+      <.input field={f[:cookie]} type="text" label="Cookie" />
       <:actions>
         <.button class="w-full" phx-disable-with="Updating...">Update</.button>
       </:actions>
@@ -89,7 +89,7 @@
     >
       <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
       <input name="action" type="hidden" value="connect-node" />
-      <.input field={{f, :target_node}} type="text" label="Target Node" />
+      <.input field={f[:target_node]} type="text" label="Target Node" />
       <:actions>
         <.button class="w-full" phx-disable-with="Connecting...">Connect</.button>
       </:actions>

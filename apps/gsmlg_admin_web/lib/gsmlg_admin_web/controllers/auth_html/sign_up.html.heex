@@ -9,9 +9,9 @@
     phx-submit="save"
   >
     <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-    <.input field={{f, :email}} type="text" label="Email" />
-    <.input field={{f, :username}} type="text" label="Username" />
-    <.input field={{f, :password}} type="password" label="Password" />
+    <.input field={f[:email]} type="text" label="Email" />
+    <.input field={f[:username]} type="text" label="Username" />
+    <.input field={f[:password]} type="password" label="Password" />
     <:actions>
       <.button class="w-full" phx-disable-with="Saving...">Sign up</.button>
     </:actions>
