@@ -11,11 +11,6 @@ defmodule GSMLGAdminWeb.NodeManagementController do
         conn
         |> put_flash(:info, "Update cookie success!")
         |> render(:index, nodes: Node.list(), page_title: "Node Management")
-
-      error ->
-        conn
-        |> put_flash(:error, inspect(error))
-        |> render(:index, nodes: Node.list(), page_title: "Node Management")
     end
   end
 
