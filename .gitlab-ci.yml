@@ -26,6 +26,8 @@ unit-test:
     entrypoint:
       - /bin/bash
       - "-c"
+  variables:
+    MIX_ENV: test
   script:
     - mix deps.get --only test
     - mix format --check-formatted
@@ -46,6 +48,8 @@ release:
       changes:
         - "apps/**/*"
   image: gsmlg/semantic-release
+  variables:
+    MIX_ENV: prod
   script:
     - semantic-release
   artifacts:
@@ -69,7 +73,7 @@ build:
   image: gsmlg/phoenix:alpine
   variables:
     MIX_ENV: prod
-    WEB_VERSION: 1.42.0
+    WEB_VERSION: 1.43.0
   script:
     - mix deps.get
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web/assets && npm install
