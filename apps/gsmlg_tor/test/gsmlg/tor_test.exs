@@ -3,6 +3,6 @@ defmodule GSMLG.TorTest do
   doctest GSMLG.Tor
 
   test "test tor download url" do
-    assert GSMLG.Tor.download_url() =~ "https://dist.torproject.org/torbrowser/12.0/"
+    assert GSMLG.Tor.get_torrc() =~ "SOCKSPort 127.0.0.1:9050"
   end
 end

@@ -1,12 +1,6 @@
 defmodule GSMLGWeb.AuthControllerTest do
   use GSMLGWeb.ConnCase
 
-  import GSMLG.AccountsFixtures
-
-  @create_attrs %{}
-  @update_attrs %{}
-  @invalid_attrs %{}
-
   describe "sign in" do
     test "sign in page", %{conn: conn} do
       conn = get(conn, ~p"/sign_in")
