@@ -1,3 +1,30 @@
+# [4.13.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.12.0...v4.13.0) (2023-03-08)
+
+
+### Bug Fixes
+
+* Add method to get current running config. ([3046608](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/30466083d3054b62176057bab952eca4722f1535))
+* Fix appbar height and remove unreachable code. ([fe5ce21](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/fe5ce217aacf4ea97743d45dab3d1697e1f847f6))
+* Fix CI. ([10bbcf9](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/10bbcf9bd3db7b1d313208ed328b099518128ab4))
+* Fix format checking. ([ff6089a](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/ff6089aa51bae9014fff1ce70f17bf435ee336ca))
+* Fix format. ([038bd1f](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/038bd1f50c8aafbee400e80f8cf4fffce3e990e9))
+* Fix README issue. ([f98de2e](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/f98de2ee606029965c34afe6f59e5821bfc616d4))
+* Fix test issue. ([23e7d85](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/23e7d855499e17249fc78fdcec7ac6ae03489411))
+* Fix test issue. ([68126e4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/68126e4ebb399100332396d2efb767335393075a))
+* Fix update core_components. ([3eceb6e](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/3eceb6eb8bc057e7db5bc25316ffaa3c79bb9c78))
+* Fix update scripts. ([412254c](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/412254c31f90d469c8b5c5bc15d23f01bbaeb7e0))
+* Fix update slogan and icon. ([0aed291](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/0aed291e70e18cd107794fa0d6bf3435f9d4b210))
+* Optimize tor docs. ([70eb3e9](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/70eb3e906df79fd37cfee9369988671c937ed65d))
+* Update deps. ([da507c7](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/da507c710489825bf42479556aad4190c6629511))
+* Update lookup db. ([4258538](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/4258538f781c9b32488a863a065885ccbf7afeac))
+* Update phoenix_webcomponent and Base. ([1d10a39](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/1d10a39f186f0dd493c9eb7d0eea7ac11f8977bf))
+* Update version. ([a5fb139](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/a5fb1393aa8994fe32858a6eadee547225b1a9c9))
+
+
+### Features
+
+* Add gsmlg_tor to start tor server. ([32caad5](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/32caad5fd51ab78d73fedbf27c1bdc57c464b093))
+
 # [4.12.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.11.0...v4.12.0) (2022-12-10)
 
 
