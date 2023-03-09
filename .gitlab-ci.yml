@@ -47,6 +47,8 @@ release:
         - Dockerfile.lite
       changes:
         - "apps/**/*"
+        - "config/**/*"
+        - "mix.*"
   image: gsmlg/semantic-release
   variables:
     MIX_ENV: prod
@@ -70,10 +72,11 @@ build:
         - Dockerfile.lite
       changes:
         - "apps/**/*"
+        - "config/**/*"
+        - "mix.*"
   image: gsmlg/phoenix:alpine
   variables:
     MIX_ENV: prod
-    WEB_VERSION: 1.43.0
   script:
     - mix deps.get
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web/assets && npm install
@@ -92,7 +95,6 @@ build:
 
 build-image:
   dependencies:
-    - release
     - build
   tags:
     - docker
@@ -105,6 +107,8 @@ build-image:
         - Dockerfile.lite
       changes:
         - "apps/**/*"
+        - "config/**/*"
+        - "mix.*"
   image:
     name: docker.io/gsmlg/kaniko-executor:debug
     entrypoint: [""]
