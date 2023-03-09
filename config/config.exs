@@ -69,10 +69,15 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
 
 # Configure esbuild (the version is required)
 config :esbuild,
-  version: "0.12.18",
+  version: "0.14.29",
   default: [
-    args: ~w(js/app.js --bundle --target=esnext --outdir=../priv/static/assets),
+    args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
     cd: Path.expand("../apps/gsmlg_web/assets", __DIR__),
+    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ],
+  admin: [
+    args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
+    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
 
@@ -86,6 +91,15 @@ config :tailwind,
       --output=../priv/static/assets/app.css
     ),
     cd: Path.expand("../apps/gsmlg_web/assets", __DIR__),
+    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ],
+  admin: [
+    args: ~w(
+      --config=tailwind.config.js
+      --input=css/app.css
+      --output=../priv/static/assets/app.css
+    ),
+    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
 
@@ -99,28 +113,6 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   ],
   pubsub_server: GSMLG.PubSub,
   live_view: [signing_salt: "gmmaSSOy"]
-
-# Configure esbuild (the version is required)
-config :esbuild,
-  version: "0.12.18",
-  admin: [
-    args: ~w(js/app.js --bundle --target=esnext --outdir=../priv/static/assets),
-    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__),
-    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
-  ]
-
-# Configure tailwind (the version is required)
-config :tailwind,
-  version: "3.1.8",
-  admin: [
-    args: ~w(
-      --config=tailwind.config.js
-      --input=css/app.css
-      --output=../priv/static/assets/app.css
-    ),
-    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__),
-    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
-  ]
 
 # Configures Elixir's Logger
 config :logger, :console,
