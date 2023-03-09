@@ -1,3 +1,11 @@
+## [4.13.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.13.0...v4.13.1) (2023-03-09)
+
+
+### Bug Fixes
+
+* Fix ci and update version of phx_wc. ([8889396](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/88893961fb8e39f9866380da07c8e04d4d70fae8))
+* Fix esbuild. ([d198372](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/d198372f5cd45cccfdcce8a30423dd270940a9f7))
+
 # [4.13.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.12.0...v4.13.0) (2023-03-08)
 
 
