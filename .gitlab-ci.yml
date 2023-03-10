@@ -93,6 +93,7 @@ build:
 
 build-image:
   dependencies:
+    - release
     - build
   tags:
     - docker
