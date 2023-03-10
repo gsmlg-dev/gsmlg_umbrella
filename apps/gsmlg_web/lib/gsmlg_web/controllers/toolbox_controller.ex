@@ -11,7 +11,7 @@ defmodule GSMLGWeb.ToolboxController do
   end
 
   def geoip2(conn, _params) do
-    render(conn, :geoip2, ipInfo: nil, langs: GSMLG.GeoIP2.langs(), ip: "", lang: "en")
+    render(conn, :geoip2, ipInfo: nil, langs: GSMLG.GeoIP2.langs())
   end
 
   def geoip2_find(conn, %{"ip" => ip} = params) do
@@ -19,11 +19,11 @@ defmodule GSMLGWeb.ToolboxController do
 
     ipInfo = GSMLG.GeoIP2.get_ip_info(ip, lang)
 
-    render(conn, :geoip2, ipInfo: ipInfo, langs: GSMLG.GeoIP2.langs(), ip: ip, lang: lang)
+    render(conn, :geoip2, ipInfo: ipInfo, langs: GSMLG.GeoIP2.langs())
   end
 
   def whois(conn, _params) do
-    render(conn, :whois, whois_info: nil, look_for: "")
+    render(conn, :whois, whois_info: nil)
   end
 
   def whois_find(conn, %{"look_for" => look_for} = _params) do
@@ -34,25 +34,25 @@ defmodule GSMLGWeb.ToolboxController do
             render(conn, :whois, whois_info: info, reason: nil, look_for: look_for)
 
           {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason, look_for: look_for)
+            render(conn, :whois, whois_info: :error, reason: reason)
         end
 
       Regex.match?(@ipv4_regex, look_for) or Regex.match?(@ipv6_regex, look_for) ->
         case GSMLG.Whois.lookup_ip_raw(look_for) do
           {:ok, info} ->
-            render(conn, :whois, whois_info: info, reason: nil, look_for: look_for)
+            render(conn, :whois, whois_info: info, reason: nil)
 
           {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason, look_for: look_for)
+            render(conn, :whois, whois_info: :error, reason: reason)
         end
 
       true ->
         case GSMLG.Whois.lookup_raw(look_for) do
           {:ok, info} ->
-            render(conn, :whois, whois_info: info, reason: nil, look_for: look_for)
+            render(conn, :whois, whois_info: info, reason: nil)
 
           {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason, look_for: look_for)
+            render(conn, :whois, whois_info: :error, reason: reason)
         end
     end
   end
@@ -117,16 +117,16 @@ defmodule GSMLGWeb.ToolboxController do
   end
 
   def mac_manufacturer(conn, _params) do
-    render(conn, :mac_manufacturer, mac: "")
+    render(conn, :mac_manufacturer)
   end
 
   def mac_manufacturer_lookup(conn, %{"mac" => mac} = _params) do
     case GSMLG.MAC.lookup_vendor(mac) do
       {:ok, short, full} ->
-        render(conn, :mac_manufacturer, short: short, full: full, mac: mac)
+        render(conn, :mac_manufacturer, short: short, full: full)
 
       :error ->
-        render(conn, :mac_manufacturer, short: "Unkown", mac: mac)
+        render(conn, :mac_manufacturer, short: "Unkown")
     end
   end
 end

@@ -10,7 +10,7 @@
     phx-submit="save"
   >
     <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-    <.input type="text" label="MAC" name="mac" value={@mac} />
+    <.input field={f[:mac]} label="MAC" />
     <:actions>
       <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
     </:actions>
