@@ -3,21 +3,21 @@
 </section>
 <section class="flex flex-row gap-4">
   <div class="flex flex-col border border-green-200 p-4">
-    <.wc_link navigate={~p"/users"}>User List</.wc_link>
+    <.dm_link navigate={~p"/users"}>User List</.dm_link>
     <div class="flex flex-row gap-2 justify-center items-center">
       <label class="after:content-[':']">User Count</label>
       <span class="text-cyan-600"><%= @data.user_count %></span>
     </div>
   </div>
   <div class="flex flex-col border border-green-200 p-4">
-    <.wc_link navigate={~p"/user_tokens"}>User Token List</.wc_link>
+    <.dm_link navigate={~p"/user_tokens"}>User Token List</.dm_link>
     <div class="flex flex-row gap-2 justify-center items-center">
       <label class="after:content-[':']">Logined User Count</label>
       <span class="text-cyan-600"><%= @data.token_count %></span>
     </div>
   </div>
   <div class="flex flex-col border border-green-200 p-4">
-    <.wc_link navigate={~p"/blogs"}>Blog List</.wc_link>
+    <.dm_link navigate={~p"/blogs"}>Blog List</.dm_link>
     <div class="flex flex-row gap-2 justify-center items-center">
       <label class="after:content-[':']">Blog Count</label>
       <span class="text-cyan-600"><%= @data.blog_count %></span>
@@ -30,7 +30,7 @@
 </section>
 <section class="flex flex-row gap-4">
   <div class="flex flex-col border border-green-200 p-4">
-    <.wc_link navigate={~p"/node_management"}>Node Management</.wc_link>
+    <.dm_link navigate={~p"/node_management"}>Node Management</.dm_link>
     <div class="flex flex-row gap-2 justify-center items-center">
       <label class="after:content-[':']">Node Count</label>
       <span class="text-cyan-600"><%= Node.list() |> length %></span>

@@ -79,7 +79,7 @@ build:
     MIX_ENV: prod
   script:
     - mix deps.get
-    - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web/assets && npm install && npm install --prefix ../../../deps/phoenix_webcomponent/
+    - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web/assets && npm install && npm install --prefix ../../../deps/phoenix_duskmoon/
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web && mix assets.deploy
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_web/assets && npm install
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_web && mix assets.deploy

@@ -1,4 +1,13 @@
-<.wc_simple_appbar title={assigns[:title]}>
+<.dm_page_header
+  class={[
+    "bg-gradient-to-br from-teal-500 to-indigo-500",
+    "text-slate-200 h-[680px] py-6"
+  ]}
+  nav_class={["bg-gradient-to-br from-teal-500 to-indigo-500 text-slate-200 shadow"]}
+>
+  <:menu to={~p"/"}>
+    Home
+  </:menu>
   <:menu to={~p"/blogs"}>
     Blog
   </:menu>
@@ -12,21 +21,19 @@
   </:logo>
   <:user_profile>
     <.link class="flex flex-row gap-2" href="https://github.com/gsmlg-dev" target="_blank">
-      <.wc_mdi name="github" class="h-10 w-10" />
+      <.dm_mdi name="github" class="h-10 w-10" />
     </.link>
   </:user_profile>
-</.wc_simple_appbar>
-<section class="flex flex-col justify-evenly items-center w-screen h-64 bg-sky-500 text-purple-300">
-  <h2 class="text-2xl lg:text-4xl xl:text-6xl flex justify-center">
-    亦余心之所<span class="animate-bounce">善</span>兮
-  </h2>
-  <h2 class="text-2xl lg:text-4xl xl:text-6xl flex justify-center">
-    虽九<span class="animate-bounce">死</span>其犹未悔
-  </h2>
-</section>
-<main class="px-4 sm:px-6 lg:px-8">
-  <div class="mx-auto max-w-screen-2xl">
-    <.flash_group flash={@flash} />
-    <%= @inner_content %>
-  </div>
+  <section class="flex flex-col justify-evenly items-center w-full h-64 text-purple-300 font-bold">
+    <h2 class="text-2xl lg:text-4xl xl:text-6xl flex justify-center">
+      亦余心之所<span class="animate-bounce">善</span>兮
+    </h2>
+    <h2 class="text-2xl lg:text-4xl xl:text-6xl flex justify-center">
+      虽九<span class="animate-bounce">死</span>其犹未悔
+    </h2>
+  </section>
+</.dm_page_header>
+<main class="flex flex-col items-center">
+  <.flash_group flash={@flash} />
+  <%= @inner_content %>
 </main>

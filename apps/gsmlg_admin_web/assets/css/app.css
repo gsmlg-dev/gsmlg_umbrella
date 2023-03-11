@@ -1,7 +1,7 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
-@import "../../../../deps/phoenix_webcomponent/priv/static/phoenix_webcomponent.css";
+@import "../../../../deps/phoenix_duskmoon/priv/static/phoenix_duskmoon.css";
 
 /* This file is for your main application CSS */
 @import './main.css';

@@ -26,12 +26,30 @@
     "overflow-x-hidden antialiased"
   ]}>
     <%= @inner_content %>
-    <%= if Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:show_icp) |> Kernel.==("yes") do %>
-      <footer class="w-full h-16 mt-4 md:mt-0 flex flex-col md:flex-row justify-center items-center gap-4">
-        <span>京ICP备20014476号</span>
-        <span class="text-slate-400 dark:text-slate-800 hidden md:inline-flex">|</span>
+    <.dm_page_footer class={[
+      "bg-gradient-to-tl from-teal-500 to-indigo-500",
+      "text-slate-200"
+    ]}>
+      <:section title="Site Map">
+        <.link href="/">Home</.link>
+        <.link href="/blogs">Blog</.link>
+        <.link href="/tools">Tool</.link>
+      </:section>
+
+      <:section title="Toolbox">
+        <.link href="/tools/geoip2">GeoIP2 Database</.link>
+        <.link href="/tools/whois">Domain/IP/ASN Whois</.link>
+        <.link href="/tools/svg2react">SVG to React</.link>
+        <.link href="/tools/svg_autocrop">SVG AutoCrop</.link>
+        <.link href="/tools/mac_manufacturer">Lookup MAC Manufacturer</.link>
+      </:section>
+
+      <:copyright title="Copyright">
         <span>Copyright© Jonathan Gao. All rights reserved</span>
-      </footer>
-    <% end %>
+        <%= if Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:show_icp) |> Kernel.==("yes") do %>
+          <span>京ICP备20014476号</span>
+        <% end %>
+      </:copyright>
+    </.dm_page_footer>
   </body>
 </html>

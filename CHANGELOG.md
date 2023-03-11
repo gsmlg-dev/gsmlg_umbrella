@@ -276,7 +276,7 @@
 
 ### Bug Fixes
 
-* Fix Phoenix.WebComponent. ([ea70cd2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/ea70cd258b7fc57c221f2022757959fde257a766))
+* Fix PhoenixDuskmoon. ([ea70cd2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/ea70cd258b7fc57c221f2022757959fde257a766))
 
 
 ### Features

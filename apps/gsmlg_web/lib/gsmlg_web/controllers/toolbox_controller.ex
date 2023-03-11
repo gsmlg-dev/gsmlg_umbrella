@@ -1,64 +1,130 @@
 defmodule GSMLGWeb.ToolboxController do
   use GSMLGWeb, :tool_controller
+  use Phoenix.Component
 
   @asn_regex ~r/^[0-9]{1,10}$/
   @ipv4_regex ~r/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
   @ipv6_regex ~r/^(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}$/
 
   def index(conn, _params) do
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        Toolbox
+      </h1>
+    </div>
+    """
+
     tools = []
-    render(conn, :index, tools: tools)
+    render(conn, :index, tools: tools, header_slot: header_slot)
   end
 
   def geoip2(conn, _params) do
-    render(conn, :geoip2, ipInfo: nil, langs: GSMLG.GeoIP2.langs())
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        GeoIP2
+      </h1>
+    </div>
+    """
+
+    render(conn, :geoip2, ipInfo: nil, langs: GSMLG.GeoIP2.langs(), header_slot: header_slot)
   end
 
   def geoip2_find(conn, %{"ip" => ip} = params) do
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        GeoIP2
+      </h1>
+    </div>
+    """
+
     lang = Map.get(params, "lang")
 
     ipInfo = GSMLG.GeoIP2.get_ip_info(ip, lang)
 
-    render(conn, :geoip2, ipInfo: ipInfo, langs: GSMLG.GeoIP2.langs())
+    render(conn, :geoip2, ipInfo: ipInfo, langs: GSMLG.GeoIP2.langs(), header_slot: header_slot)
   end
 
   def whois(conn, _params) do
-    render(conn, :whois, whois_info: nil)
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        Whois
+      </h1>
+    </div>
+    """
+
+    render(conn, :whois, whois_info: nil, header_slot: header_slot)
   end
 
   def whois_find(conn, %{"look_for" => look_for} = _params) do
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        Whois
+      </h1>
+    </div>
+    """
+
     cond do
       Regex.match?(@asn_regex, look_for) ->
         case GSMLG.Whois.lookup_as_raw(look_for) do
           {:ok, info} ->
-            render(conn, :whois, whois_info: info, reason: nil, look_for: look_for)
+            render(conn, :whois,
+              whois_info: info,
+              reason: nil,
+              look_for: look_for,
+              header_slot: header_slot
+            )
 
           {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason)
+            render(conn, :whois, whois_info: :error, reason: reason, header_slot: header_slot)
         end
 
       Regex.match?(@ipv4_regex, look_for) or Regex.match?(@ipv6_regex, look_for) ->
         case GSMLG.Whois.lookup_ip_raw(look_for) do
           {:ok, info} ->
-            render(conn, :whois, whois_info: info, reason: nil)
+            render(conn, :whois, whois_info: info, reason: nil, header_slot: header_slot)
 
           {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason)
+            render(conn, :whois, whois_info: :error, reason: reason, header_slot: header_slot)
         end
 
       true ->
         case GSMLG.Whois.lookup_raw(look_for) do
           {:ok, info} ->
-            render(conn, :whois, whois_info: info, reason: nil)
+            render(conn, :whois, whois_info: info, reason: nil, header_slot: header_slot)
 
           {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason)
+            render(conn, :whois, whois_info: :error, reason: reason, header_slot: header_slot)
         end
     end
   end
 
   def svg2react(conn, _params) do
-    render(conn, :svg2react)
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        SVG to React
+      </h1>
+    </div>
+    """
+
+    render(conn, :svg2react, header_slot: header_slot)
   end
 
   def svg2react_convert(conn, %{"code" => code, "options" => options} = _params) do
@@ -103,7 +169,17 @@ defmodule GSMLGWeb.ToolboxController do
   end
 
   def svg_autocrop(conn, _params) do
-    render(conn, :svg_autocrop)
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        SVG Autocrop
+      </h1>
+    </div>
+    """
+
+    render(conn, :svg_autocrop, header_slot: header_slot)
   end
 
   def svg_autocrop_convert(conn, %{"code" => code} = _params) do
@@ -117,16 +193,36 @@ defmodule GSMLGWeb.ToolboxController do
   end
 
   def mac_manufacturer(conn, _params) do
-    render(conn, :mac_manufacturer)
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        MAC Manufacturer
+      </h1>
+    </div>
+    """
+
+    render(conn, :mac_manufacturer, header_slot: header_slot)
   end
 
   def mac_manufacturer_lookup(conn, %{"mac" => mac} = _params) do
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        MAC Manufacturer
+      </h1>
+    </div>
+    """
+
     case GSMLG.MAC.lookup_vendor(mac) do
       {:ok, short, full} ->
-        render(conn, :mac_manufacturer, short: short, full: full)
+        render(conn, :mac_manufacturer, short: short, full: full, header_slot: header_slot)
 
       :error ->
-        render(conn, :mac_manufacturer, short: "Unkown")
+        render(conn, :mac_manufacturer, short: "Unkown", header_slot: header_slot)
     end
   end
 end

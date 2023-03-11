@@ -9,7 +9,7 @@
       Add User
     </.link>
   </div>
-  <.wc_table rows={@users}>
+  <.dm_table rows={@users}>
     <:col :let={u} label="Email">
       <%= u.email %>
     </:col>
@@ -49,5 +49,5 @@
         </.link>
       </div>
     </:col>
-  </.wc_table>
+  </.dm_table>
 </div>

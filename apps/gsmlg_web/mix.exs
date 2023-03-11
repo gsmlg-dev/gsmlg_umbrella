@@ -42,7 +42,7 @@ defmodule GSMLGWeb.MixProject do
       {:phoenix_html, "~> 3.2"},
       {:phoenix_live_reload, "~> 1.4", only: :dev},
       {:phoenix_live_view, "~> 0.18"},
-      {:phoenix_webcomponent, "~> 3.0"},
+      {:phoenix_duskmoon, "~> 4.0"},
       {:heroicons, "~> 0.5"},
       {:floki, "~> 0.32", only: :test},
       # {:phoenix_live_dashboard, "~> 0.7"},
