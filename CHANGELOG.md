@@ -1,3 +1,10 @@
+## [4.14.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.14.0...v4.14.1) (2023-03-11)
+
+
+### Bug Fixes
+
+* Fix images. ([6017166](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/60171668dbac67a1ec2f3f2835f91b3db4bfb093))
+
 # [4.14.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.13.3...v4.14.0) (2023-03-11)
 
 
