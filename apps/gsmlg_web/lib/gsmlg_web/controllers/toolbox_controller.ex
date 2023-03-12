@@ -10,7 +10,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         Toolbox
       </h1>
@@ -25,7 +25,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         GeoIP2
       </h1>
@@ -39,7 +39,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         GeoIP2
       </h1>
@@ -57,7 +57,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         Whois
       </h1>
@@ -71,7 +71,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         Whois
       </h1>
@@ -117,7 +117,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         SVG to React
       </h1>
@@ -172,7 +172,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         SVG Autocrop
       </h1>
@@ -196,7 +196,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         MAC Manufacturer
       </h1>
@@ -210,7 +210,7 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{}
 
     header_slot = ~H"""
-    <div class="container flex justify-center items-center">
+    <div class="container flex justify-center items-center my-24">
       <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         MAC Manufacturer
       </h1>
