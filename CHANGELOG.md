@@ -1,3 +1,10 @@
+## [4.14.2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.14.1...v4.14.2) (2023-03-12)
+
+
+### Bug Fixes
+
+* Fix slogan style. ([cd0f94a](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/cd0f94a19c168d544ba593e8c76428fd4ea71389))
+
 ## [4.14.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.14.0...v4.14.1) (2023-03-11)
 
 
