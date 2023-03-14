@@ -1,3 +1,10 @@
+## [4.14.3](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.14.2...v4.14.3) (2023-03-14)
+
+
+### Bug Fixes
+
+* Fix whois api. ([a34503b](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/a34503b24f3e33e2a293dd93e6f1975d18140cbd))
+
 ## [4.14.2](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.14.1...v4.14.2) (2023-03-12)
 
 
