@@ -89,7 +89,6 @@ defmodule GSMLG.Whois.Server do
     end
   end
 
-  @spec for_asn32(String.t() | Integer.t()) :: {:ok, t} | :error
   def for_asn32(as) when is_binary(as), do: String.to_integer(as) |> for_asn32()
 
   def for_asn32(as) when is_integer(as) do

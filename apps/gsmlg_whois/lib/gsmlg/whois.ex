@@ -3,32 +3,20 @@ defmodule GSMLG.Whois do
   Documentation for `GSMLG.Whois`.
   """
 
-  alias GSMLG.Whois.{Record, Server}
+  alias GSMLG.Whois.Server, as: WhoisServer
 
-  @type lookup_option :: {:server, String.t() | Server.t()}
+  @type lookup_option :: {:server, String.t() | WhoisServer.t()}
 
-  @doc """
-  Queries the appropriate WHOIS server for the domain name `domain` and returns
-  a `{:ok, %GSMLG.Whois.Record{}}` tuple on success, and `{:error, reason}` on
-  failure.
-  """
-  @spec lookup(String.t(), [lookup_option]) :: {:ok, Record.t()} | {:error, atom}
-  def lookup(domain, opts \\ []) do
-    with {:ok, raw} <- lookup_raw(domain, opts) do
-      {:ok, Record.parse(raw)}
-    end
-  end
-
-  def lookup_raw(domain, opts \\ []) do
+  def lookup_domain_raw(domain, opts \\ []) do
     server =
       case Keyword.fetch(opts, :server) do
-        {:ok, host} when is_binary(host) -> {:ok, %Server{host: host}}
-        {:ok, %Server{} = server} -> {:ok, server}
-        :error -> Server.for_domain(domain)
+        {:ok, host} when is_binary(host) -> {:ok, %WhoisServer{host: host}}
+        {:ok, %WhoisServer{} = server} -> {:ok, server}
+        :error -> WhoisServer.for_domain(domain)
       end
 
     case server do
-      {:ok, %Server{host: host}} ->
+      {:ok, %WhoisServer{host: host}} ->
         with {:ok, socket} <- GSMLG.Socket.TCP.connect(host, 43),
              :ok <- GSMLG.Socket.Stream.send(socket, [domain, "\r\n"]) do
           raw = GSMLG.Socket.Stream.recv_all!(socket)
@@ -43,7 +31,7 @@ defmodule GSMLG.Whois do
             next_server ->
               opts = opts |> Keyword.put(:server, next_server)
 
-              with {:ok, raw2} <- lookup_raw(domain, opts) do
+              with {:ok, raw2} <- lookup_domain_raw(domain, opts) do
                 {:ok, raw <> raw2}
               end
           end
@@ -57,13 +45,13 @@ defmodule GSMLG.Whois do
   def lookup_ip_raw(ipaddr, opts \\ []) do
     server =
       case Keyword.fetch(opts, :server) do
-        {:ok, host} when is_binary(host) -> {:ok, %Server{host: host}}
-        {:ok, %Server{} = server} -> {:ok, server}
-        :error -> Server.for_ip(ipaddr)
+        {:ok, host} when is_binary(host) -> {:ok, %WhoisServer{host: host}}
+        {:ok, %WhoisServer{} = server} -> {:ok, server}
+        :error -> WhoisServer.for_ip(ipaddr)
       end
 
     case server do
-      {:ok, %Server{host: host}} ->
+      {:ok, %WhoisServer{host: host}} ->
         with {:ok, socket} <- GSMLG.Socket.TCP.connect(host, 43),
              :ok <- GSMLG.Socket.Stream.send(socket, [ipaddr, "\r\n"]) do
           raw = GSMLG.Socket.Stream.recv_all!(socket)
@@ -78,7 +66,7 @@ defmodule GSMLG.Whois do
             next_server ->
               opts = opts |> Keyword.put(:server, next_server)
 
-              with {:ok, raw2} <- lookup_raw(ipaddr, opts) do
+              with {:ok, raw2} <- lookup_ip_raw(ipaddr, opts) do
                 {:ok, raw <> raw2}
               end
           end
@@ -92,13 +80,13 @@ defmodule GSMLG.Whois do
   def lookup_as_raw(asn, opts \\ []) do
     server =
       case Keyword.fetch(opts, :server) do
-        {:ok, host} when is_binary(host) -> {:ok, %Server{host: host}}
-        {:ok, %Server{} = server} -> {:ok, server}
-        :error -> Server.for_asn(asn)
+        {:ok, host} when is_binary(host) -> {:ok, %WhoisServer{host: host}}
+        {:ok, %WhoisServer{} = server} -> {:ok, server}
+        :error -> WhoisServer.for_asn(asn)
       end
 
     case server do
-      {:ok, %Server{host: host}} ->
+      {:ok, %WhoisServer{host: host}} ->
         with {:ok, socket} <- GSMLG.Socket.TCP.connect(host, 43),
              :ok <- GSMLG.Socket.Stream.send(socket, [asn, "\r\n"]) do
           raw = GSMLG.Socket.Stream.recv_all!(socket)
@@ -113,7 +101,7 @@ defmodule GSMLG.Whois do
             next_server ->
               opts = opts |> Keyword.put(:server, next_server)
 
-              with {:ok, raw2} <- lookup_raw(asn, opts) do
+              with {:ok, raw2} <- lookup_as_raw(asn, opts) do
                 {:ok, raw <> raw2}
               end
           end

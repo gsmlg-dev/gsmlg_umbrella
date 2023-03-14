@@ -5,9 +5,7 @@
 Lookup whois information, support IP, ASN and Domain.
 
 ```elixir
-{:ok, %GSMLG.Whois.Record{}} = GSMLG.Whois.lookup("apple.com")
-
-{:ok, output} = GSMLG.Whois.lookup_raw("apple.com")
+{:ok, output} = GSMLG.Whois.lookup_domain_raw("apple.com")
 
 {:ok, output} = GSMLG.Whois.lookup_ip_raw("8.8.8.8")
 
@@ -22,12 +20,7 @@ by adding `gsmlg_whois` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_whois, "~> 0.1.0"}
+    {:gsmlg_whois, "~> 0.2.0"}
   ]
 end
 ```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/gsmlg_whois>.
-
