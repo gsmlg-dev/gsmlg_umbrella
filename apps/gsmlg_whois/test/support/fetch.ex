@@ -4,10 +4,10 @@ defmodule Mix.Tasks.Gsmlg.Whois.Fetch do
     File.mkdir_p!(root)
 
     for domain <- domains do
-      {:ok, record} = GSMLG.Whois.lookup(domain)
+      {:ok, output} = GSMLG.Whois.lookup_domain_raw(domain)
       path = Path.join(root, domain)
-      File.write!(path, record.raw)
-      IO.puts("[✓] #{domain}: wrote #{byte_size(record.raw)} bytes to #{path}")
+      File.write!(path, output)
+      IO.puts("[✓] #{domain}: wrote #{byte_size(output)} bytes to #{path}")
     end
   end
 end

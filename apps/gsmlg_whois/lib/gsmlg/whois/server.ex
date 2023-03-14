@@ -1,4 +1,8 @@
 defmodule GSMLG.Whois.Server do
+  @moduledoc """
+  Define whois server address.
+  Find whois server of Domain, IP or AS.
+  """
   defstruct [:host]
 
   @type t :: %__MODULE__{host: String.t()}

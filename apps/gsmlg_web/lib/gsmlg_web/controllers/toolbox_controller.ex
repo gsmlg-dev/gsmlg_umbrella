@@ -103,7 +103,7 @@ defmodule GSMLGWeb.ToolboxController do
         end
 
       true ->
-        case GSMLG.Whois.lookup_raw(look_for) do
+        case GSMLG.Whois.lookup_domain_raw(look_for) do
           {:ok, info} ->
             render(conn, :whois, whois_info: info, reason: nil, header_slot: header_slot)
 

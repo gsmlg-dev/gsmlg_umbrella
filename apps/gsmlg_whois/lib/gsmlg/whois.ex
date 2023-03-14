@@ -1,11 +1,32 @@
 defmodule GSMLG.Whois do
   @moduledoc """
   Documentation for `GSMLG.Whois`.
+
+  # Lookup Domain Whois
+
+  ```
+  GSMLG.Whois.lookup_domain_raw("gsmlg.app")
+  ```
+
+  # Lookup IP Whois
+
+  ```
+  GSMLG.Whois.lookup_ip_raw("1.1.1.1")
+  ```
+
+  # Lookup AS Whois
+
+  ```
+  GSMLG.Whois.lookup_as_raw("20473")
+  ```
+
+  # TODO:
+
+  Add parsed whois infomation.
+
   """
 
   alias GSMLG.Whois.Server, as: WhoisServer
-
-  @type lookup_option :: {:server, String.t() | WhoisServer.t()}
 
   def lookup_domain_raw(domain, opts \\ []) do
     server =

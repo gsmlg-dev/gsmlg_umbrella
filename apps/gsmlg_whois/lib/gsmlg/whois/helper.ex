@@ -1,4 +1,6 @@
 defmodule GSMLG.Whois.Helper do
+  @moduledoc false
+
   defmacro define_from_file(name) do
     quote do
       Module.put_attribute(
@@ -14,8 +16,8 @@ defmodule GSMLG.Whois.Helper do
         |> Map.new()
       )
 
-      @spec unquote(name)() :: map
-      def unquote(name)(), do: @unquote(name)()
+      # @spec unquote(name)() :: map
+      def unquote(name)(), do: @unquote(name)
     end
   end
 end
