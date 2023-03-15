@@ -4,7 +4,7 @@ defmodule GSMLG.Whois.MixProject do
   def project do
     [
       app: :gsmlg_whois,
-      version: "0.2.0",
+      version: "0.2.1",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -19,9 +19,6 @@ defmodule GSMLG.Whois.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
-
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
@@ -29,13 +26,26 @@ defmodule GSMLG.Whois.MixProject do
     ]
   end
 
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-    [
-      {:gsmlg_socket, in_umbrella: true},
-      {:inet_cidr, "~> 1.0.0"},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
-    ]
+    case System.fetch_env("GSMLG_UMBRELLA") do
+      :error ->
+        [
+          {:gsmlg_socket, "~> 0.1.0"}
+        ]
+
+      {:ok, _} ->
+        [
+          {:gsmlg_socket, in_umbrella: true}
+        ]
+    end ++
+      [
+        {:inet_cidr, "~> 1.0.0"},
+        {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      ]
   end
 
   defp package do

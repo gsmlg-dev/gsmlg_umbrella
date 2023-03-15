@@ -17,7 +17,7 @@ defmodule GSMLG.Whois.Helper do
       )
 
       # @spec unquote(name)() :: map
-      def unquote(name)(), do: @unquote(name)
+      def unquote(name)(), do: @unquote(name)()
     end
   end
 end
