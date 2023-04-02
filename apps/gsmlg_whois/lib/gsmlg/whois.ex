@@ -28,6 +28,7 @@ defmodule GSMLG.Whois do
 
   alias GSMLG.Whois.Server, as: WhoisServer
 
+  @spec lookup_domain_raw(any, keyword) :: {:error, any} | {:ok, binary}
   def lookup_domain_raw(domain, opts \\ []) do
     server =
       case Keyword.fetch(opts, :server) do
@@ -63,6 +64,7 @@ defmodule GSMLG.Whois do
     end
   end
 
+  @spec lookup_ip_raw(any, keyword) :: {:error, any} | {:ok, binary}
   def lookup_ip_raw(ipaddr, opts \\ []) do
     server =
       case Keyword.fetch(opts, :server) do
@@ -98,6 +100,7 @@ defmodule GSMLG.Whois do
     end
   end
 
+  @spec lookup_as_raw(any, keyword) :: {:error, any} | {:ok, binary}
   def lookup_as_raw(asn, opts \\ []) do
     server =
       case Keyword.fetch(opts, :server) do
