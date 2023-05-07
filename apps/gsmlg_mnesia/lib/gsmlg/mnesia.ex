@@ -5,7 +5,6 @@ defmodule GSMLG.Mnesia do
   @moduledoc """
   Simple + Powerful interface to the Erlang Mnesia Database.
 
-
   See the [README](https://github.com/gsmlg-dev/gsmlg_umbrella) to get
   started.
   """
@@ -78,10 +77,25 @@ defmodule GSMLG.Mnesia do
   only that key. Will throw an exception if that key is invalid. See
   `:mnesia.system_info/0` for more information and a full list of
   allowed keys.
+
+  Avaliable keys:
+  [
+    :access_module, :auto_repair, :backend_types, :backup_module, :checkpoints,
+    :db_nodes, :debug, :directory, :dump_log_load_regulation,
+    :dump_log_time_threshold, :dump_log_update_in_place, :dump_log_write_threshold,
+    :event_module, :extra_db_nodes, :fallback_activated, :held_locks,
+    :ignore_fallback_at_startup, :fallback_error_function, :is_running,
+    :local_tables, :lock_queue, :log_version, :master_node_tables,
+    :max_wait_for_decision, :protocol_version, :running_db_nodes, :schema_location,
+    :schema_version, :subscribers, :tables, :transaction_commits,
+    :transaction_failures, :transaction_log_writes, :transaction_restarts,
+    :transactions, :use_dir, :core_dir, :no_table_loaders, :dc_dump_limit,
+    :send_compressed, :max_transfer_size, :version]
   """
   @spec system(atom) :: any
   def system(key \\ :all) do
-    GSMLG.Mnesia.Mnesia.call(:system_info, [key])
+    :system_info
+    |> GSMLG.Mnesia.Mnesia.call([key])
   end
 
   # Delegates

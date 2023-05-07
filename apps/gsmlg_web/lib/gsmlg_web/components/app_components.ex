@@ -1210,7 +1210,7 @@ defmodule GSMLGWeb.AppComponents do
 
   def github_repo_card(assigns) do
     ~H"""
-    <div class={"flex flex-col 2xl:w-[calc(33%-1em)] lg:w-[calc(50%-1em)] w-full h-44 p-4 shadow dark:shadow-slate-400 #{@class}"}>
+    <div class={"flex flex-col h-44 p-4 shadow dark:shadow-slate-400 #{@class}"}>
       <div class="flex justify-between">
         <h3 class="font-bold text-xl">
           <%= @repo.name %>

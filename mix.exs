@@ -9,12 +9,20 @@ defmodule GSMLG.Umbrella.MixProject do
       deps: deps(),
       aliases: aliases(),
       releases: [
+        gsmlg_commander: [
+          applications: [
+            gsmlg_commander: :permanent
+          ]
+        ],
         gsmlg_umbrella: [
           applications: [
             gsmlg: :permanent,
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ]
+        ],
+        gsmlg_admin_web_only: [
+          applications: [gsmlg_admin_web: :permanent]
         ],
         gsmlg_web_only: [
           applications: [gsmlg_web: :permanent]

@@ -74,6 +74,9 @@ defmodule GSMLGAdminWeb.Router do
     live("/user_tokens/:id/edit", UserTokenLive.Modify, :edit)
     live("/user_tokens/:id", UserTokenLive.Show, :show)
 
+    live("/command_platform", CommandPlatformLive.Index, :index)
+    live("/mnesia", MnesiaLive.Index, :index)
+
     # if Mix.env() in [:prod] do
     #   import Phoenix.LiveDashboard.Router
 

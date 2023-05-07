@@ -1,6 +1,9 @@
 {
   "dependencies": {
-    "@gsmlg/lit": "^1.29.5",
-    "lit": "^2.6.1"
+    "@gsmlg/lit": "^1.30.3",
+    "lit": "^2.7.2",
+    "phoenix": "^1.7.2",
+    "phoenix_html": "^3.3.1",
+    "phoenix_live_view": "^0.18.18"
   }
 }

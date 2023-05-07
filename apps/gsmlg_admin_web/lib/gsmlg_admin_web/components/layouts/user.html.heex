@@ -1,4 +1,4 @@
-<.dm_appbar title={assigns[:page_title]} class="h-14">
+<.dm_simple_appbar title={assigns[:page_title]} class="h-14 text-white bg-rose-600">
   <:logo>
     <.dm_link href={~p"/"}>
       <logo-gsmlg-dev />
@@ -7,7 +7,7 @@
   <:user_profile>
     <.dm_link href={~p"/sign_out"} method="DELETE" data-confirm="Really?">Sign Out</.dm_link>
   </:user_profile>
-</.dm_appbar>
+</.dm_simple_appbar>
 <main class="flex flex-row px-4 sm:px-6 lg:px-8">
   <.dm_left_menu>
     <:menu>

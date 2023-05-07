@@ -61,6 +61,7 @@ defmodule GSMLG.Application do
       {Phoenix.PubSub, name: GSMLG.PubSub, adapter: Phoenix.PubSub.PG2},
       # Start a worker by calling: GSMLG.Worker.start_link(arg)
       # {GSMLG.Worker, arg}
+      {GSMLG.CommandPlatform.Supervisor, name: GSMLG.CommandPlatform.Supervisor},
       # Start distribute Node
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},

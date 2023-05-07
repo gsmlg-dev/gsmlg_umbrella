@@ -1,0 +1,81 @@
+defmodule LivebookWeb.OpenLive.UrlComponent do
+  use LivebookWeb, :live_component
+
+  alias Livebook.{Utils, Notebook}
+
+  @impl true
+  def mount(socket) do
+    {:ok, assign(socket, url: "", error_message: nil)}
+  end
+
+  @impl true
+  def update(assigns, socket) do
+    if url = assigns[:url] do
+      {:ok, do_import(socket, url)}
+    else
+      {:ok, socket}
+    end
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div class="flex-col space-y-5">
+      <div :if={@error_message} class="error-box">
+        <%= @error_message %>
+      </div>
+      <p class="text-gray-700" id="import-from-url">
+        Paste the URL to a .livemd file, to a GitHub file, or to a Gist.
+      </p>
+      <.form
+        :let={f}
+        for={%{"url" => @url}}
+        as={:data}
+        phx-submit="import"
+        phx-change="validate"
+        phx-target={@myself}
+        autocomplete="off"
+      >
+        <.text_field
+          field={f[:url]}
+          label="Notebook URL"
+          autofocus
+          aria-labelledby="import-from-url"
+          spellcheck="false"
+        />
+        <button
+          class="mt-5 button-base button-blue"
+          type="submit"
+          disabled={not Utils.valid_url?(@url)}
+        >
+          Import
+        </button>
+      </.form>
+    </div>
+    """
+  end
+
+  @impl true
+  def handle_event("validate", %{"data" => %{"url" => url}}, socket) do
+    {:noreply, assign(socket, url: url)}
+  end
+
+  def handle_event("import", %{"data" => %{"url" => url}}, socket) do
+    {:noreply, do_import(socket, url)}
+  end
+
+  defp do_import(socket, url) do
+    origin = Notebook.ContentLoader.url_to_location(url)
+
+    origin
+    |> Notebook.ContentLoader.fetch_content_from_location()
+    |> case do
+      {:ok, content} ->
+        send(self(), {:import_source, content, [origin: origin]})
+        socket
+
+      {:error, message} ->
+        assign(socket, url: url, error_message: Utils.upcase_first(message))
+    end
+  end
+end

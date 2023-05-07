@@ -1,0 +1,20 @@
+commander-unit-test:
+  tags:
+    - docker
+    - linux
+  stage: test
+  image:
+    name: gsmlg/phoenix:alpine
+    entrypoint:
+      - /bin/bash
+      - "-c"
+  rules:
+    - changes:
+        - "apps/gsmlg_commander/*"
+  variables:
+    MIX_ENV: test
+    GSMLG_UMBRELLA: "true"
+  script:
+    - mix deps.get --only test
+    - mix format --check-formatted
+    - mix test apps/gsmlg_commander/test

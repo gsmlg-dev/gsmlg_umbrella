@@ -11,7 +11,7 @@ defmodule GSMLG.Mnesia.Schema do
 
   ```
   # Create schema on current node
-  GSMLG.Mnesia.Schema.create([ node() ]
+  GSMLG.Mnesia.Schema.create([ node() ])
 
   # Create schema on many nodes
   node_list = [node(), :alice@host_x, :bob@host_y, :eve@host_z]
