@@ -1,0 +1,60 @@
+<h3 class="mx-4 my-2 text-3xl text-blue-600"><%= @page_title %></h3>
+<div class="container">
+  <.dm_card>
+    <:title class="text-2xl text-seal-400">Commanders</:title>
+    <div class="flex gap-4 bg-seal-400">
+      <.button class="h-8 flex items-center" phx-click="fetch-commanders">
+        list commanders
+      </.button>
+      <.button class="h-8 flex items-center text-teal-400" phx-click="check-table">
+        check table
+      </.button>
+      <.button
+        id="test"
+        class="h-8 flex items-center"
+        onclick="document.getElementById('test').classList.toggle('text-teal-400')"
+        phx-click="update_test"
+      >
+        <%= @test_button %>
+      </.button>
+    </div>
+    <section class="my-4">
+      <ul class="flex flex-col">
+        <li :for={commander <- @commanders} class="flex gap-4">
+          <h4 class="font-bold after:content-[':']">Commander</h4>
+          <span><%= commander.name %></span>
+          <.dm_modal>
+            <:trigger :let={f}>
+              <button phx-click={f}>Send Command</button>
+            </:trigger>
+            <:title class="px-8">
+              Send Command to Commander
+              <span class="text-blue-600 mx-4"><%= commander.name %></span>
+            </:title>
+            <:body>
+              <.simple_form
+                :let={f}
+                class="w-full p-4"
+                for={@command_form}
+                phx-change="validate"
+                phx-submit="send_command"
+              >
+                <input name="commander" type="hidden" value={commander.name} />
+                <.input type="textarea" field={f[:command]} label="Command" />
+                <:actions>
+                  <.button class="w-full" phx-disable-with="Searching...">Send</.button>
+                </:actions>
+              </.simple_form>
+            </:body>
+          </.dm_modal>
+        </li>
+      </ul>
+    </section>
+  </.dm_card>
+  <.dm_card>
+    <:title class="text-2xl text-seal-400">Command Results</:title>
+    <section class="my-4">
+      <.live_component id="command_results" module={GSMLGAdminWeb.ComponentsLive.CommandResults} />
+    </section>
+  </.dm_card>
+</div>

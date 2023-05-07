@@ -72,13 +72,11 @@ config :esbuild,
   version: "0.14.29",
   default: [
     args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
-    cd: Path.expand("../apps/gsmlg_web/assets", __DIR__),
-    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+    cd: Path.expand("../apps/gsmlg_web/assets", __DIR__)
   ],
   admin: [
     args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
-    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__),
-    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__)
   ]
 
 # Configure tailwind (the version is required)
@@ -90,8 +88,7 @@ config :tailwind,
       --input=css/app.css
       --output=../priv/static/assets/app.css
     ),
-    cd: Path.expand("../apps/gsmlg_web/assets", __DIR__),
-    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+    cd: Path.expand("../apps/gsmlg_web/assets", __DIR__)
   ],
   admin: [
     args: ~w(
@@ -99,14 +96,16 @@ config :tailwind,
       --input=css/app.css
       --output=../priv/static/assets/app.css
     ),
-    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__),
-    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__)
   ]
+
+admin_secret_key_base = "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr"
 
 # Configures the endpoint
 config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   url: [host: "localhost"],
-  secret_key_base: "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr",
+  secret_key_base: admin_secret_key_base,
+  commander_platform_key: admin_secret_key_base,
   render_errors: [
     formats: [html: GSMLGWeb.ErrorHTML, json: GSMLGWeb.ErrorJSON],
     layout: false
@@ -122,9 +121,11 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-config :mnesia,
-  # Notice the single quotes
-  dir: Path.expand("../apps/gsmlg_mnesia/priv/mnesia/#{Mix.env()}", __DIR__)
+# Notice `config :mnesia, dir:` value type is `chart_list`
+mnesia_dir =
+  String.to_charlist(Path.expand("../_build/tmp/mnesia/#{Mix.env()}/#{node()}", __DIR__))
+
+config :mnesia, dir: mnesia_dir
 
 config :amqp,
   connections: [],
@@ -137,6 +138,40 @@ config :gsmlg_tor, GSMLG.Tor.Config,
   bin_path: nil,
   conf_path: nil,
   conf: nil
+
+config :gsmlg_commander, GSMLGCommander,
+  name: "gsmlg_commander",
+  platform_url: "ws://localhost:4111/socket/websocket",
+  secret_key_base: admin_secret_key_base
+
+# Configures the endpoint
+config :livebook, LivebookWeb.Endpoint,
+  url: [host: "localhost", path: "/"],
+  pubsub_server: Livebook.PubSub,
+  live_view: [signing_salt: "livebook"],
+  drainer: [shutdown: 1000],
+  render_errors: [formats: [html: LivebookWeb.ErrorHTML], layout: false]
+
+# Add mime type to upload notebooks with `Phoenix.LiveView.Upload`
+config :mime, :types, %{
+  "text/plain" => ["livemd"]
+}
+
+# We want CSRF tokens to be logged to help users with debugging
+config :plug_cowboy, :log_exceptions_with_status_code, [407..599]
+
+config :livebook,
+  app_service_name: nil,
+  app_service_url: nil,
+  authentication_mode: :token,
+  feature_flags: [],
+  force_ssl_host: nil,
+  learn_notebooks: [],
+  plugs: [],
+  shutdown_callback: nil,
+  update_instructions_url: nil,
+  within_iframe: false,
+  allowed_uri_schemes: []
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

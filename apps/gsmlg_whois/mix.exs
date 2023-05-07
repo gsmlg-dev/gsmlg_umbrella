@@ -4,7 +4,7 @@ defmodule GSMLG.Whois.MixProject do
   def project do
     [
       app: :gsmlg_whois,
-      version: "0.2.1",
+      version: "0.3.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -52,7 +52,7 @@ defmodule GSMLG.Whois.MixProject do
     [
       maintainers: ["Jonathan Gao"],
       licenses: ["MIT"],
-      files: ~w(lib priv LICENSE mix.exs README.md),
+      files: ~w(lib LICENSE mix.exs README.md),
       links: %{
         Changelog: "https://hexdocs.pm/gsmlg_whois/changelog.html"
       }

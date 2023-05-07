@@ -21,8 +21,9 @@ defmodule GSMLGAdminWeb.Endpoint do
     ]
   ]
 
-  socket "/socket", GSMLGAdminWeb.UserSocket, websocket: @websocket_options
-  socket "/live", Phoenix.LiveView.Socket, websocket: @websocket_options
+  socket("/socket", GSMLGAdminWeb.UserSocket, websocket: @websocket_options)
+  # LiveView.Socket is initialized in UserSocket, so no need this anymore
+  # socket("/live", Phoenix.LiveView.Socket, websocket: @websocket_options)
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -54,7 +55,7 @@ defmodule GSMLGAdminWeb.Endpoint do
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do
-    socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
+    socket("/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket)
     plug Phoenix.LiveReloader
     plug Phoenix.CodeReloader
     plug Phoenix.Ecto.CheckRepoStatus, otp_app: :gsmlg_admin_web

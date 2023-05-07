@@ -1,6 +1,6 @@
 <section class="container flex flex-col my-12">
   <h3 class="text-4xl my-32 text-center">GSMLG.dev Github Repos</h3>
-  <div class="flex flex-row flex-wrap gap-4 mb-12">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-12">
     <%= for repo <- @repos do %>
       <.github_repo_card repo={repo} />
     <% end %>

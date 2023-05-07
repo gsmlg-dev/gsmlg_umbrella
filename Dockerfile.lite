@@ -18,11 +18,14 @@ ENV PORT=80 \
     DATABASE_URL=ecto://USER:PASS@HOST/DATABASE \
     POOL_SIZE=10 \
     ADMIN_SECRET_KEY_BASE=gsmlg-admin \
+    MNESIA_DIR=/var/lib/mnesia \
     SECRET_KEY_BASE=gsmlg_umbrella
 
 ENV PATH=/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 COPY ./app /app
+
+RUN mkdir -p /var/lib/mnesia 
 
 EXPOSE 80 1080 4369
 

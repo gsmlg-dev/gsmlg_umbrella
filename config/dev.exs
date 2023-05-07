@@ -35,10 +35,7 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
     esbuild:
       {Esbuild, :install_and_run,
        [:default, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
-  ]
-
-# Watch static and templates for browser reloading.
-config :gsmlg_web, GSMLGWeb.Endpoint,
+  ],
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
@@ -67,10 +64,7 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
     esbuild:
       {Esbuild, :install_and_run,
        [:admin, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
-  ]
-
-# Watch static and templates for browser reloading.
-config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+  ],
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
@@ -106,3 +100,47 @@ config :gsmlg_couchdb, GSMLG.CouchDB.Connection,
   port: 5984,
   username: System.get_env("COUCH_USER", "couch_user"),
   password: System.get_env("COUCH_PASS", "couch_pass")
+
+# For development, we disable any cache and enable code reloading.
+#
+# The watchers configuration can be used to run external
+# watchers to your application. For example, we use it
+# with webpack to recompile .js and .css sources.
+config :livebook, LivebookWeb.Endpoint,
+  # Binding to loopback ipv4 address prevents access from other machines.
+  # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
+  http: [ip: {0, 0, 0, 0}, port: 4120, protocol_options: [max_header_value_length: 32768]],
+  code_reloader: true,
+  debug_errors: true,
+  check_origin: false,
+  watchers: [
+    node: [
+      "node_modules/webpack/bin/webpack.js",
+      "--mode",
+      "development",
+      "--watch",
+      "--watch-options-stdin",
+      cd: Path.expand("../apps/livebook/assets", __DIR__)
+    ]
+  ]
+
+config :livebook, :iframe_port, 4121
+config :livebook, :shutdown_callback, {System, :stop, []}
+
+# Feature flags
+config :livebook, :feature_flags, create_hub: true
+
+# Watch static and templates for browser reloading.
+config :livebook, LivebookWeb.Endpoint,
+  live_reload: [
+    patterns: [
+      ~r"tmp/static_dev/.*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"lib/livebook_web/(live|views)/.*(ex)$",
+      ~r"lib/livebook_web/templates/.*(eex)$"
+    ]
+  ]
+
+# Disable authentication mode during dev
+config :livebook, :authentication_mode, :disabled
+
+config :livebook, :data_path, Path.expand("../_build/tmp/livebook_data/dev", __DIR__)

@@ -1,0 +1,44 @@
+
+// Establish Phoenix Socket and LiveView configuration.
+import { Socket } from "phoenix";
+import { LiveSocket } from "phoenix_live_view";
+
+
+const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+const liveSocket = new LiveSocket("/socket", Socket, { params: { _csrf_token: csrfToken } });
+
+
+// And connect to the path in "lib/gsmlg_admin_web/endpoint.ex". We pass the
+// token for authentication. Read below how it should be used.
+export const joinChannels = () => {
+  if (!liveSocket.socket.isConnected()) {
+    liveSocket.socket.connect();
+  }
+  const channel = liveSocket.socket.channel("node:lobby", {});
+  channel.join()
+    .receive("ok", resp => { console.log("Joined successfully", resp) })
+    .receive("error", resp => { console.log("Unable to join", resp) });
+
+  channel.on('node_info', (info) => {
+    console.log('node info: ', info);
+  });
+  channel.on('list_info', (info) => {
+    console.log('list info: ', info);
+  });
+};
+
+
+// connect if there are any LiveViews on the page
+liveSocket.connect();
+
+joinChannels();
+
+if (process.env.NODE_ENV === 'development') {
+  // expose liveSocket on window for web console debug logs and latency simulation:
+  // >> liveSocket.enableDebug()
+  // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
+  // >> liveSocket.disableLatencySim()
+  window.liveSocket = liveSocket;
+
+  liveSocket.enableDebug()
+}

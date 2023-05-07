@@ -9,7 +9,7 @@
       Add User
     </.link>
   </div>
-  <.dm_table rows={@users}>
+  <.dm_table data={@users}>
     <:col :let={u} label="Email">
       <%= u.email %>
     </:col>

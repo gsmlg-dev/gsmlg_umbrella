@@ -1,5 +1,7 @@
 defmodule GSMLGAdminWeb.UserSocket do
-  use Phoenix.Socket
+  require Logger
+  # use Phoenix.Socket
+  use Phoenix.LiveView.Socket
 
   # A Socket handler
   #
@@ -10,6 +12,8 @@ defmodule GSMLGAdminWeb.UserSocket do
 
   channel("node:lobby", GSMLGAdminWeb.NodeChannel)
   channel("room:chess", GSMLGAdminWeb.ChessChannel)
+  channel("command_platform", GSMLGAdminWeb.CommandPlatformChannel)
+  channel("command_platform:*", GSMLGAdminWeb.CommandPlatformChannel)
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After
@@ -23,6 +27,38 @@ defmodule GSMLGAdminWeb.UserSocket do
   # See `Phoenix.Token` documentation for examples in
   # performing token verification on connect.
   @impl true
+  def connect(
+        %{"name" => commander_name, "sign_at" => sign_at, "signature" => signature} = _params,
+        socket,
+        connect_info
+      ) do
+    priv_key =
+      Application.get_env(:gsmlg_admin_web, GSMLGAdminWeb.Endpoint)
+      |> Keyword.get(:commander_platform_key)
+
+    if :crypto.mac(:hmac, :sha256, priv_key, "#{commander_name}/#{sign_at}")
+       |> Base.encode16()
+       |> Kernel.==(signature) do
+      Logger.info("socket connected: " <> inspect(connect_info))
+
+      socket =
+        socket
+        |> assign(:peer_data, Map.get(connect_info, :peer_data))
+        |> assign(:commander_name, commander_name)
+        |> assign(:sign_at, sign_at)
+
+      Logger.debug("socket info: " <> inspect(socket))
+      {:ok, socket}
+    else
+      Logger.error(
+        "socket signature error: (name: #{commander_name}, sign_at: #{sign_at}, signature: #{signature}) " <>
+          inspect(connect_info)
+      )
+
+      {:ok, socket}
+    end
+  end
+
   def connect(%{"token" => token} = _params, socket, _connect_info) do
     case Guardian.Phoenix.Socket.authenticate(socket, GSMLGAdminWeb.Guardian, token) do
       {:ok, authed_socket} ->

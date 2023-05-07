@@ -47,7 +47,7 @@ defmodule GSMLGAdminWeb.MixProject do
       {:floki, "~> 0.32", only: :test},
       # {:phoenix_live_dashboard, "~> 0.7"},
       {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.18"},

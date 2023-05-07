@@ -1,16 +1,14 @@
-<.dm_appbar title={assigns[:page_title]} class="h-14">
+<.dm_simple_appbar title={assigns[:page_title]} class="h-14 text-white bg-rose-600 ">
   <:logo>
-    <.dm_link href={~p"/"}>
+    <.link navigate={~p"/"}>
       <logo-gsmlg-dev />
-    </.dm_link>
+    </.link>
   </:logo>
   <:user_profile>
-    <.dm_link href={~p"/sign_out"} method="DELETE" data-confirm="Really?">Sign Out</.dm_link>
+    <.link href={~p"/sign_out"} method="DELETE" data-confirm="Really?">Sign Out</.link>
   </:user_profile>
-</.dm_appbar>
-<main class="flex flex-row px-4 sm:px-6 lg:px-8">
-  <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
-    <.flash_group flash={@flash} />
-    <%= @inner_content %>
-  </div>
+</.dm_simple_appbar>
+<main class="flex flex-col items-center min-h-screen w-full">
+  <.flash_group flash={@flash} />
+  <%= @inner_content %>
 </main>

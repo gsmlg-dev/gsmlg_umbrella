@@ -42,11 +42,13 @@ ENV PORT=80 \
     DATABASE_URL=ecto://USER:PASS@HOST/DATABASE \
     POOL_SIZE=10 \
     ADMIN_SECRET_KEY_BASE=gsmlg-admin \
+    MNESIA_DIR=/var/lib/mnesia \
     SECRET_KEY_BASE=gsmlg_umbrella
 
 RUN apk update \
     && apk add openssl bash libstdc++ \
     && ln -s /app/bin/gsmlg_umbrella /usr/local/bin/gsmlg \
+    && mkdir -p /var/lib/mnesia \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /app /app

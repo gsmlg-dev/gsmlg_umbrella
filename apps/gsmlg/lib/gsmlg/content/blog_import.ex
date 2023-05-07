@@ -28,13 +28,12 @@ defmodule GSMLG.Content.BlogImport do
       {:ok, _blogs} ->
         changeset
 
-      {:error, %Jason.DecodeError{position: position, token: token, data: data}} ->
-        changeset =
-          add_error(
-            changeset,
-            :data,
-            "Parse JSON error at position:(#{position}), token(#{token})"
-          )
+      {:error, %Jason.DecodeError{position: position, token: token, data: _data}} ->
+        changeset
+        |> add_error(
+          :data,
+          "Parse JSON error at position:(#{position}), token(#{token})"
+        )
     end
   end
 

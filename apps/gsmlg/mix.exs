@@ -38,12 +38,13 @@ defmodule GSMLG.MixProject do
   defp deps do
     [
       {:phoenix_pubsub, "~> 2.0"},
-      {:ecto_sql, "~> 3.6"},
+      {:ecto_sql, "~> 3.0"},
       {:myxql, ">= 0.0.0"},
       {:jason, "~> 1.2"},
       {:libcluster, "~> 3.0"},
       {:horde, "~> 0.8.5"},
       {:swoosh, "~> 1.3"},
+      {:gsmlg_mnesia, in_umbrella: true},
       {:httpoison, "~> 2.0"},
       {:absinthe, "~> 1.7.0"}
     ]

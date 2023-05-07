@@ -2,6 +2,9 @@ variables:
   DOCKER_REGISTRY: gsmlg.dev
   DOCKER_IMAGE_NAME: apps/gsmlg
 
+include:
+  - local: "/apps/gsmlg_commander/.gitlab-ci.yml"
+
 stages: # List of stages for jobs, and their order of execution
   - test
   - release
@@ -16,7 +19,7 @@ cache:
       - deps
       - _build
 
-unit-test:
+svc-unit-test:
   tags:
     - docker
     - linux
@@ -26,16 +29,26 @@ unit-test:
     entrypoint:
       - /bin/bash
       - "-c"
+  rules:
+    - changes:
+        - "apps/gsmlg/*"
+        - "apps/gsmlg_web/*"
+        - "apps/gsmlg_admin_web/*"
+        - "config/**/*"
+        - "mix.*"
   variables:
     MIX_ENV: test
+    GSMLG_UMBRELLA: "true"
   script:
     - mix deps.get --only test
     - mix format --check-formatted
-    - mix test
+    - mix test apps/gsmlg/test
+    - mix test apps/gsmlg_web/test
+    - mix test apps/gsmlg_admin_web/test
 
-release:
+svc-release:
   dependencies:
-    - "unit-test"
+    - "svc-unit-test"
   tags:
     - docker
     - linux
@@ -46,7 +59,9 @@ release:
       exists:
         - Dockerfile.lite
       changes:
-        - "apps/**/*"
+        - "apps/gsmlg/*"
+        - "apps/gsmlg_web/*"
+        - "apps/gsmlg_admin_web/*"
         - "config/**/*"
         - "mix.*"
   image: gsmlg/semantic-release
@@ -58,9 +73,9 @@ release:
     paths:
       - releaseVersion
 
-build:
+svc-build:
   dependencies:
-    - release
+    - svc-release
   tags:
     - docker
     - linux
@@ -77,7 +92,7 @@ build:
   image: gsmlg/phoenix:alpine
   variables:
     MIX_ENV: prod
-    WEB_VERSION: 1.43.0
+    WEB_VERSION: 1.45.1
   script:
     - mix deps.get
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web/assets && npm install && npm install --prefix ../../../deps/phoenix_duskmoon/
@@ -94,10 +109,10 @@ build:
     paths:
       - app
 
-build-image:
+svc-build-image:
   dependencies:
-    - release
-    - build
+    - svc-release
+    - svc-build
   tags:
     - docker
     - linux
@@ -121,7 +136,9 @@ build-image:
       /kaniko/executor \
         --context $CI_PROJECT_DIR \
         --dockerfile $CI_PROJECT_DIR/Dockerfile.lite \
-        --destination "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
-        --destination "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest" \
+        --destination "gsmlg.dev/apps/gsmlg:$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
+        --destination "gsmlg.dev/apps/gsmlg:latest" \
         --destination "docker.io/gsmlg/gsmlg.org:v$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
-        --destination "docker.io/gsmlg/gsmlg.org:latest"
+        --destination "docker.io/gsmlg/gsmlg.org:latest" \
+        --destination "ghcr.io/gsmlg-dev/gsmlg-svc:v$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
+        --destination "ghcr.io/gsmlg-dev/gsmlg-svc:latest"
