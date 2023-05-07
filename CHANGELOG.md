@@ -1,3 +1,19 @@
+# [4.15.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.14.3...v4.15.0) (2023-05-07)
+
+
+### Bug Fixes
+
+* Fix desc. ([20b275b](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/20b275b8d0b7173e40c72e0dc9ae0b12562a0351))
+* Fix whois deps. ([bb316ed](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/bb316edea99e49d871571d579fff134cd130658a))
+* Publish GSMLG.Socket. ([7ab06c5](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/7ab06c5baa22de4f4ebe9a604495b2796d392f4c))
+* Update whois docs and fix whois. ([0ed75dc](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/0ed75dc1fa8bade677767d68a60e9443c5cb7560))
+
+
+### Features
+
+* Add command platform and comanders ([011401f](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/011401fc3d5b4821bddc1efbff9be301629e8428))
+* Add GSMLG.CommandPlatform. ([344fca4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/344fca48cffab31adc5eaec50697d267a85d7854))
+
 ## [4.14.3](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.14.2...v4.14.3) (2023-03-14)
 
 
