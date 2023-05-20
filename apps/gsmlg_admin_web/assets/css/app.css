@@ -5,3 +5,5 @@
 
 /* This file is for your main application CSS */
 @import './main.css';
+
+@import 'highlight.js/styles/googlecode.css';

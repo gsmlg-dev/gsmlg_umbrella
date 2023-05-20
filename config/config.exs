@@ -173,6 +173,26 @@ config :livebook,
   within_iframe: false,
   allowed_uri_schemes: []
 
+config :gsmlg_admin_web, :chatgpt,
+  # or gpt-3.5-turbo
+  model: "gpt-3.5-turbo",
+  enabled_models: ["gpt-3.5-turbo", "davinci"],
+  default_model: :"gpt-3.5-turbo",
+  models: [
+    %{
+      id: :gpt4,
+      truncate_tokens: 8000
+    },
+    %{
+      id: :"gpt-3.5-turbo",
+      truncate_tokens: 4000
+    },
+    %{
+      id: :davinci,
+      truncate_tokens: 2200
+    }
+  ]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

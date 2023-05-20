@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "@gsmlg/lit": "^1.29.5",
+    "daisyui": "^2.51.6",
+    "highlight.js": "^11.8.0",
     "phoenix": "^1.7.2",
     "phoenix_duskmoon": "^4.4.1",
     "phoenix_html": "^3.3.1",

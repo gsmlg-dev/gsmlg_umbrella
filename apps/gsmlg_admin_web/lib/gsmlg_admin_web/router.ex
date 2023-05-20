@@ -58,6 +58,9 @@ defmodule GSMLGAdminWeb.Router do
     get("/node_management", NodeManagementController, :index)
     post("/node_management", NodeManagementController, :update)
 
+    get("/openai/chat", ChatgptController, :chat)
+    get("/openai/scenario/:scenario_id", ChatgptController, :scenario)
+
     live("/blogs", BlogLive.Index, :index)
     live("/blogs/import", BlogLive.Import, :import)
     live("/blogs/new", BlogLive.Modify, :new)
