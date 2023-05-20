@@ -1,4 +1,4 @@
-defmodule GSMLGAdminWeb.Chatgpt.ComponentsLive.CommandResults do
+defmodule GSMLGAdminWeb.ComponentsLive.CommandResults do
   use GSMLGAdminWeb, :live_component
 
   def mount(socket) do

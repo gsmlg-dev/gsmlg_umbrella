@@ -15,7 +15,7 @@ import hljs from "highlight.js";
 function scrollToBottom() {
     window.scrollTo(0, document.body.scrollHeight);
     document
-        .querySelector(".drawer-content")
+        .querySelector("#chatgpt")
         .scrollTo(0, document.body.scrollHeight);
 }
 

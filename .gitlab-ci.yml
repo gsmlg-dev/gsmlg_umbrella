@@ -31,9 +31,9 @@ svc-unit-test:
       - "-c"
   rules:
     - changes:
-        - "apps/gsmlg/*"
-        - "apps/gsmlg_web/*"
-        - "apps/gsmlg_admin_web/*"
+        - "apps/gsmlg/**/*"
+        - "apps/gsmlg_web/**/*"
+        - "apps/gsmlg_admin_web/**/*"
         - "config/**/*"
         - "mix.*"
   variables:
@@ -59,9 +59,9 @@ svc-release:
       exists:
         - Dockerfile.lite
       changes:
-        - "apps/gsmlg/*"
-        - "apps/gsmlg_web/*"
-        - "apps/gsmlg_admin_web/*"
+        - "apps/gsmlg/**/*"
+        - "apps/gsmlg_web/**/*"
+        - "apps/gsmlg_admin_web/**/*"
         - "config/**/*"
         - "mix.*"
   image: gsmlg/semantic-release
@@ -86,7 +86,9 @@ svc-build:
       exists:
         - Dockerfile.lite
       changes:
-        - "apps/**/*"
+        - "apps/gsmlg/**/*"
+        - "apps/gsmlg_web/**/*"
+        - "apps/gsmlg_admin_web/**/*"
         - "config/**/*"
         - "mix.*"
   image: gsmlg/phoenix:alpine
@@ -123,7 +125,9 @@ svc-build-image:
       exists:
         - Dockerfile.lite
       changes:
-        - "apps/**/*"
+        - "apps/gsmlg/**/*"
+        - "apps/gsmlg_web/**/*"
+        - "apps/gsmlg_admin_web/**/*"
         - "config/**/*"
         - "mix.*"
   image:

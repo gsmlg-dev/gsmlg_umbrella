@@ -8,9 +8,14 @@ body {
 body {
   width: 100vw;
   min-height: 100vh;
+  scroll-behavior: smooth;
 }
 
 app-bar {
   --btn-link: #fdfdfd;
   --btn-hover: #9eccf2;
+}
+
+#chatgpt {
+  scroll-behavior: smooth;
 }
