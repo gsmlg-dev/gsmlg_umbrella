@@ -1,3 +1,10 @@
+# [4.16.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.15.0...v4.16.0) (2023-05-20)
+
+
+### Features
+
+* Add OpenAI ChatGPT in admin ([a847ac1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/a847ac1e668fad8853c72a2d5c197c66d1477b35))
+
 # [4.15.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.14.3...v4.15.0) (2023-05-07)
 
 
