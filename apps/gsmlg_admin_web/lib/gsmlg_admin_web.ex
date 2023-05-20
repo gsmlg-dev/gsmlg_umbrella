@@ -45,6 +45,7 @@ defmodule GSMLGAdminWeb do
 
       import Plug.Conn
       import GSMLGAdminWeb.Gettext
+      import Phoenix.Component
 
       unquote(verified_routes())
     end

@@ -8,7 +8,7 @@
     <.link href={~p"/sign_out"} method="DELETE" data-confirm="Really?">Sign Out</.link>
   </:user_profile>
 </.dm_simple_appbar>
-<main class="flex flex-col items-center min-h-screen w-full">
+<main class="flex flex-col items-center min-h-[calc(100vh-3.5rem)] w-full">
   <.flash_group flash={@flash} />
   <%= @inner_content %>
 </main>

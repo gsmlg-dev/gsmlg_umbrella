@@ -26,7 +26,7 @@ defmodule GSMLG.AMQP.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:amqp, "~> 3.1"}
+      {:amqp, "~> 3.0"}
     ]
   end
 end

@@ -5,6 +5,8 @@ defmodule GSMLGAdminWeb.AuthController do
   alias GSMLG.Accounts.User
   alias GSMLGAdminWeb.Guardian
 
+  plug(:put_layout, html: {GSMLGAdminWeb.Layouts, :auth})
+
   def index(conn, _params) do
     if Guardian.Plug.authenticated?(conn) do
       user = Guardian.Plug.current_resource(conn)
@@ -17,7 +19,6 @@ defmodule GSMLGAdminWeb.AuthController do
       changeset = Auth.sign_in_changeset(%Auth{}, %{})
 
       conn
-      |> put_layout({GSMLGAdminWeb.Layouts, :auth})
       |> render(:sign_in, changeset: changeset, page_title: "SIGN IN")
     end
   end
@@ -35,7 +36,6 @@ defmodule GSMLGAdminWeb.AuthController do
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
         |> put_flash(:error, "invalid")
-        |> put_layout({GSMLGAdminWeb.Layouts, :auth})
         |> render(:sign_in, changeset: changeset, page_title: "SIGN IN")
     end
   end
@@ -62,7 +62,6 @@ defmodule GSMLGAdminWeb.AuthController do
     changeset = Auth.sign_up_changeset(%Auth{}, %{})
 
     conn
-    |> put_layout({GSMLGAdminWeb.Layouts, :auth})
     |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
   end
 
@@ -87,7 +86,6 @@ defmodule GSMLGAdminWeb.AuthController do
           {:error, %Ecto.Changeset{} = changeset} ->
             conn
             |> put_flash(:error, "invalid")
-            |> put_layout({GSMLGAdminWeb.Layouts, :auth})
             |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
         end
     end
