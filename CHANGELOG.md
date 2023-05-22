@@ -1,3 +1,10 @@
+## [4.16.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.16.0...v4.16.1) (2023-05-22)
+
+
+### Bug Fixes
+
+* Fix name and style. ([481d813](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/481d8132f0b8f82741eea09be3e37ef5dd6a964c))
+
 # [4.16.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.15.0...v4.16.0) (2023-05-20)
 
 
