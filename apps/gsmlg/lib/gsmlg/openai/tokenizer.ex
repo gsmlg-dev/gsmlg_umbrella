@@ -11,10 +11,15 @@ defmodule GSMLG.Openai.Tokenizer do
   def init(_) do
     Logger.info("downloading tokenizer model: #{@model}")
 
-    case Tokenizers.Tokenizer.from_pretrained(@model) do
-      {:ok, tokenizer} -> {:ok, tokenizer}
-      {:error, e} -> {:error, e}
+    {:ok, nil, {:continue, :fetch_tokenizer}}
+  end
+
+  def handle_continue(:fetch_tokenizer, _state) do
+    state = case Tokenizers.Tokenizer.from_pretrained(@model) do
+      {:ok, tokenizer} ->tokenizer
+      {:error, e} -> nil
     end
+    {:noreply, state}
   end
 
   def handle_call({:count_tokens, input}, _from, tokenizer) do
