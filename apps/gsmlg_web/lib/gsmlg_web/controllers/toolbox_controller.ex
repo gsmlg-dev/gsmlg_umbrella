@@ -225,4 +225,22 @@ defmodule GSMLGWeb.ToolboxController do
         render(conn, :mac_manufacturer, short: "Unkown", header_slot: header_slot)
     end
   end
+
+  def ip_to_geomap(conn, _params) do
+    assigns = %{}
+
+    header_slot = ~H"""
+    <div class="container flex justify-center items-center my-24">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        IP to GeoMap
+      </h1>
+    </div>
+    """
+
+    render(conn, :ip_to_geomap, header_slot: header_slot)
+  end
+  def ip_to_geomap_post(conn, %{"ip" => ip}) do
+    ipInfo = GSMLG.GeoIP2.get_ip_info(ip)
+    conn |> json(%{data: ipInfo})
+  end
 end

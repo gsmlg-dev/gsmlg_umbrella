@@ -1,0 +1,55 @@
+<div class="flex flex-col container px-8">
+  <div class="flex justify-center items-center">
+    <div class="w-full aspect-video flex flex-row justify-center items-center">
+      <d3-world-map id="ip-geo-map" class="w-full aspect-video" />
+    </div>
+  </div>
+
+  <div class="flex flex-col justify-center items-center">
+    <div class="w-full aspect-[3/1] flex flex-row justify-center items-center">
+      <textarea id="ip-data" class="w-full" id="code" rows="10" cols="50"></textarea>
+    </div>
+    <div class="w-full flex flex-row justify-center items-center">
+      <button id="submit-ip" class="border-round bg-cyan-600 text-slate-100 px-12 py-4 shadow-cyan-500/50 active:shadow-cyan-50 disabled:text-slate-800">Send IP to Geo Map</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ajax } from 'https://esm.gsmlg.org/rxjs/ajax';
+    import { fromEvent, take, from, of, map, concatMap, scan } from 'https://esm.gsmlg.org/rxjs';
+    const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+    const btn = document.getElementById('submit-ip');
+    const ipGeoMap = document.getElementById('ip-geo-map');
+
+    const submit$ = fromEvent(btn, 'click');
+    const sendResult = async () => {
+      btn.disabled = true;
+      const code = document.getElementById('ip-data').value;
+      const ipList = code.split(/\s+/).filter((line) => !/^\s*$/.test(line));
+      from(ipList).pipe(concatMap((ip) => {
+        return ajax({
+            url: '/api/tools/ip_to_geomap?ip='+ip,
+            method: 'GET',
+            headers: {
+                'x-csrf-token': csrfToken,
+            },
+        }).pipe(
+          map(userResponse => userResponse.response.data));
+      })).pipe(scan((acc, ipInfo, index) => {
+        if (ipInfo.latitude && ipInfo.longitude) {
+          acc.push([ipInfo.longitude, ipInfo.latitude]);
+        }
+        if (index === ipList.length - 1) {
+            submit$.pipe(take(1)).subscribe(sendResult);
+            btn.disabled = false;
+        }
+        return acc;
+      }, [])).subscribe((ipGeoList) => {
+        ipGeoMap.setAttribute('points', JSON.stringify(ipGeoList));
+      });
+    };
+    submit$.pipe(take(1)).subscribe(sendResult);
+  </script>
+
+  <div class="w-full h-16" />
+</div>

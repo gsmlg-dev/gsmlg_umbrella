@@ -52,17 +52,19 @@ defmodule GSMLGWeb.Router do
     get("/blogs", BlogController, :index)
     get("/blogs/:slug", BlogController, :show)
 
-    get "/tools", ToolboxController, :index
-    get "/tools/geoip2", ToolboxController, :geoip2
-    post "/tools/geoip2", ToolboxController, :geoip2_find
-    get "/tools/whois", ToolboxController, :whois
-    post "/tools/whois", ToolboxController, :whois_find
-    get "/tools/svg2react", ToolboxController, :svg2react
-    post "/tools/svg2react", ToolboxController, :svg2react_convert
-    get "/tools/svg_autocrop", ToolboxController, :svg_autocrop
-    post "/tools/svg_autocrop", ToolboxController, :svg_autocrop_convert
-    get "/tools/mac_manufacturer", ToolboxController, :mac_manufacturer
-    post "/tools/mac_manufacturer", ToolboxController, :mac_manufacturer_lookup
+    get("/tools", ToolboxController, :index)
+    get("/tools/geoip2", ToolboxController, :geoip2)
+    post("/tools/geoip2", ToolboxController, :geoip2_find)
+    get("/tools/whois", ToolboxController, :whois)
+    post("/tools/whois", ToolboxController, :whois_find)
+    get("/tools/svg2react", ToolboxController, :svg2react)
+    post("/tools/svg2react", ToolboxController, :svg2react_convert)
+    get("/tools/svg_autocrop", ToolboxController, :svg_autocrop)
+    post("/tools/svg_autocrop", ToolboxController, :svg_autocrop_convert)
+    get("/tools/mac_manufacturer", ToolboxController, :mac_manufacturer)
+    post("/tools/mac_manufacturer", ToolboxController, :mac_manufacturer_lookup)
+    get("/tools/ip_to_geomap", ToolboxController, :ip_to_geomap)
+
   end
 
   scope "/api", GSMLGWeb do
@@ -73,6 +75,8 @@ defmodule GSMLGWeb.Router do
 
     get("/blogs", BlogController, :index)
     get("/blogs/:id", BlogController, :show)
+
+    get("/tools/ip_to_geomap", ToolboxController, :ip_to_geomap_post)
   end
 
   # Other scopes may use custom stacks.
@@ -84,6 +88,7 @@ defmodule GSMLGWeb.Router do
     post("/blogs", BlogController, :create)
     put("/blogs/:id", BlogController, :update)
     delete("/blogs/:id", BlogController, :delete)
+
   end
 
   forward(
