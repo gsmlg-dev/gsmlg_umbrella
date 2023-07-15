@@ -239,6 +239,7 @@ defmodule GSMLGWeb.ToolboxController do
 
     render(conn, :ip_to_geomap, header_slot: header_slot)
   end
+
   def ip_to_geomap_post(conn, %{"ip" => ip}) do
     ipInfo = GSMLG.GeoIP2.get_ip_info(ip)
     conn |> json(%{data: ipInfo})

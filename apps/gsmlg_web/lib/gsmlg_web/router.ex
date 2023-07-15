@@ -64,7 +64,6 @@ defmodule GSMLGWeb.Router do
     get("/tools/mac_manufacturer", ToolboxController, :mac_manufacturer)
     post("/tools/mac_manufacturer", ToolboxController, :mac_manufacturer_lookup)
     get("/tools/ip_to_geomap", ToolboxController, :ip_to_geomap)
-
   end
 
   scope "/api", GSMLGWeb do
@@ -88,7 +87,6 @@ defmodule GSMLGWeb.Router do
     post("/blogs", BlogController, :create)
     put("/blogs/:id", BlogController, :update)
     delete("/blogs/:id", BlogController, :delete)
-
   end
 
   forward(
