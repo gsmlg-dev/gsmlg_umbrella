@@ -15,10 +15,12 @@ defmodule GSMLG.Openai.Tokenizer do
   end
 
   def handle_continue(:fetch_tokenizer, _state) do
-    state = case Tokenizers.Tokenizer.from_pretrained(@model) do
-      {:ok, tokenizer} ->tokenizer
-      {:error, e} -> nil
-    end
+    state =
+      case Tokenizers.Tokenizer.from_pretrained(@model) do
+        {:ok, tokenizer} -> tokenizer
+        {:error, e} -> nil
+      end
+
     {:noreply, state}
   end
 
