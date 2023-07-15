@@ -1,3 +1,10 @@
+## [4.17.1](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.17.0...v4.17.1) (2023-07-15)
+
+
+### Bug Fixes
+
+* Fix. ([57512a4](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/commit/57512a4509209b279adea68bd05faa3d45d48c00))
+
 # [4.17.0](https://gitlab.gsmlg.net/apps/gsmlg_umbrella/compare/v4.16.1...v4.17.0) (2023-07-15)
 
 
