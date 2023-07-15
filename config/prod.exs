@@ -22,10 +22,3 @@ config :logger, level: :info
 
 # CouchDB Server Connection, maybe use https in procution
 config :gsmlg_couchdb, GSMLG.CouchDB.Connection, scheme: :http
-
-# Default bind and port for production
-config :livebook, LivebookWeb.Endpoint,
-  http: [ip: {0, 0, 0, 0}, port: 8080, protocol_options: [max_header_value_length: 32768]],
-  server: true
-
-config :livebook, :iframe_port, 8081

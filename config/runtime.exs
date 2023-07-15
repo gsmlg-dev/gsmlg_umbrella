@@ -142,11 +142,6 @@ if config_env() == :prod do
   end
 end
 
-case Code.ensure_compiled(Livebook) do
-  {:module, Livebook} -> Livebook.config_runtime()
-  _ -> nil
-end
-
 config :gsmlg_openai,
   api_key: System.get_env("OPENAI_API_KEY"),
   organization_key: System.get_env("OPENAI_ORGANIZATION_KEY"),

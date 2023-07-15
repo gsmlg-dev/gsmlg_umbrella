@@ -144,14 +144,6 @@ config :gsmlg_commander, GSMLGCommander,
   platform_url: "ws://localhost:4111/socket/websocket",
   secret_key_base: admin_secret_key_base
 
-# Configures the endpoint
-config :livebook, LivebookWeb.Endpoint,
-  url: [host: "localhost", path: "/"],
-  pubsub_server: Livebook.PubSub,
-  live_view: [signing_salt: "livebook"],
-  drainer: [shutdown: 1000],
-  render_errors: [formats: [html: LivebookWeb.ErrorHTML], layout: false]
-
 # Add mime type to upload notebooks with `Phoenix.LiveView.Upload`
 config :mime, :types, %{
   "text/plain" => ["livemd"]
@@ -159,19 +151,6 @@ config :mime, :types, %{
 
 # We want CSRF tokens to be logged to help users with debugging
 config :plug_cowboy, :log_exceptions_with_status_code, [407..599]
-
-config :livebook,
-  app_service_name: nil,
-  app_service_url: nil,
-  authentication_mode: :token,
-  feature_flags: [],
-  force_ssl_host: nil,
-  learn_notebooks: [],
-  plugs: [],
-  shutdown_callback: nil,
-  update_instructions_url: nil,
-  within_iframe: false,
-  allowed_uri_schemes: []
 
 config :gsmlg_admin_web, :chatgpt,
   # or gpt-3.5-turbo
