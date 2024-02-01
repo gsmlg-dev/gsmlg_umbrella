@@ -26,7 +26,7 @@ defmodule GSMLGOpenAI.MixProject do
   defp deps do
     [
       {:jason, "~> 1.4"},
-      {:httpoison, "~> 2.1.0"},
+      {:httpoison, "~> 2.0"},
       {:yaml_elixir, "~> 2.9"},
       {:mix_test_watch, "~> 1.0"},
       # {:exvcr, ">= 0.0.0", only: :test},
