@@ -42,12 +42,12 @@ defmodule GSMLG.MixProject do
       {:myxql, ">= 0.0.0"},
       {:jason, "~> 1.2"},
       {:libcluster, "~> 3.0"},
-      {:horde, "~> 0.8.5"},
+      {:horde, "~> 0.9"},
       {:swoosh, "~> 1.3"},
       {:gsmlg_mnesia, in_umbrella: true},
       {:httpoison, "~> 2.0"},
       {:gsmlg_openai, in_umbrella: true},
-      {:tokenizers, "~> 0.3.0"},
+      {:tokenizers, "~> 0.5"},
       {:rustler, ">= 0.0.0", optional: true},
       {:absinthe, "~> 1.7.0"}
     ]

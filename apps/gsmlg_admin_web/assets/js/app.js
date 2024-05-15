@@ -5,7 +5,7 @@ import 'phoenix_html';
 
 // Inclue web componetn, @gsmlg/lit
 import 'phoenix_duskmoon';
-import '@gsmlg/lit';
+// import '@gsmlg/lit';
 // Import socket
 import './socket';
 
