@@ -30,7 +30,6 @@ defmodule GSMLG.Mnesia.MixProject do
   defp deps do
     [
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:inch_ex, ">= 0.0.0", only: :docs}
     ]
   end
 

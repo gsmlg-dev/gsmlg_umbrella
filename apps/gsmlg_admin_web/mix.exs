@@ -51,7 +51,7 @@ defmodule GSMLGAdminWeb.MixProject do
       {:elixir_uuid, "~> 1.2"},
       {:cachex, "~> 3.6"},
       {:earmark, "~> 1.4.37"},
-      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.18"},
       {:gsmlg, in_umbrella: true},
