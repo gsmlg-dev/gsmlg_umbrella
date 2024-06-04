@@ -26,7 +26,7 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   server: false
 
 # Print only warnings and errors during test
-config :logger, level: :warn
+config :logger, level: :warning
 
 # In test we don't send emails.
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test

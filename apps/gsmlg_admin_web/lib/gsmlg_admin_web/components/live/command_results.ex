@@ -26,7 +26,7 @@ defmodule GSMLGAdminWeb.ComponentsLive.CommandResults do
   def render(assigns) do
     ~H"""
     <div>
-      <.dm_table data={@command_results}>
+      <.dm_table class="table table-zebra" data={@command_results}>
         <:col :let={t} label="Commander">
           <%= t.commander %>
         </:col>

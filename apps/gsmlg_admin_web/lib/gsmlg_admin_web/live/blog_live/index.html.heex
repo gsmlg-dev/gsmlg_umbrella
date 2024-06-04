@@ -3,13 +3,13 @@
 <div class="mx-4 my-2 flex flex-col w-full">
   <div class="mx-4 my-2 flex flex-row justify-end">
     <.link
-      class="w-32 rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
+      class="btn btn-primary"
       navigate={~p"/blogs/new"}
     >
       Compose
     </.link>
   </div>
-  <.dm_table data={@blogs}>
+  <.dm_table id="blog-table" stream={true} data={@streams.blogs}>
     <:col :let={b} label="ID">
       <%= b.id %>
     </:col>

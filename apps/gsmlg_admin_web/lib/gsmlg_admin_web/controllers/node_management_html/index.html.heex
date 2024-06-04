@@ -58,41 +58,13 @@
     <:title>
       <h1>Set Node Cookie</h1>
     </:title>
-    <.simple_form
-      :let={f}
-      for={@conn}
-      id="user-form"
-      method={:post}
-      phx-change="validate"
-      phx-submit="save"
-    >
-      <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-      <input name="action" type="hidden" value="set-node-cookie" />
-      <.input field={f[:cookie]} type="text" label="Cookie" />
-      <:actions>
-        <.button class="w-full" phx-disable-with="Updating...">Update</.button>
-      </:actions>
-    </.simple_form>
+
   </.dm_card>
 
   <.dm_card>
     <:title>
       <h1>Connect to Node</h1>
     </:title>
-    <.simple_form
-      :let={f}
-      for={@conn}
-      id="user-form"
-      method={:post}
-      phx-change="validate"
-      phx-submit="save"
-    >
-      <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-      <input name="action" type="hidden" value="connect-node" />
-      <.input field={f[:target_node]} type="text" label="Target Node" />
-      <:actions>
-        <.button class="w-full" phx-disable-with="Connecting...">Connect</.button>
-      </:actions>
-    </.simple_form>
+
   </.dm_card>
 </div>
