@@ -45,40 +45,39 @@ defmodule GSMLG.Application do
       end
 
     children = [
-      # {Horde.Registry, [name: GSMLG.GSMLGRegistry, keys: :unique, members: registry_members()]},
-      # {Horde.DynamicSupervisor,
-      #  [
-      #    name: GSMLG.GSMLGSupervisor,
-      #    strategy: :one_for_one,
-      #    distribution_strategy: Horde.UniformQuorumDistribution,
-      #    max_restarts: 100_000,
-      #    max_seconds: 1,
-      #    members: supervisor_members()
-      #  ]},
+      GSMLGAdminWeb.Telemetry,
+      {Horde.Registry, [name: GSMLG.GSMLGRegistry, keys: :unique, members: registry_members()]},
+      {Horde.DynamicSupervisor,
+       [
+         name: GSMLG.GSMLGSupervisor,
+         strategy: :one_for_one,
+         distribution_strategy: Horde.UniformQuorumDistribution,
+         max_restarts: 100_000,
+         max_seconds: 1,
+         members: supervisor_members()
+       ]},
       # Start the Ecto repository
       GSMLG.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: GSMLG.PubSub, adapter: Phoenix.PubSub.PG2},
-      # Start a worker by calling: GSMLG.Worker.start_link(arg)
-      # {GSMLG.Worker, arg}
       {GSMLG.CommandPlatform.Supervisor, name: GSMLG.CommandPlatform.Supervisor},
       # Start distribute Node
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
       GSMLG.Openai.Tokenizer,
-      # {Cluster.Supervisor, [topologies, [name: GSMLG.ClusterSupervisor]]},
-      # %{
-      #   id: GSMLG.ClusterConnector,
-      #   restart: :transient,
-      #   start:
-      #     {Task, :start_link,
-      #      [
-      #        fn ->
-      #          Horde.DynamicSupervisor.wait_for_quorum(GSMLG.GSMLGSupervisor, 30_000)
-      #          Horde.DynamicSupervisor.start_child(GSMLG.GSMLGSupervisor, GSMLG.Node.Others)
-      #        end
-      #      ]}
-      # }
+      {Cluster.Supervisor, [topologies, [name: GSMLG.ClusterSupervisor]]},
+      %{
+        id: GSMLG.ClusterConnector,
+        restart: :transient,
+        start:
+          {Task, :start_link,
+           [
+             fn ->
+               Horde.DynamicSupervisor.wait_for_quorum(GSMLG.GSMLGSupervisor, 30_000)
+               Horde.DynamicSupervisor.start_child(GSMLG.GSMLGSupervisor, GSMLG.Node.Others)
+             end
+           ]}
+      }
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Supervisor)

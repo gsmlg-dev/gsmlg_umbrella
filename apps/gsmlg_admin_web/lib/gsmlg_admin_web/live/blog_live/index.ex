@@ -6,9 +6,11 @@ defmodule GSMLGAdminWeb.BlogLive.Index do
   @impl true
   def mount(_params, _session, socket) do
     Process.send_after(__MODULE__, :refresh_list, 15_000)
-    socket = socket
-    |> stream(:blogs, [])
-    |> start_async(:get_blogs, fn -> Content.list_blogs() end)
+
+    socket =
+      socket
+      |> stream(:blogs, [])
+      |> start_async(:get_blogs, fn -> Content.list_blogs() end)
 
     {:ok, assign(socket, active_menu: "blog_list")}
   end
@@ -21,6 +23,7 @@ defmodule GSMLGAdminWeb.BlogLive.Index do
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Listing Blogs")
+
     # |> apply_blogs()
   end
 
@@ -46,5 +49,4 @@ defmodule GSMLGAdminWeb.BlogLive.Index do
     socket
     |> assign(:blogs, Content.list_blogs())
   end
-
 end

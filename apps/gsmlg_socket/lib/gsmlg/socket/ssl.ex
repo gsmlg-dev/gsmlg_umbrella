@@ -44,7 +44,7 @@ defmodule GSMLG.Socket.SSL do
   """
   @spec ciphers :: [:ssl.erl_cipher_suite()]
   def ciphers do
-    :ssl.cipher_suites(:all, 'tlsv1.3')
+    :ssl.cipher_suites(:all, ~c"tlsv1.3")
   end
 
   @doc """
@@ -62,7 +62,7 @@ defmodule GSMLG.Socket.SSL do
   @spec error(term) :: String.t()
   def error(code) do
     case :ssl.format_error(code) do
-      'Unexpected error:' ++ _ ->
+      ~c"Unexpected error:" ++ _ ->
         nil
 
       message ->

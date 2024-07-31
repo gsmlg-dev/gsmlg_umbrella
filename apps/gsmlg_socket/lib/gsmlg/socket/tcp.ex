@@ -46,7 +46,7 @@ defmodule GSMLG.Socket.TCP do
   @spec error(term) :: String.t()
   def error(code) do
     case :inet.format_error(code) do
-      'unknown POSIX error' ->
+      ~c"unknown POSIX error" ->
         nil
 
       message ->
