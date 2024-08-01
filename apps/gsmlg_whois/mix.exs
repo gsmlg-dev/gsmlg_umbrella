@@ -31,15 +31,15 @@ defmodule GSMLG.Whois.MixProject do
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-    case System.fetch_env("GSMLG_UMBRELLA") do
+    case System.fetch_env("GSMLG_UMBRELLA_PUBLISH") do
       :error ->
         [
-          {:gsmlg_socket, "~> 0.1.0"}
+          {:gsmlg_socket, in_umbrella: true}
         ]
 
       {:ok, _} ->
         [
-          {:gsmlg_socket, in_umbrella: true}
+          {:gsmlg_socket, "~> 0.1.0"}
         ]
     end ++
       [
