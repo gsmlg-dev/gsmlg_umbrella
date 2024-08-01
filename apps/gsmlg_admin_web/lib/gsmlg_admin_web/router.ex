@@ -83,11 +83,9 @@ defmodule GSMLGAdminWeb.Router do
 
     live("/github", GithubLive.Index, :index)
 
-    # if Mix.env() in [:prod] do
-    #   import Phoenix.LiveDashboard.Router
+    import Phoenix.LiveDashboard.Router
 
-    #   live_dashboard("/dashboard", metrics: GSMLGAdminWeb.Telemetry)
-    # end
+    live_dashboard("/live_dashboard", metrics: GSMLGAdminWeb.Telemetry)
   end
 
   scope "/api", GSMLGAdminWeb do
