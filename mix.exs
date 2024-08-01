@@ -48,8 +48,8 @@ defmodule GSMLG.Umbrella.MixProject do
   # and cannot be accessed from applications inside the apps/ folder.
   defp deps do
     [
-      {:phoenix, "~> 1.7.0-rc.0", override: true},
-      {:phoenix_live_view, "~> 0.18"}
+      {:phoenix, "~> 1.7", override: true},
+      {:phoenix_live_view, "~> 0.20"}
     ]
   end
 

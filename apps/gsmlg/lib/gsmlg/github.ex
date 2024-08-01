@@ -85,16 +85,6 @@ defmodule GSMLG.GitHub do
 
   @spec repos :: List.t()
   def repos() do
-    now = :os.system_time(:second)
-
-    case Horde.Registry.meta(GSMLG.GSMLGRegistry, "github_repos") do
-      {:ok, {t, data}} when t + 3600 > now ->
-        data
-
-      _ ->
-        data = fetch_repos()
-        Horde.Registry.put_meta(GSMLG.GSMLGRegistry, "github_repos", {now, data})
-        data
-    end
+    GSMLG.SimpleCache.get(__MODULE__, :fetch_repos, [], ttl: 3600)
   end
 end

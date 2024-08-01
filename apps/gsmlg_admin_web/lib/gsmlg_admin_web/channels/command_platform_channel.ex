@@ -82,7 +82,12 @@ defmodule GSMLGAdminWeb.CommandPlatformChannel do
         }
 
         CommandPlatform.commander_leave(commander, reason)
-        broadcast_from(socket, "commander_leave", reason)
+        case reason do
+          {:shutdown, :closed} ->
+            broadcast_from(socket, "commander_leave", %{"reason" => "shutdown, closed"})
+          _ ->
+            broadcast_from(socket, "commander_leave", reason)
+        end
 
       _ ->
         nil
