@@ -67,7 +67,7 @@ defmodule GSMLGAdminWeb.BlogLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "Blog updated successfully")
-         |> push_redirect(to: ~p"/blogs/#{blog.id}")}
+         |> push_navigate(to: ~p"/blogs/#{blog.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
@@ -80,7 +80,7 @@ defmodule GSMLGAdminWeb.BlogLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "Blog created successfully")
-         |> push_redirect(to: ~p"/blogs/#{blog.id}")}
+         |> push_navigate(to: ~p"/blogs/#{blog.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}

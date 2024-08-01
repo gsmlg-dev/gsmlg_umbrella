@@ -23,7 +23,7 @@ defmodule GSMLGAdminWeb.CommandPlatformLive.Index do
   @impl true
   def handle_event("check-table", _params, socket) do
     GSMLG.CommandPlatform.Commander.ensure_table()
-    {:noreply, socket}
+    {:noreply, socket |> put_flash(:error, "Testing...")}
   end
 
   def handle_event("update_test", _params, socket) do
@@ -32,6 +32,7 @@ defmodule GSMLGAdminWeb.CommandPlatformLive.Index do
     socket =
       socket
       |> assign(:test_button, "Testing...")
+      |> put_flash(:info, "Testing...")
 
     {:noreply, socket}
   end

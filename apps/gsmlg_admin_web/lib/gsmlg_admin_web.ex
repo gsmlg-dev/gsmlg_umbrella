@@ -96,8 +96,9 @@ defmodule GSMLGAdminWeb do
       import Phoenix.HTML
       # Core UI components and translation
       import GSMLGAdminWeb.CoreComponents
+      import GSMLGAdminWeb.AppComponents
       import GSMLGAdminWeb.Gettext
-      use PhoenixDuskmoon
+      use PhoenixDuskmoon.Component
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

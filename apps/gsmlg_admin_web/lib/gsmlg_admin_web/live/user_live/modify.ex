@@ -72,7 +72,7 @@ defmodule GSMLGAdminWeb.UserLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "User updated successfully")
-         |> push_redirect(to: ~p"/users/#{user.id}")}
+         |> push_navigate(to: ~p"/users/#{user.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
@@ -85,7 +85,7 @@ defmodule GSMLGAdminWeb.UserLive.Modify do
         {:noreply,
          socket
          |> put_flash(:info, "User created successfully")
-         |> push_redirect(to: ~p"/users/#{user.id}")}
+         |> push_navigate(to: ~p"/users/#{user.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}

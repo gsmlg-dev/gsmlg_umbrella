@@ -40,7 +40,7 @@ defmodule GSMLGAdminWeb.BlogLive.Import do
         {:noreply,
          socket
          |> put_flash(:info, "Blog import successfully")
-         |> push_redirect(to: ~p"/blogs")}
+         |> push_navigate(to: ~p"/blogs")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
