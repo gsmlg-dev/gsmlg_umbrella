@@ -24,10 +24,22 @@
     RELEASE_COOKIE = "1mhgcvb78q9wzbls5a3wgczmm89xp5d9";
   };
 
-  nodeModules = buildNpmPackage {
-    pname = "${pname}-npm-modules";
+  webNodeModules = buildNpmPackage {
+    pname = "${pname}-gsmlg-web-npm-modules";
     inherit version;
-    src = "${src}";
+    src = "${src}/apps/gsmlg_web";
+    npmDepsHash = "sha256-xIIS/bTFpuJ2Pox0WAkZYt+pYtvkqsgc/p80TgYD4mI=";
+    dontNpmBuild = true;
+    installPhase = ''
+      runHook preInstall
+      cp -r node_modules "$out"
+      runHook postInstall
+    '';
+  };
+  adminWebNodeModules = buildNpmPackage {
+    pname = "${pname}-gsmlg-admin-web-npm-modules";
+    inherit version;
+    src = "${src}apps/gsmlg_admin_web/";
     npmDepsHash = "sha256-xIIS/bTFpuJ2Pox0WAkZYt+pYtvkqsgc/p80TgYD4mI=";
     dontNpmBuild = true;
     installPhase = ''
@@ -47,10 +59,12 @@ in
     ];
 
     preBuild = ''
-      cp -r ${nodeModules} node_modules
       cp ${pkgs.esbuild}/bin/esbuild _build/esbuild-linux-arm64
       cp ${pkgs.tailwindcss}/bin/tailwindcss _build/tailwind-linux-arm64
-      mix assets.deploy
+      cp -r ${webNodeModules} apps/gsmlg_web/assets/node_modules
+      cd apps/gsmlg_web; mix assets.deploy; cd ../..
+      cp -r ${adminWebNodeModules} apps/gsmlg_admin_web/assets/node_modules
+      cd apps/gsmlg_admin_web; mix assets.deploy; cd ../..
     '';
 
     postBuild = ''

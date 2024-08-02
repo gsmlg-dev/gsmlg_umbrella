@@ -156,13 +156,14 @@ defmodule GSMLGAdminWeb.AppComponents do
             <header class="flex items-center">
               <h2 class="text-2xl"><%= title %></h2>
             </header>
-            <div class="flex flex-row items-center gap-4">
-              <div
-                class="flex flex-col border border-green-200 p-4"
+            <div class="grid grid-flow-col auto-cols-max gap-4">
+              <.link
+                class="btn btn-primary"
                 :for={{name, url} <- list}
+                navigate={url}
               >
-                <.dm_link navigate={url}><%= name %></.dm_link>
-              </div>
+                <span><%= name %></span>
+              </.link>
             </div>
           </section>
         </div>
