@@ -89,6 +89,31 @@ defmodule GSMLGAdminWeb.AppComponents do
     ~H"""
     <.dm_simple_appbar title={assigns[:page_title]} class="h-14 text-white bg-primary ">
       <:logo>
+        <button
+          class="btn btn-ghost btn-sm app-menu-toggle-btn"
+          phx-click={
+            JS.toggle_class("hidden", to: ".app-menu-toggle-btn") |> JS.remove_class("hidden", to: "#app-menu-card")
+          }
+        >
+          <.dm_mdi name="menu" class="w-8 h-8" />
+        </button>
+        <button
+          class="btn btn-ghost btn-sm app-menu-toggle-btn hidden"
+          phx-click={
+            JS.toggle_class("hidden", to: ".app-menu-toggle-btn") |> JS.add_class("hidden", to: "#app-menu-card")
+          }
+        >
+          <.dm_mdi name="menu-open" class="w-8 h-8" />
+        </button>
+        <div
+          id="app-menu-card"
+          class="fixed top-14 left-0 w-full h-full hidden z-[1000]"
+          phx-click-away={
+            JS.toggle_class("hidden", to: ".app-menu-toggle-btn") |> JS.add_class("hidden")
+          }
+        >
+          <.local_app_menus />
+        </div>
         <.link navigate={"/"}>
           <logo-gsmlg-dev class="h-12" />
         </.link>
@@ -97,6 +122,52 @@ defmodule GSMLGAdminWeb.AppComponents do
         <.link href={"/sign_out"} method="DELETE" data-confirm="Really?">Sign Out</.link>
       </:user_profile>
     </.dm_simple_appbar>
+    """
+  end
+
+  def local_app_menus(assigns) do
+    ~H"""
+    <div class="card card-bordered bg-neutral text-neutral-content">
+      <div class="card-body">
+        <div class="card-title">GSMLG Umbrella Modules</div>
+        <div class="flex flex-col gap-12">
+          <section
+            class="flex flex-col gap-4"
+            :for={{title, list} <- [
+              {"Content Overview", [
+                {"User List", "/users"},
+                {"User Token List", "/user_tokens"},
+                {"Blog List", "/blogs"},
+                {"ChatGPT", "/openai/chat"},
+                {"Github", "/github"}
+              ]},
+              {"Cluster Overview", [
+                {"Node Management", "/node_management"}
+              ]},
+              {"Command Platform", [
+                {"Commander Management", "/command_platform"},
+                {"Mnesia Management", "/mnesia"}
+              ]},
+              {"Dashboard", [
+                {"Live Dashboard", "/live_dashboard"}
+              ]}
+            ]}
+          >
+            <header class="flex items-center">
+              <h2 class="text-2xl"><%= title %></h2>
+            </header>
+            <div class="flex flex-row items-center gap-4">
+              <div
+                class="flex flex-col border border-green-200 p-4"
+                :for={{name, url} <- list}
+              >
+                <.dm_link navigate={url}><%= name %></.dm_link>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
     """
   end
 
