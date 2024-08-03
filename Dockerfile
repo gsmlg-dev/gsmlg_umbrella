@@ -1,30 +1,27 @@
-FROM gsmlg/phoenix:alpine AS builder
+FROM docker-io.gsmlg.dev/library/elixir:1.16-alpine AS builder
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg
-ARG RELEASE_VERSION=0.1.0
-ARG WEB_VERSION=1.41.2
+ARG RELEASE_VERSION=1.0.0
 
-ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
+ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm/
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm/
 
 COPY . /build
 
 WORKDIR /build
 
-RUN apk update && apk add curl git npm \
-    && test -f .env && source .env || echo env \
+RUN apk update && apk add nodejs curl git npm \
     && mix do deps.get, compile \
     && cd apps/gsmlg_web && npm install --prefix assets && mix assets.deploy && cd ../.. \
-    && curl -Lf "https://registry.npmjs.org/@gsmlg/website/-/website-${WEB_VERSION}.tgz" -o website.tgz \
-    && tar xzf website.tgz --strip-components=2 -C apps/gsmlg_web/priv/static \
+    && cd apps/gsmlg_admin_web && npm install --prefix assets && mix assets.deploy && cd ../.. \
     && mix release gsmlg_umbrella --version "${RELEASE_VERSION}" \
     && cp -r _build/prod/rel/gsmlg_umbrella /app
 
 
-FROM alpine:3.14
+FROM docker-io.gsmlg.dev/library/alpine:3.19
 
-ARG RELEASE_VERSION=0.1.0
+ARG RELEASE_VERSION=1.0.0
 
 LABEL maintainer="GSMLG <gsmlg.com@gmail.com>"
 LABEL RELEASE_VERSION="${RELEASE_VERSION}"
