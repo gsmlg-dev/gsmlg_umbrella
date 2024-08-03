@@ -1,20 +1,24 @@
-<div class="container px-8 my-24 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-  <div class="min-w-48 h-16 px-4 flex justify-center items-center shadow dark:shadow-slate-400">
-    <.link href={~p"/tools/geoip2"}>GeoIP2 Database</.link>
-  </div>
-  <div class="min-w-48 h-16 px-4 flex justify-center items-center shadow dark:shadow-slate-400">
-    <.link href={~p"/tools/whois"}>Whois Domain / IP / ASN</.link>
-  </div>
-  <div class="min-w-48 h-16 px-4 flex justify-center items-center shadow dark:shadow-slate-400">
-    <.link href={~p"/tools/mac_manufacturer"}>Lookup MAC Manufacturer</.link>
-  </div>
-  <div class="min-w-48 h-16 px-4 flex justify-center items-center shadow dark:shadow-slate-400">
-    <.link href={~p"/tools/svg2react"}>SVG to React Component</.link>
-  </div>
-  <div class="min-w-48 h-16 px-4 flex justify-center items-center shadow dark:shadow-slate-400">
-    <.link href={~p"/tools/svg_autocrop"}>SVG Autocrop, Optimize SVG</.link>
-  </div>
-  <div class="min-w-48 h-16 px-4 flex justify-center items-center shadow dark:shadow-slate-400">
-    <.link href={~p"/tools/ip_to_geomap"}>IP to Geo Map</.link>
+<div class="container px-8 my-24 grid grid-cols-4 gap-4">
+  <div
+    :for={
+      {name, url} <- [
+        {"GeoIP2 Database", ~p"/tools/geoip2"},
+        {"Whois Domain / IP / ASN", ~p"/tools/whois"},
+        {"Lookup MAC Manufacturer", ~p"/tools/mac_manufacturer"},
+        {"SVG to React Component", ~p"/tools/svg2react"},
+        {"SVG Autocrop, Optimize SVG", ~p"/tools/svg_autocrop"},
+        {"IP to Geo Map", ~p"/tools/ip_to_geomap"}
+      ]
+    }
+    class="card bg-primary text-primary-content"
+  >
+    <div class="card-body">
+      <h2 class="card-title"><%= name %></h2>
+      <div class="card-actions justify-end">
+        <.link href={url} class="btn">
+          Visit
+        </.link>
+      </div>
+    </div>
   </div>
 </div>

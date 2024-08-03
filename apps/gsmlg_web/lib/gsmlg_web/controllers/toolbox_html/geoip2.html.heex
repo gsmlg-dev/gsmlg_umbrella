@@ -1,20 +1,26 @@
 <div class="flex flex-col container px-8">
   <div class="flex justify-center items-center">
-    <.simple_form
+    <.form
       :let={f}
-      for={@conn}
       id="ip-form"
-      method={:post}
-      phx-change="validate"
-      phx-submit="save"
+      method="POST"
+      class="flex flex-col justify-center items-center gap-4 w-84"
     >
       <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-      <.input field={f[:ip]} label="IP" />
-      <.input type="select" field={f[:lang]} label="Language" options={@langs} />
-      <:actions>
-        <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
-      </:actions>
-    </.simple_form>
+      <div class="flex gap-4 w-full">
+        <.dm_input class="w-full" field={f[:ip]} label="IP" />
+        <.dm_input
+          class="w-full"
+          type="select"
+          field={f[:lang]}
+          label="Language"
+          options={@langs}
+        />
+      </div>
+      <div class="flex justify-center items-center w-full">
+        <button class="btn btn-primary w-full" type="submit">Lookup</button>
+      </div>
+    </.form>
   </div>
 
   <%= unless is_nil(@ipInfo) do %>

@@ -10,7 +10,7 @@ defmodule GSMLGAdminWeb.GithubLive.Index do
     "gsmlg-dev",
     "duskmoon-dev",
     "Gao-OS",
-    "zdnsweb",
+    "zdnsweb"
     # "gsmlgorg"
     # "gsmlg-app",
     # "zdnscloud",
@@ -44,10 +44,13 @@ defmodule GSMLGAdminWeb.GithubLive.Index do
       {:ok, %{repos: repos}}
     end)
     |> assign_async(:org_repos, fn ->
-      org_repos = @gh_orgs |> Enum.map(fn(org) ->
-        repos = GitHub.user_repos(org, org: true)
-        {org, repos}
-      end)
+      org_repos =
+        @gh_orgs
+        |> Enum.map(fn org ->
+          repos = GitHub.user_repos(org, org: true)
+          {org, repos}
+        end)
+
       {:ok, %{org_repos: org_repos}}
     end)
   end

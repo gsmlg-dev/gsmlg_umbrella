@@ -9,82 +9,6 @@ defmodule GSMLGAdminWeb.AppComponents do
   import GSMLGAdminWeb.Gettext
   import GSMLGAdminWeb.CoreComponents
 
-  @doc """
-  Renders flash notices.
-
-  ## Examples
-
-      <.dm_flash kind={:info} flash={@flash} />
-      <.dm_flash kind={:info} phx-mounted={show("#flash")}>Welcome Back!</.dm_flash>
-  """
-  attr(:id, :string, default: "flash", doc: "the optional id of flash container")
-  attr(:flash, :map, default: %{}, doc: "the map of flash messages to display")
-  attr(:title, :string, default: nil)
-  attr(:kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup")
-  attr(:autoshow, :boolean, default: true, doc: "whether to auto show the flash on mount")
-  attr(:close, :boolean, default: true, doc: "whether the flash can be closed")
-  attr(:rest, :global, doc: "the arbitrary HTML attributes to add to the flash container")
-
-  slot(:inner_block, doc: "the optional inner block that renders the flash message")
-
-  def dm_flash(assigns) do
-    ~H"""
-    <div
-      :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
-      id={@id}
-      phx-mounted={@autoshow && JS.show(to: "##{@id}")}
-      phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> JS.hide(to: "##{@id}")}
-      role="alert"
-      class={"hidden w-80 sm:w-96 toast toast-top toast-end z-[1000]"}
-      {@rest}
-    >
-      <div class={["flex flex-col gap-2 relative alert", if(@kind == :info, do: "alert-info"), if(@kind == :error, do: "alert-error")]}>
-        <div :if={@title} class="flex items-center gap-1.5 w-full text-xs font-semibold leading-6">
-          <.dm_bsi :if={@kind == :info} name="info-circle" class="w-4 h-4" />
-          <.dm_bsi :if={@kind == :error} name="exclamation-circle" class="w-4 h-4" />
-          <%= @title %>
-        </div>
-        <div class="w-full text-xs leading-5"><%= msg %></div>
-        <button
-          :if={@close}
-          type="button"
-          class="absolute top-2 right-2 btn btn-ghost btn-xs"
-          aria-label={gettext("close")}
-        >
-          <.dm_bsi name="x" class="w-5 h-5 " />
-        </button>
-      </div>
-    </div>
-    """
-  end
-
-  @doc """
-  Shows the flash group with standard titles and content.
-
-  ## Examples
-
-      <.dm_flash_group flash={@flash} />
-  """
-  attr(:flash, :map, required: true, doc: "the map of flash messages")
-
-  def dm_flash_group(assigns) do
-    ~H"""
-    <.dm_flash id="flash-info" kind={:info} title={"Success!"} flash={@flash} />
-    <.dm_flash id="flash-error" kind={:error} title={"Error!"} flash={@flash} />
-    <.dm_flash
-      id="disconnected"
-      kind={:error}
-      title="We can't find the internet"
-      close={false}
-      autoshow={false}
-      phx-disconnected={show("#disconnected")}
-      phx-connected={hide("#disconnected")}
-    >
-      Attempting to reconnect <.dm_bsi name="arrow-repeat" class="inline ml-1 w-3 h-3 animate-spin" />
-    </.dm_flash>
-    """
-  end
-
   def local_app_bar(assigns) do
     ~H"""
     <.dm_simple_appbar title={assigns[:page_title]} class="h-14 text-white bg-primary ">
@@ -92,7 +16,8 @@ defmodule GSMLGAdminWeb.AppComponents do
         <button
           class="btn btn-ghost btn-sm app-menu-toggle-btn"
           phx-click={
-            JS.toggle_class("hidden", to: ".app-menu-toggle-btn") |> JS.remove_class("hidden", to: "#app-menu-card")
+            JS.toggle_class("hidden", to: ".app-menu-toggle-btn")
+            |> JS.remove_class("hidden", to: "#app-menu-card")
           }
         >
           <.dm_mdi name="menu" class="w-8 h-8" />
@@ -100,7 +25,8 @@ defmodule GSMLGAdminWeb.AppComponents do
         <button
           class="btn btn-ghost btn-sm app-menu-toggle-btn hidden"
           phx-click={
-            JS.toggle_class("hidden", to: ".app-menu-toggle-btn") |> JS.add_class("hidden", to: "#app-menu-card")
+            JS.toggle_class("hidden", to: ".app-menu-toggle-btn")
+            |> JS.add_class("hidden", to: "#app-menu-card")
           }
         >
           <.dm_mdi name="menu-open" class="w-8 h-8" />
@@ -114,12 +40,12 @@ defmodule GSMLGAdminWeb.AppComponents do
         >
           <.local_app_menus />
         </div>
-        <.link navigate={"/"}>
+        <.link navigate="/">
           <logo-gsmlg-dev class="h-12" />
         </.link>
       </:logo>
       <:user_profile>
-        <.link href={"/sign_out"} method="DELETE" data-confirm="Really?">Sign Out</.link>
+        <.link href="/sign_out" method="DELETE" data-confirm="Really?">Sign Out</.link>
       </:user_profile>
     </.dm_simple_appbar>
     """
@@ -132,36 +58,38 @@ defmodule GSMLGAdminWeb.AppComponents do
         <div class="card-title">GSMLG Umbrella Modules</div>
         <div class="flex flex-col gap-12">
           <section
+            :for={
+              {title, list} <- [
+                {"Content Overview",
+                 [
+                   {"User List", "/users"},
+                   {"User Token List", "/user_tokens"},
+                   {"Blog List", "/blogs"},
+                   {"ChatGPT", "/openai/chat"},
+                   {"Github", "/github"}
+                 ]},
+                {"Cluster Overview",
+                 [
+                   {"Node Management", "/node_management"}
+                 ]},
+                {"Command Platform",
+                 [
+                   {"Commander Management", "/command_platform"},
+                   {"Mnesia Management", "/mnesia"}
+                 ]},
+                {"Dashboard",
+                 [
+                   {"Live Dashboard", "/live_dashboard"}
+                 ]}
+              ]
+            }
             class="flex flex-col gap-4"
-            :for={{title, list} <- [
-              {"Content Overview", [
-                {"User List", "/users"},
-                {"User Token List", "/user_tokens"},
-                {"Blog List", "/blogs"},
-                {"ChatGPT", "/openai/chat"},
-                {"Github", "/github"}
-              ]},
-              {"Cluster Overview", [
-                {"Node Management", "/node_management"}
-              ]},
-              {"Command Platform", [
-                {"Commander Management", "/command_platform"},
-                {"Mnesia Management", "/mnesia"}
-              ]},
-              {"Dashboard", [
-                {"Live Dashboard", "/live_dashboard"}
-              ]}
-            ]}
           >
             <header class="flex items-center">
               <h2 class="text-2xl"><%= title %></h2>
             </header>
             <div class="grid grid-flow-col auto-cols-max gap-4">
-              <.link
-                class="btn btn-primary"
-                :for={{name, url} <- list}
-                navigate={url}
-              >
+              <.link :for={{name, url} <- list} class="btn btn-primary" navigate={url}>
                 <span><%= name %></span>
               </.link>
             </div>
@@ -172,7 +100,8 @@ defmodule GSMLGAdminWeb.AppComponents do
     """
   end
 
-  attr(:repo, :any, default: %{},
+  attr(:repo, :any,
+    default: %{},
     doc: """
     repo data
 
@@ -299,28 +228,30 @@ defmodule GSMLGAdminWeb.AppComponents do
     <div class="card card-bordered card-compact bg-neutral text-neutral-content">
       <div class="card-body">
         <div class="card-title">
+          <div :if={@repo.private} class="badge badge-error tooltip" data-tip="Private">
+            <.dm_mdi name="account-key-outline" class="w-5 h-5 text-neutral-content" />
+          </div>
           <%= @repo.name %>
-          <div class="badge badge-accent" :if={@repo.language}><%= @repo.language %></div>
+          <div :if={@repo.language} class="badge badge-accent"><%= @repo.language %></div>
         </div>
         <div>
           <.link href={@repo.html_url <> "/stargazers"} class="btn btn-xs" target="_blank">
-            Star
-            <%= @repo.stargazers_count %>
+            Star <%= @repo.stargazers_count %>
           </.link>
           <.link href={@repo.html_url <> "/forks"} class="btn btn-xs" target="_blank">
-            Fork
-            <%= @repo.forks %>
+            Fork <%= @repo.forks %>
           </.link>
           <.link href={@repo.html_url <> "/issues"} class="btn btn-xs" target="_blank">
-            Issue
-            <%= @repo.open_issues %>
+            Issue <%= @repo.open_issues %>
           </.link>
         </div>
         <p>
           <%= @repo.description || gettext("No description") %>
         </p>
         <div class="card-actions justify-end">
-          <.link href={@repo.html_url} class="btn btn-primary btn-sm" target="_blank">Home Page</.link>
+          <.link href={@repo.html_url} class="btn btn-primary btn-sm" target="_blank">
+            Home Page
+          </.link>
         </div>
       </div>
     </div>

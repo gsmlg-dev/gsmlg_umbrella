@@ -6,7 +6,6 @@ defmodule GSMLG.SimpleCache do
 
   @ets_table_name :simple_cache
 
-
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
@@ -39,7 +38,7 @@ defmodule GSMLG.SimpleCache do
     end
   end
 
-  @doc"""
+  @doc """
   Remove cached value
   """
   def delete_cache(mod, fun, args) do

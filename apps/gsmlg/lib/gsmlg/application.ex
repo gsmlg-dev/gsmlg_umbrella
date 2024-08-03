@@ -7,7 +7,6 @@ defmodule GSMLG.Application do
 
   @impl true
   def start(_type, _args) do
-
     children = [
       {GSMLG.SimpleCache, []},
       # Start the Ecto repository
@@ -18,7 +17,7 @@ defmodule GSMLG.Application do
       # Start distribute Node
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
-      GSMLG.Openai.Tokenizer,
+      GSMLG.Openai.Tokenizer
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Supervisor)

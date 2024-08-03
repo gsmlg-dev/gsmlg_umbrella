@@ -58,6 +58,7 @@ defmodule GSMLG.GitHub do
     case System.fetch_env("GITHUB_TOKEN") do
       {:ok, token} ->
         [{"Authorization", "Bearer #{token}"} | headers]
+
       :error ->
         headers
     end
@@ -102,6 +103,7 @@ defmodule GSMLG.GitHub do
   def fetch_user_repos(name, opts \\ []) do
     type = Keyword.get(opts, :org, false)
     p = if(type, do: "orgs", else: "users")
+
     case get("/#{p}/#{name}/repos") |> process_result() do
       {:ok, data} ->
         data

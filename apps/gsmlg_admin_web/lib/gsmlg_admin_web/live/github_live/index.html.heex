@@ -1,11 +1,5 @@
-
-<div class="container" :if={@live_action == :index}>
-  <.dm_async_card
-    :let={repos}
-    assign={@repos}
-    class="section-card"
-    skeleton_class="min-h-48"
-  >
+<div :if={@live_action == :index} class="container">
+  <.dm_async_card :let={repos} assign={@repos} class="section-card" skeleton_class="min-h-48">
     <:title class="flex flex-row justify-center">
       <h3 class="font-semibold text-2xl">Github Repos of GSMLG</h3>
     </:title>
@@ -17,14 +11,8 @@
     </div>
   </.dm_async_card>
 
-  <.async_result
-    :let={org_repos}
-    assign={@org_repos}
-  >
-    <.dm_card
-      :for={{org, repos} <- org_repos}
-      class="section-card"
-    >
+  <.async_result :let={org_repos} assign={@org_repos}>
+    <.dm_card :for={{org, repos} <- org_repos} class="section-card">
       <:title class="flex flex-row justify-center">
         <h3 class="font-semibold text-2xl">Github Repos of <%= org %></h3>
       </:title>
