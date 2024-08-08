@@ -9,9 +9,11 @@ defmodule GSMLGAdminWeb.AppComponents do
   import GSMLGAdminWeb.Gettext
   import GSMLGAdminWeb.CoreComponents
 
+  attr(:page_title, :string, default: "GSMLG Admin")
+
   def local_app_bar(assigns) do
     ~H"""
-    <.dm_simple_appbar title={assigns[:page_title]} class="h-14 text-white bg-primary ">
+    <.dm_simple_appbar title={@page_title} class="h-14 text-white bg-primary ">
       <:logo>
         <div class="dropdown">
           <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
