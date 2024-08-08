@@ -13,32 +13,16 @@ defmodule GSMLGAdminWeb.AppComponents do
     ~H"""
     <.dm_simple_appbar title={assigns[:page_title]} class="h-14 text-white bg-primary ">
       <:logo>
-        <button
-          class="btn btn-ghost btn-sm app-menu-toggle-btn"
-          phx-click={
-            JS.toggle_class("hidden", to: ".app-menu-toggle-btn")
-            |> JS.remove_class("hidden", to: "#app-menu-card")
-          }
-        >
-          <.dm_mdi name="menu" class="w-8 h-8" />
-        </button>
-        <button
-          class="btn btn-ghost btn-sm app-menu-toggle-btn hidden"
-          phx-click={
-            JS.toggle_class("hidden", to: ".app-menu-toggle-btn")
-            |> JS.add_class("hidden", to: "#app-menu-card")
-          }
-        >
-          <.dm_mdi name="menu-open" class="w-8 h-8" />
-        </button>
-        <div
-          id="app-menu-card"
-          class="fixed top-14 left-0 w-full h-full hidden z-[1000]"
-          phx-click-away={
-            JS.toggle_class("hidden", to: ".app-menu-toggle-btn") |> JS.add_class("hidden")
-          }
-        >
-          <.local_app_menus />
+        <div class="dropdown">
+          <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
+            <.dm_mdi name="menu" class="w-8 h-8" />
+          </div>
+          <div
+            tabindex="0"
+            class="dropdown-content z-[1000] w-[calc(100vw*0.75)] p-2 shadow"
+          >
+            <.local_app_menus />
+          </div>
         </div>
         <.link navigate="/">
           <logo-gsmlg-dev class="h-12" />
