@@ -63,9 +63,9 @@ defmodule GSMLGAdminWeb.Router do
 
     live("/blogs", BlogLive.Index, :index)
     live("/blogs/import", BlogLive.Import, :import)
-    live("/blogs/new", BlogLive.Modify, :new)
-    live("/blogs/:id", BlogLive.Show, :show)
-    live("/blogs/:id/edit", BlogLive.Modify, :edit)
+    live("/blogs/new", BlogLive.Index, :new)
+    live("/blogs/:id", BlogLive.Index, :show)
+    live("/blogs/:id/edit", BlogLive.Index, :edit)
 
     live("/users", UserLive.Index, :index)
     live("/users/new", UserLive.Index, :new)
