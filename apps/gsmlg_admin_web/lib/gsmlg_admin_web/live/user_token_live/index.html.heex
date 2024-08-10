@@ -1,46 +1,144 @@
-<h3 class="mx-4 my-2 text-3xl text-blue-600">List User Tokens</h3>
+<div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
+  <div class="mx-4 my-2 flex flex-row justify-end"></div>
+  <.dm_table data={@user_tokens}>
+    <:col :let={t} label="Aud">
+      <%= t.aud %>
+    </:col>
+    <:col :let={t} label="Type">
+      <%= t.typ %>
+    </:col>
+    <:col :let={t} label="Issuer">
+      <%= t.iss %>
+    </:col>
+    <:col :let={t} label="Sub">
+      <%= t.sub %>
+    </:col>
+    <:col :let={t} label="Exp">
+      <%= t.exp |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
+    </:col>
+    <:col :let={t} label="Nfb">
+      <%= t.claims |> Map.get("nbf") |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
+    </:col>
 
-<.dm_table data={@user_tokens}>
-  <:col :let={t} label="Aud">
-    <%= t.aud %>
-  </:col>
-  <:col :let={t} label="Type">
-    <%= t.typ %>
-  </:col>
-  <:col :let={t} label="Issuer">
-    <%= t.iss %>
-  </:col>
-  <:col :let={t} label="Sub">
-    <%= t.sub %>
-  </:col>
-  <:col :let={t} label="Exp">
-    <%= t.exp |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
-  </:col>
-  <:col :let={t} label="Nfb">
-    <%= t.claims |> Map.get("nbf") |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
-  </:col>
+    <:col :let={t} label="">
+      <div class="flex gap-2">
+        <.link class="btn btn-sm btn-info" patch={~p"/user_tokens/#{t.jti}"}>
+          Show
+        </.link>
+        <.link class="btn btn-sm btn-warning" patch={~p"/user_tokens/#{t.jti}/edit"}>
+          Edit
+        </.link>
+        <.link
+          class="btn btn-sm btn-error"
+          phx-click={JS.push("delete", value: %{id: t.jti})}
+          data-confirm="Are you sure?"
+        >
+          Delete
+        </.link>
+      </div>
+    </:col>
+  </.dm_table>
+</div>
 
-  <:col :let={t} label="">
-    <div class="flex gap-2">
-      <.link
-        class="rounded-lg bg-green-600 hover:bg-green-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
-        navigate={~p"/user_tokens/#{t.jti}"}
-      >
-        Show
-      </.link>
-      <.link
-        class="rounded-lg bg-blue-600 hover:bg-blue-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
-        navigate={~p"/user_tokens/#{t.jti}/edit"}
-      >
-        Edit
-      </.link>
-      <.link
-        class="rounded-lg bg-red-600 hover:bg-red-400 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
-        phx-click={JS.push("delete", value: %{id: t.jti})}
-        data-confirm="Are you sure?"
-      >
-        Delete
-      </.link>
+<div
+  :if={@live_action == :new || @live_action == :edit}
+  class="container flex flex-col gap-2 mt-4 w-full"
+>
+  <h3 class="mx-4 my-2 text-3xl text-primary"><%= @user_token.aud %></h3>
+
+  <div class="mx-4 my-2 flex gap-2">
+    <.link class="btn btn-sm btn-primary" patch={~p"/user_tokens"}>
+      All User Token List
+    </.link>
+
+    <.link class="btn btn-sm btn-info" patch={~p"/user_tokens/#{@user_token.jti}"}>
+      Show User token
+    </.link>
+  </div>
+
+  <div class="mx-4 my-2">
+    <.dm_form
+      :let={f}
+      for={@changeset}
+      id="user-form"
+      class="flex flex-col gap-4"
+      method={:post}
+      phx-change="validate"
+      phx-submit="save"
+    >
+      <.dm_input field={f[:jti]} type="text" label="Jti" />
+      <.dm_input field={f[:aud]} type="text" label="Aud" />
+      <:actions>
+        <button class="btn btn-sm btn-primary w-full" phx-disable-with="Saving...">Save</button>
+      </:actions>
+    </.dm_form>
+  </div>
+</div>
+
+<div :if={@live_action == :show} class="container flex flex-col gap-2 mt-4 w-full">
+  <div class="mx-4 my-2 flex gap-2">
+    <.link class="btn btn-sm btn-primary" patch={~p"/user_tokens"}>
+      All User Token List
+    </.link>
+
+    <.link class="btn btn-sm btn-warning" patch={~p"/user_tokens/#{@user_token.jti}/edit"}>
+      Edit User Token
+    </.link>
+  </div>
+
+  <div class="mx-8 my-2">
+    <div class="flex flex-row">
+      <div class="flex-1 text-primary">
+        aud
+      </div>
+      <div class="flex-1">
+        <%= Map.get(@user_token, :aud) %>
+      </div>
     </div>
-  </:col>
-</.dm_table>
+    <div class="flex flex-row">
+      <div class="flex-1 text-primary">
+        claims
+      </div>
+      <div class="flex-1">
+        <json-viewer indent="2">
+          <%= Map.get(@user_token, :claims) |> Jason.encode!() %>
+        </json-viewer>
+      </div>
+    </div>
+    <div class="flex flex-row">
+      <div class="flex-1 text-primary">
+        exp
+      </div>
+      <div class="flex-1">
+        <%= Map.get(@user_token, :exp) |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
+      </div>
+    </div>
+    <div class="flex flex-row">
+      <div class="flex-1 text-primary">
+        nbf
+      </div>
+      <div class="flex-1">
+        <%= Map.get(@user_token, :claims)
+        |> Map.get("nbf")
+        |> DateTime.from_unix!()
+        |> DateTime.to_iso8601() %>
+      </div>
+    </div>
+    <div class="flex flex-row">
+      <div class="flex-1 text-primary">
+        iss
+      </div>
+      <div class="flex-1">
+        <%= Map.get(@user_token, :iss) %>
+      </div>
+    </div>
+    <div class="flex flex-row">
+      <div class="flex-1 text-primary">
+        jwt
+      </div>
+      <div class="flex-1">
+        <jwt-viewer token={Map.get(@user_token, :jwt)} />
+      </div>
+    </div>
+  </div>
+</div>

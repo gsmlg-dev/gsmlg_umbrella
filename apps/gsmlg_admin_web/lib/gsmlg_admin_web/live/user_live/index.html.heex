@@ -1,10 +1,6 @@
-
-<div class="container flex flex-col gap-2 mt-4 w-full">
+<div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
   <div class="mx-4 my-2 flex flex-row justify-end">
-    <.link
-      class="btn btn-sm btn-primary"
-      navigate={~p"/users/new"}
-    >
+    <.link class="btn btn-sm btn-primary" patch={~p"/users/new"}>
       Add User
     </.link>
   </div>
@@ -27,16 +23,10 @@
 
     <:col :let={u} label="">
       <div class="flex gap-2">
-        <.link
-          class="btn btn-sm btn-info"
-          navigate={~p"/users/#{u.id}"}
-        >
+        <.link class="btn btn-sm btn-info" patch={~p"/users/#{u.id}"}>
           Show
         </.link>
-        <.link
-          class="btn btn-sm btn-warning"
-          navigate={~p"/users/#{u.id}/edit"}
-        >
+        <.link class="btn btn-sm btn-warning" patch={~p"/users/#{u.id}/edit"}>
           Edit
         </.link>
         <.link
@@ -49,4 +39,59 @@
       </div>
     </:col>
   </.dm_table>
+</div>
+
+<div
+  :if={@live_action == :new || @live_action == :edit}
+  class="container flex flex-col gap-2 mt-4 w-full"
+>
+  <div class="mx-4 my-2 flex gap-2">
+    <.link class="btn btn-sm btn-primary" patch={~p"/users"}>
+      All User List
+    </.link>
+    <%= if !is_nil(@user.id) do %>
+      <.link class="btn btn-sm btn-info" patch={~p"/users/#{@user.id}"}>
+        Show User
+      </.link>
+    <% end %>
+  </div>
+
+  <div class="mx-4 my-2">
+    <.simple_form :let={f} for={@changeset} id="user-form" method={:post} phx-submit="save">
+      <.input field={f[:email]} type="text" label="Email" />
+      <.input field={f[:username]} type="text" label="Username" />
+      <.input field={f[:name]} type="text" label="Name" />
+      <.input field={f[:portrait]} type="text" label="Portrait" />
+      <.input field={f[:otp_token]} type="text" label="TOTP Token" />
+      <.input field={f[:is_2fa_enabled]} type="checkbox" label="2FA" />
+      <:actions>
+        <.button class="w-full" phx-disable-with="Saving...">Save</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+</div>
+
+<div :if={@live_action == :show} class="container flex flex-col gap-2 mt-4 w-full">
+  <div class="mx-4 my-2 flex gap-2">
+    <.link class="btn btn-sm btn-primary" patch={~p"/users"}>
+      All User List
+    </.link>
+
+    <.link class="btn btn-sm btn-warning" patch={~p"/users/#{@user.id}/edit"}>
+      Edit User
+    </.link>
+  </div>
+
+  <div class="mx-8 my-2">
+    <%= for name <- Map.keys(@user) do %>
+      <div class="flex flex-row">
+        <div class="flex-1 text-blue-400">
+          <%= name %>
+        </div>
+        <div class="flex-1">
+          <%= Map.get(@user, name) |> inspect %>
+        </div>
+      </div>
+    <% end %>
+  </div>
 </div>

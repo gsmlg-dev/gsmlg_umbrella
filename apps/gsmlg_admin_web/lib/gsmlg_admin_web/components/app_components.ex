@@ -19,10 +19,7 @@ defmodule GSMLGAdminWeb.AppComponents do
           <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
             <.dm_mdi name="menu" class="w-8 h-8" />
           </div>
-          <div
-            tabindex="0"
-            class="dropdown-content z-[1000] w-[calc(100vw*0.75)] p-2 shadow"
-          >
+          <div tabindex="0" class="dropdown-content z-[1000] w-[calc(100vw*0.75)] p-2 shadow">
             <.local_app_menus />
           </div>
         </div>

@@ -68,14 +68,14 @@ defmodule GSMLGAdminWeb.Router do
     live("/blogs/:id/edit", BlogLive.Modify, :edit)
 
     live("/users", UserLive.Index, :index)
-    live("/users/new", UserLive.Modify, :new)
-    live("/users/:id", UserLive.Show, :show)
-    live("/users/:id/edit", UserLive.Modify, :edit)
+    live("/users/new", UserLive.Index, :new)
+    live("/users/:id", UserLive.Index, :show)
+    live("/users/:id/edit", UserLive.Index, :edit)
 
     live("/user_tokens", UserTokenLive.Index, :index)
-    live("/user_tokens/new", UserTokenLive.Modify, :new)
-    live("/user_tokens/:id/edit", UserTokenLive.Modify, :edit)
-    live("/user_tokens/:id", UserTokenLive.Show, :show)
+    live("/user_tokens/new", UserTokenLive.Index, :new)
+    live("/user_tokens/:id/edit", UserTokenLive.Index, :edit)
+    live("/user_tokens/:id", UserTokenLive.Index, :show)
 
     live("/command_platform", CommandPlatformLive.Index, :index)
 

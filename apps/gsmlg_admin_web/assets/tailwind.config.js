@@ -8,7 +8,8 @@ module.exports = {
     "./js/**/*.js",
     "../lib/components/**/*.*ex",
     "../lib/*_web.ex",
-    "../lib/*_web/**/*.*ex"
+    "../lib/*_web/**/*.*ex",
+    "../../../deps/phoenix_duskmoon/lib/**/*.*ex",
   ],
   theme: {
     extend: {
@@ -19,8 +20,7 @@ module.exports = {
   },
   plugins: [
     require('daisyui'),
-    require("@tailwindcss/forms"),
-    plugin(({ addVariant }) => addVariant("phx-no-feedback", [".phx-no-feedback&", ".phx-no-feedback &"])),
+    require("@tailwindcss/typography"),
     plugin(({ addVariant }) => addVariant("phx-click-loading", [".phx-click-loading&", ".phx-click-loading &"])),
     plugin(({ addVariant }) => addVariant("phx-submit-loading", [".phx-submit-loading&", ".phx-submit-loading &"])),
     plugin(({ addVariant }) => addVariant("phx-change-loading", [".phx-change-loading&", ".phx-change-loading &"]))
