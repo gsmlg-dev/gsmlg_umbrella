@@ -83,6 +83,9 @@ defmodule GSMLGAdminWeb.Router do
 
     live("/github", GithubLive.Index, :index)
 
+    live("/aws/route53/hosted_zones", Route53Live.Index, :list_zones)
+    live("/aws/route53/hosted_zones/:id/records", Route53Live.Index, :list_records)
+
     import Phoenix.LiveDashboard.Router
 
     live_dashboard("/live_dashboard", metrics: GSMLGAdminWeb.Telemetry)

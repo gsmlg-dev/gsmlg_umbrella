@@ -1,0 +1,78 @@
+<div 
+  :if={@live_action == :list_zones} 
+  class="container flex flex-col gap-2 mt-4 w-full"
+>
+  <h3>
+    Hosted Zones
+  </h3>
+  <.dm_table data={@hosted_zones}>
+    <:col :let={zone} label="Id">
+      <%= Map.get(zone, "Id") %>
+    </:col>
+    <:col :let={zone} label="Name">
+      <%= Map.get(zone, "Name") %>
+    </:col>
+    <:col :let={zone} label="Record Count">
+      <%= Map.get(zone, "ResourceRecordSetCount") %>
+    </:col>
+    <:col :let={zone} label="Comment">
+      <%= get_in(zone, ["Config", "Comment"]) %>
+    </:col>
+
+    <:col :let={zone} label="">
+      <div class="flex gap-2">
+        <.link class="btn btn-sm btn-info" patch={~p"/aws/route53/hosted_zones/#{case Map.get(zone, "Id") do
+          "/hostedzone/" <> id -> id
+          id -> id
+        end}/records"}>
+          List Records
+        </.link>
+      </div>
+    </:col>
+  </.dm_table>
+</div>
+
+<div :if={@live_action == :list_records} class="container flex flex-col gap-2 mt-4 w-full">
+  <div class="mx-4 my-2 flex gap-2">
+    <.link class="btn btn-sm btn-primary" patch={~p"/aws/route53/hosted_zones"}>
+      <%= "<<" %>
+    </.link>
+    <h3>
+      Hosted Zones Records
+    </h3>
+  </div>
+
+  <div class="mx-8 my-2 flex flex-col gap-4">
+    <.dm_table data={@resource_record_sets}>
+      <:col :let={rr} label="Name">
+        <%= Map.get(rr, "Name") %>
+      </:col>
+      <:col :let={rr} label="TTL">
+        <%= Map.get(rr, "TTL") %>
+      </:col>
+      <:col :let={rr} label="Type">
+        <%= Map.get(rr, "Type") %>
+      </:col>
+      <:col :let={rr} label="RData">
+        <%= 
+          case get_in(rr, ["ResourceRecords", "ResourceRecord"]) do
+            %{"Value" => value} -> value
+            list when is_list(list) ->
+              {:safe, list |> Enum.map(&(Map.get(&1, "Value"))) |> Enum.map(fn(n) ->
+                ~s(<div class="">#{n}</div>)
+              end)}
+          end
+        %>
+      </:col>
+
+      <:col :let={rr} label="">
+
+      </:col>
+    </.dm_table>
+    <div :if={!is_nil(@next_token)}>
+      <div class="flex gap-2">
+        <button class="btn btn-sm btn-block	btn-primary" phx-click={JS.push("next_token", value: %{"next_records" => Tuple.to_list(@next_token)})}>Next</button>
+      </div>
+    </div>
+  </div>
+</div>
