@@ -60,6 +60,12 @@ defmodule GSMLGAdminWeb.AppComponents do
                    {"Commander Management", "/command_platform"},
                    {"Mnesia Management", "/mnesia"}
                  ]},
+                {"AWS",
+                 [
+                   {"Route53", [
+                    {"Hosted Zones", "/aws/route53/hosted_zones"},
+                   ]},
+                 ]},
                 {"Dashboard",
                  [
                    {"Live Dashboard", "/live_dashboard"}
@@ -72,9 +78,30 @@ defmodule GSMLGAdminWeb.AppComponents do
               <h2 class="text-2xl"><%= title %></h2>
             </header>
             <div class="grid grid-flow-col auto-cols-max gap-4">
-              <.link :for={{name, url} <- list} class="btn btn-primary" navigate={url}>
+              <.link
+                :for={{name, url} <- list}
+                :if={is_binary(url)}
+                class="btn btn-primary"
+                navigate={url}
+              >
                 <span><%= name %></span>
               </.link>
+              <div
+                :for={{sub_title, sub_list} <- list}
+                :if={is_list(sub_list)}
+                class="flex flex-col items-center gap-2 ml-8"
+              >
+                <h3 class="text-xl opacity-70"><%= sub_title %></h3>
+                <div class="grid grid-flow-col auto-cols-max gap-4">
+                  <.link
+                    :for={{sub_name, sub_url} <- sub_list}
+                    class="btn btn-primary"
+                    navigate={sub_url}
+                  >
+                    <span><%= sub_name %></span>
+                  </.link>
+                </div>
+              </div>
             </div>
           </section>
         </div>

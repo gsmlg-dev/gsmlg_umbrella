@@ -1,12 +1,11 @@
 defmodule GSMLGAdminWeb.Route53Live.Index do
-  use GSMLGAdminWeb, :user_live_view
+  use GSMLGAdminWeb, :aws_live_view
 
-  alias GSMLG.AWS
   alias GSMLG.AWS.Route53
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, active_menu: "aws")}
+    {:ok, assign(socket, active_menu: "route53_hosted_zone_list")}
   end
 
   @impl true
