@@ -9,6 +9,7 @@ defmodule GSMLG.Application do
   def start(_type, _args) do
     children = [
       {GSMLG.SimpleCache, []},
+      {Cachex, name: :aws_cache},
       # Start the Ecto repository
       GSMLG.Repo,
       # Start the PubSub system

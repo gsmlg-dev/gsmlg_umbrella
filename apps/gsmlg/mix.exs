@@ -43,9 +43,11 @@ defmodule GSMLG.MixProject do
       {:jason, "~> 1.2"},
       {:swoosh, "~> 1.3"},
       {:httpoison, "~> 2.0"},
+      {:cachex, "~> 3.6"},
       {:gsmlg_mnesia, in_umbrella: true},
       {:gsmlg_openai, in_umbrella: true},
       {:aws, "~> 1.0"},
+      {:hackney, "~> 1.18"},
       {:tokenizers, "~> 0.5"},
       {:rustler, ">= 0.0.0", optional: true},
       {:absinthe, "~> 1.7.0"}

@@ -1,39 +1,44 @@
 defmodule GSMLG.AWS.Route53 do
   def list_hosted_zones() do
-    access_key_id = System.get_env("AWS_ACCESS_KEY_ID")
-    secret_access_key = System.get_env("AWS_SECRET_ACCESS_KEY")
-    region = System.get_env("AWS_REGION")
-    client = AWS.Client.create(access_key_id, secret_access_key, region)
+    {:ok, true} = Cachex.exists?(:aws_cache, "route53 hosted_zones")
+    {:ok, {hosted_zones, next}} =  Cachex.get(:aws_cache, "route53 hosted_zones")
 
-    {hosted_zones, next} =
-      case client |> AWS.Route53.list_hosted_zones(nil, nil, nil, 10) do
-        {:ok,
-         %{
-           "ListHostedZonesResponse" => %{
-             "HostedZones" => %{"HostedZone" => hosted_zones},
-             "IsTruncated" => "false",
-             "MaxItems" => _max_items
-           }
-         }, _resp} ->
-          {hosted_zones, nil}
+    {hosted_zones, next}
+  rescue
+    _ ->
+      client = get_client()
 
-        {:ok,
+      {hosted_zones, next} =
+        case client |> AWS.Route53.list_hosted_zones(nil, nil, nil, 10) do
+          {:ok,
           %{
             "ListHostedZonesResponse" => %{
               "HostedZones" => %{"HostedZone" => hosted_zones},
-              "IsTruncated" => "true",
-              "MaxItems" => _max_items,
-              "NextMarker" => next,
+              "IsTruncated" => "false",
+              "MaxItems" => _max_items
             }
           }, _resp} ->
-           {hosted_zones, next}
+            {hosted_zones, nil}
 
-        {:error, error} ->
-          IO.inspect(error)
-          {[], nil}
-      end
+          {:ok,
+            %{
+              "ListHostedZonesResponse" => %{
+                "HostedZones" => %{"HostedZone" => hosted_zones},
+                "IsTruncated" => "true",
+                "MaxItems" => _max_items,
+                "NextMarker" => next,
+              }
+            }, _resp} ->
+            {hosted_zones, next}
 
-    {hosted_zones, next}
+          {:error, error} ->
+            IO.inspect(error)
+            {[], nil}
+        end
+
+      {:ok, true} = Cachex.put(:aws_cache, "route53 hosted_zones", {hosted_zones, next})
+
+      {hosted_zones, next}
   end
 
   @doc """
@@ -67,10 +72,15 @@ defmodule GSMLG.AWS.Route53 do
   ```
   """
   def list_resource_record_sets(hosted_zone_id, start_name \\ nil, start_type \\ nil) do
-    access_key_id = System.get_env("AWS_ACCESS_KEY_ID")
-    secret_access_key = System.get_env("AWS_SECRET_ACCESS_KEY")
-    region = System.get_env("AWS_REGION")
-    client = AWS.Client.create(access_key_id, secret_access_key, region)
+    cache_key = "route53 resource_record_sets " <> "#{hosted_zone_id} #{start_name} #{start_type}"
+
+    {:ok, true} = Cachex.exists?(:aws_cache, cache_key)
+    {:ok, {resource_record_sets, next}} = Cachex.get(:aws_cache, cache_key)
+
+    {resource_record_sets, next}
+  rescue
+    _ ->
+    client = get_client()
 
     # list_resource_record_sets(client, hosted_zone_id, max_items \\ nil, start_record_identifier \\ nil, start_record_name \\ nil, start_record_type \\ nil, options \\ [])
     {resource_record_sets, next} =
@@ -102,6 +112,32 @@ defmodule GSMLG.AWS.Route53 do
           {[], nil}
       end
 
+    cache_key = "route53 resource_record_sets " <> "#{hosted_zone_id} #{start_name} #{start_type}"
+    {:ok, true} = Cachex.put(:aws_cache, cache_key, {resource_record_sets, next})
+
     {resource_record_sets, next}
+  end
+
+  def change_resource_record_sets(hosted_zone_id, input, options \\ []) do
+    {:ok, _, _} = get_client() |> AWS.Route53.change_resource_record_sets(hosted_zone_id, input, options)
+    {:ok, key_list} = Cachex.keys(:aws_cache)
+    key_list |> Enum.each(fn(key) ->
+        case key do
+          "route53 resource_record_sets " <> zone_info ->
+            if String.starts_with?(zone_info, "#{hosted_zone_id}") do
+              Cachex.del(:aws_cache, key)
+            end
+          _ -> nil
+        end
+      end)
+    :ok
+  end
+
+  defp get_client() do
+    access_key_id = System.get_env("AWS_ACCESS_KEY_ID")
+    secret_access_key = System.get_env("AWS_SECRET_ACCESS_KEY")
+    region = System.get_env("AWS_REGION")
+    client = AWS.Client.create(access_key_id, secret_access_key, region)
+    client
   end
 end
