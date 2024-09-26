@@ -17,42 +17,44 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
   def handle_event("next_token", %{"next_records" => next_records}, socket) do
     name = next_records |> Enum.at(0)
     type = next_records |> Enum.at(1)
+    hosted_zone_id = socket.assigns.hosted_zone_id
+    old_resource_record_sets = socket.assigns.resource_record_sets.result.list
 
-    {resource_record_sets, next} = Route53.list_resource_record_sets(socket.assigns.hosted_zone_id, name, type)
-    # IO.inspect({"next_token", resource_record_sets, next})
     socket = socket
-    |> assign(:resource_record_sets, socket.assigns.resource_record_sets ++ resource_record_sets)
-    |> assign(:next_token, next)
+    |> assign_async([:resource_record_sets], fn ->
+      {resource_record_sets, next} = Route53.list_resource_record_sets(hosted_zone_id, name, type)
+      {:ok, %{resource_record_sets: %{list: old_resource_record_sets ++ resource_record_sets, next_token: next}}}
+    end)
 
     {:noreply, socket}
   end
 
   defp apply_action(socket, :list_zones, _params) do
     socket
-    |> assign(:page_title, "Route53 Zones")
+    |> assign(:page_title, "AWS Route53")
     |> apply_hosted_zones()
   end
 
   defp apply_action(socket, :list_records, %{"id" => id} = _params) do
     socket
-    |> assign(:page_title, "Route53 Records")
+    |> assign(:page_title, "AWS Route53")
     |> assign(:hosted_zone_id, id)
     |> apply_resource_record_sets()
   end
 
   defp apply_hosted_zones(socket) do
-    {zones, next} = Route53.list_hosted_zones()
-
     socket
-    |> assign(:hosted_zones, zones)
-    |> assign(:next_token, next)
+    |> assign_async([:hosted_zones], fn ->
+      {zones, next} = Route53.list_hosted_zones()
+      {:ok, %{hosted_zones: %{list: zones, next_token: next}}}
+    end)
   end
 
   defp apply_resource_record_sets(socket) do
-    {resource_record_sets, next} = Route53.list_resource_record_sets(socket.assigns.hosted_zone_id)
-
     socket
-    |> assign(:resource_record_sets, resource_record_sets)
-    |> assign(:next_token, next)
+    |> assign_async([:resource_record_sets], fn ->
+      {resource_record_sets, next} = Route53.list_resource_record_sets(socket.assigns.hosted_zone_id)
+      {:ok, %{resource_record_sets: %{list: resource_record_sets, next_token: next}}}
+    end)
   end
 end
