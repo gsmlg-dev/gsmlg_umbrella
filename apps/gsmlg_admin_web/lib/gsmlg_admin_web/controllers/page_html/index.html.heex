@@ -1,40 +1,40 @@
 <div class="flex flex-col gap-12">
   <section class="flex flex-col gap-4">
-    <header class="flex items-center justify-center">
+    <header class="flex items-center">
       <h1 class="text-2xl">Content Overview</h1>
     </header>
-    <div class="flex flex-row items-center justify-center gap-4">
+    <div class="flex flex-row items-center gap-4">
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/users"}>User List</.dm_link>
-        <div class="flex flex-row gap-2 justify-center items-center">
+        <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">User Count</label>
           <span class="text-cyan-600"><%= @data.user_count %></span>
         </div>
       </div>
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/user_tokens"}>User Token List</.dm_link>
-        <div class="flex flex-row gap-2 justify-center items-center">
+        <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">Logined User Count</label>
           <span class="text-cyan-600"><%= @data.token_count %></span>
         </div>
       </div>
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/blogs"}>Blog List</.dm_link>
-        <div class="flex flex-row gap-2 justify-center items-center">
+        <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">Blog Count</label>
           <span class="text-cyan-600"><%= @data.blog_count %></span>
         </div>
       </div>
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/openai/chat"}>ChatGPT</.dm_link>
-        <div class="flex flex-row gap-2 justify-center items-center">
+        <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">ChatGPT</label>
           <span class="text-cyan-600">With 6 Scenarios</span>
         </div>
       </div>
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/github"}>Github</.dm_link>
-        <div class="flex flex-row gap-2 justify-center items-center">
+        <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">Github</label>
           <span class="text-cyan-600">Github Management</span>
         </div>
@@ -42,14 +42,14 @@
     </div>
   </section>
 
-  <section class="flex flex-col justify-center items-center gap-4">
-    <header class="flex items-center justify-center">
+  <section class="flex flex-col gap-4">
+    <header class="flex items-center">
       <h1 class="text-2xl">Cluster Overview</h1>
     </header>
-    <div class="flex flex-row items-center justify-center gap-4">
+    <div class="flex flex-row items-center gap-4">
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/node_management"}>Node Management</.dm_link>
-        <div class="flex flex-row gap-2 justify-center items-center">
+        <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">Node Count</label>
           <span class="text-cyan-600"><%= Node.list() |> length %></span>
         </div>
@@ -57,11 +57,11 @@
     </div>
   </section>
 
-  <section class="flex flex-col justify-center items-center gap-4">
-    <header class="flex items-center justify-center">
+  <section class="flex flex-col gap-4">
+    <header class="flex items-center">
       <h1 class="text-2xl">Command Platform</h1>
     </header>
-    <div class="flex flex-row items-center justify-center gap-4">
+    <div class="flex flex-row items-center gap-4">
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/command_platform"}>Commander Management</.dm_link>
       </div>
@@ -71,11 +71,11 @@
     </div>
   </section>
 
-  <section class="flex flex-col justify-center items-center gap-4">
-    <header class="flex items-center justify-center">
+  <section class="flex flex-col gap-4">
+    <header class="flex items-center">
       <h1 class="text-2xl">Dashboard</h1>
     </header>
-    <div class="flex flex-row items-center justify-center gap-4">
+    <div class="flex flex-row items-center gap-4">
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/live_dashboard"}>Live Dashboard</.dm_link>
       </div>

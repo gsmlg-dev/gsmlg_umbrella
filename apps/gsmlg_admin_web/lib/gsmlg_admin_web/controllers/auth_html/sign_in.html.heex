@@ -1,6 +1,6 @@
 <div class="flex flex-col">
-  <h3 class="text-3xl text-center text-cyan-400">Sign in</h3>
-  <.simple_form
+  <h3 class="text-3xl text-center text-primary">Sign in</h3>
+  <.dm_form
     :let={f}
     for={@changeset}
     id="user-form"
@@ -9,17 +9,17 @@
     phx-submit="save"
   >
     <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-    <.input field={f[:username]} type="text" label="Username" />
-    <.input field={f[:password]} type="password" label="Password" />
+    <.dm_input field={f[:username]} type="text" label="Username" />
+    <.dm_input field={f[:password]} type="password" label="Password" />
     <:actions>
-      <.button class="w-full" phx-disable-with="Saving...">Sign in</.button>
+      <button class="btn btn-primary btn-block" phx-disable-with="Saving...">Sign in</button>
     </:actions>
-  </.simple_form>
+  </.dm_form>
 
-  <hr class="my-12" />
+  <div class="divider">OR</div>
 
   <.link
-    class="w-full rounded-lg bg-blue-900 hover:bg-blue-700 py-2 px-3 text-sm font-semibold leading-6 text-center text-white active:text-white/80"
+    class="btn btn-info btn-block"
     navigate={~p"/sign_up"}
   >
     Sign up

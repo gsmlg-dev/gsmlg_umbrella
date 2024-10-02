@@ -89,9 +89,9 @@ defmodule GSMLGAdminWeb.AppComponents do
               <div
                 :for={{sub_title, sub_list} <- list}
                 :if={is_list(sub_list)}
-                class="flex flex-col items-center gap-2 ml-8"
+                class="flex flex-col items-start gap-2 ml-8"
               >
-                <h3 class="text-xl opacity-70"><%= sub_title %></h3>
+                <h3 class="text-xl text-left opacity-70"><%= sub_title %></h3>
                 <div class="grid grid-flow-col auto-cols-max gap-4">
                   <.link
                     :for={{sub_name, sub_url} <- sub_list}

@@ -57,17 +57,17 @@
   </div>
 
   <div class="mx-4 my-2">
-    <.simple_form :let={f} for={@changeset} id="user-form" method={:post} phx-submit="save">
-      <.input field={f[:email]} type="text" label="Email" />
-      <.input field={f[:username]} type="text" label="Username" />
-      <.input field={f[:name]} type="text" label="Name" />
-      <.input field={f[:portrait]} type="text" label="Portrait" />
-      <.input field={f[:otp_token]} type="text" label="TOTP Token" />
-      <.input field={f[:is_2fa_enabled]} type="checkbox" label="2FA" />
+    <.dm_form :let={f} for={@changeset} id="user-form" method={:post} phx-submit="save">
+      <.dm_input field={f[:email]} type="text" label="Email" />
+      <.dm_input field={f[:username]} type="text" label="Username" />
+      <.dm_input field={f[:name]} type="text" label="Name" />
+      <.dm_input field={f[:portrait]} type="text" label="Portrait" />
+      <.dm_input field={f[:otp_token]} type="text" label="TOTP Token" />
+      <.dm_input field={f[:is_2fa_enabled]} type="toggle" label="2FA" />
       <:actions>
         <.button class="w-full" phx-disable-with="Saving...">Save</.button>
       </:actions>
-    </.simple_form>
+    </.dm_form>
   </div>
 </div>
 
