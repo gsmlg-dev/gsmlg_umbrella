@@ -22,6 +22,11 @@ defmodule GSMLG.Umbrella.MixProject do
           ]
         ],
         gsmlg_umbrella_app: [
+          applications: [
+            gsmlg: :permanent,
+            gsmlg_admin_web: :permanent,
+            gsmlg_web: :permanent
+          ],
           steps: [:assemble, &Burrito.wrap/1],
           burrito: [
             targets: [
