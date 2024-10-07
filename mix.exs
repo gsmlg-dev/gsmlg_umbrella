@@ -21,7 +21,7 @@ defmodule GSMLG.Umbrella.MixProject do
             gsmlg_web: :permanent
           ]
         ],
-        gsmlg_umbrella_app: [
+        gsmlg_umbrella_standalone: [
           applications: [
             gsmlg: :permanent,
             gsmlg_admin_web: :permanent,

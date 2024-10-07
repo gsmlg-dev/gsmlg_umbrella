@@ -70,6 +70,9 @@
           pkgs.nodejs_20
 
           pkgs.nodePackages.pnpm
+
+          pkgs.zig
+          pkgs.p7zip
         ];
 
         shellHook = ''

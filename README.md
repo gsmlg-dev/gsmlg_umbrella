@@ -12,10 +12,22 @@ Publish compiled code to github release.
 
 - gsmlg_web
 
-Web build needs to install nodejs.
+- gsmlg_admin_web
+
+- gsmlg_commander
 
 ## Database
 
 Server need mariadb as a service.
 
 Create db scripts
+
+# Build
+
+I'm using nix develop shell to build package.
+
+## Build standalone binary
+
+```shell
+MIX_ENV=prod BURRITO_TARGET=linux_amd64 mix release gsmlg_umbrella_standalone
+```
