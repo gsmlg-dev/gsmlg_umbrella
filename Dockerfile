@@ -5,8 +5,8 @@ ARG MIX_ENV=prod
 ARG NAME=gsmlg
 ARG RELEASE_VERSION=1.0.0
 
-ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm/
-ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm/
+ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm
+ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
 COPY . /build
 
@@ -14,6 +14,8 @@ WORKDIR /build
 
 RUN <<EOF
 apk add --no-cache nodejs curl git npm
+mix local.rebar --force
+mix local.hex --force
 mix do deps.get, compile
 cd apps/gsmlg_web && npm install --prefix assets && mix assets.deploy && cd ../..
 cd apps/gsmlg_admin_web && npm install --prefix assets && mix assets.deploy && cd ../..
