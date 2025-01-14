@@ -1,0 +1,316 @@
+defmodule GSMLG.Logger.Formatters.Elastic do
+  @moduledoc """
+  Custom Erlang's [`:logger` formatter](https://www.erlang.org/doc/apps/kernel/logger_chapter.html#formatters) which
+  writes logs in a JSON-structured format that conforms to the Elastic Common Schema (ECS), so it can be consumed by
+  ElasticSearch, LogStash, FileBeat and Kibana.
+
+  ## Formatter Configuration
+
+  For list of options see "Shared options" in `GSMLG.Logger`.
+
+  ## Metadata
+
+  For list of other well-known metadata keys see "Metadata" in `GSMLG.Logger`.
+
+  Any custom metadata that you set with `Logger.metadata/1` will be included top-level in the log entry.
+
+  ## Examples
+
+  Example of an info log (`Logger.info("Hello")` without any metadata):
+
+  ```elixir
+  %{
+    "@timestamp" => "2024-05-17T16:20:00.000Z",
+    "ecs.version" => "8.11.0",
+    "log.level" => "info",
+    "log.logger" => "Elixir.GSMLG.Logger.Formatters.ElasticTest",
+    "log.origin" => %{
+      "file.name" => "/app/gsmlg_logger/test/formatters/elastic_test.exs",
+      "file.line" => 18,
+      "function" => "test logs an LogEntry of every level/1"
+    },
+    "message" => "Hello"
+  }
+  ```
+
+  Example of logging by keywords or by map (Logger.info(%{message: "Hello", foo: :bar, fiz: %{buz: "buz"}})).
+  The keywords or map items are added to the top-level of the log entry:
+
+  ```elixir
+  %{
+    "@timestamp" => "2024-05-17T16:20:00.000Z",
+    "ecs.version" => "8.11.0",
+    "fiz" => %{"buz" => "buz"},
+    "foo" => "bar",
+    "log.level" => "debug",
+    "log.logger" => "Elixir.GSMLG.Logger.Formatters.ElasticTest",
+    "log.origin" => %{
+      "file.line" => 68,
+      "file.name" => "/app/gsmlg_logger/test/formatters/elastic_test.exs",
+      "function" => "test logs an LogEntry with a map payload containing message/1"
+    },
+    "message" => "Hello"
+  }
+  ```
+
+  Example of logging due to raising an exception (`raise RuntimeError`):
+
+  ```elixir
+  %{
+    "@timestamp" => "2024-05-17T16:20:00.000Z",
+    "ecs.version" => "8.11.0",
+    "error.message" => "runtime error",
+    "error.stack_trace" => "** (RuntimeError) runtime error\n    test/gsmlg_logger/formatters/elastic_test.exs:191: anonymous fn/0 in GSMLG.Logger.Formatters.ElasticTest.\"test logs exceptions\"/1\n",
+    "error.type" => "Elixir.RuntimeError",
+    "log.level" => "error",
+    "message" => "Process #PID<0.322.0> raised an exception\n** (RuntimeError) runtime error\n    test/gsmlg_logger/formatters/elastic_test.exs:191: anonymous fn/0 in GSMLG.Logger.Formatters.ElasticTest.\"test logs exceptions\"/1"
+  }
+  ```
+
+  Note that if you raise an exception that contains an `id` or a `code` property, they will be included in the log entry as `error.id` and `error.code` respectively.
+
+  Example:
+
+  ```elixir
+  defmodule TestException do
+    defexception [:message, :id, :code]
+  end
+
+  ...
+
+  raise TestException, id: :oops_id, code: 42, message: "oops!"
+  ```
+
+  results in:
+
+  ```elixir
+  %{
+    "@timestamp" => "2024-05-17T16:20:00.000Z",
+    "ecs.version" => "8.11.0",
+    "error.code" => 42,
+    "error.id" => "oops_id",
+    "error.message" => "oops!",
+    "error.stack_trace" => "** (GSMLG.Logger.Formatters.ElasticTest.TestException) oops!\n    test/gsmlg_logger/formatters/elastic_test.exs:223: anonymous fn/0 in GSMLG.Logger.Formatters.ElasticTest.\"test logs exceptions with id and code\"/1\n",
+    "error.type" => "Elixir.GSMLG.Logger.Formatters.ElasticTest.TestException",
+    "log.level" => "error",
+    "message" => "Process #PID<0.325.0> raised an exception\n** (GSMLG.Logger.Formatters.ElasticTest.TestException) oops!\n    test/gsmlg_logger/formatters/elastic_test.exs:223: anonymous fn/0 in GSMLG.Logger.Formatters.ElasticTest.\"test logs exceptions with id and code\"/1"
+  }
+  ```
+
+  You can also choose to log caught exceptions with a custom message.
+  For example, after catching an exception with `try`/`rescue`:
+
+  ```elixir
+  try do
+    raise "oops"
+  rescue
+    e in RuntimeError -> Logger.error("Something went wrong", crash_reason: {e, __STACKTRACE__})
+  end
+  ```
+
+  then you'll get a message like:
+
+  ```elixir
+  %{
+    "@timestamp" => "2024-05-17T16:20:00.000Z",
+    "ecs.version" => "8.11.0",
+    "error.message" => "oops",
+    "error.stack_trace" => "** (RuntimeError) oops\n    test/gsmlg_logger/formatters/elastic_test.exs:421: anonymous fn/0 in GSMLG.Logger.Formatters.ElasticTest.\"test logs caught errors\"/1\n    (gsmlg_logger 6.0.2) test/support/logger_case.ex:16: anonymous fn/1 in GSMLG.Logger.Case.capture_log/2\n    (ex_unit 1.16.3) lib/ex_unit/capture_io.ex:258: ExUnit.CaptureIO.do_with_io/3\n    (ex_unit 1.16.3) lib/ex_unit/capture_io.ex:134: ExUnit.CaptureIO.capture_io/2\n    (gsmlg_logger 6.0.2) test/support/logger_case.ex:15: GSMLG.Logger.Case.capture_log/2\n    test/gsmlg_logger/formatters/elastic_test.exs:419: GSMLG.Logger.Formatters.ElasticTest.\"test logs caught errors\"/1\n    (ex_unit 1.16.3) lib/ex_unit/runner.ex:472: ExUnit.Runner.exec_test/2\n    (stdlib 5.2.3) timer.erl:270: :timer.tc/2\n    (ex_unit 1.16.3) lib/ex_unit/runner.ex:394: anonymous fn/6 in ExUnit.Runner.spawn_test_monitor/4\n",
+    "error.type" => "Elixir.RuntimeError",
+    "log.level" => "error",
+    "log.logger" => "Elixir.GSMLG.Logger.Formatters.ElasticTest",
+    "log.origin" => %{
+      "file.line" => 423,
+      "file.name" => "/app/gsmlg_logger/test/gsmlg_logger/formatters/elastic_test.exs",
+      "function" => "test logs caught errors/1"
+    },
+    "message" => "Something went wrong"
+  }
+  ```
+
+  """
+  import GSMLG.Logger.Formatter.{MapBuilder, DateTime, Message, Metadata, RedactorEncoder}
+  require Jason.Helpers
+
+  @behaviour GSMLG.Logger.Formatter
+
+  @ecs_version "8.11.0"
+
+  @processed_metadata_keys ~w[file line mfa domain error_logger
+                              otel_span_id span_id
+                              otel_trace_id trace_id
+                              conn]a
+
+  @impl GSMLG.Logger.Formatter
+  def format(%{level: level, meta: meta, msg: msg}, opts) do
+    opts = Keyword.new(opts)
+    encoder_opts = Keyword.get(opts, :encoder_opts, [])
+    metadata_keys_or_selector = Keyword.get(opts, :metadata, [])
+    metadata_selector = update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+    redactors = Keyword.get(opts, :redactors, [])
+
+    message =
+      format_message(msg, meta, %{
+        binary: &format_binary_message/1,
+        structured: &format_structured_message/1,
+        crash: &format_crash_reason(&1, &2, meta)
+      })
+
+    line =
+      %{
+        "@timestamp": utc_time(meta),
+        "log.level": Atom.to_string(level),
+        "ecs.version": @ecs_version
+      }
+      |> maybe_merge(encode(message, redactors))
+      |> maybe_merge(encode(take_metadata(meta, metadata_selector), redactors))
+      |> maybe_merge(format_logger_fields(meta))
+      |> maybe_merge(format_http_request(meta))
+      |> maybe_put(:"span.id", format_span_id(meta))
+      |> maybe_put(:"trace.id", format_trace_id(meta))
+      |> Jason.encode_to_iodata!(encoder_opts)
+
+    [line, "\n"]
+  end
+
+  @doc false
+  def format_binary_message(binary) do
+    %{message: IO.chardata_to_string(binary)}
+  end
+
+  @doc false
+  def format_structured_message(map) when is_map(map) do
+    map
+  end
+
+  def format_structured_message(keyword) do
+    Enum.into(keyword, %{})
+  end
+
+  @doc false
+  def format_crash_reason(message, {{:EXIT, pid}, reason}, _meta) do
+    stacktrace = Exception.format_banner({:EXIT, pid}, reason, [])
+    error_message = "process #{inspect(pid)} exit: #{inspect(reason)}"
+    format_error_fields(message, error_message, stacktrace, "exit")
+  end
+
+  def format_crash_reason(message, {:exit, reason}, _meta) do
+    stacktrace = Exception.format_banner(:exit, reason, [])
+    error_message = "exit: #{inspect(reason)}"
+    format_error_fields(message, error_message, stacktrace, "exit")
+  end
+
+  def format_crash_reason(message, {:throw, reason}, _meta) do
+    stacktrace = Exception.format_banner(:throw, reason, [])
+    error_message = "throw: #{inspect(reason)}"
+    format_error_fields(message, error_message, stacktrace, "throw")
+  end
+
+  def format_crash_reason(message, {%type{} = exception, stacktrace}, _meta) do
+    formatted_stacktrace =
+      [
+        Exception.format_banner(:error, exception, stacktrace),
+        Exception.format_stacktrace(stacktrace)
+      ]
+      |> Enum.join("\n")
+
+    format_error_fields(message, Exception.message(exception), formatted_stacktrace, type)
+    |> maybe_put(:"error.id", get_exception_id(exception))
+    |> maybe_put(:"error.code", get_exception_code(exception))
+  end
+
+  def format_crash_reason(message, {{{%type{} = exception, _}, _}, stacktrace}, _meta) do
+    formatted_stacktrace =
+      [
+        Exception.format_banner(:error, exception, stacktrace),
+        Exception.format_stacktrace(stacktrace)
+      ]
+      |> Enum.join("\n")
+
+    format_error_fields(message, Exception.message(exception), formatted_stacktrace, type)
+    |> maybe_put(:"error.id", get_exception_id(exception))
+    |> maybe_put(:"error.code", get_exception_code(exception))
+  end
+
+  def format_crash_reason(message, {error, reason}, _meta) when is_atom(error) or is_binary(error) do
+    stacktrace = "** (#{error}) #{inspect(reason)}"
+    error_message = "#{error}: #{inspect(reason)}"
+    format_error_fields(message, error_message, stacktrace, error)
+  end
+
+  def format_crash_reason(message, other, _meta) do
+    format_error_fields(message, inspect(other), nil, nil)
+  end
+
+  defp get_exception_id(%{id: id}), do: id
+  defp get_exception_id(_), do: nil
+
+  defp get_exception_code(%{code: code}), do: code
+  defp get_exception_code(_), do: nil
+
+  # Formats the error fields as specified in https://www.elastic.co/guide/en/ecs/8.11/ecs-error.html
+  defp format_error_fields(message, error_message, stacktrace, type) do
+    %{
+      message: safe_chardata_to_string(message),
+      "error.message": error_message
+    }
+    |> maybe_put(:"error.stack_trace", stacktrace)
+    |> maybe_put(:"error.type", type)
+  end
+
+  # Formats the log.logger and log.origin fields as specified in https://www.elastic.co/guide/en/ecs/8.11/ecs-log.html
+  defp format_logger_fields(%{file: file, line: line, mfa: {module, function, arity}}) do
+    %{
+      "log.logger": module,
+      "log.origin": %{
+        "file.name": to_string(file),
+        "file.line": line,
+        function: "#{function}/#{arity}"
+      }
+    }
+  end
+
+  defp format_logger_fields(_meta), do: nil
+
+  if Code.ensure_loaded?(Plug.Conn) do
+    # See the formats for the following fields in ECS:
+    # - client.ip: https://www.elastic.co/guide/en/ecs/8.11/ecs-client.html
+    # - http.*: https://www.elastic.co/guide/en/ecs/8.11/ecs-http.html
+    # - url.path: https://www.elastic.co/guide/en/ecs/8.11/ecs-url.html
+    # - user_agent.original: https://www.elastic.co/guide/en/ecs/8.11/ecs-user_agent.html
+    # - event.duration (note: ns, not μs): https://www.elastic.co/guide/en/ecs/current/ecs-event.html#field-event-duration
+    defp format_http_request(%{conn: %Plug.Conn{} = conn, duration_us: duration_us}) do
+      %{
+        "client.ip": GSMLG.Logger.Formatter.Plug.remote_ip(conn),
+        "http.version": Plug.Conn.get_http_protocol(conn),
+        "http.request.method": conn.method,
+        "http.request.referrer": GSMLG.Logger.Formatter.Plug.get_header(conn, "referer"),
+        "http.response.status_code": conn.status,
+        "url.path": conn.request_path,
+        "user_agent.original": GSMLG.Logger.Formatter.Plug.get_header(conn, "user-agent")
+      }
+      |> maybe_put(:"event.duration", to_nanosecs(duration_us))
+    end
+
+    defp format_http_request(%{conn: %Plug.Conn{} = conn}), do: format_http_request(%{conn: conn, duration_us: nil})
+  end
+
+  defp format_http_request(_meta), do: nil
+
+  defp format_span_id(%{otel_span_id: otel_span_id}), do: safe_chardata_to_string(otel_span_id)
+  defp format_span_id(%{span_id: span_id}), do: span_id
+  defp format_span_id(_meta), do: nil
+
+  defp format_trace_id(%{otel_trace_id: otel_trace_id}), do: safe_chardata_to_string(otel_trace_id)
+  defp format_trace_id(%{trace_id: trace_id}), do: trace_id
+  defp format_trace_id(_meta), do: nil
+
+  defp safe_chardata_to_string(chardata) when is_list(chardata) or is_binary(chardata) do
+    IO.chardata_to_string(chardata)
+  end
+
+  defp safe_chardata_to_string(other), do: other
+
+  defp to_nanosecs(duration_us) when is_number(duration_us), do: duration_us * 1000
+  defp to_nanosecs(_), do: nil
+end
