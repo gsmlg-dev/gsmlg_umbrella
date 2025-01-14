@@ -15,9 +15,17 @@
   </div>
 
   <%= unless is_nil(@whois_info) do %>
-    <div class="mt-4 flex flex-col justify-center items-center">
-      <h3 class="text-xl">Whois Informaion</h3>
-      <pre><%= @whois_info %></pre>
+    <div class="mt-4 flex flex-col justify-center items-start gap-4">
+      <h3 class="text-xl py-2 text-primary">Whois Informaion</h3>
+      <div
+        :if={is_list(@whois_info)}
+        :for={{server, info} <- @whois_info}
+      >
+        <div class="text-lg text-secondary">{server}</div>
+        <div>
+          <pre>{info}</pre>
+        </div>
+      </div>
       <%= unless is_nil(@reason) do %>
         <pre class="text-red-500"><%= @reason %></pre>
       <% end %>

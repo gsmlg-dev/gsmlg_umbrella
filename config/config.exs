@@ -116,8 +116,10 @@ config :tailwind,
   ]
 
 # Configures Elixir's Logger
-config :logger, :default_handler,
-  formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "gsmlg_umbrella"}
+if Code.ensure_loaded?(GSMLG.Logger.Formatters.GsmlgNet) do
+  config :logger, :default_handler,
+    formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "gsmlg_umbrella"}
+end
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

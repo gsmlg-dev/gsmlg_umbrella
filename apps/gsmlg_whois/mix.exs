@@ -4,7 +4,7 @@ defmodule GSMLG.Whois.MixProject do
   def project do
     [
       app: :gsmlg_whois,
-      version: "0.3.0",
+      version: "0.4.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -31,19 +31,7 @@ defmodule GSMLG.Whois.MixProject do
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-    case System.fetch_env("GSMLG_UMBRELLA_PUBLISH") do
-      :error ->
-        [
-          {:gsmlg_socket, in_umbrella: true}
-        ]
-
-      {:ok, _} ->
-        [
-          {:gsmlg_socket, "~> 0.1.0"}
-        ]
-    end ++
       [
-        {:inet_cidr, "~> 1.0.0"},
         {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
       ]
   end

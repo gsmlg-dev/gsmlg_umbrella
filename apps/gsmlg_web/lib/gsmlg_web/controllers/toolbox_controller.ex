@@ -92,38 +92,12 @@ defmodule GSMLGWeb.ToolboxController do
     </div>
     """
 
-    cond do
-      Regex.match?(@asn_regex, look_for) ->
-        case GSMLG.Whois.lookup_as_raw(look_for) do
-          {:ok, info} ->
-            render(conn, :whois,
-              whois_info: info,
-              reason: nil,
-              look_for: look_for,
-              header_slot: header_slot
-            )
+    case GSMLG.Whois.lookup_raw(look_for) do
+      {:ok, whois_info} ->
+        render(conn, :whois, whois_info: Enum.reverse(whois_info), reason: nil, header_slot: header_slot)
 
-          {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason, header_slot: header_slot)
-        end
-
-      Regex.match?(@ipv4_regex, look_for) or Regex.match?(@ipv6_regex, look_for) ->
-        case GSMLG.Whois.lookup_ip_raw(look_for) do
-          {:ok, info} ->
-            render(conn, :whois, whois_info: info, reason: nil, header_slot: header_slot)
-
-          {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason, header_slot: header_slot)
-        end
-
-      true ->
-        case GSMLG.Whois.lookup_domain_raw(look_for) do
-          {:ok, info} ->
-            render(conn, :whois, whois_info: info, reason: nil, header_slot: header_slot)
-
-          {:error, reason} ->
-            render(conn, :whois, whois_info: :error, reason: reason, header_slot: header_slot)
-        end
+      {:error, reason} ->
+        render(conn, :whois, whois_info: :error, reason: reason, header_slot: header_slot)
     end
   end
 

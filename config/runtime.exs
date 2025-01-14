@@ -140,6 +140,6 @@ if config_env() == :prod do
     _ ->
       nil
   end
-end
 
-GSMLG.Logger.configure_log_level_from_env!()
+  GSMLG.Logger.configure_log_level_from_env!()
+end
