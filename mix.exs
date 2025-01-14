@@ -31,7 +31,7 @@ defmodule GSMLG.Umbrella.MixProject do
           burrito: [
             targets: [
               linux_arm64: [os: :linux, cpu: :aarch64],
-              linux_amd64: [os: :linux, cpu: :x86_64],
+              linux_amd64: [os: :linux, cpu: :x86_64]
             ]
           ]
         ]

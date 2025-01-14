@@ -10,7 +10,7 @@ defmodule GSMLG.Logger.Formatters.BasicTest do
   end
 
   property "allows to log any binary messages" do
-    check all message <- StreamData.binary() do
+    check all(message <- StreamData.binary()) do
       assert capture_log(fn ->
                Logger.debug(message)
              end)
@@ -20,7 +20,7 @@ defmodule GSMLG.Logger.Formatters.BasicTest do
   end
 
   property "allows to log any structured messages" do
-    check all message <- StreamData.map_of(StreamData.atom(:alphanumeric), StreamData.term()) do
+    check all(message <- StreamData.map_of(StreamData.atom(:alphanumeric), StreamData.term())) do
       assert capture_log(fn ->
                Logger.debug(message)
              end)
@@ -28,7 +28,7 @@ defmodule GSMLG.Logger.Formatters.BasicTest do
              |> Map.has_key?("message")
     end
 
-    check all message <- StreamData.keyword_of(StreamData.term()) do
+    check all(message <- StreamData.keyword_of(StreamData.term())) do
       assert capture_log(fn ->
                Logger.debug(message)
              end)
@@ -254,7 +254,10 @@ defmodule GSMLG.Logger.Formatters.BasicTest do
 
   test "reads metadata from the given application env" do
     Application.put_env(:gsmlg_logger, :test_basic_metadata_key, [:foo])
-    formatter = {Basic, metadata: {:from_application_env, {:gsmlg_logger, :test_basic_metadata_key}}}
+
+    formatter =
+      {Basic, metadata: {:from_application_env, {:gsmlg_logger, :test_basic_metadata_key}}}
+
     :logger.update_handler_config(:default, :formatter, formatter)
 
     Logger.metadata(foo: "foo")
@@ -274,7 +277,11 @@ defmodule GSMLG.Logger.Formatters.BasicTest do
 
   test "reads metadata from the given application env at given path" do
     Application.put_env(:gsmlg_logger, :test_basic_metadata_key, metadata: [:foo])
-    formatter = {Basic, metadata: {:from_application_env, {:gsmlg_logger, :test_basic_metadata_key}, [:metadata]}}
+
+    formatter =
+      {Basic,
+       metadata: {:from_application_env, {:gsmlg_logger, :test_basic_metadata_key}, [:metadata]}}
+
     :logger.update_handler_config(:default, :formatter, formatter)
 
     Logger.metadata(foo: "foo")

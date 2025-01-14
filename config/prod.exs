@@ -10,11 +10,11 @@ import Config
 # which you should run after static files are built and
 # before starting your production server.
 config :gsmlg_web, GSMLGWeb.Endpoint,
-  url: [host: "gsmlg.org", port: 80],
+  url: [host: "gsmlg.org", port: 443, scheme: "https"],
   cache_static_manifest: "priv/static/cache_manifest.json"
 
 config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
-  url: [host: "admin.gsmlg.org", port: 80],
+  url: [host: "admin.gsmlg.org", port: 443, scheme: "https"],
   cache_static_manifest: "priv/static/cache_manifest.json"
 
 # Do not print debug messages in production

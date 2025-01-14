@@ -10,7 +10,7 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
   end
 
   property "allows to log any binary messages" do
-    check all message <- StreamData.binary() do
+    check all(message <- StreamData.binary()) do
       assert capture_log(fn ->
                Logger.debug(message)
              end)
@@ -19,14 +19,14 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
   end
 
   property "allows to log any structured messages" do
-    check all message <- StreamData.map_of(StreamData.atom(:alphanumeric), StreamData.term()) do
+    check all(message <- StreamData.map_of(StreamData.atom(:alphanumeric), StreamData.term())) do
       assert capture_log(fn ->
                Logger.debug(message)
              end)
              |> Jason.decode!()
     end
 
-    check all message <- StreamData.keyword_of(StreamData.term()) do
+    check all(message <- StreamData.keyword_of(StreamData.term())) do
       assert capture_log(fn ->
                Logger.debug(message)
              end)
@@ -113,7 +113,9 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> decode_or_print_error()
 
     assert log_entry["logging.googleapis.com/spanId"] == "bff20904aa5883a6"
-    assert log_entry["logging.googleapis.com/trace"] == "projects/myproj-101/traces/294740ce41cc9f202dedb563db123532"
+
+    assert log_entry["logging.googleapis.com/trace"] ==
+             "projects/myproj-101/traces/294740ce41cc9f202dedb563db123532"
   end
 
   test "logs span and trace ids without project_id" do
@@ -260,7 +262,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> decode_or_print_error()
 
     assert %{
-             "@type" => "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+             "@type" =>
+               "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
              "message" => "runtime error",
              "stack_trace" => stacktrace,
              "serviceContext" => %{"service" => "nonode@nohost"}
@@ -385,7 +388,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> decode_or_print_error()
 
     assert %{
-             "@type" => "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+             "@type" =>
+               "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
              "message" => "oops!",
              "stack_trace" => "** (throw) {:error, :whatever}",
              "serviceContext" => %{"service" => "nonode@nohost"},
@@ -409,7 +413,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> decode_or_print_error()
 
     assert %{
-             "@type" => "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+             "@type" =>
+               "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
              "message" => "oops!",
              "stack_trace" => "** (exit) :sad_failure",
              "serviceContext" => %{"service" => "nonode@nohost"}
@@ -450,7 +455,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> Enum.map(&decode_or_print_error/1)
 
     assert %{
-             "@type" => "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+             "@type" =>
+               "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
              "message" => message,
              "stack_trace" => "** (RuntimeError) boom" <> _,
              "serviceContext" => %{"service" => "nonode@nohost"}
@@ -469,7 +475,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> decode_or_print_error()
 
     assert %{
-             "@type" => "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+             "@type" =>
+               "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
              "message" => "oops!",
              "stack_trace" => "** ({:something, :else}) [:unknown]",
              "serviceContext" => %{"service" => "nonode@nohost"}
@@ -486,7 +493,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> decode_or_print_error()
 
     assert %{
-             "@type" => "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+             "@type" =>
+               "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
              "message" => "oops!",
              "stack_trace" => nil,
              "serviceContext" => %{"service" => "nonode@nohost"}
@@ -503,7 +511,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> decode_or_print_error()
 
     assert %{
-             "@type" => "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+             "@type" =>
+               "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
              "message" => "oops!",
              "stack_trace" => stacktrace,
              "serviceContext" => %{"service" => "nonode@nohost"}
@@ -523,7 +532,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
       |> decode_or_print_error()
 
     assert %{
-             "@type" => "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+             "@type" =>
+               "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
              "message" => "oops!",
              "stack_trace" => "** (socket_closed_unexpectedly) []",
              "serviceContext" => %{"service" => "nonode@nohost"}
@@ -542,7 +552,11 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
 
   test "reads metadata from the given application env" do
     Application.put_env(:gsmlg_logger, :test_google_cloud_metadata_key, [:foo])
-    formatter = {GoogleCloud, metadata: {:from_application_env, {:gsmlg_logger, :test_google_cloud_metadata_key}}}
+
+    formatter =
+      {GoogleCloud,
+       metadata: {:from_application_env, {:gsmlg_logger, :test_google_cloud_metadata_key}}}
+
     :logger.update_handler_config(:default, :formatter, formatter)
 
     Logger.metadata(foo: "foo")
@@ -562,7 +576,9 @@ defmodule GSMLG.Logger.Formatters.GoogleCloudTest do
     Application.put_env(:gsmlg_logger, :test_google_cloud_metadata_key, metadata: [:foo])
 
     formatter =
-      {GoogleCloud, metadata: {:from_application_env, {:gsmlg_logger, :test_google_cloud_metadata_key}, [:metadata]}}
+      {GoogleCloud,
+       metadata:
+         {:from_application_env, {:gsmlg_logger, :test_google_cloud_metadata_key}, [:metadata]}}
 
     :logger.update_handler_config(:default, :formatter, formatter)
 

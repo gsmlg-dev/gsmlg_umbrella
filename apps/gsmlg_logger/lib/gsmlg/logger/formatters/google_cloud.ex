@@ -103,10 +103,15 @@ defmodule GSMLG.Logger.Formatters.GoogleCloud do
     opts = Keyword.new(opts)
     encoder_opts = Keyword.get(opts, :encoder_opts, [])
     redactors = Keyword.get(opts, :redactors, [])
-    service_context = Keyword.get_lazy(opts, :service_context, fn -> %{service: to_string(node())} end)
+
+    service_context =
+      Keyword.get_lazy(opts, :service_context, fn -> %{service: to_string(node())} end)
+
     project_id = Keyword.get(opts, :project_id)
     metadata_keys_or_selector = Keyword.get(opts, :metadata, [])
-    metadata_selector = update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+
+    metadata_selector =
+      update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
 
     message =
       format_message(msg, meta, %{
@@ -199,7 +204,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloud do
     format_reported_error_event(message, ruby_stacktrace, service_context, meta)
   end
 
-  def format_crash_reason(binary, {error, reason}, service_context, meta) when is_atom(error) or is_binary(error) do
+  def format_crash_reason(binary, {error, reason}, service_context, meta)
+      when is_atom(error) or is_binary(error) do
     stacktrace = "** (#{error}) #{inspect(reason)}"
     format_reported_error_event(binary, stacktrace, service_context, meta)
   end
@@ -214,7 +220,8 @@ defmodule GSMLG.Logger.Formatters.GoogleCloud do
 
   defp format_reported_error_event(message, stacktrace, service_context, meta) do
     %{
-      "@type": "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
+      "@type":
+        "type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent",
       stack_trace: stacktrace,
       message: IO.chardata_to_string(message),
       context: format_reported_error_event_context(meta),
@@ -323,7 +330,9 @@ defmodule GSMLG.Logger.Formatters.GoogleCloud do
   # coveralls-ignore-stop
 
   # https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogEntryOperation
-  defp format_operation(%{request_id: request_id, pid: pid}), do: json_map(id: request_id, producer: inspect(pid))
+  defp format_operation(%{request_id: request_id, pid: pid}),
+    do: json_map(id: request_id, producer: inspect(pid))
+
   defp format_operation(%{pid: pid}), do: json_map(producer: inspect(pid))
   # Erlang logger always has `pid` in the metadata but we keep this clause "just in case"
   # coveralls-ignore-next-line

@@ -29,12 +29,18 @@ defmodule GSMLG.Logger.Formatter.MetadataTest do
     test "takes metadata from application env" do
       Application.put_env(:gsmlg_logger, :test_metadata_key, [:foo])
 
-      assert update_metadata_selector({:from_application_env, {:gsmlg_logger, :test_metadata_key}}, []) ==
+      assert update_metadata_selector(
+               {:from_application_env, {:gsmlg_logger, :test_metadata_key}},
+               []
+             ) ==
                [:foo]
 
       Application.put_env(:gsmlg_logger, :test_metadata_key, %{metadata: [:foo]})
 
-      assert update_metadata_selector({:from_application_env, {:gsmlg_logger, :test_metadata_key}, [:metadata]}, []) ==
+      assert update_metadata_selector(
+               {:from_application_env, {:gsmlg_logger, :test_metadata_key}, [:metadata]},
+               []
+             ) ==
                [:foo]
     end
 

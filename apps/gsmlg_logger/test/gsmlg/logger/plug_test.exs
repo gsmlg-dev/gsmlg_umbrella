@@ -48,7 +48,12 @@ defmodule GSMLG.Logger.PlugTest do
                "metadata" => %{"duration_us" => 500},
                "request" => %{
                  "client" => %{"ip" => "127.0.0.1", "user_agent" => nil},
-                 "connection" => %{"method" => "GET", "path" => "/", "protocol" => "HTTP/1.1", "status" => 200}
+                 "connection" => %{
+                   "method" => "GET",
+                   "path" => "/",
+                   "protocol" => "HTTP/1.1",
+                   "status" => 200
+                 }
                }
              } = decode_or_print_error(log)
     end
@@ -73,7 +78,12 @@ defmodule GSMLG.Logger.PlugTest do
                "metadata" => %{"duration_us" => 500},
                "request" => %{
                  "client" => %{"ip" => "127.0.0.1", "user_agent" => nil},
-                 "connection" => %{"method" => "GET", "path" => "/", "protocol" => "HTTP/1.1", "status" => nil}
+                 "connection" => %{
+                   "method" => "GET",
+                   "path" => "/",
+                   "protocol" => "HTTP/1.1",
+                   "status" => nil
+                 }
                }
              } = decode_or_print_error(log)
     end
@@ -98,7 +108,12 @@ defmodule GSMLG.Logger.PlugTest do
                "metadata" => %{"duration_us" => 500},
                "request" => %{
                  "client" => %{"ip" => "127.0.0.1", "user_agent" => nil},
-                 "connection" => %{"method" => "GET", "path" => "/", "protocol" => "HTTP/1.1", "status" => nil}
+                 "connection" => %{
+                   "method" => "GET",
+                   "path" => "/",
+                   "protocol" => "HTTP/1.1",
+                   "status" => nil
+                 }
                }
              } = decode_or_print_error(log)
     end
@@ -142,7 +157,10 @@ defmodule GSMLG.Logger.PlugTest do
 
   describe "telemetry_logging_handler/4 for DataDog formatter" do
     setup do
-      formatter = {GSMLG.Logger.Formatters.Datadog, metadata: [:network, :phoenix, :duration, :http, :"usr.id"]}
+      formatter =
+        {GSMLG.Logger.Formatters.Datadog,
+         metadata: [:network, :phoenix, :duration, :http, :"usr.id"]}
+
       :logger.update_handler_config(:default, :formatter, formatter)
     end
 
@@ -186,7 +204,10 @@ defmodule GSMLG.Logger.PlugTest do
     test "logs requests" do
       conn =
         Plug.Test.conn(:get, "/foo/bar?baz=qux#frag")
-        |> Plug.Conn.put_req_header("user-agent", "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)")
+        |> Plug.Conn.put_req_header(
+          "user-agent",
+          "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)"
+        )
         |> Plug.Conn.put_req_header("referer", "http://www.example.com/")
         |> Plug.Conn.put_status(200)
 

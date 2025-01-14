@@ -78,7 +78,7 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
 config :gsmlg_admin_web, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
-config :logger, :console, format: "[$level] $message\n"
+config :logger, level: :debug
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime

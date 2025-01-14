@@ -29,7 +29,10 @@ defmodule GSMLG.Logger.Formatters.Basic do
     opts = Keyword.new(opts)
     encoder_opts = Keyword.get(opts, :encoder_opts, [])
     metadata_keys_or_selector = Keyword.get(opts, :metadata, [])
-    metadata_selector = update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+
+    metadata_selector =
+      update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+
     redactors = Keyword.get(opts, :redactors, [])
 
     message =

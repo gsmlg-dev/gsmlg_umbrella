@@ -206,7 +206,10 @@ defmodule GSMLG.Logger.Formatters.ElasticTest do
 
     assert message =~ ~r/Process #PID<\d.\d+.\d> raised an exception/
     assert stacktrace =~ "** (RuntimeError) runtime error"
-    assert stacktrace =~ ~r/test\/gsmlg\/logger\/formatters\/elastic_test.exs:\d+: anonymous fn\/0/
+
+    assert stacktrace =~
+             ~r/test\/gsmlg\/logger\/formatters\/elastic_test.exs:\d+: anonymous fn\/0/
+
     assert stacktrace =~ "in GSMLG.Logger.Formatters.ElasticTest.\"test logs exceptions\"/1"
     assert log_entry["error_logger"] == nil
   end
@@ -421,7 +424,8 @@ defmodule GSMLG.Logger.Formatters.ElasticTest do
         try do
           raise "oops"
         rescue
-          e in RuntimeError -> Logger.error("Something went wrong", crash_reason: {e, __STACKTRACE__})
+          e in RuntimeError ->
+            Logger.error("Something went wrong", crash_reason: {e, __STACKTRACE__})
         end
       end)
       |> decode_or_print_error()
@@ -501,7 +505,10 @@ defmodule GSMLG.Logger.Formatters.ElasticTest do
 
   test "reads metadata from the given application env" do
     Application.put_env(:gsmlg_logger, :test_elastic_metadata_key, [:foo])
-    formatter = {Elastic, metadata: {:from_application_env, {:gsmlg_logger, :test_elastic_metadata_key}}}
+
+    formatter =
+      {Elastic, metadata: {:from_application_env, {:gsmlg_logger, :test_elastic_metadata_key}}}
+
     :logger.update_handler_config(:default, :formatter, formatter)
 
     Logger.metadata(foo: "foo")
@@ -519,7 +526,11 @@ defmodule GSMLG.Logger.Formatters.ElasticTest do
 
   test "reads metadata from the given application env at given path" do
     Application.put_env(:gsmlg_logger, :test_elastic_metadata_key, metadata: [:foo])
-    formatter = {Elastic, metadata: {:from_application_env, {:gsmlg_logger, :test_elastic_metadata_key}, [:metadata]}}
+
+    formatter =
+      {Elastic,
+       metadata: {:from_application_env, {:gsmlg_logger, :test_elastic_metadata_key}, [:metadata]}}
+
     :logger.update_handler_config(:default, :formatter, formatter)
 
     Logger.metadata(foo: "foo")

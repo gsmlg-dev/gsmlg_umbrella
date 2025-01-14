@@ -135,11 +135,13 @@ defmodule GSMLG.Logger.Formatter.RedactorEncoderTest do
                other_key: %{password: "[REDACTED]"}
              }
 
-      assert encode([foo: ["foo", %{password: "bar"}]], @redactors) == %{foo: ["foo", %{password: "[REDACTED]"}]}
+      assert encode([foo: ["foo", %{password: "bar"}]], @redactors) == %{
+               foo: ["foo", %{password: "[REDACTED]"}]
+             }
     end
 
     property "converts any term so that it can be encoded with Jason" do
-      check all value <- term() do
+      check all(value <- term()) do
         value
         |> encode([])
         |> Jason.encode!()

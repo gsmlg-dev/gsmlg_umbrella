@@ -111,6 +111,7 @@ defmodule GSMLG.Logger do
     do: Logger.configure(level: level)
 
   def configure_log_level!(level) do
-    raise ArgumentError, "Log level should be one of 'debug', 'info', 'warn', 'error' values, got: #{inspect(level)}"
+    raise ArgumentError,
+          "Log level should be one of 'debug', 'info', 'warn', 'error' values, got: #{inspect(level)}"
   end
 end

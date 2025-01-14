@@ -114,9 +114,8 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   live_view: [signing_salt: "gmmaSSOy"]
 
 # Configures Elixir's Logger
-config :logger, :console,
-  format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+config :logger, :default_handler,
+  formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "umbrella"}
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

@@ -27,7 +27,10 @@ defmodule GSMLG.Logger.Formatter.RedactorEncoder do
   def encode(true, _redactors), do: true
   def encode(false, _redactors), do: false
   def encode(atom, _redactors) when is_atom(atom), do: atom
-  def encode(tuple, redactors) when is_tuple(tuple), do: tuple |> Tuple.to_list() |> encode(redactors)
+
+  def encode(tuple, redactors) when is_tuple(tuple),
+    do: tuple |> Tuple.to_list() |> encode(redactors)
+
   def encode(number, _redactors) when is_number(number), do: number
   def encode("[REDACTED]", _redactors), do: "[REDACTED]"
   def encode(binary, _redactors) when is_binary(binary), do: encode_binary(binary)

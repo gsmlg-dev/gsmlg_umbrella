@@ -50,7 +50,10 @@ if Code.ensure_loaded?(Plug) and Code.ensure_loaded?(:telemetry) do
             event_name :: [atom()],
             query_time :: %{duration: non_neg_integer()},
             metadata :: %{conn: Plug.Conn.t()},
-            level :: Logger.level() | {module :: module(), function :: atom(), arguments :: [term()]} | false
+            level ::
+              Logger.level()
+              | {module :: module(), function :: atom(), arguments :: [term()]}
+              | false
           ) :: :ok
     def telemetry_logging_handler(_event_name, %{duration: duration}, %{conn: conn}, level) do
       duration = System.convert_time_unit(duration, :native, :microsecond)

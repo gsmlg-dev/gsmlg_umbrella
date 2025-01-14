@@ -42,7 +42,10 @@ defmodule GSMLG.Logger.Formatters.GsmlgNet do
     planet = Keyword.get(opts, :planet, nil)
     encoder_opts = Keyword.get(opts, :encoder_opts, [])
     metadata_keys_or_selector = Keyword.get(opts, :metadata, [])
-    metadata_selector = update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+
+    metadata_selector =
+      update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+
     redactors = Keyword.get(opts, :redactors, [])
 
     message =
@@ -98,12 +101,18 @@ defmodule GSMLG.Logger.Formatters.GsmlgNet do
       requested_with = GSMLG.Logger.Formatter.Plug.get_header(conn, "x-requested-with")
       served_by = Plug.Conn.get_req_header(conn, "x-served-by")
       duration = http_request_duration(assigns)
-      query_params = case conn.query_string do
-        "" -> nil
-        query_string when is_binary(query_string) ->
-          URI.decode_query(query_string)
-        _ -> nil
-      end
+
+      query_params =
+        case conn.query_string do
+          "" ->
+            nil
+
+          query_string when is_binary(query_string) ->
+            URI.decode_query(query_string)
+
+          _ ->
+            nil
+        end
 
       Jason.Helpers.json_map(
         protocol: Plug.Conn.get_http_protocol(conn),

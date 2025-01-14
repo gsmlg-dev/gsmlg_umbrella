@@ -1,6 +1,8 @@
 defmodule GSMLGOpenAI.Codegen do
   @moduledoc false
 
+  require Logger
+
   # Codegeneration helpers for parsing the OpenAI openapi documentation and converting it into something easy to work with
 
   defmodule AstUnpacker do
@@ -18,7 +20,7 @@ defmodule GSMLGOpenAI.Codegen do
 
           case Enum.member?(resolved_mods, __MODULE__) do
             true ->
-              # IO.puts("already resolved, skipping")
+              # Logger.debug("already resolved, skipping")
               partial_tree
 
             false ->
@@ -175,7 +177,7 @@ defmodule GSMLGOpenAI.Codegen do
         :object
 
       x ->
-        IO.puts("invalid type: #{inspect(x)}")
+        Logger.error("invalid type: #{inspect(x)}")
     end
     |> (&{:array, &1}).()
   end
@@ -252,7 +254,7 @@ defmodule GSMLGOpenAI.Codegen do
   end
 
   def parse_property(args) do
-    IO.puts("Unknown property: #{inspect(args)}")
+    Logger.error("Unknown property: #{inspect(args)}")
   end
 
   defp parse_properties(props) when is_list(props) do
@@ -501,7 +503,7 @@ defmodule GSMLGOpenAI.Codegen do
   end
 
   def parse_path(path, args, _component_mapping) do
-    IO.puts("unhandled path: #{inspect(path)} - #{inspect(args)}")
+    Logger.error("unhandled path: #{inspect(path)} - #{inspect(args)}")
     nil
   end
 
@@ -571,7 +573,7 @@ defmodule GSMLGOpenAI.Codegen do
   def type_to_spec(i) when is_atom(i), do: type_to_spec(Atom.to_string(i))
 
   def type_to_spec(x) do
-    IO.puts("type_to_spec: unhandled: #{inspect(x)}")
+    Logger.error("type_to_spec: unhandled: #{inspect(x)}")
     quote(do: any())
   end
 
@@ -585,8 +587,9 @@ defmodule GSMLGOpenAI.Codegen do
             String.to_existing_atom(key)
           rescue
             ArgumentError ->
-              IO.puts(
-                "Warning! Found non-existing atom returning by OpenAI API: :#{key}.\nThis may mean that OpenAI has updated it's API, or that the key was not included in their official openapi reference.\nGoing to load this atom now anyway, but as converting a lot of unknown data into atoms can result in a memory leak, watch out for these messages. If you see a lot of them, something may be wrong."
+              Logger.warning(
+                "Warning! Found non-existing atom returning by OpenAI API: :#{key}.\nThis may mean that OpenAI has updated it's API, or that the key was not included in their official openapi reference.\nGoing to load this atom now anyway, but as converting a lot of unknown data into atoms can result in a memory leak, watch out for these messages. If you see a lot of them, something may be wrong.",
+                key: key
               )
 
               String.to_atom(key)

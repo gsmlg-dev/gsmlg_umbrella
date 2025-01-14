@@ -62,9 +62,10 @@ defmodule GSMLGAdminWeb.AppComponents do
                  ]},
                 {"AWS",
                  [
-                   {"Route53", [
-                    {"Hosted Zones", "/aws/route53/hosted_zones"},
-                   ]},
+                   {"Route53",
+                    [
+                      {"Hosted Zones", "/aws/route53/hosted_zones"}
+                    ]}
                  ]},
                 {"Dashboard",
                  [

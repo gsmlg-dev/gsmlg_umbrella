@@ -208,25 +208,26 @@ Create a new client for receiving the streamed data with `use GSMLGOpenAI.Stream
 ```elixir
 defmodule MyStreamingClient do
   use GSMLGOpenAI.StreamingClient
+  require Logger
 
   @impl true
   # callback on data
   def handle_data(data, state) do
-    IO.puts("got data: #{inspect(data)}")
+    Logger.debug("got data: #{inspect(data)}")
     {:noreply, state}
   end
 
   @impl true
   # callback on error
   def handle_error(e, state) do
-    IO.puts("got error: #{inspect(e)}")
+    Logger.debug("got error: #{inspect(e)}")
     {:noreply, state}
   end
 
   @impl true
   # callback on finish
   def handle_finish(state) do
-    IO.puts("finished!!")
+    Logger.debug("finished!!")
     {:noreply, state}
   end
 end

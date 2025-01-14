@@ -16,7 +16,8 @@ defmodule GSMLG.Logger.Formatter.DateTime do
   defp system_time_to_rfc3339(system_time) do
     micro = rem(system_time, 1_000_000)
 
-    {date, {hours, minutes, seconds}} = :calendar.system_time_to_universal_time(system_time, :microsecond)
+    {date, {hours, minutes, seconds}} =
+      :calendar.system_time_to_universal_time(system_time, :microsecond)
 
     [format_date(date), ?T, format_time({hours, minutes, seconds, div(micro, 1000)}), ?Z]
     |> IO.iodata_to_binary()

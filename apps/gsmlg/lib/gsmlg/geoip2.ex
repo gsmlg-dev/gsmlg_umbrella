@@ -1,5 +1,6 @@
 defmodule GSMLG.GeoIP2 do
   use HTTPoison.Base
+  require Logger
 
   @supported_languages ~w(
     pt-BR en ja ru fr es zh-CN de
@@ -31,8 +32,7 @@ defmodule GSMLG.GeoIP2 do
         ipInfo
 
       any ->
-        IO.puts(">>>>>>")
-        IO.inspect(any)
+        Logger.error("Failed to get IP info: #{inspect(any)}")
         %{}
     end
   end

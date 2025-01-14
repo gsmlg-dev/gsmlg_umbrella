@@ -15,13 +15,17 @@ defmodule GSMLG.Logger.Formatter.MessageTest do
     test "formats crash messages correctly", %{formatters: formatters} do
       message = {:string, "Error occurred"}
       meta = %{crash_reason: "something went wrong"}
-      assert format_message(message, meta, %{crash: formatters.crash}) == "Crash: Error occurred - something went wrong"
+
+      assert format_message(message, meta, %{crash: formatters.crash}) ==
+               "Crash: Error occurred - something went wrong"
     end
 
     test "formats binary messages correctly", %{formatters: formatters} do
       message = {:string, "Hello, world!"}
       meta = %{}
-      assert format_message(message, meta, %{binary: formatters.binary}) == "Binary: Hello, world!"
+
+      assert format_message(message, meta, %{binary: formatters.binary}) ==
+               "Binary: Hello, world!"
     end
 
     test "formats structured messages without callback correctly", %{formatters: formatters} do
@@ -44,14 +48,19 @@ defmodule GSMLG.Logger.Formatter.MessageTest do
       message = {:report, %{content: "Needs processing"}}
       meta = %{report_cb: callback}
 
-      assert format_message(message, meta, %{binary: formatters.binary, structured: formatters.structured}) ==
+      assert format_message(message, meta, %{
+               binary: formatters.binary,
+               structured: formatters.structured
+             }) ==
                "Binary: Processed: Needs processing"
     end
 
     test "formats report with default behavior", %{formatters: formatters} do
       message = {:report, %{id: 2, content: "Another report"}}
       meta = %{report_cb: &:logger.format_otp_report/1}
-      assert format_message(message, meta, formatters) == ~s|Structured: [content: "Another report", id: 2]|
+
+      assert format_message(message, meta, formatters) ==
+               ~s|Structured: [content: "Another report", id: 2]|
     end
 
     test "formats general message using Logger.Utils.scan_inspect", %{formatters: formatters} do
@@ -64,7 +73,10 @@ defmodule GSMLG.Logger.Formatter.MessageTest do
       message = {~c"~p", [1]}
       meta = %{report_cb: nil}
 
-      assert format_message(message, meta, %{binary: formatters.binary, structured: formatters.structured}) ==
+      assert format_message(message, meta, %{
+               binary: formatters.binary,
+               structured: formatters.structured
+             }) ==
                "Binary: 1"
     end
   end

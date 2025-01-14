@@ -56,7 +56,9 @@ defmodule GSMLG.Logger.Formatters.Datadog do
     hostname = Keyword.get(opts, :hostname, :system)
 
     metadata_keys_or_selector = Keyword.get(opts, :metadata, [])
-    metadata_selector = update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+
+    metadata_selector =
+      update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
 
     message =
       format_message(msg, meta, %{
@@ -226,7 +228,8 @@ defmodule GSMLG.Logger.Formatters.Datadog do
       |> maybe_put(:duration, to_nanosecs(duration_us))
     end
 
-    defp format_http_request(%{conn: %Plug.Conn{} = conn}), do: format_http_request(%{conn: conn, duration_us: nil})
+    defp format_http_request(%{conn: %Plug.Conn{} = conn}),
+      do: format_http_request(%{conn: conn, duration_us: nil})
   end
 
   defp format_http_request(_meta), do: nil

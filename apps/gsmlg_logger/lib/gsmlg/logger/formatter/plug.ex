@@ -43,7 +43,9 @@ if Code.ensure_loaded?(Plug) do
 
     defp get_ip_from_header(conn) do
       case Conn.get_req_header(conn, "x-real-ip") do
-        [val | _] -> val
+        [val | _] ->
+          val
+
         [] ->
           case Conn.get_req_header(conn, "x-forwarded-for") do
             [] -> nil

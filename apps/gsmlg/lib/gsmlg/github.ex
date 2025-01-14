@@ -1,5 +1,6 @@
 defmodule GSMLG.GitHub do
   use HTTPoison.Base
+  require Logger
 
   defmacro process_result(result) do
     quote do
@@ -11,7 +12,11 @@ defmodule GSMLG.GitHub do
            request: %HTTPoison.Request{url: request_url}
          }}
         when status_code >= 200 and status_code < 300 ->
-          IO.inspect({"Access Success", status_code, request_url})
+          Logger.info("#{__MODULE__} API Access Success",
+            status_code: status_code,
+            request_url: request_url
+          )
+
           {:ok, data}
 
         {:ok,
@@ -20,7 +25,11 @@ defmodule GSMLG.GitHub do
            status_code: 401,
            request: %HTTPoison.Request{url: request_url}
          }} ->
-          IO.inspect({"Unauthorized Error", 401, request_url})
+          Logger.info("#{__MODULE__} API Access Unauthorized Error",
+            status_code: 401,
+            request_url: request_url
+          )
+
           {:error, data}
 
         {:ok,
@@ -30,7 +39,12 @@ defmodule GSMLG.GitHub do
            request: %HTTPoison.Request{url: request_url}
          }}
         when status_code >= 400 and status_code < 500 ->
-          IO.inspect({"Client Error", status_code, request_url, body})
+          Logger.info("#{__MODULE__} API Access Client Error",
+            status_code: status_code,
+            request_url: request_url,
+            body: body
+          )
+
           {:error, body}
 
         {:ok,
@@ -40,11 +54,16 @@ defmodule GSMLG.GitHub do
            request: %HTTPoison.Request{url: request_url}
          }}
         when status_code >= 500 ->
-          IO.inspect({"Server Error", status_code, request_url, body})
+          Logger.info("#{__MODULE__} API Access Server Error",
+            status_code: status_code,
+            request_url: request_url,
+            body: body
+          )
+
           {:error, body}
 
         {:error, %HTTPoison.Error{reason: reason} = error} ->
-          IO.inspect({"HTTPoison.Error", error})
+          Logger.info("#{__MODULE__} API HTTPoison.Error", reason: reason)
           {:error, reason}
       end
     end

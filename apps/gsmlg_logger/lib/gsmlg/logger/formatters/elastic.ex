@@ -146,7 +146,10 @@ defmodule GSMLG.Logger.Formatters.Elastic do
     opts = Keyword.new(opts)
     encoder_opts = Keyword.get(opts, :encoder_opts, [])
     metadata_keys_or_selector = Keyword.get(opts, :metadata, [])
-    metadata_selector = update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+
+    metadata_selector =
+      update_metadata_selector(metadata_keys_or_selector, @processed_metadata_keys)
+
     redactors = Keyword.get(opts, :redactors, [])
 
     message =
@@ -232,7 +235,8 @@ defmodule GSMLG.Logger.Formatters.Elastic do
     |> maybe_put(:"error.code", get_exception_code(exception))
   end
 
-  def format_crash_reason(message, {error, reason}, _meta) when is_atom(error) or is_binary(error) do
+  def format_crash_reason(message, {error, reason}, _meta)
+      when is_atom(error) or is_binary(error) do
     stacktrace = "** (#{error}) #{inspect(reason)}"
     error_message = "#{error}: #{inspect(reason)}"
     format_error_fields(message, error_message, stacktrace, error)
@@ -292,7 +296,8 @@ defmodule GSMLG.Logger.Formatters.Elastic do
       |> maybe_put(:"event.duration", to_nanosecs(duration_us))
     end
 
-    defp format_http_request(%{conn: %Plug.Conn{} = conn}), do: format_http_request(%{conn: conn, duration_us: nil})
+    defp format_http_request(%{conn: %Plug.Conn{} = conn}),
+      do: format_http_request(%{conn: conn, duration_us: nil})
   end
 
   defp format_http_request(_meta), do: nil
@@ -301,7 +306,9 @@ defmodule GSMLG.Logger.Formatters.Elastic do
   defp format_span_id(%{span_id: span_id}), do: span_id
   defp format_span_id(_meta), do: nil
 
-  defp format_trace_id(%{otel_trace_id: otel_trace_id}), do: safe_chardata_to_string(otel_trace_id)
+  defp format_trace_id(%{otel_trace_id: otel_trace_id}),
+    do: safe_chardata_to_string(otel_trace_id)
+
   defp format_trace_id(%{trace_id: trace_id}), do: trace_id
   defp format_trace_id(_meta), do: nil
 

@@ -1,6 +1,7 @@
 defmodule GSMLG.Node.Self do
   use GenServer
   alias GSMLG.Node.Self
+  require Logger
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
@@ -87,8 +88,11 @@ defmodule GSMLG.Node.Self do
           pid
 
         {:error, reason} ->
-          IO.puts("Node start failed: ")
-          IO.inspect(reason)
+          Logger.warning("Failed to run Node.start(#{Self.name()})",
+            node_name: Self.name(),
+            reason: reason
+          )
+
           nil
       end
 
@@ -132,10 +136,11 @@ defmodule GSMLG.Node.Self do
       GSMLGWeb.Endpoint.broadcast(room, event, opts)
     rescue
       _ ->
-        IO.puts("Broadcask node events to node:lobby failed!")
-        IO.inspect(room)
-        IO.inspect(event)
-        IO.inspect(opts)
+        Logger.error("Failed to broadcast to GSMLGWeb.Endpoint",
+          room: room,
+          event: event,
+          opts: opts
+        )
     end
   end
 end

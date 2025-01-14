@@ -22,7 +22,8 @@ defmodule GSMLG.LoggerTest do
     end
 
     test "raises on invalid log level" do
-      message = "Log level should be one of 'debug', 'info', 'warn', 'error' values, got: :invalid"
+      message =
+        "Log level should be one of 'debug', 'info', 'warn', 'error' values, got: :invalid"
 
       assert_raise ArgumentError, message, fn ->
         GSMLG.Logger.configure_log_level!(:invalid)
