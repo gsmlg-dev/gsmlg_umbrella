@@ -31,10 +31,10 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
   check_origin: false,
   watchers: [
     # Start the esbuild watcher by calling Esbuild.install_and_run(:default, args)
-    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]},
+    tailwind: {Tailwind, :install_and_run, [:gsmlg_web, ~w(--watch)]},
     esbuild:
       {Esbuild, :install_and_run,
-       [:default, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
+       [:gsmlg_web, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
   ],
   live_reload: [
     patterns: [
@@ -60,10 +60,10 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   check_origin: false,
   watchers: [
     # Start the esbuild watcher by calling Esbuild.install_and_run(:default, args)
-    tailwind: {Tailwind, :install_and_run, [:admin, ~w(--watch)]},
+    tailwind: {Tailwind, :install_and_run, [:gsmlg_admin_web, ~w(--watch)]},
     esbuild:
       {Esbuild, :install_and_run,
-       [:admin, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
+       [:gsmlg_admin_web, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
   ],
   live_reload: [
     patterns: [

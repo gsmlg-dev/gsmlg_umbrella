@@ -74,7 +74,7 @@ defmodule GSMLGWeb.MixProject do
     [
       setup: ["deps.get"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"]
+      "assets.deploy": ["tailwind gsmlg_web --minify", "esbuild gsmlg_web --minify", "phx.digest"]
     ]
   end
 end

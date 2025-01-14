@@ -68,38 +68,6 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
   home_page_title: "Home",
   live_view: [signing_salt: "gmmaSSOy"]
 
-# Configure esbuild (the version is required)
-config :esbuild,
-  version: "0.17.14",
-  default: [
-    args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
-    cd: Path.expand("../apps/gsmlg_web/assets", __DIR__)
-  ],
-  admin: [
-    args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
-    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__)
-  ]
-
-# Configure tailwind (the version is required)
-config :tailwind,
-  version: "3.4.1",
-  default: [
-    args: ~w(
-      --config=tailwind.config.js
-      --input=css/app.css
-      --output=../priv/static/assets/app.css
-    ),
-    cd: Path.expand("../apps/gsmlg_web/assets", __DIR__)
-  ],
-  admin: [
-    args: ~w(
-      --config=tailwind.config.js
-      --input=css/app.css
-      --output=../priv/static/assets/app.css
-    ),
-    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__)
-  ]
-
 admin_secret_key_base = "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr"
 
 # Configures the endpoint
@@ -115,9 +83,41 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   pubsub_server: GSMLG.PubSub,
   live_view: [signing_salt: "gmmaSSOy"]
 
+# Configure esbuild (the version is required)
+config :esbuild,
+  version: "0.17.14",
+  gsmlg_web: [
+    args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
+    cd: Path.expand("../apps/gsmlg_web/assets", __DIR__)
+  ],
+  gsmlg_admin_web: [
+    args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
+    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__)
+  ]
+
+# Configure tailwind (the version is required)
+config :tailwind,
+  version: "3.4.1",
+  gsmlg_web: [
+    args: ~w(
+      --config=tailwind.config.js
+      --input=css/app.css
+      --output=../priv/static/assets/app.css
+    ),
+    cd: Path.expand("../apps/gsmlg_web/assets", __DIR__)
+  ],
+  gsmlg_admin_web: [
+    args: ~w(
+      --config=tailwind.config.js
+      --input=css/app.css
+      --output=../priv/static/assets/app.css
+    ),
+    cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__)
+  ]
+
 # Configures Elixir's Logger
 config :logger, :default_handler,
-  formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "umbrella"}
+  formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "gsmlg_umbrella"}
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

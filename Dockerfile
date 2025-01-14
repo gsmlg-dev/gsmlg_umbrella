@@ -14,11 +14,14 @@ WORKDIR /build
 
 RUN <<EOF
 apk add --no-cache nodejs curl git npm
-mix local.rebar --force
-mix local.hex --force
-mix do deps.get, compile
-cd apps/gsmlg_web && npm install --prefix assets && mix assets.deploy && cd ../..
-cd apps/gsmlg_admin_web && npm install --prefix assets && mix assets.deploy && cd ../..
+mix deps.get
+for web_dir in /build/apps/gsmlg_web /build/apps/gsmlg_admin_web
+do
+  cd $web_dir
+  npm install --prefix assets
+  mix assets.deploy
+done
+cd /build
 mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
 cp -r _build/prod/rel/gsmlg_umbrella /app
 EOF
@@ -36,21 +39,21 @@ LABEL org.opencontainers.image.description="GSMLG Umbrella Project, running on E
 LABEL maintainer="Jonathan Gao <gsmlg.com@gmail.com>"
 LABEL RELEASE_VERSION="${RELEASE_VERSION}"
 
-ENV PORT=80 \
-    ADMIN_PORT=1080 \
-    REPLACE_OS_VARS=true \
-    ERL_EPMD_PORT=4369 \
-    POD_IP=127.0.0.1 \
-    ERLCOOKIE=erlang_cookie \
-    HOST=gsmlg.org \
-    HOST_PORT=80 \
-    ADMIN_HOST=admin.gsmlg.org \
-    ADMIN_HOST_PORT=80 \
-    DATABASE_URL=ecto://USER:PASS@HOST/DATABASE \
-    POOL_SIZE=10 \
-    ADMIN_SECRET_KEY_BASE=gsmlg-admin \
-    MNESIA_DIR=/var/lib/mnesia \
-    SECRET_KEY_BASE=gsmlg_umbrella
+ENV PORT=80
+ENV ADMIN_PORT=1080
+ENV REPLACE_OS_VARS=true
+ENV ERL_EPMD_PORT=4369
+ENV POD_IP=127.0.0.1
+ENV ERLCOOKIE=erlang_cookie
+ENV HOST=gsmlg.org
+ENV HOST_PORT=80
+ENV ADMIN_HOST=admin.gsmlg.org
+ENV ADMIN_HOST_PORT=80
+ENV DATABASE_URL=ecto://USER:PASS@HOST/DATABASE
+ENV POOL_SIZE=10
+ENV ADMIN_SECRET_KEY_BASE=gsmlg-admin
+ENV MNESIA_DIR=/var/lib/mnesia
+ENV SECRET_KEY_BASE=gsmlg_umbrella
 
 RUN <<EOF
 apk update

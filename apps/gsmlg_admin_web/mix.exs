@@ -75,7 +75,11 @@ defmodule GSMLGAdminWeb.MixProject do
     [
       setup: ["deps.get"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.deploy": ["tailwind admin --minify", "esbuild admin --minify", "phx.digest"]
+      "assets.deploy": [
+        "tailwind gsmlg_admin_web --minify",
+        "esbuild gsmlg_admin_web --minify",
+        "phx.digest"
+      ]
     ]
   end
 end
