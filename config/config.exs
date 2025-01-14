@@ -57,6 +57,7 @@ config :gsmlg_web,
 
 # Configures the endpoint
 config :gsmlg_web, GSMLGWeb.Endpoint,
+  adapter: Bandit.PhoenixAdapter,
   url: [host: "localhost"],
   secret_key_base: "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr",
   render_errors: [
@@ -103,6 +104,7 @@ admin_secret_key_base = "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNX
 
 # Configures the endpoint
 config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+  adapter: Bandit.PhoenixAdapter,
   url: [host: "localhost"],
   secret_key_base: admin_secret_key_base,
   commander_platform_key: admin_secret_key_base,
@@ -147,9 +149,6 @@ config :gsmlg_commander, GSMLGCommander,
 config :mime, :types, %{
   "text/plain" => ["livemd"]
 }
-
-# We want CSRF tokens to be logged to help users with debugging
-config :plug_cowboy, :log_exceptions_with_status_code, [407..599]
 
 config :gsmlg_admin_web, :chatgpt,
   # or gpt-3.5-turbo

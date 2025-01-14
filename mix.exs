@@ -43,7 +43,7 @@ defmodule GSMLG.Umbrella.MixProject do
     [
       {:burrito, "~> 1.0"},
       {:phoenix, "~> 1.7", override: true},
-      {:phoenix_live_view, "~> 0.20"}
+      {:phoenix_live_view, "~> 1.0"}
     ]
   end
 
