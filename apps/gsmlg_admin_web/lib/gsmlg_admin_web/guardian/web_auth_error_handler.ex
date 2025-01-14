@@ -6,7 +6,7 @@ defmodule GSMLGAdminWeb.Guardian.WebAuthErrorHandler do
 
   @impl Guardian.Plug.ErrorHandler
   def auth_error(conn, {type, reason}, _opts) do
-    IO.puts("[WebAuthErrorHandler] #{type}: #{reason}")
+    Logger.error("Error occurred at #{__MODULE__}", error: reason, type: type)
 
     conn
     |> GSMLGAdminWeb.Guardian.Plug.sign_out()

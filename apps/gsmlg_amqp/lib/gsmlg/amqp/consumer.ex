@@ -1,4 +1,6 @@
 defmodule GSMLG.AMQP.Consumer do
+  require Logger
+
   use GenServer
   use AMQP
 
@@ -48,19 +50,16 @@ defmodule GSMLG.AMQP.Consumer do
 
   # Confirmation sent by the broker after registering this process as a consumer
   def handle_info({:basic_consume_ok, %{consumer_tag: consumer_tag}}, chan) do
-    IO.inspect(consumer_tag)
     {:noreply, chan}
   end
 
   # Sent by the broker when the consumer is unexpectedly cancelled (such as after a queue deletion)
   def handle_info({:basic_cancel, %{consumer_tag: consumer_tag}}, chan) do
-    IO.inspect(consumer_tag)
     {:stop, :normal, chan}
   end
 
   # Confirmation sent by the broker to the consumer process after a Basic.cancel
   def handle_info({:basic_cancel_ok, %{consumer_tag: consumer_tag}}, chan) do
-    IO.inspect(consumer_tag)
     {:noreply, chan}
   end
 
@@ -88,15 +87,14 @@ defmodule GSMLG.AMQP.Consumer do
   end
 
   defp consume(channel, tag, redelivered, payload) do
-    IO.inspect({"consume", channel, tag, redelivered, payload})
     number = String.to_integer(payload)
 
     if number <= 10 do
       :ok = Basic.ack(channel, tag)
-      IO.puts("Consumed a #{number}. tan(#{number}) = #{:math.tan(number)}")
+      Logger.info("Consumed a #{number}. tan(#{number}) = #{:math.tan(number)}")
     else
       :ok = Basic.reject(channel, tag, requeue: false)
-      IO.puts("#{number} is too big and was rejected.")
+      Logger.info("#{number} is too big and was rejected.")
     end
   rescue
     # Requeue unless it's a redelivered message.
@@ -107,8 +105,7 @@ defmodule GSMLG.AMQP.Consumer do
     # Make sure you call ack, nack or reject otherwise consumer will stop
     # receiving messages.
     exception ->
-      IO.inspect(exception)
       :ok = Basic.reject(channel, tag, requeue: not redelivered)
-      IO.puts("Error converting #{payload} to integer")
+      Logger.warning("Error converting #{payload} to integer", error: exception)
   end
 end

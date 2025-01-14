@@ -1,4 +1,6 @@
 defmodule GSMLGAdminWeb.GhatgptLive.Index do
+  require Logger
+
   alias GSMLG.Openai.Message
   alias GSMLGAdminWeb.Chatgpt.LoadingIndicatorComponent
   alias GSMLGAdminWeb.Chatgpt.AlertComponent
@@ -72,10 +74,7 @@ defmodule GSMLGAdminWeb.GhatgptLive.Index do
   end
 
   def handle_event(ev, params, socket) do
-    IO.puts("handle event")
-    IO.inspect(ev)
-    IO.inspect(params)
-    IO.inspect(socket)
+    Logger.info("Unhandled event at live_view #{__MODULE__}", event: ev, params: params, socket: socket)
   end
 
   # -- sse client
@@ -111,7 +110,7 @@ defmodule GSMLGAdminWeb.GhatgptLive.Index do
   end
 
   def handle_error(e, state) do
-    IO.puts("got error: #{inspect(e)}")
+    Logger.error("Error occurred in live_view #{__MODULE__}", error: error)
     Process.send(self(), {:set_error, "#{inspect(e)}"}, [])
     Process.send(self(), :stop_loading, [])
 
@@ -202,9 +201,6 @@ defmodule GSMLGAdminWeb.GhatgptLive.Index do
           Process.send(self, :stop_loading, [])
 
         {:error, e} ->
-          IO.puts("error")
-          IO.inspect(e)
-
           Process.send(self, {:set_error, "#{inspect(e)}"}, [])
           Process.send(self, :stop_loading, [])
       end

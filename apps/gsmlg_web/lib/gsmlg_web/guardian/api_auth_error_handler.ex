@@ -5,7 +5,7 @@ defmodule GSMLGWeb.Guardian.ApiAuthErrorHandler do
 
   @impl Guardian.Plug.ErrorHandler
   def auth_error(conn, {type, reason}, _opts) do
-    IO.puts("[ApiAuthErrorHandler] #{type}: #{reason}")
+    Logger.error("Error occurred at #{__MODULE__}", error: reason, type: type)
     body = Jason.encode!(%{message: "[ApiAuthErrorHandler] #{type}: #{reason}"})
 
     conn

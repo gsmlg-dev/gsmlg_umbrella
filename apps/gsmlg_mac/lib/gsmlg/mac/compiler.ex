@@ -1,6 +1,9 @@
 defmodule GSMLG.MAC.Compiler do
-  @moduledoc "Compiles wireshark to the internally used lookup table format."
+  @moduledoc """
+  Compiles wireshark to the internally used lookup table format.
+  """
 
+  require Logger
   alias GSMLG.MAC.Parser
 
   def count_entries(table) do
@@ -20,8 +23,10 @@ defmodule GSMLG.MAC.Compiler do
         acc
         |> Map.update(bit_mac, vendor, fn
           sub_match when not is_list(sub_match) ->
-            IO.puts(
-              "Discovered shorter key for existing entry at #{inspect(bit_mac)} for <#{Enum.join(vendor, "\t")}> - dropping."
+            Logger.debug(
+              "Discovered shorter key for existing entry - dropping.",
+              bit_mac: bit_mac,
+              vendor: vendor
             )
 
             sub_match
@@ -49,8 +54,11 @@ defmodule GSMLG.MAC.Compiler do
 
   def update_sub_match_map({key_bitsize, _} = given, {bit_mac, vendor})
       when bit_size(bit_mac) < key_bitsize do
-    IO.puts(
-      "Discovered inconsistent bit-size at #{inspect(bit_mac)} for <#{Enum.join(vendor, "\t")}>: expected #{key_bitsize} but got #{bit_size(bit_mac)} - dropping"
+    Logger.debug(
+      "Discovered inconsistent bit-size at bit_mac for <vendor>: expected key_bitsize but got bit_mac - dropping",
+      bit_mac: bit_mac,
+      vendor: vendor,
+      key_bitsize: key_bitsize
     )
 
     given

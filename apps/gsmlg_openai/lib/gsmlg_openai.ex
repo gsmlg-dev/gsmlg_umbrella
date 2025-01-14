@@ -19,7 +19,7 @@ defmodule GSMLGOpenAI do
     # atoms aren't allocated yet
     # with {:ok, mods} <- :application.get_key(:gsmlg_openai, :modules) do
     #   # mods
-    #   # |> Enum.filter(&(&1 |> Module.split() |> Enum.at(1) == "Components"))
+    #   # |> Enum.filter(&(&1 |> Module.split() |> Enum.at(1) |> Kernel.==("Components")))
     #   # |> IO.inspect()
     #   # |> Enum.map(& &1.unpack_ast)
     # end

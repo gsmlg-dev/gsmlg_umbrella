@@ -75,7 +75,7 @@ defmodule GSMLG.Tor.Downloader do
           {"x86_64", os_info}
 
         _ ->
-          IO.puts("unsupported")
+          Logger.error("unsupported")
           :error
       end
 
