@@ -1,5 +1,5 @@
 defmodule GSMLGWeb.UserSocket do
-  use Phoenix.Socket
+  use Phoenix.LiveView.Socket
 
   # A Socket handler
   #

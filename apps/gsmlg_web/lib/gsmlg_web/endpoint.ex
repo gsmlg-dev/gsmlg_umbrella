@@ -22,7 +22,6 @@ defmodule GSMLGWeb.Endpoint do
   ]
 
   socket "/socket", GSMLGWeb.UserSocket, websocket: @websocket_options
-  socket "/live", Phoenix.LiveView.Socket, websocket: @websocket_options
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -33,21 +32,10 @@ defmodule GSMLGWeb.Endpoint do
     from: :gsmlg_web,
     gzip: false,
     only: ~w(
-      404.html
       assets
-      blogs
-      blogs.html
       favicon.ico
-      games
-      games.html
       images
-      index.html
-      _next
-      presentations.html
-      tools
-      tools.html
-      webgl
-      robot.txt
+      robots.txt
       cache_manifest.json
     )
 

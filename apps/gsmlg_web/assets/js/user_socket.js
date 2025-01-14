@@ -1,23 +1,20 @@
-// Bring in Phoenix channels client library:
-import { Socket } from "phoenix"
+import {Socket} from "phoenix"
+import {LiveSocket} from "phoenix_live_view"
 
-export const resetSocketWithToken = (t) => {
-  let token = window.userToken;
+let token;
+
+export const startSocket = (t) => {
   if (t) token = t;
   const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
   const params = { _csrf_token: csrfToken };
   if (token != null) {
     params.token = token;
   }
-  const socket = new Socket("/socket", { params });
+  const socket = new LiveSocket("/socket", Socket, { params, hooks: {} });
   return socket;
 };
 
-// And connect to the path in "lib/gsmlg_web/endpoint.ex". We pass the
-// token for authentication. Read below how it should be used.
-export const socket = resetSocketWithToken();
-
-export const joinChannels = () => {
+export const joinChannels = (socket) => {
   const channel = socket.channel("node:lobby", {});
   channel.join()
     .receive("ok", resp => { console.log("Joined successfully", resp) })

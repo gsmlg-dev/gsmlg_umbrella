@@ -45,8 +45,14 @@
         </div>
       </div>
       <div class="2xl:w-2/3 xl:w-3/4 lg:w-4/5 w-full h-[420px] 2xl:h-[600px] xl:h-[500px] lg:h-[480px] flex flex-row justify-center items-center">
+        <script type="module">
+          import 'https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo';
+          document.querySelectorAll("d3-world-map").forEach((el) => {
+            el.classList.remove('skeleton');
+          });
+        </script>
         <d3-world-map
-          class="w-full"
+          class="w-full h-full skeleton"
           points={Jason.encode!([[@ipInfo.longitude, @ipInfo.latitude]])}
           center-longitude={@ipInfo.longitude}
         >
