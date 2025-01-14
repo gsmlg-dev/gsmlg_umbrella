@@ -113,9 +113,9 @@ defmodule GSMLGAdminWeb.GhatgptLive.Index do
      |> assign(streaming_message: streaming_message)}
   end
 
-  def handle_error(e, state) do
+  def handle_error(error, state) do
     Logger.error("Error occurred in live_view #{__MODULE__}", error: error)
-    Process.send(self(), {:set_error, "#{inspect(e)}"}, [])
+    Process.send(self(), {:set_error, "#{inspect(error)}"}, [])
     Process.send(self(), :stop_loading, [])
 
     {:noreply, state}
