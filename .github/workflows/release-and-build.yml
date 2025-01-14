@@ -76,8 +76,8 @@ jobs:
           push: true
           build-args: |
             IMAGE_REGISTRY=docker.io
-            NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
-            HEX_MIRROR=https://hex.pm/
+            NPM_CONFIG_REGISTRY=https://registry.npmjs.org
+            HEX_MIRROR=https://hex.pm
             RELEASE_VERSION=${{ github.event.inputs.release-version }}
           tags: |
             docker.io/gsmlg/gsmlg-umbrella:v${{ github.event.inputs.release-version }}
