@@ -87,14 +87,6 @@ config :phoenix, :plug_init_mode, :runtime
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20
 
-# config :amqp,
-#   connections: [
-#     bunny: [url: System.get_env("AMQP_URL", "amqp://guest:guest@localhost:5672")]
-#   ],
-#   channels: [
-#     bunny: [connection: :bunny]
-#   ]
-
 config :gsmlg_couchdb, GSMLG.CouchDB.Connection,
   host: System.get_env("COUCH_HOST", "127.0.0.1"),
   port: 5984,

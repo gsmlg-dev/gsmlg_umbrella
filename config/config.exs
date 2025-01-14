@@ -128,10 +128,6 @@ mnesia_dir =
 
 config :mnesia, dir: mnesia_dir
 
-config :amqp,
-  connections: [],
-  channels: []
-
 config :gsmlg_couchdb, GSMLG.CouchDB.Connection, scheme: :http
 
 config :gsmlg_tor, GSMLG.Tor.Config,

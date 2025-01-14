@@ -21,7 +21,7 @@ defmodule GSMLGWeb.ToolboxController do
     render(conn, :index, tools: tools, header_slot: header_slot)
   end
 
-  def geoip2(conn, _params) do
+  def geoip2(conn, params) do
     assigns = %{}
 
     header_slot = ~H"""
@@ -32,7 +32,9 @@ defmodule GSMLGWeb.ToolboxController do
     </div>
     """
 
-    render(conn, :geoip2, ipInfo: nil, langs: GSMLG.GeoIP2.langs(), header_slot: header_slot)
+    lang = Map.get(params, "lang", "en")
+
+    render(conn, :geoip2, ipInfo: nil, ip: nil, lang: lang, langs: GSMLG.GeoIP2.langs(), header_slot: header_slot)
   end
 
   def geoip2_find(conn, %{"ip" => ip} = params) do
@@ -50,7 +52,7 @@ defmodule GSMLGWeb.ToolboxController do
 
     ipInfo = GSMLG.GeoIP2.get_ip_info(ip, lang)
 
-    render(conn, :geoip2, ipInfo: ipInfo, langs: GSMLG.GeoIP2.langs(), header_slot: header_slot)
+    render(conn, :geoip2, ipInfo: ipInfo, ip: ip, lang: lang, langs: GSMLG.GeoIP2.langs(), header_slot: header_slot)
   end
 
   def whois(conn, _params) do
