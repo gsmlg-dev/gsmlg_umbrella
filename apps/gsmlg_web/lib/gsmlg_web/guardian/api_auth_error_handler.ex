@@ -1,4 +1,6 @@
 defmodule GSMLGWeb.Guardian.ApiAuthErrorHandler do
+  reuqire Logger
+
   import Plug.Conn
 
   @behaviour Guardian.Plug.ErrorHandler
