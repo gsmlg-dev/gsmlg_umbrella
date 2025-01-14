@@ -74,7 +74,11 @@ defmodule GSMLGAdminWeb.GhatgptLive.Index do
   end
 
   def handle_event(ev, params, socket) do
-    Logger.info("Unhandled event at live_view #{__MODULE__}", event: ev, params: params, socket: socket)
+    Logger.info("Unhandled event at live_view #{__MODULE__}",
+      event: ev,
+      params: params,
+      socket: socket
+    )
   end
 
   # -- sse client
