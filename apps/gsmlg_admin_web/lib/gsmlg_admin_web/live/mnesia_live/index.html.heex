@@ -1,4 +1,4 @@
-<h3 class="mx-4 my-2 text-3xl text-primary font-bold"><%= @page_title %></h3>
+<h3 class="mx-4 my-2 text-3xl text-primary font-bold">{@page_title}</h3>
 <div class="container">
   <.dm_card>
     <:title class="flex flex-row justify-center">
@@ -9,8 +9,8 @@
       <%= if is_list(@info) do %>
         <ul class="flex flex-col">
           <li :for={{k, v} <- @info} data-key={k} class="flex gap-4">
-            <label class="text-info basis-1/3 text-right after:content-[':']"><%= k %></label>
-            <label class="text-base-content"><%= inspect(v) %></label>
+            <label class="text-info basis-1/3 text-right after:content-[':']">{k}</label>
+            <label class="text-base-content">{inspect(v)}</label>
           </li>
         </ul>
       <% end %>
@@ -28,15 +28,15 @@
             "flex flex-row justify-center",
             "font-semibold text-xl"
           ]}>
-            <%= name %>
+            {name}
           </h4>
           <ul class="flex flex-col">
             <%= if is_list(info) do %>
               <li :for={{key, v} <- info} data-key={key} class="flex gap-4">
                 <label class="text-info basis-1/3 text-right after:content-[':']">
-                  <%= key %>
+                  {key}
                 </label>
-                <label class="text-base-content"><%= inspect(v) %></label>
+                <label class="text-base-content">{inspect(v)}</label>
               </li>
             <% end %>
           </ul>

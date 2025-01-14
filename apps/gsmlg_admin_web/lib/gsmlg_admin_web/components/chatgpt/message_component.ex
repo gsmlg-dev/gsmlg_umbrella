@@ -90,11 +90,11 @@ defmodule GSMLGAdminWeb.Chatgpt.MessageComponent do
     <div class={"chat #{style(@sender)}"}>
       <div class="chat-image avatar">
         <div class="w-10">
-          <%= render_avatar(assigns) %>
+          {render_avatar(assigns)}
         </div>
       </div>
       <div class={"chat-bubble shadow-[0_0_10px_rgba(0,0,0,0.10)] dark:shadow-[0_0_15px_rgba(0,0,0,0.10)] space-y-4 p-4 mb-4 rounded  w-full #{bubble_style(@sender)}"}>
-        <%= raw(@parsed_content) %>
+        {raw(@parsed_content)}
       </div>
     </div>
     """

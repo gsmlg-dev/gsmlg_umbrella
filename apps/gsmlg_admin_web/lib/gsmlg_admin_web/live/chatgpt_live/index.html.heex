@@ -5,7 +5,7 @@
     <div class="z-20 bg-opacity-90 backdrop-blur sticky top-0 items-center gap-2 px-4 py-2 lg:flex">
       <div class="font-title inline-flex text-lg transition-all duration-200 md:text-3xl">
         <a href="/openai/chat" class="btn btn-ghost normal-case text-xl">
-          <%= assigns[:page_title] %>
+          {assigns[:page_title]}
         </a>
       </div>
     </div>
@@ -51,7 +51,7 @@
           }
           navigate={~p"/openai/scenario/#{scenario.id}"}
         >
-          <%= scenario.name %>
+          {scenario.name}
         </.link>
       </li>
     </ul>
@@ -88,7 +88,7 @@
         <ul class="menu menu-horizontal px-1">
           <li tabindex="0" class="flex flex-row">
             <a class="flex flew-row items-center">
-              Model: <%= assigns[:model] %>
+              Model: {assigns[:model]}
               <svg
                 class="fill-current"
                 xmlns="http://www.w3.org/2000/svg"
@@ -109,7 +109,7 @@
                     |> URI.to_string()
                   }
                 >
-                  <%= model %>
+                  {model}
                 </.link>
               </li>
             </ul>

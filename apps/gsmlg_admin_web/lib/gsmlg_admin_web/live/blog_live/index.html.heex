@@ -6,19 +6,19 @@
   </div>
   <.dm_table id="blog-table" stream={true} data={@streams.blogs}>
     <:col :let={b} label="ID">
-      <%= b.id %>
+      {b.id}
     </:col>
     <:col :let={b} label="Slug">
-      <%= b.slug %>
+      {b.slug}
     </:col>
     <:col :let={b} label="Title">
-      <%= b.title %>
+      {b.title}
     </:col>
     <:col :let={b} label="Author">
-      <%= b.author %>
+      {b.author}
     </:col>
     <:col :let={b} label="Date">
-      <%= b.date %>
+      {b.date}
     </:col>
 
     <:col :let={b} label="">
@@ -78,7 +78,7 @@
           Preview
         </span>
         <remark-element id="blog-form_content-preview" class="prose lg:prose-xl">
-          <%= Phoenix.HTML.Form.input_value(f, :content) %>
+          {Phoenix.HTML.Form.input_value(f, :content)}
         </remark-element>
       </div>
       <:actions>
@@ -105,7 +105,7 @@
         Slug
       </div>
       <div class="flex-1">
-        <%= Map.get(@blog, :slug) %>
+        {Map.get(@blog, :slug)}
       </div>
     </div>
     <div class="flex flex-row">
@@ -113,7 +113,7 @@
         Title
       </div>
       <div class="flex-1">
-        <%= Map.get(@blog, :title) %>
+        {Map.get(@blog, :title)}
       </div>
     </div>
     <div class="flex flex-row">
@@ -121,7 +121,7 @@
         Author
       </div>
       <div class="flex-1">
-        <%= Map.get(@blog, :author) %>
+        {Map.get(@blog, :author)}
       </div>
     </div>
     <div class="flex flex-row">
@@ -129,7 +129,7 @@
         Date
       </div>
       <div class="flex-1">
-        <%= Map.get(@blog, :date) %>
+        {Map.get(@blog, :date)}
       </div>
     </div>
     <div class="flex flex-col">
@@ -138,7 +138,7 @@
       </div>
       <div class="flex-1 prose lg:prose-xl">
         <remark-element>
-          <%= Map.get(@blog, :content) %>
+          {Map.get(@blog, :content)}
         </remark-element>
       </div>
     </div>

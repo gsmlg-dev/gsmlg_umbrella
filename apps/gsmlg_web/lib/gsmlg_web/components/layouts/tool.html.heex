@@ -20,10 +20,10 @@
     </.link>
   </:user_profile>
   <%= if assigns[:header_slot] do %>
-    <%= @header_slot %>
+    {@header_slot}
   <% end %>
 </.dm_page_header>
 <main class="flex flex-col items-center min-h-[calc(100vh-400px)]">
   <.flash_group flash={@flash} />
-  <%= @inner_content %>
+  {@inner_content}
 </main>

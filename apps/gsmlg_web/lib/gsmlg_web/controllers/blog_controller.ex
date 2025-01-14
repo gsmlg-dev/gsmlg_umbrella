@@ -34,12 +34,12 @@ defmodule GSMLGWeb.BlogController do
         "flex justify-center items-center",
         "text-6xl font-bold whitespace-auto"
       ]}>
-        <%= @blog.title %>
+        {@blog.title}
       </h1>
       <author class="text-2xl text-fuchsia-300 my-4">
-        <%= @blog.author %>
+        {@blog.author}
       </author>
-      <time class="text-xl text-pink-300"><%= @blog.date %></time>
+      <time class="text-xl text-pink-300">{@blog.date}</time>
     </div>
     """
 

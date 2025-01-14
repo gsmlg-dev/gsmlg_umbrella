@@ -14,14 +14,14 @@
         onclick="document.getElementById('test').classList.toggle('text-teal-400')"
         phx-click="update_test"
       >
-        <%= @test_button %>
+        {@test_button}
       </.button>
     </div>
     <section class="my-4">
       <ul class="flex flex-col">
         <li :for={commander <- @commanders} class="flex gap-4">
           <h4 class="font-bold after:content-[':']">Commander</h4>
-          <span><%= commander.name %></span>
+          <span>{commander.name}</span>
           <.dm_modal>
             <:trigger :let={f}>
               <button
@@ -32,8 +32,7 @@
               </button>
             </:trigger>
             <:title class="px-8">
-              Send Command to Commander
-              <span class="text-blue-600 mx-4"><%= commander.name %></span>
+              Send Command to Commander <span class="text-blue-600 mx-4">{commander.name}</span>
             </:title>
             <:body>
               <.simple_form

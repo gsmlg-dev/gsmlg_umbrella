@@ -18,12 +18,12 @@
     <div class="mt-4 flex flex-col justify-center items-center">
       <div class="w-96 flex flex-row justify-start items-start">
         <div class="w-32 text-right pr-2 after:content-[':']">Short</div>
-        <div class=""><%= @short %></div>
+        <div class="">{@short}</div>
       </div>
       <%= unless is_nil(assigns[:full]) do %>
         <div class="w-96 flex flex-row justify-start items-start">
           <div class="w-32 text-right pr-2 after:content-[':']">Full Information</div>
-          <div class=""><%= @full %></div>
+          <div class="">{@full}</div>
         </div>
       <% end %>
     </div>

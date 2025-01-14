@@ -2,12 +2,12 @@
   <div :for={blog <- @blogs} class={["flex flex-col md:flex-row justify-between", "mx-4"]}>
     <h3 class="text-primary text-xl">
       <.link href={~p"/blogs/#{blog.slug}"}>
-        <%= blog.title %>
+        {blog.title}
       </.link>
       <author class="text-medium text-secondary">
-        <%= blog.author %>
+        {blog.author}
       </author>
     </h3>
-    <time><%= blog.date %></time>
+    <time>{blog.date}</time>
   </div>
 </div>

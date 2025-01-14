@@ -2,22 +2,22 @@
   <div class="mx-4 my-2 flex flex-row justify-end"></div>
   <.dm_table data={@user_tokens}>
     <:col :let={t} label="Aud">
-      <%= t.aud %>
+      {t.aud}
     </:col>
     <:col :let={t} label="Type">
-      <%= t.typ %>
+      {t.typ}
     </:col>
     <:col :let={t} label="Issuer">
-      <%= t.iss %>
+      {t.iss}
     </:col>
     <:col :let={t} label="Sub">
-      <%= t.sub %>
+      {t.sub}
     </:col>
     <:col :let={t} label="Exp">
-      <%= t.exp |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
+      {t.exp |> DateTime.from_unix!() |> DateTime.to_iso8601()}
     </:col>
     <:col :let={t} label="Nfb">
-      <%= t.claims |> Map.get("nbf") |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
+      {t.claims |> Map.get("nbf") |> DateTime.from_unix!() |> DateTime.to_iso8601()}
     </:col>
 
     <:col :let={t} label="">
@@ -44,7 +44,7 @@
   :if={@live_action == :new || @live_action == :edit}
   class="container flex flex-col gap-2 mt-4 w-full"
 >
-  <h3 class="mx-4 my-2 text-3xl text-primary"><%= @user_token.aud %></h3>
+  <h3 class="mx-4 my-2 text-3xl text-primary">{@user_token.aud}</h3>
 
   <div class="mx-4 my-2 flex gap-2">
     <.link class="btn btn-sm btn-primary" patch={~p"/user_tokens"}>
@@ -92,7 +92,7 @@
         aud
       </div>
       <div class="flex-1">
-        <%= Map.get(@user_token, :aud) %>
+        {Map.get(@user_token, :aud)}
       </div>
     </div>
     <div class="flex flex-row">
@@ -101,7 +101,7 @@
       </div>
       <div class="flex-1">
         <json-viewer indent="2">
-          <%= Map.get(@user_token, :claims) |> Jason.encode!() %>
+          {Map.get(@user_token, :claims) |> Jason.encode!()}
         </json-viewer>
       </div>
     </div>
@@ -110,7 +110,7 @@
         exp
       </div>
       <div class="flex-1">
-        <%= Map.get(@user_token, :exp) |> DateTime.from_unix!() |> DateTime.to_iso8601() %>
+        {Map.get(@user_token, :exp) |> DateTime.from_unix!() |> DateTime.to_iso8601()}
       </div>
     </div>
     <div class="flex flex-row">
@@ -118,10 +118,10 @@
         nbf
       </div>
       <div class="flex-1">
-        <%= Map.get(@user_token, :claims)
+        {Map.get(@user_token, :claims)
         |> Map.get("nbf")
         |> DateTime.from_unix!()
-        |> DateTime.to_iso8601() %>
+        |> DateTime.to_iso8601()}
       </div>
     </div>
     <div class="flex flex-row">
@@ -129,7 +129,7 @@
         iss
       </div>
       <div class="flex-1">
-        <%= Map.get(@user_token, :iss) %>
+        {Map.get(@user_token, :iss)}
       </div>
     </div>
     <div class="flex flex-row">

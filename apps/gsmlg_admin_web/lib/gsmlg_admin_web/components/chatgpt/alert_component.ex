@@ -26,7 +26,7 @@ defmodule GSMLGAdminWeb.Chatgpt.AlertComponent do
       <span class="sr-only">Info</span>
       <div>
         <span class="font-medium">Error!</span>
-        <%= @text %>
+        {@text}
       </div>
     </div>
     """

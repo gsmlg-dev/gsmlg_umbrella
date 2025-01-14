@@ -14,7 +14,7 @@
   <.async_result :let={org_repos} assign={@org_repos}>
     <.dm_card :for={{org, repos} <- org_repos} class="section-card">
       <:title class="flex flex-row justify-center">
-        <h3 class="font-semibold text-2xl">Github Repos of <%= org %></h3>
+        <h3 class="font-semibold text-2xl">Github Repos of {org}</h3>
       </:title>
 
       <div class="mx-4 my-2 w-full grid grid-cols-3 gap-4">

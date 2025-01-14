@@ -51,7 +51,7 @@ defmodule GSMLGAdminWeb.Chatgpt.TextboxComponent do
   def render(assigns) do
     ~H"""
     <div id="textbox" class="">
-      <p><%= @text %></p>
+      <p>{@text}</p>
       <.form
         class="stretch mx-2 flex flex-row gap-3 last:mb-2 md:mx-4 md:last:mb-6 lg:mx-auto lg:max-w-3xl"
         phx-target={@myself}

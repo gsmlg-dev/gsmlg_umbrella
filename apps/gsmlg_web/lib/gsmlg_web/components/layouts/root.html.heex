@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title suffix="">
-      <%= assigns[:page_title] || "GSMLG Web" %>
+      {assigns[:page_title] || "GSMLG Web"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
@@ -25,7 +25,7 @@
     "dark:text-slate-400 dark:bg-slate-900",
     "overflow-x-hidden antialiased"
   ]}>
-    <%= @inner_content %>
+    {@inner_content}
     <.dm_page_footer class={[
       "bg-gradient-to-tl from-teal-500 to-indigo-500",
       "text-slate-200"

@@ -6,19 +6,19 @@
   </div>
   <.dm_table data={@users}>
     <:col :let={u} label="Email">
-      <%= u.email %>
+      {u.email}
     </:col>
     <:col :let={u} label="Username">
-      <%= u.username %>
+      {u.username}
     </:col>
     <:col :let={u} label="Name">
-      <%= u.name %>
+      {u.name}
     </:col>
     <:col :let={u} label="Active">
-      <%= u.is_active %>
+      {u.is_active}
     </:col>
     <:col :let={u} label="Enable 2FA">
-      <%= u.is_2fa_enabled %>
+      {u.is_2fa_enabled}
     </:col>
 
     <:col :let={u} label="">
@@ -86,10 +86,10 @@
     <%= for name <- Map.keys(@user) do %>
       <div class="flex flex-row">
         <div class="flex-1 text-blue-400">
-          <%= name %>
+          {name}
         </div>
         <div class="flex-1">
-          <%= Map.get(@user, name) |> inspect %>
+          {Map.get(@user, name) |> inspect}
         </div>
       </div>
     <% end %>

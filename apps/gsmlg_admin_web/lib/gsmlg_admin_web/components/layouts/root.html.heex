@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title suffix=" · GSMLG BITW">
-      <%= assigns[:page_title] || "GSMLG BITW" %>
+      {assigns[:page_title] || "GSMLG BITW"}
     </.live_title>
     <script async type="module" src="https://esm-run.gsmlg.dev/@gsmlg/lit">
     </script>
@@ -14,6 +14,6 @@
     </script>
   </head>
   <body class="bg-base-100 text-base-content antialiased flex flex-col overflow-x-hidden w-screen h-min-screen">
-    <%= @inner_content %>
+    {@inner_content}
   </body>
 </html>

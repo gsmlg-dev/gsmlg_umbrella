@@ -28,13 +28,13 @@ defmodule GSMLGAdminWeb.ComponentsLive.CommandResults do
     <div>
       <.dm_table class="table table-zebra" data={@command_results}>
         <:col :let={t} label="Commander">
-          <%= t.commander %>
+          {t.commander}
         </:col>
         <:col :let={t} label="Command">
-          <%= t.command %>
+          {t.command}
         </:col>
         <:col :let={t} label="Code">
-          <%= t.code %>
+          {t.code}
         </:col>
         <:col :let={t} label="Output">
           <pre class="bg-black text-white overflow-auto">

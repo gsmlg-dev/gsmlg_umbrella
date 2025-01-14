@@ -8,21 +8,21 @@
         <.dm_link navigate={~p"/users"}>User List</.dm_link>
         <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">User Count</label>
-          <span class="text-cyan-600"><%= @data.user_count %></span>
+          <span class="text-cyan-600">{@data.user_count}</span>
         </div>
       </div>
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/user_tokens"}>User Token List</.dm_link>
         <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">Logined User Count</label>
-          <span class="text-cyan-600"><%= @data.token_count %></span>
+          <span class="text-cyan-600">{@data.token_count}</span>
         </div>
       </div>
       <div class="flex flex-col border border-green-200 p-4">
         <.dm_link navigate={~p"/blogs"}>Blog List</.dm_link>
         <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">Blog Count</label>
-          <span class="text-cyan-600"><%= @data.blog_count %></span>
+          <span class="text-cyan-600">{@data.blog_count}</span>
         </div>
       </div>
       <div class="flex flex-col border border-green-200 p-4">
@@ -51,7 +51,7 @@
         <.dm_link navigate={~p"/node_management"}>Node Management</.dm_link>
         <div class="flex flex-row gap-2 items-center">
           <label class="after:content-[':']">Node Count</label>
-          <span class="text-cyan-600"><%= Node.list() |> length %></span>
+          <span class="text-cyan-600">{Node.list() |> length}</span>
         </div>
       </div>
     </div>

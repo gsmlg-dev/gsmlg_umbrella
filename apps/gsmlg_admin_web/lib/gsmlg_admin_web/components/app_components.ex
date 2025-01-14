@@ -76,7 +76,7 @@ defmodule GSMLGAdminWeb.AppComponents do
             class="flex flex-col gap-4"
           >
             <header class="flex items-center">
-              <h2 class="text-2xl"><%= title %></h2>
+              <h2 class="text-2xl">{title}</h2>
             </header>
             <div class="grid grid-flow-col auto-cols-max gap-4">
               <.link
@@ -85,21 +85,21 @@ defmodule GSMLGAdminWeb.AppComponents do
                 class="btn btn-primary"
                 navigate={url}
               >
-                <span><%= name %></span>
+                <span>{name}</span>
               </.link>
               <div
                 :for={{sub_title, sub_list} <- list}
                 :if={is_list(sub_list)}
                 class="flex flex-col items-start gap-2 ml-8"
               >
-                <h3 class="text-xl text-left opacity-70"><%= sub_title %></h3>
+                <h3 class="text-xl text-left opacity-70">{sub_title}</h3>
                 <div class="grid grid-flow-col auto-cols-max gap-4">
                   <.link
                     :for={{sub_name, sub_url} <- sub_list}
                     class="btn btn-primary"
                     navigate={sub_url}
                   >
-                    <span><%= sub_name %></span>
+                    <span>{sub_name}</span>
                   </.link>
                 </div>
               </div>
@@ -242,22 +242,22 @@ defmodule GSMLGAdminWeb.AppComponents do
           <div :if={@repo.private} class="badge badge-error tooltip" data-tip="Private">
             <.dm_mdi name="account-key-outline" class="w-5 h-5 text-neutral-content" />
           </div>
-          <%= @repo.name %>
-          <div :if={@repo.language} class="badge badge-accent"><%= @repo.language %></div>
+          {@repo.name}
+          <div :if={@repo.language} class="badge badge-accent">{@repo.language}</div>
         </div>
         <div>
           <.link href={@repo.html_url <> "/stargazers"} class="btn btn-xs" target="_blank">
-            Star <%= @repo.stargazers_count %>
+            Star {@repo.stargazers_count}
           </.link>
           <.link href={@repo.html_url <> "/forks"} class="btn btn-xs" target="_blank">
-            Fork <%= @repo.forks %>
+            Fork {@repo.forks}
           </.link>
           <.link href={@repo.html_url <> "/issues"} class="btn btn-xs" target="_blank">
-            Issue <%= @repo.open_issues %>
+            Issue {@repo.open_issues}
           </.link>
         </div>
         <p>
-          <%= @repo.description || gettext("No description") %>
+          {@repo.description || gettext("No description")}
         </p>
         <div class="card-actions justify-end">
           <.link href={@repo.html_url} class="btn btn-primary btn-sm" target="_blank">
