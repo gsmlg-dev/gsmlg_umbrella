@@ -1,4 +1,5 @@
-FROM docker-io.gsmlg.dev/library/elixir:1.16-alpine AS builder
+ARG IMAGE_REGISTRY="docker-io.gsmlg.dev"
+FROM ${IMAGE_REGISTRY}/library/elixir:1.17-alpine AS builder
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg
@@ -11,19 +12,26 @@ COPY . /build
 
 WORKDIR /build
 
-RUN apk update && apk add nodejs curl git npm \
-    && mix do deps.get, compile \
-    && cd apps/gsmlg_web && npm install --prefix assets && mix assets.deploy && cd ../.. \
-    && cd apps/gsmlg_admin_web && npm install --prefix assets && mix assets.deploy && cd ../.. \
-    && mix release gsmlg_umbrella --version "${RELEASE_VERSION}" \
-    && cp -r _build/prod/rel/gsmlg_umbrella /app
+RUN <<EOF
+apk add --no-cache nodejs curl git npm
+mix do deps.get, compile
+cd apps/gsmlg_web && npm install --prefix assets && mix assets.deploy && cd ../..
+cd apps/gsmlg_admin_web && npm install --prefix assets && mix assets.deploy && cd ../..
+mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
+cp -r _build/prod/rel/gsmlg_umbrella /app
+EOF
 
 
-FROM docker-io.gsmlg.dev/library/alpine:3.19
+FROM ${IMAGE_REGISTRY}/library/alpine:3.20
 
 ARG RELEASE_VERSION=1.0.0
 
-LABEL maintainer="GSMLG <gsmlg.com@gmail.com>"
+LABEL org.opencontainers.image.source="https://github.com/gsmlg-dev/gsmlg_umbrella"
+LABEL org.opencontainers.image.version="${RELEASE_VERSION}"
+LABEL org.opencontainers.image.title="GSMLG Umbrella Project"
+LABEL org.opencontainers.image.authors="Jonathan Gao <gsmlg.com@gmail.com>"
+LABEL org.opencontainers.image.description="GSMLG Umbrella Project, running on Elixir/Phoenix"
+LABEL maintainer="Jonathan Gao <gsmlg.com@gmail.com>"
 LABEL RELEASE_VERSION="${RELEASE_VERSION}"
 
 ENV PORT=80 \
@@ -42,11 +50,16 @@ ENV PORT=80 \
     MNESIA_DIR=/var/lib/mnesia \
     SECRET_KEY_BASE=gsmlg_umbrella
 
-RUN apk update \
-    && apk add openssl bash libstdc++ \
-    && ln -s /app/bin/gsmlg_umbrella /usr/local/bin/gsmlg \
-    && mkdir -p /var/lib/mnesia \
-    && rm -rf /var/cache/apk/*
+RUN <<EOF
+apk update
+apk add --no-cache openssl bash libstdc++
+ln -s /app/bin/gsmlg_umbrella /usr/local/bin/gsmlg
+mkdir -p /var/lib/mnesia
+EOF
+
+VOLUME ["/var/lib/mnesia"]
+
+ENV PATH="/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 COPY --from=builder /app /app
 
