@@ -1,5 +1,7 @@
-<div class="drawer-side">
-  <label for="my-drawer-2" class="drawer-overlay"></label>
+<div class="drawer">
+<input id="chatgpt-drawer-toggle" type="checkbox" class="drawer-toggle" />
+<div class="drawer-side z-40">
+  <label for="chatgpt-drawer-toggle" class="drawer-overlay"></label>
 
   <aside class="bg-[#202123] text-[#eee] w-80 h-full" data-theme="halloween">
     <div class="z-20 bg-opacity-90 backdrop-blur sticky top-0 items-center gap-2 px-4 py-2 lg:flex">
@@ -67,8 +69,8 @@
   ]}>
     <header class="container bg-base-100">
       <div class="flex flex-row">
-        <div class="block md:hidden flex-none">
-          <label for="my-drawer-2" class="btn btn-square btn-ghost my-drawer-2 drawer-button">
+        <div class="block flex-none">
+          <label for="chatgpt-drawer-toggle" class="btn btn-square btn-ghost drawer-button">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -85,36 +87,26 @@
             </svg>
           </label>
         </div>
-        <ul class="menu menu-horizontal px-1">
-          <li tabindex="0" class="flex flex-row">
-            <a class="flex flew-row items-center">
-              Model: {assigns[:model]}
-              <svg
-                class="fill-current"
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
+        <div class="dropdown dropdown-bottom">
+          <div tabindex="0" role="button" class="btn m-1">
+            Model: {assigns[:model]}
+            <.dm_mdi name="triangle-small-down" class="w-6 h-6" />
+          </div>
+          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+            <li :for={model <- Enum.map(assigns[:models], &Map.get(&1, :id, false))}>
+              <.link
+                :if={model != false}
+                navigate={
+                  URI.parse("/openai/chat")
+                  |> URI.append_query("model=#{model}")
+                  |> URI.to_string()
+                }
               >
-                <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
-              </svg>
-            </a>
-            <ul class="p-2 z-10 bg-base-100">
-              <li :for={model <- Enum.map(assigns[:models], &Map.get(&1, :id, false))}>
-                <.link
-                  :if={model != false}
-                  navigate={
-                    URI.parse("/openai/chat")
-                    |> URI.append_query("model=#{model}")
-                    |> URI.to_string()
-                  }
-                >
-                  {model}
-                </.link>
-              </li>
-            </ul>
-          </li>
-        </ul>
+                {model}
+              </.link>
+            </li>
+          </ul>
+        </div>
       </div>
     </header>
   </div>
@@ -125,7 +117,7 @@
         <.live_component
           module={GSMLGAdminWeb.Chatgpt.MessageListComponent}
           messages={assigns.messages ++ [assigns.streaming_message]}
-          id="myid"
+          id="chatgpt-messages"
         />
 
         <%= if Phoenix.Flash.get(@flash, :error) do %>
@@ -151,4 +143,5 @@
       />
     </div>
   </div>
+</div>
 </div>

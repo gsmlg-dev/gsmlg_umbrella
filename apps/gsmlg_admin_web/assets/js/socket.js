@@ -1,15 +1,9 @@
-
-// Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
-
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 const liveSocket = new LiveSocket("/socket", Socket, { params: { _csrf_token: csrfToken } });
 
-
-// And connect to the path in "lib/gsmlg_admin_web/endpoint.ex". We pass the
-// token for authentication. Read below how it should be used.
 export const joinChannels = () => {
   if (!liveSocket.socket.isConnected()) {
     liveSocket.socket.connect();

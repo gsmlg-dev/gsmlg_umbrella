@@ -2,16 +2,11 @@
 // to get started and then uncomment the line below.
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import 'phoenix_html';
-
-// Inclue web componetn, @gsmlg/lit
 import 'phoenix_duskmoon';
-// import '@gsmlg/lit';
-// Import socket
 import './socket';
-
-// import progress bar
 import topbar from '../vendor/topbar';
 import hljs from "highlight.js";
+
 function scrollToBottom() {
     window.scrollTo(0, document.body.scrollHeight);
     document

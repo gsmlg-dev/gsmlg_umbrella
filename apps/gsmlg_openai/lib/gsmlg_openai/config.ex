@@ -6,7 +6,7 @@ defmodule GSMLGOpenAI.Config do
 
   use GenServer
 
-  @openai_url "https://openai.gsmlg.org/v1"
+  @openai_url "https://openai.gsmlg.dev/v1"
 
   @config_keys [
     :api_key,
