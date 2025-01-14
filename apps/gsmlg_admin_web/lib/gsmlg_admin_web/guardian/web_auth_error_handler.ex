@@ -1,4 +1,6 @@
 defmodule GSMLGAdminWeb.Guardian.WebAuthErrorHandler do
+  require Logger
+
   import Plug.Conn
   use GSMLGAdminWeb, :controller
 
