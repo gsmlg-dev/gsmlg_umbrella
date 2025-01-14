@@ -34,7 +34,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           MIX_ENV: prod
-        run:
+        run: |
           echo "release_verison = ${{ github.event.inputs.release-version }}"
           mix deps.get
           mix format --check-formatted
