@@ -56,7 +56,6 @@ defmodule GSMLGAdminWeb.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.18"},
       {:gsmlg, in_umbrella: true},
-      {:gsmlg_openai, in_umbrella: true},
       {:swoosh, "~> 1.3"},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.0"},

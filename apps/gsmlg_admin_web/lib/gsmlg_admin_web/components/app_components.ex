@@ -48,7 +48,6 @@ defmodule GSMLGAdminWeb.AppComponents do
                    {"User List", "/users"},
                    {"User Token List", "/user_tokens"},
                    {"Blog List", "/blogs"},
-                   {"ChatGPT", "/openai/chat"},
                    {"Github", "/github"}
                  ]},
                 {"Cluster Overview",

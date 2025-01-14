@@ -142,9 +142,4 @@ if config_env() == :prod do
   end
 end
 
-config :gsmlg_openai,
-  api_key: System.get_env("OPENAI_API_KEY"),
-  organization_key: System.get_env("OPENAI_ORGANIZATION_KEY"),
-  http_options: [recv_timeout: 30_000]
-
 GSMLG.Logger.configure_log_level_from_env!()

@@ -15,7 +15,3 @@ app-bar {
   --btn-link: #fdfdfd;
   --btn-hover: #9eccf2;
 }
-
-#chatgpt {
-  scroll-behavior: smooth;
-}

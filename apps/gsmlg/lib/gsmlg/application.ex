@@ -17,8 +17,7 @@ defmodule GSMLG.Application do
       {GSMLG.CommandPlatform.Supervisor, name: GSMLG.CommandPlatform.Supervisor},
       # Start distribute Node
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
-      {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
-      GSMLG.Openai.Tokenizer
+      {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Supervisor)
