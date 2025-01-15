@@ -54,8 +54,8 @@ defmodule GSMLG.CommandPlatform do
 
   @impl true
   def handle_continue(:start_mnesia, state) do
-    # ensure_mnesia_started()
-    # ensure_mnesia_table()
+    ensure_mnesia_started()
+    ensure_mnesia_table()
 
     Logger.debug("CommandPlatform initialize state: #{inspect(state)}")
 
