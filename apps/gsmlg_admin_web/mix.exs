@@ -58,7 +58,6 @@ defmodule GSMLGAdminWeb.MixProject do
       {:gsmlg, in_umbrella: true},
       {:swoosh, "~> 1.3"},
       {:jason, "~> 1.2"},
-      {:bandit, "~> 1.0"},
       {:guardian, "~> 2.0"},
       {:guardian_phoenix, "~> 2.0"},
       {:guardian_db, "~> 3.0"},
