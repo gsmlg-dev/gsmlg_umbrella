@@ -4,7 +4,7 @@ defmodule GSMLG.Whois.MixProject do
   def project do
     [
       app: :gsmlg_whois,
-      version: "0.4.0",
+      version: "0.5.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -31,9 +31,9 @@ defmodule GSMLG.Whois.MixProject do
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-      [
-        {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
-      ]
+    [
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+    ]
   end
 
   defp package do

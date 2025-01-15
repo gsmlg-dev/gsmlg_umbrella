@@ -5,24 +5,24 @@ defmodule GSMLG.Whois.Server do
   """
   defstruct [:host]
 
-  @type t :: %__MODULE__{host: String.t()}
+  @type t :: %__MODULE__{host: binary()}
 
   def root() do
     %GSMLG.Whois.Server{host: "whois.iana.org"}
   end
 
-  @spec for_domain(String.t()) :: {:ok, t}
+  @spec for_domain(binary()) :: {:ok, t}
   def for_domain(_) do
-    {:ok, %GSMLG.Whois.Server{host: "whois.iana.org"}}
+    {:ok, root()}
   end
 
-  @spec for_ip(String.t()) :: {:ok, t}
+  @spec for_ip(binary()) :: {:ok, t}
   def for_ip(_) do
-    {:ok, %GSMLG.Whois.Server{host: "whois.iana.org"}}
+    {:ok, root()}
   end
 
-  @spec for_asn(String.t() | Integer.t()) :: {:ok, t}
+  @spec for_asn(binary() | Integer.t()) :: {:ok, t}
   def for_asn(_) do
-    {:ok, %GSMLG.Whois.Server{host: "whois.iana.org"}}
+    {:ok, root()}
   end
 end
