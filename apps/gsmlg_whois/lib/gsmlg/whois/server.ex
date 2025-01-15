@@ -21,7 +21,7 @@ defmodule GSMLG.Whois.Server do
     {:ok, root()}
   end
 
-  @spec for_asn(binary() | Integer.t()) :: {:ok, t}
+  @spec for_asn(binary() | integer()) :: {:ok, t}
   def for_asn(_) do
     {:ok, root()}
   end
