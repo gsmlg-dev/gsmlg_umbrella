@@ -17,8 +17,11 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   url: [host: "admin.gsmlg.org", port: 443, scheme: "https"],
   cache_static_manifest: "priv/static/cache_manifest.json"
 
+# Configures Elixir's Logger
 # Do not print debug messages in production
-config :logger, level: :info
+config :logger, :default_handler,
+  level: :info,
+  formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "gsmlg_umbrella"}
 
 # CouchDB Server Connection, maybe use https in procution
 config :gsmlg_couchdb, GSMLG.CouchDB.Connection, scheme: :http

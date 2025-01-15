@@ -1,6 +1,6 @@
 <div class="flex flex-col container px-8">
   <div class="flex justify-center items-center">
-    <.form
+    <.dm_form
       :let={f}
       id="mac-manufacturer-form"
       method="POST"
@@ -11,7 +11,7 @@
       <div class="flex justify-center items-center w-full">
         <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
       </div>
-    </.form>
+    </.dm_form>
   </div>
 
   <%= unless is_nil(assigns[:short]) do %>

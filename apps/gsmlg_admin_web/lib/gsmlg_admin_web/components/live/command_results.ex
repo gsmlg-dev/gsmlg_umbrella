@@ -12,7 +12,7 @@ defmodule GSMLGAdminWeb.ComponentsLive.CommandResults do
     {:ok, socket}
   end
 
-  def update(assigns, socket) do
+  def update(_assigns, socket) do
     socket = socket |> fetch_command_results()
 
     {:ok, socket}

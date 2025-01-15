@@ -92,10 +92,12 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
   end
 
   defp apply_resource_record_sets(socket) do
+    hosted_zone_id = socket.assigns.hosted_zone_id
+
     socket
     |> assign_async([:resource_record_sets], fn ->
       {resource_record_sets, next} =
-        Route53.list_resource_record_sets(socket.assigns.hosted_zone_id)
+        Route53.list_resource_record_sets(hosted_zone_id)
 
       {:ok, %{resource_record_sets: %{list: resource_record_sets, next_token: next}}}
     end)

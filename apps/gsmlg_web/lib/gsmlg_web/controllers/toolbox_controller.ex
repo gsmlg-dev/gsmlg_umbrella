@@ -2,36 +2,12 @@ defmodule GSMLGWeb.ToolboxController do
   use GSMLGWeb, :tool_controller
   use Phoenix.Component
 
-  @asn_regex ~r/^[0-9]{1,10}$/
-  @ipv4_regex ~r/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
-  @ipv6_regex ~r/^(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}$/
-
   def index(conn, _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        Toolbox
-      </h1>
-    </div>
-    """
-
     tools = []
-    render(conn, :index, tools: tools, header_slot: header_slot)
+    render(conn, :index, tools: tools, header_slot: header_slot("Toolbox"))
   end
 
   def geoip2(conn, params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        GeoIP2
-      </h1>
-    </div>
-    """
-
     lang = Map.get(params, "lang", "en")
 
     render(conn, :geoip2,
@@ -39,23 +15,12 @@ defmodule GSMLGWeb.ToolboxController do
       ip: nil,
       lang: lang,
       langs: GSMLG.GeoIP2.langs(),
-      header_slot: header_slot
+      header_slot: header_slot("GeoIP2")
     )
   end
 
   def geoip2_find(conn, %{"ip" => ip} = params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        GeoIP2
-      </h1>
-    </div>
-    """
-
-    lang = Map.get(params, "lang")
-
+    lang = Map.get(params, "lang", "en")
     ipInfo = GSMLG.GeoIP2.get_ip_info(ip, lang)
 
     render(conn, :geoip2,
@@ -63,56 +28,36 @@ defmodule GSMLGWeb.ToolboxController do
       ip: ip,
       lang: lang,
       langs: GSMLG.GeoIP2.langs(),
-      header_slot: header_slot
+      header_slot: header_slot("GeoIP2")
     )
   end
 
   def whois(conn, _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        Whois
-      </h1>
-    </div>
-    """
-
-    render(conn, :whois, whois_info: nil, header_slot: header_slot)
+    render(conn, :whois, look_for: nil, whois_info: nil, header_slot: header_slot("Whois"))
   end
 
   def whois_find(conn, %{"look_for" => look_for} = _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        Whois
-      </h1>
-    </div>
-    """
-
     case GSMLG.Whois.lookup_raw(look_for) do
       {:ok, whois_info} ->
-        render(conn, :whois, whois_info: Enum.reverse(whois_info), reason: nil, header_slot: header_slot)
+        render(conn, :whois,
+          look_for: look_for,
+          whois_info: Enum.reverse(whois_info),
+          reason: nil,
+          header_slot: header_slot("Whois")
+        )
 
       {:error, reason} ->
-        render(conn, :whois, whois_info: :error, reason: reason, header_slot: header_slot)
+        render(conn, :whois,
+          look_for: look_for,
+          whois_info: :error,
+          reason: reason,
+          header_slot: header_slot("Whois")
+        )
     end
   end
 
   def svg2react(conn, _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        SVG to React
-      </h1>
-    </div>
-    """
-
-    render(conn, :svg2react, header_slot: header_slot)
+    render(conn, :svg2react, header_slot: header_slot("SVG to React"))
   end
 
   def svg2react_convert(conn, %{"code" => code, "options" => options} = _params) do
@@ -157,17 +102,7 @@ defmodule GSMLGWeb.ToolboxController do
   end
 
   def svg_autocrop(conn, _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        SVG Autocrop
-      </h1>
-    </div>
-    """
-
-    render(conn, :svg_autocrop, header_slot: header_slot)
+    render(conn, :svg_autocrop, header_slot: header_slot("SVG Autocrop"))
   end
 
   def svg_autocrop_convert(conn, %{"code" => code} = _params) do
@@ -181,55 +116,44 @@ defmodule GSMLGWeb.ToolboxController do
   end
 
   def mac_manufacturer(conn, _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        MAC Manufacturer
-      </h1>
-    </div>
-    """
-
-    render(conn, :mac_manufacturer, header_slot: header_slot)
+    render(conn, :mac_manufacturer, header_slot: header_slot("MAC Manufacturer"))
   end
 
   def mac_manufacturer_lookup(conn, %{"mac" => mac} = _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        MAC Manufacturer
-      </h1>
-    </div>
-    """
-
     case GSMLG.MAC.lookup_vendor(mac) do
       {:ok, short, full} ->
-        render(conn, :mac_manufacturer, short: short, full: full, header_slot: header_slot)
+        render(conn, :mac_manufacturer,
+          short: short,
+          full: full,
+          header_slot: header_slot("MAC Manufacturer")
+        )
 
       :error ->
-        render(conn, :mac_manufacturer, short: "Unkown", header_slot: header_slot)
+        render(conn, :mac_manufacturer,
+          short: "Unkown",
+          header_slot: header_slot("MAC Manufacturer")
+        )
     end
   end
 
   def ip_to_geomap(conn, _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
-        IP to GeoMap
-      </h1>
-    </div>
-    """
-
-    render(conn, :ip_to_geomap, header_slot: header_slot)
+    render(conn, :ip_to_geomap, header_slot: header_slot("IP to GeoMap"))
   end
 
   def ip_to_geomap_post(conn, %{"ip" => ip}) do
     ipInfo = GSMLG.GeoIP2.get_ip_info(ip)
     conn |> json(%{data: ipInfo})
+  end
+
+  defp header_slot(title) do
+    assigns = %{title: title}
+
+    ~H"""
+    <div class="container flex justify-center items-center my-24">
+      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+        {@title}
+      </h1>
+    </div>
+    """
   end
 end

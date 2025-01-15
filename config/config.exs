@@ -115,12 +115,6 @@ config :tailwind,
     cd: Path.expand("../apps/gsmlg_admin_web/assets", __DIR__)
   ]
 
-# Configures Elixir's Logger
-if Code.ensure_loaded?(GSMLG.Logger.Formatters.GsmlgNet) do
-  config :logger, :default_handler,
-    formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "gsmlg_umbrella"}
-end
-
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
