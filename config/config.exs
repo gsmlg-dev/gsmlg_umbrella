@@ -85,7 +85,7 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
 
 # Configure esbuild (the version is required)
 config :esbuild,
-  version: "0.17.14",
+  version: "0.24.2",
   gsmlg_web: [
     args: ~w(js/app.js --bundle --target=es2021 --format=iife --outdir=../priv/static/assets),
     cd: Path.expand("../apps/gsmlg_web/assets", __DIR__)
@@ -97,7 +97,7 @@ config :esbuild,
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "3.4.1",
+  version: "3.4.17",
   gsmlg_web: [
     args: ~w(
       --config=tailwind.config.js
