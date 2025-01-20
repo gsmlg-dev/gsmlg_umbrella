@@ -5,7 +5,10 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, active_menu: "route53_hosted_zone_list")}
+    socket = socket
+      |> assign(:active_menu, "route53_hosted_zone_list")
+      |> assign(:resource_record_sets, %Phoenix.LiveView.AsyncResult{ok?: false, loading: true})
+    {:ok, socket}
   end
 
   @impl true
@@ -99,7 +102,7 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
       {resource_record_sets, next} =
         Route53.list_resource_record_sets(hosted_zone_id)
 
-      {:ok, %{resource_record_sets: %{list: resource_record_sets, next_token: next}}}
+      {:ok, %{resource_record_sets: %{ hosted_zone_id => %{list: resource_record_sets, next_token: next}}}}
     end)
   end
 end

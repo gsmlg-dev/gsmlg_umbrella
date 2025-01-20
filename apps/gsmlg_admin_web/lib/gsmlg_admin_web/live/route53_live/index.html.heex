@@ -67,8 +67,9 @@
     </.link>
     <h3 class="font-semibold text-2xl">Resource Record Sets</h3>
   </:title>
-
-  <.dm_table data={resource_record_sets.list}>
+  <.dm_table
+    :if={is_nil(resource_record_sets) |> Kernel.!()}
+    data={resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:list)}>
     <:col :let={rr} label="Name">
       {Map.get(rr, "Name")}
     </:col>
@@ -107,13 +108,14 @@
     </:col>
   </.dm_table>
 
-  <div :if={!is_nil(resource_record_sets.next_token)}>
+  <% next_token = resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:next_token) %>
+  <div :if={!is_nil(next_token)}>
     <div class="flex gap-2">
       <button
         class="btn btn-sm btn-block	btn-primary"
         phx-click={
           JS.push("next_token",
-            value: %{"next_records" => Tuple.to_list(resource_record_sets.next_token)}
+            value: %{"next_records" => Tuple.to_list(next_token)}
           )
         }
       >

@@ -1,0 +1,20 @@
+{
+  "name": "gsmlg_umbrella",
+  "private": true,
+  "description": "GSMLG Umbrella Project",
+  "homepage": "https://github.com/gsmlg-dev/gsmlg_umbrella#readme",
+  "bugs": {
+    "url": "https://github.com/gsmlg-dev/gsmlg_umbrella/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gsmlg-dev/gsmlg_umbrella.git"
+  },
+  "license": "see LICENSE.txt",
+  "author": "Jonathan Gao",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "workspaces": ["apps/gsmlg_admin_web", "apps/gsmlg_web"]
+}

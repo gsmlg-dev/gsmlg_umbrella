@@ -31,3 +31,4 @@ erl_crash.dump
 
 # burrito binary
 /burrito_out
+node_modules

@@ -19,7 +19,7 @@ defmodule GSMLGAdminWeb.AppComponents do
           <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
             <.dm_mdi name="menu" class="w-8 h-8" />
           </div>
-          <div tabindex="0" class="dropdown-content z-[1000] w-[calc(100vw*0.75)] p-2 shadow">
+          <div tabindex="0" class="dropdown-content z-[1000] w-auto p-2 shadow shadow-neutral">
             <.local_app_menus />
           </div>
         </div>
@@ -38,8 +38,8 @@ defmodule GSMLGAdminWeb.AppComponents do
     ~H"""
     <div class="card card-bordered bg-neutral text-neutral-content">
       <div class="card-body">
-        <div class="card-title">GSMLG Umbrella Modules</div>
-        <div class="flex flex-col gap-12">
+        <div class="card-title text-primary">GSMLG Umbrella Modules</div>
+        <div class="flex flex-col gap-4">
           <section
             :for={
               {title, list} <- [
@@ -72,16 +72,16 @@ defmodule GSMLGAdminWeb.AppComponents do
                  ]}
               ]
             }
-            class="flex flex-col gap-4"
+            class="flex flex-col gap-2"
           >
             <header class="flex items-center">
-              <h2 class="text-2xl">{title}</h2>
+              <h2 class="text-xl text-secondary">{title}</h2>
             </header>
-            <div class="grid grid-flow-col auto-cols-max gap-4">
+            <div class="grid grid-flow-col auto-cols-max gap-2">
               <.link
                 :for={{name, url} <- list}
                 :if={is_binary(url)}
-                class="btn btn-primary"
+                class="btn btn-primary btn-sm"
                 navigate={url}
               >
                 <span>{name}</span>
@@ -91,11 +91,11 @@ defmodule GSMLGAdminWeb.AppComponents do
                 :if={is_list(sub_list)}
                 class="flex flex-col items-start gap-2 ml-8"
               >
-                <h3 class="text-xl text-left opacity-70">{sub_title}</h3>
+                <h3 class="text-lg text-left text-info opacity-70">{sub_title}</h3>
                 <div class="grid grid-flow-col auto-cols-max gap-4">
                   <.link
                     :for={{sub_name, sub_url} <- sub_list}
-                    class="btn btn-primary"
+                    class="btn btn-primary btn-sm"
                     navigate={sub_url}
                   >
                     <span>{sub_name}</span>

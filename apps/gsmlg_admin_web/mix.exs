@@ -44,7 +44,6 @@ defmodule GSMLGAdminWeb.MixProject do
       {:phoenix_live_view, "~> 1.0"},
       {:phoenix_duskmoon, "~> 5.0"},
       {:bandit, "~> 1.0"},
-      {:heroicons, "~> 0.5"},
       {:floki, "~> 0.32", only: :test},
       {:phoenix_live_dashboard, "~> 0.7"},
       {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
