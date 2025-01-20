@@ -7,20 +7,12 @@ body {
   min-height: 100vh;
 }
 
-body {
-  width: 100vw;
-  min-height: 100vh;
-}
-
 .slogan-text {
   writing-mode: vertical-rl;
+  text-shadow: rgb(210, 70, 70) 0.25em 0.25em 0.5em;
   text-orientation: mixed;
   letter-spacing: 1em;
-  user-select: none;
-  text-shadow: rgb(210, 70, 70) 0.25em 0.25em 0.5em;
-  margin-top: 4rem;
-  margin-bottom: 4rem;
-  white-space: nowrap;
+  @apply my-16 whitespace-nowrap select-none;
 }
 
 @media (min-width: 1024px) {
@@ -29,6 +21,7 @@ body {
     text-orientation: mixed;
   }
 }
+
 .peer-checked\:flex.pop-menu {
   transform-origin: top;
   transform: scaleY(0.1);
@@ -39,5 +32,12 @@ body {
 
   @starting-style {
     transform: scaleY(0.1);
+  }
+}
+
+.header-hero-container {
+  @apply container flex justify-center items-center my-20;
+  .text {
+    @apply flex justify-center items-center text-8xl font-bold whitespace-nowrap select-none;
   }
 }
