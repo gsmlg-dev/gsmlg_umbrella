@@ -15,3 +15,13 @@ app-bar {
   --btn-link: #fdfdfd;
   --btn-hover: #9eccf2;
 }
+
+dialog.modal {
+  /* display: none; */
+  &[open] {
+    @apply grid place-content-center bg-transparent;
+  }
+  .modal-box {
+    @apply bg-base-200 text-base-content w-max;
+  }
+}

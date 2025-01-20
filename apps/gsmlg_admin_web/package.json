@@ -1,14 +1,14 @@
 {
   "dependencies": {
-    "highlight.js": "^11.9.0",
-    "phoenix": "^1.7.12",
-    "phoenix_duskmoon": "^4.4.2",
-    "phoenix_html": "^4.1.1",
-    "phoenix_live_view": "^0.20.14"
+    "highlight.js": "^11.11.1",
+    "phoenix": "^1.7.18",
+    "phoenix_duskmoon": "^5.0.2",
+    "phoenix_html": "^4.2.0",
+    "phoenix_live_view": "^1.0.2"
   },
   "devDependencies": {
     "@tailwindcss/container-queries": "^0.1.1",
-    "@tailwindcss/typography": "^0.5.13",
-    "daisyui": "^4.12.10"
+    "@tailwindcss/typography": "^0.5.16",
+    "daisyui": "^4.12.23"
   }
 }

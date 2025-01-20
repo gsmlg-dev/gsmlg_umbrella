@@ -61,15 +61,56 @@
   class="section-card"
   skeleton_class="min-h-48"
 >
-  <:title class="flex flex-row">
-    <.link class="btn btn-sm btn-primary" patch={~p"/aws/route53/hosted_zones"}>
-      {"<<"}
+  <:title class="flex flex-row items-center">
+    <.link class="btn btn-square btn-sm btn-primary" patch={~p"/aws/route53/hosted_zones"}>
+      <.dm_mdi name="chevron-double-left" class="w-6 h-6" />
     </.link>
-    <h3 class="font-semibold text-2xl">Resource Record Sets</h3>
+    <h3 class="w-full font-semibold text-2xl">Resource Record Sets</h3>
+    <.dm_modal class="modal-backdrop">
+      <:trigger :let={f}>
+        <button
+          class="btn btn-circle btn-primary btn-sm"
+          onclick={"document.getElementById('#{f}').showModal()"}
+        ><.dm_mdi name="plus" class="w-6 h-6" /></button>
+      </:trigger>
+      <:title>Add Resource Record</:title>
+      <:body>
+        <.dm_form :let={f} method="dialog" class="w-96">
+          <.dm_input field={f[:name]} label="Name" />
+          <.dm_input field={f[:ttl]} label="TTL" type="number" min={0} max={65535} />
+          <.dm_input field={f[:type]} label="Type" type="select" 
+            options={[
+              "A",
+              "AAAA",
+              "CAA",
+              "CNAME",
+              "DS",
+              "HTTPS",
+              "MX",
+              "NAPTR",
+              "NS",
+              "PTR",
+              "SOA",
+              "SPF",
+              "SRV",
+              "SSHFP",
+              "SVCB",
+              "TLSA",
+              "TXT",
+            ]}
+          />
+          <.dm_input field={f[:rdata]} label="RData" type="textarea" />
+          <div class="flex justify-end items-center gap-4 mt-4">
+            <button class="btn btn-sm btn-neutral">Close</button>
+            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+          </div>
+        </.dm_form>
+      </:body>
+    </.dm_modal>
   </:title>
   <.dm_table data={resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:list, [])}>
     <:col :let={rr} label="Name">
-      {Map.get(rr, "Name")}
+      <span class="inline-block break-all">{Map.get(rr, "Name")}</span>
     </:col>
     <:col :let={rr} label="TTL">
       {Map.get(rr, "TTL")}
