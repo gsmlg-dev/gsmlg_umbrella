@@ -68,8 +68,7 @@
     <h3 class="font-semibold text-2xl">Resource Record Sets</h3>
   </:title>
   <.dm_table
-    :if={is_nil(resource_record_sets) |> Kernel.!()}
-    data={resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:list)}>
+    data={resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:list, [])}>
     <:col :let={rr} label="Name">
       {Map.get(rr, "Name")}
     </:col>
