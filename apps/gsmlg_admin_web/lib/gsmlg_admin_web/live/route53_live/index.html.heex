@@ -67,8 +67,7 @@
     </.link>
     <h3 class="font-semibold text-2xl">Resource Record Sets</h3>
   </:title>
-  <.dm_table
-    data={resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:list, [])}>
+  <.dm_table data={resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:list, [])}>
     <:col :let={rr} label="Name">
       {Map.get(rr, "Name")}
     </:col>
