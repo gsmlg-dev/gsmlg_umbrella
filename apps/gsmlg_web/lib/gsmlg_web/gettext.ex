@@ -5,7 +5,7 @@ defmodule GSMLGWeb.Gettext do
   By using [Gettext](https://hexdocs.pm/gettext),
   your module gains a set of macros for translations, for example:
 
-      import GSMLGWeb.Gettext
+      use Gettext, backend: GSMLGWeb.Gettext
 
       # Simple translation
       gettext("Here is the string to translate")
@@ -20,5 +20,5 @@ defmodule GSMLGWeb.Gettext do
 
   See the [Gettext Docs](https://hexdocs.pm/gettext) for detailed usage.
   """
-  use Gettext, otp_app: :gsmlg_web
+  use Gettext.Backend, otp_app: :gsmlg_web
 end

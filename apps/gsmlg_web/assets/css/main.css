@@ -17,12 +17,27 @@ body {
   text-orientation: mixed;
   letter-spacing: 1em;
   user-select: none;
-  text-shadow: rgb(206, 70, 70) 0.1em 0.1em 0.3em;
+  text-shadow: rgb(210, 70, 70) 0.25em 0.25em 0.5em;
+  margin-top: 4rem;
+  margin-bottom: 4rem;
+  white-space: nowrap;
 }
 
 @media (min-width: 1024px) {
   .slogan-text {
     writing-mode: horizontal-tb;
     text-orientation: mixed;
+  }
+}
+.peer-checked\:flex.pop-menu {
+  transform-origin: top;
+  transform: scaleY(0.1);
+}
+.peer:checked ~ .peer-checked\:flex.pop-menu {
+  transition: 0.3s all;
+  transform: scaleY(1);
+
+  @starting-style {
+    transform: scaleY(0.1);
   }
 }

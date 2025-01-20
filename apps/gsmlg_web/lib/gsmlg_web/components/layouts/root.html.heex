@@ -31,17 +31,17 @@
       "text-slate-200"
     ]}>
       <:section title="Site Map">
-        <.link href="/">Home</.link>
-        <.link href="/blogs">Blog</.link>
-        <.link href="/tools">Tool</.link>
+        <.link href={~p"/"}>{dgettext("menu", "Home")}</.link>
+        <.link href={~p"/blogs"}>{dgettext("menu", "Blog")}</.link>
+        <.link href={~p"/toolbox"}>{dgettext("menu", "Toolbox")}</.link>
       </:section>
 
       <:section title="Toolbox">
-        <.link href="/tools/geoip2">GeoIP2 Database</.link>
-        <.link href="/tools/whois">Domain/IP/ASN Whois</.link>
-        <.link href="/tools/svg2react">SVG to React</.link>
-        <.link href="/tools/svg_autocrop">SVG AutoCrop</.link>
-        <.link href="/tools/mac_manufacturer">Lookup MAC Manufacturer</.link>
+        <.link href="/toolbox/geoip2">GeoIP2 Database</.link>
+        <.link href="/toolbox/whois">Domain/IP/ASN Whois</.link>
+        <.link href="/toolbox/svg2react">SVG to React</.link>
+        <.link href="/toolbox/svg_autocrop">SVG AutoCrop</.link>
+        <.link href="/toolbox/mac_manufacturer">Lookup MAC Manufacturer</.link>
       </:section>
 
       <:copyright title="Copyright">

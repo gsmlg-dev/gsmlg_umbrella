@@ -44,7 +44,7 @@ defmodule GSMLGWeb do
         layouts: [html: {GSMLGWeb.Layouts, :app}]
 
       import Plug.Conn
-      import GSMLGWeb.Gettext
+      use Gettext, backend: GSMLGWeb.Gettext
 
       unquote(verified_routes())
     end
@@ -58,7 +58,7 @@ defmodule GSMLGWeb do
         layouts: [html: {GSMLGWeb.Layouts, :tool}]
 
       import Plug.Conn
-      import GSMLGWeb.Gettext
+      use Gettext, backend: GSMLGWeb.Gettext
 
       unquote(verified_routes())
     end
@@ -101,7 +101,7 @@ defmodule GSMLGWeb do
       # Core UI components and translation
       import GSMLGWeb.CoreComponents
       import GSMLGWeb.AppComponents
-      import GSMLGWeb.Gettext
+      use Gettext, backend: GSMLGWeb.Gettext
       use PhoenixDuskmoon.Component
 
       # Shortcut for generating JS commands

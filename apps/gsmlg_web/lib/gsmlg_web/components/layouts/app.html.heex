@@ -1,18 +1,19 @@
 <.dm_page_header
   class={[
+    "w-screen pop-menu",
     "bg-gradient-to-br from-teal-500 to-indigo-500",
-    "text-slate-200 h-[680px] py-6"
+    "text-slate-200 py-6"
   ]}
   nav_class={["bg-gradient-to-br from-teal-500 to-indigo-500 text-slate-200 shadow"]}
 >
   <:menu to={~p"/"}>
-    Home
+    {dgettext("menu", "Home")}
   </:menu>
   <:menu to={~p"/blogs"}>
-    Blog
+    {dgettext("menu", "Blog")}
   </:menu>
-  <:menu to={~p"/tools"}>
-    Toolbox
+  <:menu to={~p"/toolbox"}>
+    {dgettext("menu", "Toolbox")}
   </:menu>
   <:user_profile>
     <.link class="flex flex-row gap-2" href="https://github.com/gsmlg-dev" target="_blank">
@@ -25,11 +26,11 @@
     "w-full h-fit gap-12",
     "text-purple-300 font-bold"
   ]}>
-    <h2 class="text-4xl lg:text-6xl xl:text-8xl flex justify-center">
-      亦余心之所<span class="animate-bounce">善</span>兮
+    <h2 class="text-4xl lg:text-4xl xl:text-6xl flex justify-center uppercase">
+      {dgettext("homepage", "slogan-1")}
     </h2>
-    <h2 class="text-4xl lg:text-6xl xl:text-8xl flex justify-center">
-      虽九<span class="animate-bounce">死</span>其犹未悔
+    <h2 class="text-4xl lg:text-4xl xl:text-6xl flex justify-center uppercase">
+      {dgettext("homepage", "slogan-2")}
     </h2>
   </section>
 </.dm_page_header>

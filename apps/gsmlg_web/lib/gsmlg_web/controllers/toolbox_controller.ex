@@ -149,8 +149,8 @@ defmodule GSMLGWeb.ToolboxController do
     assigns = %{title: title}
 
     ~H"""
-    <div class="container flex justify-center items-center my-24">
-      <h1 class="w-48 h-24 flex justify-center items-center text-8xl font-bold whitespace-nowrap">
+    <div class="container flex justify-center items-center my-20">
+      <h1 class="flex justify-center items-center text-8xl font-bold whitespace-nowrap">
         {@title}
       </h1>
     </div>

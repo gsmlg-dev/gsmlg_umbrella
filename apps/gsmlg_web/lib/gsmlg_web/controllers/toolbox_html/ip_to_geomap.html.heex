@@ -39,7 +39,7 @@
       const ipList = code.split(/\s+/).filter((line) => !/^\s*$/.test(line));
       from(ipList).pipe(concatMap((ip) => {
         return ajax({
-            url: '/api/tools/ip_to_geomap?ip='+ip,
+            url: '/api/toolbox/ip_to_geomap?ip='+ip,
             method: 'GET',
             headers: {
                 'x-csrf-token': csrfToken,
