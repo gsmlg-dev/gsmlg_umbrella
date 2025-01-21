@@ -10,11 +10,12 @@ body {
 .slogan-text {
   writing-mode: vertical-rl;
   text-orientation: mixed;
+  text-shadow: purple -0.3em -0.3em 0.5em;
   letter-spacing: 1em;
-  background-image: linear-gradient(to right, indigo, cyan, blue, green, yellow, orange, red);
+  background-image: linear-gradient(to left, purple, cyan, blue, green, yellow, orange, red);
   background-clip: text;
   background-size: 400%;
-  animation-duration: 10s;
+  animation-duration: 6180ms;
   animation-name: bg-move-x;
   animation-iteration-count: infinite;
   animation-direction: alternate;
@@ -24,7 +25,7 @@ body {
 @keyframes bg-move-x {
   0% {
     background-position: 0 0;
-    text-shadow: indigo -0.3em -0.3em 0.5em;
+    text-shadow: purple -0.3em -0.3em 0.5em;
   }
   17% {
     text-shadow: cyan -0.2em -0.2em 0.7em;

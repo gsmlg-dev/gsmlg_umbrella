@@ -1,11 +1,5 @@
 import Config
 
-# config/runtime.exs is executed for all environments, including
-# during releases. It is executed after compilation and before the
-# system starts, so it is typically used to load production configuration
-# and secrets from environment variables or elsewhere. Do not define
-# any compile-time configuration in here, as it won't be applied.
-# The block below contains prod specific runtime configuration.
 if config_env() == :prod do
   case Code.ensure_compiled(GSMLG.Repo) do
     {:module, GSMLG.Repo} ->
@@ -30,7 +24,6 @@ if config_env() == :prod do
           """
 
       config :gsmlg_web, GSMLGWeb.Endpoint,
-        home_page_title: System.get_env("HOME_PAGE_TITLE", "Home"),
         http: [
           # Enable IPv6 and bind on all interfaces.
           # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
@@ -39,17 +32,12 @@ if config_env() == :prod do
         ],
         secret_key_base: secret_key_base
 
-      # ## Using releases
-      #
-      # If you are doing OTP releases, you need to instruct Phoenix
-      # to start each relevant endpoint:
-      #
       config :gsmlg_web, GSMLGWeb.Endpoint, server: true
 
       if System.get_env("HOST") do
         host = System.get_env("HOST")
-        port = String.to_integer(System.get_env("HOST_PORT", "80"))
-        config :gsmlg_web, GSMLGWeb.Endpoint, url: [host: host, port: port]
+        port = String.to_integer(System.get_env("HOST_PORT", "443"))
+        config :gsmlg_web, GSMLGWeb.Endpoint, url: [host: host, port: port, scheme: "https"]
       end
 
       config :gsmlg_web, GSMLGWeb.Endpoint,
@@ -72,14 +60,16 @@ if config_env() == :prod do
           port: String.to_integer(System.get_env("ADMIN_PORT", "4111"))
         ],
         secret_key_base: admin_secret_key_base,
-        commander_platform_key: System.get_env("COMMANDER_PLATFORM_KEY") || admin_secret_key_base
+        commander_platform_key: System.get_env("COMMANDER_PLATFORM_KEY", admin_secret_key_base)
 
       config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint, server: true
 
       if System.get_env("ADMIN_HOST") do
         host = System.get_env("ADMIN_HOST")
-        port = System.get_env("ADMIN_HOST_PORT", "80") |> String.to_integer()
-        config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint, url: [host: host, port: port]
+        port = System.get_env("ADMIN_HOST_PORT", "443") |> String.to_integer()
+
+        config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+          url: [host: host, port: port, scheme: "https"]
       end
 
       config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
@@ -133,7 +123,8 @@ if config_env() == :prod do
       if System.get_env("COMMANDER_NAME") do
         config :gsmlg_commander, GSMLGCommander,
           name: System.get_env("COMMANDER_NAME"),
-          platform_url: System.get_env("COMMANDER_PLATFORM_URL"),
+          platform_url:
+            System.get_env("COMMANDER_PLATFORM_URL", "wss://admin.gsmlg.org/socket/websocket"),
           secret_key_base: System.get_env("COMMANDER_PLATFORM_KEY")
       end
 
@@ -141,5 +132,5 @@ if config_env() == :prod do
       nil
   end
 
-  GSMLG.Logger.configure_log_level_from_env!()
+  GSMLG.Logger.configure_log_level_from_env!("LOG_LEVEL")
 end

@@ -2,14 +2,27 @@ defmodule GSMLGWeb.PageController do
   use GSMLGWeb, :controller
 
   def index(conn, _params) do
-    repos =
-      GSMLG.GitHub.repos()
-      |> Enum.sort(&(&1.stargazers_count > &2.stargazers_count))
+    orgs = ["GSMLG-Dev", "Gao-OS"]
+    users = ["GSMLG"]
 
-    paget_title =
-      Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:home_page_title)
+    org_r =
+      orgs
+      |> Enum.map(fn org ->
+        {org,
+         GSMLG.GitHub.user_repos(org, org: true)
+         |> Enum.sort(&(&1.stargazers_count > &2.stargazers_count))}
+      end)
 
-    render(conn, :index, page_title: paget_title, repos: repos)
+    user_r =
+      users
+      |> Enum.map(fn user ->
+        {user,
+         GSMLG.GitHub.user_repos(user) |> Enum.sort(&(&1.stargazers_count > &2.stargazers_count))}
+      end)
+
+    paget_title = gettext("Home")
+
+    render(conn, :index, page_title: paget_title, group_repos: org_r ++ user_r)
   end
 
   def not_found(conn, _params) do

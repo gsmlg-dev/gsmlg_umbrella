@@ -132,6 +132,10 @@ defmodule GSMLG.GitHub do
     end
   end
 
+  @doc """
+  Fetch list of repositories of {name} from Github
+  """
+  @spec user_repos(binary(), [{:org, boolean()}]) :: List.t()
   def user_repos(name, opts \\ []) do
     GSMLG.SimpleCache.get(__MODULE__, :fetch_user_repos, [name, opts], ttl: 3600)
   end

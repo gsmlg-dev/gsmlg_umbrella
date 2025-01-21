@@ -71,14 +71,19 @@
         <button
           class="btn btn-circle btn-primary btn-sm"
           onclick={"document.getElementById('#{f}').showModal()"}
-        ><.dm_mdi name="plus" class="w-6 h-6" /></button>
+        >
+          <.dm_mdi name="plus" class="w-6 h-6" />
+        </button>
       </:trigger>
       <:title>Add Resource Record</:title>
       <:body>
         <.dm_form :let={f} method="dialog" class="w-96">
           <.dm_input field={f[:name]} label="Name" />
           <.dm_input field={f[:ttl]} label="TTL" type="number" min={0} max={65535} />
-          <.dm_input field={f[:type]} label="Type" type="select" 
+          <.dm_input
+            field={f[:type]}
+            label="Type"
+            type="select"
             options={[
               "A",
               "AAAA",
@@ -96,7 +101,7 @@
               "SSHFP",
               "SVCB",
               "TLSA",
-              "TXT",
+              "TXT"
             ]}
           />
           <.dm_input field={f[:rdata]} label="RData" type="textarea" />
@@ -139,7 +144,12 @@
         </button>
         <.dm_btn
           id={"id-del-#{Map.get(rr, "Name")}$#{Map.get(rr, "Type")}"}
-          confirm={dgettext("aws.route53", "Do you want to remove this RRset (%{name} %{type})?", %{name: Map.get(rr, "Name"), type: Map.get(rr, "Type")})}
+          confirm={
+            dgettext("aws.route53", "Do you want to remove this RRset (%{name} %{type})?", %{
+              name: Map.get(rr, "Name"),
+              type: Map.get(rr, "Type")
+            })
+          }
           class="btn-sm btn-error"
           confirm_class="btn-error btn-sm"
           cancel_class="btn-ghost btn-sm"

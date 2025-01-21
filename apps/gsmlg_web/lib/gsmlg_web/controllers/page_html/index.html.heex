@@ -1,8 +1,9 @@
-<section class="container flex flex-col my-12">
-  <h3 class="text-4xl my-32 text-center">GSMLG.dev Github Repos</h3>
+<section :for={{group, repos} <- @group_repos} class="container flex flex-col my-12">
+  <h3 class="text-4xl my-24 text-center">
+    <code class="text-info">{group}</code>
+    <span>{dgettext("github", "Github Repos")}</span>
+  </h3>
   <div class="grid grid-cols-auto-fit-96 gap-4 px-4">
-    <%= for repo <- @repos do %>
-      <.github_repo_card repo={repo} />
-    <% end %>
+    <.github_repo_card :for={repo <- repos} repo={repo} />
   </div>
 </section>
