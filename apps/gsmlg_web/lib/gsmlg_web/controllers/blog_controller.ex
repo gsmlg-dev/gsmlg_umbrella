@@ -12,7 +12,7 @@ defmodule GSMLGWeb.BlogController do
 
     header_slot = ~H"""
     <div class="header-hero-container">
-      <h1 class="text">
+      <h1 class="header-hero-text">
         Blog
       </h1>
     </div>
@@ -28,11 +28,12 @@ defmodule GSMLGWeb.BlogController do
     assigns = %{blog: blog}
 
     header_slot = ~H"""
-    <div class="container flex flex-col justify-center items-center my-24">
+    <div class="header-hero-container flex-col">
       <h1 class={[
+        "header-hero-text",
         "w-full px-4",
         "flex justify-center items-center",
-        "text-6xl font-bold whitespace-auto"
+        "text-6xl whitespace-auto"
       ]}>
         {@blog.title}
       </h1>

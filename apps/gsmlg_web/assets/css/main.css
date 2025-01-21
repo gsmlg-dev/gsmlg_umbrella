@@ -3,7 +3,7 @@ body {
   margin: 0;
   padding: 0;
   border: none;
-  width: 100vw;
+  width: 100%;
   min-height: 100vh;
 }
 
@@ -37,7 +37,7 @@ body {
 
 .header-hero-container {
   @apply container flex justify-center items-center my-20;
-  .text {
-    @apply flex justify-center items-center text-8xl font-bold whitespace-nowrap select-none;
-  }
+}
+.header-hero-text {
+  @apply flex justify-center items-center font-bold text-8xl select-none;
 }

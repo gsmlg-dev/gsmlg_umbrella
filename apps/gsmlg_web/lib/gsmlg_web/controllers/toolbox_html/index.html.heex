@@ -1,6 +1,6 @@
 <div class={[
   "container px-8 my-24",
-  "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
+  "grid grid-cols-auto-fit-64",
   "gap-4"
 ]}>
   <div
@@ -16,7 +16,7 @@
     }
     class="card bg-primary text-primary-content shadow-primary shadow-md"
   >
-    <div class="card-body">
+    <div class="card-body justify-between">
       <h2 class="card-title">{name}</h2>
       <div class="card-actions justify-end">
         <.link href={url} class="btn">
