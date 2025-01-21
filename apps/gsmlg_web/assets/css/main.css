@@ -9,10 +9,42 @@ body {
 
 .slogan-text {
   writing-mode: vertical-rl;
-  text-shadow: rgb(210, 70, 70) 0.25em 0.25em 0.5em;
   text-orientation: mixed;
   letter-spacing: 1em;
-  @apply my-16 whitespace-nowrap select-none;
+  background-image: linear-gradient(to right, indigo, cyan, blue, green, yellow, orange, red);
+  background-clip: text;
+  background-size: 400%;
+  animation-duration: 10s;
+  animation-name: bg-move-x;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  color: transparent;
+  @apply flex flex-col justify-center items-center my-16 whitespace-nowrap select-none;
+}
+@keyframes bg-move-x {
+  0% {
+    background-position: 0 0;
+    text-shadow: indigo -0.3em -0.3em 0.5em;
+  }
+  17% {
+    text-shadow: cyan -0.2em -0.2em 0.7em;
+  }
+  34% {
+    text-shadow: blue -0.1em -0.1em 0.9em;
+  }
+  50% {
+    text-shadow: green 0em 0em 1.1em;
+  }
+  67% {
+    text-shadow: yellow 0.1em 0.1em 0.9em;
+  }
+  84% {
+    text-shadow: orange 0.2em 0.2em 0.7em;
+  }
+  100% {
+    background-position: 100% 0;
+    text-shadow: red 0.3em 0.3em 0.5em;
+  }
 }
 
 @media (min-width: 1024px) {
