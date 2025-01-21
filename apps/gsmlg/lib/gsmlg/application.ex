@@ -10,6 +10,7 @@ defmodule GSMLG.Application do
     children = [
       {GSMLG.SimpleCache, []},
       {Cachex, name: :aws_cache},
+      {Phoenix.SessionProcess.Supervisor, name: GSMLG.SessionProcess},
       # Start the Ecto repository
       GSMLG.Repo,
       # Start the PubSub system

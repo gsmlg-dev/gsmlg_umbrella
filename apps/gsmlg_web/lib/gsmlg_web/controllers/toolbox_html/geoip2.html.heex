@@ -25,7 +25,7 @@
   </div>
 
   <%= unless is_nil(@ipInfo) do %>
-    <div class="mt-4 flex flex-col justify-center items-center">
+    <div class="my-4 flex flex-col justify-center items-center">
       <div class="w-96 flex flex-row justify-start items-start">
         <div class="w-24 text-right pr-2 after:content-[':']">大洲</div>
         <div class="">{@ipInfo.continent}</div>
@@ -44,7 +44,7 @@
           latitude: {@ipInfo.latitude} longitude: {@ipInfo.longitude}
         </div>
       </div>
-      <div class="2xl:w-2/3 xl:w-3/4 lg:w-4/5 w-full h-[420px] 2xl:h-[600px] xl:h-[500px] lg:h-[480px] flex flex-row justify-center items-center">
+      <div class="2xl:w-2/3 xl:w-3/4 lg:w-4/5 w-full aspect-w-16 aspect-h-8 flex flex-row justify-center items-center">
         <script type="module">
           import 'https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo';
           document.querySelectorAll("d3-world-map").forEach((el) => {

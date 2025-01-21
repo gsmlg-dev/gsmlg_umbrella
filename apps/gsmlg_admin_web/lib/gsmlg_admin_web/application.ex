@@ -15,8 +15,6 @@ defmodule GSMLGAdminWeb.Application do
       # GraphQL subscriptions
       {Absinthe.Subscription, [pubsub: GSMLGAdminWeb.Endpoint]},
       {Guardian.DB.Sweeper, []}
-      # Start a worker by calling: GSMLGAdminWeb.Worker.start_link(arg)
-      # {GSMLGAdminWeb.Worker, arg}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

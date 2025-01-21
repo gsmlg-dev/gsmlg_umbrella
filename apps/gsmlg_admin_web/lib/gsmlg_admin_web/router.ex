@@ -28,6 +28,7 @@ defmodule GSMLGAdminWeb.Router do
   pipeline :browser do
     plug(:accepts, ["html"])
     plug(:fetch_session)
+    plug(Phoenix.SessionProcess.SessionId)
     plug(:fetch_live_flash)
     plug(:put_root_layout, {GSMLGAdminWeb.Layouts, :root})
     plug(:protect_from_forgery)
