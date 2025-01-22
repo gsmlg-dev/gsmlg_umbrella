@@ -80,8 +80,6 @@ jobs:
             HEX_MIRROR=https://hex.pm
             RELEASE_VERSION=${{ github.event.inputs.release-version }}
           tags: |
-            docker.io/gsmlg/gsmlg-umbrella:v${{ github.event.inputs.release-version }}
-            docker.io/gsmlg/gsmlg-umbrella:latest
             ghcr.io/gsmlg-dev/gsmlg-umbrella:v${{ github.event.inputs.release-version }}
             ghcr.io/gsmlg-dev/gsmlg-umbrella:latest
 
