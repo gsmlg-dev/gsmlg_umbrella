@@ -15,14 +15,18 @@ WORKDIR /build
 RUN <<EOF
 apk add --no-cache nodejs curl git npm
 mix deps.get
-for web_dir in /build/apps/gsmlg_web /build/apps/gsmlg_admin_web
-do
-  cd $web_dir
-  npm install --prefix assets
-  mix assets.deploy
-done
+
+cd /build/apps/gsmlg_web
+npm install --prefix assets
+mix assets.deploy
+
+cd /build/apps/gsmlg_admin_web
+npm install --prefix assets
+mix assets.deploy
+
 cd /build
-mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
+MIX_ENV=prod mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
+
 cp -r _build/prod/rel/gsmlg_umbrella /app
 EOF
 
@@ -55,18 +59,17 @@ ENV ADMIN_SECRET_KEY_BASE=gsmlg-admin
 ENV MNESIA_DIR=/var/lib/mnesia
 ENV SECRET_KEY_BASE=gsmlg_umbrella
 
+COPY --from=builder /app /app
+
 RUN <<EOF
 apk update
 apk add --no-cache openssl bash libstdc++
-ln -s /app/bin/gsmlg_umbrella /usr/local/bin/gsmlg
 mkdir -p /var/lib/mnesia
 EOF
 
 VOLUME ["/var/lib/mnesia"]
 
 ENV PATH="/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-COPY --from=builder /app /app
 
 EXPOSE 80 1080 4369
 
