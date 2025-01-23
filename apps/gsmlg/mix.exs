@@ -49,7 +49,6 @@ defmodule GSMLG.MixProject do
       {:gsmlg_logger, in_umbrella: true},
       {:aws, "~> 1.0"},
       {:hackney, "~> 1.18"},
-      {:tokenizers, "~> 0.5"},
       {:rustler, ">= 0.0.0", optional: true},
       {:absinthe, "~> 1.7.0"}
     ]
