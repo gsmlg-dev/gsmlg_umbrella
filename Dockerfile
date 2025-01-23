@@ -15,13 +15,12 @@ WORKDIR /build
 RUN <<EOF
 apk add --no-cache nodejs curl git npm
 mix deps.get
+npm install
 
 cd /build/apps/gsmlg_web
-npm install --prefix assets
 mix assets.deploy
 
 cd /build/apps/gsmlg_admin_web
-npm install --prefix assets
 mix assets.deploy
 
 cd /build
