@@ -102,7 +102,12 @@ jobs:
           MIX_ENV: prod
           RELEASE_NAME: gsmlg_umbrella
           RELEASE_VERSION: ${{ github.event.inputs.release-version }}
-        run: ./build.sh
+        run: |
+          mix deps.get
+          npm install
+          mix release gsmlg_umbrella_standalone --version ${RELEASE_VERSION}
+          cp -r _build/prod/rel/gsmlg_umbrella gsmlg
+          tar zcf gsmlg.tar.gz gsmlg
 
       - name: ⬆️ Upload binaries to release
         uses: svenstaro/upload-release-action@v2
