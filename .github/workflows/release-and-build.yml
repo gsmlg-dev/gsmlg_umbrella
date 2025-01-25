@@ -72,11 +72,11 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          platforms: linux/amd64 #,linux/arm64/v8
+          platforms: linux/amd64,linux/arm64/v8
           push: true
           build-args: |
             IMAGE_REGISTRY=docker.io
-            NPM_CONFIG_REGISTRY=https://registry.npmjs.org
+            NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
             HEX_MIRROR=https://repo.hex.pm
             RELEASE_VERSION=${{ github.event.inputs.release-version }}
           tags: |
