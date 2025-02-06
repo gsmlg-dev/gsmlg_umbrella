@@ -7,7 +7,8 @@ module.exports = {
   content: [
     "./js/**/*.js",
     "../lib/*_web.ex",
-    "../lib/*_web/**/*.*ex"
+    "../lib/*_web/**/*.*ex",
+    "../../../deps/phoenix_duskmoon/lib/**/*.*ex",
   ],
   plugins: [
     plugin(function ({ matchUtilities, theme }) {

@@ -4,7 +4,6 @@
 module.exports = {
   content: [
     "./js/**/*.js",
-    "../lib/components/**/*.*ex",
     "../lib/*_web.ex",
     "../lib/*_web/**/*.*ex",
     "../../../deps/phoenix_duskmoon/lib/**/*.*ex",
