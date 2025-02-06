@@ -25,7 +25,7 @@ svc-unit-test:
     - linux
   stage: test
   image:
-    name: gsmlg/phoenix:alpine
+    name: ghcr.io/gsmlg-dev/phoenix:alpine
     entrypoint:
       - /bin/bash
       - "-c"
@@ -40,7 +40,7 @@ svc-unit-test:
     MIX_ENV: test
     GSMLG_UMBRELLA: "true"
   script:
-    - mix deps.get --only test
+    - mix deps.get
     - mix format --check-formatted
     - mix test apps/gsmlg/test
     - mix test apps/gsmlg_web/test
@@ -56,15 +56,13 @@ svc-release:
   environment: production
   rules:
     - if: $CI_COMMIT_BRANCH =~ /^(main|beta|alpha)$/
-      exists:
-        - Dockerfile.lite
       changes:
         - "apps/gsmlg/**/*"
         - "apps/gsmlg_web/**/*"
         - "apps/gsmlg_admin_web/**/*"
         - "config/**/*"
         - "mix.*"
-  image: gsmlg/semantic-release
+  image: ghcr.io/gsmlg-dev/semantic-release:latest
   variables:
     MIX_ENV: prod
   script:
@@ -83,29 +81,23 @@ svc-build:
   environment: production
   rules:
     - if: $CI_COMMIT_BRANCH =~ /^(main|beta|alpha)$/
-      exists:
-        - Dockerfile.lite
       changes:
         - "apps/gsmlg/**/*"
         - "apps/gsmlg_web/**/*"
         - "apps/gsmlg_admin_web/**/*"
         - "config/**/*"
         - "mix.*"
-  image: gsmlg/phoenix:alpine
+  image: ghcr.io/gsmlg-dev/phoenix:alpine
   variables:
     MIX_ENV: prod
-    WEB_VERSION: 1.45.1
   script:
     - mix deps.get
-    - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web/assets && npm install && npm install --prefix ../../../deps/phoenix_duskmoon/
+    - npm install
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_admin_web && mix assets.deploy
-    - cd ${CI_PROJECT_DIR}/apps/gsmlg_web/assets && npm install
     - cd ${CI_PROJECT_DIR}/apps/gsmlg_web && mix assets.deploy
     - cd ${CI_PROJECT_DIR}
-    - curl -Lf "${NPM_CONFIG_REGISTRY}/@gsmlg/website/-/website-${WEB_VERSION}.tgz" -o website.tgz
-    - tar xzf website.tgz --strip-components=2 -C ${CI_PROJECT_DIR}/apps/gsmlg_web/priv/static
     - ./update_version.sh "$(cat ${CI_PROJECT_DIR}/releaseVersion)"
-    - mix release gsmlg_umbrella --version "$(cat ${CI_PROJECT_DIR}/releaseVersion)"
+    - mix release gsmlg_umbrella --version "$(cat ${CI_PROJECT_DIR}/releaseVersion)" --overwrite
     - cp -r _build/prod/rel/gsmlg_umbrella app
   artifacts:
     paths:
@@ -131,7 +123,7 @@ svc-build-image:
         - "config/**/*"
         - "mix.*"
   image:
-    name: docker.io/gsmlg/kaniko-executor:debug
+    name: ghcr.io/gsmlg-dev/kaniko-executor:debug
     entrypoint: [""]
   before_script:
     - echo $DOCKER_AUTH_CONFIG > /kaniko/.docker/config.json
@@ -142,7 +134,7 @@ svc-build-image:
         --dockerfile $CI_PROJECT_DIR/Dockerfile.lite \
         --destination "gsmlg.dev/apps/gsmlg:$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
         --destination "gsmlg.dev/apps/gsmlg:latest" \
-        --destination "docker.io/gsmlg/gsmlg.org:v$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
-        --destination "docker.io/gsmlg/gsmlg.org:latest" \
-        --destination "ghcr.io/gsmlg-dev/gsmlg-svc:v$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
-        --destination "ghcr.io/gsmlg-dev/gsmlg-svc:latest"
+        --destination "docker.io/gsmlg/gsmlg-umbrella:v$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
+        --destination "docker.io/gsmlg/gsmlg-umbrella:latest" \
+        --destination "ghcr.io/gsmlg-dev/gsmlg-umbrella:v$(cat ${CI_PROJECT_DIR}/releaseVersion)" \
+        --destination "ghcr.io/gsmlg-dev/gsmlg-umbrella:latest"

@@ -1,0 +1,41 @@
+FROM ghcr.io/gsmlg-dev/alpine:latest
+
+ARG RELEASE_VERSION=1.0.0
+
+LABEL org.opencontainers.image.source="https://github.com/gsmlg-dev/gsmlg_umbrella"
+LABEL org.opencontainers.image.version="${RELEASE_VERSION}"
+LABEL org.opencontainers.image.title="GSMLG Umbrella Project"
+LABEL org.opencontainers.image.authors="Jonathan Gao <gsmlg.com@gmail.com>"
+LABEL org.opencontainers.image.description="GSMLG Umbrella Project, running on Elixir/Phoenix"
+LABEL maintainer="Jonathan Gao <gsmlg.com@gmail.com>"
+LABEL RELEASE_VERSION="${RELEASE_VERSION}"
+
+ENV PORT=80 \
+    ADMIN_PORT=1080 \
+    REPLACE_OS_VARS=true \
+    ERL_EPMD_PORT=4369 \
+    POD_IP=127.0.0.1 \
+    ERLCOOKIE=erlang_cookie \
+    HOST=gsmlg.org \
+    HOST_PORT=80 \
+    ADMIN_HOST=admin.gsmlg.org \
+    ADMIN_HOST_PORT=80 \
+    DATABASE_URL=ecto://USER:PASS@HOST/DATABASE \
+    POOL_SIZE=10 \
+    ADMIN_SECRET_KEY_BASE=gsmlg-admin \
+    MNESIA_DIR=/var/lib/mnesia \
+    SECRET_KEY_BASE=gsmlg_umbrella
+
+ENV PATH=/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+COPY ./app /app
+
+RUN mkdir -p /var/lib/mnesia 
+
+VOLUME ["/var/lib/mnesia"]
+
+ENV PATH="/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+EXPOSE 80 1080 4369
+
+CMD ["/app/bin/gsmlg_umbrella", "start"]

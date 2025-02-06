@@ -18,6 +18,7 @@ mix deps.get
 npm install
 
 cd /build/apps/gsmlg_web
+mix tailwind.install https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.3/tailwindcss-linux-x64-musl
 mix assets.deploy
 
 cd /build/apps/gsmlg_admin_web
