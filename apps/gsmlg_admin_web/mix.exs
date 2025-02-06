@@ -43,7 +43,7 @@ defmodule GSMLGAdminWeb.MixProject do
       {:phoenix_live_reload, "~> 1.5.0", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
       {:phoenix_session_process, "~> 0.3"},
-      {:phoenix_duskmoon, "~> 5.0"},
+      {:phoenix_duskmoon, "~> 6.0"},
       {:bandit, "~> 1.0"},
       {:floki, "~> 0.32", only: :test},
       {:phoenix_live_dashboard, "~> 0.7"},

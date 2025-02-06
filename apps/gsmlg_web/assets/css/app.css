@@ -1,7 +1,13 @@
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
-@import "../../../../deps/phoenix_duskmoon/priv/static/phoenix_duskmoon.css";
+@config "../tailwind.config.js";
+
+@import "tailwindcss";
+@plugin "daisyui";
+@import "phoenix_duskmoon/theme";
+@import "phoenix_duskmoon/components";
+
+@variant phx-click-loading ([".phx-click-loading&", ".phx-click-loading &"]);
+@variant phx-submit-loading ([".phx-submit-loading&", ".phx-submit-loading &"]);
+@variant phx-change-loading ([".phx-change-loading&", ".phx-change-loading &"]);
 
 /* This file is for your main application CSS */
 @import './main.css';
