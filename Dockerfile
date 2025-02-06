@@ -1,5 +1,4 @@
-ARG IMAGE_REGISTRY="docker-io.gsmlg.dev"
-FROM ${IMAGE_REGISTRY}/library/elixir:1.17-alpine AS builder
+FROM ghcr.io/gsmlg-dev/phoenix:alpine AS builder
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg
@@ -42,7 +41,7 @@ cp -r _build/prod/rel/gsmlg_umbrella /app
 EOF
 
 
-FROM ${IMAGE_REGISTRY}/library/alpine:3.20
+FROM ghcr.io/gsmlg-dev/alpine:latest
 
 ARG RELEASE_VERSION=1.0.0
 
