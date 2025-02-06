@@ -10,8 +10,8 @@ ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
 ARG TARGETARCH
 
-ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.3/tailwindcss-linux-x64-musl
-ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.3/tailwindcss-linux-arm64-musl
+ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.4/tailwindcss-linux-x64-musl
+ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.4/tailwindcss-linux-arm64-musl
 
 COPY . /build
 
