@@ -103,7 +103,9 @@ jobs:
           version: 0.13.0
 
       - name: Install xz
-        run: apt update && apt upgrade -y && apt install xz-utils
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xz-utils
         env:
           DEBIAN_FRONTEND: noninteractive
 
