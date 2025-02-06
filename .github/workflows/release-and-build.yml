@@ -97,6 +97,16 @@ jobs:
           otp-version: "26"
           elixir-version: "1.17.3"
 
+      - name: Setup zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.13.0
+
+      - name: Install xz
+        run: apt update && apt upgrade -y && apt install xz-utils
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
       - name: ⚙️ Run build
         env:
           MIX_ENV: prod
@@ -105,9 +115,17 @@ jobs:
         run: |
           mix deps.get
           npm install
-          mix release gsmlg_umbrella_standalone --version ${RELEASE_VERSION}
+          cd ${{ github.workspace }/apps/gsmlg_web
+          mix assets.deploy
+          cd ${{ github.workspace }/apps/gsmlg_admin_web
+          mix assets.deploy
+          cd ${{ github.workspace }}
+          mix release gsmlg_umbrella --version ${RELEASE_VERSION}
+          mix relaase gsmlg_commander --version ${RELEASE_VERSION}
           cp -r _build/prod/rel/gsmlg_umbrella gsmlg
           tar zcf gsmlg.tar.gz gsmlg
+          cp -r _build/prod/rel/gsmlg_commander commander
+          tar zcf commander.tar.gz commander
 
       - name: ⬆️ Upload binaries to release
         uses: svenstaro/upload-release-action@v2

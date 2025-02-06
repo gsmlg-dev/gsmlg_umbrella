@@ -8,6 +8,11 @@ ARG RELEASE_VERSION=1.0.0
 ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
+ARG TARGETARCH
+
+ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.3/tailwindcss-linux-x64-musl
+ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.3/tailwindcss-linux-arm64-musl
+
 COPY . /build
 
 WORKDIR /build
@@ -18,7 +23,13 @@ mix deps.get
 npm install
 
 cd /build/apps/gsmlg_web
-mix tailwind.install https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.3/tailwindcss-linux-x64-musl
+if [ "$TARGETARCH" == "amd64" ]
+then
+  mix tailwind.install $TAILWIND_URL_AMD64
+else
+  mix tailwind.install $TAILWIND_URL_ARM64
+fi
+
 mix assets.deploy
 
 cd /build/apps/gsmlg_admin_web
