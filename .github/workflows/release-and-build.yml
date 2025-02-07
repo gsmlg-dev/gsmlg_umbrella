@@ -132,7 +132,7 @@ jobs:
           mix assets.deploy
           cd ${{ github.workspace }}
           mix release gsmlg_umbrella --version ${RELEASE_VERSION}
-          mix relaase gsmlg_commander --version ${RELEASE_VERSION}
+          mix release gsmlg_commander --version ${RELEASE_VERSION}
           cp -r _build/prod/rel/gsmlg_umbrella gsmlg
           tar zcf gsmlg.tar.gz gsmlg
           cp -r _build/prod/rel/gsmlg_commander commander
