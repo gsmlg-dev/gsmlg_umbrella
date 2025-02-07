@@ -1,0 +1,5 @@
+[jsx]
+jsx = "react/jsx-runtime"
+jsxFactory = "h"
+jsxFragment = "Fragment"
+jsxImportSource = "react"

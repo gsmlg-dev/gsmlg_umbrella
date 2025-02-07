@@ -11,12 +11,12 @@
 msgid ""
 msgstr ""
 
-#: lib/gsmlg_web/components/layouts/app.html.heex:31
+#: lib/gsmlg_web/components/layouts/app.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "slogan-1"
 msgstr ""
 
-#: lib/gsmlg_web/components/layouts/app.html.heex:35
+#: lib/gsmlg_web/components/layouts/app.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "slogan-2"
 msgstr ""

@@ -1,11 +1,5 @@
 <div class="container flex flex-col my-8">
-  <script type="module">
-    import 'https://esm-run.gsmlg.dev/@gsmlg/lit/remark-element';
-    document.getElementById('blog-view').classList.remove('skeleton', 'text-transparent');
-  </script>
-  <div class="flex flex-col justify-start p-8">
-    <remark-element id="blog-view" class="skeleton text-transparent">
-      {@blog.content}
-    </remark-element>
+  <div class="flex flex-col">
+    <.react_markdown data={@blog.content} />
   </div>
 </div>

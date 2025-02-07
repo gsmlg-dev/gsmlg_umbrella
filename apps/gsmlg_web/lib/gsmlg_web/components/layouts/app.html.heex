@@ -1,10 +1,10 @@
 <.dm_page_header
   class={[
     "w-screen pop-menu",
-    "bg-gradient-to-br from-teal-500 to-indigo-500",
-    "text-slate-200 py-6 z-20"
+    "bg-primary text-primary-content",
+    "py-6 z-20"
   ]}
-  nav_class={["bg-gradient-to-br from-teal-500 to-indigo-500 text-slate-200 shadow z-20"]}
+  nav_class={["shadow z-20 bg-primary text-primary-content"]}
 >
   <:menu to={~p"/"}>
     {dgettext("menu", "Home")}
@@ -15,26 +15,29 @@
   <:menu to={~p"/toolbox"}>
     {dgettext("menu", "Toolbox")}
   </:menu>
-  <:user_profile>
+  <:user_profile class="flex items-center gap-2">
+    <.dm_theme_switcher />
     <.link class="flex flex-row gap-2" href="https://github.com/gsmlg-dev" target="_blank">
       <.dm_mdi name="github" class="h-10 w-10" />
     </.link>
   </:user_profile>
   <section class={[
-    "slogan-text",
-    "",
-    "w-full h-fit gap-12",
-    "font-bold"
+    "w-full h-64",
+    "font-bold select-none drop-shadow-md text-shadow-lg",
+    "flex flex-col items-center justify-evenly"
   ]}>
-    <h2 class="text-4xl lg:text-4xl xl:text-6xl flex justify-center uppercase">
+    <h2 class="text-4xl lg:text-5xl xl:text-6xl flex justify-center uppercase text-center">
       {dgettext("homepage", "slogan-1")}
     </h2>
-    <h2 class="text-4xl lg:text-4xl xl:text-6xl flex justify-center uppercase">
+    <h2 class="text-4xl lg:text-5xl xl:text-6xl flex justify-center uppercase text-center">
       {dgettext("homepage", "slogan-2")}
     </h2>
   </section>
 </.dm_page_header>
-<main class="flex flex-col items-center">
-  <.flash_group flash={@flash} />
+<div class="absolute top-84 overflow-x-clip w-full h-screen z-0">
+  <.dmf_snow count={365} size="1.25rem" unicode />
+</div>
+<main class="flex flex-col items-center z-1">
+  <.dm_flash_group flash={@flash} />
   {@inner_content}
 </main>

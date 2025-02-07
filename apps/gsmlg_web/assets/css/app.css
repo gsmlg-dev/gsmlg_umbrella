@@ -1,13 +1,14 @@
 @config "../tailwind.config.js";
 
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @plugin "daisyui";
 @import "phoenix_duskmoon/theme";
 @import "phoenix_duskmoon/components";
+@import "gsmlg_component/assets/css/shared.css";
 
-@variant phx-click-loading ([".phx-click-loading&", ".phx-click-loading &"]);
-@variant phx-submit-loading ([".phx-submit-loading&", ".phx-submit-loading &"]);
-@variant phx-change-loading ([".phx-change-loading&", ".phx-change-loading &"]);
+@import "@uiw/react-markdown-preview/markdown.css";
 
-/* This file is for your main application CSS */
+@import "./github-markdown.css";
+
 @import './main.css';

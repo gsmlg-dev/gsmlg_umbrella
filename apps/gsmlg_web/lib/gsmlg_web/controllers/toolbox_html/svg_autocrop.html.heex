@@ -2,18 +2,23 @@
   <div class="w-full min-w-2/3 flex flex-col justify-center items-center">
     <div class="w-full flex flex-col md:flex-row justify-center items-center gap-4">
       <div class="w-full flex flex-col justify-center items-center">
-        <label>Origin SVG</label>
-        <textarea id="svg-input" class="w-full dark:bg-slate-800 dark:text-slate-300" rows={20}>
+        <label>{dgettext("toolbox", "Origin SVG")}</label>
+        <textarea id="svg-input" class="textarea textarea-primary w-full" rows={20}>
         </textarea>
       </div>
+      <div class="divider md:divider-horizontal">
+        <.dm_mdi name="transfer-right" class="w-16 max-md:hidden" />
+        <.dm_mdi name="transfer-down" class="w-16 md:hidden" />
+      </div>
       <div class="w-full flex flex-col justify-center items-center">
-        <label>Optimized SVG</label>
-        <textarea id="svg-output" class="w-full dark:bg-slate-800 dark:text-slate-300" rows={20}>
-        </textarea>
+        <label>{dgettext("toolbox", "Optimized SVG")}</label>
+        <textarea id="svg-output" class="textarea textarea-primary w-full" rows={20}></textarea>
       </div>
     </div>
     <div class="w-full my-4 flex justify-center items-center">
-      <.button id="svg-convert">Optimize</.button>
+      <.dm_btn id="svg-convert" class="btn-primary btn-block max-w-xs">
+        <.dm_mdi name="svg" class="w-6" />{dgettext("toolbox", "Optimize")}
+      </.dm_btn>
     </div>
     <script>
       const path = window.location.pathname;

@@ -12,16 +12,69 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: lib/gsmlg_web/components/layouts/app.html.heex:13
+#: lib/gsmlg_web/components/layouts/root.html.heex:34
+#: lib/gsmlg_web/components/layouts/tool.html.heex:12
 #, elixir-autogen, elixir-format
 msgid "Blog"
 msgstr "Blog"
 
 #: lib/gsmlg_web/components/layouts/app.html.heex:10
+#: lib/gsmlg_web/components/layouts/root.html.heex:33
+#: lib/gsmlg_web/components/layouts/tool.html.heex:9
 #, elixir-autogen, elixir-format
 msgid "Home"
 msgstr "Home"
 
 #: lib/gsmlg_web/components/layouts/app.html.heex:16
+#: lib/gsmlg_web/components/layouts/root.html.heex:35
+#: lib/gsmlg_web/components/layouts/tool.html.heex:15
 #, elixir-autogen, elixir-format
 msgid "Toolbox"
 msgstr "Toolbox"
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:40
+#, elixir-autogen, elixir-format
+msgid "Domain/IP/ASN Whois"
+msgstr "Domain/IP/ASN Whois"
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:39
+#: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:9
+#, elixir-autogen, elixir-format
+msgid "GeoIP2 Database"
+msgstr "GeoIP2 Database"
+
+#: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:14
+#, elixir-autogen, elixir-format
+msgid "IP to Geo Map"
+msgstr "IP to Geo Map"
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:44
+#: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:11
+#, elixir-autogen, elixir-format
+msgid "Lookup MAC Manufacturer"
+msgstr "Lookup MAC Manufacturer"
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:42
+#, elixir-autogen, elixir-format
+msgid "SVG AutoCrop"
+msgstr "SVG AutoCrop"
+
+#: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:13
+#, elixir-autogen, elixir-format
+msgid "SVG Autocrop, Optimize SVG"
+msgstr "SVG Autocrop, Optimize SVG"
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:41
+#, elixir-autogen, elixir-format
+msgid "SVG to React"
+msgstr "SVG to React"
+
+#: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:12
+#, elixir-autogen, elixir-format
+msgid "SVG to React Component"
+msgstr "SVG to React Component"
+
+#: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:10
+#, elixir-autogen, elixir-format
+msgid "Whois Domain / IP / ASN"
+msgstr "Whois Domain / IP / ASN"

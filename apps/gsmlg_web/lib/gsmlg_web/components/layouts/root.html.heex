@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title suffix="">
-      {assigns[:page_title] || "GSMLG Web"}
+      {assigns[:page_title] || gettext("default page title")}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
@@ -21,14 +21,13 @@
   </head>
   <body class={[
     "flex flex-col",
-    "text-slate-500 bg-fuchsia-100",
-    "dark:text-slate-400 dark:bg-slate-900",
+    "text-base-content bg-base-200",
     "overflow-x-hidden antialiased"
   ]}>
     {@inner_content}
     <.dm_page_footer class={[
-      "bg-gradient-to-tl from-teal-500 to-indigo-500",
-      "text-slate-200"
+      "bg-gradient-to-tl from-secondary to-accent",
+      "text-neutral"
     ]}>
       <:section title="Site Map">
         <.link href={~p"/"}>{dgettext("menu", "Home")}</.link>
@@ -37,18 +36,17 @@
       </:section>
 
       <:section title="Toolbox">
-        <.link href="/toolbox/geoip2">GeoIP2 Database</.link>
-        <.link href="/toolbox/whois">Domain/IP/ASN Whois</.link>
-        <.link href="/toolbox/svg2react">SVG to React</.link>
-        <.link href="/toolbox/svg_autocrop">SVG AutoCrop</.link>
-        <.link href="/toolbox/mac_manufacturer">Lookup MAC Manufacturer</.link>
+        <.link href="/toolbox/geoip2">{dgettext("menu", "GeoIP2 Database")}</.link>
+        <.link href="/toolbox/whois">{dgettext("menu", "Domain/IP/ASN Whois")}</.link>
+        <.link href="/toolbox/svg2react">{dgettext("menu", "SVG to React")}</.link>
+        <.link href="/toolbox/svg_autocrop">{dgettext("menu", "SVG AutoCrop")}</.link>
+        <.link href="/toolbox/mac_manufacturer">
+          {dgettext("menu", "Lookup MAC Manufacturer")}
+        </.link>
       </:section>
 
       <:copyright title="Copyright">
-        <span>Copyright© Jonathan Gao. All rights reserved</span>
-        <%= if Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:show_icp) |> Kernel.==("yes") do %>
-          <span>京ICP备20014476号</span>
-        <% end %>
+        <span>{gettext("Copyright© Jonathan Gao. All rights reserved")}</span>
       </:copyright>
     </.dm_page_footer>
   </body>

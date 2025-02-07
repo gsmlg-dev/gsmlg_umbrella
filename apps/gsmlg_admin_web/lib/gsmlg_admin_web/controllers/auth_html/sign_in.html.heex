@@ -4,13 +4,14 @@
     :let={f}
     for={@changeset}
     id="user-form"
+    class="w-full *:w-full"
     method={:post}
     phx-change="validate"
     phx-submit="save"
   >
     <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-    <.dm_input field={f[:username]} type="text" label="Username" />
-    <.dm_input field={f[:password]} type="password" label="Password" />
+    <.dm_input field={f[:username]} type="text" label="Username" class="w-full" />
+    <.dm_input field={f[:password]} type="password" label="Password" class="w-full" />
     <:actions>
       <button class="btn btn-primary btn-block" phx-disable-with="Saving...">Sign in</button>
     </:actions>

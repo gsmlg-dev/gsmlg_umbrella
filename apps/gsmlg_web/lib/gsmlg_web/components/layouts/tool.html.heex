@@ -1,9 +1,9 @@
 <.dm_page_header
   class={[
-    "bg-gradient-to-br from-teal-500 to-indigo-500",
-    "text-slate-200 h-fit py-6"
+    "bg-primary text-primary-content",
+    "h-fit py-6"
   ]}
-  nav_class={["bg-gradient-to-br from-teal-500 to-indigo-500 text-slate-200 shadow z-20"]}
+  nav_class={["bg-primary text-primary-content shadow z-20"]}
 >
   <:menu to={~p"/"}>
     {dgettext("menu", "Home")}
@@ -14,7 +14,8 @@
   <:menu to={~p"/toolbox"}>
     {dgettext("menu", "Toolbox")}
   </:menu>
-  <:user_profile>
+  <:user_profile class="flex items-center gap-2">
+    <.dm_theme_switcher />
     <.link class="flex flex-row gap-2" href="https://github.com/gsmlg-dev" target="_blank">
       <.dm_mdi name="github" class="h-10 w-10" />
     </.link>
@@ -24,6 +25,6 @@
   <% end %>
 </.dm_page_header>
 <main class="flex flex-col items-center min-h-[calc(100vh-400px)]">
-  <.flash_group flash={@flash} />
+  <.dm_flash_group flash={@flash} />
   {@inner_content}
 </main>

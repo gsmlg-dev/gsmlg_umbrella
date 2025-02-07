@@ -2,8 +2,21 @@
 
 <.dm_flash_group flash={@flash} />
 
-<main class="flex flex-row px-4 sm:px-6 lg:px-8">
+<main class="flex flex-1 w-full">
   <.dm_left_menu>
+    <:menu>
+      <h2 class="menu-title">DynamoDB</h2>
+      <ul>
+        <li>
+          <.link
+            class={if("dynamo_db" == assigns[:active_menu], do: "active")}
+            navigate={~p"/aws/dynamo_db"}
+          >
+            DynamoDB
+          </.link>
+        </li>
+      </ul>
+    </:menu>
     <:menu>
       <h2 class="menu-title">Route 53</h2>
       <ul>

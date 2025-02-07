@@ -1,5 +1,5 @@
-<div class="flex flex-col">
-  <.dm_card>
+<div class="grid grid-cols-auto-fill-96 gap-4 w-full max-w-5xl p-4">
+  <.dm_card class="bg-base-300 text-base-content shadow-lg shadow-base-content">
     <:title>
       <h1>Current Node</h1>
     </:title>
@@ -26,7 +26,7 @@
     </section>
   </.dm_card>
 
-  <.dm_card>
+  <.dm_card class="bg-base-300 text-base-content shadow-lg shadow-base-content">
     <:title>
       <h1>Connected Nodes</h1>
     </:title>
@@ -49,20 +49,47 @@
       <% end %>
     </section>
   </.dm_card>
-</div>
 
-<hr />
-
-<div class="flex flex-row">
-  <.dm_card>
+  <.dm_card class="bg-base-300 text-base-content shadow-lg shadow-base-content">
     <:title>
       <h1>Set Node Cookie</h1>
     </:title>
+    <section>
+      <.dm_form :let={f} for={to_form(%{})} class="w-full flex flex-col gap-4">
+        <.dm_input
+          field={f[:name]}
+          type="text"
+          label="Name"
+          class="w-full"
+          placeholder="Node Name, eg: gsmlg@10.100.10.1"
+        />
+        <.dm_input field={f[:cookie]} type="text" label="Cookie" class="w-full" />
+        <:actions>
+          <.dm_btn class="btn-primary btn-block max-w-md" phx-disable-with="Setting...">
+            Set
+          </.dm_btn>
+        </:actions>
+      </.dm_form>
+    </section>
   </.dm_card>
 
-  <.dm_card>
+  <.dm_card class="bg-base-300 text-base-content shadow-lg shadow-base-content">
     <:title>
       <h1>Connect to Node</h1>
     </:title>
+    <.dm_form :let={f} for={to_form(%{})} class="w-full flex flex-col gap-4">
+      <.dm_input
+        field={f[:name]}
+        type="text"
+        label="Connect to Node"
+        class="w-full"
+        placeholder="Node Name, eg: gsmlg@10.100.1.10"
+      />
+      <:actions>
+        <.dm_btn class="btn-primary btn-block max-w-md" phx-disable-with="Setting...">
+          Set
+        </.dm_btn>
+      </:actions>
+    </.dm_form>
   </.dm_card>
 </div>

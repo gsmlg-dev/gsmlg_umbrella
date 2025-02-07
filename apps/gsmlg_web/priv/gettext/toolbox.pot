@@ -1,0 +1,104 @@
+## This file is a PO Template file.
+##
+## "msgid"s here are often extracted from source code.
+## Add new messages manually only if they're dynamic
+## messages that can't be statically extracted.
+##
+## Run "mix gettext.extract" to bring this file up to
+## date. Leave "msgstr"s empty as changing them here has no
+## effect: edit them in PO (.po) files instead.
+#
+msgid ""
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/svg2react.html.heex:20
+#, elixir-autogen, elixir-format
+msgid "Convert"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/ip_to_geomap.html.heex:20
+#, elixir-autogen, elixir-format
+msgid "Display IP location on the map"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/whois.html.heex:14
+#, elixir-autogen, elixir-format
+msgid "Domain / IP / ASN"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/mac_manufacturer.html.heex:26
+#, elixir-autogen, elixir-format
+msgid "Full Information"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:14
+#, elixir-autogen, elixir-format
+msgid "IP"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:20
+#, elixir-autogen, elixir-format
+msgid "Language"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:24
+#: lib/gsmlg_web/controllers/toolbox_html/mac_manufacturer.html.heex:12
+#: lib/gsmlg_web/controllers/toolbox_html/whois.html.heex:16
+#, elixir-autogen, elixir-format
+msgid "Lookup"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/svg_autocrop.html.heex:20
+#, elixir-autogen, elixir-format
+msgid "Optimize"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/svg_autocrop.html.heex:14
+#, elixir-autogen, elixir-format
+msgid "Optimized SVG"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/svg_autocrop.html.heex:5
+#, elixir-autogen, elixir-format
+msgid "Origin SVG"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/mac_manufacturer.html.heex:20
+#, elixir-autogen, elixir-format
+msgid "Short"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/whois.html.heex:22
+#, elixir-autogen, elixir-format
+msgid "Whois Informaion"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:44
+#, elixir-autogen, elixir-format
+msgid "city"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:33
+#, elixir-autogen, elixir-format
+msgid "continent"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:49
+#, elixir-autogen, elixir-format
+msgid "coordinate"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:39
+#, elixir-autogen, elixir-format
+msgid "country"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:52
+#, elixir-autogen, elixir-format
+msgid "latitude"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:53
+#, elixir-autogen, elixir-format
+msgid "longitude"
+msgstr ""

@@ -51,3 +51,23 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "close"
 msgstr ""
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:49
+#, elixir-autogen, elixir-format
+msgid "Copyright© Jonathan Gao. All rights reserved"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/page_controller.ex:23
+#, elixir-autogen, elixir-format
+msgid "Home"
+msgstr ""
+
+#: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:23
+#, elixir-autogen, elixir-format
+msgid "Open"
+msgstr ""
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:8
+#, elixir-autogen, elixir-format
+msgid "default page title"
+msgstr ""

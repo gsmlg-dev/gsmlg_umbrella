@@ -1,10 +1,15 @@
 <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
-  <div class="mx-4 my-2 flex flex-row justify-end">
-    <.link class="btn btn-sm btn-primary" patch={~p"/blogs/new"}>
+  <div class="mx-4 my-2 flex flex-row gap-6 justify-end">
+    <.link class="btn btn-primary" patch={~p"/blogs/new"}>
       Compose
     </.link>
   </div>
-  <.dm_table id="blog-table" stream={true} data={@streams.blogs}>
+  <.dm_table
+    id="blog-table"
+    class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content [&_thead]:z-10"
+    stream={true}
+    data={@streams.blogs}
+  >
     <:col :let={b} label="ID">
       {b.id}
     </:col>
@@ -23,19 +28,20 @@
 
     <:col :let={b} label="">
       <div class="flex gap-2">
-        <.link class="btn btn-sm btn-info" patch={~p"/blogs/#{b.id}"}>
+        <.link class="btn btn-info" patch={~p"/blogs/#{b.id}"}>
           Show
         </.link>
-        <.link class="btn btn-sm btn-warning" patch={~p"/blogs/#{b.id}/edit"}>
+        <.link class="btn btn-warning" patch={~p"/blogs/#{b.id}/edit"}>
           Edit
         </.link>
-        <.link
-          class="btn btn-sm btn-error"
-          phx-click={JS.push("delete", value: %{id: b.id})}
-          data-confirm="Are you sure?"
-        >
+        <.dm_btn class="btn btn-error" confirm="Are you sure?">
           Delete
-        </.link>
+          <:confirm_action>
+            <.dm_btn class="btn-error" phx-click={JS.push("delete", value: %{id: b.id})}>
+              Delete
+            </.dm_btn>
+          </:confirm_action>
+        </.dm_btn>
       </div>
     </:col>
   </.dm_table>
@@ -46,100 +52,73 @@
   class="container flex flex-col gap-2 mt-4 w-full"
 >
   <div class="mx-4 my-2 flex gap-2">
-    <.link class="btn btn-sm btn-primary" patch={~p"/blogs"}>
+    <.link class="btn btn-primary" patch={~p"/blogs"}>
       All Blog List
     </.link>
     <%= if !is_nil(@blog.id) do %>
-      <.link class="btn btn-sm btn-info" patch={~p"/blogs/#{@blog.id}"}>
+      <.link class="btn btn-info" patch={~p"/blogs/#{@blog.id}"}>
         Show Blog
       </.link>
     <% end %>
   </div>
 
   <div class="mx-4 my-2">
-    <.dm_form
-      :let={f}
-      for={@changeset}
-      id="blog-form"
-      method={:post}
-      phx-change="validate"
-      phx-submit="save"
-    >
-      <.dm_input field={f[:slug]} type="text" label="Slug" />
-      <.dm_input field={f[:title]} type="text" label="Title" />
-      <.dm_input field={f[:author]} type="text" label="Author" />
-      <.dm_input field={f[:date]} type="date" label="Date" />
-      <.dm_input field={f[:content]} type="textarea" label="Content" rows="24" />
-      <div>
-        <span
-          class="btn btn-sm btn-primary my-4"
-          onclick="document.querySelector('remark-element').update();"
-        >
-          Preview
-        </span>
-        <remark-element id="blog-form_content-preview" class="prose lg:prose-xl">
-          {Phoenix.HTML.Form.input_value(f, :content)}
-        </remark-element>
-      </div>
-      <:actions>
-        <button class="btn btn-sm btn-primary" phx-disable-with="Saving...">Save</button>
-      </:actions>
-    </.dm_form>
+    <div id="react_blog_form" data-id={@blog.id} phx-update="ignore" phx-hook="blogFormHook">
+      <.react_blog_form blog={@blog} />
+    </div>
   </div>
 </div>
 
 <div :if={@live_action == :show} class="container flex flex-col gap-2 mt-4 w-full">
   <div class="mx-4 my-2 flex gap-2">
-    <.link class="btn btn-sm btn-primary" patch={~p"/blogs"}>
+    <.link class="btn btn-primary" patch={~p"/blogs"}>
       All Blog List
     </.link>
 
-    <.link class="btn btn-sm btn-warning" patch={~p"/blogs/#{@blog.id}/edit"}>
+    <.link class="btn btn-warning" patch={~p"/blogs/#{@blog.id}/edit"}>
       Edit Blog
     </.link>
   </div>
 
-  <div class="mx-8 my-2">
-    <div class="flex flex-row">
-      <div class="flex-1 text-primary">
+  <div class="w-full max-w-6xl flex flex-col gap-6 *:w-full">
+    <div class="flex flex-row gap-6">
+      <div class="w-40 text-neutral/50">
         Slug
       </div>
       <div class="flex-1">
         {Map.get(@blog, :slug)}
       </div>
     </div>
-    <div class="flex flex-row">
-      <div class="flex-1 text-primary">
+    <div class="flex flex-row gap-6">
+      <div class="w-40 text-neutral/50">
         Title
       </div>
       <div class="flex-1">
         {Map.get(@blog, :title)}
       </div>
     </div>
-    <div class="flex flex-row">
-      <div class="flex-1 text-primary">
+    <div class="flex flex-row gap-6">
+      <div class="w-40 text-neutral/50">
         Author
       </div>
       <div class="flex-1">
         {Map.get(@blog, :author)}
       </div>
     </div>
-    <div class="flex flex-row">
-      <div class="flex-1 text-primary">
+    <div class="flex flex-row gap-6">
+      <div class="w-40 text-neutral/50">
         Date
       </div>
       <div class="flex-1">
         {Map.get(@blog, :date)}
       </div>
     </div>
-    <div class="flex flex-col">
-      <div class="flex-1 text-primary">
+    <div class="flex flex-col gap-6">
+      <div class="text-neutral/50">
         Content
       </div>
-      <div class="flex-1 prose lg:prose-xl">
-        <remark-element>
-          {Map.get(@blog, :content)}
-        </remark-element>
+      <div class="w-full">
+        <.react_markdown data={Map.get(@blog, :content)} />
       </div>
     </div>
   </div>

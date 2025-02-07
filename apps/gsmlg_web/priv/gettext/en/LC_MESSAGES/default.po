@@ -14,40 +14,60 @@ msgstr ""
 #: lib/gsmlg_web/components/core_components.ex:482
 #, elixir-autogen, elixir-format
 msgid "Actions"
-msgstr ""
+msgstr "Actions"
 
 #: lib/gsmlg_web/components/core_components.ex:160
 #, elixir-autogen, elixir-format
 msgid "Attempting to reconnect"
-msgstr ""
+msgstr "Attempting to reconnect"
 
 #: lib/gsmlg_web/components/core_components.ex:151
 #, elixir-autogen, elixir-format
 msgid "Error!"
-msgstr ""
+msgstr "Error!"
 
 #: lib/gsmlg_web/components/core_components.ex:172
 #, elixir-autogen, elixir-format
 msgid "Hang in there while we get back on track"
-msgstr ""
+msgstr "Hang in there while we get back on track"
 
 #: lib/gsmlg_web/components/core_components.ex:167
 #, elixir-autogen, elixir-format
 msgid "Something went wrong!"
-msgstr ""
+msgstr "Something went wrong!"
 
 #: lib/gsmlg_web/components/core_components.ex:150
 #, elixir-autogen, elixir-format
 msgid "Success!"
-msgstr ""
+msgstr "Success!"
 
 #: lib/gsmlg_web/components/core_components.ex:155
 #, elixir-autogen, elixir-format
 msgid "We can't find the internet"
-msgstr ""
+msgstr "Connection lost"
 
 #: lib/gsmlg_web/components/core_components.ex:76
 #: lib/gsmlg_web/components/core_components.ex:130
 #, elixir-autogen, elixir-format
 msgid "close"
-msgstr ""
+msgstr "Close"
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:49
+#, elixir-autogen, elixir-format
+msgid "Copyright© Jonathan Gao. All rights reserved"
+msgstr "Copyright© Jonathan Gao. All rights reserved"
+
+#: lib/gsmlg_web/controllers/page_controller.ex:23
+#, elixir-autogen, elixir-format
+msgid "Home"
+msgstr "Home"
+
+#: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:23
+#, elixir-autogen, elixir-format
+msgid "Open"
+msgstr "Open"
+
+#: lib/gsmlg_web/components/layouts/root.html.heex:8
+#, elixir-autogen, elixir-format
+msgid "default page title"
+msgstr "GSMLG"

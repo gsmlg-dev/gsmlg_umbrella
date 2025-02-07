@@ -4,25 +4,27 @@
       :let={f}
       id="mac-manufacturer-form"
       method="POST"
-      class="flex flex-col justify-center items-center gap-4 w-84"
+      class="flex flex-col justify-center items-center gap-4 w-84 my-4"
     >
       <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-      <.dm_input field={f[:mac]} label="MAC" />
-      <div class="flex justify-center items-center w-full">
-        <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
-      </div>
+      <.dm_compact_input class="w-full input-primary" field={f[:mac]} label="MAC" />
+      <.dm_btn class="btn-primary btn-block" phx-disable-with="Searching...">
+        {dgettext("toolbox", "Lookup")}
+      </.dm_btn>
     </.dm_form>
   </div>
 
   <%= unless is_nil(assigns[:short]) do %>
     <div class="mt-4 flex flex-col justify-center items-center">
       <div class="w-96 flex flex-row justify-start items-start">
-        <div class="w-32 text-right pr-2 after:content-[':']">Short</div>
+        <div class="w-32 text-right pr-2 after:content-[':']">{dgettext("toolbox", "Short")}</div>
         <div class="">{@short}</div>
       </div>
       <%= unless is_nil(assigns[:full]) do %>
         <div class="w-96 flex flex-row justify-start items-start">
-          <div class="w-32 text-right pr-2 after:content-[':']">Full Information</div>
+          <div class="w-32 text-right pr-2 after:content-[':']">
+            {dgettext("toolbox", "Full Information")}
+          </div>
           <div class="">{@full}</div>
         </div>
       <% end %>

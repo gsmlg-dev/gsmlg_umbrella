@@ -109,7 +109,7 @@ defmodule GSMLGAdminWeb.UserSocket do
   def id(socket) do
     case Guardian.Phoenix.Socket.current_resource(socket) do
       %{username: username} -> "user_socket:#{username}"
-      _ -> "user_socket:$__nobody__"
+      _ -> nil
     end
   end
 end

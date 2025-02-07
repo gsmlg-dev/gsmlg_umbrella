@@ -16,5 +16,5 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "workspaces": ["apps/gsmlg_admin_web", "apps/gsmlg_web"]
+  "workspaces": ["apps/gsmlg_admin_web", "apps/gsmlg_web", "apps/gsmlg_component"]
 }

@@ -11,12 +11,12 @@ msgstr ""
 "Language: en\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: lib/gsmlg_web/components/layouts/app.html.heex:31
+#: lib/gsmlg_web/components/layouts/app.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "slogan-1"
 msgstr "Let justice be done"
 
-#: lib/gsmlg_web/components/layouts/app.html.heex:35
+#: lib/gsmlg_web/components/layouts/app.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "slogan-2"
 msgstr "Though the heavens fall"

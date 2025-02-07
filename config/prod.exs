@@ -13,3 +13,9 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
 config :logger, :default_handler,
   level: :info,
   formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "gsmlg_umbrella"}
+
+config :phoenix_react_server, Phoenix.React, cache_ttl: 1440
+
+config :phoenix_react_server, Phoenix.React.Runtime.Bun,
+  port: 4633,
+  env: :prod

@@ -1,7 +1,7 @@
 FROM ghcr.io/gsmlg-dev/phoenix:alpine AS builder
 
 ARG MIX_ENV=prod
-ARG NAME=gsmlg
+ARG NAME=gsmlg_umbrella
 ARG RELEASE_VERSION=1.0.0
 
 ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm
@@ -17,16 +17,19 @@ COPY . /build
 WORKDIR /build
 
 RUN <<EOF
-apk add --no-cache nodejs curl git npm
+set -evx
+
 mix deps.get
-rm package-lock.json
-npm install --workspaces
+bun install
 
 cd /build/apps/gsmlg_web
+
 if [ "$TARGETARCH" == "amd64" ]
 then
   mix tailwind.install $TAILWIND_URL_AMD64
-else
+fi
+if [ "$TARGETARCH" == "arm64" ]
+then
   mix tailwind.install $TAILWIND_URL_ARM64
 fi
 
@@ -35,8 +38,12 @@ mix assets.deploy
 cd /build/apps/gsmlg_admin_web
 mix assets.deploy
 
+cd /build/apps/gsmlg_component
+mix phx.react.bun.bundle --component-base=assets/component --output=priv/server.js
+
 cd /build
-MIX_ENV=prod mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
+bash update_version.sh $RELEASE_VERSION
+mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
 
 cp -r _build/prod/rel/gsmlg_umbrella /app
 EOF
@@ -69,8 +76,11 @@ ENV POOL_SIZE=10
 ENV ADMIN_SECRET_KEY_BASE=gsmlg-admin
 ENV MNESIA_DIR=/var/lib/mnesia
 ENV SECRET_KEY_BASE=gsmlg_umbrella
+ENV BUN_BIN /usr/bin/bun
+ENV BUN_SERVER_JS /app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
 
 COPY --from=builder /app /app
+COPY --from=builder /usr/bin/bun /usr/bin/bun
 
 RUN <<EOF
 apk update

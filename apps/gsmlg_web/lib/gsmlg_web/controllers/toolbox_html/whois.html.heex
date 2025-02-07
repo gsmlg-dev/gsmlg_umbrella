@@ -1,31 +1,41 @@
-<div class="flex flex-col container px-8">
+<div class="flex flex-col container px-8 gap-6">
   <div class="flex justify-center items-center">
     <.dm_form
       :let={f}
       for={to_form(%{"look_for" => @look_for})}
       id="ip-form"
       method="POST"
-      class="flex flex-col justify-center items-center gap-4 w-84"
+      class="flex flex-col justify-center items-center gap-4 w-84 my-4"
     >
       <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-      <.dm_input field={f[:look_for]} label="Domain / IP / ASN" />
-      <div class="flex justify-center items-center w-full">
-        <.button class="w-full" phx-disable-with="Searching...">Lookup</.button>
-      </div>
+      <.dm_compact_input
+        class="w-full input-primary"
+        field={f[:look_for]}
+        label={dgettext("toolbox", "Domain / IP / ASN")}
+      />
+      <.dm_btn class="btn-primary btn-block">{dgettext("toolbox", "Lookup")}</.dm_btn>
     </.dm_form>
   </div>
 
   <%= unless is_nil(@whois_info) do %>
-    <div class="mt-4 flex flex-col justify-center items-start gap-4">
-      <h3 class="text-xl py-2 text-primary">Whois Informaion</h3>
-      <div :for={{server, info} <- @whois_info} :if={is_list(@whois_info)}>
-        <div class="text-lg text-secondary">{server}</div>
-        <div>
-          <pre>{info}</pre>
+    <div class="flex flex-col justify-center items-start gap-4 prose">
+      <h3 class="text-xl py-2 text-primary">{dgettext("toolbox", "Whois Informaion")}</h3>
+      <div
+        :for={{server, info} <- @whois_info}
+        :if={is_list(@whois_info)}
+        class="w-full card rounded-lg"
+      >
+        <div class="card-body">
+          <div class="card-title text-secondary">{server}</div>
+          <div class="whitespace-pre-line">
+            {info}
+          </div>
         </div>
       </div>
       <%= unless is_nil(@reason) do %>
-        <pre class="text-red-500"><%= @reason %></pre>
+        <div role="alert" class="alert alert-error alert-soft">
+          <span>Error! {@reason}</span>
+        </div>
       <% end %>
     </div>
   <% end %>

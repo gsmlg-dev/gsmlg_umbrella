@@ -67,12 +67,29 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
 config :esbuild,
   version: "0.24.2",
   gsmlg_web: [
-    args: ~w(assets/js/app.js --bundle --target=es2021 --format=iife --outdir=priv/static/assets),
+    args:
+      ~w(assets/js/app.js --bundle --target=es2021 --format=iife --loader:.js=jsx --outdir=priv/static/assets),
     cd: Path.expand("../apps/gsmlg_web", __DIR__)
   ],
   gsmlg_admin_web: [
-    args: ~w(assets/js/app.js --bundle --target=es2021 --format=iife --outdir=priv/static/assets),
+    args:
+      ~w(assets/js/app.js --bundle --target=es2021 --format=iife --loader:.js=jsx --outdir=priv/static/assets),
     cd: Path.expand("../apps/gsmlg_admin_web", __DIR__)
+  ]
+
+config :bun,
+  version: "1.1.22",
+  gsmlg_web: [
+    args:
+      ~w(build assets/js/app.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
+    cd: Path.expand("../apps/gsmlg_web", __DIR__),
+    env: %{}
+  ],
+  gsmlg_admin_web: [
+    args:
+      ~w(build assets/js/app.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
+    cd: Path.expand("../apps/gsmlg_admin_web", __DIR__),
+    env: %{}
   ]
 
 # Configure tailwind (the version is required)
@@ -114,6 +131,9 @@ config :gsmlg_commander, GSMLGCommander,
   name: "gsmlg_commander",
   platform_url: "ws://localhost:4111/socket/websocket",
   secret_key_base: admin_secret_key_base
+
+config :tesla,
+  adapter: {Tesla.Adapter.Finch, name: GSMLG.Finch}
 
 # Add mime type to upload notebooks with `Phoenix.LiveView.Upload`
 config :mime, :types, %{

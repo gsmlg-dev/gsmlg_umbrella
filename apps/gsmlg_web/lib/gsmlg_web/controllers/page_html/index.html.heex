@@ -1,7 +1,7 @@
 <section :for={{group, repos} <- @group_repos} class="container flex flex-col my-12">
-  <h3 class="text-4xl my-24 text-center">
+  <h3 class="flex justify-center gap-4 text-4xl my-24">
     <code class="text-info">{group}</code>
-    <span>{dgettext("github", "Github Repos")}</span>
+    <span class="text-neutral-content">{dgettext("github", "Github Repos")}</span>
   </h3>
   <div class="grid grid-cols-auto-fit-96 gap-4 px-4">
     <.github_repo_card :for={repo <- repos} repo={repo} />

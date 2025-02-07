@@ -5,7 +5,7 @@ on:
       release-version:
         required: true
         description: 'The version of the release'
-        default: '4.18.7'
+        default: '4.20.0'
 
 jobs:
   release:
@@ -108,12 +108,15 @@ jobs:
           always-auth: true
           # cache: 'npm'
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Install Deps
         run: |
           mix deps.get
-          rm package-lock.json
           npm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
-          npm install --workspaces
+          bun install
         env:
           MIX_ENV: prod
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -128,9 +131,13 @@ jobs:
         run: |
           cd ${{ github.workspace }}/apps/gsmlg_web
           mix assets.deploy
+          mkdir priv/react
           cd ${{ github.workspace }}/apps/gsmlg_admin_web
           mix assets.deploy
+          cd ${{ github.workspace }}/apps/gsmlg_component
+          mix phx.react.bun.bundle --component-base=assets/component --output=priv/server.js
           cd ${{ github.workspace }}
+          bash update_version.sh $RELEASE_VERSION
           mix release gsmlg_umbrella --version ${RELEASE_VERSION}
           mix release gsmlg_commander --version ${RELEASE_VERSION}
           cp -r _build/prod/rel/gsmlg_umbrella gsmlg
@@ -142,43 +149,8 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: gsmlg.tar.gz
-          asset_name: gsmlg-umbrella_linux-amd64.tar.gz
           tag: v${{ github.event.inputs.release-version }}
+          file: "*.tar.gz"
           overwrite: true
+          file_glob: true
 
-  # build-package-arm64:
-  #   name: Build otp relase package linux arm64
-  #   runs-on: ubuntu-arm64
-  #   needs: [release]
-  #   steps:
-  #     - name: ⬇️ Checkout repo
-  #       uses: actions/checkout@v4
-
-  #     - name: 💊 Setup Elixir
-  #       run: |
-  #         if [ ! -f "$(which mix)" ]
-  #         then
-  #           export DEBIAN_FRONTEND=noninteractive
-  #           sudo apt-get update
-  #           sudo apt-get install -y elixir
-  #           mix local.hex --force
-  #           mix local.rebar --force
-  #           mix archive.install hex phx_new --force
-  #         fi
-
-  #     - name: ⚙️ Run build
-  #       env:
-  #         MIX_ENV: prod
-  #         RELEASE_NAME: gsmlg_umbrella
-  #         RELEASE_VERSION: ${{ github.event.inputs.release-version }}
-  #       run: ./build.sh
-
-  #     - name: ⬆️ Upload binaries to release
-  #       uses: svenstaro/upload-release-action@v2
-  #       with:
-  #         repo_token: ${{ secrets.GITHUB_TOKEN }}
-  #         file: gsmlg.tar.gz
-  #         asset_name: gsmlg_umbrella_arm64.tar.gz
-  #         tag: v${{ github.event.inputs.release-version }}
-  #         overwrite: true

@@ -16,16 +16,17 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
   check_origin: false,
   watchers: [
     tailwind: {Tailwind, :install_and_run, [:gsmlg_web, ~w(--watch)]},
-    esbuild:
-      {Esbuild, :install_and_run,
-       [:gsmlg_web, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
+    bun: {Bun, :install_and_run, [:gsmlg_web, ~w(--sourcemap=inline --watch)]}
+    # esbuild:
+    #   {Esbuild, :install_and_run,
+    #    [:gsmlg_web, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
   ],
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/gsmlg_web/(components)/.*(ex)$",
-      ~r"lib/gsmlg_web/controllers/.*(heex)$"
+      ~r"lib/gsmlg_component/.*(ex)$",
+      ~r"lib/gsmlg_web/(controllers|live|components)/.*(ex|heex)$"
     ]
   ]
 
@@ -36,14 +37,16 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   check_origin: false,
   watchers: [
     tailwind: {Tailwind, :install_and_run, [:gsmlg_admin_web, ~w(--watch)]},
-    esbuild:
-      {Esbuild, :install_and_run,
-       [:gsmlg_admin_web, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
+    bun: {Bun, :install_and_run, [:gsmlg_admin_web, ~w(--sourcemap=inline --watch)]}
+    # esbuild:
+    #   {Esbuild, :install_and_run,
+    #    [:gsmlg_admin_web, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
   ],
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
+      ~r"lib/gsmlg_component/.*(ex)$",
       ~r"lib/gsmlg_admin_web/(controllers|live|components)/.*(ex|heex)$"
     ]
   ]
@@ -65,3 +68,14 @@ config :gsmlg_couchdb, GSMLG.CouchDB.Connection,
   port: 5984,
   username: System.get_env("COUCH_USER", "couch_user"),
   password: System.get_env("COUCH_PASS", "couch_pass")
+
+config :phoenix_react_server, Phoenix.React,
+  component_base: Path.expand("../apps/gsmlg_component/assets/component", __DIR__),
+  cache_ttl: 5
+
+config :phoenix_react_server, Phoenix.React.Runtime.Bun,
+  cmd: System.find_executable("bun"),
+  cd: Path.expand("../apps/gsmlg_component", __DIR__),
+  server_js: Path.expand("../apps/gsmlg_component/priv/server.js", __DIR__),
+  port: 4632,
+  env: :dev

@@ -6,12 +6,12 @@
   <div
     :for={
       {name, url} <- [
-        {"GeoIP2 Database", ~p"/toolbox/geoip2"},
-        {"Whois Domain / IP / ASN", ~p"/toolbox/whois"},
-        {"Lookup MAC Manufacturer", ~p"/toolbox/mac_manufacturer"},
-        {"SVG to React Component", ~p"/toolbox/svg2react"},
-        {"SVG Autocrop, Optimize SVG", ~p"/toolbox/svg_autocrop"},
-        {"IP to Geo Map", ~p"/toolbox/ip_to_geomap"}
+        {dgettext("menu", "GeoIP2 Database"), ~p"/toolbox/geoip2"},
+        {dgettext("menu", "Whois Domain / IP / ASN"), ~p"/toolbox/whois"},
+        {dgettext("menu", "Lookup MAC Manufacturer"), ~p"/toolbox/mac_manufacturer"},
+        {dgettext("menu", "SVG to React Component"), ~p"/toolbox/svg2react"},
+        {dgettext("menu", "SVG Autocrop, Optimize SVG"), ~p"/toolbox/svg_autocrop"},
+        {dgettext("menu", "IP to Geo Map"), ~p"/toolbox/ip_to_geomap"}
       ]
     }
     class="card bg-primary text-primary-content shadow-primary shadow-md"
@@ -20,7 +20,7 @@
       <h2 class="card-title">{name}</h2>
       <div class="card-actions justify-end">
         <.link href={url} class="btn">
-          Visit
+          {gettext("Open")}
         </.link>
       </div>
     </div>

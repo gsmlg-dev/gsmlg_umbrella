@@ -99,10 +99,11 @@ defmodule GSMLGWeb do
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components and translation
-      import GSMLGWeb.CoreComponents
-      import GSMLGWeb.AppComponents
+      use GSMLG.Component
+      # import GSMLGWeb.AppComponents
       use Gettext, backend: GSMLGWeb.Gettext
       use PhoenixDuskmoon.Component
+      use PhoenixDuskmoon.Fun
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

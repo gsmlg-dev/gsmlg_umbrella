@@ -46,12 +46,24 @@ defmodule GSMLGAdminWeb.UserLive.Index do
     |> assign(:user, Accounts.get_user!(id))
   end
 
-  @impl Phonix.LiveView
+  @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     user = Accounts.get_user!(id)
     {:ok, _} = Accounts.delete_user(user)
 
     {:noreply, socket |> apply_users()}
+  end
+
+  def handle_event("save", %{"user" => user_params}, socket) do
+    user = socket.assigns.user
+
+    case Accounts.update_user(user, user_params) do
+      {:ok, _user} ->
+        {:noreply, socket |> redirect(to: ~p"/users")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, changeset: changeset)}
+    end
   end
 
   defp apply_users(socket) do

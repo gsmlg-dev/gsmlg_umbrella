@@ -1,24 +1,24 @@
 <div class="flex flex-col container px-4 gap-4">
   <div class="flex justify-center items-center">
-    <div class="w-full aspect-w-16 aspect-h-8 flex flex-row justify-center items-center">
+    <div class="w-full aspect-2/1 flex flex-row justify-center items-center">
       <script type="module">
         import 'https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo';
         document.querySelectorAll("d3-world-map").forEach((el) => {
           el.classList.remove('skeleton');
         });
       </script>
-      <d3-world-map id="ip-geo-map" class="w-full h-screen aspect-w-16 aspect-h-8 skeleton" />
+      <d3-world-map id="ip-geo-map" class="w-full h-screen aspect-2/1 skeleton" />
     </div>
   </div>
 
   <div class="flex flex-col justify-center items-center gap-4">
-    <div class="w-full aspect-w-3 aspect-h-1 flex flex-row justify-center items-center">
-      <textarea id="ip-data" class="textarea textarea-bordered" id="code" rows="10" cols="50"></textarea>
+    <div class="w-full flex flex-row justify-center items-center">
+      <textarea id="ip-data" class="textarea textarea-primary w-full" id="code" rows="10"></textarea>
     </div>
     <div class="w-full flex flex-row justify-center items-center">
-      <button id="submit-ip" class="btn btn-primary">
-        Send IP to Geo Map
-      </button>
+      <.dm_btn id="submit-ip" class="btn-primary btn-block max-w-xs">
+        {dgettext("toolbox", "Display IP location on the map")}
+      </.dm_btn>
     </div>
   </div>
 

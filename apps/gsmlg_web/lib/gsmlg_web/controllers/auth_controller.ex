@@ -56,59 +56,59 @@ defmodule GSMLGWeb.AuthController do
     end
   end
 
-  def new(conn, _params) do
-    changeset = Auth.sign_up_changeset(%Auth{}, %{})
+  # def new(conn, _params) do
+  #   changeset = Auth.sign_up_changeset(%Auth{}, %{})
 
-    conn
-    |> render(:sign_up, changeset: changeset, page_title: "SIGN UP")
-  end
+  #   conn
+  #   |> render(:sign_up, changeset: changeset, page_title: "SIGN UP")
+  # end
 
-  def sign_up(conn, %{"auth" => params}) do
-    case(
-      {Mix.env(),
-       Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:user_register)}
-    ) do
-      {:prod, false} ->
-        conn
-        |> put_flash(:error, "Not Allowed")
-        |> redirect(to: ~p"/sign_in")
+  # def sign_up(conn, %{"auth" => params}) do
+  #   case(
+  #     {Mix.env(),
+  #      Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:user_register)}
+  #   ) do
+  #     {:prod, false} ->
+  #       conn
+  #       |> put_flash(:error, "Not Allowed")
+  #       |> redirect(to: ~p"/sign_in")
 
-      _ ->
-        case Auth.sign_up(params) do
-          {:ok, _user} ->
-            conn
-            |> put_flash(:info, "Auth created successfully.")
-            |> redirect(to: ~p"/sign_in")
+  #     _ ->
+  #       case Auth.sign_up(params) do
+  #         {:ok, _user} ->
+  #           conn
+  #           |> put_flash(:info, "Auth created successfully.")
+  #           |> redirect(to: ~p"/sign_in")
 
-          {:error, %Ecto.Changeset{} = changeset} ->
-            conn
-            |> put_flash(:error, "invalid")
-            |> render(:sign_up, changeset: changeset, page_title: "SIGN UP")
-        end
-    end
-  end
+  #         {:error, %Ecto.Changeset{} = changeset} ->
+  #           conn
+  #           |> put_flash(:error, "invalid")
+  #           |> render(:sign_up, changeset: changeset, page_title: "SIGN UP")
+  #       end
+  #   end
+  # end
 
-  def sign_up(conn, params) do
-    case(
-      {Mix.env(),
-       Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:user_register)}
-    ) do
-      {:prod, false} ->
-        conn
-        |> render("error.json", errors: ["Not Allowed"])
+  # def sign_up(conn, params) do
+  #   case(
+  #     {Mix.env(),
+  #      Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:user_register)}
+  #   ) do
+  #     {:prod, false} ->
+  #       conn
+  #       |> render("error.json", errors: ["Not Allowed"])
 
-      _ ->
-        case Auth.sign_up(params) do
-          {:ok, user} ->
-            conn
-            |> render("sign_up.json", username: user.username)
+  #     _ ->
+  #       case Auth.sign_up(params) do
+  #         {:ok, user} ->
+  #           conn
+  #           |> render("sign_up.json", username: user.username)
 
-          {:error, %Ecto.Changeset{} = changeset} ->
-            conn
-            |> render("error.json", changeset: changeset)
-        end
-    end
-  end
+  #         {:error, %Ecto.Changeset{} = changeset} ->
+  #           conn
+  #           |> render("error.json", changeset: changeset)
+  #       end
+  #   end
+  # end
 
   def sign_out(conn, _params) do
     conn

@@ -1,1 +1,33 @@
 
+body > .phx-connected {
+  @apply min-h-screen flex flex-col;
+}
+
+
+@layer components {
+  .table-primary-border {
+    th, td {
+      @apply border border-primary;
+    }
+  }
+
+  .table-animate-row {
+    > tbody > tr {
+      transition: opacity 0.5s;
+      opacity: 1;
+
+      @starting-style {
+        opacity: 0;
+      }
+
+      td {
+        transition: scale 0.1s 0.2s;
+        @apply scale-100 origin-left;
+
+        @starting-style {
+          @apply scale-0;
+        }
+      }
+    }
+  }
+}

@@ -28,7 +28,7 @@ if config_env() == :prod do
           # Enable IPv6 and bind on all interfaces.
           # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
           ip: {0, 0, 0, 0, 0, 0, 0, 0},
-          port: String.to_integer(System.get_env("PORT", "4110"))
+          port: String.to_integer(System.get_env("WEB_PORT", "4110"))
         ],
         secret_key_base: secret_key_base
 
@@ -79,24 +79,6 @@ if config_env() == :prod do
       nil
   end
 
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Also, you may need to configure the Swoosh API client of your choice if you
-  # are not using SMTP. Here is an example of the configuration:
-  #
-  #     config :gsmlg, GSMLG.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # For this example you need include a HTTP client required by Swoosh API client.
-  # Swoosh supports Hackney and Finch out of the box:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Finch
-  #
-  # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
-
   case Code.ensure_compiled(GSMLG.CouchDB) do
     {:module, GSMLG.CouchDB} ->
       # CouchDB Server Connection
@@ -133,4 +115,10 @@ if config_env() == :prod do
   end
 
   GSMLG.Logger.configure_log_level_from_env!("LOG_LEVEL")
+
+  config :phoenix_react_server, Phoenix.React.Runtime.Bun,
+    cmd: System.get_env("BUN_BIN", System.find_executable("bun")),
+    server_js: System.get_env("BUN_SERVER_JS"),
+    port: String.to_integer(System.get_env("BUN_PORT", "5252")),
+    env: :prod
 end

@@ -69,6 +69,14 @@ defmodule GSMLGAdminWeb.BlogLive.Index do
     {:noreply, assign(socket, :changeset, changeset)}
   end
 
+  def handle_event("form:init", _params, socket) do
+    {:reply, socket.assigns.blog, socket}
+  end
+
+  def handle_event("form:submit", %{"blog" => blog_params}, socket) do
+    save_blog(socket, socket.assigns.live_action, blog_params)
+  end
+
   def handle_event("save", %{"blog" => blog_params}, socket) do
     save_blog(socket, socket.assigns.live_action, blog_params)
   end

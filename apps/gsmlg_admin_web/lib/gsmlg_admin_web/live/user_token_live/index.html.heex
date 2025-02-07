@@ -1,6 +1,9 @@
 <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
   <div class="mx-4 my-2 flex flex-row justify-end"></div>
-  <.dm_table data={@user_tokens}>
+  <.dm_table
+    class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+    data={@user_tokens}
+  >
     <:col :let={t} label="Aud">
       {t.aud}
     </:col>
@@ -22,19 +25,29 @@
 
     <:col :let={t} label="">
       <div class="flex gap-2">
-        <.link class="btn btn-sm btn-info" patch={~p"/user_tokens/#{t.jti}"}>
+        <.link class="btn btn-info" patch={~p"/user_tokens/#{t.jti}"}>
           Show
         </.link>
-        <.link class="btn btn-sm btn-warning" patch={~p"/user_tokens/#{t.jti}/edit"}>
+        <.link class="btn btn-warning" patch={~p"/user_tokens/#{t.jti}/edit"}>
           Edit
         </.link>
-        <.link
-          class="btn btn-sm btn-error"
-          phx-click={JS.push("delete", value: %{id: t.jti})}
-          data-confirm="Are you sure?"
+        <.dm_btn
+          id={"id-del-#{t.jti}"}
+          confirm={dgettext("user.token", "Do you want to remove this token ?")}
+          class="btn-error"
+          confirm_class="btn-error btn-sm"
+          cancel_class="btn-ghost btn-sm"
+          confirm_title="Attention!"
         >
           Delete
-        </.link>
+          <:confirm_action>
+            <form method="dialog">
+              <.dm_btn phx-click={JS.push("delete", value: %{id: t.jti})} class="btn-error btn-sm">
+                Delete
+              </.dm_btn>
+            </form>
+          </:confirm_action>
+        </.dm_btn>
       </div>
     </:col>
   </.dm_table>
@@ -47,11 +60,11 @@
   <h3 class="mx-4 my-2 text-3xl text-primary">{@user_token.aud}</h3>
 
   <div class="mx-4 my-2 flex gap-2">
-    <.link class="btn btn-sm btn-primary" patch={~p"/user_tokens"}>
+    <.link class="btn btn-primary" patch={~p"/user_tokens"}>
       All User Token List
     </.link>
 
-    <.link class="btn btn-sm btn-info" patch={~p"/user_tokens/#{@user_token.jti}"}>
+    <.link class="btn btn-info" patch={~p"/user_tokens/#{@user_token.jti}"}>
       Show User token
     </.link>
   </div>
@@ -66,10 +79,10 @@
       phx-change="validate"
       phx-submit="save"
     >
-      <.dm_input field={f[:jti]} type="text" label="Jti" />
-      <.dm_input field={f[:aud]} type="text" label="Aud" />
+      <.dm_input field={f[:jti]} type="text" label="Jti" class="w-full max-w-7xl" />
+      <.dm_input field={f[:aud]} type="text" label="Aud" class="w-full max-w-7xl" />
       <:actions>
-        <button class="btn btn-sm btn-primary w-full" phx-disable-with="Saving...">Save</button>
+        <.dm_btn class="btn-primary w-full max-w-md" phx-disable-with="Saving...">Save</.dm_btn>
       </:actions>
     </.dm_form>
   </div>
@@ -77,11 +90,11 @@
 
 <div :if={@live_action == :show} class="container flex flex-col gap-2 mt-4 w-full">
   <div class="mx-4 my-2 flex gap-2">
-    <.link class="btn btn-sm btn-primary" patch={~p"/user_tokens"}>
+    <.link class="btn btn-primary" patch={~p"/user_tokens"}>
       All User Token List
     </.link>
 
-    <.link class="btn btn-sm btn-warning" patch={~p"/user_tokens/#{@user_token.jti}/edit"}>
+    <.link class="btn btn-warning" patch={~p"/user_tokens/#{@user_token.jti}/edit"}>
       Edit User Token
     </.link>
   </div>

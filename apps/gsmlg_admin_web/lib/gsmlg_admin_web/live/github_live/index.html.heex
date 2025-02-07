@@ -6,7 +6,7 @@
 
     <div class="mx-4 my-2 w-full grid grid-cols-3 gap-4">
       <div :for={repo <- repos}>
-        <.github_repo_info repo={repo} />
+        <.github_repo_info_card repo={repo} />
       </div>
     </div>
   </.dm_async_card>
@@ -19,7 +19,7 @@
 
       <div class="mx-4 my-2 w-full grid grid-cols-3 gap-4">
         <div :for={repo <- repos}>
-          <.github_repo_info repo={repo} />
+          <.github_repo_info_card repo={repo} />
         </div>
       </div>
     </.dm_card>

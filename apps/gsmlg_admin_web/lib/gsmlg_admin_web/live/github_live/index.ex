@@ -40,15 +40,29 @@ defmodule GSMLGAdminWeb.GithubLive.Index do
   defp assign_repos(socket) do
     socket
     |> assign_async(:repos, fn ->
-      repos = GitHub.user_repos(@gh_user)
-      {:ok, %{repos: repos}}
+      case GitHub.fetch_repos_cache(@gh_user, is_user: true) do
+        {:ok, repos} ->
+          key = "stargazers_count"
+          repos = repos |> Enum.sort(&(&1[key] > &2[key]))
+          {:ok, %{repos: repos}}
+
+        {:error, _} ->
+          {:ok, %{repos: []}}
+      end
     end)
     |> assign_async(:org_repos, fn ->
       org_repos =
         @gh_orgs
         |> Enum.map(fn org ->
-          repos = GitHub.user_repos(org, org: true)
-          {org, repos}
+          case GitHub.fetch_repos_cache(org, is_user: false, ttl: 60) do
+            {:ok, repos} ->
+              key = "stargazers_count"
+              repos = repos |> Enum.sort(&(&1[key] > &2[key]))
+              {org, repos}
+
+            {:error, _} ->
+              {org, []}
+          end
         end)
 
       {:ok, %{org_repos: org_repos}}

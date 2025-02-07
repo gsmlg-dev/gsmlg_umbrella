@@ -104,7 +104,8 @@ defmodule GSMLGAdminWeb do
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components and translation
-      import GSMLGAdminWeb.CoreComponents
+      use GSMLG.Component
+      # import GSMLGAdminWeb.CoreComponents
       import GSMLGAdminWeb.AppComponents
       import GSMLGAdminWeb.Gettext
       use PhoenixDuskmoon.Component

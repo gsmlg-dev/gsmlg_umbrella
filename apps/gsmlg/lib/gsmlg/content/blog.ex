@@ -24,4 +24,16 @@ defmodule GSMLG.Content.Blog do
   def count() do
     Repo.aggregate(Blog, :count)
   end
+
+  defimpl Jason.Encoder do
+    def encode(
+          %Blog{id: id, author: author, slug: slug, title: title, date: date, content: content},
+          opts
+        ) do
+      Jason.Encode.map(
+        %{id: id, author: author, slug: slug, title: title, date: date, content: content},
+        opts
+      )
+    end
+  end
 end

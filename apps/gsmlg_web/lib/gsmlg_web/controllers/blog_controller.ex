@@ -33,14 +33,14 @@ defmodule GSMLGWeb.BlogController do
         "header-hero-text",
         "w-full px-4",
         "flex justify-center items-center",
-        "text-6xl whitespace-auto"
+        "whitespace-auto"
       ]}>
         {@blog.title}
       </h1>
-      <author class="text-2xl text-fuchsia-300 my-4">
+      <author class="text-2xl text-accent my-4">
         {@blog.author}
       </author>
-      <time class="text-xl text-pink-300">{@blog.date}</time>
+      <time class="text-xl text-accent">{@blog.date}</time>
     </div>
     """
 

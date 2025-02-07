@@ -23,6 +23,7 @@ defmodule GSMLGAdminWeb.Router do
 
   pipeline :ensure_authed_access do
     plug(Guardian.Plug.EnsureAuthenticated, claims: %{"typ" => "access"})
+    plug(:ensure_session_process_started)
   end
 
   pipeline :browser do
@@ -84,6 +85,8 @@ defmodule GSMLGAdminWeb.Router do
     live("/aws/route53/hosted_zones", Route53Live.Index, :list_zones)
     live("/aws/route53/hosted_zones/:id/records", Route53Live.Index, :list_records)
 
+    live("/aws/dynamo_db", DynamoDBLive.Index, :index)
+
     import Phoenix.LiveDashboard.Router
 
     live_dashboard("/live_dashboard", metrics: GSMLGAdminWeb.Telemetry)
@@ -99,7 +102,6 @@ defmodule GSMLGAdminWeb.Router do
     get("/blogs/:id", BlogController, :show)
   end
 
-  # Other scopes may use custom stacks.
   scope "/api", GSMLGAdminWeb do
     pipe_through([:api, :maybe_api_auth, :ensure_authed_access])
 
@@ -119,20 +121,23 @@ defmodule GSMLGAdminWeb.Router do
 
   forward("/graphql", Absinthe.Plug, schema: GSMLGAdminWeb.Schema)
 
-  # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:gsmlg_admin_web, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
-    # import Phoenix.LiveDashboard.Router
-
     scope "/dev" do
       pipe_through(:browser)
 
-      # live_dashboard("/dashboard", metrics: PhxNextWeb.Telemetry)
       forward("/mailbox", Plug.Swoosh.MailboxPreview)
+    end
+  end
+
+  def ensure_session_process_started(conn, _) do
+    session_id = get_session(conn, :session_id)
+
+    if Phoenix.SessionProcess.started?(session_id) do
+      conn
+    else
+      user = Guardian.Plug.current_resource(conn)
+      Phoenix.SessionProcess.start(session_id, GSMLG.SessionProcess, %{user: user})
+      conn
     end
   end
 end

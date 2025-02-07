@@ -31,4 +31,10 @@ erl_crash.dump
 
 # burrito binary
 /burrito_out
+
+# nodejs
 node_modules
+package-lock.json
+
+bun.lock
+

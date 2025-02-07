@@ -9,7 +9,10 @@
     <h3 class="font-semibold text-2xl">Hosted Zones</h3>
   </:title>
 
-  <.dm_table data={hosted_zones.list}>
+  <.dm_table
+    data={hosted_zones.list}
+    class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+  >
     <:col :let={zone} label="Id">
       {Map.get(zone, "Id")}
     </:col>
@@ -26,7 +29,7 @@
     <:col :let={zone} label="">
       <div class="flex gap-2">
         <.link
-          class="btn btn-sm btn-info"
+          class="btn btn-info"
           patch={
             ~p"/aws/route53/hosted_zones/#{case Map.get(zone, "Id") do
               "/hostedzone/" <> id -> id
@@ -43,7 +46,7 @@
   <div :if={!is_nil(hosted_zones.next_token)}>
     <div class="flex gap-2">
       <button
-        class="btn btn-sm btn-block	btn-primary"
+        class="btn btn-block btn-primary"
         phx-click={
           JS.push("next_token", value: %{"next_zones" => Tuple.to_list(hosted_zones.next_token)})
         }
@@ -62,28 +65,29 @@
   skeleton_class="min-h-48"
 >
   <:title class="flex flex-row items-center">
-    <.link class="btn btn-square btn-sm btn-primary" patch={~p"/aws/route53/hosted_zones"}>
+    <.link class="btn btn-primary" patch={~p"/aws/route53/hosted_zones"}>
       <.dm_mdi name="chevron-double-left" class="w-6 h-6" />
     </.link>
     <h3 class="w-full font-semibold text-2xl">Resource Record Sets</h3>
-    <.dm_modal class="modal-backdrop">
+    <.dm_modal class="">
       <:trigger :let={f}>
         <button
-          class="btn btn-circle btn-primary btn-sm"
+          class="btn btn-circle btn-primary w-12 h-12"
           onclick={"document.getElementById('#{f}').showModal()"}
         >
-          <.dm_mdi name="plus" class="w-6 h-6" />
+          <.dm_mdi name="plus" class="w-8 h-8" />
         </button>
       </:trigger>
       <:title>Add Resource Record</:title>
       <:body>
-        <.dm_form :let={f} method="dialog" class="w-96">
-          <.dm_input field={f[:name]} label="Name" />
-          <.dm_input field={f[:ttl]} label="TTL" type="number" min={0} max={65535} />
+        <.dm_form :let={f} method="dialog" class="w-full *:w-full">
+          <.dm_input field={f[:name]} label="Name" class="w-full" />
+          <.dm_input field={f[:ttl]} label="TTL" class="w-full" type="number" min={0} max={65535} />
           <.dm_input
             field={f[:type]}
             label="Type"
             type="select"
+            class="w-full"
             options={[
               "A",
               "AAAA",
@@ -104,40 +108,49 @@
               "TXT"
             ]}
           />
-          <.dm_input field={f[:rdata]} label="RData" type="textarea" />
+          <.dm_input field={f[:rdata]} label="RData" type="textarea" class="w-full" />
           <div class="flex justify-end items-center gap-4 mt-4">
-            <button class="btn btn-sm btn-neutral">Close</button>
-            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+            <button class="btn btn-neutral">Close</button>
+            <button class="btn btn-primary" type="submit">Save</button>
           </div>
         </.dm_form>
       </:body>
     </.dm_modal>
   </:title>
-  <.dm_table data={resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:list, [])}>
-    <:col :let={rr} label="Name">
+  <.dm_table
+    data={resource_record_sets |> Map.get(@hosted_zone_id, %{}) |> Map.get(:list, [])}
+    class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+  >
+    <:col :let={rr} label="Name" class="align-top">
       <span class="inline-block break-all">{Map.get(rr, "Name")}</span>
     </:col>
-    <:col :let={rr} label="TTL">
+    <:col :let={rr} label="TTL" class="align-top">
       {Map.get(rr, "TTL")}
     </:col>
-    <:col :let={rr} label="Type">
+    <:col :let={rr} label="Type" class="align-top">
       {Map.get(rr, "Type")}
     </:col>
-    <:col :let={rr} label="RData">
-      {case get_in(rr, ["ResourceRecords", "ResourceRecord"]) do
-        %{"Value" => value} ->
-          {:safe, ~s(<div class="break-all">#{value}</div>)}
-
-        list when is_list(list) ->
-          {:safe,
-           ~s(<div class="flex flex-col gap-2">#{list |> Enum.map(&Map.get(&1, "Value")) |> Enum.map(fn n -> ~s(<div class="break-all bg-base-200 p-2 rounded w-fit">#{n}</div>) end)}</div>)}
-      end}
+    <:col :let={rr} label="RData" class="align-top">
+      <div
+        :if={is_map(rr["ResourceRecords"]["ResourceRecord"])}
+        class="break-all bg-base-200 p-2 rounded w-fit"
+      >
+        {rr["ResourceRecords"]["ResourceRecord"]["Value"]}
+      </div>
+      <div :if={is_list(rr["ResourceRecords"]["ResourceRecord"])} class="flex flex-col gap-2">
+        <div
+          :for={%{"Value" => n} <- get_in(rr, ["ResourceRecords", "ResourceRecord"])}
+          class="break-all bg-base-200 p-2 rounded w-fit"
+        >
+          {n}
+        </div>
+      </div>
     </:col>
 
     <:col :let={rr} label="">
       <div class="flex gap-2">
         <button
-          class="btn btn-sm btn-primary"
+          class="btn btn-primary"
           phx-click={JS.push("edit_record", value: %{"record" => rr})}
         >
           Edit
@@ -150,15 +163,20 @@
               type: Map.get(rr, "Type")
             })
           }
-          class="btn-sm btn-error"
-          confirm_class="btn-error btn-sm"
-          cancel_class="btn-ghost btn-sm"
+          class="btn-error"
+          confirm_class="btn-error"
+          cancel_class="btn-ghost"
           confirm_title="Attention!"
         >
           Delete
           <:confirm_action>
             <form method="dialog">
-              <.dm_btn class="btn-error btn-sm">Delete</.dm_btn>
+              <.dm_btn
+                class="btn-error"
+                phx-click={JS.push("delete_record", value: %{"record" => rr})}
+              >
+                Delete
+              </.dm_btn>
             </form>
           </:confirm_action>
         </.dm_btn>
@@ -170,7 +188,7 @@
   <div :if={!is_nil(next_token)}>
     <div class="flex gap-2">
       <button
-        class="btn btn-sm btn-block	btn-primary"
+        class="btn btn-block	btn-primary"
         phx-click={
           JS.push("next_token",
             value: %{"next_records" => Tuple.to_list(next_token)}

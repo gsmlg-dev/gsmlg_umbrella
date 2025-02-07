@@ -1,10 +1,13 @@
 <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
   <div class="mx-4 my-2 flex flex-row justify-end">
-    <.link class="btn btn-sm btn-primary" patch={~p"/users/new"}>
+    <.link class="btn btn-primary" patch={~p"/users/new"}>
       Add User
     </.link>
   </div>
-  <.dm_table data={@users}>
+  <.dm_table
+    data={@users}
+    class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+  >
     <:col :let={u} label="Email">
       {u.email}
     </:col>
@@ -23,19 +26,29 @@
 
     <:col :let={u} label="">
       <div class="flex gap-2">
-        <.link class="btn btn-sm btn-info" patch={~p"/users/#{u.id}"}>
+        <.link class="btn btn-info" patch={~p"/users/#{u.id}"}>
           Show
         </.link>
-        <.link class="btn btn-sm btn-warning" patch={~p"/users/#{u.id}/edit"}>
+        <.link class="btn btn-warning" patch={~p"/users/#{u.id}/edit"}>
           Edit
         </.link>
-        <.link
-          class="btn btn-sm btn-error"
-          phx-click={JS.push("delete", value: %{id: u.id})}
-          data-confirm="Are you sure?"
+        <.dm_btn
+          id={"id-del-#{u.username}"}
+          confirm={dgettext("user", "Do you want to remove this user?")}
+          class="btn-error"
+          confirm_class="btn-error btn-sm"
+          cancel_class="btn-ghost btn-sm"
+          confirm_title="Attention!"
         >
           Delete
-        </.link>
+          <:confirm_action>
+            <form method="dialog">
+              <.dm_btn phx-click={JS.push("delete", value: %{id: u.id})} class="btn-error btn-sm">
+                Delete
+              </.dm_btn>
+            </form>
+          </:confirm_action>
+        </.dm_btn>
       </div>
     </:col>
   </.dm_table>
@@ -46,26 +59,32 @@
   class="container flex flex-col gap-2 mt-4 w-full"
 >
   <div class="mx-4 my-2 flex gap-2">
-    <.link class="btn btn-sm btn-primary" patch={~p"/users"}>
+    <.link class="btn btn-primary" patch={~p"/users"}>
       All User List
     </.link>
     <%= if !is_nil(@user.id) do %>
-      <.link class="btn btn-sm btn-info" patch={~p"/users/#{@user.id}"}>
+      <.link class="btn btn-info" patch={~p"/users/#{@user.id}"}>
         Show User
       </.link>
     <% end %>
   </div>
 
   <div class="mx-4 my-2">
-    <.dm_form :let={f} for={@changeset} id="user-form" method={:post} phx-submit="save">
-      <.dm_input field={f[:email]} type="text" label="Email" />
-      <.dm_input field={f[:username]} type="text" label="Username" />
-      <.dm_input field={f[:name]} type="text" label="Name" />
-      <.dm_input field={f[:portrait]} type="text" label="Portrait" />
-      <.dm_input field={f[:otp_token]} type="text" label="TOTP Token" />
-      <.dm_input field={f[:is_2fa_enabled]} type="toggle" label="2FA" />
+    <.dm_form
+      :let={f}
+      for={@changeset}
+      id="user-form"
+      class="flex flex-col gap-4 w-full max-w-2xl *:w-full"
+      phx-submit="save"
+    >
+      <.dm_input field={f[:email]} type="text" label="Email" class="w-full max-w-7xl" />
+      <.dm_input field={f[:username]} type="text" label="Username" class="w-full max-w-7xl" />
+      <.dm_input field={f[:name]} type="text" label="Name" class="w-full max-w-7xl" />
+      <.dm_input field={f[:portrait]} type="text" label="Portrait" class="w-full max-w-7xl" />
+      <.dm_input field={f[:otp_token]} type="text" label="TOTP Token" class="w-full max-w-7xl" />
+      <.dm_input field={f[:is_2fa_enabled]} type="toggle" label="2FA" class="" />
       <:actions>
-        <.button class="w-full" phx-disable-with="Saving...">Save</.button>
+        <.dm_btn class="btn-primary w-full max-w-md" phx-disable-with="Saving...">Save</.dm_btn>
       </:actions>
     </.dm_form>
   </div>
@@ -73,11 +92,11 @@
 
 <div :if={@live_action == :show} class="container flex flex-col gap-2 mt-4 w-full">
   <div class="mx-4 my-2 flex gap-2">
-    <.link class="btn btn-sm btn-primary" patch={~p"/users"}>
+    <.link class="btn btn-primary" patch={~p"/users"}>
       All User List
     </.link>
 
-    <.link class="btn btn-sm btn-warning" patch={~p"/users/#{@user.id}/edit"}>
+    <.link class="btn btn-warning" patch={~p"/users/#{@user.id}/edit"}>
       Edit User
     </.link>
   </div>

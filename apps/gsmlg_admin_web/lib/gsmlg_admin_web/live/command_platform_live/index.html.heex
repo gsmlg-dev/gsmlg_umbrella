@@ -2,20 +2,20 @@
   <.dm_card>
     <:title class="text-2xl text-seal-400">Commanders</:title>
     <div class="flex gap-4 bg-seal-400">
-      <.button class="h-8 flex items-center" phx-click="fetch-commanders">
+      <.dm_btn class="h-8 flex items-center" phx-click="fetch-commanders">
         list commanders
-      </.button>
-      <.button class="h-8 flex items-center text-teal-400" phx-click="check-table">
+      </.dm_btn>
+      <.dm_btn class="h-8 flex items-center text-teal-400" phx-click="check-table">
         check table
-      </.button>
-      <.button
+      </.dm_btn>
+      <.dm_btn
         id="test"
         class="h-8 flex items-center"
         onclick="document.getElementById('test').classList.toggle('text-teal-400')"
         phx-click="update_test"
       >
         {@test_button}
-      </.button>
+      </.dm_btn>
     </div>
     <section class="my-4">
       <ul class="flex flex-col">
@@ -24,18 +24,18 @@
           <span>{commander.name}</span>
           <.dm_modal>
             <:trigger :let={f}>
-              <button
-                class="btn btn-primary"
+              <.dm_btn
+                class="btn-primary"
                 onclick={"document.getElementById('#{f}')?.showModal()"}
               >
                 Send Command
-              </button>
+              </.dm_btn>
             </:trigger>
             <:title class="px-8">
               Send Command to Commander <span class="text-blue-600 mx-4">{commander.name}</span>
             </:title>
             <:body>
-              <.simple_form
+              <.dm_form
                 :let={f}
                 class="w-full p-4"
                 for={@command_form}
@@ -43,11 +43,11 @@
                 phx-submit="send_command"
               >
                 <input name="commander" type="hidden" value={commander.name} />
-                <.input type="textarea" field={f[:command]} label="Command" />
+                <.dm_input type="textarea" field={f[:command]} label="Command" />
                 <:actions>
-                  <.button class="w-full" phx-disable-with="Searching...">Send</.button>
+                  <.dm_btn class="w-full" phx-disable-with="Searching...">Send</.dm_btn>
                 </:actions>
-              </.simple_form>
+              </.dm_form>
             </:body>
           </.dm_modal>
         </li>

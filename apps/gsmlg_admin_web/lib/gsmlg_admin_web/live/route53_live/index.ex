@@ -18,7 +18,7 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  @impl Phoenix.LiveView
+  @impl true
   def handle_event("next_token", %{"next_records" => next_records}, socket) do
     name = next_records |> Enum.at(0)
     type = next_records |> Enum.at(1)
@@ -34,8 +34,10 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
         {:ok,
          %{
            resource_record_sets: %{
-             list: old_resource_record_sets ++ resource_record_sets,
-             next_token: next
+             hosted_zone_id => %{
+               list: old_resource_record_sets ++ resource_record_sets,
+               next_token: next
+             }
            }
          }}
       end)
@@ -43,9 +45,13 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
     {:noreply, socket}
   end
 
+  def handle_event("add_record", %{"record" => rr}, socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("delete_record", %{"record" => rr}, socket) do
     hosted_zone_id = socket.assigns.hosted_zone_id
-    old_resource_record_sets = socket.assigns.resource_record_sets.result.list
+    old_resource_record_sets = socket.assigns.resource_record_sets.result[hosted_zone_id].list
 
     socket =
       socket
@@ -69,7 +75,13 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
 
         :ok = Route53.change_resource_record_sets(hosted_zone_id, req_input)
         resource_record_sets = old_resource_record_sets |> Enum.reject(fn r -> r == rr end)
-        {:ok, %{resource_record_sets: %{list: resource_record_sets, next_token: nil}}}
+
+        {:ok,
+         %{
+           resource_record_sets: %{
+             hosted_zone_id => %{list: resource_record_sets, next_token: nil}
+           }
+         }}
       end)
 
     {:noreply, socket}
