@@ -19,7 +19,8 @@ WORKDIR /build
 RUN <<EOF
 apk add --no-cache nodejs curl git npm
 mix deps.get
-npm install
+rm package-lock.json
+npm install --workspaces
 
 cd /build/apps/gsmlg_web
 if [ "$TARGETARCH" == "amd64" ]

@@ -111,8 +111,9 @@ jobs:
       - name: Install Deps
         run: |
           mix deps.get
+          rm package-lock.json
           npm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
-          npm install -ws
+          npm install --workspaces
         env:
           MIX_ENV: prod
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
