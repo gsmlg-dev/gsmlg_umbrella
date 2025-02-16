@@ -63,9 +63,13 @@
   </div>
 
   <div class="mx-4 my-2">
-    <div id="react_blog_form" data-id={@blog.id} phx-update="ignore" phx-hook="blogFormHook">
-      <.react_blog_form blog={@blog} />
-    </div>
+    <div
+      id="react_blog_form"
+      data-id={@blog.id}
+      phx-update="ignore"
+      phx-hook="blogFormHook"
+      phx-no-format
+    ><.react_blog_form blog={@blog} /></div>
   </div>
 </div>
 

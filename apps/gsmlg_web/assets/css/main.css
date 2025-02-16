@@ -1,64 +1,69 @@
-
-.slogan-text {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  text-shadow: purple -0.3em -0.3em 0.5em;
-  letter-spacing: 1em;
-  background-image: linear-gradient(to left, purple, cyan, blue, green, yellow, orange, red);
-  background-clip: text;
-  background-size: 400%;
-  animation-duration: 6180ms;
-  animation-name: bg-move-x;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-  color: transparent;
-  @apply flex flex-col justify-center items-center my-16 whitespace-nowrap select-none;
-}
-@keyframes bg-move-x {
-  0% {
-    background-position: 0 0;
-    text-shadow: purple -0.3em -0.3em 0.5em;
-  }
-  17% {
-    text-shadow: cyan -0.2em -0.2em 0.7em;
-  }
-  34% {
-    text-shadow: blue -0.1em -0.1em 0.9em;
-  }
-  50% {
-    text-shadow: green 0em 0em 1.1em;
-  }
-  67% {
-    text-shadow: yellow 0.1em 0.1em 0.9em;
-  }
-  84% {
-    text-shadow: orange 0.2em 0.2em 0.7em;
-  }
-  100% {
-    background-position: 100% 0;
-    text-shadow: red 0.3em 0.3em 0.5em;
-  }
-}
-
-@media (min-width: 1024px) {
+@layer components {
   .slogan-text {
-    writing-mode: horizontal-tb;
+    writing-mode: vertical-rl;
     text-orientation: mixed;
+    text-shadow: purple -0.3em -0.3em 0.5em;
+    letter-spacing: 1em;
+    background-image: linear-gradient(to left, purple, cyan, blue, green, yellow, orange, red);
+    background-clip: text;
+    background-size: 400%;
+    animation-duration: 6180ms;
+    animation-name: bg-move-x;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    color: transparent;
+    @apply flex flex-col justify-center items-center my-16 whitespace-nowrap select-none;
+  }
+
+  @keyframes bg-move-x {
+    0% {
+      background-position: 0 0;
+      text-shadow: purple -0.3em -0.3em 0.5em;
+    }
+    17% {
+      text-shadow: cyan -0.2em -0.2em 0.7em;
+    }
+    34% {
+      text-shadow: blue -0.1em -0.1em 0.9em;
+    }
+    50% {
+      text-shadow: green 0em 0em 1.1em;
+    }
+    67% {
+      text-shadow: yellow 0.1em 0.1em 0.9em;
+    }
+    84% {
+      text-shadow: orange 0.2em 0.2em 0.7em;
+    }
+    100% {
+      background-position: 100% 0;
+      text-shadow: red 0.3em 0.3em 0.5em;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .slogan-text {
+      writing-mode: horizontal-tb;
+      text-orientation: mixed;
+    }
   }
 }
 
-.peer-checked\:flex.pop-menu {
-  transform-origin: top;
-  transform: scaleY(0.1);
-}
-.peer:checked ~ .peer-checked\:flex.pop-menu {
-  transition: 0.3s all;
-  transform: scaleY(1);
-
-  @starting-style {
+@layer components {
+  .peer-checked\:flex.pop-menu {
+    transform-origin: top;
     transform: scaleY(0.1);
   }
+  .peer:checked ~ .peer-checked\:flex.pop-menu {
+    transition: 0.3s all;
+    transform: scaleY(1);
+
+    @starting-style {
+      transform: scaleY(0.1);
+    }
+  }
 }
+
 @layer components {
   .header-hero-container {
     @apply container flex justify-center items-center my-20;
