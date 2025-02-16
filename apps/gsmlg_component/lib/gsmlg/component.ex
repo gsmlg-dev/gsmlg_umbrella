@@ -5,6 +5,7 @@ defmodule GSMLG.Component do
 
   defmacro __using__([]) do
     quote do
+      import GSMLG.Component.Admin
       import GSMLG.Component.Github
       import GSMLG.Component.React
       import GSMLG.Component.Static.Logo

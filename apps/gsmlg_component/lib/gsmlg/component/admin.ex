@@ -1,4 +1,4 @@
-defmodule GSMLGAdminWeb.AppComponents do
+defmodule GSMLG.Component.Admin do
   @moduledoc """
   Provides App UI components.
   """
@@ -6,7 +6,6 @@ defmodule GSMLGAdminWeb.AppComponents do
   use PhoenixDuskmoon.Component
 
   alias Phoenix.LiveView.JS
-  import GSMLGAdminWeb.Gettext
 
   attr(:page_title, :string, default: "GSMLG Admin")
 
