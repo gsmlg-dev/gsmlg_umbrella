@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
 import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 export function Component({ blog, update, submit }) {
-  const [value, setValue] = React.useState(blog.content ?? '');
+  const [value, setValue] = useState(blog.content ?? '');
 
   return (
     <div className="container min-h-96">
