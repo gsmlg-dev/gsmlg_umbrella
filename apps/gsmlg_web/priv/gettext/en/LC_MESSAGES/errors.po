@@ -84,9 +84,6 @@ msgstr[1] "should have at most %{count} items"
 msgid "must be less than %{number}"
 msgstr "must be less than %{number}"
 
-msgid "must be less than %{number}"
-msgstr "must be less than %{number}"
-
 msgid "must be less than or equal to %{number}"
 msgstr "must be less than or equal to %{number}"
 
