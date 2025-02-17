@@ -35,7 +35,12 @@ defmodule GSMLG.Umbrella.MixProject do
           steps: [&build_assets/1, :assemble, &Burrito.wrap/1],
           burrito: [
             targets: [
-              linux_amd64: [os: :linux, cpu: :x86_64]
+              linux_amd64: [
+                os: :linux,
+                cpu: :x86_64,
+                custom_erts:
+                  "https://github.com/Gao-OS/otp-release/releases/download/main/OTP-27.1.2-linux-amd64.tar.gz"
+              ]
             ]
           ]
         ]
@@ -59,12 +64,24 @@ defmodule GSMLG.Umbrella.MixProject do
     ]
   end
 
-  defp build_assets(_) do
-    File.cd(Path.expand("apps/gsmlg_component", __DIR__))
-    System.cmd("mix", ["phx.react.bun.bundle", "--component-base=assets/component", "--output=priv/server.js"])
-    File.cd(Path.expand("apps/gsmlg_web", __DIR__))
-    System.cmd("mix", ["assets.deploy"])
-    File.cd(Path.expand("apps/gsmlg_admin_web", __DIR__))
-    System.cmd("mix", ["assets.deploy"])
+  defp build_assets(release) do
+    # File.cd(Path.expand("apps/gsmlg_component", __DIR__))
+    System.cmd(
+      "mix",
+      [
+        "phx.react.bun.bundle",
+        "--component-base=assets/component",
+        "--output=priv/server.js"
+      ],
+      cd: Path.expand("apps/gsmlg_component", __DIR__)
+    )
+
+    # File.cd(Path.expand("apps/gsmlg_web", __DIR__))
+    System.cmd("mix", ["assets.deploy"], cd: Path.expand("apps/gsmlg_web", __DIR__))
+
+    # File.cd(Path.expand("apps/gsmlg_admin_web", __DIR__))
+    System.cmd("mix", ["assets.deploy"], cd: Path.expand("apps/gsmlg_admin_web", __DIR__))
+
+    release
   end
 end
