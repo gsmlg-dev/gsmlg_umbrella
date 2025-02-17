@@ -22,6 +22,8 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
       - name: 💊 Setup Elixir
         uses: erlef/setup-beam@v1
         with:
@@ -112,9 +114,12 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
       - name: Install Deps
         run: |
           mix deps.get
+          mix compile
           npm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
           bun install
         env:
