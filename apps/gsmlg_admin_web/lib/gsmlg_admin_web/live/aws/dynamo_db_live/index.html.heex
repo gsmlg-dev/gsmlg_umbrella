@@ -1,0 +1,67 @@
+<.dm_async_card
+  :let={tables}
+  :if={@live_action == :index}
+  assign={@tables}
+  class="section-card"
+  skeleton_class="min-h-48"
+>
+  <:title class="flex flex-row">
+    <h3 class="font-semibold text-2xl">DynamoDB Tables</h3>
+  </:title>
+
+  <ul class="list bg-base-100 rounded-box shadow-md">
+    <li :for={table <- tables} class="list-row">
+      <div class="list-col-grow	">
+        <div>{table}</div>
+      </div>
+      <button class="btn btn-primary w-24" phx-click="describe_table" phx-value-table={table}>
+        Show
+      </button>
+    </li>
+  </ul>
+</.dm_async_card>
+
+<.dm_async_card
+  :let={table}
+  :if={@live_action == :index && !is_nil(assigns[:table])}
+  assign={@table}
+  class="section-card"
+  skeleton_class="min-h-48"
+>
+  <:title class="flex flex-row">
+    <h3 class="font-semibold text-2xl">DynamoDB Table</h3>
+  </:title>
+
+  <div class="grid grid-cols-1 bg-base-100 rounded-box shadow-md">
+    <div :for={{k, v} <- table} class="grid grid-cols-2">
+      <div class="label">
+        <div>{k}</div>
+      </div>
+      <div :if={is_map(v)} class="subgrid">
+        <div :for={{k, vv} <- v} class="grid grid-cols-2">
+          <div class="label">
+            <div>{k}</div>
+          </div>
+          <div class="value">
+            <div >{inspect vv}</div>
+          </div>
+        </div>
+      </div>
+      <div :if={is_list(v)}>
+        <div :for={vv <- v} class="grid grid-cols-2">
+          <div :if={is_map(vv)} class="subgrid">
+            <div :for={{k, vvv} <- vv} class="grid grid-cols-4">
+              <div class="label">
+                <div>{k}</div>
+              </div>
+              <div class="value">
+                <div >{inspect vvv}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div :if={is_binary(v)}>{v}</div>
+    </div>
+  </div>
+</.dm_async_card>

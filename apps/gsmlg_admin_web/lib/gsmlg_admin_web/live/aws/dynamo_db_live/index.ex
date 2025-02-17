@@ -18,7 +18,18 @@ defmodule GSMLGAdminWeb.DynamoDBLive.Index do
   end
 
   @impl true
-  def handle_event("add_record", %{"record" => rr}, socket) do
+  def handle_event("describe_table", %{"table" => name}, socket) do
+    socket =
+      socket
+      |> assign_async([:table], fn ->
+        case DynamoDB.describe_table(name) do
+          {:ok, %{"Table" => table}, _resp} ->
+            {:ok, %{table: table}}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end)
     {:noreply, socket}
   end
 

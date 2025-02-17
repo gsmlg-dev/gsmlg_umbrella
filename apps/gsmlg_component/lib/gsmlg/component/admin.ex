@@ -74,9 +74,21 @@ defmodule GSMLG.Component.Admin do
                  ]},
                 {"AWS",
                  [
+                   {"DynamoDB",
+                    [
+                      {"Table List", "/aws/dynamo_db"}
+                    ]},
+                    {"Lightsail",
+                    [
+                      {"Instance", "/aws/lightsail"}
+                    ]},
                    {"Route53",
                     [
                       {"Hosted Zones", "/aws/route53/hosted_zones"}
+                    ]},
+                    {"S3",
+                    [
+                      {"Bucket List", "/aws/s3"}
                     ]}
                  ]},
                 {"Dashboard",

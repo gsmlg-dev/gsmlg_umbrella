@@ -151,15 +151,6 @@ defmodule GSMLG.AWS.Route53 do
     :ok
   end
 
-  defp get_client() do
-    access_key_id = System.get_env("AWS_ACCESS_KEY_ID")
-    secret_access_key = System.get_env("AWS_SECRET_ACCESS_KEY")
-    region = System.get_env("AWS_REGION")
+  defdelegate get_client(), to: GSMLG.AWS.Client
 
-    client =
-      AWS.Client.create(access_key_id, secret_access_key, region)
-      |> AWS.Client.put_http_client({AWS.HTTPClient.Finch, [finch_name: GSMLG.Finch]})
-
-    client
-  end
 end

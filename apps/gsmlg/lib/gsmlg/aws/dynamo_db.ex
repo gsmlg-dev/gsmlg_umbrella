@@ -15,7 +15,10 @@ defmodule GSMLG.AWS.DynamoDB do
     |> DynamoDB.list_tables(input)
   end
 
-  defp get_client() do
-    GSMLG.AWS.Client.get_client()
+  def describe_table(table_name) do
+    get_client()
+    |> DynamoDB.describe_table(%{"TableName" => table_name})
   end
+
+  defdelegate get_client(), to: GSMLG.AWS.Client
 end
