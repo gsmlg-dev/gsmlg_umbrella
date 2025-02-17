@@ -13,6 +13,7 @@ defmodule GSMLG.Umbrella.MixProject do
       releases: [
         gsmlg_commander: [
           include_executables_for: [:unix],
+          steps: [:assemble, :tar],
           applications: [
             gsmlg_commander: :permanent
           ]

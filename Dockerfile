@@ -22,8 +22,6 @@ set -evx
 mix deps.get
 bun install
 
-cd /build/apps/gsmlg_web
-
 if [ "$TARGETARCH" == "amd64" ]
 then
   mix tailwind.install $TAILWIND_URL_AMD64
@@ -32,14 +30,6 @@ if [ "$TARGETARCH" == "arm64" ]
 then
   mix tailwind.install $TAILWIND_URL_ARM64
 fi
-
-mix assets.deploy
-
-cd /build/apps/gsmlg_admin_web
-mix assets.deploy
-
-cd /build/apps/gsmlg_component
-mix phx.react.bun.bundle --component-base=assets/component --output=priv/server.js
 
 cd /build
 bash update_version.sh $RELEASE_VERSION
