@@ -12,11 +12,13 @@ defmodule GSMLG.Umbrella.MixProject do
       aliases: aliases(),
       releases: [
         gsmlg_commander: [
+          include_executables_for: [:unix],
           applications: [
             gsmlg_commander: :permanent
           ]
         ],
         gsmlg_umbrella: [
+          include_executables_for: [:unix],
           steps: [&build_assets/1, :assemble, :tar],
           applications: [
             gsmlg: :permanent,
@@ -30,10 +32,9 @@ defmodule GSMLG.Umbrella.MixProject do
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ],
-          steps: [:assemble, &Burrito.wrap/1],
+          steps: [&build_assets/1, :assemble, &Burrito.wrap/1],
           burrito: [
             targets: [
-              linux_arm64: [os: :linux, cpu: :aarch64],
               linux_amd64: [os: :linux, cpu: :x86_64]
             ]
           ]
