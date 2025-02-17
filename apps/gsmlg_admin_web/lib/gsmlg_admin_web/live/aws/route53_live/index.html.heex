@@ -80,7 +80,14 @@
       </:trigger>
       <:title>Add Resource Record</:title>
       <:body>
-        <.dm_form for={to_form(%{"ttl" => 3600, "type" => "A"})} as="record" :let={f} method="dialog" class="w-full *:w-full" phx-submit="add_record">
+        <.dm_form
+          :let={f}
+          for={to_form(%{"ttl" => 3600, "type" => "A"})}
+          as="record"
+          method="dialog"
+          class="w-full *:w-full"
+          phx-submit="add_record"
+        >
           <input type="hidden" name="hosted_zone_id" value={@hosted_zone_id} />
           <.dm_input field={f[:name]} label="Name" class="w-full" />
           <.dm_input field={f[:ttl]} label="TTL" class="w-full" type="number" min={0} max={65535} />
@@ -112,7 +119,9 @@
           <.dm_input field={f[:rdata]} label="RData" type="textarea" class="w-full" />
           <div class="flex justify-end items-center gap-4 mt-4">
             <button class="btn btn-neutral">Close</button>
-            <button class="btn btn-primary" type="submit" phx-disable-with="Saving...">Save</button>
+            <button class="btn btn-primary" type="submit" phx-disable-with="Saving...">
+              Save
+            </button>
           </div>
         </.dm_form>
       </:body>

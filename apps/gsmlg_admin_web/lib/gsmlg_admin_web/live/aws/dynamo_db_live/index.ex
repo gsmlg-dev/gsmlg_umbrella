@@ -30,6 +30,7 @@ defmodule GSMLGAdminWeb.DynamoDBLive.Index do
             {:error, reason}
         end
       end)
+
     {:noreply, socket}
   end
 

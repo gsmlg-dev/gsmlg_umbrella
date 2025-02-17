@@ -47,6 +47,7 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
 
   def handle_event("add_record", %{"record" => rr, "hosted_zone_id" => hosted_zone_id}, socket) do
     IO.inspect({"add_record", rr, hosted_zone_id})
+
     req_input = %{
       {"ChangeResourceRecordSetsRequest",
        %{xmlns: "https://route53.amazonaws.com/doc/2013-04-01/"}} => %{
@@ -55,7 +56,8 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
           "Changes" => [
             %{
               "Change" => %{
-                "Action" => "CREATE", # CREATE, DELETE, UPSERT
+                # CREATE, DELETE, UPSERT
+                "Action" => "CREATE",
                 "ResourceRecordSet" => rr
               }
             }
@@ -63,6 +65,7 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
         }
       }
     }
+
     :ok = Route53.change_resource_record_sets(hosted_zone_id, req_input)
     {:noreply, socket |> apply_resource_record_sets()}
   end

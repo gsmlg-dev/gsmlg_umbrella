@@ -9,6 +9,7 @@ defmodule GSMLG.AWS.Client do
     client =
       AWS.Client.create(access_key_id, secret_access_key, region)
       |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []})
+
     # client = %AWS.Client{client | json_module: AWS.JSON}
     client
   end

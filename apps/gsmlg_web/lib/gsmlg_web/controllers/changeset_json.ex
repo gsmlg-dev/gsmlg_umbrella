@@ -1,5 +1,4 @@
 defmodule GSMLGWeb.ChangesetJSON do
-
   defp te({msg, opts}) do
     if count = opts[:count] do
       Gettext.dngettext(GSMLGWeb.Gettext, "errors", msg, msg, count, opts)

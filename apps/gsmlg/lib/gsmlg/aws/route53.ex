@@ -152,5 +152,4 @@ defmodule GSMLG.AWS.Route53 do
   end
 
   defdelegate get_client(), to: GSMLG.AWS.Client
-
 end
