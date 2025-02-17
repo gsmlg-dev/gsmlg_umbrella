@@ -55,8 +55,8 @@ ENV POOL_SIZE=10
 ENV ADMIN_SECRET_KEY_BASE=gsmlg-admin
 ENV MNESIA_DIR=/var/lib/mnesia
 ENV SECRET_KEY_BASE=gsmlg_umbrella
-ENV BUN_BIN /usr/bin/bun
-ENV BUN_SERVER_JS /app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
+ENV BUN_BIN=/usr/bin/bun
+ENV BUN_SERVER_JS=/app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
 
 COPY --from=builder /app /app
 COPY --from=builder /usr/bin/bun /usr/bin/bun
