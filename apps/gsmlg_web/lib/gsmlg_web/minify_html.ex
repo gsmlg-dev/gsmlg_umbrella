@@ -37,7 +37,6 @@ defmodule GSMLGWeb.MinifyHtml do
             preserve_chevron_percent_template_syntax: true
           })
 
-        Logger.debug(inspect({"Convert!", binary_body, resp_body}))
         %Plug.Conn{conn | resp_body: resp_body}
 
       _ ->
