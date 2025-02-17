@@ -1,4 +1,13 @@
 defmodule GSMLGWeb.ChangesetJSON do
+
+  defp te({msg, opts}) do
+    if count = opts[:count] do
+      Gettext.dngettext(GSMLGWeb.Gettext, "errors", msg, msg, count, opts)
+    else
+      Gettext.dgettext(GSMLGWeb.Gettext, "errors", msg, opts)
+    end
+  end
+
   @doc """
   Traverses and translates changeset errors.
 
@@ -6,7 +15,7 @@ defmodule GSMLGWeb.ChangesetJSON do
   `GSMLGWeb.CoreCompponents.translate_error/1` for more details.
   """
   def translate_errors(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, &GSMLGWeb.CoreComponents.translate_error/1)
+    Ecto.Changeset.traverse_errors(changeset, &te/1)
   end
 
   @doc """

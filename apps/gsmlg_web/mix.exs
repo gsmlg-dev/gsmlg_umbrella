@@ -9,7 +9,7 @@ defmodule GSMLGWeb.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      elixir: "~> 1.14",
+      elixir: "~> 1.14.1 or ~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: Mix.compilers(),
       start_permanent: Mix.env() == :prod,
@@ -74,7 +74,7 @@ defmodule GSMLGWeb.MixProject do
     [
       setup: ["deps.get"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.deploy": ["tailwind gsmlg_web --minify", "esbuild gsmlg_web --minify", "phx.digest"]
+      "assets.deploy": [ "phx.digest.clean", "tailwind gsmlg_web --minify", "bun gsmlg_web --minify", "phx.digest"]
     ]
   end
 end

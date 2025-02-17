@@ -1,10 +1,12 @@
 defmodule GSMLG.Umbrella.MixProject do
   use Mix.Project
 
+  @version "1.0.0"
+
   def project do
     [
       apps_path: "apps",
-      version: "1.0.0",
+      version: @version,
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -15,6 +17,7 @@ defmodule GSMLG.Umbrella.MixProject do
           ]
         ],
         gsmlg_umbrella: [
+          steps: [&build_assets/1, :assemble, :tar],
           applications: [
             gsmlg: :permanent,
             gsmlg_admin_web: :permanent,
@@ -50,7 +53,17 @@ defmodule GSMLG.Umbrella.MixProject do
   defp aliases do
     [
       # run `mix setup` in all child apps
-      setup: ["cmd mix setup"]
+      setup: ["cmd mix setup"],
+      prerelease: [&build_assets/1]
     ]
+  end
+
+  defp build_assets(_) do
+    File.cd(Path.expand("apps/gsmlg_component", __DIR__))
+    System.cmd("mix", ["phx.react.bun.bundle", "--component-base=assets/component", "--output=priv/server.js"])
+    File.cd(Path.expand("apps/gsmlg_web", __DIR__))
+    System.cmd("mix", ["assets.deploy"])
+    File.cd(Path.expand("apps/gsmlg_admin_web", __DIR__))
+    System.cmd("mix", ["assets.deploy"])
   end
 end
