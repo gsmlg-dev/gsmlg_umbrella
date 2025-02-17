@@ -21,6 +21,7 @@ bun install
 
 cd /build
 bash update_version.sh $RELEASE_VERSION
+mix prerelease
 mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
 
 cp -r _build/prod/rel/gsmlg_umbrella /app
