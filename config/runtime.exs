@@ -1,5 +1,9 @@
 import Config
 
+if System.get_env("MIX_TAILWIND_PATH") do
+  config :tailwind, path: System.get_env("MIX_TAILWIND_PATH")
+end
+
 if config_env() == :prod do
   case Code.ensure_compiled(GSMLG.Repo) do
     {:module, GSMLG.Repo} ->
@@ -122,7 +126,4 @@ if config_env() == :prod do
     port: String.to_integer(System.get_env("BUN_PORT", "5252")),
     env: :prod
 
-  if System.get_env("MIX_TAILWIND_PATH") do
-    config :tailwind, path: System.get_env("MIX_TAILWIND_PATH")
-  end
 end

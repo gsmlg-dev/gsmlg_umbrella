@@ -7,6 +7,9 @@ ARG RELEASE_VERSION=1.0.0
 ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
+ARG MIX_TAILWIND_PATH=/usr/bin/tailwind
+ARG MIX_BUN_PATH=/usr/bin/bun
+
 ARG TARGETARCH
 
 COPY . /build
@@ -15,6 +18,8 @@ WORKDIR /build
 
 RUN <<EOF
 set -evx
+mkdir _build
+cp $MIX_TAILWIND_PATH _build/tailwind-linux-x64
 
 mix deps.get
 bun install
