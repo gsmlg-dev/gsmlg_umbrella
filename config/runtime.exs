@@ -125,5 +125,4 @@ if config_env() == :prod do
     server_js: System.get_env("BUN_SERVER_JS"),
     port: String.to_integer(System.get_env("BUN_PORT", "5252")),
     env: :prod
-
 end
