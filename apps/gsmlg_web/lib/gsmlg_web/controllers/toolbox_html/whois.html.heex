@@ -27,9 +27,7 @@
       >
         <div class="card-body">
           <div class="card-title text-secondary">{server}</div>
-          <div class="whitespace-pre-line">
-            {info}
-          </div>
+          <pre class="whitespace-pre-line" phx-no-format>{info}</pre>
         </div>
       </div>
       <%= unless is_nil(@reason) do %>
