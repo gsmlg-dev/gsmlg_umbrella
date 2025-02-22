@@ -34,6 +34,40 @@ defmodule GSMLGAdminWeb.DynamoDBLive.Index do
     {:noreply, socket}
   end
 
+  def handle_event("list_streams", %{"table" => name}, socket) do
+    socket =
+      socket
+      |> assign_async([:db_streams], fn ->
+        case DynamoDB.list_streams(name) do
+          {:ok, %{"Streams" => streams}, _resp} ->
+            streams =
+              Enum.map(streams, fn %{"StreamArn" => stream_arn} = stream ->
+                desc =
+                  case DynamoDB.describe_stream(stream_arn) do
+                    {:ok, %{"StreamDescription" => desc}, _resp} ->
+                      desc
+                      |> Map.take(
+                        ~w[CreationRequestDateTime KeySchema Shards StreamStatus StreamViewType]
+                      )
+
+                    {:error, reason} ->
+                      reason
+                  end
+
+                stream
+                |> Map.merge(desc)
+              end)
+
+            {:ok, %{db_streams: streams}}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end)
+
+    {:noreply, socket}
+  end
+
   def handle_event("delete_record", %{"record" => rr}, socket) do
     {:noreply, socket}
   end
@@ -52,14 +86,26 @@ defmodule GSMLGAdminWeb.DynamoDBLive.Index do
     end)
   end
 
-  defp apply_action(socket, :list_zones, _params) do
+  defp apply_action(socket, :scan, %{"table" => table} = _params) do
     socket
-    |> assign(:page_title, "AWS DynamoDB")
-  end
+    |> assign(:page_title, "AWS DynamoD Table: #{table}")
+    |> assign(:table, table)
+    |> assign(:table_data, %Phoenix.LiveView.AsyncResult{ok?: false, loading: true})
+    |> assign_async([:table_data], fn ->
+      case GSMLG.AWS.DynamoDB.scan_table(table, %{"limit" => 10}) do
+        {:ok, table_data, _resp} ->
+          # %{
+          #   "ConsumedCapacity" => consumed_capacity(),
+          #   "Count" => integer(),
+          #   "Items" => list(map()()),
+          #   "LastEvaluatedKey" => map(),
+          #   "ScannedCount" => integer()
+          # }
+          {:ok, %{table_data: table_data}}
 
-  defp apply_action(socket, :list_records, %{"id" => id} = _params) do
-    socket
-    |> assign(:page_title, "AWS DynamoDB")
-    |> assign(:hosted_zone_id, id)
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end)
   end
 end

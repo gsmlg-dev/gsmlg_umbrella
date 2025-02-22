@@ -86,6 +86,7 @@ defmodule GSMLGAdminWeb.Router do
     live("/aws/route53/hosted_zones/:id/records", Route53Live.Index, :list_records)
 
     live("/aws/dynamo_db", DynamoDBLive.Index, :index)
+    live("/aws/dynamo_db/:table/scan", DynamoDBLive.Index, :scan)
 
     import Phoenix.LiveDashboard.Router
 

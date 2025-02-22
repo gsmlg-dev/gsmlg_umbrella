@@ -5,7 +5,7 @@ defmodule GSMLG.Component.Admin do
   use Phoenix.Component
   use PhoenixDuskmoon.Component
 
-  alias Phoenix.LiveView.JS
+  # alias Phoenix.LiveView.JS
 
   attr(:page_title, :string, default: "GSMLG Admin")
 

@@ -3,6 +3,7 @@ defmodule GSMLG.SessionProcess do
 
   @schedule_interval 3000
 
+  @impl true
   def init(args) do
     Process.flag(:trap_exit, true)
 
@@ -32,6 +33,7 @@ defmodule GSMLG.SessionProcess do
     {:reply, Map.get(state, key), state}
   end
 
+  @impl true
   def handle_cast({:put, key, value}, state) do
     {:noreply, Map.put(state, key, value)}
   end

@@ -69,8 +69,8 @@
     @apply container flex justify-center items-center my-20;
   }
   .header-hero-text {
-    @apply flex justify-center items-center font-bold select-none;
-    font-size: clamp(36px, 8vw, 96px);
+    @apply flex justify-center items-center font-bold select-none text-center;
+    font-size: clamp(24px, 6vw, 76px);
   }
 }
 
