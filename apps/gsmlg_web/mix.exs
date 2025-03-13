@@ -46,7 +46,6 @@ defmodule GSMLGWeb.MixProject do
       {:bandit, "~> 1.0"},
       {:floki, "~> 0.32"},
       {:phoenix_live_dashboard, "~> 0.7"},
-      {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:bun, "~> 1.4", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.0"},
@@ -62,6 +61,8 @@ defmodule GSMLGWeb.MixProject do
       {:guardian, "~> 2.0"},
       {:guardian_phoenix, "~> 2.0"},
       {:guardian_db, "~> 3.0"},
+      {:ueberauth, "~> 0.10"},
+      {:ueberauth_github, "~> 0.8"},
       {:absinthe, "~> 1.7.0"},
       {:absinthe_plug, "~> 1.5"},
       {:absinthe_phoenix, "~> 2.0"}

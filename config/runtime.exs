@@ -125,4 +125,8 @@ if config_env() == :prod do
     server_js: System.get_env("BUN_SERVER_JS"),
     port: String.to_integer(System.get_env("BUN_PORT", "5252")),
     env: :prod
+
+  config :ueberauth, Ueberauth.Strategy.Github.OAuth,
+    client_id: System.get_env("GITHUB_CLIENT_ID"),
+    client_secret: System.get_env("GITHUB_CLIENT_SECRET")
 end

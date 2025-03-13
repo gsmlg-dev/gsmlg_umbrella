@@ -12,7 +12,7 @@ defmodule GSMLG do
   end
 
   def hostname do
-    case System.cmd("hostname", []) do
+    case System.cmd("hostname", ["-f"]) do
       {name, 0} -> String.trim(name)
       _ -> :error
     end

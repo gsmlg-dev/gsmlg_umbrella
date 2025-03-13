@@ -41,8 +41,7 @@
     </.dm_link>
 
     <.dm_link
-      disabled={is_nil(assigns[:github_oauth_url])}
-      href={assigns[:github_oauth_url]}
+      href={~p"/auth/github"}
       class="btn bg-base-200 text-base-content border-base-content"
     >
       <.dm_mdi name="github" class="w-6 aspect-square" /> {gettext("Login with %{provider}",

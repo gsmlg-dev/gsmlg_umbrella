@@ -64,7 +64,7 @@
           pkgs.dart
 
           pkgs.elixir
-          pkgs.esbuild
+          pkgs.bun
           pkgs.tailwindcss
 
           pkgs.nodejs_20

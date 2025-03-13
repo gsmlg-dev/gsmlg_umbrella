@@ -42,12 +42,10 @@ defmodule GSMLGAdminWeb.MixProject do
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.5.0", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
-      {:phoenix_session_process, "~> 0.3"},
       {:phoenix_duskmoon, "~> 6.0"},
       {:bandit, "~> 1.0"},
       {:floki, "~> 0.32", only: :test},
       {:phoenix_live_dashboard, "~> 0.7"},
-      {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:bun, "~> 1.4", runtime: Mix.env() == :dev},
       {:elixir_uuid, "~> 1.2"},
@@ -69,9 +67,6 @@ defmodule GSMLGAdminWeb.MixProject do
     ]
   end
 
-  # Aliases are shortcuts or tasks specific to the current project.
-  #
-  # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
       setup: ["deps.get"],

@@ -4,13 +4,16 @@ defmodule GSMLG.GitHub do
   def client() do
     token = System.get_env("GITHUB_TOKEN")
 
-    Tesla.client([
-      {Tesla.Middleware.FollowRedirects, max_redirects: 3},
-      {Tesla.Middleware.BaseUrl, "https://api.github.com"},
-      {Tesla.Middleware.BearerAuth, token: token},
-      Tesla.Middleware.JSON,
-      Tesla.Middleware.Logger
-    ])
+    Tesla.client(
+      [
+        {Tesla.Middleware.FollowRedirects, max_redirects: 1},
+        {Tesla.Middleware.BaseUrl, "https://api.github.com"},
+        if(token, do: {Tesla.Middleware.BearerAuth, token: token}),
+        Tesla.Middleware.JSON,
+        Tesla.Middleware.Logger
+      ]
+      |> Enum.filter(& &1)
+    )
   end
 
   def fetch_repos(name, opts \\ []) do

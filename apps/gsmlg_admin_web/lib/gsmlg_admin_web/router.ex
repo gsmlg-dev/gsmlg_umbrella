@@ -40,6 +40,13 @@ defmodule GSMLGAdminWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  scope "/auth", GSMLGWeb do
+    pipe_through :browser
+
+    get("/:provider", AuthController, :request)
+    get("/:provider/callback", AuthController, :callback)
+  end
+
   scope "/", GSMLGAdminWeb do
     pipe_through([:browser, :maybe_browser_auth])
 
