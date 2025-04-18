@@ -4,7 +4,6 @@ defmodule GSMLG.PKI.PublicKeyTest do
   alias GSMLG.PKI.PublicKey
 
   describe "Public Key Test" do
-
     test "derive rsa public key" do
       private_key = :public_key.generate_key({:rsa, 2048, 65537})
       pubkey = PublicKey.derive(private_key)
@@ -14,7 +13,7 @@ defmodule GSMLG.PKI.PublicKeyTest do
     test "rsa key to_pem" do
       private_key = :public_key.generate_key({:rsa, 2048, 65537})
       pubkey = PublicKey.derive(private_key)
-      assert pubkey |> PublicKey.to_pem() =~ "-----BEGIN RSA PUBLIC KEY-----"
+      assert pubkey |> PublicKey.to_pem() =~ "-----BEGIN PUBLIC KEY-----"
     end
   end
 end
