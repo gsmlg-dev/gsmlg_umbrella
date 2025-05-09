@@ -23,9 +23,9 @@ Generate a self-signed CA certificate and private key, using the `root_ca`
 template:
 
 ```elixir
-iex> ca_key = X509.PrivateKey.new_ec(:secp256r1)
+iex> ca_key = GSMLG.PKI.PrivateKey.new_ec(:secp256r1)
 {:ECPrivateKey, ...}
-iex> ca = X509.Certificate.self_signed(ca_key,
+iex> ca = GSMLG.PKI.Certificate.self_signed(ca_key,
 ...>   "/C=US/ST=CA/L=San Francisco/O=Acme/CN=ECDSA Root CA",
 ...>   template: :root_ca
 ...>)
@@ -36,15 +36,15 @@ Use the CA certificate to issue a server certificate, using the default
 `server` template and the given SAN hostnames:
 
 ```elixir
-iex> my_key = X509.PrivateKey.new_ec(:secp256r1)
+iex> my_key = GSMLG.PKI.PrivateKey.new_ec(:secp256r1)
 {:ECPrivateKey, ...}
 iex> my_cert = my_key |>
-...> X509.PublicKey.derive() |>
-...> X509.Certificate.new(
+...> GSMLG.PKI.PublicKey.derive() |>
+...> GSMLG.PKI.Certificate.new(
 ...>   "/C=US/ST=CA/L=San Francisco/O=Acme/CN=Sample",
 ...>   ca, ca_key,
 ...>   extensions: [
-...>     subject_alt_name: X509.Certificate.Extension.subject_alt_name(["example.org", "www.example.org"])
+...>     subject_alt_name: GSMLG.PKI.Certificate.Extension.subject_alt_name(["example.org", "www.example.org"])
 ...>   ]
 ...> )
 {:OTPCertificate, ...}
@@ -53,52 +53,35 @@ iex> my_cert = my_key |>
 Or sign a certificate based on an incoming CSR:
 
 ```elixir
-iex> csr = X509.CSR.from_pem!(pem_string)
+iex> csr = GSMLG.PKI.CSR.from_pem!(pem_string)
 {:CertificationRequest, ...}
-iex> subject = X509.CSR.subject(csr)
+iex> subject = GSMLG.PKI.CSR.subject(csr)
 {:rdnSequence, ...}
 iex> my_cert = csr |>
-...> X509.CSR.public_key() |>
-...> X509.Certificate.new(
+...> GSMLG.PKI.CSR.public_key() |>
+...> GSMLG.PKI.Certificate.new(
 ...>   subject,
 ...>   ca, ca_key,
 ...>   extensions: [
-...>     subject_alt_name: X509.Certificate.Extension.subject_alt_name(["example.org", "www.example.org"])
+...>     subject_alt_name: GSMLG.PKI.Certificate.Extension.subject_alt_name(["example.org", "www.example.org"])
 ...>   ]
 ...> )
 ```
 
 ### With `:public_key` for encryption/signing
 
-Please refer to the documentation for the `X509.PrivateKey` module for
+Please refer to the documentation for the `GSMLG.PKI.PrivateKey` module for
 examples showing asymmetrical encryption and decryption, as well as message
 signing and verification, with Erlang/OTP's `:public_key` APIs.
 
 ### For TLS client/server testing
 
-The `x509.gen.selfsigned` Mix task generates a self-signed certificate for use
+The `gSMLG.PKI.gen.selfsigned` Mix task generates a self-signed certificate for use
 with a TLS server in development or testing.
 
-The `X509.Test.Suite` and `X509.Test.Server` modules may be used to create
-test cases for TLS clients. The [server_test.exs](test/x509/test/server_test.exs)
+The `GSMLG.PKI.Test.Suite` and `GSMLG.PKI.Test.Server` modules may be used to create
+test cases for TLS clients. The [server_test.exs](test/gsmlg/pki/server_test.exs)
 file can serve as a template: update the `request/2` function to invoke of the
 TLS client under test,  make sure it returns the expected response format, and
 update the test server's canned response in the test module's setup if
 necessary.
-
-You may want to include the X509 package only in the 'dev' and/or 'test'
-environments for this use-case, by adding an `only: ...` clause to the
-dependency definition in your Mix file.
-
-## Installation
-
-Add `x509` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:x509, "~> 0.8"}
-  ]
-end
-```
-
