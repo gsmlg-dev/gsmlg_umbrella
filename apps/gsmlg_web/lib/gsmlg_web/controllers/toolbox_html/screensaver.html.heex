@@ -2,7 +2,7 @@
   <div class="flex flex-col justify-center items-center gap-4 p-4">
     <div class="w-full h-full min-h-96 flex justify-center">
       <canvas id="screen-saver-canvas" class="w-full h-full min-h-96 rounded-lg" />
-      <video id="screen-saver-video" class="hidden" controls></video>
+      <video id="screen-saver-video" class="hidden w-full h-full min-h-96" controls></video>
     </div>
     <.dm_btn id="screen-saver-trigger" class="btn-primary">
       {dgettext("toolbox", "start-fullscreen")}
@@ -97,9 +97,19 @@
 
       function fullscreenCanvas() {
         const stream = canvas.captureStream(60);
+        video.classList.remove('hidden');
         video.srcObject = stream;
-        video.requestFullscreen();
-        video.play();        
+        if (video.webkitEnterFullScreen && video.webkitSupportsFullscreen) {
+          // Toggle fullscreen in Safari for iPad
+          video.webkitEnterFullScreen();
+        } else if (video.requestFullscreen) {
+          // Toggle fullscreen for other OS / Devices / Browsers
+          video.requestFullscreen();
+        } else {
+          alert('Your browser does not support fullscreen mode.');
+          renderer.setSize( screen.width, screen.height );
+        }
+        video.play();
       }
 
       document.querySelector('#screen-saver-trigger').addEventListener('click', () => {
