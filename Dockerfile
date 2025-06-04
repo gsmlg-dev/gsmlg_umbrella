@@ -4,13 +4,23 @@ ARG MIX_ENV=prod
 ARG NAME=gsmlg_umbrella
 ARG RELEASE_VERSION=1.0.0
 
-ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm
+ARG http_proxy
+ARG https_proxy
+
+ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm/
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
-ARG TARGETARCH
+ARG MIX_TAILWIND_PATH=/usr/bin/tailwind
+ARG MIX_BUN_PATH=/usr/bin/bun
 
-ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.4/tailwindcss-linux-x64-musl
-ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.4/tailwindcss-linux-arm64-musl
+ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-x64-musl
+ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-arm64-musl
+
+ARG DATABASE_URL=ecto://USER:PASS@HOST/DATABASE
+ARG ADMIN_SECRET_KEY_BASE=gsmlg-admin
+ARG SECRET_KEY_BASE=gsmlg_umbrella
+
+ARG TARGETARCH
 
 COPY . /build
 
@@ -18,31 +28,15 @@ WORKDIR /build
 
 RUN <<EOF
 set -evx
+cd /build
 
 mix deps.get
 bun install
+install -m 755 -D $MIX_TAILWIND_PATH /build/_build/tailwind-linux-x64
+install -m 755 -D $MIX_BUN_PATH /build/_build/bun
 
-cd /build/apps/gsmlg_web
-
-if [ "$TARGETARCH" == "amd64" ]
-then
-  mix tailwind.install $TAILWIND_URL_AMD64
-fi
-if [ "$TARGETARCH" == "arm64" ]
-then
-  mix tailwind.install $TAILWIND_URL_ARM64
-fi
-
-mix assets.deploy
-
-cd /build/apps/gsmlg_admin_web
-mix assets.deploy
-
-cd /build/apps/gsmlg_component
-mix phx.react.bun.bundle --component-base=assets/component --output=priv/server.js
-
-cd /build
 bash update_version.sh $RELEASE_VERSION
+
 mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
 
 cp -r _build/prod/rel/gsmlg_umbrella /app
@@ -76,8 +70,8 @@ ENV POOL_SIZE=10
 ENV ADMIN_SECRET_KEY_BASE=gsmlg-admin
 ENV MNESIA_DIR=/var/lib/mnesia
 ENV SECRET_KEY_BASE=gsmlg_umbrella
-ENV BUN_BIN /usr/bin/bun
-ENV BUN_SERVER_JS /app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
+ENV BUN_BIN=/usr/bin/bun
+ENV BUN_SERVER_JS=/app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
 
 COPY --from=builder /app /app
 COPY --from=builder /usr/bin/bun /usr/bin/bun

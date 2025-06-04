@@ -1,0 +1,100 @@
+{
+  "array": {
+    "ofTables": [
+      {
+        "a": false
+      },
+      {
+        "a": []
+      },
+      {
+        "a": true
+      }
+    ]
+  },
+  "basicMultiline": "First line\n\tSecond line_\n\n       Still second line",
+  "binary": 43,
+  "bool_array": [true, false, true, false],
+  "dotted": {
+    "key": 12,
+    "more_data": "some string",
+    "sub": {
+      "subsub": {
+        "key": {
+          "a": "b",
+          "c": "d"
+        }
+      }
+    }
+  },
+  "double": 1.2345678901,
+  "fruit": [
+    {
+      "name": "apple",
+      "physical": {
+        "color": "red",
+        "shape": "round"
+      },
+      "variety": [
+        {
+          "name": "red delicious"
+        },
+        {
+          "name": "granny smith"
+        }
+      ]
+    },
+    {
+      "name": "banana",
+      "variety": [
+        {
+          "name": "plantain"
+        }
+      ]
+    }
+  ],
+  "hexa": 65535,
+  "infinity": "Infinity",
+  "inline_table": {
+    "data": 0,
+    "id": 1
+  },
+  "int_array": [0, 2],
+  "integer": 2,
+  "literalMultiline": "First line\nSecond line",
+  "long": 1234567890000,
+  "m_inf": "-Infinity",
+  "m_nan": "-NaN",
+  "multilineArray": [
+    "string",
+    "string",
+    "multiline\n    string",
+    "multiline\n    string"
+  ],
+  "nan": "NaN",
+  "nested_arrays": [
+    [1],
+    [true, false],
+    ["a", "b"]
+  ],
+  "octal": 511,
+  "p_inf": "Infinity",
+  "p_nan": "NaN",
+  "spaces": 10000999.010203,
+  "string": "value",
+  "table": {
+    "key": "\"literal string\"\\n\\t",
+    "subTable": {
+      "subDefinedFirst": {
+        "test": "this is valid TOML"
+      },
+      "date": "2017-04-04",
+      "preciseTime": "16:41:20.00700",
+      "subkey": "2017-02-25T12:00:01.123456",
+      "subkey with space": "2017-02-25T12:00:01.123456",
+      "time": "16:41:20"
+    }
+  },
+  "with_comments": "This value has two comments",
+  "without_comment": "This value has no comment"
+}

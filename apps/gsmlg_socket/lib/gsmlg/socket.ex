@@ -24,6 +24,46 @@ defmodule GSMLG.Socket do
     end
   end
 
+  defmodule TCP.Error do
+    defexception message: nil
+
+    def exception(reason: reason) do
+      message =
+        cond do
+          msg = GSMLG.Socket.TCP.error(reason) ->
+            msg
+
+          msg = GSMLG.Socket.SSL.error(reason) ->
+            msg
+
+          true ->
+            reason |> to_string
+        end
+
+      %Error{message: message}
+    end
+  end
+
+  defmodule SSL.Error do
+    defexception message: nil
+
+    def exception(reason: reason) do
+      message =
+        cond do
+          msg = GSMLG.Socket.TCP.error(reason) ->
+            msg
+
+          msg = GSMLG.Socket.SSL.error(reason) ->
+            msg
+
+          true ->
+            reason |> to_string
+        end
+
+      %Error{message: message}
+    end
+  end
+
   @doc ~S"""
   Create a socket connecting to somewhere using an URI.
   ## Supported URIs

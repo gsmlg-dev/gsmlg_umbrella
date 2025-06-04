@@ -1,10 +1,12 @@
+import * as React from 'react';
+import { useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
 import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 export function Component({ blog, update, submit }) {
-  const [value, setValue] = React.useState(blog.content ?? '');
+  const [value, setValue] = useState(blog.content ?? '');
 
   return (
     <div className="container min-h-96">
@@ -46,31 +48,32 @@ export function Component({ blog, update, submit }) {
           <input type="radio" name="content_tab" className="tab" aria-label="Preview" />
           <div className="tab-content border-base-300 p-6">
             <div className="w-full max-w-6xl flex flex-col gap-6 *:w-full">
-              <Markdown
-                className="markdown-body px-4"
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code(props) {
-                    const {children, className, node, ...rest} = props
-                    const match = /language-(\w+)/.exec(className || '')
-                    return match ? (
-                      <SyntaxHighlighter
-                        {...rest}
-                        PreTag="div"
-                        children={String(children).replace(/\n$/, '')}
-                        language={match[1]}
-                        style={dracula}
-                      />
-                    ) : (
-                      <code {...rest} className={className}>
-                        {children}
-                      </code>
-                    )
-                  }
-                }}
-              >
-                {value}
-              </Markdown>
+              <div className="markdown-body px-4">
+                <Markdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code(props) {
+                      const {children, className, node, ...rest} = props
+                      const match = /language-(\w+)/.exec(className || '')
+                      return match ? (
+                        <SyntaxHighlighter
+                          {...rest}
+                          PreTag="div"
+                          children={String(children).replace(/\n$/, '')}
+                          language={match[1]}
+                          style={dracula}
+                        />
+                      ) : (
+                        <code {...rest} className={className}>
+                          {children}
+                        </code>
+                      )
+                    }
+                  }}
+                >
+                  {value}
+                </Markdown>
+              </div>
             </div>
           </div>
         </div>

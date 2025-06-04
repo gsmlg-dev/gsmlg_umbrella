@@ -1,3 +1,4 @@
+import * as React from 'react';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 
 export const Component = ({ data }) => {

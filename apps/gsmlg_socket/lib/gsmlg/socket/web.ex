@@ -194,7 +194,7 @@ defmodule GSMLG.Socket.Web do
         {:error, e.message}
 
       e in [GSMLG.Socket.TCP.Error, GSMLG.Socket.SSL.Error] ->
-        {:error, e.code}
+        {:error, e.message}
     end
   end
 
@@ -443,7 +443,7 @@ defmodule GSMLG.Socket.Web do
         {:error, e.message}
 
       e in [GSMLG.Socket.Error] ->
-        {:error, e.code}
+        {:error, e.message}
     end
   end
 

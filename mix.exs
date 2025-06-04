@@ -1,20 +1,26 @@
 defmodule GSMLG.Umbrella.MixProject do
   use Mix.Project
 
+  @version "1.0.0"
+
   def project do
     [
       apps_path: "apps",
-      version: "1.0.0",
+      version: @version,
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
       releases: [
         gsmlg_commander: [
+          include_executables_for: [:unix],
+          steps: [:assemble, :tar],
           applications: [
             gsmlg_commander: :permanent
           ]
         ],
         gsmlg_umbrella: [
+          include_executables_for: [:unix],
+          steps: [&build_assets/1, :assemble, :tar],
           applications: [
             gsmlg: :permanent,
             gsmlg_admin_web: :permanent,
@@ -27,11 +33,15 @@ defmodule GSMLG.Umbrella.MixProject do
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ],
-          steps: [:assemble, &Burrito.wrap/1],
+          steps: [&build_assets/1, :assemble, &Burrito.wrap/1],
           burrito: [
             targets: [
-              linux_arm64: [os: :linux, cpu: :aarch64],
-              linux_amd64: [os: :linux, cpu: :x86_64]
+              linux_amd64: [
+                os: :linux,
+                cpu: :x86_64,
+                custom_erts:
+                  "https://github.com/Gao-OS/otp-release/releases/download/main/OTP-27.1.2-linux-amd64.tar.gz"
+              ]
             ]
           ]
         ]
@@ -43,14 +53,65 @@ defmodule GSMLG.Umbrella.MixProject do
     [
       {:burrito, "~> 1.0", runtime: false},
       {:phoenix, "~> 1.7"},
-      {:phoenix_live_view, "~> 1.0"}
+      {:phoenix_live_view, "~> 1.0"},
+      {:telemetry, "~> 1.0", override: true}
     ]
   end
 
   defp aliases do
     [
       # run `mix setup` in all child apps
-      setup: ["cmd mix setup"]
+      setup: ["cmd mix setup"],
+      prerelease: [&build_assets/1]
     ]
+  end
+
+  defp build_assets(release) do
+    # File.cd(Path.expand("apps/gsmlg_component", __DIR__))
+    IO.puts("Building component for #{inspect(release)}...")
+
+    {output, exit_status} =
+      System.cmd(
+        "mix",
+        [
+          "phx.react.bun.bundle",
+          "--component-base=assets/component",
+          "--output=priv/server.js"
+        ],
+        cd: Path.expand("apps/gsmlg_component", __DIR__)
+      )
+
+    if exit_status != 0 do
+      IO.puts("Error building component for #{inspect(release)}: #{output}")
+      raise "Failed to build component"
+    end
+
+    IO.puts(output)
+
+    IO.puts("Building gsmlg_web for #{inspect(release)}...")
+    # File.cd(Path.expand("apps/gsmlg_web", __DIR__))
+    {output, exit_status} =
+      System.cmd("mix", ["assets.deploy"], cd: Path.expand("apps/gsmlg_web", __DIR__))
+
+    if exit_status != 0 do
+      IO.puts("Error building gsmlg_web for #{inspect(release)}: #{output}")
+      raise "Failed to build gsmlg_web"
+    end
+
+    IO.puts(output)
+
+    IO.puts("Building gsmlg_admin_web for #{inspect(release)}...")
+    # File.cd(Path.expand("apps/gsmlg_admin_web", __DIR__))
+    {output, exit_status} =
+      System.cmd("mix", ["assets.deploy"], cd: Path.expand("apps/gsmlg_admin_web", __DIR__))
+
+    if exit_status != 0 do
+      IO.puts("Error building gsmlg_admin_web for #{inspect(release)}: #{output}")
+      raise "Failed to build gsmlg_admin_web"
+    end
+
+    IO.puts(output)
+
+    release
   end
 end

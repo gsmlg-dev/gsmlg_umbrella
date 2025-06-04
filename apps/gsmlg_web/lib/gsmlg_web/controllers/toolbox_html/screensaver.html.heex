@@ -1,0 +1,112 @@
+<div class="flex flex-col container px-8 gap-6">
+  <div class="flex flex-col justify-center items-center gap-4 p-4">
+    <div class="w-full h-full min-h-96 flex justify-center">
+      <canvas
+        id="screen-saver-canvas"
+        class="w-full h-full min-h-96 rounded-lg"
+      />
+      <video id="screen-saver-video" class="hidden" controls></video>
+    </div>
+    <.dm_btn id="screen-saver-trigger" class="btn-primary">{dgettext("toolbox", "start-fullscreen")}</.dm_btn>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r71/three.min.js"></script>
+    <script>
+
+      var camera, scene, renderer,
+          geometry, material, mesh;
+
+      const canvas = document.querySelector('#screen-saver-canvas');
+      const video = document.querySelector('#screen-saver-video');
+
+      init();
+      animate();
+
+      function init() {
+          clock = new THREE.Clock();
+
+          renderer = new THREE.WebGLRenderer({canvas: canvas});
+          renderer.setSize( 640, 320 );
+
+          scene = new THREE.Scene();
+      
+          camera = new THREE.PerspectiveCamera( 75, screen.width / screen.height, 1, 10000 );
+          camera.position.z = 1000;
+          scene.add( camera );
+      
+          geometry = new THREE.BoxGeometry( 200, 200, 200 );
+          material = new THREE.MeshLambertMaterial( { color: 0xaa6666, wireframe: false } );
+          mesh = new THREE.Mesh( geometry, material );
+          scene.add( mesh );
+          cubeSineDriver = 0;
+      
+          textGeo = new THREE.PlaneGeometry(300,300);
+
+          light = new THREE.DirectionalLight(0xffffff,0.5);
+          light.position.set(-1,0,1);
+          scene.add(light);
+        
+          smokeTexture = THREE.ImageUtils.loadTexture('/images/Smoke-Element.png');
+          smokeMaterial = new THREE.MeshLambertMaterial({color: 0x00dddd, map: smokeTexture, transparent: true});
+          smokeGeo = new THREE.PlaneGeometry(300,300);
+          smokeParticles = [];
+
+          for (p = 0; p < 150; p++) {
+              var particle = new THREE.Mesh(smokeGeo,smokeMaterial);
+              var f = 500;
+              particle.position.set(Math.random()*f-250,Math.random()*f-250,Math.random()*f*2-100);
+              particle.rotation.z = Math.random() * 360;
+              scene.add(particle);
+              smokeParticles.push(particle);
+          }
+      }
+      
+      function animate() {
+          delta = clock.getDelta();
+          requestAnimationFrame( animate );
+          evolveSmoke();
+          render();
+      }
+      
+      function evolveSmoke() {
+          var sp = smokeParticles.length;
+          while(sp--) {
+              smokeParticles[sp].rotation.z += (delta * 0.2);
+          }
+      }
+
+      function render() {
+          mesh.rotation.x += 0.005;
+          mesh.rotation.y += 0.01;
+          cubeSineDriver += .01;
+          mesh.position.z = 100 + (Math.sin(cubeSineDriver) * 500);
+          renderer.render( scene, camera );
+      }
+
+      video.addEventListener("fullscreenchange", (event) => {
+        if (document.fullscreenElement) {
+          console.log(
+            `Element: ${document.fullscreenElement.id} entered fullscreen mode.`,
+          );
+          renderer.setSize( screen.width, screen.height );
+          video.classList.remove('hidden');
+          video.play();
+        } else {
+          console.log("Leaving fullscreen mode.");
+          renderer.setSize( 640, 320 );
+          video.classList.add('hidden');
+        }
+      });
+
+      function fullscreenCanvas() {
+        const stream = canvas.captureStream(60);
+        video.srcObject = stream;
+        video.requestFullscreen();
+        video.play();        
+      }
+
+      document.querySelector('#screen-saver-trigger').addEventListener('click', () => {
+        fullscreenCanvas();
+      });
+
+    </script>
+  </div>
+</div>

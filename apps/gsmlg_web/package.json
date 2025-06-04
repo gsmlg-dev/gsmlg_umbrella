@@ -1,9 +1,10 @@
 {
   "name": "gsmlg_web",
+  "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@uiw/react-markdown-preview": "^5.1.3",
-    "@uiw/react-md-editor": "^4.0.5",
+    "@uiw/react-markdown-preview": "^5.1.4",
+    "@uiw/react-md-editor": "^4.0.7",
     "github-markdown-css": "^5.8.1",
     "gsmlg_component": "file:../gsmlg_component",
     "highlight.js": "^11.11.1",
@@ -11,14 +12,14 @@
     "phoenix_duskmoon": "file:../../deps/phoenix_duskmoon",
     "phoenix_html": "file:../../deps/phoenix_html",
     "phoenix_live_view": "file:../../deps/phoenix_live_view",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-markdown": "^9.0.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",
-    "remark-gfm": "^4.0.0"
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
-    "daisyui": "^5.0.0-beta.6"
+    "daisyui": "^5.0.40"
   }
 }

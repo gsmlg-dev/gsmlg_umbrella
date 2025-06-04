@@ -10,16 +10,13 @@ config :gsmlg, GSMLG.Repo,
   pool_size: 10
 
 config :gsmlg_web, GSMLGWeb.Endpoint,
-  http: [ip: {0, 0, 0, 0}, port: System.get_env("PORT", "4110") |> String.to_integer()],
+  http: [ip: {0, 0, 0, 0}, port: System.get_env("WEB_PORT", "4110") |> String.to_integer()],
   debug_errors: true,
   code_reloader: true,
   check_origin: false,
   watchers: [
     tailwind: {Tailwind, :install_and_run, [:gsmlg_web, ~w(--watch)]},
     bun: {Bun, :install_and_run, [:gsmlg_web, ~w(--sourcemap=inline --watch)]}
-    # esbuild:
-    #   {Esbuild, :install_and_run,
-    #    [:gsmlg_web, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
   ],
   live_reload: [
     patterns: [
@@ -38,9 +35,6 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   watchers: [
     tailwind: {Tailwind, :install_and_run, [:gsmlg_admin_web, ~w(--watch)]},
     bun: {Bun, :install_and_run, [:gsmlg_admin_web, ~w(--sourcemap=inline --watch)]}
-    # esbuild:
-    #   {Esbuild, :install_and_run,
-    #    [:gsmlg_admin_web, ~w(--sourcemap=inline --watch --loader:.png=file --loader:.svg=file)]}
   ],
   live_reload: [
     patterns: [
@@ -79,3 +73,7 @@ config :phoenix_react_server, Phoenix.React.Runtime.Bun,
   server_js: Path.expand("../apps/gsmlg_component/priv/server.js", __DIR__),
   port: 4632,
   env: :dev
+
+config :ueberauth, Ueberauth.Strategy.Github.OAuth,
+  client_id: "Ov23liH40JTxHcLQYHAh",
+  client_secret: "26932d3bebae9470e8d45043ae47a3559e94070a"

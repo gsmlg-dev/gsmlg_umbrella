@@ -10,6 +10,7 @@ defmodule GSMLG.AWS.Client do
       AWS.Client.create(access_key_id, secret_access_key, region)
       |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []})
 
+    # client = %AWS.Client{client | json_module: AWS.JSON}
     client
   end
 end
@@ -45,10 +46,10 @@ defmodule GSMLG.AWS.HttpClient do
       [
         # {Tesla.Middleware.FollowRedirects, max_redirects: 3},
         # Tesla.Middleware.JSON,
+        # {Tesla.Middleware.Headers, [{"Accept", "application/json"}, {"content-type", "application/json"}]},
         Tesla.Middleware.Logger
       ],
-      {Tesla.Adapter.Finch,
-       name: GSMLG.Finch, transport_opts: [proxy: {:http, "10.100.0.1", 3128, []}]}
+      {Tesla.Adapter.Finch, name: GSMLG.Finch}
     )
   end
 end

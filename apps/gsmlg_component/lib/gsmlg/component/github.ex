@@ -49,12 +49,16 @@ defmodule GSMLG.Component.Github do
             {dgettext("github", "GH Page")}
           </.dm_link>
         <% end %>
-        <div class="flex items-center gap-2 float-right">
+        <.dm_link
+          class="flex items-center gap-2 float-right"
+          href={~s[https://github.com/#{@repo["owner"]["login"]}/#{@repo["name"]}/stargazers]}
+          target="_blank"
+        >
           <label class="flex items-center">
             <.dm_mdi name="star" class="w-5 h-5 inline-block" />
           </label>
           <span>{@repo["stargazers_count"]}</span>
-        </div>
+        </.dm_link>
       </div>
       <div class="flex gap-4 text-sm text-neutral-content/60">
         <label class="after:content-[':']">{dgettext("github", "Last updated")}</label>

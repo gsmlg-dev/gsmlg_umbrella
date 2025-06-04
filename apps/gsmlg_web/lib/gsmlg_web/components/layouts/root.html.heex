@@ -2,6 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="oklch(95.86% 0.0693 95.91)"
+    />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="oklch(85.45% 0 0)" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title suffix="">
@@ -30,19 +36,21 @@
       "text-neutral"
     ]}>
       <:section title="Site Map">
-        <.link href={~p"/"}>{dgettext("menu", "Home")}</.link>
-        <.link href={~p"/blogs"}>{dgettext("menu", "Blog")}</.link>
-        <.link href={~p"/toolbox"}>{dgettext("menu", "Toolbox")}</.link>
+        <.dm_link href={~p"/"}>{dgettext("menu", "Home")}</.dm_link>
+        <.dm_link href={~p"/blogs"}>{dgettext("menu", "Blog")}</.dm_link>
+        <.dm_link href={~p"/toolbox"}>{dgettext("menu", "Toolbox")}</.dm_link>
+        <div class="w-24 h-[1px] bg-primary my-2"></div>
+        <.dm_link href="/sign_in" class="uppercase">Sign In</.dm_link>
       </:section>
 
       <:section title="Toolbox">
-        <.link href="/toolbox/geoip2">{dgettext("menu", "GeoIP2 Database")}</.link>
-        <.link href="/toolbox/whois">{dgettext("menu", "Domain/IP/ASN Whois")}</.link>
-        <.link href="/toolbox/svg2react">{dgettext("menu", "SVG to React")}</.link>
-        <.link href="/toolbox/svg_autocrop">{dgettext("menu", "SVG AutoCrop")}</.link>
-        <.link href="/toolbox/mac_manufacturer">
+        <.dm_link href="/toolbox/geoip2">{dgettext("menu", "GeoIP2 Database")}</.dm_link>
+        <.dm_link href="/toolbox/whois">{dgettext("menu", "Domain/IP/ASN Whois")}</.dm_link>
+        <.dm_link href="/toolbox/svg2react">{dgettext("menu", "SVG to React")}</.dm_link>
+        <.dm_link href="/toolbox/svg_autocrop">{dgettext("menu", "SVG AutoCrop")}</.dm_link>
+        <.dm_link href="/toolbox/mac_manufacturer">
           {dgettext("menu", "Lookup MAC Manufacturer")}
-        </.link>
+        </.dm_link>
       </:section>
 
       <:copyright title="Copyright">

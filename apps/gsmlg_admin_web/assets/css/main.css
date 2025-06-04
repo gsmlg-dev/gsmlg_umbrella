@@ -5,6 +5,10 @@ body > .phx-connected {
 
 
 @layer components {
+  nav > .menu.w-full :where(h2,li) {
+    min-width: max-content;
+  }
+
   .table-primary-border {
     th, td {
       @apply border border-primary;

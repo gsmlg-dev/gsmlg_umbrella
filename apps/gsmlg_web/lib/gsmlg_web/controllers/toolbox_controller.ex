@@ -145,6 +145,10 @@ defmodule GSMLGWeb.ToolboxController do
     conn |> json(%{data: ipInfo})
   end
 
+  def screensaver(conn, _params) do
+    render(conn, :screensaver, header_slot: header_slot("Screen Saver"))
+  end
+
   defp header_slot(title) do
     assigns = %{title: title}
 

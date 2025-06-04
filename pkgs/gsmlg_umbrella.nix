@@ -54,12 +54,12 @@ in
 
     nativeBuildInputs = [
       nodejs
-      pkgs.esbuild
+      pkgs.bun
       pkgs.tailwindcss
     ];
 
     preBuild = ''
-      cp ${pkgs.esbuild}/bin/esbuild _build/esbuild-linux-arm64
+      cp ${pkgs.bun}/bin/bun _build/bun-linux-arm64
       cp ${pkgs.tailwindcss}/bin/tailwindcss _build/tailwind-linux-arm64
       cp -r ${webNodeModules} apps/gsmlg_web/assets/node_modules
       cd apps/gsmlg_web; mix assets.deploy; cd ../..

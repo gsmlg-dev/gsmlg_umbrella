@@ -9,7 +9,7 @@ defmodule GSMLGAdminWeb.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      elixir: "~> 1.14",
+      elixir: "~> 1.14.1 or ~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: Mix.compilers(),
       start_permanent: Mix.env() == :prod,
@@ -40,17 +40,14 @@ defmodule GSMLGAdminWeb.MixProject do
       {:phoenix, "~> 1.7"},
       {:phoenix_ecto, "~> 4.5"},
       {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_reload, "~> 1.5.0", only: :dev},
+      {:phoenix_live_reload, "~> 1.6", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
-      {:phoenix_session_process, "~> 0.3"},
       {:phoenix_duskmoon, "~> 6.0"},
       {:bandit, "~> 1.0"},
       {:floki, "~> 0.32", only: :test},
       {:phoenix_live_dashboard, "~> 0.7"},
-      {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:bun, "~> 1.4", runtime: Mix.env() == :dev},
-      {:elixir_uuid, "~> 1.2"},
       {:cachex, "~> 4.0"},
       {:earmark, "~> 1.4.37"},
       {:telemetry_metrics, "~> 1.0"},
@@ -69,16 +66,14 @@ defmodule GSMLGAdminWeb.MixProject do
     ]
   end
 
-  # Aliases are shortcuts or tasks specific to the current project.
-  #
-  # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
       setup: ["deps.get"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.deploy": [
+        "phx.digest.clean",
         "tailwind gsmlg_admin_web --minify",
-        "esbuild gsmlg_admin_web --minify",
+        "bun gsmlg_admin_web --minify",
         "phx.digest"
       ]
     ]

@@ -1,0 +1,164 @@
+<.dm_async_card
+  :let={tables}
+  :if={@live_action == :index}
+  assign={@tables}
+  class="section-card"
+  skeleton_class="min-h-48"
+>
+  <:title class="flex flex-row">
+    <h3 class="font-semibold text-2xl">DynamoDB Tables</h3>
+  </:title>
+
+  <ul class="list bg-base-100 rounded-box shadow-md">
+    <li :for={table <- tables} class="list-row">
+      <div class="list-col-grow	">
+        <div>{table}</div>
+      </div>
+      <.link class="btn btn-primary w-24" patch={~p"/aws/dynamo_db/#{table}/scan"}>
+        Scan
+      </.link>
+      <button class="btn btn-secondary w-24" phx-click="describe_table" phx-value-table={table}>
+        Describe
+      </button>
+      <button class="btn btn-secondary w-42" phx-click="list_streams" phx-value-table={table}>
+        List Streams
+      </button>
+    </li>
+  </ul>
+</.dm_async_card>
+
+<.dm_async_card
+  :let={table}
+  :if={@live_action == :index && !is_nil(assigns[:table])}
+  assign={@table}
+  class="section-card"
+  skeleton_class="min-h-48"
+>
+  <:title class="flex flex-row">
+    <h3 class="font-semibold text-2xl">DynamoDB Table</h3>
+  </:title>
+
+  <div class="grid grid-cols-1 bg-base-100 rounded-box shadow-md">
+    <div :for={{k, v} <- table} class="grid grid-cols-3 gap-4 border-b-1">
+      <div class="label justify-end items-start">
+        <div>{k}</div>
+      </div>
+      <div :if={is_map(v)} class="subgrid col-span-2">
+        <div :for={{k, vv} <- v} class="grid grid-cols-2 gap-4 border-b-1">
+          <div class="label justify-end items-start">
+            <div>{k}</div>
+          </div>
+          <div class="value">
+            <div>{inspect(vv)}</div>
+          </div>
+        </div>
+      </div>
+      <div :if={is_list(v)} class="col-span-2">
+        <div :for={vv <- v} class="grid grid-cols-1">
+          <div :if={is_map(vv)} class="grid">
+            <div :for={{k, vvv} <- vv} class="grid grid-cols-2">
+              <div class="label">
+                <div class="w-full overflow-hidden text-ellipsis">{k}</div>
+              </div>
+              <div class="value">
+                <div>{inspect(vvv)}</div>
+              </div>
+            </div>
+          </div>
+          <div :if={!is_map(vv)}>
+            {inspect(vv)}
+          </div>
+        </div>
+      </div>
+      <div :if={is_binary(v)} class="col-span-2">{v}</div>
+    </div>
+  </div>
+</.dm_async_card>
+
+<.dm_async_card
+  :let={db_streams}
+  :if={@live_action == :index && !is_nil(assigns[:db_streams])}
+  assign={@db_streams}
+  class="section-card"
+  skeleton_class="min-h-48"
+>
+  <:title class="flex flex-row">
+    <h3 class="font-semibold text-2xl">DynamoDB Streams of</h3>
+  </:title>
+
+  <div class="grid grid-cols-1 bg-base-100 rounded-box shadow-md">
+    <div :for={stream <- db_streams}>
+      <div class="grid grid-cols-1 gap-4 border-b-1">
+        <div
+          :for={
+            label <-
+              ~w[StreamArn StreamLabel TableName CreationRequestDateTime  StreamStatus StreamViewType]
+          }
+          class="grid grid-cols-5 gap-4 border-b-1"
+        >
+          <div>{label}</div>
+          <div class="col-span-4">{stream[label]}</div>
+        </div>
+        <div class="grid grid-cols-5 gap-4 border-b-1">
+          <div>KeySchema</div>
+          <div class="col-span-4">
+            <div :for={scheme <- stream["KeySchema"]} class="grid grid-cols-1 gap-4">
+              <div :for={{k, v} <- scheme} class="grid grid-cols-4 gap-4">
+                <div>{k}</div>
+                <div class="col-span-3">{v}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-5 gap-4 border-b-1">
+          <div>Shards</div>
+          <div class="col-span-4">
+            <div :for={shard <- stream["Shards"]} class="grid grid-cols-1 gap-4 border-b-1">
+              <div :for={{k, v} <- shard} class="grid grid-cols-4 gap-4 border-b-1">
+                <div>{k}</div>
+                <div :if={!is_map(v)} class="col-span-3">{v}</div>
+                <div :if={is_map(v)} class="col-span-3">
+                  <div :for={{k, vv} <- v} class="grid grid-cols-3 gap-4 border-b-1">
+                    <div>{k}</div>
+                    <div class="col-span-2">{vv}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</.dm_async_card>
+
+<.dm_async_card
+  :let={table_data}
+  :if={@live_action == :scan}
+  assign={assigns[:table_data]}
+  class="section-card"
+  skeleton_class="min-h-48"
+>
+  <:title class="flex flex-row">
+    <h3 class="font-semibold text-2xl">DynamoDB Table {@table}</h3>
+  </:title>
+  <div>Count: {table_data["Count"]} ScannedCount: {table_data["ScannedCount"]}</div>
+  <div>
+    ConsumedCapacity: {table_data["ConsumedCapacity"]} LastEvaluatedKey: {table_data[
+      "LastEvaluatedKey"
+    ]}
+  </div>
+  <ul class="list bg-base-100 rounded-box shadow-md">
+    <li :for={item <- table_data["Items"]} class="list-row">
+      <div class="list-col-grow	">
+        <div :for={{k, v} <- item} class="grid grid-cols-4 gap-4">
+          <div>{k}</div>
+          <div :for={{kk, vv} <- v} class="col-span-3 grid grid-cols-4 gap-4">
+            <div>{kk}</div>
+            <div class="col-span-3">{vv}</div>
+          </div>
+        </div>
+      </div>
+    </li>
+  </ul>
+</.dm_async_card>

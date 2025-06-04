@@ -40,6 +40,14 @@ defmodule GSMLGAdminWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  # oauth2 authentication, not set yet
+  # scope "/auth", GSMLGWeb do
+  #   pipe_through :browser
+
+  #   get("/:provider", AuthController, :request)
+  #   get("/:provider/callback", AuthController, :callback)
+  # end
+
   scope "/", GSMLGAdminWeb do
     pipe_through([:browser, :maybe_browser_auth])
 
@@ -86,6 +94,7 @@ defmodule GSMLGAdminWeb.Router do
     live("/aws/route53/hosted_zones/:id/records", Route53Live.Index, :list_records)
 
     live("/aws/dynamo_db", DynamoDBLive.Index, :index)
+    live("/aws/dynamo_db/:table/scan", DynamoDBLive.Index, :scan)
 
     import Phoenix.LiveDashboard.Router
 
