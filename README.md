@@ -31,3 +31,7 @@ I'm using nix develop shell to build package.
 ```shell
 MIX_ENV=prod BURRITO_TARGET=linux_amd64 mix release gsmlg_umbrella_standalone
 ```
+
+# Docker Image
+
+[Repo in github](https://github.com/gsmlg-dev/gsmlg_umbrella/pkgs/container/gsmlg-umbrella)
