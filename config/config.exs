@@ -28,6 +28,11 @@ config :guardian, Guardian.DB,
   # default: 60 minutes
   sweep_interval: 60
 
+config :ueberauth, Ueberauth,
+  providers: [
+    github: {Ueberauth.Strategy.Github, []}
+  ]
+
 # Swoosh API client is needed for adapters other than SMTP.
 config :swoosh, :api_client, false
 
@@ -63,22 +68,8 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   pubsub_server: GSMLG.PubSub,
   live_view: [signing_salt: "gmmaSSOy"]
 
-# Configure esbuild (the version is required)
-config :esbuild,
-  version: "0.24.2",
-  gsmlg_web: [
-    args:
-      ~w(assets/js/app.js --bundle --target=es2021 --format=iife --loader:.js=jsx --outdir=priv/static/assets),
-    cd: Path.expand("../apps/gsmlg_web", __DIR__)
-  ],
-  gsmlg_admin_web: [
-    args:
-      ~w(assets/js/app.js --bundle --target=es2021 --format=iife --loader:.js=jsx --outdir=priv/static/assets),
-    cd: Path.expand("../apps/gsmlg_admin_web", __DIR__)
-  ]
-
 config :bun,
-  version: "1.1.22",
+  version: "1.2.2",
   gsmlg_web: [
     args:
       ~w(build assets/js/app.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
@@ -94,7 +85,7 @@ config :bun,
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "4.0.4",
+  version: "4.0.6",
   gsmlg_web: [
     args: ~w(
       --input=assets/css/app.css

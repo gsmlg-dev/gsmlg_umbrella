@@ -26,8 +26,9 @@ defmodule GSMLGCommander.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:phoenix_client, "~> 0.11"},
+      {:gsmlg_phoenix_client, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
+      {:gsmlg_toml, in_umbrella: true},
       {:jason, "~> 1.2"}
     ]
   end

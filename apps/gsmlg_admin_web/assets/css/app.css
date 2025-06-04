@@ -1,4 +1,9 @@
-@config "../tailwind.config.js";
+@source "../js/**/*.js";
+@source "../../lib/*_web.ex";
+@source "../../lib/*_web/**/*.*ex";
+@source "../../../gsmlg_component/assets/**/*.js";
+@source "../../../gsmlg_component/lib/**/*.*ex";
+@source "../../../../deps/phoenix_duskmoon/lib/phoenix_duskmoon/**/*.*ex";
 
 @import "gsmlg_component/assets/css/shared.css";
 

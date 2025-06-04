@@ -31,7 +31,7 @@ defmodule GSMLG.MixProject do
   defp deps do
     [
       {:phoenix_pubsub, "~> 2.0"},
-      {:phoenix_session_process, "~> 0.3"},
+      {:phoenix_session_process, "~> 0.4"},
       {:ecto_sql, "~> 3.0"},
       {:myxql, ">= 0.0.0"},
       {:jason, "~> 1.2"},
@@ -42,8 +42,10 @@ defmodule GSMLG.MixProject do
       {:cachex, "~> 4.0"},
       {:gsmlg_mnesia, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
+      {:gsmlg_toml, in_umbrella: true},
+      {:ueberauth, "~> 0.10"},
+      {:ueberauth_github, "~> 0.8"},
       {:aws, "~> 1.0"},
-      {:hackney, "~> 1.18"},
       {:absinthe, "~> 1.7.0"}
     ]
   end

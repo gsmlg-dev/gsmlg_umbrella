@@ -175,8 +175,8 @@ defmodule GSMLG.Socket.TCP do
   @doc """
   Accept a new client from a listening socket, optionally passing options.
   """
-  @spec accept(t | port) :: {:ok, t} | {:error, Error.t()}
-  @spec accept(t | port, Keyword.t()) :: {:ok, t} | {:error, Error.t()}
+  @spec accept(t()) :: {:ok, t()} | {:error, Error.t()}
+  @spec accept(t(), Keyword.t()) :: {:ok, t()} | {:error, Error.t()}
   def accept(socket, options \\ []) do
     timeout = options[:timeout] || :infinity
 
@@ -208,9 +208,10 @@ defmodule GSMLG.Socket.TCP do
   Accept a new client from a listening socket, optionally passing options,
   raising if an error occurs.
   """
-  @spec accept!(t) :: t | no_return
-  @spec accept!(t, Keyword.t()) :: t | no_return
+  @spec accept!(t()) :: :ok | t() | no_return
   defbang(accept(self))
+
+  @spec accept!(t(), Keyword.t()) :: :ok | t() | no_return
   defbang(accept(self, options))
 
   @doc """

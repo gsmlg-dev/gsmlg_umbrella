@@ -1,5 +1,6 @@
 {
   "name": "gsmlg_umbrella",
+  "version": "1.0.0",
   "private": true,
   "description": "GSMLG Umbrella Project",
   "homepage": "https://gitlab.gsmlg.net/apps/gsmlg_umbrella",

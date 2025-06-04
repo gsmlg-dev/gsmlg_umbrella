@@ -1,14 +1,14 @@
 import Config
 
+if System.get_env("MIX_TAILWIND_PATH") do
+  config :tailwind, path: System.get_env("MIX_TAILWIND_PATH")
+end
+
 if config_env() == :prod do
   case Code.ensure_compiled(GSMLG.Repo) do
     {:module, GSMLG.Repo} ->
       database_url =
-        System.get_env("DATABASE_URL") ||
-          raise """
-          environment variable DATABASE_URL is missing.
-          For example: ecto://USER:PASS@HOST/DATABASE
-          """
+        System.get_env("DATABASE_URL")
 
       config :gsmlg, GSMLG.Repo,
         # ssl: true,
@@ -17,11 +17,7 @@ if config_env() == :prod do
         pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
 
       secret_key_base =
-        System.get_env("SECRET_KEY_BASE") ||
-          raise """
-          environment variable SECRET_KEY_BASE is missing.
-          You can generate one by calling: mix phx.gen.secret
-          """
+        System.get_env("SECRET_KEY_BASE")
 
       config :gsmlg_web, GSMLGWeb.Endpoint,
         http: [
@@ -46,11 +42,7 @@ if config_env() == :prod do
         show_icp: System.get_env("SHOW_ICP", "no")
 
       admin_secret_key_base =
-        System.get_env("ADMIN_SECRET_KEY_BASE") || System.get_env("SECRET_KEY_BASE") ||
-          raise """
-          environment variable ADMIN_SECRET_KEY_BASE is missing.
-          You can generate one by calling: mix phx.gen.secret
-          """
+        System.get_env("ADMIN_SECRET_KEY_BASE") || System.get_env("SECRET_KEY_BASE")
 
       config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
         http: [
@@ -117,8 +109,12 @@ if config_env() == :prod do
   GSMLG.Logger.configure_log_level_from_env!("LOG_LEVEL")
 
   config :phoenix_react_server, Phoenix.React.Runtime.Bun,
-    cmd: System.get_env("BUN_BIN", System.find_executable("bun")),
+    cmd: System.get_env("MIX_BUN_PATH", System.find_executable("bun")),
     server_js: System.get_env("BUN_SERVER_JS"),
     port: String.to_integer(System.get_env("BUN_PORT", "5252")),
     env: :prod
+
+  config :ueberauth, Ueberauth.Strategy.Github.OAuth,
+    client_id: System.get_env("GITHUB_CLIENT_ID"),
+    client_secret: System.get_env("GITHUB_CLIENT_SECRET")
 end

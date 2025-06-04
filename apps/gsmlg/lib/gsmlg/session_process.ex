@@ -3,6 +3,7 @@ defmodule GSMLG.SessionProcess do
 
   @schedule_interval 3000
 
+  @impl true
   def init(args) do
     Process.flag(:trap_exit, true)
 
@@ -32,7 +33,17 @@ defmodule GSMLG.SessionProcess do
     {:reply, Map.get(state, key), state}
   end
 
+  def handle_call(:get_github_token, _from, state) do
+    github = Map.get(state, :github)
+    {:reply, get_in(github, [:credentials, :token]), state}
+  end
+
+  @impl true
   def handle_cast({:put, key, value}, state) do
     {:noreply, Map.put(state, key, value)}
+  end
+
+  def handle_cast({:update_github, auth}, state) do
+    {:noreply, Map.put(state, :github, auth)}
   end
 end

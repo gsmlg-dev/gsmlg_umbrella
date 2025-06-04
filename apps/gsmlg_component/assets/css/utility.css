@@ -5,3 +5,4 @@
 @utility grid-cols-auto-fit-* {
   grid-template-columns: repeat(auto-fit, minmax(min(calc(--value(integer) * 0.25rem), 100%), 1fr));
 }
+

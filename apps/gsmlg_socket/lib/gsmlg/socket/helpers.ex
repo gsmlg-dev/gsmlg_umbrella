@@ -11,9 +11,6 @@ defmodule GSMLG.Socket.Helpers do
     quote bind_quoted: [name: Macro.escape(name), args: Macro.escape(args)] do
       def unquote((to_string(name) <> "!") |> String.to_atom())(unquote_splicing(args)) do
         case unquote(name)(unquote_splicing(args)) do
-          :ok ->
-            :ok
-
           {:ok, result} ->
             result
 
@@ -34,9 +31,6 @@ defmodule GSMLG.Socket.Helpers do
           ] do
       def unquote((to_string(name) <> "!") |> String.to_atom())(unquote_splicing(args)) do
         case unquote(mod).unquote(name)(unquote_splicing(args)) do
-          :ok ->
-            :ok
-
           {:ok, result} ->
             result
 

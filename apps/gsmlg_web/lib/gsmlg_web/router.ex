@@ -28,6 +28,7 @@ defmodule GSMLGWeb.Router do
   pipeline :browser do
     plug(:accepts, ["html"])
     plug(:fetch_session)
+    plug(Phoenix.SessionProcess.SessionId)
     plug(:fetch_live_flash)
     plug(:put_root_layout, {GSMLGWeb.Layouts, :root})
     plug(:protect_from_forgery)
@@ -38,16 +39,23 @@ defmodule GSMLGWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  scope "/auth", GSMLGWeb do
+    pipe_through :browser
+
+    get("/:provider", AuthController, :request)
+    get("/:provider/callback", AuthController, :callback)
+  end
+
   scope "/", GSMLGWeb do
     pipe_through([:browser, :maybe_browser_auth])
 
     get("/", PageController, :index)
 
-    get("/sign_in", AuthController, :index)
-    # post("/sign_in", AuthController, :sign_in)
+    get("/sign_in", SignController, :index)
+    # post("/sign_in", SignController, :sign_in)
 
-    get("/sign_up", AuthController, :new)
-    # post("/sign_up", AuthController, :sign_up)
+    get("/sign_up", SignController, :new)
+    # post("/sign_up", SignController, :sign_up)
 
     get("/blogs", BlogController, :index)
     get("/blogs/:slug", BlogController, :show)
@@ -64,6 +72,7 @@ defmodule GSMLGWeb.Router do
     get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer)
     post("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer_lookup)
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap)
+    get("/toolbox/screensaver", ToolboxController, :screensaver)
   end
 
   scope "/api", GSMLGWeb do

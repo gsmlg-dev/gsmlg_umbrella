@@ -1,5 +1,18 @@
-@config "../tailwind.config.js";
+@source "../js/**/*.js";
+@source "../../lib/*_web.ex";
+@source "../../lib/*_web/**/*.*ex";
+@source "../../../gsmlg_component/assets/**/*.js";
+@source "../../../gsmlg_component/lib/**/*.*ex";
+@source "../../../../deps/phoenix_duskmoon/lib/**/*.*ex";
 
 @import "gsmlg_component/assets/css/shared.css";
 
 @import './main.css';
+
+
+.fullscreen-canvas {
+  @apply fixed top-0 left-0 w-screen h-screen z-50;
+}
+body:has(.fullscreen-canvas) {
+  overflow: hidden;
+}

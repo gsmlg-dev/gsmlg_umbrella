@@ -5,7 +5,11 @@ on:
       release-version:
         required: true
         description: 'The version of the release'
-        default: '4.20.0'
+        default: '4.21.0'
+      revision:
+        required: true
+        description: 'The revision of git'
+        default: 'main'
 
 jobs:
   release:
@@ -14,19 +18,22 @@ jobs:
     outputs:
       version: ${{ steps.semantic.outputs.new_release_version }}
     steps:
-      - name: 🛑 Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
-        with:
-          access_token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.semantic.outputs.revision }}
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: 💊 Setup Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "26"
-          elixir-version: "1.17.3"
+          otp-version: "27"
+          elixir-version: "1.18.4"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: 🚀 Release
         id: release
@@ -78,6 +85,7 @@ jobs:
             NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
             HEX_MIRROR=https://repo.hex.pm
             RELEASE_VERSION=${{ github.event.inputs.release-version }}
+            DATABASE_URL=ecto://USER:PASS@HOST/DATABASE
           tags: |
             ghcr.io/gsmlg-dev/gsmlg-umbrella:v${{ github.event.inputs.release-version }}
             ghcr.io/gsmlg-dev/gsmlg-umbrella:latest
@@ -93,8 +101,8 @@ jobs:
       - name: 💊 Setup Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "26"
-          elixir-version: "1.17.3"
+          otp-version: "27"
+          elixir-version: "1.18.4"
 
       - name: Setup zig
         uses: mlugg/setup-zig@v1
@@ -106,38 +114,35 @@ jobs:
         with:
           node-version: 22
           always-auth: true
-          # cache: 'npm'
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
       - name: Install Deps
         run: |
           mix deps.get
-          npm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
+          mix compile
           bun install
         env:
           MIX_ENV: prod
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: ⚙️ Run build
         env:
           MIX_ENV: prod
           RELEASE_NAME: gsmlg_umbrella
           RELEASE_VERSION: ${{ github.event.inputs.release-version }}
+          DATABASE_URL: "ecto://USER:PASS@HOST/DATABASE"
         run: |
-          cd ${{ github.workspace }}/apps/gsmlg_web
-          mix assets.deploy
-          mkdir priv/react
-          cd ${{ github.workspace }}/apps/gsmlg_admin_web
-          mix assets.deploy
-          cd ${{ github.workspace }}/apps/gsmlg_component
-          mix phx.react.bun.bundle --component-base=assets/component --output=priv/server.js
           cd ${{ github.workspace }}
-          bash update_version.sh $RELEASE_VERSION
+          bash update_version.sh ${RELEASE_VERSION}
+          mix prerelease
           mix release gsmlg_umbrella --version ${RELEASE_VERSION}
           mix release gsmlg_commander --version ${RELEASE_VERSION}
           cp -r _build/prod/rel/gsmlg_umbrella gsmlg

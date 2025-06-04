@@ -11,10 +11,17 @@
         {dgettext("menu", "Lookup MAC Manufacturer"), ~p"/toolbox/mac_manufacturer"},
         {dgettext("menu", "SVG to React Component"), ~p"/toolbox/svg2react"},
         {dgettext("menu", "SVG Autocrop, Optimize SVG"), ~p"/toolbox/svg_autocrop"},
-        {dgettext("menu", "IP to Geo Map"), ~p"/toolbox/ip_to_geomap"}
+        {dgettext("menu", "IP to Geo Map"), ~p"/toolbox/ip_to_geomap"},
+        {dgettext("menu", "Screen Saver"), ~p"/toolbox/screensaver"},
       ]
     }
-    class="card bg-primary text-primary-content shadow-primary shadow-md"
+    class={[
+      "card bg-primary text-primary-content shadow-base-content shadow",
+      "shadow shadow-base-content rounded-box",
+      "transition duration-300 origin-center",
+      "hover:shadow-lg hover:scale-105 hover:translate-z-12",
+      "bg-primary text-primary-content"
+    ]}
   >
     <div class="card-body justify-between">
       <h2 class="card-title">{name}</h2>

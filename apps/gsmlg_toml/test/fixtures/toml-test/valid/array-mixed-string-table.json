@@ -1,0 +1,17 @@
+{
+  "contributors": [
+    "Foo Bar \u003cfoo@example.com\u003e",
+    {
+      "name": "Baz Qux",
+      "email": "bazqux@example.com",
+      "url": "https://example.com/bazqux"
+    }
+  ],
+  "mixed": [
+    {
+      "k": "a"
+    },
+    "b",
+    1
+  ]
+}

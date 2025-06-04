@@ -22,4 +22,5 @@ for n in ${FILES[@]}
 do
   echo $n
   sed -i "s;version: \"[^\"]\\+\";version: \"${VER}\";g" $n;
+  sed -i "s;@version \"[^\"]\\+\";@version \"${VER}\";g" $n;
 done
