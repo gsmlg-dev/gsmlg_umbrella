@@ -7,10 +7,9 @@
     <.dm_btn id="screen-saver-trigger" class="btn-primary">
       {dgettext("toolbox", "start-fullscreen")}
     </.dm_btn>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r71/three.min.js">
-    </script>
-    <script>
-      var camera, scene, renderer;
+    <script type="module">
+      import * as THREE from 'https://esm-run.gsmlg.dev/three';
+      let camera, scene, renderer, clock, smokeParticles;
 
       const canvas = document.querySelector('#screen-saver-canvas');
       const video = document.querySelector('#screen-saver-video');
@@ -30,18 +29,16 @@
           camera.position.z = 1000;
           scene.add( camera );
 
-          cubeSineDriver = 0;
-
-          light = new THREE.DirectionalLight(0xffffff,0.5);
+          const light = new THREE.DirectionalLight(0xffffff,Math.E);
           light.position.set(-1,0,1);
           scene.add(light);
         
-          smokeTexture = THREE.ImageUtils.loadTexture('/images/Smoke-Element.png');
-          smokeMaterial = new THREE.MeshLambertMaterial({color: 0x00dddd, map: smokeTexture, transparent: true});
-          smokeGeo = new THREE.PlaneGeometry(300,300);
+          const smokeTexture = new THREE.TextureLoader().load('/images/Smoke-Element.png');
+          const smokeMaterial = new THREE.MeshLambertMaterial({color: 0x00dddd, map: smokeTexture, transparent: true});
+          const smokeGeo = new THREE.PlaneGeometry(300,300);
           smokeParticles = [];
 
-          for (p = 0; p < 150; p++) {
+          for (let p = 0; p < 150; p++) {
               var particle = new THREE.Mesh(smokeGeo,smokeMaterial);
               var f = 500;
               particle.position.set(Math.random()*f-250,Math.random()*f-250,Math.random()*f*2-100);
@@ -52,21 +49,12 @@
       }
 
       function animate() {
-          delta = clock.getDelta();
+          const delta = clock.getDelta();
           requestAnimationFrame( animate );
-          evolveSmoke();
-          render();
-      }
-
-      function evolveSmoke() {
-          var sp = smokeParticles.length;
+          let sp = smokeParticles.length;
           while(sp--) {
               smokeParticles[sp].rotation.z += (delta * 0.2);
           }
-      }
-
-      function render() {
-          cubeSineDriver += .01;
           renderer.render( scene, camera );
       }
 
