@@ -33,6 +33,7 @@ defmodule GSMLGWeb.Router do
     plug(:put_root_layout, {GSMLGWeb.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+    plug(:put_sw_header)
   end
 
   pipeline :api do
@@ -112,5 +113,11 @@ defmodule GSMLGWeb.Router do
     pipe_through(:browser)
 
     get("/*request_path", PageController, :not_found)
+  end
+
+  # Private function to set the header for serviceworker
+  defp put_sw_header(conn, _opts) do
+    conn
+    |> Plug.Conn.put_resp_header("Link", ~s[</assets/sw.js>; rel="serviceworker"; scope="/"])
   end
 end

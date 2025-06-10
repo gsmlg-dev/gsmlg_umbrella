@@ -4,4 +4,6 @@
 import 'phoenix_html';
 import './socket';
 
+import { registerSW } from './register_sw.js';
 
+registerSW();

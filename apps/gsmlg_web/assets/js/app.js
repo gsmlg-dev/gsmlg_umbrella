@@ -3,6 +3,8 @@ import "phoenix_html";
 
 import { startSocket, joinChannels } from "./user_socket.js";
 
+import { registerSW } from './register_sw.js';
+
 if (process.env.NODE_ENV === 'development') {
   console.log('NODE_ENV: ', process.env.NODE_ENV);
 }
@@ -17,3 +19,5 @@ document.addEventListener('socket:start', (event) => {
 document.addEventListener('socket:stop', (event) => {
   socket?.close();
 });
+
+registerSW();
