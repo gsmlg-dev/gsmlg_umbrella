@@ -23,17 +23,26 @@ defmodule GSMLGAdminWeb.WebPushLive.Index do
     {:noreply, socket |> assign(:web_push, GSMLG.WebPush.Subscriptions.get_subscriptions())}
   end
 
-  def handle_event("web_push_to_endpoint", %{"title" => title, "content" => content, "endpoint" => endpoint} = params, socket) do
+  def handle_event(
+        "web_push_to_endpoint",
+        %{"title" => title, "content" => content, "endpoint" => endpoint} = params,
+        socket
+      ) do
     subscription = GSMLG.WebPush.Subscriptions.get(endpoint)
     GSMLG.WebPush.send(subscription, %{title: title, body: content})
     {:noreply, socket}
   end
 
-  def handle_event("web_push_broadcast", %{"title" => title, "content" => content} = params, socket) do
+  def handle_event(
+        "web_push_broadcast",
+        %{"title" => title, "content" => content} = params,
+        socket
+      ) do
     GSMLG.WebPush.Subscriptions.get_subscriptions()
     |> Enum.each(fn subscription ->
       GSMLG.WebPush.send(subscription, %{title: title, body: content})
     end)
+
     {:noreply, socket}
   end
 

@@ -8,11 +8,7 @@
       </:trigger>
       <:title>Broadcast Message</:title>
       <:body>
-        <.dm_form
-          :let={f}
-          class="flex flex-col gap-4 w-full"
-          phx-save="web_push_broadcast"
-        >
+        <.dm_form :let={f} class="flex flex-col gap-4 w-full" phx-save="web_push_broadcast">
           <.dm_input
             field={f[:title]}
             label="Title"
@@ -26,10 +22,7 @@
             placeholder="Enter your message content"
             required
           />
-          <.dm_btn
-            type="submit"
-            class="btn-primary"
-          >
+          <.dm_btn type="submit" class="btn-primary">
             Send Web Push
           </.dm_btn>
         </.dm_form>
@@ -77,11 +70,7 @@
           </:trigger>
           <:title>Push Message</:title>
           <:body>
-            <.dm_form
-              :let={f}
-              class="flex flex-col gap-4 w-full"
-              phx-save="web_push_to_endpoint"
-            >
+            <.dm_form :let={f} class="flex flex-col gap-4 w-full" phx-save="web_push_to_endpoint">
               <input type="hidden" name="endpoint" value={t[:endpoint]} />
               <.dm_input
                 field={f[:title]}
@@ -96,10 +85,7 @@
                 placeholder="Enter your message content"
                 required
               />
-              <.dm_btn
-                type="submit"
-                class="btn-primary"
-              >
+              <.dm_btn type="submit" class="btn-primary">
                 Send Web Push
               </.dm_btn>
             </.dm_form>
