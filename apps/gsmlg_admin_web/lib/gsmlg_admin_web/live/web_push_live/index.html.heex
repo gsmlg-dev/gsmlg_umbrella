@@ -1,0 +1,131 @@
+<div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
+  <div class="mx-4 my-2 flex flex-row justify-end">
+    <.dm_modal>
+      <:trigger :let={dialog_id}>
+        <.dm_btn onclick={"document.getElementById('#{dialog_id}').showModal()"}>
+          Broadcast Message
+        </.dm_btn>
+      </:trigger>
+      <:title>Broadcast Message</:title>
+      <:body>
+        <.dm_form
+          :let={f}
+          class="flex flex-col gap-4 w-full"
+          phx-save="web_push_broadcast"
+        >
+          <.dm_input
+            field={f[:title]}
+            label="Title"
+            placeholder="Enter your message title"
+            required
+          />
+          <.dm_input
+            field={f[:content]}
+            type="textarea"
+            label="Content"
+            placeholder="Enter your message content"
+            required
+          />
+          <.dm_btn
+            type="submit"
+            class="btn-primary"
+          >
+            Send Web Push
+          </.dm_btn>
+        </.dm_form>
+      </:body>
+    </.dm_modal>
+  </div>
+  <.dm_table
+    class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+    data={@web_push}
+  >
+    <:col :let={t} label="Endpoint">
+      <div class="tooltip">
+        <div class="tooltip-content max-w-fit">
+          <div class="whitespace-nowrap">{t[:endpoint]}</div>
+        </div>
+        <div class="whitespace-nowrap w-auto overflow-hidden max-w-84 text-ellipsis">
+          {t[:endpoint]}
+        </div>
+      </div>
+    </:col>
+    <:col :let={t} label="Auth">
+      {t[:keys][:auth]}
+    </:col>
+    <:col :let={t} label="p256dh">
+      <div class="tooltip">
+        <div class="tooltip-content max-w-fit">
+          <div class="whitespace-nowrap">{t[:keys][:p256dh]}</div>
+        </div>
+        <div class="whitespace-nowrap w-auto overflow-hidden max-w-64 text-ellipsis">
+          {"******"}
+        </div>
+      </div>
+    </:col>
+    <:col :let={t} label="Expiration">
+      {t[:expiration_time]}
+    </:col>
+
+    <:col :let={t} label="">
+      <div class="flex gap-2">
+        <.dm_modal>
+          <:trigger :let={dialog_id}>
+            <.dm_btn onclick={"document.getElementById('#{dialog_id}').showModal()"}>
+              Push Message
+            </.dm_btn>
+          </:trigger>
+          <:title>Push Message</:title>
+          <:body>
+            <.dm_form
+              :let={f}
+              class="flex flex-col gap-4 w-full"
+              phx-save="web_push_to_endpoint"
+            >
+              <input type="hidden" name="endpoint" value={t[:endpoint]} />
+              <.dm_input
+                field={f[:title]}
+                label="Title"
+                placeholder="Enter your message title"
+                required
+              />
+              <.dm_input
+                field={f[:content]}
+                type="textarea"
+                label="Content"
+                placeholder="Enter your message content"
+                required
+              />
+              <.dm_btn
+                type="submit"
+                class="btn-primary"
+              >
+                Send Web Push
+              </.dm_btn>
+            </.dm_form>
+          </:body>
+        </.dm_modal>
+        <.dm_btn
+          id={"id-del-#{t[:endpoint]}"}
+          confirm={dgettext("webpush", "Do you want to remove this subscribtion?")}
+          class="btn-error"
+          confirm_class="btn-error btn-sm"
+          cancel_class="btn-ghost btn-sm"
+          confirm_title="Attention!"
+        >
+          Delete
+          <:confirm_action>
+            <form method="dialog">
+              <.dm_btn
+                phx-click={JS.push("delete", value: %{endpoint: t[:endpoint]})}
+                class="btn-error btn-sm"
+              >
+                Delete
+              </.dm_btn>
+            </form>
+          </:confirm_action>
+        </.dm_btn>
+      </div>
+    </:col>
+  </.dm_table>
+</div>

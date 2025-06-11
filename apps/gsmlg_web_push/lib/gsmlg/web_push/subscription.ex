@@ -5,11 +5,22 @@ defmodule GSMLG.WebPush.Subscription do
           expiration_time: integer()
         }
 
+  @behaviour Access
+
   defstruct [:endpoint, :keys, :expiration_time]
 
   def new(attrs) do
     struct(__MODULE__, convert_keys(attrs))
   end
+
+  @impl true
+  defdelegate fetch(data, key), to: Map
+
+  @impl true
+  defdelegate get_and_update(data, key, function), to: Map
+
+  @impl true
+  defdelegate pop(data, key), to: Map
 
   defp convert_keys(map) do
     Enum.reduce(map, %{}, fn {k, v}, acc ->

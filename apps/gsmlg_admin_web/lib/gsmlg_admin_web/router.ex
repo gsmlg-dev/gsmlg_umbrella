@@ -84,6 +84,8 @@ defmodule GSMLGAdminWeb.Router do
     live("/user_tokens/:id/edit", UserTokenLive.Index, :edit)
     live("/user_tokens/:id", UserTokenLive.Index, :show)
 
+    live("/web_push", WebPushLive.Index, :index)
+
     live("/command_platform", CommandPlatformLive.Index, :index)
 
     live("/mnesia", MnesiaLive.Index, :index)

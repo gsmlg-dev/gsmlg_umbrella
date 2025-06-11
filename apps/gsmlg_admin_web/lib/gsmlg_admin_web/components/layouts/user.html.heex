@@ -47,6 +47,19 @@
           </li>
         </ul>
       </:menu>
+      <:menu>
+        <h2 class="menu-title">Web Push</h2>
+        <ul>
+          <li>
+            <.link
+              class={if("web_push" == assigns[:active_menu], do: "active")}
+              navigate={~p"/web_push"}
+            >
+              Web Push Subscriptions
+            </.link>
+          </li>
+        </ul>
+      </:menu>
     </.dm_left_menu>
   </div>
   <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">

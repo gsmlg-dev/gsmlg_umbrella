@@ -21,31 +21,42 @@ defmodule GSMLG.WebPush.Subscriptions do
   """
   alias GSMLG.WebPush.Subscription
 
-  use GenServer
+  use Agent
 
-  def create_subscription(attrs \\ %{}) do
+  def start_link(args) do
+    Agent.start_link(fn -> %{} end, name: __MODULE__)
+  end
+
+  def create(attrs \\ %{}) do
     subscription = Subscription.new(attrs)
 
-    GenServer.call(__MODULE__, {:create_subscription, subscription})
+    Agent.update(__MODULE__, fn subscriptions ->
+      Map.put(subscriptions, subscription.endpoint, subscription)
+    end)
+  end
+
+  def get(endpoint) do
+    Agent.get(__MODULE__, fn subscriptions ->
+      subscriptions |> Map.get(endpoint)
+    end)
+  end
+
+  def remove(endpoint) do
+    Agent.update(__MODULE__, fn subscriptions ->
+      Map.delete(subscriptions, endpoint)
+    end)
   end
 
   def get_subscriptions do
-    GenServer.call(__MODULE__, :get_subscriptions)
+    Agent.get(__MODULE__, fn subscriptions ->
+      subscriptions |> to_list()
+    end)
   end
 
-  def start_link(args) do
-    GenServer.start_link(__MODULE__, args, name: __MODULE__)
-  end
-
-  def init(_init_arg) do
-    {:ok, []}
-  end
-
-  def handle_call(:get_subscriptions, _from, state) do
-    {:reply, state, state}
-  end
-
-  def handle_call({:create_subscription, subscription}, _from, state) do
-    {:reply, {:ok, subscription}, [subscription | state]}
+  defp to_list(subscriptions) do
+    subscriptions
+    |> Enum.into([], fn {_key, s} ->
+      s
+    end)
   end
 end

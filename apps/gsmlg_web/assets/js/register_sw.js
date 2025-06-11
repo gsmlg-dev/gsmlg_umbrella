@@ -7,24 +7,24 @@ export const registerSW = () => {
         updateViaCache: 'imports',
       })
       .then((registration) => {
-        console.log('navigator.serviceWorker.register', registration);
+        // console.log('navigator.serviceWorker.register', registration);
         let serviceWorker;
         if (registration.installing) {
           serviceWorker = registration.installing;
-          console.log('service worker:', "installing");
+          // console.log('service worker:', "installing");
         } else if (registration.waiting) {
           serviceWorker = registration.waiting;
-          console.log('service worker:', "waiting");
+          // console.log('service worker:', "waiting");
         } else if (registration.active) {
           serviceWorker = registration.active;
-          console.log('service worker:', "active");
+          // console.log('service worker:', "active");
         }
         if (serviceWorker) {
-          console.log('serviceWorker.state', serviceWorker.state);
+          // console.log('serviceWorker.state', serviceWorker.state);
           serviceWorker.addEventListener("statechange", (e) => {
-            console.log('serviceWorker.statechange', e.target.state);
+            // console.log('serviceWorker.statechange', e.target.state);
           });
-          console.log('serviceWorker', serviceWorker);
+          // console.log('serviceWorker', serviceWorker);
         }
       })
       .catch((error) => {
@@ -34,10 +34,10 @@ export const registerSW = () => {
       });
 
       navigator.serviceWorker.ready.then(registration => {
-        console.log('service worker will get subscription');
+        // console.log('service worker will get subscription');
         return registration.pushManager.getSubscription()
           .then(subscription => {
-            console.log('service worker get subscription', subscription);
+            // console.log('service worker get subscription', subscription);
             if (subscription) {
               return subscription;
             }
@@ -45,7 +45,7 @@ export const registerSW = () => {
             return fetch('/api/vapid-public-key')
               .then(response => response.json())
               .then(data => {
-                console.log('service worker get vapid-public-key', data);
+                // console.log('service worker get vapid-public-key', data);
                 const publicKey = base64UrlToUint8Array(data.public_key);
 
                 return registration.pushManager.subscribe({
@@ -56,7 +56,7 @@ export const registerSW = () => {
           });
         })
         .then(subscription => {
-          console.log('service worker new client subscription', subscription);
+          // console.log('service worker new client subscription', subscription);
           return fetch('/api/subscribe', {
             method: 'POST',
             headers: {
@@ -71,7 +71,7 @@ export const registerSW = () => {
   } else {
     // The current browser doesn't support service workers.
     // Perhaps it is too old or we are not in a Secure Context.
-    console.log(`The current browser doesn't support service workers.`);
+    // console.log(`The current browser doesn't support service workers.`);
   }
 
 

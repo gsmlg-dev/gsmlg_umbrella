@@ -19,4 +19,9 @@ defmodule GSMLG.WebPush do
     GSMLG.WebPush.Encryption.send_web_push(payload_json, subscription, private_key)
     |> IO.inspect()
   end
+
+  def send(subscription, payload, auth_token \\ nil) do
+    payload_json = Jason.encode!(payload)
+    GSMLG.WebPush.Encryption.send_web_push(payload_json, subscription, auth_token)
+  end
 end

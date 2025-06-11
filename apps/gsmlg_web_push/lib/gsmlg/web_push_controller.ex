@@ -33,14 +33,14 @@ defmodule GSMLG.WebPushController do
   end
 
   def subscribe(conn, %{"subscription" => subscription}) do
-    case Subscriptions.create_subscription(subscription) do
-      {:ok, _subscription} ->
+    case Subscriptions.create(subscription) do
+      :ok ->
         json(conn, %{status: "success"})
 
-      {:error, changeset} ->
+      _ ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{errors: changeset.errors})
+        |> json(%{errors: "Failed to save subscription"})
     end
   end
 
