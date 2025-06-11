@@ -131,6 +131,12 @@ config :mime, :types, %{
   "text/plain" => ["livemd"]
 }
 
+config :web_push_encryption, :vapid_details,
+  subject: "mailto:administrator@gsmlg.com",
+  public_key:
+    "BIiu8m_dqtrKSvdquIqUJxsrkwswa0Zgep4myzmHlUcHjEtRdxdK4bZAEAd4dhFTARNGrbIkOJIcjdn13Z-yC4w",
+  private_key: "7mYUWrgUKIE_YGuFaIw2bRO0WjreR0iY6WoE7mDwbak"
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

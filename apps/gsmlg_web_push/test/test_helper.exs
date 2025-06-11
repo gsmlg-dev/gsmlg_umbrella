@@ -1,7 +1,6 @@
 ExUnit.start()
 
 defmodule Fixtures do
-  @gcm_url "https://android.googleapis.com/gcm/send"
   @fcm_url "https://fcm.googleapis.com/fcm/send"
 
   def example_input(), do: "Hello, World."
@@ -24,10 +23,6 @@ defmodule Fixtures do
           "BCIWgsnyXDv1VkhqL2P7YRBvdeuDnlwAPT2guNhdIoW3IP7GmHh1SMKPLxRf7x8vJy6ZFK3ol2ohgn_-0yP7QQA="
       }
     }
-  end
-
-  def valid_gcm_subscription() do
-    Map.put(valid_subscription(), :endpoint, @gcm_url)
   end
 
   def valid_fcm_subscription() do

@@ -121,6 +121,14 @@ defmodule GSMLGAdminWeb.Router do
     delete("/blogs/:id", BlogController, :delete)
   end
 
+  scope "/api", GSMLG do
+    pipe_through([:api, :maybe_api_auth, :ensure_authed_access])
+
+    get "/vapid-public-key", WebPushController, :public_key
+    post "/subscribe", WebPushController, :subscribe
+    post "/send-notification", WebPushController, :send_notification
+  end
+
   forward(
     "/graphiql",
     Absinthe.Plug.GraphiQL,

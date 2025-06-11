@@ -16,6 +16,7 @@ defmodule GSMLG.Application do
       {GSMLG.CommandPlatform.Supervisor, name: GSMLG.CommandPlatform.Supervisor},
       # Start distribute Node
       {Finch, name: GSMLG.Finch},
+      GSMLG.WebPush.Subscriptions,
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor}
     ]

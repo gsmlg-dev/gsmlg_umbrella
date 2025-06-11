@@ -27,6 +27,7 @@ defmodule GSMLG.WebPush.MixProject do
       {:httpoison, "~> 2.0"},
       {:jose, "~> 1.11"},
       {:jason, "~> 1.2"},
+      {:phoenix, "~> 1.7"},
       {:earmark, "~> 1.0", only: :dev},
       {:ex_doc, "~> 0.11", only: :dev}
     ]

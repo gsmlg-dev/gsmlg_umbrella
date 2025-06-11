@@ -5,10 +5,13 @@ defmodule GSMLG.WebPush.Encryption.Push do
 
   alias GSMLG.WebPush.Encryption.Vapid
 
-  @gcm_url "https://android.googleapis.com/gcm/send"
-  @temp_gcm_url "https://gcm-http.googleapis.com/gcm"
-
   @fcm_url "https://fcm.googleapis.com/fcm/send"
+
+  @fcm_project_based_url "https://fcm.googleapis.com/v1/projects/{PROJECT_ID}/messages:send"
+
+  def project_url(project_id) do
+    String.replace(@fcm_project_based_url, "{PROJECT_ID}", project_id)
+  end
 
   @doc """
   Sends a web push notification with a payload through GCM.
@@ -41,10 +44,6 @@ defmodule GSMLG.WebPush.Encryption.Push do
       when not is_integer(ttl) or ttl < 0 do
     raise ArgumentError,
           "send_web_push expects a non-negative integer ttl"
-  end
-
-  def send_web_push(_message, %{endpoint: @gcm_url <> _registration_id}, nil, _ttl) do
-    raise ArgumentError, "send_web_push requires an auth_token for gcm endpoints"
   end
 
   def send_web_push(message, %{endpoint: endpoint} = subscription, auth_token, ttl) do
@@ -85,9 +84,6 @@ defmodule GSMLG.WebPush.Encryption.Push do
 
   defp make_request_params(endpoint, headers, auth_token) do
     cond do
-      gcm_url?(endpoint) ->
-        {make_gcm_endpoint(endpoint), headers |> Map.merge(fcm_gcm_authorization(auth_token))}
-
       fcm_url?(endpoint) and not is_nil(auth_token) ->
         {endpoint, headers |> Map.merge(fcm_gcm_authorization(auth_token))}
 
@@ -102,8 +98,6 @@ defmodule GSMLG.WebPush.Encryption.Push do
   end
 
   defp fcm_url?(url), do: String.starts_with?(url, @fcm_url)
-  defp gcm_url?(url), do: String.starts_with?(url, @gcm_url)
-  defp make_gcm_endpoint(endpoint), do: String.replace(endpoint, @gcm_url, @temp_gcm_url)
   defp fcm_gcm_authorization(auth_token), do: %{"Authorization" => "key=#{auth_token}"}
 
   defp ub64(value) do

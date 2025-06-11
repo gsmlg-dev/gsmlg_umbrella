@@ -88,6 +88,19 @@ defmodule GSMLGWeb.Router do
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap_post)
   end
 
+  scope "/api", GSMLG do
+    pipe_through([:api, :maybe_api_auth])
+
+    get "/vapid-public-key", WebPushController, :public_key
+    post "/subscribe", WebPushController, :subscribe
+  end
+
+  scope "/api", GSMLG do
+    pipe_through([:api, :maybe_api_auth, :ensure_authed_access])
+
+    post "/send-notification", WebPushController, :send_notification
+  end
+
   # Other scopes may use custom stacks.
   scope "/api", GSMLGWeb do
     pipe_through([:api, :maybe_api_auth, :ensure_authed_access])
