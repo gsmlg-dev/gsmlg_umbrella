@@ -21,3 +21,8 @@ config :logger, level: :warning
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test
 
 config :phoenix, :plug_init_mode, :runtime
+
+config :web_push_encryption, :vapid_details,
+  subject: "mailto:administrator@gsmlg.com",
+  public_key: "BIkdbSFSsaW83HRGHxCjbspeLSWh-uLtGsKaF6SMniO-nezdWstXnKm8aIuM4vaFnxVGibz1OvtMCJi2cImQfxg",
+  private_key: "waTKfV8CQpcUtwWgOYdNQcWbVAv-oWfAYk8Y70TduO8"

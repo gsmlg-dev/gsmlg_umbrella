@@ -8,10 +8,10 @@ console.log('serviceWorker', 'running');
 self.addEventListener('install', (event) => {
   console.log('serviceWorker', 'install', event);
   event.waitUntil(caches.open(CURRENT_CACHES.gsmlg));
-  event.registerForeignFetch({
-    scopes: ['/'], // or some sub-scope
-    origins: ['esm-run.gsmlg.dev', 'jsdelivr.gsmlg.dev'] // or ['https://example.com']
-  });
+  // event.registerForeignFetch({
+  //   scopes: ['/'], // or some sub-scope
+  //   origins: ['esm-run.gsmlg.dev', 'jsdelivr.gsmlg.dev'] // or ['https://example.com']
+  // });
 });
 
 self.addEventListener("activate", (event) => {
