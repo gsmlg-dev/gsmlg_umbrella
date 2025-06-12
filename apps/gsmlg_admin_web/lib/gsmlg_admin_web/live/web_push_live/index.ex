@@ -29,7 +29,9 @@ defmodule GSMLGAdminWeb.WebPushLive.Index do
         socket
       ) do
     subscription = GSMLG.WebPush.Subscriptions.get(endpoint)
-    GSMLG.WebPush.send(subscription, %{title: title, body: content}) |> IO.inspect(label: "Web Push Result")
+
+    GSMLG.WebPush.send(subscription, %{title: title, body: content})
+
     {:noreply, socket}
   end
 
@@ -40,7 +42,8 @@ defmodule GSMLGAdminWeb.WebPushLive.Index do
       ) do
     GSMLG.WebPush.Subscriptions.get_subscriptions()
     |> Enum.each(fn subscription ->
-      GSMLG.WebPush.send(subscription, %{title: title, body: content}) |> IO.inspect(label: "Web Push Result")
+      GSMLG.WebPush.send(subscription, %{title: title, body: content})
+      |> IO.inspect(label: "Web Push Result")
     end)
 
     {:noreply, socket}

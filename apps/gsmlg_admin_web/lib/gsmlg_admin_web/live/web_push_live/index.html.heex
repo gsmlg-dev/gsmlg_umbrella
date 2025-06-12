@@ -70,7 +70,11 @@
           </:trigger>
           <:title>Push Message</:title>
           <:body>
-            <.dm_form :let={f} class="flex flex-col gap-4 w-full" phx-submit="web_push_to_endpoint">
+            <.dm_form
+              :let={f}
+              class="flex flex-col gap-4 w-full"
+              phx-submit="web_push_to_endpoint"
+            >
               <input type="hidden" name="endpoint" value={t[:endpoint]} />
               <.dm_input
                 field={f[:title]}
