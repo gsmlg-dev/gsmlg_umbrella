@@ -90,6 +90,7 @@ self.addEventListener('message', (event) => {
 self.addEventListener('push', event => {
   console.log('Handling push event for', event.data, event);
   const data = event.data.json();
+  console.log('Push data:', data);
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
