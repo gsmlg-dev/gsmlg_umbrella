@@ -88,7 +88,7 @@ defmodule GSMLG.Component.Admin do
                     ]},
                     {"S3",
                     [
-                      {"Bucket List", "/aws/s3"}
+                      {"Bucket List", "/aws/s3/buckets"}
                     ]}
                  ]},
                 {"Dashboard",
@@ -116,7 +116,7 @@ defmodule GSMLG.Component.Admin do
                 :if={is_list(sub_list)}
                 class="flex flex-col items-start gap-2 ml-8"
               >
-                <h3 class="text-lg text-left text-info opacity-70">{sub_title}</h3>
+                <h3 class="text-lg text-left opacity-70">{sub_title}</h3>
                 <div class="grid grid-flow-col auto-cols-max gap-4">
                   <.dm_link
                     :for={{sub_name, sub_url} <- sub_list}
