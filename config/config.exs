@@ -72,7 +72,7 @@ config :bun,
   version: "1.2.2",
   gsmlg_web: [
     args:
-      ~w(build assets/js/app.js assets/js/sw.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
+      ~w(build assets/js/app.js assets/js/sw.js assets/js/worker.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
     cd: Path.expand("../apps/gsmlg_web", __DIR__),
     env: %{}
   ],

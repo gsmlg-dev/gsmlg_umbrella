@@ -9,6 +9,8 @@ defmodule GSMLG.AWS.Client do
     client =
       AWS.Client.create(access_key_id, secret_access_key, region)
       |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []})
+      |> Map.put(:proto_version, "2.0")
+      |> Map.put(:content_type, "application/x-amz-json-1.0")
 
     # client = %AWS.Client{client | json_module: AWS.JSON}
     client
@@ -29,7 +31,7 @@ defmodule GSMLG.AWS.HttpClient do
         opts
       ) do
     opts = opts || []
-    opts = opts |> Keyword.put(:transport_opts, proxy: {:http, "10.100.0.1", 3128, []})
+    # opts = opts |> Keyword.put(:transport_opts, proxy: {:http, "10.100.0.1", 3128, []})
 
     case client()
          |> Tesla.request(method: method, url: url, body: body, headers: headers, opts: opts) do
@@ -45,8 +47,8 @@ defmodule GSMLG.AWS.HttpClient do
     Tesla.client(
       [
         # {Tesla.Middleware.FollowRedirects, max_redirects: 3},
-        # Tesla.Middleware.JSON,
-        # {Tesla.Middleware.Headers, [{"Accept", "application/json"}, {"content-type", "application/json"}]},
+        Tesla.Middleware.JSON,
+        # {Tesla.Middleware.Headers, [{"Accept", "application/json"}]},
         Tesla.Middleware.Logger
       ],
       {Tesla.Adapter.Finch, name: GSMLG.Finch}

@@ -16,6 +16,7 @@ defmodule GSMLGWeb.Endpoint do
       :peer_data,
       :trace_context_headers,
       :x_headers,
+      :user_agent,
       :uri,
       {:session, @session_options}
     ]

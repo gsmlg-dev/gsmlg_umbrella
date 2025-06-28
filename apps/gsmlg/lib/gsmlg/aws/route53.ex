@@ -130,25 +130,32 @@ defmodule GSMLG.AWS.Route53 do
   end
 
   def change_resource_record_sets(hosted_zone_id, input, options \\ []) do
-    {:ok, _, _} =
-      get_client() |> AWS.Route53.change_resource_record_sets(hosted_zone_id, input, options)
 
-    {:ok, key_list} = Cachex.keys(:aws_cache)
+     case get_client() |> AWS.Route53.change_resource_record_sets(hosted_zone_id, input, options) do
+      {:ok, _, _} ->
+        {:ok, key_list} = Cachex.keys(:aws_cache)
 
-    key_list
-    |> Enum.each(fn key ->
-      case key do
-        "route53 resource_record_sets " <> zone_info ->
-          if String.starts_with?(zone_info, "#{hosted_zone_id}") do
-            Cachex.del(:aws_cache, key)
+        key_list
+        |> Enum.each(fn key ->
+          case key do
+            "route53 resource_record_sets " <> zone_info ->
+              if String.starts_with?(zone_info, "#{hosted_zone_id}") do
+                Cachex.del(:aws_cache, key)
+              end
+
+            _ ->
+              nil
           end
+        end)
 
-        _ ->
-          nil
-      end
-    end)
-
-    :ok
+        :ok
+      {:error, error} ->
+        Logger.error("AWS.Route53.change_resource_record_sets error", error: error)
+        {:error, error}
+      error ->
+        Logger.error("AWS.Route53.change_resource_record_sets unexpected error", error: error)
+        {:error, :unexpected_error}
+    end
   end
 
   defdelegate get_client(), to: GSMLG.AWS.Client

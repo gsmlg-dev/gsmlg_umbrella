@@ -23,7 +23,8 @@ defmodule GSMLGWeb.UserSocket do
   # See `Phoenix.Token` documentation for examples in
   # performing token verification on connect.
   @impl true
-  def connect(%{"token" => token} = _params, socket, _connect_info) do
+  def connect(%{"token" => token} = _params, socket, connect_info) do
+    IO.inspect({:connected, :token, token, connect_info}, label: "UserSocket connect")
     case Guardian.Phoenix.Socket.authenticate(socket, GSMLGWeb.Guardian, token) do
       {:ok, authed_socket} ->
         {:ok, authed_socket}
@@ -33,13 +34,13 @@ defmodule GSMLGWeb.UserSocket do
     end
   end
 
-  def connect(%{"_csrf_token" => _csrf_token}, socket, connect_info) do
+  def connect(%{"_csrf_token" => csrf_token}, socket, connect_info) do
     token =
       case connect_info do
         %{session: %{"guardian_default_token" => token}} -> token
         _ -> nil
       end
-
+    IO.inspect({:connected, :csrf_token, csrf_token, token, connect_info}, label: "UserSocket connect")
     claims_to_check = %{}
     key = Guardian.Plug.default_key()
 
@@ -56,6 +57,7 @@ defmodule GSMLGWeb.UserSocket do
   # This function will be called when there was no authentication information
   @impl true
   def connect(_params, socket) do
+    IO.inspect({:connected}, label: "UserSocket connect")
     {:ok, socket}
   end
 

@@ -30,6 +30,19 @@
         </li>
       </ul>
     </:menu>
+    <:menu>
+      <h2 class="menu-title">S3</h2>
+      <ul>
+        <li>
+          <.link
+            class={if("s3_buckets_list" == assigns[:active_menu], do: "active")}
+            navigate={~p"/aws/s3/buckets"}
+          >
+            S3 Buckets List
+          </.link>
+        </li>
+      </ul>
+    </:menu>
   </.dm_left_menu>
   <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
     {@inner_content}

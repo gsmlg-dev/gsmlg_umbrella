@@ -49,8 +49,10 @@ self.addEventListener("fetch", (event) => {
               response.headers.has("content-type") &&
               response.headers.get("content-type").match(/(^font\/)|(^text\/)|(^image\/)/i)
             ) {
+              if (/worker.js/.test(event.request.url)) {
+                return response;
+              }
               console.log("  Caching the response to", event.request.url);
-
               cache.put(event.request, response.clone());
             }
 

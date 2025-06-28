@@ -10,14 +10,37 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 let socket;
-document.addEventListener('socket:start', (event) => {
+window.addEventListener('socket:start', (event) => {
   const { token } = event.detail;
   socket = startSocket(token);
   joinChannels(socket);
 });
 
-document.addEventListener('socket:stop', (event) => {
+window.addEventListener('socket:stop', (event) => {
   socket?.close();
 });
 
 registerSW();
+
+const id = Math.random() * 10e16;
+const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+
+const worker = new SharedWorker('./assets/worker.js', { name: 'gsmlg_shared_worker', type: 'module' });
+worker.onerror = (e) => {
+  console.error('SharedWorker error:', e);
+};
+worker.port.start();
+worker.port.postMessage({
+  from:  id,
+  type: 'start',
+  data: { csrfToken },
+});
+worker.port.onmessage = (msg) => {
+  console.log('SharedWorker message:', msg);
+  if (msg.data.type === 'connected') {
+    console.log('SharedWorker connected:', msg.data);
+  }
+};
+console.log('connect to shared worker', worker);
+
+window.sworker = worker;

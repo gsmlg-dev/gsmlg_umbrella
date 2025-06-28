@@ -98,6 +98,8 @@ defmodule GSMLGAdminWeb.Router do
     live("/aws/dynamo_db", DynamoDBLive.Index, :index)
     live("/aws/dynamo_db/:table/scan", DynamoDBLive.Index, :scan)
 
+    live("/aws/s3/buckets", S3Live.Index, :list_buckets)
+
     import Phoenix.LiveDashboard.Router
 
     live_dashboard("/live_dashboard", metrics: GSMLGAdminWeb.Telemetry)

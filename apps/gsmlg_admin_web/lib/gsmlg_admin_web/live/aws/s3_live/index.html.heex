@@ -1,0 +1,33 @@
+<.dm_async_card
+  :let={buckets}
+  :if={@live_action == :list_buckets}
+  assign={@buckets}
+  class="section-card"
+  skeleton_class="min-h-48"
+>
+  <:title class="flex flex-row">
+    <h3 class="font-semibold text-2xl">Bucket List</h3>
+  </:title>
+
+  <.dm_table
+    data={buckets.list}
+    class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+  >
+    <:col :let={b} label="Name">
+      {Map.get(b, "Name")}
+    </:col>
+    <:col :let={b} label="Creation Date">
+      {Map.get(b, "CreationDate")}
+    </:col>
+
+    <:col :let={b} label="">
+      <div class="flex gap-2 flex-wrap table-actions min-w-max">
+        <.link
+          class="btn btn-info"
+        >
+          Show Files
+        </.link>
+      </div>
+    </:col>
+  </.dm_table>
+</.dm_async_card>

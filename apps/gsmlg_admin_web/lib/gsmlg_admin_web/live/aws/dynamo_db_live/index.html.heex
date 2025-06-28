@@ -144,9 +144,9 @@
   </:title>
   <div>Count: {table_data["Count"]} ScannedCount: {table_data["ScannedCount"]}</div>
   <div>
-    ConsumedCapacity: {table_data["ConsumedCapacity"]} LastEvaluatedKey: {table_data[
+    ConsumedCapacity: {table_data["ConsumedCapacity"] |> inspect} LastEvaluatedKey: {table_data[
       "LastEvaluatedKey"
-    ]}
+    ] |> inspect}
   </div>
   <ul class="list bg-base-100 rounded-box shadow-md">
     <li :for={item <- table_data["Items"]} class="list-row">
@@ -155,7 +155,7 @@
           <div>{k}</div>
           <div :for={{kk, vv} <- v} class="col-span-3 grid grid-cols-4 gap-4">
             <div>{kk}</div>
-            <div class="col-span-3">{vv}</div>
+            <div class="col-span-3">{vv |> inspect}</div>
           </div>
         </div>
       </div>
