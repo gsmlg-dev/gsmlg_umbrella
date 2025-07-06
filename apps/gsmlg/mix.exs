@@ -43,10 +43,14 @@ defmodule GSMLG.MixProject do
       {:gsmlg_mnesia, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
       {:gsmlg_toml, in_umbrella: true},
+      {:gsmlg_web_push, in_umbrella: true},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_github, "~> 0.8"},
       {:aws, "~> 1.0"},
-      {:absinthe, "~> 1.7.0"}
+      {:absinthe, "~> 1.7.0"},
+      {:nx, "~> 0.9.0"},
+      {:bumblebee, "~> 0.6.2"},
+      {:exla, ">= 0.0.0"}
     ]
   end
 
