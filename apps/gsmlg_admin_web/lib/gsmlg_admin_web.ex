@@ -103,6 +103,7 @@ defmodule GSMLGAdminWeb do
     quote do
       # HTML escaping functionality
       import Phoenix.HTML
+      import Phoenix.Component
       # Core UI components and translation
       use Gettext, backend: GSMLGAdminWeb.Gettext
       use GSMLG.Component

@@ -1,0 +1,48 @@
+<div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
+  <div class="mx-4 my-2 flex flex-row justify-end">
+   Whisper Text to Speech
+  </div>
+  <div class="flex flex-col">
+    <form id="upload-form" class="flex gap-4" phx-submit="save" phx-change="validate">
+      <.live_file_input class="file-input" upload={@uploads.audio_file} />
+      <button class="btn btn-primary" type="submit">Upload</button>
+    </form>
+
+    <section phx-drop-target={@uploads.audio_file.ref}>
+      <%!-- render each audio_file entry --%>
+      <article :for={entry <- @uploads.audio_file.entries} class="upload-entry">
+        <div>{entry.client_name}</div>
+
+        <%!-- entry.progress will update automatically for in-flight entries --%>
+        <progress value={entry.progress} max="100"> {entry.progress}% </progress>
+
+        <%!-- a regular click event whose handler will invoke Phoenix.LiveView.cancel_upload/3 --%>
+        <button type="button" phx-click="cancel-upload" phx-value-ref={entry.ref} aria-label="cancel">&times;</button>
+
+        <%!-- Phoenix.Component.upload_errors/2 returns a list of error atoms --%>
+        <p :for={err <- upload_errors(@uploads.audio_file, entry)} class="alert alert-danger">{error_to_string(err)}</p>
+      </article>
+
+      <%!-- Phoenix.Component.upload_errors/1 returns a list of error atoms --%>
+      <p :for={err <- upload_errors(@uploads.audio_file)} class="alert alert-danger">
+        {error_to_string(err)}
+      </p>
+    </section>
+
+    <ul class="list mt-6 gap-4">
+      <li :for={file <- @uploaded_files} class="flex flex-col">
+        <div class="flex flex-row gap-4">
+          <div class="chip">
+            {file}
+          </div>
+          <button class="btn btn-secondary" phx-click="stt-file" phx-value-file={file}>Speech to Text</button>
+        </div>
+        <div class="flex flex-col">
+          <div :for={{ss, text} <- (@speech_text[file] || [])} class="flex flex-row gap-4">
+            <span>{ss}:</span> <span>{text}</span>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+</div>

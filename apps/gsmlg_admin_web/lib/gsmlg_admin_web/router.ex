@@ -100,6 +100,8 @@ defmodule GSMLGAdminWeb.Router do
 
     live("/aws/s3/buckets", S3Live.Index, :list_buckets)
 
+    live("/ai/stt", AI.SttLive.Index, :index)
+
     import Phoenix.LiveDashboard.Router
 
     live_dashboard("/live_dashboard", metrics: GSMLGAdminWeb.Telemetry)
