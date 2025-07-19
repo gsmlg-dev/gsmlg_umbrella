@@ -43,12 +43,11 @@ defmodule GSMLGAdminWeb.AI.SttLive.Index do
     realpath = Path.join([:code.priv_dir(:gsmlg_admin_web), "static", file])
     view_id = self()
 
-    send(view_id, {:update_speech, file, -1, "starting"})
-    IO.inspect({:stt_file, self(), view_id, file})
-
-    GSMLG.Audio.speech_to_text(realpath, 10, fn ss, out ->
-      IO.inspect({ss, out})
-      send(view_id, {:update_speech, file, ss, out})
+    Task.async(fn ->
+      GSMLG.Audio.speech_to_text(realpath, 20, fn ss, out ->
+        # IO.inspect({ss, out})
+        Process.send_after(view_id, {:update_speech, file, ss, out}, 1000)
+      end)
     end)
 
     {:noreply, socket}

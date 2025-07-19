@@ -9,24 +9,15 @@
     </form>
 
     <section phx-drop-target={@uploads.audio_file.ref}>
-      <%!-- render each audio_file entry --%>
       <article :for={entry <- @uploads.audio_file.entries} class="upload-entry">
         <div>{entry.client_name}</div>
 
-        <%!-- entry.progress will update automatically for in-flight entries --%>
         <progress value={entry.progress} max="100"> {entry.progress}% </progress>
 
-        <%!-- a regular click event whose handler will invoke Phoenix.LiveView.cancel_upload/3 --%>
         <button type="button" phx-click="cancel-upload" phx-value-ref={entry.ref} aria-label="cancel">&times;</button>
 
-        <%!-- Phoenix.Component.upload_errors/2 returns a list of error atoms --%>
         <p :for={err <- upload_errors(@uploads.audio_file, entry)} class="alert alert-danger">{error_to_string(err)}</p>
       </article>
-
-      <%!-- Phoenix.Component.upload_errors/1 returns a list of error atoms --%>
-      <p :for={err <- upload_errors(@uploads.audio_file)} class="alert alert-danger">
-        {error_to_string(err)}
-      </p>
     </section>
 
     <ul class="list mt-6 gap-4">
