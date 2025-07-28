@@ -9,9 +9,9 @@ defmodule GSMLGWeb.AuthControllerTest do
   end
 
   describe "sign up" do
-    test "sign up page", %{conn: conn} do
+    test "sign up page redirects to sign in", %{conn: conn} do
       conn = get(conn, ~p"/sign_up")
-      assert html_response(conn, 200) =~ "SIGN UP"
+      assert redirected_to(conn) == ~p"/sign_in"
     end
   end
 end

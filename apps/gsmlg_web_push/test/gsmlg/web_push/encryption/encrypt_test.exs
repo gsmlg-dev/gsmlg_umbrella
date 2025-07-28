@@ -44,7 +44,7 @@ defmodule GSMLG.WebPush.Encryption.EncryptTest do
 
   test "encrypt returns the correct output" do
     Application.put_env(
-      :web_push_encryption,
+      :gsmlg_web_push,
       :crypto_impl,
       GSMLG.WebPush.Encryption.EncryptTest.DummyCrypto
     )
@@ -52,6 +52,6 @@ defmodule GSMLG.WebPush.Encryption.EncryptTest do
     response = Encrypt.encrypt(Fixtures.example_input(), Fixtures.valid_subscription())
     assert response.ciphertext == Base.decode64!(Fixtures.example_output())
   after
-    Application.delete_env(:web_push_encryption, :crypto_impl)
+    Application.delete_env(:gsmlg_web_push, :crypto_impl)
   end
 end

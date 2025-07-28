@@ -14,7 +14,10 @@
       {assigns[:page_title] || gettext("default page title")}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+    <script type="module">
+      document.querySelector('meta[name=theme-color]').setAttribute('content', getComputedStyle(document.body).getPropertyValue('--color-primary'));
+    </script>
+    <script defer phx-track-static type="module" src={~p"/assets/app.js"}>
     </script>
     <%= if Application.get_env(:gsmlg_web, GSMLGWeb.Endpoint) |> Keyword.get(:enable_adsense) |> Kernel.==("yes") do %>
       <script

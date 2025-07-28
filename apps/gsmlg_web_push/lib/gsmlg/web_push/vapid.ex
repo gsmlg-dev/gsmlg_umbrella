@@ -13,10 +13,10 @@ defmodule GSMLG.WebPush.Vapid do
   end
 
   def get_public_key do
-    Application.get_env(:web_push_encryption, :vapid_details)[:public_key]
+    Application.get_env(:gsmlg_web_push, :vapid_details)[:public_key]
   end
 
   def get_private_key do
-    Application.get_env(:web_push_encryption, :vapid_details)[:private_key]
+    Application.get_env(:gsmlg_web_push, :vapid_details)[:private_key]
   end
 end

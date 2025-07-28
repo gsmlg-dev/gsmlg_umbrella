@@ -56,12 +56,10 @@ defmodule GSMLGWeb.SignController do
     end
   end
 
-  # def new(conn, _params) do
-  #   changeset = Auth.sign_up_changeset(%Auth{}, %{})
-
-  #   conn
-  #   |> render(:sign_up, changeset: changeset, page_title: "SIGN UP")
-  # end
+  def new(conn, _params) do
+    conn
+    |> redirect(to: ~p"/sign_in")
+  end
 
   # def sign_up(conn, %{"auth" => params}) do
   #   case(

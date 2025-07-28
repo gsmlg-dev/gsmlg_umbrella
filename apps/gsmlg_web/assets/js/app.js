@@ -20,7 +20,7 @@ window.addEventListener('socket:stop', (event) => {
   socket?.close();
 });
 
-registerSW();
+// registerSW();
 
 const id = Math.random() * 10e16;
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");

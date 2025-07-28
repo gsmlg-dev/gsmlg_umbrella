@@ -31,5 +31,4 @@ defmodule GSMLGAdminWeb.S3Live.Index do
       {:ok, %{buckets: %{list: buckets}}}
     end)
   end
-
 end

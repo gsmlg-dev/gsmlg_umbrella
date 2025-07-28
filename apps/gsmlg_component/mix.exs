@@ -19,7 +19,7 @@ defmodule GSMLG.Component.MixProject do
   def application do
     [
       mod: {GSMLG.ComponentServer, []},
-      extra_applications: [:logger]
+      extra_applications: [:logger, :inets]
     ]
   end
 
@@ -27,7 +27,7 @@ defmodule GSMLG.Component.MixProject do
   defp deps do
     [
       {:phoenix_duskmoon, "~> 6.0"},
-      {:phoenix_react_server, "~> 0.5"},
+      {:phoenix_react_server, "~> 0.7"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.0"},
       {:gettext, "~> 0.18"}

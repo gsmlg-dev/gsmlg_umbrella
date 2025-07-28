@@ -6,7 +6,7 @@ defmodule GSMLG.WebPush.Encryption.Vapid do
       when content_encoding in @supported_encodings do
     expiration_timestamp = DateTime.to_unix(DateTime.utc_now()) + expiration
 
-    vapid = vapid || Application.fetch_env!(:web_push_encryption, :vapid_details)
+    vapid = vapid || Application.fetch_env!(:gsmlg_web_push, :vapid_details)
 
     public_key = Base.url_decode64!(vapid[:public_key], padding: false)
     private_key = Base.url_decode64!(vapid[:private_key], padding: false)
