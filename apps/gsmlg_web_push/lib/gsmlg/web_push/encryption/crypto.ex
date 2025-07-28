@@ -13,6 +13,6 @@ defmodule GSMLG.WebPush.Encryption.Crypto do
   end
 
   defp impl do
-    Application.get_env(:web_push_encryption, :crypto_impl) || :crypto
+    Application.get_env(:gsmlg_web_push, :crypto_impl) || :crypto
   end
 end

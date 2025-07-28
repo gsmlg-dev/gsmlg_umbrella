@@ -25,6 +25,7 @@ defmodule GSMLGWeb.UserSocket do
   @impl true
   def connect(%{"token" => token} = _params, socket, connect_info) do
     IO.inspect({:connected, :token, token, connect_info}, label: "UserSocket connect")
+
     case Guardian.Phoenix.Socket.authenticate(socket, GSMLGWeb.Guardian, token) do
       {:ok, authed_socket} ->
         {:ok, authed_socket}
@@ -40,7 +41,11 @@ defmodule GSMLGWeb.UserSocket do
         %{session: %{"guardian_default_token" => token}} -> token
         _ -> nil
       end
-    IO.inspect({:connected, :csrf_token, csrf_token, token, connect_info}, label: "UserSocket connect")
+
+    IO.inspect({:connected, :csrf_token, csrf_token, token, connect_info},
+      label: "UserSocket connect"
+    )
+
     claims_to_check = %{}
     key = Guardian.Plug.default_key()
 

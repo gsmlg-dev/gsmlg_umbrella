@@ -22,8 +22,12 @@ config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test
 
 config :phoenix, :plug_init_mode, :runtime
 
-config :web_push_encryption, :vapid_details,
+config :gsmlg_web_push, :vapid_details,
   subject: "mailto:administrator@gsmlg.com",
   public_key:
     "BIkdbSFSsaW83HRGHxCjbspeLSWh-uLtGsKaF6SMniO-nezdWstXnKm8aIuM4vaFnxVGibz1OvtMCJi2cImQfxg",
   private_key: "waTKfV8CQpcUtwWgOYdNQcWbVAv-oWfAYk8Y70TduO8"
+
+config :phoenix_react_server, Phoenix.React,
+  component_base: Path.expand("../apps/gsmlg_component/assets/component", __DIR__),
+  cache_ttl: 0

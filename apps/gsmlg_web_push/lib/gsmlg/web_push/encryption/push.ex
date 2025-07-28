@@ -105,6 +105,6 @@ defmodule GSMLG.WebPush.Encryption.Push do
   end
 
   defp http_client() do
-    Application.get_env(:web_push_encryption, :http_client, HTTPoison)
+    Application.get_env(:gsmlg_web_push, :http_client, HTTPoison)
   end
 end

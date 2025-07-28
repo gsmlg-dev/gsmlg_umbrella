@@ -66,17 +66,16 @@ defmodule GSMLGAdminWeb.Route53Live.Index do
       }
     }
 
-    socket = case Route53.change_resource_record_sets(hosted_zone_id, req_input) do
-      :ok ->
-        socket =
+    socket =
+      case Route53.change_resource_record_sets(hosted_zone_id, req_input) do
+        :ok ->
           socket
           |> apply_resource_record_sets()
 
-      {:error, reason} ->
-        socket =
+        {:error, reason} ->
           socket
           |> put_flash(:error, "Failed to add record: #{inspect(reason)}")
-    end
+      end
 
     {:noreply, socket}
   end

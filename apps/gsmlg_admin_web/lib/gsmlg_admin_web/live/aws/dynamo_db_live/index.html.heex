@@ -146,7 +146,8 @@
   <div>
     ConsumedCapacity: {table_data["ConsumedCapacity"] |> inspect} LastEvaluatedKey: {table_data[
       "LastEvaluatedKey"
-    ] |> inspect}
+    ]
+    |> inspect}
   </div>
   <ul class="list bg-base-100 rounded-box shadow-md">
     <li :for={item <- table_data["Items"]} class="list-row">

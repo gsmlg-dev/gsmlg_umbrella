@@ -69,7 +69,7 @@ config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
   live_view: [signing_salt: "gmmaSSOy"]
 
 config :bun,
-  version: "1.2.2",
+  version: "1.2.15",
   gsmlg_web: [
     args:
       ~w(build assets/js/app.js assets/js/sw.js assets/js/worker.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
@@ -85,7 +85,7 @@ config :bun,
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "4.0.6",
+  version: "4.1.11",
   gsmlg_web: [
     args: ~w(
       --input=assets/css/app.css
@@ -100,6 +100,12 @@ config :tailwind,
     ),
     cd: Path.expand("../apps/gsmlg_admin_web", __DIR__)
   ]
+
+config :phoenix_session_process,
+  session_process: GSMLG.SessionProcess,
+  max_sessions: 1_000_000,
+  session_ttl: 1_440_000,
+  rate_limit: 10_000
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
@@ -131,7 +137,7 @@ config :mime, :types, %{
   "text/plain" => ["livemd"]
 }
 
-config :web_push_encryption, :vapid_details,
+config :gsmlg_web_push, :vapid_details,
   subject: "mailto:administrator@gsmlg.com",
   public_key:
     "BIiu8m_dqtrKSvdquIqUJxsrkwswa0Zgep4myzmHlUcHjEtRdxdK4bZAEAd4dhFTARNGrbIkOJIcjdn13Z-yC4w",

@@ -5,7 +5,7 @@ defmodule Mix.Tasks.WebPush.Gen.Keypair do
     IO.puts("""
     # Put the following in your config.exs:
 
-    config :web_push_encryption, :vapid_details,
+    config :gsmlg_web_push, :vapid_details,
       subject: "mailto:administrator@gsmlg.com",
       public_key: "#{ub64(public)}",
       private_key: "#{ub64(private)}"

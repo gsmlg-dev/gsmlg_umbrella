@@ -5,21 +5,10 @@ defmodule GSMLG.Application do
 
   @impl true
   def start(_type, _args) do
-
-    {:ok, whisper} = Bumblebee.load_model({:hf, "openai/whisper-tiny"})
-    {:ok, featurizer} = Bumblebee.load_featurizer({:hf, "openai/whisper-tiny"})
-    {:ok, tokenizer} = Bumblebee.load_tokenizer({:hf, "openai/whisper-tiny"})
-    {:ok, generation_config} = Bumblebee.load_generation_config({:hf, "openai/whisper-tiny"})
-
-    serving =
-      Bumblebee.Audio.speech_to_text_whisper(whisper, featurizer, tokenizer, generation_config,
-        defn_options: [compiler: EXLA]
-      )
-
     children = [
-      {Nx.Serving, name: WhisperServing, serving: serving},
       {GSMLG.SimpleCache, []},
-      {Cachex, name: :aws_cache},
+      {GSMLG.AWS, []},
+      {GSMLG.Nx, []},
       {Phoenix.SessionProcess.Supervisor, name: GSMLG.SessionProcess},
       # Start the Ecto repository
       GSMLG.Repo,

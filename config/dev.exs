@@ -65,6 +65,7 @@ config :gsmlg_couchdb, GSMLG.CouchDB.Connection,
 
 config :phoenix_react_server, Phoenix.React,
   component_base: Path.expand("../apps/gsmlg_component/assets/component", __DIR__),
+  render_timeout: 30_000,
   cache_ttl: 5
 
 config :phoenix_react_server, Phoenix.React.Runtime.Bun,

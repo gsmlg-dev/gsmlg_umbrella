@@ -54,6 +54,8 @@ defmodule GSMLGAdminWeb.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.18"},
       {:gsmlg, in_umbrella: true},
+      {:gsmlg_aws, in_umbrella: true},
+      {:gsmlg_mnesia, in_umbrella: true},
       {:gsmlg_component, in_umbrella: true},
       {:gsmlg_web_push, in_umbrella: true},
       {:swoosh, "~> 1.3"},

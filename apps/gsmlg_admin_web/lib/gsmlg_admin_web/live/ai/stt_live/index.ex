@@ -3,15 +3,22 @@ defmodule GSMLGAdminWeb.AI.SttLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    files = File.ls!(Path.expand("static/uploads", :code.priv_dir(:gsmlg_admin_web)))
+    files =
+      File.ls!(Path.expand("static/uploads", :code.priv_dir(:gsmlg_admin_web)))
       |> Enum.map(fn f ->
         "/uploads/#{f}"
       end)
-    socket = socket
+
+    socket =
+      socket
       |> assign(active_menu: "stt_live")
       |> assign(:uploaded_files, files)
       |> assign(:speech_text, %{})
-      |> allow_upload(:audio_file, max_file_size: 100_000_000, accept: ~w(.mp3 .wav), max_entries: 1)
+      |> allow_upload(:audio_file,
+        max_file_size: 100_000_000,
+        accept: ~w(.mp3 .wav),
+        max_entries: 1
+      )
 
     {:ok, socket}
   end
@@ -30,7 +37,9 @@ defmodule GSMLGAdminWeb.AI.SttLive.Index do
   def handle_event("save", _params, socket) do
     uploaded_files =
       consume_uploaded_entries(socket, :audio_file, fn %{path: path}, _entry ->
-        dest = Path.join([:code.priv_dir(:gsmlg_admin_web), "static", "uploads", Path.basename(path)])
+        dest =
+          Path.join([:code.priv_dir(:gsmlg_admin_web), "static", "uploads", Path.basename(path)])
+
         # You will need to create `priv/static/uploads` for `File.cp!/2` to work.
         File.cp!(path, dest)
         {:ok, ~p"/uploads/#{Path.basename(dest)}"}
@@ -60,19 +69,19 @@ defmodule GSMLGAdminWeb.AI.SttLive.Index do
 
   @impl true
   def handle_info({:update_speech, file, ss, text}, socket) do
-    IO.puts "update speech #{file} #{ss} #{text}"
-    socket = socket
-    |> update(:speech_text, fn file_map ->
-      list = Map.get(file_map, file, [])
-      list = list ++ [{ss, text}]
-      file_map |> Map.put(file, list)
-    end)
-    IO.inspect socket.assigns.speech_text
+    socket =
+      socket
+      |> update(:speech_text, fn file_map ->
+        list = Map.get(file_map, file, [])
+        list = list ++ [{ss, text}]
+        file_map |> Map.put(file, list)
+      end)
 
     {:noreply, socket}
   end
+
   def handle_info(info, socket) do
-    IO.inspect {:unhandled_info, info}
+    IO.inspect({:unhandled_info, info})
     {:noreply, socket}
   end
 

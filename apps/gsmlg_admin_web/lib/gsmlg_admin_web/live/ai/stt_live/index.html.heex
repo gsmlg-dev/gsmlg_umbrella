@@ -1,6 +1,6 @@
 <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
   <div class="mx-4 my-2 flex flex-row justify-end">
-   Whisper Text to Speech
+    Whisper Text to Speech
   </div>
   <div class="flex flex-col">
     <form id="upload-form" class="flex gap-4" phx-submit="save" phx-change="validate">
@@ -26,10 +26,12 @@
           <div class="chip">
             {file}
           </div>
-          <button class="btn btn-secondary" phx-click="stt-file" phx-value-file={file}>Speech to Text</button>
+          <button class="btn btn-secondary" phx-click="stt-file" phx-value-file={file}>
+            Speech to Text
+          </button>
         </div>
         <div class="flex flex-col">
-          <div :for={{ss, text} <- (@speech_text[file] || [])} class="flex flex-row gap-4">
+          <div :for={{ss, text} <- @speech_text[file] || []} class="flex flex-row gap-4">
             <span>{ss}:</span> <span>{text}</span>
           </div>
         </div>
