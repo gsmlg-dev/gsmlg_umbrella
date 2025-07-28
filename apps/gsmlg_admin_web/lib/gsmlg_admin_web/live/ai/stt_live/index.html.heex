@@ -12,11 +12,20 @@
       <article :for={entry <- @uploads.audio_file.entries} class="upload-entry">
         <div>{entry.client_name}</div>
 
-        <progress value={entry.progress} max="100"> {entry.progress}% </progress>
+        <progress value={entry.progress} max="100">{entry.progress}%</progress>
 
-        <button type="button" phx-click="cancel-upload" phx-value-ref={entry.ref} aria-label="cancel">&times;</button>
+        <button
+          type="button"
+          phx-click="cancel-upload"
+          phx-value-ref={entry.ref}
+          aria-label="cancel"
+        >
+          &times;
+        </button>
 
-        <p :for={err <- upload_errors(@uploads.audio_file, entry)} class="alert alert-danger">{error_to_string(err)}</p>
+        <p :for={err <- upload_errors(@uploads.audio_file, entry)} class="alert alert-danger">
+          {error_to_string(err)}
+        </p>
       </article>
     </section>
 

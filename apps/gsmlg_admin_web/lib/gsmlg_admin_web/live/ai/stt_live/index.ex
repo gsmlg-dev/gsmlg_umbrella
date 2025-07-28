@@ -53,7 +53,7 @@ defmodule GSMLGAdminWeb.AI.SttLive.Index do
     view_id = self()
 
     Task.async(fn ->
-      GSMLG.Audio.speech_to_text(realpath, 20, fn ss, out ->
+      GSMLG.Nx.Audio.speech_to_text(realpath, 20, fn ss, out ->
         # IO.inspect({ss, out})
         Process.send_after(view_id, {:update_speech, file, ss, out}, 1000)
       end)
