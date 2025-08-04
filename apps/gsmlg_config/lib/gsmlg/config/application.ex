@@ -9,6 +9,6 @@ defmodule GSMLG.Config.Application do
       {GSMLG.Config, []}
     ]
 
-    Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Supervisor)
+    Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Config.Supervisor)
   end
 end

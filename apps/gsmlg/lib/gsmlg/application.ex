@@ -6,11 +6,14 @@ defmodule GSMLG.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {Task,
-       fn _ ->
-         GSMLG.Config.config()
-         |> GSMLG.Config.Setup.setup()
-       end},
+      Supervisor.child_spec(
+        {Task,
+         fn ->
+           GSMLG.Config.config()
+           |> GSMLG.Config.Setup.setup()
+         end},
+        id: :pre_start
+      ),
       {GSMLG.SimpleCache, []},
       {GSMLG.AWS, []},
       {GSMLG.Nx, []},
