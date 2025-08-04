@@ -40,6 +40,7 @@ defmodule GSMLG.MixProject do
       {:tesla, "~> 1.11"},
       {:finch, "~> 0.19"},
       {:cachex, "~> 4.0"},
+      {:gsmlg_config, in_umbrella: true},
       {:gsmlg_aws, in_umbrella: true},
       {:gsmlg_mnesia, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},

@@ -44,8 +44,6 @@ config :gsmlg_web,
 # Configures the endpoint
 config :gsmlg_web, GSMLG.Web.Endpoint,
   adapter: Bandit.PhoenixAdapter,
-  url: [host: "gsmlg.org", port: 443, scheme: "https"],
-  secret_key_base: "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr",
   render_errors: [
     formats: [html: GSMLG.Web.ErrorHTML, json: GSMLG.Web.ErrorJSON],
     layout: false
@@ -53,14 +51,9 @@ config :gsmlg_web, GSMLG.Web.Endpoint,
   pubsub_server: GSMLG.PubSub,
   live_view: [signing_salt: "gmmaSSOy"]
 
-admin_secret_key_base = "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr"
-
 # Configures the endpoint
 config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
-  url: [host: "admin.gsmlg.org", port: 443, scheme: "https"],
-  secret_key_base: admin_secret_key_base,
-  commander_platform_key: admin_secret_key_base,
   render_errors: [
     formats: [html: GSMLG.AdminWeb.ErrorHTML, json: GSMLG.AdminWeb.ErrorJSON],
     layout: false
@@ -112,9 +105,9 @@ config :phoenix, :json_library, Jason
 
 # Notice `config :mnesia, dir:` value type is `chart_list`
 mnesia_dir =
-  String.to_charlist(Path.expand("../_build/tmp/mnesia/#{Mix.env()}/#{node()}", __DIR__))
+  Path.expand("../_build/tmp/mnesia/#{Mix.env()}/#{node()}", __DIR__)
 
-config :mnesia, dir: mnesia_dir
+config :mnesia, dir: to_charlist(mnesia_dir)
 
 config :gsmlg_couchdb, GSMLG.CouchDB.Connection, scheme: :http
 
@@ -124,11 +117,6 @@ config :gsmlg_tor, GSMLG.Tor.Config,
   conf_path: nil,
   conf: nil
 
-config :gsmlg_commander, GSMLG.Commander,
-  name: "gsmlg_commander",
-  platform_url: "ws://localhost:4111/socket/websocket",
-  secret_key_base: admin_secret_key_base
-
 config :tesla,
   adapter: {Tesla.Adapter.Finch, name: GSMLG.Finch}
 
@@ -136,12 +124,6 @@ config :tesla,
 config :mime, :types, %{
   "text/plain" => ["livemd"]
 }
-
-config :gsmlg_web_push, :vapid_details,
-  subject: "mailto:administrator@gsmlg.com",
-  public_key:
-    "BIiu8m_dqtrKSvdquIqUJxsrkwswa0Zgep4myzmHlUcHjEtRdxdK4bZAEAd4dhFTARNGrbIkOJIcjdn13Z-yC4w",
-  private_key: "7mYUWrgUKIE_YGuFaIw2bRO0WjreR0iY6WoE7mDwbak"
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

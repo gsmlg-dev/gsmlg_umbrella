@@ -8,10 +8,6 @@ defmodule GSMLG.Commander.GreatHall do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  # message = %{hello: :world}
-  # {:ok, ^message} = PhoenixClient.Channel.push(channel, "new:msg", message)
-  # :ok = PhoenixClient.Channel.push_async(channel, "new:msg_async", message)
-
   def get_state() do
     GenServer.call(__MODULE__, :get_state)
   end
@@ -38,8 +34,24 @@ defmodule GSMLG.Commander.GreatHall do
 
   @impl true
   def init([]) do
-    Process.send_after(__MODULE__, :join, 5_000)
-    {:ok, %{peons: [], jobs: [], office: nil}}
+    {:ok, %{peons: [], jobs: [], office: nil}, {:continue, :join}}
+  end
+
+  @impl true
+  def handle_continue(:join, state) do
+    case Channel.join(GSMLG.Commander.Socket, "command_platform:commanders") do
+      {:ok, response, channel} ->
+        Logger.info("GreatHall join success: " <> inspect(response))
+        state = state |> Map.put(:office, channel)
+        Process.send_after(__MODULE__, :ping, 60_000)
+        {:noreply, state}
+
+      {:error, reason} ->
+        Logger.error("GreatHall join failed: " <> inspect(reason))
+        Process.send_after(__MODULE__, :join, 15_000)
+        Logger.debug("GreatHall join failed: " <> "rejoin after 15 seconds.")
+        {:noreply, state}
+    end
   end
 
   @impl true

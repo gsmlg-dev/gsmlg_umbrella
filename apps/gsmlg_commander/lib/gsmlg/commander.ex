@@ -1,7 +1,29 @@
 defmodule GSMLG.Commander do
   @moduledoc """
-  Documentation for `GSMLG.Commander`.
+  # `GSMLG.Commander` is the worker of the GSMLG.CommandPlatform.
   """
+
+  use Application
+
+  @impl true
+  def start(_type, _args) do
+    config =
+      if Process.whereis(GSMLG.Config) do
+        []
+      else
+        [{GSMLG.Config, []}]
+      end
+
+    children =
+      config ++
+        [
+          {PhoenixClient.Socket, {socket_opts(), name: GSMLG.Commander.Socket}},
+          {GSMLG.Commander.GreatHall, []},
+          {GSMLG.Commander.Resource, []}
+        ]
+
+    Supervisor.start_link(children, strategy: :one_for_one, name: __MODULE__)
+  end
 
   @doc """
   Return socket connection options
@@ -10,8 +32,8 @@ defmodule GSMLG.Commander do
     config = Application.get_env(:gsmlg_commander, GSMLG.Commander)
 
     url = config |> Keyword.get(:platform_url)
-    priv_key = config |> Keyword.get(:secret_key_base)
-    name = config |> Keyword.get(:name)
+    priv_key = config |> Keyword.get(:platform_key)
+    name = config |> Keyword.get(:name, "commander-#{Enum.random(100_000..999_999)}")
 
     sign_at = :os.system_time(:seconds)
 

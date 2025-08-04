@@ -1,8 +1,13 @@
-defmodule GSMLG.Commander.Commander do
+defmodule GSMLG.Commander.Resource do
   use DynamicSupervisor
 
   def start_link(_arg) do
     DynamicSupervisor.start_link(__MODULE__, [], name: __MODULE__)
+  end
+
+  @impl true
+  def init([]) do
+    DynamicSupervisor.init(strategy: :one_for_one)
   end
 
   def hire_peon() do
@@ -23,9 +28,5 @@ defmodule GSMLG.Commander.Commander do
         }
   def units_info() do
     DynamicSupervisor.count_children(__MODULE__)
-  end
-
-  def init([]) do
-    DynamicSupervisor.init(strategy: :one_for_one)
   end
 end
