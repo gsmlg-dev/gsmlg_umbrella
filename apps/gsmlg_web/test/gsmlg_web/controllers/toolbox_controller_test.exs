@@ -1,5 +1,5 @@
-defmodule GSMLGWeb.ToolboxControllerTest do
-  use GSMLGWeb.ConnCase
+defmodule GSMLG.Web.ToolboxControllerTest do
+  use GSMLG.Web.ConnCase
 
   describe "index" do
     test "lists all tools", %{conn: conn} do

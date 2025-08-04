@@ -19,7 +19,7 @@ if config_env() == :prod do
       secret_key_base =
         System.get_env("SECRET_KEY_BASE")
 
-      config :gsmlg_web, GSMLGWeb.Endpoint,
+      config :gsmlg_web, GSMLG.Web.Endpoint,
         http: [
           # Enable IPv6 and bind on all interfaces.
           # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
@@ -28,15 +28,15 @@ if config_env() == :prod do
         ],
         secret_key_base: secret_key_base
 
-      config :gsmlg_web, GSMLGWeb.Endpoint, server: true
+      config :gsmlg_web, GSMLG.Web.Endpoint, server: true
 
       if System.get_env("HOST") do
         host = System.get_env("HOST")
         port = String.to_integer(System.get_env("HOST_PORT", "443"))
-        config :gsmlg_web, GSMLGWeb.Endpoint, url: [host: host, port: port, scheme: "https"]
+        config :gsmlg_web, GSMLG.Web.Endpoint, url: [host: host, port: port, scheme: "https"]
       end
 
-      config :gsmlg_web, GSMLGWeb.Endpoint,
+      config :gsmlg_web, GSMLG.Web.Endpoint,
         user_register: System.get_env("USER_REGISTER") == "on",
         enable_adsense: System.get_env("ENABLE_ADSENSE", "no"),
         show_icp: System.get_env("SHOW_ICP", "no")
@@ -44,7 +44,7 @@ if config_env() == :prod do
       admin_secret_key_base =
         System.get_env("ADMIN_SECRET_KEY_BASE") || System.get_env("SECRET_KEY_BASE")
 
-      config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+      config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
         http: [
           # Enable IPv6 and bind on all interfaces.
           # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
@@ -54,17 +54,17 @@ if config_env() == :prod do
         secret_key_base: admin_secret_key_base,
         commander_platform_key: System.get_env("COMMANDER_PLATFORM_KEY", admin_secret_key_base)
 
-      config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint, server: true
+      config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint, server: true
 
       if System.get_env("ADMIN_HOST") do
         host = System.get_env("ADMIN_HOST")
         port = System.get_env("ADMIN_HOST_PORT", "443") |> String.to_integer()
 
-        config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+        config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
           url: [host: host, port: port, scheme: "https"]
       end
 
-      config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+      config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
         user_register: System.get_env("USER_REGISTER") == "on"
 
     _ ->

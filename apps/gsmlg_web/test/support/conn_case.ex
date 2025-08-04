@@ -1,4 +1,4 @@
-defmodule GSMLGWeb.ConnCase do
+defmodule GSMLG.Web.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -11,7 +11,7 @@ defmodule GSMLGWeb.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use GSMLGWeb.ConnCase, async: true`, although
+  by setting `use GSMLG.Web.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -20,14 +20,14 @@ defmodule GSMLGWeb.ConnCase do
   using do
     quote do
       # The default endpoint for testing
-      @endpoint GSMLGWeb.Endpoint
+      @endpoint GSMLG.Web.Endpoint
 
-      use GSMLGWeb, :verified_routes
+      use GSMLG.Web, :verified_routes
 
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import GSMLGWeb.ConnCase
+      import GSMLG.Web.ConnCase
     end
   end
 

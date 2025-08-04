@@ -1,11 +1,11 @@
-defmodule GSMLGWeb.NodeChannelTest do
-  use GSMLGWeb.ChannelCase
+defmodule GSMLG.Web.NodeChannelTest do
+  use GSMLG.Web.ChannelCase
 
   setup do
     {:ok, _, socket} =
-      GSMLGWeb.UserSocket
+      GSMLG.Web.UserSocket
       |> socket("user_id", %{some: :assign})
-      |> subscribe_and_join(GSMLGWeb.NodeChannel, "node:lobby")
+      |> subscribe_and_join(GSMLG.Web.NodeChannel, "node:lobby")
 
     %{socket: socket}
   end

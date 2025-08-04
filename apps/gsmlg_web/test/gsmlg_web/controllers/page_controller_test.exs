@@ -1,5 +1,5 @@
-defmodule GSMLGWeb.PageControllerTest do
-  use GSMLGWeb.ConnCase
+defmodule GSMLG.Web.PageControllerTest do
+  use GSMLG.Web.ConnCase
 
   test "GET /", %{conn: conn} do
     conn = get(conn, "/")

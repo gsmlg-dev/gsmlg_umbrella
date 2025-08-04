@@ -14,7 +14,7 @@ defmodule GSMLG.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      xref: [exclude: [GSMLGWeb.Endpoint]]
+      xref: [exclude: [GSMLG.Web.Endpoint]]
     ]
   end
 

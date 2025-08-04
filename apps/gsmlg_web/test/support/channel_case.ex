@@ -1,4 +1,4 @@
-defmodule GSMLGWeb.ChannelCase do
+defmodule GSMLG.Web.ChannelCase do
   @moduledoc """
   This module defines the test case to be used by
   channel tests.
@@ -11,7 +11,7 @@ defmodule GSMLGWeb.ChannelCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use GSMLGWeb.ChannelCase, async: true`, although
+  by setting `use GSMLG.Web.ChannelCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -21,10 +21,10 @@ defmodule GSMLGWeb.ChannelCase do
     quote do
       # Import conveniences for testing with channels
       import Phoenix.ChannelTest
-      import GSMLGWeb.ChannelCase
+      import GSMLG.Web.ChannelCase
 
       # The default endpoint for testing
-      @endpoint GSMLGWeb.Endpoint
+      @endpoint GSMLG.Web.Endpoint
     end
   end
 

@@ -1,5 +1,5 @@
-defmodule GSMLGWeb.BlogControllerTest do
-  use GSMLGWeb.ConnCase
+defmodule GSMLG.Web.BlogControllerTest do
+  use GSMLG.Web.ConnCase
 
   setup %{conn: conn} do
     {:ok, conn: put_req_header(conn, "accept", "application/json")}

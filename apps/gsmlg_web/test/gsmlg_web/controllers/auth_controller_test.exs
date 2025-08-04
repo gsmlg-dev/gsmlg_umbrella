@@ -1,5 +1,5 @@
-defmodule GSMLGWeb.AuthControllerTest do
-  use GSMLGWeb.ConnCase
+defmodule GSMLG.Web.AuthControllerTest do
+  use GSMLG.Web.ConnCase
 
   describe "sign in" do
     test "sign in page", %{conn: conn} do

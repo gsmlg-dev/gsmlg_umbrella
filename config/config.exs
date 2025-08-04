@@ -7,11 +7,11 @@ config :gsmlg,
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Local
 
 # Setup guardian
-config :gsmlg_web, GSMLGWeb.Guardian,
+config :gsmlg_web, GSMLG.Web.Guardian,
   issuer: "gsmlg",
   secret_key: "s5XC5yzTm66tg+1pbiQiJxWNUAvPK4UeAOUJVO1VYkrT2cyr/1usjyYHr8K2ymLc"
 
-config :gsmlg_admin_web, GSMLGAdminWeb.Guardian,
+config :gsmlg_admin_web, GSMLG.AdminWeb.Guardian,
   issuer: "gsmlg",
   secret_key: "s5XC5yzTm66tg+1pbiQiJxWNUAvPK4UeAOUJVO1VYkrT2cyr/1usjyYHr8K2ymLc"
 
@@ -37,17 +37,17 @@ config :ueberauth, Ueberauth,
 config :swoosh, :api_client, false
 
 config :gsmlg_web,
-  namespace: GSMLGWeb,
+  namespace: GSMLG.Web,
   ecto_repos: [GSMLG.Repo],
   generators: [context_app: :gsmlg]
 
 # Configures the endpoint
-config :gsmlg_web, GSMLGWeb.Endpoint,
+config :gsmlg_web, GSMLG.Web.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   url: [host: "gsmlg.org", port: 443, scheme: "https"],
   secret_key_base: "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr",
   render_errors: [
-    formats: [html: GSMLGWeb.ErrorHTML, json: GSMLGWeb.ErrorJSON],
+    formats: [html: GSMLG.Web.ErrorHTML, json: GSMLG.Web.ErrorJSON],
     layout: false
   ],
   pubsub_server: GSMLG.PubSub,
@@ -56,13 +56,13 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
 admin_secret_key_base = "oHywixWzSdklwLkMiE+SUaNdMDu5gTcmEggpHA9LhRTdb8DgLWBDQNXrOu0wCLEr"
 
 # Configures the endpoint
-config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   url: [host: "admin.gsmlg.org", port: 443, scheme: "https"],
   secret_key_base: admin_secret_key_base,
   commander_platform_key: admin_secret_key_base,
   render_errors: [
-    formats: [html: GSMLGAdminWeb.ErrorHTML, json: GSMLGAdminWeb.ErrorJSON],
+    formats: [html: GSMLG.AdminWeb.ErrorHTML, json: GSMLG.AdminWeb.ErrorJSON],
     layout: false
   ],
   pubsub_server: GSMLG.PubSub,

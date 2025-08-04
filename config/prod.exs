@@ -1,10 +1,10 @@
 import Config
 
-config :gsmlg_web, GSMLGWeb.Endpoint,
+config :gsmlg_web, GSMLG.Web.Endpoint,
   url: [host: "gsmlg.org", port: 443, scheme: "https"],
   cache_static_manifest: "priv/static/cache_manifest.json"
 
-config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   url: [host: "admin.gsmlg.org", port: 443, scheme: "https"],
   cache_static_manifest: "priv/static/cache_manifest.json"
 

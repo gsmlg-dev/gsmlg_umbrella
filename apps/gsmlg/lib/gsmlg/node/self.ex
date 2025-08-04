@@ -133,10 +133,10 @@ defmodule GSMLG.Node.Self do
 
   def broadcast(room, event, opts) do
     try do
-      GSMLGWeb.Endpoint.broadcast(room, event, opts)
+      GSMLG.Web.Endpoint.broadcast(room, event, opts)
     rescue
       _ ->
-        Logger.error("Failed to broadcast to GSMLGWeb.Endpoint",
+        Logger.error("Failed to broadcast to GSMLG.Web.Endpoint",
           room: room,
           event: event,
           opts: opts

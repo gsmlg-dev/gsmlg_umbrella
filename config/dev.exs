@@ -9,7 +9,7 @@ config :gsmlg, GSMLG.Repo,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
 
-config :gsmlg_web, GSMLGWeb.Endpoint,
+config :gsmlg_web, GSMLG.Web.Endpoint,
   http: [ip: {0, 0, 0, 0}, port: System.get_env("WEB_PORT", "4110") |> String.to_integer()],
   debug_errors: true,
   code_reloader: true,
@@ -27,7 +27,7 @@ config :gsmlg_web, GSMLGWeb.Endpoint,
     ]
   ]
 
-config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   http: [ip: {0, 0, 0, 0}, port: System.get_env("ADMIN_PORT", "4111") |> String.to_integer()],
   debug_errors: true,
   code_reloader: true,

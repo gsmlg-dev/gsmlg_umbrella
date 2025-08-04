@@ -8,11 +8,11 @@ config :gsmlg, GSMLG.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 
-config :gsmlg_web, GSMLGWeb.Endpoint,
+config :gsmlg_web, GSMLG.Web.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4112],
   server: false
 
-config :gsmlg_admin_web, GSMLGAdminWeb.Endpoint,
+config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4113],
   server: false
 
