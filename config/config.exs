@@ -124,7 +124,7 @@ config :gsmlg_tor, GSMLG.Tor.Config,
   conf_path: nil,
   conf: nil
 
-config :gsmlg_commander, GSMLGCommander,
+config :gsmlg_commander, GSMLG.Commander,
   name: "gsmlg_commander",
   platform_url: "ws://localhost:4111/socket/websocket",
   secret_key_base: admin_secret_key_base

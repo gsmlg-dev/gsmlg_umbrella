@@ -1,4 +1,4 @@
-defmodule GSMLGCommander.Peon do
+defmodule GSMLG.Commander.Peon do
   use GenServer
 
   def start_link(arg) when is_integer(arg) do

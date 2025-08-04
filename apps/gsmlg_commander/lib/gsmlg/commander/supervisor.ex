@@ -1,4 +1,4 @@
-defmodule GSMLGCommander.Supervior do
+defmodule GSMLG.Commander.Supervior do
   # Automatically defines child_spec/1
   use Supervisor
   require Logger
@@ -9,12 +9,12 @@ defmodule GSMLGCommander.Supervior do
 
   @impl true
   def init(_init_arg) do
-    socket_opts = GSMLGCommander.socket_opts()
-    Logger.info("start GSMLGCommander.Supervior: " <> inspect(socket_opts))
+    socket_opts = GSMLG.Commander.socket_opts()
+    Logger.info("start GSMLG.Commander.Supervior: " <> inspect(socket_opts))
 
     children = [
-      {PhoenixClient.Socket, {socket_opts, name: GSMLGCommander.Socket}},
-      {GSMLGCommander.GreatHall, []}
+      {PhoenixClient.Socket, {socket_opts, name: GSMLG.Commander.Socket}},
+      {GSMLG.Commander.GreatHall, []}
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)

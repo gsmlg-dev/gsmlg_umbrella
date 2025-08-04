@@ -1,4 +1,4 @@
-defmodule GSMLGCommander.GreatHall do
+defmodule GSMLG.Commander.GreatHall do
   use GenServer
   require Logger
 
@@ -49,7 +49,7 @@ defmodule GSMLGCommander.GreatHall do
 
   @impl true
   def handle_info(:join, state) do
-    case Channel.join(GSMLGCommander.Socket, "command_platform:commanders") do
+    case Channel.join(GSMLG.Commander.Socket, "command_platform:commanders") do
       {:ok, response, channel} ->
         Logger.info("GreatHall join success: " <> inspect(response))
         state = state |> Map.put(:office, channel)

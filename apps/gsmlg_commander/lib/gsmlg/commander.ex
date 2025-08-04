@@ -1,13 +1,13 @@
-defmodule GSMLGCommander do
+defmodule GSMLG.Commander do
   @moduledoc """
-  Documentation for `GSMLGCommander`.
+  Documentation for `GSMLG.Commander`.
   """
 
   @doc """
   Return socket connection options
   """
   def socket_opts() do
-    config = Application.get_env(:gsmlg_commander, GSMLGCommander)
+    config = Application.get_env(:gsmlg_commander, GSMLG.Commander)
 
     url = config |> Keyword.get(:platform_url)
     priv_key = config |> Keyword.get(:secret_key_base)

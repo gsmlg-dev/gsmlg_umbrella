@@ -92,10 +92,10 @@ if config_env() == :prod do
     config :mnesia, dir: mnesia_dir
   end
 
-  case Code.ensure_compiled(GSMLGCommander) do
+  case Code.ensure_compiled(GSMLG.Commander) do
     {:module, _} ->
       if System.get_env("COMMANDER_NAME") do
-        config :gsmlg_commander, GSMLGCommander,
+        config :gsmlg_commander, GSMLG.Commander,
           name: System.get_env("COMMANDER_NAME"),
           platform_url:
             System.get_env("COMMANDER_PLATFORM_URL", "wss://admin.gsmlg.org/socket/websocket"),

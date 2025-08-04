@@ -1,4 +1,4 @@
-defmodule GSMLGCommander.Application do
+defmodule GSMLG.Commander.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -8,8 +8,8 @@ defmodule GSMLGCommander.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {GSMLGCommander.Supervior, []},
-      {GSMLGCommander.Commander, []}
+      {GSMLG.Commander.Supervior, []},
+      {GSMLG.Commander.Commander, []}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: __MODULE__)

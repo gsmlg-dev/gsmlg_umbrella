@@ -1,4 +1,4 @@
-defmodule GSMLGCommander.Commander do
+defmodule GSMLG.Commander.Commander do
   use DynamicSupervisor
 
   def start_link(_arg) do

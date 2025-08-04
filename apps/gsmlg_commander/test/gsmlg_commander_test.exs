@@ -1,9 +1,9 @@
-defmodule GSMLGCommanderTest do
+defmodule GSMLG.CommanderTest do
   use ExUnit.Case
-  doctest GSMLGCommander
+  doctest GSMLG.Commander
 
   test "return socket opts to have :url and :params" do
-    assert {:ok, _} = GSMLGCommander.socket_opts() |> Keyword.fetch(:url)
-    assert {:ok, _} = GSMLGCommander.socket_opts() |> Keyword.fetch(:params)
+    assert {:ok, _} = GSMLG.Commander.socket_opts() |> Keyword.fetch(:url)
+    assert {:ok, _} = GSMLG.Commander.socket_opts() |> Keyword.fetch(:params)
   end
 end

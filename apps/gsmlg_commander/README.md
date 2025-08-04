@@ -1,4 +1,4 @@
-# GSMLGCommander
+# GSMLG.Commander
 
 **TODO: Add description**
 
