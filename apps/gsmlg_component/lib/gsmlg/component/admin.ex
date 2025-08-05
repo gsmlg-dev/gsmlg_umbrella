@@ -61,7 +61,12 @@ defmodule GSMLG.Component.Admin do
                    {"User List", "/users"},
                    {"User Token List", "/user_tokens"},
                    {"Blog List", "/blogs"},
+                   {"Web Push", "/web_push"},
                    {"Github", "/github"}
+                 ]},
+                {"Bumblebee Overview",
+                 [
+                   {"Whisper Speech to Text", "/bumblebee/stt"}
                  ]},
                 {"Cluster Overview",
                  [
