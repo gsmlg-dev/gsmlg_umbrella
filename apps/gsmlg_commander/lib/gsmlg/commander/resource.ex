@@ -10,14 +10,23 @@ defmodule GSMLG.Commander.Resource do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  def hire_peon() do
-    # spec = %{id: CourseState, start: {DeployState, :start_link, []}}
-    # DynamicSupervisor.start_child(__MODULE__, spec)
+  def hire_peon(id) do
+    spec =
+      {GSMLG.Commander.Peon, 0}
+      |> Supervisor.child_spec(id: id)
+
+    DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
-  def dismissal_peon() do
-    # spec = %{id: CourseState, start: {DeployState, :start_link, []}}
-    # DynamicSupervisor.start_child(__MODULE__, spec)
+  def dismissal_peon(peon_id) do
+    pid =
+      DynamicSupervisor.which_children(__MODULE__)
+      |> Enum.find_value(fn
+        [id, pid, _, _] when id == peon_id -> pid
+        _ -> nil
+      end)
+
+    DynamicSupervisor.terminate_child(__MODULE__, pid)
   end
 
   @spec units_info() :: %{

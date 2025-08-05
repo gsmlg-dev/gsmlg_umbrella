@@ -54,7 +54,6 @@ defmodule GSMLG.AdminWeb.CommandPlatformChannel do
   """
   require Logger
   use Phoenix.Channel
-  # alias Guardian.Phoenix.Socket
   alias Phoenix.Socket.Broadcast
   alias GSMLG.CommandPlatform
 

@@ -20,6 +20,16 @@ defmodule GSMLG.AdminWeb.Endpoint do
 
   socket("/socket", GSMLG.AdminWeb.UserSocket, websocket: @websocket_options)
 
+  socket("/commander-socket", GSMLG.AdminWeb.CommanderSocket,
+    websocket: [
+      connect_info: [
+        :peer_data,
+        :uri
+      ]
+    ],
+    longpoll: false
+  )
+
   plug Plug.Static,
     at: "/",
     from: :gsmlg_admin_web,

@@ -39,7 +39,7 @@ defmodule GSMLG.Commander.GreatHall do
 
   @impl true
   def handle_continue(:join, state) do
-    case Channel.join(GSMLG.Commander.Socket, "command_platform:commanders") do
+    case Channel.join(GSMLG.Commander.Socket, "command_platform") do
       {:ok, response, channel} ->
         Logger.info("GreatHall join success: " <> inspect(response))
         state = state |> Map.put(:office, channel)
@@ -61,7 +61,7 @@ defmodule GSMLG.Commander.GreatHall do
 
   @impl true
   def handle_info(:join, state) do
-    case Channel.join(GSMLG.Commander.Socket, "command_platform:commanders") do
+    case Channel.join(GSMLG.Commander.Socket, "command_platform") do
       {:ok, response, channel} ->
         Logger.info("GreatHall join success: " <> inspect(response))
         state = state |> Map.put(:office, channel)
