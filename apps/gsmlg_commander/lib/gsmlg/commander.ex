@@ -29,7 +29,7 @@ defmodule GSMLG.Commander do
   Return socket connection options
   """
   def socket_opts() do
-    config = Application.get_env(:gsmlg_commander, GSMLG.Commander)
+    config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
 
     url = config |> Keyword.get(:platform_url)
     priv_key = config |> Keyword.get(:platform_key)

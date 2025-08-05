@@ -33,8 +33,8 @@ defmodule GSMLG.AdminWeb.UserSocket do
         connect_info
       ) do
     priv_key =
-      Application.get_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint)
-      |> Keyword.get(:commander_platform_key)
+      Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
+      |> Keyword.get(:platform_key)
 
     if :crypto.mac(:hmac, :sha256, priv_key, "#{commander_name}/#{sign_at}")
        |> Base.encode16()

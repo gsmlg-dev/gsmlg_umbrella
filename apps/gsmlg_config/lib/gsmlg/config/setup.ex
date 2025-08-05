@@ -84,7 +84,7 @@ defmodule GSMLG.Config.Setup do
       ],
       server: config[:server] != false,
       url: [host: uri.host, port: uri.port, scheme: uri.scheme, path: uri.path],
-      user_register: config[:user_register] == true,
+      user_register: config[:user_register] == true
     )
   end
 
@@ -122,7 +122,6 @@ defmodule GSMLG.Config.Setup do
     )
   end
 
-
   def update_env(app, key, new_value) do
     current = Application.get_env(app, key, [])
     merged = deep_merge(current, new_value)
@@ -142,5 +141,4 @@ defmodule GSMLG.Config.Setup do
   end
 
   defp deep_merge(_old, new), do: new
-
 end
