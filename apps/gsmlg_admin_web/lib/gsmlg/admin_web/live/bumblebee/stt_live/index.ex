@@ -1,5 +1,8 @@
-defmodule GSMLG.AdminWeb.AI.SttLive.Index do
-  use GSMLG.AdminWeb, :user_live_view
+defmodule GSMLG.AdminWeb.Bumblebee.SttLive.Index do
+  use GSMLG.AdminWeb, :live_view
+
+  use Phoenix.LiveView,
+    layout: {GSMLG.AdminWeb.Layouts, :bumblebee}
 
   @impl true
   def mount(_params, _session, socket) do

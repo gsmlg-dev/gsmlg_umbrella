@@ -100,7 +100,7 @@ defmodule GSMLG.AdminWeb.Router do
 
     live("/aws/s3/buckets", S3Live.Index, :list_buckets)
 
-    live("/ai/stt", AI.SttLive.Index, :index)
+    live("/bumblebee/stt", Bumblebee.SttLive.Index, :index)
 
     import Phoenix.LiveDashboard.Router
 
