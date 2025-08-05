@@ -22,7 +22,6 @@ url = "https://admin.gsmlg.org"
 secret_key_base = "o5xg8yDgSOFVrcrH4seZJ7+wJie4BHGOHmf9wP4mlhDFPPIqNETW8GU+gKVgrtFs"
 port = 4111
 user_register = false
-commander_platform_key = "o5xg8yDgSOFVrcrH4seZJ7+w"
 
 [commander]
 name = "commander"
