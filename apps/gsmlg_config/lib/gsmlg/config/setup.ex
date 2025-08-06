@@ -99,6 +99,7 @@ defmodule GSMLG.Config.Setup do
 
   def setup_commander(config) do
     update_env(:gsmlg_commander, GSMLG.Commander,
+      start: config[:start] == true,
       name: config[:name],
       platform_url: config[:platform_url],
       platform_key: config[:platform_key]

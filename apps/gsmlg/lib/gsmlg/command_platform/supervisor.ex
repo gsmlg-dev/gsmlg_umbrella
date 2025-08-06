@@ -8,6 +8,7 @@ defmodule GSMLG.CommandPlatform.Supervisor do
   @impl true
   def init(_) do
     children = [
+      {GSMLG.CommandPlatform.Agent, %{commanders: []}},
       {GSMLG.CommandPlatform, []}
     ]
 

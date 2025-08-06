@@ -24,3 +24,5 @@ gsmlg_commander-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+/commander.toml

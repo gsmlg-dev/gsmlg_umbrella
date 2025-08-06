@@ -22,23 +22,23 @@ defmodule GSMLG.CommandPlatform do
   end
 
   def list_commanders() do
-    GenServer.call(__MODULE__, :list_commanders)
+    CommandPlatform.Agent.commanders()
   end
 
   def list_command_results() do
     GenServer.call(__MODULE__, :list_command_results)
   end
 
-  def commander_joined(commander, msg) do
-    Logger.info("Commander joined: #{inspect(commander)} with: #{inspect(msg)}")
+  def commander_joined(commander) do
+    Logger.info("Commander joined: #{inspect(commander)}")
 
-    GenServer.cast(__MODULE__, {:commander_joined, commander})
+    CommandPlatform.Agent.add_commander(commander)
   end
 
-  def commander_leave(commander, reason) do
-    Logger.info("Commander leave: #{inspect(commander)} with: #{inspect(reason)}")
+  def commander_leave(commander) do
+    Logger.info("Commander leave: #{inspect(commander)}")
 
-    GenServer.cast(__MODULE__, {:commander_leave, commander})
+    CommandPlatform.Agent.remove_commander(commander)
   end
 
   def add_run_result(result) do
@@ -93,7 +93,7 @@ defmodule GSMLG.CommandPlatform do
     state =
       state
       |> update_in([:commanders], fn commanders ->
-        commanders |> Enum.filter(&(&1.name != commander.name))
+        commanders |> Enum.reject(&(&1.name == commander.name))
       end)
 
     Logger.debug("Commanders updated: #{inspect(state)}")

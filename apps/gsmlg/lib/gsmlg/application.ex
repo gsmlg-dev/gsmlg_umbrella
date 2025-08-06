@@ -18,6 +18,7 @@ defmodule GSMLG.Application do
       {GSMLG.AWS, []},
       {GSMLG.Nx, []},
       {Phoenix.SessionProcess.Supervisor, name: GSMLG.SessionProcess},
+      {Task.Supervisor, name: GSMLG.TaskSupervisor},
       # Start the Ecto repository
       GSMLG.Repo,
       # Start the PubSub system

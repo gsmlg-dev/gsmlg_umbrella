@@ -7,20 +7,20 @@ defmodule GSMLG.Commander do
 
   @impl true
   def start(_type, _args) do
-    config =
-      if Process.whereis(GSMLG.Config) do
-        []
-      else
-        [{GSMLG.Config, []}]
-      end
+    config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
+    start = config |> Keyword.get(:start, false)
 
     children =
-      config ++
+      if start do
         [
           {PhoenixClient.Socket, {socket_opts(), name: GSMLG.Commander.Socket}},
           {GSMLG.Commander.GreatHall, []},
+          {GSMLG.Commander.Office, []},
           {GSMLG.Commander.Resource, []}
         ]
+      else
+        []
+      end
 
     Supervisor.start_link(children, strategy: :one_for_one, name: __MODULE__)
   end
@@ -30,7 +30,6 @@ defmodule GSMLG.Commander do
   """
   def socket_opts() do
     config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
-
     url = config |> Keyword.get(:platform_url)
     priv_key = config |> Keyword.get(:platform_key)
     name = config |> Keyword.get(:name, "commander-#{Enum.random(100_000..999_999)}")
