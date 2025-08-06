@@ -16,9 +16,7 @@ ARG MIX_BUN_PATH=/usr/bin/bun
 ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-x64-musl
 ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-arm64-musl
 
-ARG DATABASE_URL=ecto://USER:PASS@HOST/DATABASE
-ARG ADMIN_SECRET_KEY_BASE=gsmlg-admin
-ARG SECRET_KEY_BASE=gsmlg_umbrella
+ARG XLA_BUILD=true
 
 ARG TARGETARCH
 
@@ -55,23 +53,14 @@ LABEL org.opencontainers.image.description="GSMLG Umbrella Project, running on E
 LABEL maintainer="Jonathan Gao <gsmlg.com@gmail.com>"
 LABEL RELEASE_VERSION="${RELEASE_VERSION}"
 
-ENV PORT=80
-ENV ADMIN_PORT=1080
 ENV REPLACE_OS_VARS=true
 ENV ERL_EPMD_PORT=4369
-ENV POD_IP=127.0.0.1
 ENV ERLCOOKIE=erlang_cookie
-ENV HOST=gsmlg.org
-ENV HOST_PORT=80
-ENV ADMIN_HOST=admin.gsmlg.org
-ENV ADMIN_HOST_PORT=80
-ENV DATABASE_URL=ecto://USER:PASS@HOST/DATABASE
-ENV POOL_SIZE=10
-ENV ADMIN_SECRET_KEY_BASE=gsmlg-admin
-ENV MNESIA_DIR=/var/lib/mnesia
-ENV SECRET_KEY_BASE=gsmlg_umbrella
 ENV BUN_BIN=/usr/bin/bun
 ENV BUN_SERVER_JS=/app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
+ENV GSMLG_CONFIG_PATH=/etc/gsmlg.toml
+
+COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg.toml
 
 COPY --from=builder /app /app
 COPY --from=builder /usr/bin/bun /usr/bin/bun

@@ -10,24 +10,14 @@ LABEL org.opencontainers.image.description="GSMLG Umbrella Project, running on E
 LABEL maintainer="Jonathan Gao <gsmlg.com@gmail.com>"
 LABEL RELEASE_VERSION="${RELEASE_VERSION}"
 
-ENV PORT=80 \
-    ADMIN_PORT=1080 \
-    REPLACE_OS_VARS=true \
-    ERL_EPMD_PORT=4369 \
+ENV ERL_EPMD_PORT=4369 \
     POD_IP=127.0.0.1 \
     ERLCOOKIE=erlang_cookie \
-    HOST=gsmlg.org \
-    HOST_PORT=80 \
-    ADMIN_HOST=admin.gsmlg.org \
-    ADMIN_HOST_PORT=80 \
-    DATABASE_URL=ecto://USER:PASS@HOST/DATABASE \
-    POOL_SIZE=10 \
-    ADMIN_SECRET_KEY_BASE=gsmlg-admin \
-    MNESIA_DIR=/var/lib/mnesia \
-    SECRET_KEY_BASE=gsmlg_umbrella
+    GSMLG_CONFIG_PATH=/etc/gsmlg.toml
 
 ENV PATH=/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg.toml
 COPY ./app /app
 
 RUN mkdir -p /var/lib/mnesia 

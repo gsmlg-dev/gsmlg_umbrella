@@ -34,16 +34,9 @@
           Entrypoint = ["/bin/gsmlg_umbrella"];
           Cmd = ["start"];
           Env = [
-            "PORT=4110"
-            "ADMIN_PORT=4111"
-            "PHX_HOST=gsmlg.org"
             "REPLACE_OS_VARS=true"
             "ERL_EPMD_PORT=4369"
             "ERLCOOKIE=96myjWoLCTZRko38UdngxxQo/SwP9vfga28/B6IL"
-            "POOL_SIZE=10"
-            "PHX_SERVER=true"
-            "RELEASE_COOKIE=3swYaASXT0ARmMHUjiDsesfoe9n=./SMQbQx6kX4+Z6+9S9YA2lS6lVNdQiX93Wv"
-            "SECRET_KEY_BASE=e1NY0tzLDkFHVlckQomf/J9RcV+lfxSrgSoxxs0LNSR8g;sY)$NwqUiGagasIkBD"
           ];
         };
       };
