@@ -17,7 +17,7 @@ defmodule GSMLG.AdminWeb.Router do
       error_handler: GSMLG.AdminWeb.Guardian.ApiAuthErrorHandler
     )
 
-    plug(Guardian.Plug.VerifyHeader, halt: false)
+    # plug(Guardian.Plug.VerifyHeader, halt: false)
     plug(Guardian.Plug.LoadResource, allow_blank: true)
   end
 
