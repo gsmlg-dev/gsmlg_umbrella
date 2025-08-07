@@ -32,7 +32,7 @@ defmodule GSMLG.PKI.ASN1 do
     certification_request_subject_pk_info_algorithm:
       :CertificationRequestInfo_subjectPKInfo_algorithm,
     certification_request_signature_algorithm: :CertificationRequest_signatureAlgorithm,
-    certification_request_attribute: :"AttributePKCS-10",
+    certification_request_attribute: :'CertificationRequestInfo_attributes_SETOF',
 
     # Certificates
     certificate: :Certificate,
@@ -82,7 +82,8 @@ defmodule GSMLG.PKI.ASN1 do
 
   # OIDs taken from :public_key's header files
   @oids OIDImport.from_lib("public_key/include/OTP-PUB-KEY.hrl") ++
-          OIDImport.from_lib("public_key/include/PKCS-FRAME.hrl")
+          OIDImport.from_lib("public_key/include/PKCS-FRAME.hrl") ++
+          OIDImport.from_lib("public_key/include/public_key.hrl")
 
   # OIDs defined as macros, so they may be used in pattern matching
   for {name, oid} <- @oids do
