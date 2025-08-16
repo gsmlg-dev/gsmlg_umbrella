@@ -18,7 +18,7 @@ defmodule GSMLG.PKI.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:crypto, :public_key, :logger, :ssl]
+      extra_applications: [:crypto, :public_key, :logger, :ssl, :syntax_tools]
     ]
   end
 

@@ -58,6 +58,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:gsmlg_mnesia, in_umbrella: true},
       {:gsmlg_component, in_umbrella: true},
       {:gsmlg_web_push, in_umbrella: true},
+      {:caddy, "~> 2.1"},
       {:swoosh, "~> 1.3"},
       {:jason, "~> 1.2"},
       {:guardian, "~> 2.0"},
