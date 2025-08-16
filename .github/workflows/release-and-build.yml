@@ -28,7 +28,7 @@ jobs:
       - name: 💊 Setup Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "27"
+          otp-version: "28"
           elixir-version: "1.18.4"
 
       - uses: oven-sh/setup-bun@v2
@@ -101,7 +101,7 @@ jobs:
       - name: 💊 Setup Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "27"
+          otp-version: "28"
           elixir-version: "1.18.4"
 
       - name: Setup zig
