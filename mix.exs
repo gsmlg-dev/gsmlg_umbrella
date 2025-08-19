@@ -16,6 +16,12 @@ defmodule GSMLG.Umbrella.MixProject do
           steps: [:assemble, :tar],
           applications: [
             gsmlg_commander: :permanent
+          ],
+          config_providers: [
+            {Toml.Provider, [
+              path: {:system, "XDG_CONFIG_DIR", "gsmlg_commander.toml"},
+              transforms: []
+            ]}
           ]
         ],
         gsmlg_umbrella: [
@@ -25,6 +31,12 @@ defmodule GSMLG.Umbrella.MixProject do
             gsmlg: :permanent,
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
+          ],
+          config_providers: [
+            {Toml.Provider, [
+              path: {:system, "XDG_CONFIG_DIR", "gsmlg_umbrella.toml"},
+              transforms: []
+            ]}
           ]
         ],
         gsmlg_umbrella_standalone: [
