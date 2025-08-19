@@ -30,7 +30,9 @@ defmodule Toml.CLI do
 
     # Validate format
     if opts[:format] != "json" do
-      fail!({:error, "Invalid conversion format '#{opts[:format]}'. Supported formats are: 'json'."})
+      fail!(
+        {:error, "Invalid conversion format '#{opts[:format]}'. Supported formats are: 'json'."}
+      )
     end
 
     input = input(opts)
