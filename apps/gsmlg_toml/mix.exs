@@ -64,7 +64,7 @@ defmodule Toml.MixProject do
   defp package do
     [
       files: ["lib", "mix.exs", "README.md", "LICENSE"],
-      maintainers: ["zcloud@zdns.cn"],
+      maintainers: ["Jonathan Gao"],
       licenses: ["Apache-2.0"],
       links: %{"Git" => @source_url}
     ]
