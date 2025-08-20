@@ -4,6 +4,10 @@ defmodule GSMLG.Config.Setup do
       setup_gsmlg(config[:gsmlg])
     end
 
+    if config[:logger] != nil do
+      setup_logger(config[:logger])
+    end
+
     if config[:database] != nil do
       setup_database(config[:database])
     end
@@ -34,13 +38,15 @@ defmodule GSMLG.Config.Setup do
   end
 
   def setup_gsmlg(config) do
-    log_level = config[:log_level] || "info"
-    GSMLG.Logger.configure_log_level!(log_level)
-
     if config[:mnesia_dir] != nil do
       mnesia_dir = config[:mnesia_dir] |> String.to_charlist()
       update_env(:mnesia, :dir, mnesia_dir)
     end
+  end
+
+  def setup_logger(config) do
+    log_level = config[:log_level] || "info"
+    GSMLG.Logger.configure_log_level!(log_level)
   end
 
   def setup_database(config) do

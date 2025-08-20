@@ -25,7 +25,7 @@ defmodule GSMLG.Nx do
 
     serving =
       Bumblebee.Audio.speech_to_text_whisper(whisper, featurizer, tokenizer, generation_config,
-        defn_options: [compiler: EXLA]
+        defn_options: []
       )
 
     serving

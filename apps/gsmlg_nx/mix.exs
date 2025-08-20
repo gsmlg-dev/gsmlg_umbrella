@@ -25,9 +25,9 @@ defmodule GSMLG.Nx.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:nx, "~> 0.9.0"},
       {:bumblebee, "~> 0.6.2"},
-      {:exla, ">= 0.0.0"}
+      # {:exla, ">= 0.0.0"},
+      {:nx, "~> 0.9.0"}
     ]
   end
 end
