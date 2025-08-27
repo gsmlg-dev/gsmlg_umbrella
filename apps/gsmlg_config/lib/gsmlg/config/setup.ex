@@ -40,7 +40,7 @@ defmodule GSMLG.Config.Setup do
   def setup_gsmlg(config) do
     if config[:mnesia_dir] != nil do
       mnesia_dir = config[:mnesia_dir] |> String.to_charlist()
-      update_env(:mnesia, :dir, mnesia_dir)
+      Application.put_env(:mnesia, :dir, mnesia_dir)
     end
   end
 

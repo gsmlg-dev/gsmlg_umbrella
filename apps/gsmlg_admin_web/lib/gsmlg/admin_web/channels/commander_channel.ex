@@ -6,7 +6,6 @@ defmodule GSMLG.AdminWeb.CommanderChannel do
   require Logger
   use Phoenix.Channel
   alias Phoenix.Socket.Broadcast
-  alias GSMLG.CommandPlatform
 
   @impl true
   def join("commander:" <> _name, _msg, socket) do
@@ -14,7 +13,7 @@ defmodule GSMLG.AdminWeb.CommanderChannel do
   end
 
   @impl true
-  def terminate(reason, socket) do
+  def terminate(_reason, _socket) do
     :ok
   end
 
