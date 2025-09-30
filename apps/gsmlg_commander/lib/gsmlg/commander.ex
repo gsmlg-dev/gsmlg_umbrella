@@ -9,11 +9,12 @@ defmodule GSMLG.Commander do
   def start(_type, _args) do
     config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
     start = config |> Keyword.get(:start, false)
+    Phoenix.SocketClient.Telemetry.attach_debug_handler()
 
     children =
       if start do
         [
-          {PhoenixClient.Socket, {socket_opts(), name: GSMLG.Commander.Socket}},
+          {Phoenix.SocketClient, socket_opts()},
           {GSMLG.Commander.GreatHall, []},
           {GSMLG.Commander.Office, []},
           {GSMLG.Commander.Resource, []}

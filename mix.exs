@@ -10,6 +10,7 @@ defmodule GSMLG.Umbrella.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
+      listeners: [Phoenix.CodeReloader],
       releases: [
         gsmlg_commander: [
           include_executables_for: [:unix],

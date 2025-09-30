@@ -8,6 +8,7 @@ defmodule GSMLG.Accounts do
 
   alias GSMLG.Accounts.User
   alias GSMLG.Accounts.UserToken
+  alias GSMLG.Accounts.Scope
 
   @doc """
   Returns the list of users.
@@ -235,4 +236,112 @@ defmodule GSMLG.Accounts do
   def change_user_token(%UserToken{} = user_token, attrs \\ %{}) do
     UserToken.changeset(user_token, attrs)
   end
+
+  ## Phoenix 1.8 Scoped Functions
+
+  @doc """
+  Returns the list of users scoped to the current user.
+
+  ## Examples
+
+      iex> list_users(scope)
+      [%User{}, ...]
+
+  """
+  def list_users(%Scope{} = scope) do
+    query =
+      from(u in User,
+        where: u.id == ^Scope.user_id(scope),
+        select: [
+          :id,
+          :username,
+          :name,
+          :email,
+          :is_active,
+          :portrait,
+          :google_id,
+          :apple_id,
+          :github_id,
+          :active_time
+        ]
+      )
+
+    Repo.all(query)
+  end
+
+  def list_users(nil), do: []
+
+  @doc """
+  Gets a single user scoped to the current user.
+
+  Raises `Ecto.NoResultsError` if the User does not exist or is not accessible.
+
+  ## Examples
+
+      iex> get_user!(scope, 123)
+      %User{}
+
+      iex> get_user!(scope, 456)
+      ** (Ecto.NoResultsError)
+
+  """
+  def get_user!(%Scope{} = scope, id) do
+    query =
+      from(u in User,
+        where: u.id == ^id and u.id == ^Scope.user_id(scope),
+        select: [
+          :id,
+          :username,
+          :name,
+          :email,
+          :is_active,
+          :portrait,
+          :google_id,
+          :apple_id,
+          :github_id,
+          :active_time
+        ]
+      )
+
+    Repo.get!(query, id)
+  end
+
+  def get_user!(nil, _id), do: raise(Ecto.NoResultsError, "no user found")
+
+  @doc """
+  Gets a single user scoped to the current user.
+
+  Returns `nil` if the User does not exist or is not accessible.
+
+  ## Examples
+
+      iex> get_user(scope, 123)
+      %User{}
+
+      iex> get_user(scope, 456)
+      nil
+
+  """
+  def get_user(%Scope{} = scope, id) do
+    query =
+      from(u in User,
+        where: u.id == ^id and u.id == ^Scope.user_id(scope),
+        select: [
+          :id,
+          :username,
+          :name,
+          :email,
+          :is_active,
+          :portrait,
+          :google_id,
+          :apple_id,
+          :github_id,
+          :active_time
+        ]
+      )
+
+    Repo.get(query, id)
+  end
+
+  def get_user(nil, _id), do: nil
 end

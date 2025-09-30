@@ -40,11 +40,15 @@ defmodule GSMLG.Web do
     quote do
       use Phoenix.Controller,
         namespace: GSMLG.Web,
-        formats: [:html, :json],
-        layouts: [html: {GSMLG.Web.Layouts, :app}]
+        formats: [:html, :json]
+        # Phoenix 1.8: Removed explicit layout configuration
+        # layouts: [html: {GSMLG.Web.Layouts, :app}]
 
       import Plug.Conn
       use Gettext, backend: GSMLG.Web.Gettext
+
+      # Phoenix 1.8: Add Layouts alias for explicit layout usage
+      alias GSMLG.Web.Layouts
 
       unquote(verified_routes())
     end
@@ -54,11 +58,15 @@ defmodule GSMLG.Web do
     quote do
       use Phoenix.Controller,
         namespace: GSMLG.Web,
-        formats: [:html, :json],
-        layouts: [html: {GSMLG.Web.Layouts, :tool}]
+        formats: [:html, :json]
+        # Phoenix 1.8: Removed explicit layout configuration
+        # layouts: [html: {GSMLG.Web.Layouts, :tool}]
 
       import Plug.Conn
       use Gettext, backend: GSMLG.Web.Gettext
+
+      # Phoenix 1.8: Add Layouts alias for explicit layout usage
+      alias GSMLG.Web.Layouts
 
       unquote(verified_routes())
     end
@@ -66,8 +74,12 @@ defmodule GSMLG.Web do
 
   def live_view do
     quote do
-      use Phoenix.LiveView,
-        layout: {GSMLG.Web.Layouts, :app}
+      use Phoenix.LiveView
+        # Phoenix 1.8: Removed explicit layout configuration
+        # layout: {GSMLG.Web.Layouts, :app}
+
+      # Phoenix 1.8: Add Layouts alias for explicit layout usage
+      alias GSMLG.Web.Layouts
 
       unquote(html_helpers())
     end

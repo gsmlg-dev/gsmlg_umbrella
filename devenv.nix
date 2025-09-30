@@ -11,6 +11,8 @@ in
     pkgs-stable.git
     pkgs-stable.figlet
     pkgs-stable.lolcat
+    pkgs-stable.watchman
+    pkgs-stable.inotify-tools
     pkgs-stable.tailwindcss_4
   ];
 

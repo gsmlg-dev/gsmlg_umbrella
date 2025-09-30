@@ -42,6 +42,22 @@ defmodule GSMLG.Config.Setup do
       mnesia_dir = config[:mnesia_dir] |> String.to_charlist()
       Application.put_env(:mnesia, :dir, mnesia_dir)
     end
+
+    if config[:tailwind_path] != nil do
+      tailwind_path = config[:tailwind_path]
+      Application.put_env(:tailwind, :path, tailwind_path)
+    else
+      tailwind_path = System.find_executable("tailwindcss")
+      Application.put_env(:tailwind, :path, tailwind_path)
+    end
+
+    if config[:bun_path] != nil do
+      bun_path = config[:bun_path]
+      Application.put_env(:bun, :path, bun_path)
+    else
+      bun_path = System.find_executable("bun")
+      Application.put_env(:bun, :path, bun_path)
+    end
   end
 
   def setup_logger(config) do

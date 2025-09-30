@@ -1,0 +1,28 @@
+<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8 text-center">
+    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+      <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      </svg>
+    </div>
+
+    <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+      Check your email
+    </h2>
+
+    <p class="mt-2 text-center text-sm text-gray-600">
+      We've sent a magic link to your email address.
+      Click the link in the email to sign in instantly.
+    </p>
+
+    <p class="mt-4 text-center text-xs text-gray-500">
+      The link will expire in 24 hours and can only be used once.
+    </p>
+
+    <div class="mt-6">
+      <a href={~p"/auth/magic-link/new"} class="text-indigo-600 hover:text-indigo-500 text-sm font-medium">
+        Didn't receive the email? Send another link
+      </a>
+    </div>
+  </div>
+</div>

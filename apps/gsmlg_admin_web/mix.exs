@@ -52,7 +52,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:earmark, "~> 1.4.37"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:gettext, "~> 0.18"},
+      {:gettext, "~> 0.18 or ~> 1.0"},
       {:gsmlg, in_umbrella: true},
       {:gsmlg_aws, in_umbrella: true},
       {:gsmlg_mnesia, in_umbrella: true},

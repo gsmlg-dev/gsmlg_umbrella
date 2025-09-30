@@ -23,6 +23,12 @@ defmodule GSMLG.Accounts.User do
     field(:verify_code, :integer)
     field(:username, :string)
 
+    # Phoenix 1.8 Magic Link Authentication Fields
+    field(:magic_link_token, :string)
+    field(:magic_link_sent_at, :utc_datetime)
+    field(:magic_link_confirmed_at, :utc_datetime)
+    field(:email_confirmed_at, :utc_datetime)
+
     has_many(:tokens, UserToken, foreign_key: :sub)
 
     timestamps()

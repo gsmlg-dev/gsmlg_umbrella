@@ -3,6 +3,7 @@ defmodule GSMLG.Commander.Office do
   require Logger
 
   alias PhoenixClient.{Channel, Message}
+  alias Phoenix.SocketClient
 
   def get_channel() do
     GenServer.call(__MODULE__, :get_channel)

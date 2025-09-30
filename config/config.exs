@@ -41,6 +41,20 @@ config :gsmlg_web,
   ecto_repos: [GSMLG.Repo],
   generators: [context_app: :gsmlg]
 
+# Phoenix 1.8 Scopes configuration for security-by-default
+config :gsmlg_web, :phoenix_generators,
+  scope: [
+    default: true,
+    module: GSMLG.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:user, :id],
+    schema_key: :user_id,
+    schema_table: :users,
+    schema_type: :string,
+    route_prefix: nil,
+    test_data_fixture: GSMLG.Accounts.Fixtures
+  ]
+
 # Configures the endpoint
 config :gsmlg_web, GSMLG.Web.Endpoint,
   adapter: Bandit.PhoenixAdapter,

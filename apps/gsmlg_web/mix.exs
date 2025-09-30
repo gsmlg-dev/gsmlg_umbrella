@@ -50,7 +50,7 @@ defmodule GSMLG.Web.MixProject do
       {:bun, "~> 1.4", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:gettext, "~> 0.18"},
+      {:gettext, "~> 0.18 or ~> 1.0"},
       {:gsmlg, in_umbrella: true},
       {:gsmlg_component, in_umbrella: true},
       {:gsmlg_whois, in_umbrella: true},

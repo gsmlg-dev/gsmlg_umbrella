@@ -50,7 +50,7 @@ defmodule GSMLG.MixProject do
       {:ueberauth, "~> 0.10"},
       {:ueberauth_github, "~> 0.8"},
       {:absinthe, "~> 1.7.0"},
-      {:meck, "~> 0.9", only: :test}
+      {:meck, "~> 0.9 or ~> 1.0", only: :test}
     ]
   end
 

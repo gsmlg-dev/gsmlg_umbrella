@@ -33,7 +33,10 @@ defmodule GSMLG.Web.PageController do
         end
       end)
 
-    render(conn, :index, page_title: gettext("Home"), group_repos: org_r ++ user_r)
+    # Phoenix 1.8: Use unified layout explicitly instead of implicit configuration
+    conn
+    |> put_root_layout({GSMLG.Web.Layouts, :unified_layout})
+    |> render(:index, page_title: gettext("Home"), group_repos: org_r ++ user_r)
   end
 
   def not_found(conn, _params) do

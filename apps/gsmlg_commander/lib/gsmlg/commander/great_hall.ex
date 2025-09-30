@@ -1,12 +1,17 @@
 defmodule GSMLG.Commander.GreatHall do
-  use GenServer
   require Logger
 
-  alias PhoenixClient.{Channel, Message}
+  alias Phoenix.SocketClient
 
-  def start_link([]) do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  use SocketClient.Channel
+
+  @impl true
+  def init(args) do
+    # initialize your channel state
+    # args: {sup_pid, socket_pid, topic, params}
+    {:ok, args}
   end
+
 
   def get_state() do
     GenServer.call(__MODULE__, :get_state)

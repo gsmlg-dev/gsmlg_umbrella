@@ -4,6 +4,9 @@ defmodule GSMLG.AccountsFixtures do
   entities via the `GSMLG.Accounts` context.
   """
 
+  alias GSMLG.Accounts
+  alias GSMLG.Accounts.Scope
+
   @doc """
   Generate a user.
   """
@@ -34,5 +37,15 @@ defmodule GSMLG.AccountsFixtures do
       |> GSMLG.Accounts.create_user_token()
 
     user_token
+  end
+
+  ## Phoenix 1.8 Scope Fixtures
+
+  @doc """
+  Generate a scope for testing.
+  """
+  def scope_fixture(attrs \\ %{}) do
+    user = attrs[:user] || user_fixture()
+    Scope.for_user(user)
   end
 end

@@ -34,6 +34,7 @@ defmodule GSMLG.Web.Router do
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
     plug(:put_sw_header)
+    plug(GSMLG.Web.Plugs.FetchCurrentScope)
   end
 
   pipeline :api do
@@ -47,10 +48,21 @@ defmodule GSMLG.Web.Router do
     get("/:provider/callback", AuthController, :callback)
   end
 
+  # Phoenix 1.8 Magic Link Authentication
+  scope "/auth/magic-link", GSMLG.Web do
+    pipe_through :browser
+
+    get "/new", MagicLinkController, :new
+    post "/", MagicLinkController, :create
+    get "/sent", MagicLinkController, :sent
+    get "/confirm", MagicLinkController, :confirm
+  end
+
   scope "/", GSMLG.Web do
     pipe_through([:browser, :maybe_browser_auth])
 
     get("/", PageController, :index)
+    live("/phoenix-1.8-demo", Phoenix18DemoLive)
 
     get("/sign_in", SignController, :index)
     # post("/sign_in", SignController, :sign_in)

@@ -30,7 +30,7 @@ defmodule GSMLG.Component.MixProject do
       {:phoenix_react_server, "~> 0.7"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.0"},
-      {:gettext, "~> 0.18"}
+      {:gettext, "~> 0.18 or ~> 1.0"}
     ]
   end
 end
