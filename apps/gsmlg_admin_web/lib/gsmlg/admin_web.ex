@@ -39,9 +39,7 @@ defmodule GSMLG.AdminWeb do
   def controller do
     quote do
       use Phoenix.Controller,
-        namespace: GSMLG.AdminWeb,
-        formats: [:html, :json],
-        layouts: [html: GSMLG.AdminWeb.Layouts]
+        formats: [:html, :json]
 
       import Plug.Conn
       import GSMLG.AdminWeb.Gettext
@@ -53,8 +51,7 @@ defmodule GSMLG.AdminWeb do
 
   def live_view do
     quote do
-      use Phoenix.LiveView,
-        layout: {GSMLG.AdminWeb.Layouts, :app}
+      use Phoenix.LiveView
 
       unquote(html_helpers())
     end
@@ -62,8 +59,7 @@ defmodule GSMLG.AdminWeb do
 
   def user_live_view do
     quote do
-      use Phoenix.LiveView,
-        layout: {GSMLG.AdminWeb.Layouts, :user}
+      use Phoenix.LiveView
 
       unquote(html_helpers())
     end
@@ -71,8 +67,7 @@ defmodule GSMLG.AdminWeb do
 
   def aws_live_view do
     quote do
-      use Phoenix.LiveView,
-        layout: {GSMLG.AdminWeb.Layouts, :aws}
+      use Phoenix.LiveView
 
       unquote(html_helpers())
     end
@@ -80,8 +75,7 @@ defmodule GSMLG.AdminWeb do
 
   def bumblebee_live_view do
     quote do
-      use Phoenix.LiveView,
-        layout: {GSMLG.AdminWeb.Layouts, :bumblebee}
+      use Phoenix.LiveView
 
       unquote(html_helpers())
     end
@@ -121,6 +115,9 @@ defmodule GSMLG.AdminWeb do
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
+
+      # Layouts for easy access in templates
+      alias GSMLG.AdminWeb.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

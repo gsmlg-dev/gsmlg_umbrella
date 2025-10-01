@@ -1,26 +1,28 @@
-<div :if={@live_action == :import} class="container flex flex-col gap-2 mt-4 w-full">
-  <div class="mx-4 my-2 flex gap-2">
-    <.link class="btn btn-primary" navigate={~p"/blogs"}>
-      All Blog List
-    </.link>
-  </div>
+<Layouts.user flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+  <div :if={@live_action == :import} class="container flex flex-col gap-2 mt-4 w-full">
+    <div class="mx-4 my-2 flex gap-2">
+      <.link class="btn btn-primary" navigate={~p"/blogs"}>
+        All Blog List
+      </.link>
+    </div>
 
-  <div class="mx-4 my-2">
-    <.dm_form
-      :let={f}
-      for={@changeset}
-      id="import-blog-form"
-      class="w-full max-w-6xl flex flex-col gap-6 *:w-full"
-      method={:post}
-      phx-change="validate"
-      phx-submit="save"
-    >
-      <.dm_input field={f[:data]} type="textarea" label="JSON Data" rows="12" class="w-full" />
-      <:actions>
-        <.dm_btn class="btn-primary btn-block max-w-md" phx-disable-with="Importing...">
-          Import
-        </.dm_btn>
-      </:actions>
-    </.dm_form>
+    <div class="mx-4 my-2">
+      <.dm_form
+        :let={f}
+        for={@changeset}
+        id="import-blog-form"
+        class="w-full max-w-6xl flex flex-col gap-6 *:w-full"
+        method={:post}
+        phx-change="validate"
+        phx-submit="save"
+      >
+        <.dm_input field={f[:data]} type="textarea" label="JSON Data" rows="12" class="w-full" />
+        <:actions>
+          <.dm_btn class="btn-primary btn-block max-w-md" phx-disable-with="Importing...">
+            Import
+          </.dm_btn>
+        </:actions>
+      </.dm_form>
+    </div>
   </div>
-</div>
+</Layouts.user>

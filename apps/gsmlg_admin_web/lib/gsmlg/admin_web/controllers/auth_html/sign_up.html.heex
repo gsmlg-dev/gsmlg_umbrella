@@ -1,26 +1,28 @@
-<div class="flex flex-col">
-  <h3 class="text-3xl text-center text-primary">Sign up</h3>
-  <.dm_form
-    :let={f}
-    for={@changeset}
-    id="user-form"
-    class="w-full *:w-full"
-    method={:post}
-    phx-change="validate"
-    phx-submit="save"
-  >
-    <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-    <.dm_input field={f[:email]} type="text" label="Email" class="w-full" />
-    <.dm_input field={f[:username]} type="text" label="Username" class="w-full" />
-    <.dm_input field={f[:password]} type="password" label="Password" class="w-full" />
-    <:actions>
-      <button class="btn btn-primary btn-block" phx-disable-with="Saving...">Sign up</button>
-    </:actions>
-  </.dm_form>
+<Layouts.auth flash={@flash}>
+  <div class="flex flex-col">
+    <h3 class="text-3xl text-center text-primary">Sign up</h3>
+    <.dm_form
+      :let={f}
+      for={@changeset}
+      id="user-form"
+      class="w-full *:w-full"
+      method={:post}
+      phx-change="validate"
+      phx-submit="save"
+    >
+      <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
+      <.dm_input field={f[:email]} type="text" label="Email" class="w-full" />
+      <.dm_input field={f[:username]} type="text" label="Username" class="w-full" />
+      <.dm_input field={f[:password]} type="password" label="Password" class="w-full" />
+      <:actions>
+        <button class="btn btn-primary btn-block" phx-disable-with="Saving...">Sign up</button>
+      </:actions>
+    </.dm_form>
 
-  <div class="divider">OR</div>
+    <div class="divider">OR</div>
 
-  <.link class="btn btn-info btn-block" navigate={~p"/sign_in"}>
-    Sign in
-  </.link>
-</div>
+    <.link class="btn btn-info btn-block" navigate={~p"/sign_in"}>
+      Sign in
+    </.link>
+  </div>
+</Layouts.auth>
