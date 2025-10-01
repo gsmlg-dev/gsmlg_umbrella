@@ -63,10 +63,7 @@ defmodule GSMLG.Web.MixProject do
       {:guardian_phoenix, "~> 2.0"},
       {:guardian_db, "~> 3.0"},
       {:ueberauth, "~> 0.10"},
-      {:ueberauth_github, "~> 0.8"},
-      {:absinthe, "~> 1.7.0"},
-      {:absinthe_plug, "~> 1.5"},
-      {:absinthe_phoenix, "~> 2.0"}
+      {:ueberauth_github, "~> 0.8"}
     ]
   end
 

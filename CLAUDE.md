@@ -145,7 +145,7 @@ mix bun gsmlg_web --watch
 
 **LiveView:** Modern live components in `lib/gsmlg_web/live/` and admin-specific views
 
-**GraphQL:** Absinthe schema in `lib/gsmlg_web/schema/` with types for content, chess, and node management
+
 
 **Channels:** Real-time communication via WebSockets for chess games and node management
 

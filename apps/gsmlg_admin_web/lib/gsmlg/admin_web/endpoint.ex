@@ -1,6 +1,5 @@
 defmodule GSMLG.AdminWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :gsmlg_admin_web
-  use Absinthe.Phoenix.Endpoint
 
   @session_options [
     store: :cookie,

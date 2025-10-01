@@ -7,8 +7,7 @@ defmodule GSMLG.Web.Application do
   def start(_type, _args) do
     children = [
       GSMLG.Web.Telemetry,
-      GSMLG.Web.Endpoint,
-      {Absinthe.Subscription, [pubsub: GSMLG.Web.Endpoint]}
+      GSMLG.Web.Endpoint
       # {Guardian.DB.Token.SweeperServer, []}
     ]
 

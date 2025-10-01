@@ -63,10 +63,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:jason, "~> 1.2"},
       {:guardian, "~> 2.0"},
       {:guardian_phoenix, "~> 2.0"},
-      {:guardian_db, "~> 3.0"},
-      {:absinthe, "~> 1.7.0"},
-      {:absinthe_plug, "~> 1.5"},
-      {:absinthe_phoenix, "~> 2.0"}
+      {:guardian_db, "~> 3.0"}
     ]
   end
 

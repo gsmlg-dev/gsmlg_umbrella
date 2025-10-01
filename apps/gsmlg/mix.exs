@@ -49,7 +49,6 @@ defmodule GSMLG.MixProject do
       {:gsmlg_nx, in_umbrella: true},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_github, "~> 0.8"},
-      {:absinthe, "~> 1.7.0"},
       {:meck, "~> 0.9 or ~> 1.0", only: :test}
     ]
   end

@@ -12,8 +12,6 @@ defmodule GSMLG.AdminWeb.Application do
       GSMLG.AdminWeb.Telemetry,
       # Start the Endpoint (http/https)
       GSMLG.AdminWeb.Endpoint,
-      # GraphQL subscriptions
-      {Absinthe.Subscription, [pubsub: GSMLG.AdminWeb.Endpoint]},
       {Guardian.DB.Sweeper, []}
     ]
 

@@ -123,15 +123,6 @@ defmodule GSMLG.Web.Router do
     delete("/blogs/:id", BlogController, :delete)
   end
 
-  forward(
-    "/graphiql",
-    Absinthe.Plug.GraphiQL,
-    schema: GSMLG.Web.Schema,
-    socket: GSMLG.Web.UserSocket
-  )
-
-  forward("/graphql", Absinthe.Plug, schema: GSMLG.Web.Schema)
-
   # fallback not_found
   scope "/", GSMLG.Web do
     pipe_through(:browser)

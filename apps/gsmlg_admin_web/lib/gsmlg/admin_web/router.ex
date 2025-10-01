@@ -136,15 +136,6 @@ defmodule GSMLG.AdminWeb.Router do
     post "/send-notification", WebPushController, :send_notification
   end
 
-  forward(
-    "/graphiql",
-    Absinthe.Plug.GraphiQL,
-    schema: GSMLG.AdminWeb.Schema,
-    socket: GSMLG.AdminWeb.UserSocket
-  )
-
-  forward("/graphql", Absinthe.Plug, schema: GSMLG.AdminWeb.Schema)
-
   if Application.compile_env(:gsmlg_admin_web, :dev_routes) do
     scope "/dev" do
       pipe_through(:browser)
