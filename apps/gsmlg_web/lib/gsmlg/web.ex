@@ -41,31 +41,10 @@ defmodule GSMLG.Web do
       use Phoenix.Controller,
         namespace: GSMLG.Web,
         formats: [:html, :json]
-        # Phoenix 1.8: Removed explicit layout configuration
-        # layouts: [html: {GSMLG.Web.Layouts, :app}]
 
       import Plug.Conn
       use Gettext, backend: GSMLG.Web.Gettext
 
-      # Phoenix 1.8: Add Layouts alias for explicit layout usage
-      alias GSMLG.Web.Layouts
-
-      unquote(verified_routes())
-    end
-  end
-
-  def tool_controller do
-    quote do
-      use Phoenix.Controller,
-        namespace: GSMLG.Web,
-        formats: [:html, :json]
-        # Phoenix 1.8: Removed explicit layout configuration
-        # layouts: [html: {GSMLG.Web.Layouts, :tool}]
-
-      import Plug.Conn
-      use Gettext, backend: GSMLG.Web.Gettext
-
-      # Phoenix 1.8: Add Layouts alias for explicit layout usage
       alias GSMLG.Web.Layouts
 
       unquote(verified_routes())

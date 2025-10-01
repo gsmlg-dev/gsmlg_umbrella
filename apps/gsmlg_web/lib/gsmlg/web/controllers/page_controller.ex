@@ -33,9 +33,8 @@ defmodule GSMLG.Web.PageController do
         end
       end)
 
-    # Phoenix 1.8: Use unified layout explicitly instead of implicit configuration
+    # Phoenix 1.8: Use existing root layout template with embedded templates
     conn
-    |> put_root_layout({GSMLG.Web.Layouts, :unified_layout})
     |> render(:index, page_title: gettext("Home"), group_repos: org_r ++ user_r)
   end
 

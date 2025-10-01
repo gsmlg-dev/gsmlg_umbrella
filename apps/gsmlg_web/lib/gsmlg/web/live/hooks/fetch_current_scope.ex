@@ -3,7 +3,7 @@ defmodule GSMLG.Web.Live.Hooks.FetchCurrentScope do
   Phoenix 1.8 scope hook for LiveView that populates the scope in the socket's assigns.
   """
 
-  import Phoenix.LiveView
+  use Phoenix.LiveView
   alias GSMLG.Accounts
   alias GSMLG.Accounts.Scope
 

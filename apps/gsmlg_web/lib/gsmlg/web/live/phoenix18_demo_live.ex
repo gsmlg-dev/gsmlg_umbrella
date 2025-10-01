@@ -24,15 +24,14 @@ defmodule GSMLG.Web.Phoenix18DemoLive do
 
   def render(assigns) do
     ~H"""
-    <!-- Phoenix 1.8: Explicit layout usage with slots -->
-    <Layouts.unified_layout page_title={@page_title} class="bg-gradient-to-br from-base-100 to-base-300">
-      <!-- Custom header slot -->
-      <:header>
-        <Layouts.unified_header class="bg-gradient-to-r from-primary to-secondary" />
-      </:header>
+    <!-- Phoenix 1.8: Using existing layout templates with new components -->
+    <Layouts.root page_title={@page_title} class="bg-gradient-to-br from-base-100 to-base-300">
+      <!-- Enhanced header with Phoenix 1.8 patterns -->
+      <Layouts.phoenix18_header class="bg-gradient-to-r from-primary to-secondary" />
 
-      <!-- Main content -->
-      <div class="max-w-4xl mx-auto px-4 py-8">
+      <!-- Main content wrapped in unified wrapper -->
+      <Layouts.unified_wrapper class="py-8">
+        <div class="max-w-4xl mx-auto px-4">
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title text-3xl mb-6">🚀 Phoenix 1.8 Features Demo</h2>
@@ -57,7 +56,7 @@ defmodule GSMLG.Web.Phoenix18DemoLive do
             <!-- DaisyUI Theming Demo -->
             <div class="mb-6">
               <h3 class="text-xl font-bold mb-3">🎨 DaisyUI Theming</h3>
-              <p class="mb-4">Current theme: <span class="badge badge-primary"{@current_theme}</span></p>
+              <p class="mb-4">Current theme: <span class="badge badge-primary">{@current_theme}</span></p>
               <div class="flex flex-wrap gap-2 mb-4">
                 <%= for theme <- @themes do %>
                   <button
@@ -121,8 +120,12 @@ defmodule GSMLG.Web.Phoenix18DemoLive do
           </svg>
           <span>This application includes AGENTS.md for AI-assisted development!</span>
         </div>
-      </div>
-    </div>
+        </div>
+      </Layouts.unified_wrapper>
+
+      <!-- Enhanced footer with Phoenix 1.8 patterns -->
+      <Layouts.phoenix18_footer />
+    </Layouts.root>
     """
   end
 

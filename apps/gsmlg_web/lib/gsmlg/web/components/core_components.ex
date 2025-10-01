@@ -9,6 +9,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
 
   use Phoenix.Component
   alias Phoenix.LiveView.JS
+  use Phoenix.VerifiedRoutes, endpoint: GSMLG.Web.Endpoint, router: GSMLG.Web.Router
 
   ## Phoenix 1.8 Essential Components
 
@@ -57,7 +58,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
-  attr :multiple, :boolean, default: false, rest: :global
+  attr :multiple, :boolean, default: false
   attr :rest, :global
   attr :class, :string, default: nil
   attr :size, :string, default: "md", values: ["xs", "sm", "md", "lg"]
@@ -96,7 +97,6 @@ defmodule GSMLG.Web.Components.CoreComponents do
           <span class="label-text">{@label}</span>
         <% end %>
       </label>
-      <. Phoenix 1.8 error component %>
       <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
     </div>
     """
@@ -118,7 +118,6 @@ defmodule GSMLG.Web.Components.CoreComponents do
         <option :if={@prompt} value="">{@prompt}</option>
         <%= Phoenix.HTML.Form.options_for_select(@options, @value) %>
       </select>
-      <. Phoenix 1.8 error component %>
       <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
     </div>
     """
@@ -136,7 +135,6 @@ defmodule GSMLG.Web.Components.CoreComponents do
         class={["textarea textarea-bordered textarea-#{@size}", @class]}
         {@rest}
       >{@value}</textarea>
-      <. Phoenix 1.8 error component %>
       <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
     </div>
     """
@@ -156,7 +154,6 @@ defmodule GSMLG.Web.Components.CoreComponents do
         class={["input input-bordered input-#{@size}", @class]}
         {@rest}
       />
-      <. Phoenix 1.8 error component %>
       <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
     </div>
     """
@@ -167,6 +164,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
   """
   attr :for, :string, default: nil
   attr :message, :string, required: true
+  attr :phx_feedback_for, :string, default: nil
 
   def error(assigns) do
     ~H"""
@@ -188,7 +186,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
   def flash(assigns) do
     ~H"""
     <div
-      :if={msg = live_flash(@flash, @kind)} id={@id} phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> JS.hide()}
+      :if={msg = get_live_flash(@flash, @kind)} id={@id} phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> JS.hide()}
       role="alert"
       class={[
         "alert",
@@ -426,9 +424,9 @@ defmodule GSMLG.Web.Components.CoreComponents do
 
   defp translate_error(msg) when is_binary(msg), do: msg
 
-  defp live_flash(flash, key) when is_map(flash) do
+  defp get_live_flash(flash, key) when is_map(flash) do
     Map.get(flash, Atom.to_string(key))
   end
 
-  defp live_flash(_flash, _key), do: nil
+  defp get_live_flash(_flash, _key), do: nil
 end

@@ -7,15 +7,9 @@ defmodule GSMLG.Web.Components.ThemeSwitcher do
 
   use Phoenix.Component
 
-  @themes [
-    "light", "dark", "cupcake", "bumblebee", "emerald", "corporate",
-    "synthwave", "retro", "cyberpunk", "valentine", "halloween", "garden",
-    "forest", "aqua", "lofi", "pastel", "fantasy", "wireframe", "black",
-    "luxury", "dracula", "cmyk", "autumn", "business", "acid", "lemonade",
-    "night", "coffee", "winter", "dim", "nord", "sunset"
-  ]
-
   def theme_switcher(assigns) do
+    assigns = assign(assigns, :themes, available_themes())
+
     ~H"""
     <div class="theme-switcher dropdown dropdown-top dropdown-end">
       <label tabindex="0" class="btn btn-circle btn-ghost btn-sm">
@@ -87,8 +81,18 @@ defmodule GSMLG.Web.Components.ThemeSwitcher do
     """
   end
 
-  defp theme_item_class(theme) do
+  defp theme_item_class(_theme) do
     "flex items-center gap-2"
+  end
+
+  defp available_themes do
+    [
+      "light", "dark", "cupcake", "bumblebee", "emerald", "corporate",
+      "synthwave", "retro", "cyberpunk", "valentine", "halloween", "garden",
+      "forest", "aqua", "lofi", "pastel", "fantasy", "wireframe", "black",
+      "luxury", "dracula", "cmyk", "autumn", "business", "acid", "lemonade",
+      "night", "coffee", "winter", "dim", "nord", "sunset"
+    ]
   end
 
   defp theme_color(theme) do

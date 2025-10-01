@@ -1,0 +1,180 @@
+import { serve, readableStreamToJSON, readableStreamToText, escapeHTML } from 'bun';
+import { renderToReadableStream, renderToString, renderToStaticMarkup } from 'react-dom/server';
+
+const __comMap = {};
+
+import { Component as __component_0 } from "/home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/apps/gsmlg_component/assets/component/markdown_preview.js";
+__comMap["markdown_preview"] = __component_0;
+
+import { Component as __component_1 } from "/home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/apps/gsmlg_component/assets/component/markdown.js";
+__comMap["markdown"] = __component_1;
+
+import { Component as __component_2 } from "/home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/apps/gsmlg_component/assets/component/blog_form.js";
+__comMap["blog_form"] = __component_2;
+
+
+const { COMPONENT_BASE, BUN_ENV } = process.env;
+
+const isDev = BUN_ENV === 'development';
+
+const server = serve({
+  development: isDev,
+  async fetch(req) {
+    try {
+      let bodyStream = req.body;
+      if (isDev) {
+        const [t1, t2] = bodyStream.tee();
+        const bodyText = await readableStreamToText(t2);
+        console.log('Request: ', req.method, req.url, bodyText);
+        bodyStream = t1;
+      }
+      const { url } = req;
+      const uri = new URL(url);
+      const { pathname } = uri;
+
+      if (pathname.startsWith('/stop')) {
+        setImmediate(() => server.stop());
+        return new Response('{"message":"ok"}', {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      }
+
+      if (pathname.startsWith('/render_to_static_markup/')) {
+        const props = await readableStreamToJSON(bodyStream);
+        const fileName = pathname.replace(/^\/render_to_static_markup\//, '');
+        const Component = __comMap[fileName];
+        if (!Component) {
+          return new Response(`Not Found, component not found.`, {
+            status: 404,
+            headers: {
+              "Content-Type": "text/html",
+            },
+          });
+        }
+        const jsxNode = <Component {...props} />;
+        const html = renderToStaticMarkup(jsxNode);
+        return new Response(html, {
+          headers: {
+            "Content-Type": "text/html",
+          },
+        });
+      }
+
+      if (pathname.startsWith('/render_to_string/')) {
+        const props = await readableStreamToJSON(bodyStream);
+        const fileName = pathname.replace(/^\/render_to_string\//, '');
+        const Component = __comMap[fileName];
+        const jsxNode = <Component {...props} />;
+        const html = renderToString(jsxNode);
+        return new Response(html, {
+          headers: {
+            "Content-Type": "text/html",
+          },
+        });
+      }
+
+      if (pathname.startsWith('/render_to_readable_stream/')) {
+        const props = await readableStreamToJSON(bodyStream);
+        const fileName = pathname.replace(/^\/render_to_readable_stream\//, '');
+        const Component = __comMap[fileName];
+        const jsxNode = <Component {...props} />;
+        const stream = await renderToReadableStream(jsxNode);
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "text/html",
+          },
+        });
+      }
+
+      return new Response(`Not Found, not matched request.`, {
+        status: 404,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      });
+    } catch(error) {
+      const html = `
+      <div role="alert" class="alert alert-error">
+        <div>
+          <div class="font-bold">${escapeHTML(error)}</div>
+          <pre style="white-space: pre-wrap;">${escapeHTML(error.stack)}</pre>
+        </div>
+      </div>
+      `;
+      return new Response(html, {
+        status: 500,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      });
+    }
+  },
+  error(error) {
+    const html = `
+    <div role="alert" class="alert alert-error">
+      <div>
+        <div class="font-bold">${escapeHTML(error)}</div>
+        <pre style="white-space: pre-wrap;">${escapeHTML(error.stack)}</pre>
+      </div>
+    </div>
+    `;
+    return new Response(html, {
+      status: 500,
+      headers: {
+        "Content-Type": "text/html",
+      },
+    });
+  },
+});
+
+console.log(`Server started at http://localhost:${server.port}`);
+console.log(`COMPONENT_BASE`, COMPONENT_BASE);
+console.log(`BUN_ENV`, BUN_ENV);
+
+const ppid = process.ppid;
+setInterval(() => {
+  if (process.ppid !== ppid) {
+    console.log("Parent process exited. Shutting down server...");
+    server.stop();
+    process.exit(0);
+  }
+}, 1000);
+
+(async () => {
+  for await (const line of console) {
+    console.log(`stdin > ${line}`);
+  }
+  console.log('stdin closed');
+  await server.stop();
+  console.log("Cleanup done. Exiting.");
+  process.exit(0);
+})();
+
+const shutdown = async (signal) => {
+  console.log(`\nReceived ${signal}. Cleaning up...`);
+
+  await server.stop();
+
+  console.log("Cleanup done. Exiting.");
+  process.exit(0);
+};
+
+process.on('SIGINT', () => {
+  shutdown("SIGINT");
+});
+
+process.on('SIGTERM', () => {
+  shutdown("SIGTERM");
+});
+
+process.on("exit", () => {
+  console.log("Parent process exited. Shutting down server...");
+  shutdown("exit");
+});
+
+process.stdin.on("close", () => {
+  console.log("Parent process closed stdin. Exiting...");
+  shutdown("close");
+});

@@ -1,7 +1,6 @@
 defmodule GSMLG.Web.MagicLinkController do
   use GSMLG.Web, :controller
 
-  alias GSMLG.Accounts
   alias GSMLG.Accounts.MagicLink
 
   def new(conn, _params) do
@@ -20,7 +19,7 @@ defmodule GSMLG.Web.MagicLinkController do
         |> put_flash(:info, "Magic link sent! Check your email.")
         |> redirect(to: ~p"/auth/magic-link/sent")
 
-      {:error, changeset} ->
+      {:error, _changeset} ->
         render(conn, :new, email: email, error: "Failed to send magic link")
     end
   end
@@ -64,7 +63,7 @@ defmodule GSMLG.Web.MagicLinkController do
     end
   end
 
-  defp generate_session_token(user) do
+  defp generate_session_token(_user) do
     # Generate a secure session token
     :crypto.strong_rand_bytes(32)
     |> Base.url_encode64()

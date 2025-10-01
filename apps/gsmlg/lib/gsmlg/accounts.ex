@@ -344,4 +344,20 @@ defmodule GSMLG.Accounts do
   end
 
   def get_user(nil, _id), do: nil
+
+  ## Phoenix 1.8 Session Management
+
+  @doc """
+  Gets a user by session token.
+  """
+  def get_user_by_session_token(token) when is_binary(token) do
+    query = from(ut in UserToken, where: ut.jti == ^token and ut.aud == "access")
+
+    case Repo.one(query) do
+      %UserToken{sub: user_id} -> Repo.get(User, user_id)
+      nil -> nil
+    end
+  end
+
+  def get_user_by_session_token(_token), do: nil
 end

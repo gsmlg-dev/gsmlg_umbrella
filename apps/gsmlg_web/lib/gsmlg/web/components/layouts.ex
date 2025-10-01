@@ -1,175 +1,172 @@
 defmodule GSMLG.Web.Layouts do
   use GSMLG.Web, :html
 
+  alias GSMLG.Web.Layouts
+
+  # Phoenix 1.8: The file name becomes the function name
+  # root.html.heex -> root/1 function
+  # app.html.heex -> app/1 function
+  # auth.html.heex -> auth/1 function
+  # tool.html.heex -> tool/1 function
+
   embed_templates "layouts/*"
 
-  ## Phoenix 1.8 Unified Layout System
-
   @doc """
-  Phoenix 1.8 unified layout component that replaces separate root.html.heex and app.html.heex.
+  Renders your app layout.
 
-  This component provides a single, explicit layout that can be composed and customized
-  through slots and assigns, following Phoenix 1.8's explicitness-over-magic philosophy.
+  This function is typically invoked from every template,
+  and it often contains your application menu, sidebar,
+  or similar.
+
+  ## Examples
+
+      <Layouts.app flash={@flash}>
+        <h1>Content</h1>
+      </Layouts.app>
+
   """
-  attr :class, :string, default: nil
-  attr :rest, :global
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_scope, :map,
+    default: nil,
+    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+
   slot :inner_block, required: true
-  slot :header, doc: "Header content"
-  slot :footer, doc: "Footer content"
-  slot :sidebar, doc: "Sidebar content"
-
-  def unified_layout(assigns) do
+  def app(assigns) do
     ~H"""
-    <!DOCTYPE html>
-    <html lang="en" data-theme="light">
-      <head>
-        <meta charset="utf-8" />
-        <meta
-          name="theme-color"
-          media="(prefers-color-scheme: light)"
-          content="oklch(95.86% 0.0693 95.91)"
-        />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="oklch(85.45% 0 0)" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="csrf-token" content={get_csrf_token()} />
-        <. Phoenix 1.8 title component %>
-        <.live_title suffix="">
-          {@page_title || gettext("GSMLG - Web Development & Tools")}
-        </live_title>
-        <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-        <script type="module">
-          document.querySelector('meta[name=theme-color]').setAttribute('content', getComputedStyle(document.body).getPropertyValue('--color-primary'));
-        </script>
-        <script defer phx-track-static type="module" src={~p"/assets/app.js"}>
-        </script>
-        <%= if Application.get_env(:gsmlg_web, GSMLG.Web.Endpoint) |> Keyword.get(:enable_adsense) |> Kernel.==("yes") do %>
-          <script
-            async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2900591828353755"
-            crossorigin="anonymous"
-          >
-          </script>
-        <% end %>
-      </head>
-      <body class={[
-        "flex flex-col min-h-screen",
-        "text-base-content bg-base-200",
-        "overflow-x-hidden antialiased",
-        @class
-      ]} {@rest}>
-        <!-- Phoenix 1.8 Theme Switcher -->
-        <GSMLG.Web.Components.ThemeSwitcher.theme_switcher />
-
-        <!-- Header Slot -->
-        <%= if @header != [] do %>
-          <%= render_slot(@header) %>
-        <% else %>
-          <!-- Default Header -->
-          <. Phoenix 1.8 default header component %>
-          <.unified_header />
-        <% end %>
-
-        <!-- Sidebar Slot -->
-        <%= if @sidebar != [] do %>
-          <div class="flex flex-1">
-            <aside class="w-64 bg-base-100 shadow-lg">
-              <%= render_slot(@sidebar) %>
-            </aside>
-            <main class="flex-1 container mx-auto px-4 py-8">
-              <. Phoenix 1.8 flash component %>
-              <.dm_flash_group flash={@flash} />
-              <%= render_slot(@inner_block) %>
-            </main>
-          </div>
-        <% else %>
-          <!-- Main Content -->
-          <main class={[
-            "flex-1 container mx-auto px-4 py-8",
-            "min-h-screen"
-          ]}>
-            <. Phoenix 1.8 flash component %>
-            <.dm_flash_group flash={@flash} />
-            <%= render_slot(@inner_block) %>
-          </main>
-        <% end %>
-
-        <!-- Footer Slot -->
-        <%= if @footer != [] do %>
-          <%= render_slot(@footer) %>
-        <% else %>
-          <!-- Default Footer -->
-          <.unified_footer />
-        <% end %>
-      </body>
-    </html>
+    <.dm_page_header
+      class={[
+        "w-screen pop-menu",
+        "bg-primary text-primary-content",
+        "py-6 z-20"
+      ]}
+      nav_class={["shadow z-20 bg-primary text-primary-content"]}
+    >
+      <:menu to={~p"/"}>
+        {dgettext("menu", "Home")}
+      </:menu>
+      <:menu to={~p"/blogs"}>
+        {dgettext("menu", "Blog")}
+      </:menu>
+      <:menu to={~p"/toolbox"}>
+        {dgettext("menu", "Toolbox")}
+      </:menu>
+      <:user_profile class="flex items-center gap-2">
+        <.dm_theme_switcher />
+        <.link class="flex flex-row gap-2" href="https://github.com/gsmlg-dev" target="_blank">
+          <.dm_mdi name="github" class="h-10 w-10" />
+        </.link>
+      </:user_profile>
+      <section class={[
+        "w-full h-64",
+        "font-bold select-none drop-shadow-md text-shadow-lg",
+        "flex flex-col items-center justify-evenly"
+      ]}>
+        <h2 class="header-hero-text uppercase">
+          {dgettext("homepage", "slogan-1")}
+        </h2>
+        <h2 class="header-hero-text uppercase">
+          {dgettext("homepage", "slogan-2")}
+        </h2>
+      </section>
+    </.dm_page_header>
+    <div class="absolute top-84 overflow-x-clip w-full h-screen z-0">
+      <.dmf_snow count={365} size="1.25rem" unicode />
+    </div>
+    <main class="flex flex-col items-center z-1">
+      <.dm_flash_group flash={@flash} />
+      {@inner_content}
+    </main>
     """
   end
 
-  @doc """
-  Phoenix 1.8 unified header component.
-  """
-  attr :class, :string, default: nil
-  attr :rest, :global
 
-  def unified_header(assigns) do
+  @doc """
+  Renders your auth layout.
+
+  This function is typically invoked from every template,
+  and it often contains your application menu, sidebar,
+  or similar.
+
+  ## Examples
+
+      <Layouts.auth flash={@flash}>
+        <h1>Content</h1>
+      </Layouts.auth>
+
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_scope, :map,
+    default: nil,
+    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+
+  slot :inner_block, required: true
+  def auth(assigns) do
     ~H"""
-    <. Phoenix 1.8 header with daisyUI styling %>
-    <header class={[
-      "navbar bg-primary text-primary-content shadow-lg",
-      @class
-    ]} {@rest}>
-      <div class="navbar-start">
-        <a href={~p"/"} class="btn btn-ghost normal-case text-xl">GSMLG</a>
+    <main class="flex justify-center items-center min-h-screen">
+      <div class="flex flex-col justify-center items-center max-w-2xl">
+        <.dm_flash_group flash={@flash} />
+        {@inner_content}
       </div>
-      <div class="navbar-center hidden lg:flex">
-        <ul class="menu menu-horizontal px-1">
-          <li><a href={~p"/blogs"}>Blog</a></li>
-          <li><a href={~p"/toolbox"}>Toolbox</a></li>
-          <li><a href={~p"/about"}>About</a></li>
-        </ul>
-      </div>
-      <div class="navbar-end">
-        <div class="flex items-center gap-2">
-          <a href="https://github.com/gsmlg-dev" target="_blank" class="btn btn-ghost btn-circle">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-            </svg>
-          </a>
-          <a href={~p"/auth/magic-link/new"} class="btn btn-ghost">Sign In</a>
-        </div>
-      </div>
-    </header>
+    </main>
     """
   end
 
-  @doc """
-  Phoenix 1.8 unified footer component.
-  """
-  attr :class, :string, default: nil
-  attr :rest, :global
 
-  def unified_footer(assigns) do
+  @doc """
+  Renders your tool layout.
+
+  This function is typically invoked from every template,
+  and it often contains your application menu, sidebar,
+  or similar.
+
+  ## Examples
+
+      <Layouts.tool flash={@flash}>
+        <h1>Content</h1>
+      </Layouts.tool>
+
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_scope, :map,
+    default: nil,
+    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+
+  slot :inner_block, required: true
+  def tool(assigns) do
     ~H"""
-    <footer class={[
-      "footer footer-center p-10 bg-base-300 text-base-content",
-      @class
-    ]} {@rest}>
-      <div class="grid grid-flow-col gap-4">
-        <a href={~p"/"} class="link link-hover">Home</a>
-        <a href={~p"/blogs"} class="link link-hover">Blog</a>
-        <a href={~p"/toolbox"} class="link link-hover">Toolbox</a>
-        <a href={~p"/about"} class="link link-hover">About</a>
-      </div>
-      <div class="grid grid-flow-col gap-4">
-        <a href="/toolbox/geoip2" class="link link-hover">GeoIP2 Database</a>
-        <a href="/toolbox/whois" class="link link-hover">Domain/IP Whois</a>
-        <a href="/toolbox/svg2react" class="link link-hover">SVG to React</a>
-        <a href="/toolbox/mac_manufacturer" class="link link-hover">MAC Lookup</a>
-      </div>
-      <div>
-        <p>Copyright © Jonathan Gao. All rights reserved</p>
-      </div>
-    </footer>
+    <.dm_page_header
+      class={[
+        "bg-primary text-primary-content",
+        "h-fit py-6"
+      ]}
+      nav_class={["bg-primary text-primary-content shadow z-20"]}
+    >
+      <:menu to={~p"/"}>
+        {dgettext("menu", "Home")}
+      </:menu>
+      <:menu to={~p"/blogs"}>
+        {dgettext("menu", "Blog")}
+      </:menu>
+      <:menu to={~p"/toolbox"}>
+        {dgettext("menu", "Toolbox")}
+      </:menu>
+      <:user_profile class="flex items-center gap-2">
+        <.dm_theme_switcher />
+        <.link class="flex flex-row gap-2" href="https://github.com/gsmlg-dev" target="_blank">
+          <.dm_mdi name="github" class="h-10 w-10" />
+        </.link>
+      </:user_profile>
+      <%= if assigns[:header_slot] do %>
+        {@header_slot}
+      <% end %>
+    </.dm_page_header>
+    <main class="flex flex-col items-center min-h-[calc(100vh-320px-316px)]">
+      <.dm_flash_group flash={@flash} />
+      {@inner_content}
+    </main>
     """
   end
 end

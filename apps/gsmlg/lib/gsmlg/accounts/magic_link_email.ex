@@ -4,7 +4,6 @@ defmodule GSMLG.Accounts.MagicLinkEmail do
   """
 
   import Swoosh.Email
-  alias GSMLG.Mailer
 
   @doc """
   Creates a magic link email for the user.
@@ -17,11 +16,11 @@ defmodule GSMLG.Accounts.MagicLinkEmail do
     |> to({user.name || user.username, user.email})
     |> from({"GSMLG", "noreply@gsmlg.net"})
     |> subject("Your magic login link")
-    |> html_body(html_body(user, magic_link_url))
-    |> text_body(text_body(user, magic_link_url))
+    |> html_body(build_html_body(user, magic_link_url))
+    |> text_body(build_text_body(user, magic_link_url))
   end
 
-  defp html_body(user, magic_link_url) do
+  defp build_html_body(user, magic_link_url) do
     """
     <html>
       <body>
@@ -48,7 +47,7 @@ defmodule GSMLG.Accounts.MagicLinkEmail do
     """
   end
 
-  defp text_body(user, magic_link_url) do
+  defp build_text_body(user, magic_link_url) do
     """
     Hello #{user.name || user.username}!
 

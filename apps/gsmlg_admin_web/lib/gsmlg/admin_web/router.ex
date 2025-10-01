@@ -34,7 +34,7 @@ defmodule GSMLG.AdminWeb.Router do
     plug(:put_root_layout, {GSMLG.AdminWeb.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
-    plug(GSMLG.Web.Plugs.FetchCurrentScope)
+    plug(GSMLG.AdminWeb.Plugs.FetchCurrentScope)
   end
 
   pipeline :api do
