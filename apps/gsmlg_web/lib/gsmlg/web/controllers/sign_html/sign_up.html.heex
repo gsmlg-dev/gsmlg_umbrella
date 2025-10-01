@@ -1,42 +1,44 @@
-<div class="flex flex-col">
-  <h3 class="text-3xl text-center text-primary uppercase">{gettext("Sign up")}</h3>
-  <.dm_form
-    :let={f}
-    for={@changeset}
-    id="user-form"
-    method={:post}
-    class="flex flex-col justify-center items-center gap-4 w-full my-4"
-  >
-    <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-    <.dm_input
-      field={f[:email]}
-      type="email"
-      label="Email"
-      class="w-full input-primary"
-      field_class="w-full"
-    />
-    <.dm_input
-      field={f[:username]}
-      type="text"
-      label="Username"
-      class="w-full input-primary"
-      field_class="w-full"
-    />
-    <.dm_input
-      field={f[:password]}
-      type="password"
-      label="Password"
-      class="w-full input-primary"
-      field_class="w-full"
-    />
-    <div class="w-full">
-      <.dm_btn class="btn-block btn-primary uppercase">Sign up</.dm_btn>
-    </div>
-  </.dm_form>
+<Layouts.auth flash={@flash}>
+  <div class="flex flex-col">
+    <h3 class="text-3xl text-center text-primary uppercase">{gettext("Sign up")}</h3>
+    <.dm_form
+      :let={f}
+      for={@changeset}
+      id="user-form"
+      method={:post}
+      class="flex flex-col justify-center items-center gap-4 w-full my-4"
+    >
+      <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
+      <.dm_input
+        field={f[:email]}
+        type="email"
+        label="Email"
+        class="w-full input-primary"
+        field_class="w-full"
+      />
+      <.dm_input
+        field={f[:username]}
+        type="text"
+        label="Username"
+        class="w-full input-primary"
+        field_class="w-full"
+      />
+      <.dm_input
+        field={f[:password]}
+        type="password"
+        label="Password"
+        class="w-full input-primary"
+        field_class="w-full"
+      />
+      <div class="w-full">
+        <.dm_btn class="btn-block btn-primary uppercase">Sign up</.dm_btn>
+      </div>
+    </.dm_form>
 
-  <hr class="my-4" />
+    <hr class="my-4" />
 
-  <.dm_link class="btn btn-secondary btn-block uppercase" navigate={~p"/sign_in"}>
-    Sign in
-  </.dm_link>
-</div>
+    <.dm_link class="btn btn-secondary btn-block uppercase" navigate={~p"/sign_in"}>
+      Sign in
+    </.dm_link>
+  </div>
+</Layouts.auth>

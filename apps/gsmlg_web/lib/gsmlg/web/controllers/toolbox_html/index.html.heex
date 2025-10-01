@@ -1,35 +1,44 @@
-<div class={[
-  "container px-8 my-24",
-  "grid grid-cols-auto-fit-64",
-  "gap-4"
-]}>
-  <div
-    :for={
-      {name, url} <- [
-        {dgettext("menu", "GeoIP2 Database"), ~p"/toolbox/geoip2"},
-        {dgettext("menu", "Whois Domain / IP / ASN"), ~p"/toolbox/whois"},
-        {dgettext("menu", "Lookup MAC Manufacturer"), ~p"/toolbox/mac_manufacturer"},
-        {dgettext("menu", "SVG to React Component"), ~p"/toolbox/svg2react"},
-        {dgettext("menu", "SVG Autocrop, Optimize SVG"), ~p"/toolbox/svg_autocrop"},
-        {dgettext("menu", "IP to Geo Map"), ~p"/toolbox/ip_to_geomap"},
-        {dgettext("menu", "Screen Saver"), ~p"/toolbox/screensaver"}
-      ]
-    }
-    class={[
-      "card bg-primary text-primary-content shadow-base-content shadow",
-      "shadow shadow-base-content rounded-box",
-      "transition duration-300 origin-center",
-      "hover:shadow-lg hover:scale-105 hover:translate-z-12",
-      "bg-primary text-primary-content"
-    ]}
-  >
-    <div class="card-body justify-between">
-      <h2 class="card-title">{name}</h2>
-      <div class="card-actions justify-end">
-        <.link href={url} class="btn">
-          {gettext("Open")}
-        </.link>
+<Layouts.app flash={@flash}>
+  <:header_slot>
+    <div class="header-hero-container">
+      <h1 class="header-hero-text">
+        {@title}
+      </h1>
+    </div>
+  </:header_slot>
+  <div class={[
+    "container px-8 my-24",
+    "grid grid-cols-auto-fit-64",
+    "gap-4"
+  ]}>
+    <div
+      :for={
+        {name, url} <- [
+          {dgettext("menu", "GeoIP2 Database"), ~p"/toolbox/geoip2"},
+          {dgettext("menu", "Whois Domain / IP / ASN"), ~p"/toolbox/whois"},
+          {dgettext("menu", "Lookup MAC Manufacturer"), ~p"/toolbox/mac_manufacturer"},
+          {dgettext("menu", "SVG to React Component"), ~p"/toolbox/svg2react"},
+          {dgettext("menu", "SVG Autocrop, Optimize SVG"), ~p"/toolbox/svg_autocrop"},
+          {dgettext("menu", "IP to Geo Map"), ~p"/toolbox/ip_to_geomap"},
+          {dgettext("menu", "Screen Saver"), ~p"/toolbox/screensaver"}
+        ]
+      }
+      class={[
+        "card bg-primary text-primary-content shadow-base-content shadow",
+        "shadow shadow-base-content rounded-box",
+        "transition duration-300 origin-center",
+        "hover:shadow-lg hover:scale-105 hover:translate-z-12",
+        "bg-primary text-primary-content"
+      ]}
+    >
+      <div class="card-body justify-between">
+        <h2 class="card-title">{name}</h2>
+        <div class="card-actions justify-end">
+          <.link href={url} class="btn">
+            {gettext("Open")}
+          </.link>
+        </div>
       </div>
     </div>
   </div>
-</div>
+</Layouts.app>

@@ -13,11 +13,25 @@ defmodule GSMLG.Web.Components.ThemeSwitcher do
     ~H"""
     <div class="theme-switcher dropdown dropdown-top dropdown-end">
       <label tabindex="0" class="btn btn-circle btn-ghost btn-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5 stroke-current">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v6a2 2 0 002 2h4a2 2 0 002-2V5z"></path>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          class="w-5 h-5 stroke-current"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v6a2 2 0 002 2h4a2 2 0 002-2V5z"
+          >
+          </path>
         </svg>
       </label>
-      <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 max-h-80 overflow-y-auto">
+      <ul
+        tabindex="0"
+        class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 max-h-80 overflow-y-auto"
+      >
         <li class="menu-title">
           <span>Choose Theme</span>
         </li>
@@ -25,7 +39,7 @@ defmodule GSMLG.Web.Components.ThemeSwitcher do
           <li>
             <a href="#" phx-click="set_theme" phx-value-theme={theme} class={theme_item_class(theme)}>
               <span class="badge badge-sm" style="background-color: #{theme_color(theme)}"></span>
-              <%= Phoenix.Naming.humanize(theme) %>
+              {Phoenix.Naming.humanize(theme)}
             </a>
           </li>
         <% end %>
@@ -87,11 +101,38 @@ defmodule GSMLG.Web.Components.ThemeSwitcher do
 
   defp available_themes do
     [
-      "light", "dark", "cupcake", "bumblebee", "emerald", "corporate",
-      "synthwave", "retro", "cyberpunk", "valentine", "halloween", "garden",
-      "forest", "aqua", "lofi", "pastel", "fantasy", "wireframe", "black",
-      "luxury", "dracula", "cmyk", "autumn", "business", "acid", "lemonade",
-      "night", "coffee", "winter", "dim", "nord", "sunset"
+      "light",
+      "dark",
+      "cupcake",
+      "bumblebee",
+      "emerald",
+      "corporate",
+      "synthwave",
+      "retro",
+      "cyberpunk",
+      "valentine",
+      "halloween",
+      "garden",
+      "forest",
+      "aqua",
+      "lofi",
+      "pastel",
+      "fantasy",
+      "wireframe",
+      "black",
+      "luxury",
+      "dracula",
+      "cmyk",
+      "autumn",
+      "business",
+      "acid",
+      "lemonade",
+      "night",
+      "coffee",
+      "winter",
+      "dim",
+      "nord",
+      "sunset"
     ]
   end
 

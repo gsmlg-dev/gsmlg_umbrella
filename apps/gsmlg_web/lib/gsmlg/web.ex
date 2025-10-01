@@ -39,13 +39,12 @@ defmodule GSMLG.Web do
   def controller do
     quote do
       use Phoenix.Controller,
-        namespace: GSMLG.Web,
+        # namespace: GSMLG.Web,
         formats: [:html, :json]
 
-      import Plug.Conn
       use Gettext, backend: GSMLG.Web.Gettext
 
-      alias GSMLG.Web.Layouts
+      import Plug.Conn
 
       unquote(verified_routes())
     end
@@ -54,11 +53,6 @@ defmodule GSMLG.Web do
   def live_view do
     quote do
       use Phoenix.LiveView
-        # Phoenix 1.8: Removed explicit layout configuration
-        # layout: {GSMLG.Web.Layouts, :app}
-
-      # Phoenix 1.8: Add Layouts alias for explicit layout usage
-      alias GSMLG.Web.Layouts
 
       unquote(html_helpers())
     end
@@ -97,6 +91,7 @@ defmodule GSMLG.Web do
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
+      alias GSMLG.Web.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

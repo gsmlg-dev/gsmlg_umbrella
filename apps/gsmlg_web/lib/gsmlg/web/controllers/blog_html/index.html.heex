@@ -1,13 +1,22 @@
-<div class="container list">
-  <div :for={blog <- @blogs} class="list-row items-baseline ">
-    <h3 class="list-col-grow inline-flex gap-4 items-baseline text-xl">
-      <.link class="link link-primary link-hover" href={~p"/blogs/#{blog.slug}"}>
-        {blog.title}
-      </.link>
-      <author class="italic text-secondary text-base">
-        {blog.author}
-      </author>
-    </h3>
-    <time class="text-info max-md:!list-col-wrap">{blog.date}</time>
+<Layouts.app flash={@flash}>
+  <:header_slot>
+    <div class="header-hero-container">
+      <h1 class="header-hero-text">
+        Blog
+      </h1>
+    </div>
+  </:header_slot>
+  <div class="container list">
+    <div :for={blog <- @blogs} class="list-row items-baseline ">
+      <h3 class="list-col-grow inline-flex gap-4 items-baseline text-xl">
+        <.link class="link link-primary link-hover" href={~p"/blogs/#{blog.slug}"}>
+          {blog.title}
+        </.link>
+        <author class="italic text-secondary text-base">
+          {blog.author}
+        </author>
+      </h3>
+      <time class="text-info max-md:!list-col-wrap">{blog.date}</time>
+    </div>
   </div>
-</div>
+</Layouts.app>

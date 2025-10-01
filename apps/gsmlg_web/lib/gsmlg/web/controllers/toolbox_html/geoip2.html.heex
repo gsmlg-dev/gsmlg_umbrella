@@ -1,74 +1,84 @@
-<div class="flex flex-col container px-8">
-  <div class="flex justify-center items-center">
-    <.dm_form
-      :let={f}
-      for={to_form(%{"ip" => @ip, "lang" => @lang})}
-      id="ip-form"
-      method="POST"
-      class="flex flex-col justify-center items-center gap-4 w-84 my-4"
-    >
-      <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-      <.dm_compact_input
-        class="w-full input-primary"
-        field={f[:ip]}
-        label={dgettext("toolbox", "IP")}
-      />
-      <.dm_compact_input
-        class="w-full select-primary"
-        type="select"
-        field={f[:lang]}
-        label={dgettext("toolbox", "Language")}
-        options={@langs}
-      />
-      <.dm_btn class="btn-primary btn-block" type="submit">
-        {dgettext("toolbox", "Lookup")}
-      </.dm_btn>
-    </.dm_form>
-  </div>
-
-  <%= unless is_nil(@ipInfo) do %>
-    <div class="my-4 flex flex-col justify-center items-center">
-      <div class="w-96 flex flex-row justify-start items-start">
-        <div class="w-24 min-w-max text-right pr-2 after:content-[':']">
-          {dgettext("toolbox", "continent")}
-        </div>
-        <div class="">{@ipInfo.continent}</div>
-      </div>
-      <div class="w-96 flex flex-row justify-start items-start">
-        <div class="w-24 min-w-max text-right pr-2 after:content-[':']">
-          {dgettext("toolbox", "country")}
-        </div>
-        <div class="">{@ipInfo.country}</div>
-      </div>
-      <div class="w-96 flex flex-row justify-start items-start">
-        <div class="w-24 min-w-max text-right pr-2 after:content-[':']">
-          {dgettext("toolbox", "city")}
-        </div>
-        <div class="">{@ipInfo.city}</div>
-      </div>
-      <div class="w-96 flex flex-row justify-start items-start">
-        <div class="w-24 min-w-max text-right pr-2 after:content-[':']">
-          {dgettext("toolbox", "coordinate")}
-        </div>
-        <div class="">
-          {dgettext("toolbox", "latitude")}: {@ipInfo.latitude}
-          {dgettext("toolbox", "longitude")}: {@ipInfo.longitude}
-        </div>
-      </div>
-      <div class="2xl:w-2/3 xl:w-3/4 lg:w-4/5 w-full aspect-2/1 flex flex-row justify-center items-center">
-        <script type="module">
-          import 'https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo';
-          document.querySelectorAll("d3-world-map").forEach((el) => {
-            el.classList.remove('skeleton');
-          });
-        </script>
-        <d3-world-map
-          class="w-full h-full skeleton"
-          points={Jason.encode!([[@ipInfo.longitude, @ipInfo.latitude]])}
-          center-longitude={@ipInfo.longitude}
-        >
-        </d3-world-map>
-      </div>
+<Layouts.app flash={@flash}>
+  <:header_slot>
+    <div class="header-hero-container">
+      <h1 class="header-hero-text">
+        {@title}
+      </h1>
     </div>
-  <% end %>
-</div>
+  </:header_slot>
+
+  <div class="flex flex-col container px-8">
+    <div class="flex justify-center items-center">
+      <.dm_form
+        :let={f}
+        for={to_form(%{"ip" => @ip, "lang" => @lang})}
+        id="ip-form"
+        method="POST"
+        class="flex flex-col justify-center items-center gap-4 w-84 my-4"
+      >
+        <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
+        <.dm_compact_input
+          class="w-full input-primary"
+          field={f[:ip]}
+          label={dgettext("toolbox", "IP")}
+        />
+        <.dm_compact_input
+          class="w-full select-primary"
+          type="select"
+          field={f[:lang]}
+          label={dgettext("toolbox", "Language")}
+          options={@langs}
+        />
+        <.dm_btn class="btn-primary btn-block" type="submit">
+          {dgettext("toolbox", "Lookup")}
+        </.dm_btn>
+      </.dm_form>
+    </div>
+
+    <%= unless is_nil(@ipInfo) do %>
+      <div class="my-4 flex flex-col justify-center items-center">
+        <div class="w-96 flex flex-row justify-start items-start">
+          <div class="w-24 min-w-max text-right pr-2 after:content-[':']">
+            {dgettext("toolbox", "continent")}
+          </div>
+          <div class="">{@ipInfo.continent}</div>
+        </div>
+        <div class="w-96 flex flex-row justify-start items-start">
+          <div class="w-24 min-w-max text-right pr-2 after:content-[':']">
+            {dgettext("toolbox", "country")}
+          </div>
+          <div class="">{@ipInfo.country}</div>
+        </div>
+        <div class="w-96 flex flex-row justify-start items-start">
+          <div class="w-24 min-w-max text-right pr-2 after:content-[':']">
+            {dgettext("toolbox", "city")}
+          </div>
+          <div class="">{@ipInfo.city}</div>
+        </div>
+        <div class="w-96 flex flex-row justify-start items-start">
+          <div class="w-24 min-w-max text-right pr-2 after:content-[':']">
+            {dgettext("toolbox", "coordinate")}
+          </div>
+          <div class="">
+            {dgettext("toolbox", "latitude")}: {@ipInfo.latitude}
+            {dgettext("toolbox", "longitude")}: {@ipInfo.longitude}
+          </div>
+        </div>
+        <div class="2xl:w-2/3 xl:w-3/4 lg:w-4/5 w-full aspect-2/1 flex flex-row justify-center items-center">
+          <script type="module">
+            import 'https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo';
+            document.querySelectorAll("d3-world-map").forEach((el) => {
+              el.classList.remove('skeleton');
+            });
+          </script>
+          <d3-world-map
+            class="w-full h-full skeleton"
+            points={Jason.encode!([[@ipInfo.longitude, @ipInfo.latitude]])}
+            center-longitude={@ipInfo.longitude}
+          >
+          </d3-world-map>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</Layouts.app>

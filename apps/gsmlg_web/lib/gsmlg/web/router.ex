@@ -62,7 +62,6 @@ defmodule GSMLG.Web.Router do
     pipe_through([:browser, :maybe_browser_auth])
 
     get("/", PageController, :index)
-    live("/phoenix-1.8-demo", Phoenix18DemoLive)
 
     get("/sign_in", SignController, :index)
     # post("/sign_in", SignController, :sign_in)

@@ -5,8 +5,6 @@ defmodule GSMLG.Web.SignController do
   alias GSMLG.Accounts.User
   alias GSMLG.Web.Guardian
 
-  plug :put_layout, html: {GSMLG.Web.Layouts, :auth}
-
   def index(conn, _params) do
     if Guardian.Plug.authenticated?(conn) do
       conn

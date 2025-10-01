@@ -19,7 +19,21 @@ defmodule GSMLG.Web.Components.CoreComponents do
   attr :type, :string, default: "button"
   attr :class, :string, default: nil
   attr :rest, :global
-  attr :variant, :string, default: "primary", values: ["primary", "secondary", "accent", "ghost", "link", "info", "success", "warning", "error"]
+
+  attr :variant, :string,
+    default: "primary",
+    values: [
+      "primary",
+      "secondary",
+      "accent",
+      "ghost",
+      "link",
+      "info",
+      "success",
+      "warning",
+      "error"
+    ]
+
   attr :size, :string, default: "md", values: ["xs", "sm", "md", "lg"]
   attr :disabled, :boolean, default: false
   attr :loading, :boolean, default: false
@@ -40,7 +54,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
       disabled={@disabled or @loading}
       {@rest}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </button>
     """
   end
@@ -53,7 +67,10 @@ defmodule GSMLG.Web.Components.CoreComponents do
   attr :label, :string, default: nil
   attr :value, :any
   attr :type, :string, default: "text"
-  attr :field, Phoenix.HTML.FormField, doc: "a form field struct retrieved from input, e.g. @form[:email]"
+
+  attr :field, Phoenix.HTML.FormField,
+    doc: "a form field struct retrieved from input, e.g. @form[:email]"
+
   attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
@@ -73,11 +90,12 @@ defmodule GSMLG.Web.Components.CoreComponents do
   end
 
   def input(%{type: "checkbox", value: value} = assigns) do
-    assigns = assign_new(assigns, :checked, fn -> Phoenix.HTML.Form.normalize_value("checkbox", value) end)
+    assigns =
+      assign_new(assigns, :checked, fn -> Phoenix.HTML.Form.normalize_value("checkbox", value) end)
 
     ~H"""
     <div class="form-control">
-      <label class={"label cursor-pointer justify-start gap-2"}>
+      <label class="label cursor-pointer justify-start gap-2">
         <input
           type="hidden"
           name={@name}
@@ -116,7 +134,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
         {@rest}
       >
         <option :if={@prompt} value="">{@prompt}</option>
-        <%= Phoenix.HTML.Form.options_for_select(@options, @value) %>
+        {Phoenix.HTML.Form.options_for_select(@options, @value)}
       </select>
       <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
     </div>
@@ -169,7 +187,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
   def error(assigns) do
     ~H"""
     <p :if={@message} class="mt-1 text-sm text-error" phx-feedback-for={@for}>
-      <%= @message %>
+      {@message}
     </p>
     """
   end
@@ -186,7 +204,9 @@ defmodule GSMLG.Web.Components.CoreComponents do
   def flash(assigns) do
     ~H"""
     <div
-      :if={msg = get_live_flash(@flash, @kind)} id={@id} phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> JS.hide()}
+      :if={msg = get_live_flash(@flash, @kind)}
+      id={@id}
+      phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> JS.hide()}
       role="alert"
       class={[
         "alert",
@@ -196,8 +216,13 @@ defmodule GSMLG.Web.Components.CoreComponents do
       ]}
       {@rest}
     >
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" ></path>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        class="stroke-current shrink-0 w-6 h-6"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
       </svg>
       <span>{msg}</span>
     </div>
@@ -228,7 +253,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
         <div class="flex items-center gap-2">
           <a href="https://github.com/gsmlg-dev" target="_blank" class="btn btn-ghost btn-circle">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
             </svg>
           </a>
           <a href={~p"/auth/magic-link/new"} class="btn btn-ghost">Sign In</a>
@@ -280,17 +305,17 @@ defmodule GSMLG.Web.Components.CoreComponents do
     ~H"""
     <div class={["card bg-base-100 shadow-xl", @class]} {@rest}>
       <div :if={@header != []} class="card-header">
-        <%= render_slot(@header) %>
+        {render_slot(@header)}
       </div>
       <div class="card-body">
         <%= if @body != [] do %>
-          <%= render_slot(@body) %>
+          {render_slot(@body)}
         <% else %>
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         <% end %>
       </div>
       <div :if={@footer != []} class="card-footer">
-        <%= render_slot(@footer) %>
+        {render_slot(@footer)}
       </div>
     </div>
     """
@@ -307,10 +332,15 @@ defmodule GSMLG.Web.Components.CoreComponents do
   def alert(assigns) do
     ~H"""
     <div class={["alert", "alert-#{@type}", @class]} {@rest}>
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        class="stroke-current shrink-0 w-6 h-6"
+      >
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
       </svg>
-      <span><%= render_slot(@inner_block) %></span>
+      <span>{render_slot(@inner_block)}</span>
     </div>
     """
   end
@@ -318,7 +348,10 @@ defmodule GSMLG.Web.Components.CoreComponents do
   @doc """
   Phoenix 1.8 simplified badge component.
   """
-  attr :type, :string, default: "primary", values: ["primary", "secondary", "accent", "info", "success", "warning", "error", "ghost"]
+  attr :type, :string,
+    default: "primary",
+    values: ["primary", "secondary", "accent", "info", "success", "warning", "error", "ghost"]
+
   attr :class, :string, default: nil
   attr :rest, :global
   slot :inner_block, required: true
@@ -326,7 +359,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
   def badge(assigns) do
     ~H"""
     <div class={["badge", "badge-#{@type}", @class]} {@rest}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -345,19 +378,24 @@ defmodule GSMLG.Web.Components.CoreComponents do
 
   def modal(assigns) do
     ~H"""
-    <div id={@id} phx-mounted={@show && show_modal(@id)} class={["modal", @show && "modal-open"]} {@rest}>
+    <div
+      id={@id}
+      phx-mounted={@show && show_modal(@id)}
+      class={["modal", @show && "modal-open"]}
+      {@rest}
+    >
       <div class="modal-box">
         <form method="dialog" class="modal-backdrop">
           <button phx-click={@on_cancel}>close</button>
         </form>
         <div :if={@header != []} class="modal-header">
-          <%= render_slot(@header) %>
+          {render_slot(@header)}
         </div>
         <div class="modal-body">
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </div>
         <div :if={@footer != []} class="modal-footer">
-          <%= render_slot(@footer) %>
+          {render_slot(@footer)}
         </div>
       </div>
     </div>
@@ -390,10 +428,10 @@ defmodule GSMLG.Web.Components.CoreComponents do
     <div class="overflow-x-auto">
       <table class={["table table-zebra", @class]} {@rest}>
         <thead :if={@header != []}>
-          <tr><%= render_slot(@header) %></tr>
+          <tr>{render_slot(@header)}</tr>
         </thead>
         <tbody :if={@body != []}>
-          <%= render_slot(@body) %>
+          {render_slot(@body)}
         </tbody>
       </table>
     </div>

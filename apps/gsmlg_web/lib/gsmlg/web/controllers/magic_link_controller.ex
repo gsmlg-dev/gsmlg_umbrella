@@ -53,7 +53,8 @@ defmodule GSMLG.Web.MagicLinkController do
     # Check if user authenticated within recent time window
     last_auth = get_session(conn, :last_authenticated_at)
 
-    if last_auth && DateTime.from_iso8601(last_auth) > DateTime.add(DateTime.utc_now(), -15, :minute) do
+    if last_auth &&
+         DateTime.from_iso8601(last_auth) > DateTime.add(DateTime.utc_now(), -15, :minute) do
       conn
     else
       conn

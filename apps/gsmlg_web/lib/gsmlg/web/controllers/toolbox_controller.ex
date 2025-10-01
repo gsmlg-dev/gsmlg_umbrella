@@ -1,10 +1,10 @@
 defmodule GSMLG.Web.ToolboxController do
-  use GSMLG.Web, :tool_controller
+  use GSMLG.Web, :controller
   use Phoenix.Component
 
   def index(conn, _params) do
     tools = []
-    render(conn, :index, tools: tools, header_slot: header_slot("Toolbox"))
+    render(conn, :index, tools: tools, title: "Toolbox")
   end
 
   def geoip2(conn, params) do
@@ -15,7 +15,7 @@ defmodule GSMLG.Web.ToolboxController do
       ip: nil,
       lang: lang,
       langs: GSMLG.GeoIP2.langs(),
-      header_slot: header_slot("GeoIP2")
+      title: "GeoIP2"
     )
   end
 
@@ -28,12 +28,12 @@ defmodule GSMLG.Web.ToolboxController do
       ip: ip,
       lang: lang,
       langs: GSMLG.GeoIP2.langs(),
-      header_slot: header_slot("GeoIP2")
+      title: "GeoIP2"
     )
   end
 
   def whois(conn, _params) do
-    render(conn, :whois, look_for: nil, whois_info: nil, header_slot: header_slot("Whois"))
+    render(conn, :whois, look_for: nil, whois_info: nil, title: "Whois")
   end
 
   def whois_find(conn, %{"look_for" => look_for} = _params) do
@@ -43,7 +43,7 @@ defmodule GSMLG.Web.ToolboxController do
           look_for: look_for,
           whois_info: Enum.reverse(whois_info),
           reason: nil,
-          header_slot: header_slot("Whois")
+          title: "Whois"
         )
 
       {:error, reason} ->
@@ -51,13 +51,13 @@ defmodule GSMLG.Web.ToolboxController do
           look_for: look_for,
           whois_info: :error,
           reason: reason,
-          header_slot: header_slot("Whois")
+          title: "Whois"
         )
     end
   end
 
   def svg2react(conn, _params) do
-    render(conn, :svg2react, header_slot: header_slot("SVG to React"))
+    render(conn, :svg2react, title: "SVG to React")
   end
 
   def svg2react_convert(conn, %{"code" => code, "options" => options} = _params) do
@@ -102,7 +102,7 @@ defmodule GSMLG.Web.ToolboxController do
   end
 
   def svg_autocrop(conn, _params) do
-    render(conn, :svg_autocrop, header_slot: header_slot("SVG Autocrop"))
+    render(conn, :svg_autocrop, title: "SVG Autocrop")
   end
 
   def svg_autocrop_convert(conn, %{"code" => code} = _params) do
@@ -116,7 +116,7 @@ defmodule GSMLG.Web.ToolboxController do
   end
 
   def mac_manufacturer(conn, _params) do
-    render(conn, :mac_manufacturer, header_slot: header_slot("MAC Manufacturer"))
+    render(conn, :mac_manufacturer, title: "MAC Manufacturer")
   end
 
   def mac_manufacturer_lookup(conn, %{"mac" => mac} = _params) do
@@ -125,19 +125,19 @@ defmodule GSMLG.Web.ToolboxController do
         render(conn, :mac_manufacturer,
           short: short,
           full: full,
-          header_slot: header_slot("MAC Manufacturer")
+          title: "MAC Manufacturer"
         )
 
       :error ->
         render(conn, :mac_manufacturer,
           short: "Unkown",
-          header_slot: header_slot("MAC Manufacturer")
+          title: "MAC Manufacturer"
         )
     end
   end
 
   def ip_to_geomap(conn, _params) do
-    render(conn, :ip_to_geomap, header_slot: header_slot("IP to GeoMap"))
+    render(conn, :ip_to_geomap, title: "IP to GeoMap")
   end
 
   def ip_to_geomap_post(conn, %{"ip" => ip}) do
@@ -146,7 +146,7 @@ defmodule GSMLG.Web.ToolboxController do
   end
 
   def screensaver(conn, _params) do
-    render(conn, :screensaver, header_slot: header_slot("Screen Saver"))
+    render(conn, :screensaver, title: "Screen Saver")
   end
 
   defp header_slot(title) do

@@ -1,5 +1,5 @@
 defmodule GSMLG.Web.BlogController do
-  use GSMLG.Web, :tool_controller
+  use GSMLG.Web, :controller
   use Phoenix.Component
 
   alias GSMLG.Content
@@ -8,42 +8,13 @@ defmodule GSMLG.Web.BlogController do
   action_fallback(GSMLG.Web.FallbackController)
 
   def index(conn, _params) do
-    assigns = %{}
-
-    header_slot = ~H"""
-    <div class="header-hero-container">
-      <h1 class="header-hero-text">
-        Blog
-      </h1>
-    </div>
-    """
-
     blogs = Content.list_blogs()
-    render(conn, :index, blogs: blogs, header_slot: header_slot)
+    render(conn, :index, blogs: blogs)
   end
 
   def show(conn, %{"slug" => slug}) do
     blog = Content.get_blog_by_slug(slug)
 
-    assigns = %{blog: blog}
-
-    header_slot = ~H"""
-    <div class="header-hero-container flex-col">
-      <h1 class={[
-        "header-hero-text",
-        "w-full px-4",
-        "flex justify-center items-center",
-        "whitespace-auto"
-      ]}>
-        {@blog.title}
-      </h1>
-      <author class="text-2xl text-accent my-4">
-        {@blog.author}
-      </author>
-      <time class="text-xl text-accent">{@blog.date}</time>
-    </div>
-    """
-
-    render(conn, :show, blog: blog, header_slot: header_slot)
+    render(conn, :show, blog: blog)
   end
 end

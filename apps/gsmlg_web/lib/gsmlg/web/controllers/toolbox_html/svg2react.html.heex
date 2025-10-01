@@ -1,56 +1,65 @@
-<div class="flex flex-col container px-8">
-  <div class="w-full min-w-2/3 flex flex-col justify-center items-center">
-    <div class="w-full flex flex-col md:flex-row justify-center items-center gap-4">
-      <div class="w-full flex flex-col justify-center items-center">
-        <label>SVG</label>
-        <textarea id="svg-input" class="textarea textarea-primary w-full" rows={20}>
-        </textarea>
-      </div>
-      <div class="divider divider-horizontal">
-        <.dm_mdi name="transfer-right" class="w-16" />
-      </div>
-      <div class="w-full flex flex-col justify-center items-center">
-        <label>JSX</label>
-        <textarea id="svg-output" class="textarea textarea-primary w-full" rows={20}>
-        </textarea>
-      </div>
+<Layouts.app flash={@flash}>
+  <:header_slot>
+    <div class="header-hero-container">
+      <h1 class="header-hero-text">
+        {@title}
+      </h1>
     </div>
-    <div class="w-full my-4 flex justify-center items-center">
-      <.dm_btn id="svg-convert" class="btn-primary btn-block max-w-xs">
-        <.dm_mdi name="react" class="w-6" /> {dgettext("toolbox", "Convert")}
-      </.dm_btn>
+  </:header_slot>
+  <div class="flex flex-col container px-8">
+    <div class="w-full min-w-2/3 flex flex-col justify-center items-center">
+      <div class="w-full flex flex-col md:flex-row justify-center items-center gap-4">
+        <div class="w-full flex flex-col justify-center items-center">
+          <label>SVG</label>
+          <textarea id="svg-input" class="textarea textarea-primary w-full" rows={20}>
+        </textarea>
+        </div>
+        <div class="divider divider-horizontal">
+          <.dm_mdi name="transfer-right" class="w-16" />
+        </div>
+        <div class="w-full flex flex-col justify-center items-center">
+          <label>JSX</label>
+          <textarea id="svg-output" class="textarea textarea-primary w-full" rows={20}>
+        </textarea>
+        </div>
+      </div>
+      <div class="w-full my-4 flex justify-center items-center">
+        <.dm_btn id="svg-convert" class="btn-primary btn-block max-w-xs">
+          <.dm_mdi name="react" class="w-6" /> {dgettext("toolbox", "Convert")}
+        </.dm_btn>
+      </div>
+      <script>
+        const path = window.location.pathname;
+        const btn = document.getElementById('svg-convert');
+        const ipt = document.getElementById('svg-input');
+        const opt = document.getElementById('svg-output');
+
+        const convert = () => {
+          btn.disabled = true;
+          const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+          const code = ipt.value;
+          const options = {};
+
+          fetch(path, {
+            method: 'POST',
+            body: JSON.stringify({code: code, options: options}),
+            headers: {
+              'content-type': 'application/json',
+              'x-csrf-token': csrfToken,
+            },
+          }).then((resp) => {
+            return resp.json();
+          }).then(({ data }) => {
+            opt.value = data.output;
+            btn.disabled = false;
+          }).catch((err) => {
+            console.error(err);
+            btn.disabled = false;
+          });
+        }
+
+        btn.addEventListener('click', convert);
+      </script>
     </div>
-    <script>
-      const path = window.location.pathname;
-      const btn = document.getElementById('svg-convert');
-      const ipt = document.getElementById('svg-input');
-      const opt = document.getElementById('svg-output');
-
-      const convert = () => {
-        btn.disabled = true;
-        const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
-        const code = ipt.value;
-        const options = {};
-
-        fetch(path, {
-          method: 'POST',
-          body: JSON.stringify({code: code, options: options}),
-          headers: {
-            'content-type': 'application/json',
-            'x-csrf-token': csrfToken,
-          },
-        }).then((resp) => {
-          return resp.json();
-        }).then(({ data }) => {
-          opt.value = data.output;
-          btn.disabled = false;
-        }).catch((err) => {
-          console.error(err);
-          btn.disabled = false;
-        });
-      }
-
-      btn.addEventListener('click', convert);
-    </script>
   </div>
-</div>
+</Layouts.app>

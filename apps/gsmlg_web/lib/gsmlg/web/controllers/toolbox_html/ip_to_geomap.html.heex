@@ -1,63 +1,72 @@
-<div class="flex flex-col container px-4 gap-4">
-  <div class="flex justify-center items-center">
-    <div class="w-full aspect-2/1 flex flex-row justify-center items-center">
-      <script type="module">
-        import 'https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo';
-        document.querySelectorAll("d3-world-map").forEach((el) => {
-          el.classList.remove('skeleton');
+<Layouts.app flash={@flash}>
+  <:header_slot>
+    <div class="header-hero-container">
+      <h1 class="header-hero-text">
+        {@title}
+      </h1>
+    </div>
+  </:header_slot>
+  <div class="flex flex-col container px-4 gap-4">
+    <div class="flex justify-center items-center">
+      <div class="w-full aspect-2/1 flex flex-row justify-center items-center">
+        <script type="module">
+          import 'https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo';
+          document.querySelectorAll("d3-world-map").forEach((el) => {
+            el.classList.remove('skeleton');
+          });
+        </script>
+        <d3-world-map id="ip-geo-map" class="w-full h-screen aspect-2/1 skeleton" />
+      </div>
+    </div>
+
+    <div class="flex flex-col justify-center items-center gap-4">
+      <div class="w-full flex flex-row justify-center items-center">
+        <textarea id="ip-data" class="textarea textarea-primary w-full" rows="10"></textarea>
+      </div>
+      <div class="w-full flex flex-row justify-center items-center">
+        <.dm_btn id="submit-ip" class="btn-primary btn-block max-w-xs">
+          {dgettext("toolbox", "Display IP location on the map")}
+        </.dm_btn>
+      </div>
+    </div>
+
+    <script type="module">
+      import { ajax } from 'https://esm-run.gsmlg.dev/rxjs/ajax';
+      import { fromEvent, take, from, of, map, concatMap, scan } from 'https://esm-run.gsmlg.dev/rxjs';
+      const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+      const btn = document.getElementById('submit-ip');
+      const ipGeoMap = document.getElementById('ip-geo-map');
+
+      const submit$ = fromEvent(btn, 'click');
+      const sendResult = async () => {
+        btn.disabled = true;
+        const code = document.getElementById('ip-data').value;
+        const ipList = code.split(/\s+/).filter((line) => !/^\s*$/.test(line));
+        from(ipList).pipe(concatMap((ip) => {
+          return ajax({
+              url: '/api/toolbox/ip_to_geomap?ip='+ip,
+              method: 'GET',
+              headers: {
+                  'x-csrf-token': csrfToken,
+              },
+          }).pipe(
+            map(userResponse => userResponse.response.data));
+        })).pipe(scan((acc, ipInfo, index) => {
+          if (ipInfo.latitude && ipInfo.longitude) {
+            acc.push([ipInfo.longitude, ipInfo.latitude]);
+          }
+          if (index === ipList.length - 1) {
+              submit$.pipe(take(1)).subscribe(sendResult);
+              btn.disabled = false;
+          }
+          return acc;
+        }, [])).subscribe((ipGeoList) => {
+          ipGeoMap.setAttribute('points', JSON.stringify(ipGeoList));
         });
-      </script>
-      <d3-world-map id="ip-geo-map" class="w-full h-screen aspect-2/1 skeleton" />
-    </div>
+      };
+      submit$.pipe(take(1)).subscribe(sendResult);
+    </script>
+
+    <div class="w-full h-16" />
   </div>
-
-  <div class="flex flex-col justify-center items-center gap-4">
-    <div class="w-full flex flex-row justify-center items-center">
-      <textarea id="ip-data" class="textarea textarea-primary w-full" rows="10"></textarea>
-    </div>
-    <div class="w-full flex flex-row justify-center items-center">
-      <.dm_btn id="submit-ip" class="btn-primary btn-block max-w-xs">
-        {dgettext("toolbox", "Display IP location on the map")}
-      </.dm_btn>
-    </div>
-  </div>
-
-  <script type="module">
-    import { ajax } from 'https://esm-run.gsmlg.dev/rxjs/ajax';
-    import { fromEvent, take, from, of, map, concatMap, scan } from 'https://esm-run.gsmlg.dev/rxjs';
-    const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
-    const btn = document.getElementById('submit-ip');
-    const ipGeoMap = document.getElementById('ip-geo-map');
-
-    const submit$ = fromEvent(btn, 'click');
-    const sendResult = async () => {
-      btn.disabled = true;
-      const code = document.getElementById('ip-data').value;
-      const ipList = code.split(/\s+/).filter((line) => !/^\s*$/.test(line));
-      from(ipList).pipe(concatMap((ip) => {
-        return ajax({
-            url: '/api/toolbox/ip_to_geomap?ip='+ip,
-            method: 'GET',
-            headers: {
-                'x-csrf-token': csrfToken,
-            },
-        }).pipe(
-          map(userResponse => userResponse.response.data));
-      })).pipe(scan((acc, ipInfo, index) => {
-        if (ipInfo.latitude && ipInfo.longitude) {
-          acc.push([ipInfo.longitude, ipInfo.latitude]);
-        }
-        if (index === ipList.length - 1) {
-            submit$.pipe(take(1)).subscribe(sendResult);
-            btn.disabled = false;
-        }
-        return acc;
-      }, [])).subscribe((ipGeoList) => {
-        ipGeoMap.setAttribute('points', JSON.stringify(ipGeoList));
-      });
-    };
-    submit$.pipe(take(1)).subscribe(sendResult);
-  </script>
-
-  <div class="w-full h-16" />
-</div>
+</Layouts.app>
