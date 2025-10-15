@@ -10,6 +10,11 @@ defmodule GSMLG.ContentTest do
 
     @invalid_attrs %{author: nil, content: nil, date: nil, slug: nil, title: nil}
 
+    setup do
+      GSMLG.Repo.delete_all(GSMLG.Content.Blog)
+      :ok
+    end
+
     test "list_blogs/0 returns all blogs" do
       blog = blog_fixture()
       assert Content.list_blogs() == [blog]

@@ -23,6 +23,11 @@ defmodule GSMLG.AccountsTest do
       verify_code: nil
     }
 
+    setup do
+      GSMLG.Repo.delete_all(GSMLG.Accounts.User)
+      :ok
+    end
+
     test "list_users/0 returns all users" do
       user = user_fixture()
       assert List.first(Accounts.list_users()).email == user.email
@@ -95,6 +100,11 @@ defmodule GSMLG.AccountsTest do
     import GSMLG.AccountsFixtures
 
     @invalid_attrs %{create_time: nil, expire_at: nil, id: nil, token: nil, token_type: nil}
+
+    setup do
+      GSMLG.Repo.delete_all(GSMLG.Accounts.UserToken)
+      :ok
+    end
 
     test "list_user_tokens/0 returns all user_tokens" do
       user_token = user_token_fixture()

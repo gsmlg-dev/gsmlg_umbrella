@@ -4,7 +4,6 @@ defmodule GSMLG.AccountsFixtures do
   entities via the `GSMLG.Accounts` context.
   """
 
-  alias GSMLG.Accounts
   alias GSMLG.Accounts.Scope
 
   @doc """
