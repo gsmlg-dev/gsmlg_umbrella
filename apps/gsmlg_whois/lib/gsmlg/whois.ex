@@ -45,7 +45,7 @@ defmodule GSMLG.Whois do
              String.to_charlist(host),
              43,
              [{:active, false}, {:mode, :binary}, {:packet, :line}],
-             10_000
+             30_000
            ),
          :ok <- :gen_tcp.send(socket, [qs, "\r\n"]),
          raw when is_binary(raw) <- recv_all(socket) do

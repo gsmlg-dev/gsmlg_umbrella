@@ -24,7 +24,14 @@ defmodule GSMLG.Config do
   end
 
   def get(name) when is_binary(name) or is_atom(name) do
-    Agent.get(__MODULE__, &Map.get(&1, name))
+    Agent.get(__MODULE__, fn config ->
+      # Try with the given key first, then try converting
+      case Map.get(config, name) do
+        nil when is_binary(name) -> Map.get(config, String.to_atom(name))
+        nil when is_atom(name) -> Map.get(config, Atom.to_string(name))
+        value -> value
+      end
+    end)
   end
 
   def get(name_path) when is_list(name_path) do

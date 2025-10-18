@@ -12,7 +12,6 @@ defmodule GSMLG.Commander.GreatHall do
     {:ok, args}
   end
 
-
   def get_state() do
     GenServer.call(__MODULE__, :get_state)
   end

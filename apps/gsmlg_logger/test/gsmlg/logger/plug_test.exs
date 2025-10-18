@@ -5,20 +5,28 @@ defmodule GSMLG.Logger.PlugTest do
 
   describe "attach/3" do
     test "attaches a telemetry handler" do
+      # Get initial handlers count
+      initial_handlers = :telemetry.list_handlers([:phoenix, :endpoint, :stop])
+
       assert attach(
                "gsmlg-logger-phoenix-requests",
                [:phoenix, :endpoint, :stop],
                :info
              ) == :ok
 
-      assert [
-               %{
-                 function: _function,
-                 id: "gsmlg-logger-phoenix-requests",
-                 config: :info,
-                 event_name: [:phoenix, :endpoint, :stop]
-               }
-             ] = :telemetry.list_handlers([:phoenix, :endpoint, :stop])
+      # Check that our handler was added (there should be one more than initial)
+      handlers = :telemetry.list_handlers([:phoenix, :endpoint, :stop])
+      assert length(handlers) == length(initial_handlers) + 1
+
+      # Find our handler in the list
+      our_handler =
+        Enum.find(handlers, fn handler ->
+          handler.id == "gsmlg-logger-phoenix-requests"
+        end)
+
+      assert our_handler != nil
+      assert our_handler.config == :info
+      assert our_handler.event_name == [:phoenix, :endpoint, :stop]
     end
   end
 

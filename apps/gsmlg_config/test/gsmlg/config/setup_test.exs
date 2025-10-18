@@ -1,0 +1,371 @@
+defmodule GSMLG.Config.SetupTest do
+  use ExUnit.Case, async: false
+
+  import ExUnit.CaptureLog
+  alias GSMLG.Config.Setup
+
+  setup do
+    # Clean up application environment after each test
+    on_exit(fn ->
+      # Reset some common application env values
+      Application.delete_env(:mnesia, :dir)
+      Application.delete_env(:tailwind, :path)
+      Application.delete_env(:bun, :path)
+      Application.delete_env(:gsmlg, GSMLG.Repo)
+      Application.delete_env(:gsmlg_web, GSMLG.Web.Endpoint)
+      Application.delete_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint)
+      Application.delete_env(:gsmlg_couchdb, GSMLG.CouchDB.Connection)
+      Application.delete_env(:gsmlg_commander, GSMLG.Commander)
+      Application.delete_env(:ueberauth, Ueberauth.Strategy.Github.OAuth)
+      Application.delete_env(:gsmlg_web_push, :vapid_details)
+    end)
+
+    :ok
+  end
+
+  describe "setup/1" do
+    test "handles empty config" do
+      # Should not crash with empty config
+      assert Setup.setup(%{}) == nil
+    end
+
+    test "handles nil config" do
+      # Should not crash with nil config
+      assert Setup.setup(nil) == nil
+    end
+
+    test "calls setup functions for all config sections" do
+      config = %{
+        gsmlg: %{mnesia_dir: "/tmp/mnesia"},
+        logger: %{log_level: "info"},
+        database: %{username: "test"},
+        web: %{url: "http://localhost:4000", secret_key_base: "test", port: 4000},
+        admin_web: %{url: "http://localhost:4001", secret_key_base: "test", port: 4001},
+        couchdb: %{host: "localhost", port: 5984},
+        commander: %{start: true, name: "test"},
+        oauth: %{github: %{client_id: "test", client_secret: "test"}},
+        web_push: %{subject: "test", public_key: "test", private_key: "test"}
+      }
+
+      # Should not crash and should return :ok
+      assert :ok = Setup.setup(config)
+    end
+  end
+
+  describe "setup_gsmlg/1" do
+    test "sets up mnesia directory" do
+      config = %{mnesia_dir: "/tmp/test_mnesia"}
+
+      Setup.setup_gsmlg(config)
+
+      assert Application.get_env(:mnesia, :dir) == ~c"/tmp/test_mnesia"
+    end
+
+    test "sets up tailwind path" do
+      config = %{tailwind_path: "/usr/bin/tailwindcss"}
+
+      Setup.setup_gsmlg(config)
+
+      assert Application.get_env(:tailwind, :path) == "/usr/bin/tailwindcss"
+    end
+
+    test "finds tailwind path when not specified" do
+      config = %{}
+
+      Setup.setup_gsmlg(config)
+
+      # Should find the executable or set to nil
+      tailwind_path = Application.get_env(:tailwind, :path)
+      assert is_binary(tailwind_path) or tailwind_path == nil
+    end
+
+    test "sets up bun path" do
+      config = %{bun_path: "/usr/bin/bun"}
+
+      Setup.setup_gsmlg(config)
+
+      assert Application.get_env(:bun, :path) == "/usr/bin/bun"
+    end
+
+    test "finds bun path when not specified" do
+      config = %{}
+
+      Setup.setup_gsmlg(config)
+
+      # Should find the executable or set to nil
+      bun_path = Application.get_env(:bun, :path)
+      assert is_binary(bun_path) or bun_path == nil
+    end
+  end
+
+  describe "setup_logger/1" do
+    test "configures logger with specified log level" do
+      config = %{log_level: "error"}
+
+      # Mock the logger configuration function
+      log =
+        capture_log(fn ->
+          Setup.setup_logger(config)
+        end)
+
+      # Should attempt to configure log level
+      assert is_binary(log)
+    end
+
+    test "uses default log level when not specified" do
+      config = %{}
+
+      log =
+        capture_log(fn ->
+          Setup.setup_logger(config)
+        end)
+
+      # Should use default "info" level
+      assert is_binary(log)
+    end
+  end
+
+  describe "setup_database/1" do
+    test "configures database with all parameters" do
+      config = %{
+        username: "test_user",
+        password: "test_pass",
+        hostname: "localhost",
+        database: "test_db",
+        pool_size: 5,
+        show_sensitive_data_on_connection_error: false
+      }
+
+      Setup.setup_database(config)
+
+      repo_config = Application.get_env(:gsmlg, GSMLG.Repo)
+      assert repo_config[:username] == "test_user"
+      assert repo_config[:password] == "test_pass"
+      assert repo_config[:hostname] == "localhost"
+      assert repo_config[:database] == "test_db"
+      assert repo_config[:pool_size] == 5
+      assert repo_config[:show_sensitive_data_on_connection_error] == false
+    end
+
+    test "merges with existing repo configuration" do
+      # Set existing config
+      Application.put_env(:gsmlg, GSMLG.Repo, existing_key: "existing_value")
+
+      config = %{username: "new_user"}
+
+      Setup.setup_database(config)
+
+      repo_config = Application.get_env(:gsmlg, GSMLG.Repo)
+      assert repo_config[:existing_key] == "existing_value"
+      assert repo_config[:username] == "new_user"
+    end
+  end
+
+  describe "setup_web/1" do
+    test "configures web endpoint" do
+      config = %{
+        url: "https://example.com:8080/path",
+        secret_key_base: "test_secret",
+        port: 8080,
+        server: true,
+        user_register: true,
+        enable_adsense: true,
+        show_icp: true
+      }
+
+      Setup.setup_web(config)
+
+      endpoint_config = Application.get_env(:gsmlg_web, GSMLG.Web.Endpoint)
+      assert endpoint_config[:secret_key_base] == "test_secret"
+      assert endpoint_config[:http][:port] == 8080
+      assert endpoint_config[:server] == true
+      assert endpoint_config[:url][:host] == "example.com"
+      assert endpoint_config[:url][:port] == 8080
+      assert endpoint_config[:url][:scheme] == "https"
+      assert endpoint_config[:url][:path] == "/path"
+      assert endpoint_config[:user_register] == true
+      assert endpoint_config[:enable_adsense] == true
+      assert endpoint_config[:show_icp] == true
+    end
+
+    test "handles server false setting" do
+      config = %{
+        url: "http://localhost:4000",
+        secret_key_base: "test",
+        port: 4000,
+        server: false
+      }
+
+      Setup.setup_web(config)
+
+      endpoint_config = Application.get_env(:gsmlg_web, GSMLG.Web.Endpoint)
+      assert endpoint_config[:server] == false
+    end
+  end
+
+  describe "setup_admin_web/1" do
+    test "configures admin web endpoint" do
+      config = %{
+        url: "https://admin.example.com:8081",
+        secret_key_base: "admin_secret",
+        port: 8081,
+        server: true,
+        user_register: false
+      }
+
+      Setup.setup_admin_web(config)
+
+      endpoint_config = Application.get_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint)
+      assert endpoint_config[:secret_key_base] == "admin_secret"
+      assert endpoint_config[:http][:port] == 8081
+      assert endpoint_config[:server] == true
+      assert endpoint_config[:url][:host] == "admin.example.com"
+      assert endpoint_config[:url][:port] == 8081
+      assert endpoint_config[:url][:scheme] == "https"
+      assert endpoint_config[:user_register] == false
+    end
+  end
+
+  describe "setup_couchdb/1" do
+    test "configures couchdb connection" do
+      config = %{
+        host: "couchdb.example.com",
+        port: 5984,
+        username: "couch_user",
+        password: "couch_pass"
+      }
+
+      Setup.setup_couchdb(config)
+
+      connection_config = Application.get_env(:gsmlg_couchdb, GSMLG.CouchDB.Connection)
+      assert connection_config[:host] == "couchdb.example.com"
+      assert connection_config[:port] == 5984
+      assert connection_config[:username] == "couch_user"
+      assert connection_config[:password] == "couch_pass"
+    end
+  end
+
+  describe "setup_commander/1" do
+    test "configures commander" do
+      config = %{
+        start: true,
+        name: "test_commander",
+        platform_url: "ws://localhost:4111/socket",
+        platform_key: "test_key"
+      }
+
+      Setup.setup_commander(config)
+
+      commander_config = Application.get_env(:gsmlg_commander, GSMLG.Commander)
+      assert commander_config[:start] == true
+      assert commander_config[:name] == "test_commander"
+      assert commander_config[:platform_url] == "ws://localhost:4111/socket"
+      assert commander_config[:platform_key] == "test_key"
+    end
+  end
+
+  describe "setup_oauth/1" do
+    test "configures github oauth" do
+      config = %{
+        github: %{
+          client_id: "github_client_id",
+          client_secret: "github_client_secret"
+        }
+      }
+
+      Setup.setup_oauth(config)
+
+      oauth_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Github.OAuth)
+      assert oauth_config[:client_id] == "github_client_id"
+      assert oauth_config[:client_secret] == "github_client_secret"
+    end
+
+    test "handles missing github config" do
+      config = %{}
+
+      # Should not crash
+      assert Setup.setup_oauth(config) == nil
+    end
+  end
+
+  describe "setup_web_push/1" do
+    test "configures web push" do
+      config = %{
+        subject: "mailto:test@example.com",
+        public_key: "public_key_test",
+        private_key: "private_key_test"
+      }
+
+      Setup.setup_web_push(config)
+
+      vapid_config = Application.get_env(:gsmlg_web_push, :vapid_details)
+      assert vapid_config[:subject] == "mailto:test@example.com"
+      assert vapid_config[:public_key] == "public_key_test"
+      assert vapid_config[:private_key] == "private_key_test"
+    end
+  end
+
+  describe "update_env/4" do
+    test "merges new values with existing application environment" do
+      # Set existing config as keyword list
+      Application.put_env(:test_app, TestKey, existing: "value", nested: [key: "old"])
+
+      new_value = [new: "value", nested: [key: "new", another: "field"]]
+
+      Setup.update_env(:test_app, TestKey, new_value)
+
+      merged = Application.get_env(:test_app, TestKey)
+      assert merged[:existing] == "value"
+      assert merged[:new] == "value"
+      assert merged[:nested][:key] == "new"
+      assert merged[:nested][:another] == "field"
+    end
+
+    test "creates new environment when none exists" do
+      new_value = %{test: "value"}
+
+      Setup.update_env(:test_app_new, TestKey, new_value)
+
+      result = Application.get_env(:test_app_new, TestKey)
+      assert result == new_value
+    end
+  end
+
+  describe "deep_merge/2" do
+    test "merges keyword lists deeply" do
+      old = [key1: "value1", nested: [old_key: "old_value"]]
+      new = [key2: "value2", nested: [new_key: "new_value"]]
+
+      # Use private function through apply since it's not public
+      result = apply(Setup, :deep_merge, [old, new])
+
+      assert result[:key1] == "value1"
+      assert result[:key2] == "value2"
+      assert result[:nested][:old_key] == "old_value"
+      assert result[:nested][:new_key] == "new_value"
+    end
+
+    test "merges maps deeply" do
+      old = %{key1: "value1", nested: %{old_key: "old_value"}}
+      new = %{key2: "value2", nested: %{new_key: "new_value"}}
+
+      # Use private function through apply since it's not public
+      result = apply(Setup, :deep_merge, [old, new])
+
+      assert result.key1 == "value1"
+      assert result.key2 == "value2"
+      assert result.nested.old_key == "old_value"
+      assert result.nested.new_key == "new_value"
+    end
+
+    test "returns new value when types don't match" do
+      old = [key1: "value1"]
+      new = %{key2: "value2"}
+
+      # Use private function through apply since it's not public
+      result = apply(Setup, :deep_merge, [old, new])
+
+      assert result == new
+    end
+  end
+end

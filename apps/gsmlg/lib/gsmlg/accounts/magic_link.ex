@@ -35,9 +35,11 @@ defmodule GSMLG.Accounts.MagicLink do
   Validates a magic link token and returns the associated user if valid.
   """
   def validate_magic_link(token) when is_binary(token) do
-    query = from u in User,
-      where: u.magic_link_token == ^token and
-             u.magic_link_sent_at > ^hours_ago(@magic_link_validity_hours)
+    query =
+      from u in User,
+        where:
+          u.magic_link_token == ^token and
+            u.magic_link_sent_at > ^hours_ago(@magic_link_validity_hours)
 
     case Repo.one(query) do
       nil ->
@@ -107,7 +109,8 @@ defmodule GSMLG.Accounts.MagicLink do
     |> Ecto.Changeset.change(%{
       magic_link_confirmed_at: now,
       email_confirmed_at: now,
-      magic_link_token: nil # Single-use token
+      # Single-use token
+      magic_link_token: nil
     })
     |> Repo.update()
   end

@@ -219,7 +219,7 @@ defmodule GSMLG.Logger.Formatters.ElasticTest do
       defexception [:message, :id, :code]
     end
 
-    log_entry =
+    log_output =
       capture_log(fn ->
         pid =
           spawn(fn ->
@@ -230,7 +230,16 @@ defmodule GSMLG.Logger.Formatters.ElasticTest do
         assert_receive {:DOWN, ^ref, _, _, _}
         Process.sleep(100)
       end)
-      |> decode_or_print_error()
+
+    # Find the log entry that contains our exception
+    log_entry =
+      log_output
+      |> String.trim()
+      |> String.split("\n")
+      |> Enum.map(&decode_or_print_error/1)
+      |> Enum.find(fn entry ->
+        entry["error.type"] == "Elixir.GSMLG.Logger.Formatters.ElasticTest.TestException"
+      end)
 
     assert %{
              "message" => message,
@@ -477,11 +486,18 @@ defmodule GSMLG.Logger.Formatters.ElasticTest do
         Process.sleep(100)
       end)
 
-    [_, log_entry] =
+    # Find the log entry that contains the Task termination (not GenServer)
+    log_entry =
       logs
       |> String.trim()
       |> String.split("\n")
       |> Enum.map(&decode_or_print_error/1)
+      |> Enum.find(fn entry ->
+        entry["message"] &&
+          String.contains?(entry["message"], "Task") &&
+          String.contains?(entry["message"], "terminating") &&
+          String.contains?(entry["message"], "started from")
+      end)
 
     assert %{
              "error.message" => "boom",

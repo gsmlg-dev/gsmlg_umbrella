@@ -151,17 +151,17 @@ defmodule GSMLG.Config.Setup do
     Application.put_env(app, key, merged)
   end
 
-  defp deep_merge(old, new) when is_list(old) and is_list(new) do
+  def deep_merge(old, new) when is_list(old) and is_list(new) do
     Keyword.merge(old, new, fn _key, val1, val2 ->
       deep_merge(val1, val2)
     end)
   end
 
-  defp deep_merge(%{} = old, %{} = new) do
+  def deep_merge(%{} = old, %{} = new) do
     Map.merge(old, new, fn _key, val1, val2 ->
       deep_merge(val1, val2)
     end)
   end
 
-  defp deep_merge(_old, new), do: new
+  def deep_merge(_old, new), do: new
 end
