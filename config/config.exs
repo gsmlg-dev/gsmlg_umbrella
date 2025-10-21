@@ -139,6 +139,61 @@ config :mime, :types, %{
   "text/plain" => ["livemd"]
 }
 
+# GSMLG Telemetry configuration
+config :gsmlg_telemetry,
+  # Minimum log level
+  level: :info,
+
+  # Metrics to collect
+  metrics: [
+    # VM metrics
+    [:vm, :memory],
+    [:vm, :total_run_queue_lengths],
+    # Phoenix metrics
+    [:phoenix, :endpoint, :stop],
+    [:phoenix, :router_dispatch, :stop],
+    # Database metrics
+    [:ecto, :repo, :query],
+    # Custom app metrics
+    [:gsmlg, :web, :request, :duration],
+    [:gsmlg, :repo, :query, :duration],
+    [:gsmlg, :commander, :command_execution],
+    [:gsmlg, :admin, :mnesia, :fetch_info]
+  ],
+
+  # Backends configuration
+  backends: [
+    console: [
+      enabled: true,
+      colored: true,
+      show_events: true,
+      show_metrics: true,
+      level: :debug
+    ],
+    file: [
+      enabled: false,
+      path: "logs/gsmlg.log",
+      format: :json,
+      max_file_size: 50 * 1024 * 1024,
+      max_files: 5,
+      compress: true,
+      buffer_size: 100,
+      flush_interval: 5_000
+    ],
+    cloudwatch: [
+      enabled: false,
+      log_group_name: "/gsmlg/development",
+      log_stream_name: "gsmlg-#{node()}",
+      region: "us-east-1",
+      buffer_size: 100,
+      flush_interval: 5_000
+    ]
+  ],
+
+  # Metrics reporting
+  report_interval: 60_000,
+  max_buffer_size: 1000
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

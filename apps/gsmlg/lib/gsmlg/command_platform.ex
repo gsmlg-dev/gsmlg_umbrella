@@ -1,5 +1,4 @@
 defmodule GSMLG.CommandPlatform do
-  require Logger
   use GenServer
   alias GSMLG.CommandPlatform
 
@@ -30,105 +29,254 @@ defmodule GSMLG.CommandPlatform do
   end
 
   def commander_joined(commander) do
-    Logger.info("Commander joined: #{inspect(commander)}")
+    GSMLG.Telemetry.info("Commander joined platform",
+      metadata: %{
+        module: __MODULE__,
+        event: "commander_joined",
+        commander_name: Map.get(commander, :name),
+        commander_peer_data: Map.get(commander, :peer_data),
+        node: node()
+      }
+    )
 
     CommandPlatform.Agent.add_commander(commander)
   end
 
   def commander_leave(commander) do
-    Logger.info("Commander leave: #{inspect(commander)}")
+    GSMLG.Telemetry.info("Commander left platform",
+      metadata: %{
+        module: __MODULE__,
+        event: "commander_left",
+        commander_name: Map.get(commander, :name),
+        node: node()
+      }
+    )
 
     CommandPlatform.Agent.remove_commander(commander)
   end
 
   def add_run_result(result) do
+    GSMLG.Telemetry.debug("Adding command run result",
+      metadata: %{
+        module: __MODULE__,
+        operation: "add_run_result",
+        command: Map.get(result, :command),
+        commander: Map.get(result, :commander),
+        exit_code: Map.get(result, :code)
+      }
+    )
     GenServer.cast(__MODULE__, {:add_run_result, result})
   end
 
   @impl true
   def init(_init) do
     state = %{commanders: [], run_results: []}
-    Logger.debug("CommandPlatform init state: #{inspect(state)}")
-    {:ok, state}
+    GSMLG.Telemetry.info("CommandPlatform initializing",
+      metadata: %{
+        module: __MODULE__,
+        operation: "init",
+        node: node(),
+        initial_state_keys: Map.keys(state)
+      }
+    )
+    {:ok, state, {:continue, :start_mnesia}}
   end
 
   @impl true
   def handle_continue(:start_mnesia, state) do
-    ensure_mnesia_started()
-    ensure_mnesia_table()
+    GSMLG.Telemetry.span([:command_platform, :mnesia_setup], %{node: node()}, fn ->
+      try do
+        ensure_mnesia_started()
+        ensure_mnesia_table()
 
-    Logger.debug("CommandPlatform initialize state: #{inspect(state)}")
+        GSMLG.Telemetry.info("CommandPlatform Mnesia setup completed",
+          metadata: %{
+            module: __MODULE__,
+            operation: "mnesia_setup_complete",
+            node: node()
+          }
+        )
 
-    {:noreply, state}
+        state
+        |> then(&{:ok, &1})
+      rescue
+        e ->
+          GSMLG.Telemetry.exception(e, __STACKTRACE__,
+            metadata: %{
+              module: __MODULE__,
+              operation: "mnesia_setup_failed",
+              node: node()
+            }
+          )
+          {:ok, state}
+      end
+    end)
+    |> case do
+      {:ok, new_state} ->
+        GSMLG.Telemetry.debug("CommandPlatform initialized successfully",
+          metadata: %{
+            module: __MODULE__,
+            operation: "init_complete",
+            commanders_count: length(new_state.commanders),
+            results_count: length(new_state.run_results)
+          }
+        )
+        {:noreply, new_state}
+      state ->
+        {:noreply, state}
+    end
   end
 
   @impl true
   def handle_call(:get_state, _from, state) do
-    Logger.debug("CommandPlatform state: #{inspect(state)}")
+    GSMLG.Telemetry.debug("CommandPlatform state requested",
+      metadata: %{
+        module: __MODULE__,
+        operation: "get_state",
+        commanders_count: length(state.commanders),
+        results_count: length(state.run_results)
+      }
+    )
     {:reply, {:ok, state}, state}
   end
 
   def handle_call(:list_commanders, _from, %{:commanders => commanders} = state) do
-    Logger.debug("CommandPlatform state: #{inspect(state)}")
+    GSMLG.Telemetry.debug("Commanders list requested",
+      metadata: %{
+        module: __MODULE__,
+        operation: "list_commanders",
+        commanders_count: length(commanders)
+      }
+    )
     {:reply, {:ok, commanders}, state}
   end
 
   def handle_call(:list_command_results, _from, %{:run_results => run_results} = state) do
+    GSMLG.Telemetry.debug("Command results list requested",
+      metadata: %{
+        module: __MODULE__,
+        operation: "list_command_results",
+        results_count: length(run_results)
+      }
+    )
     {:reply, {:ok, run_results}, state}
   end
 
   @impl true
   def handle_cast({:commander_joined, commander}, state) do
-    state =
+    new_commanders_count = length(state.commanders) + 1
+    new_state =
       state
       |> update_in([:commanders], fn commanders ->
         [commander | commanders]
       end)
 
-    Logger.debug("Commanders updated: #{inspect(state)}")
-    {:noreply, state}
+    GSMLG.Telemetry.info("Commander added to state",
+      metadata: %{
+        module: __MODULE__,
+        operation: "commander_added",
+        commander_name: Map.get(commander, :name),
+        previous_commanders_count: length(state.commanders),
+        new_commanders_count: new_commanders_count
+      }
+    )
+
+    {:noreply, new_state}
   end
 
   def handle_cast({:commander_leave, commander}, state) do
-    state =
+    new_state =
       state
       |> update_in([:commanders], fn commanders ->
         commanders |> Enum.reject(&(&1.name == commander.name))
       end)
 
-    Logger.debug("Commanders updated: #{inspect(state)}")
-    {:noreply, state}
+    new_commanders_count = length(new_state.commanders)
+    commanders_removed = length(state.commanders) - new_commanders_count
+
+    GSMLG.Telemetry.info("Commander removed from state",
+      metadata: %{
+        module: __MODULE__,
+        operation: "commander_removed",
+        commander_name: Map.get(commander, :name),
+        previous_commanders_count: length(state.commanders),
+        new_commanders_count: new_commanders_count,
+        commanders_removed: commanders_removed
+      }
+    )
+
+    {:noreply, new_state}
   end
 
   def handle_cast({:add_run_result, result}, state) do
-    state =
+    new_results_count = length(state.run_results) + 1
+    new_state =
       state
       |> update_in([:run_results], fn run_results ->
         [result | run_results]
       end)
 
-    Logger.debug("Add new run result: #{inspect(result)}")
-    {:noreply, state}
+    GSMLG.Telemetry.info("Command result added to state",
+      metadata: %{
+        module: __MODULE__,
+        operation: "result_added",
+        command: Map.get(result, :command),
+        commander: Map.get(result, :commander),
+        exit_code: Map.get(result, :code),
+        previous_results_count: length(state.run_results),
+        new_results_count: new_results_count
+      }
+    )
+
+    {:noreply, new_state}
   end
 
   @impl true
   def handle_info(msg, state) do
-    Logger.warning("Unexpected message in KV.Registry: #{inspect(msg)}")
+    GSMLG.Telemetry.warn("Unexpected message received in CommandPlatform",
+      metadata: %{
+        module: __MODULE__,
+        operation: "unexpected_message",
+        message: msg,
+        message_type: typeof(msg),
+        state_keys: Map.keys(state)
+      }
+    )
     {:noreply, state}
   end
 
   defp ensure_mnesia_started() do
-    GSMLG.Mnesia.stop()
-    GSMLG.Mnesia.Schema.create([node()])
+    GSMLG.Telemetry.span([:command_platform, :mnesia_start], %{node: node()}, fn ->
+      GSMLG.Mnesia.stop()
+      GSMLG.Mnesia.Schema.create([node()])
 
-    case GSMLG.Mnesia.start() do
-      :ok -> :ok
-      {:error, {:already_started, _}} -> :ok
-      {:error, _} = error -> error
+      result = case GSMLG.Mnesia.start() do
+        :ok -> :ok
+        {:error, {:already_started, _}} -> :ok
+        {:error, _} = error -> error
+      end
+
+      {result, %{node: node()}}
+    end)
+    |> case do
+      {result, _metadata} -> result
     end
   end
 
   defp ensure_mnesia_table() do
-    CommandPlatform.Commander.ensure_table()
+    GSMLG.Telemetry.span([:command_platform, :ensure_table], %{node: node()}, fn ->
+      result = CommandPlatform.Commander.ensure_table()
+      {result, %{node: node()}}
+    end)
+    |> case do
+      {result, _metadata} -> result
+    end
   end
+
+  defp typeof(term) when is_map(term), do: :map
+  defp typeof(term) when is_list(term), do: :list
+  defp typeof(term) when is_binary(term), do: :binary
+  defp typeof(term) when is_number(term), do: :number
+  defp typeof(term) when is_atom(term), do: :atom
+  defp typeof(_), do: :unknown
 end

@@ -36,11 +36,11 @@ defmodule GSMLG.Telemetry.MixProject do
   defp deps do
     [
       {:telemetry, "~> 1.2"},
-      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.4"},
       {:ex_aws, "~> 2.4"},
-      {:ex_aws_cloudwatch_logs, "~> 2.0"},
+      {:ex_aws_cloudwatch_logs, "~> 1.0"},
       {:gsmlg_aws, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
       {:stream_data, "~> 1.0", only: [:dev, :test]},

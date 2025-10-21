@@ -1,13 +1,27 @@
 defmodule GSMLG.AdminWeb.Guardian.ApiAuthErrorHandler do
-  require Logger
-
   import Plug.Conn
 
   @behaviour Guardian.Plug.ErrorHandler
 
   @impl Guardian.Plug.ErrorHandler
   def auth_error(conn, {type, reason}, _opts) do
-    Logger.error("Error occurred at #{__MODULE__}", error: reason, type: type)
+    # Get connection info safely
+    remote_ip = case Plug.Conn.get_peer_data(conn) do
+      %{remote_ip: ip} -> ip
+      _ -> nil
+    end
+
+    GSMLG.Telemetry.error("Admin API authentication error occurred",
+      metadata: %{
+        module: __MODULE__,
+        error: reason,
+        type: type,
+        user_agent: get_req_header(conn, "user-agent"),
+        remote_ip: remote_ip,
+        request_path: conn.request_path
+      }
+    )
+
     body = Jason.encode!(%{message: "[ApiAuthErrorHandler] #{type}: #{reason}"})
 
     conn

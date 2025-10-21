@@ -66,3 +66,30 @@ config :phoenix_react_server, Phoenix.React.Runtime.Bun,
   server_js: Path.expand("../apps/gsmlg_component/priv/server.js", __DIR__),
   port: 4632,
   env: :dev
+
+# Development-specific telemetry configuration
+config :gsmlg_telemetry,
+  level: :debug,
+  backends: [
+    console: [
+      enabled: true,
+      colored: true,
+      show_events: true,
+      show_metrics: true,
+      level: :debug
+    ],
+    file: [
+      enabled: false,
+      path: "logs/gsmlg_dev.log",
+      format: :json,
+      max_file_size: 10 * 1024 * 1024,
+      max_files: 3,
+      compress: false,
+      buffer_size: 50,
+      flush_interval: 2_000
+    ],
+    cloudwatch: [
+      enabled: false
+    ]
+  ],
+  report_interval: 30_000

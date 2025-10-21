@@ -8,6 +8,7 @@ defmodule GSMLG.Telemetry.Metrics do
 
   use GenServer
   require Logger
+  import Telemetry.Metrics
 
   @default_metrics [
     # Phoenix metrics
@@ -221,14 +222,17 @@ defmodule GSMLG.Telemetry.Metrics do
 
   defp create_metric_from_name(name) do
     # Try to infer metric type from name
+    last_name = List.last(name)
+    last_name_str = Atom.to_string(last_name)
+
     cond do
-      String.contains?(Atom.to_string(List.last(name)), "duration") ->
+      String.contains?(last_name_str, "duration") ->
         distribution(name, unit: {:native, :millisecond})
 
-      String.contains?(Atom.to_string(List.last(name)), "count") ->
+      String.contains?(last_name_str, "count") ->
         counter(name)
 
-      String.contains?(Atom.to_string(List.last(name)), "total") ->
+      String.contains?(last_name_str, "total") ->
         sum(name)
 
       true ->

@@ -96,10 +96,13 @@ defmodule GSMLG.Telemetry.Logger do
   def error(message, metadata \\ %{}), do: log(:error, message, metadata)
 
   @doc """
-  Log an exception with stacktrace.
+  Log an exception with current stacktrace.
   """
-  @spec exception(Exception.t(), Exception.stacktrace(), map()) :: :ok
-  def exception(exception, stacktrace \\ __STACKTRACE__, metadata \\ %{}) do
+  @spec exception(Exception.t(), map()) :: :ok
+  def exception(exception, metadata \\ %{}) do
+    stacktrace = Process.info(self(), :current_stacktrace)
+    |> elem(1)
+
     error_metadata = metadata
     |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
     |> Map.put(:exception_kind, :error)
@@ -109,10 +112,39 @@ defmodule GSMLG.Telemetry.Logger do
   end
 
   @doc """
-  Log a warning about an exception (non-fatal).
+  Log an exception with provided stacktrace.
   """
-  @spec warn_exception(Exception.t(), Exception.stacktrace(), map()) :: :ok
-  def warn_exception(exception, stacktrace \\ __STACKTRACE__, metadata \\ %{}) do
+  @spec exception_with_stacktrace(Exception.t(), Exception.stacktrace(), map()) :: :ok
+  def exception_with_stacktrace(exception, stacktrace, metadata \\ %{}) do
+    error_metadata = metadata
+    |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
+    |> Map.put(:exception_kind, :error)
+    |> Map.put(:exception_message, Exception.message(exception))
+
+    log(:error, "Exception: #{Exception.message(exception)}", error_metadata)
+  end
+
+  @doc """
+  Log a warning about an exception (non-fatal) with current stacktrace.
+  """
+  @spec warn_exception(Exception.t(), map()) :: :ok
+  def warn_exception(exception, metadata \\ %{}) do
+    stacktrace = Process.info(self(), :current_stacktrace)
+    |> elem(1)
+
+    warn_metadata = metadata
+    |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
+    |> Map.put(:exception_kind, :warning)
+    |> Map.put(:exception_message, Exception.message(exception))
+
+    log(:warn, "Warning: #{Exception.message(exception)}", warn_metadata)
+  end
+
+  @doc """
+  Log a warning about an exception (non-fatal) with provided stacktrace.
+  """
+  @spec warn_exception_with_stacktrace(Exception.t(), Exception.stacktrace(), map()) :: :ok
+  def warn_exception_with_stacktrace(exception, stacktrace, metadata \\ %{}) do
     warn_metadata = metadata
     |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
     |> Map.put(:exception_kind, :warning)
