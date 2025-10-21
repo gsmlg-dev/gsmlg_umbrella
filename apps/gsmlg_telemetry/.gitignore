@@ -1,0 +1,55 @@
+# The directory Mix will write compiled artifacts to.
+/_build/
+
+# If you run "mix test --cover", coverage data end up here.
+/cover/
+
+# The directory Mix downloads your dependencies sources to.
+/deps/
+
+# Where 3rd-party dependencies like ExDoc output generated docs.
+/doc/
+
+# Ignore .fetch files in case you're using git submodules.
+/.fetch
+
+# If VM prints a warning that it is "attempting to remove symlink's current
+# directory" this is likely due to the fact that you are on Windows and are
+# using PowerShell as your shell, which does not support symlinks.  To fix
+# this, set the environment variable MIX_ENV in your shell before running
+# Mix:
+#
+#     set MIX_ENV=dev
+#
+# Alternatively, you can prefix every Mix command with the environment:
+#
+#     MIX_ENV=dev mix test
+
+# Mix may generate directories for secrets and other sensitive information.
+# These directories should be ignored to avoid accidentally committing them.
+/config/*.secret.exs
+
+# Temporary log files
+/logs/
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+/coverage/
+
+# Temporary files
+/tmp/
+/temp/
+
+# Local configuration
+/local_config.exs

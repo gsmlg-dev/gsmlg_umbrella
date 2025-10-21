@@ -28,7 +28,9 @@ defmodule GSMLG.Application do
       {Finch, name: GSMLG.Finch},
       GSMLG.WebPush.Subscriptions,
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
-      {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor}
+      {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
+      # Start Telemetry system
+      GSMLG.Telemetry.Application
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Supervisor)
