@@ -187,15 +187,26 @@ defmodule GSMLG.Mnesia.Query do
   GSMLG.Mnesia.Query.read(Blog.Post, :unknown_id)
   # => nil
   ```
+
+  Emits telemetry event: `[:gsmlg, :mnesia, :query, :read]`
   """
   @spec read(Table.name(), any, options) :: Table.record() | nil
   def read(table, id, opts \\ []) do
     lock = Keyword.get(opts, :lock, :read)
 
-    case Mnesia.call(:read, [table, id, lock]) do
-      [] -> nil
-      [record | _] -> Query.Data.load(record)
-    end
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :query, :read],
+      %{table: table, id: id, lock: lock},
+      fn ->
+        result =
+          case Mnesia.call(:read, [table, id, lock]) do
+            [] -> nil
+            [record | _] -> Query.Data.load(record)
+          end
+
+        {result, %{found: !is_nil(result)}}
+      end
+    )
   end
 
   @doc """
@@ -229,17 +240,29 @@ defmodule GSMLG.Mnesia.Query do
   GSMLG.Mnesia.Query.write(%Blog.Author{username: "sye", ... })
   # => %Blog.Author{username: "sye", ... }
   ```
+
+  Emits telemetry event: `[:gsmlg, :mnesia, :query, :write]`
   """
   @spec write(Table.record(), options) :: Table.record() | no_return
   def write(record = %{__struct__: table}, opts \\ []) do
-    struct = prepare_record_for_write!(table, record)
-    tuple = Query.Data.dump(struct)
     lock = Keyword.get(opts, :lock, :write)
 
-    case Mnesia.call(:write, [table, tuple, lock]) do
-      :ok -> struct
-      term -> term
-    end
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :query, :write],
+      %{table: table, lock: lock},
+      fn ->
+        struct = prepare_record_for_write!(table, record)
+        tuple = Query.Data.dump(struct)
+
+        result =
+          case Mnesia.call(:write, [table, tuple, lock]) do
+            :ok -> struct
+            term -> term
+          end
+
+        {result, %{autoincrement: is_nil(Map.get(record, table.__info__().primary_key))}}
+      end
+    )
   end
 
   @doc """
@@ -395,11 +418,18 @@ defmodule GSMLG.Mnesia.Query do
   @result [:"$_"]
   @spec select(Table.name(), list(tuple) | tuple, options) :: list(Table.record())
   def select(table, guards, opts \\ []) do
-    attr_map = table.__info__.query_map
-    match_head = table.__info__.query_base
-    guards = GSMLG.Mnesia.Query.Spec.build(guards, attr_map)
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :query, :select],
+      %{table: table, has_guards: !Enum.empty?(List.wrap(guards))},
+      fn ->
+        attr_map = table.__info__.query_map
+        match_head = table.__info__.query_base
+        guards_compiled = GSMLG.Mnesia.Query.Spec.build(guards, attr_map)
 
-    select_raw(table, [{match_head, guards, @result}], opts)
+        result = select_raw(table, [{match_head, guards_compiled, @result}], opts)
+        {result, %{count: length(result)}}
+      end
+    )
   end
 
   @doc """
@@ -575,12 +605,21 @@ defmodule GSMLG.Mnesia.Query do
   # Delete a Blog Post record with the id `10` (primary key)
   GSMLG.Mnesia.Query.delete(Blog.Post, 10)
   ```
+
+  Emits telemetry event: `[:gsmlg, :mnesia, :query, :delete]`
   """
   @spec delete(Table.name(), term, options) :: :ok
   def delete(table, key, opts \\ []) do
     lock = Keyword.get(opts, :lock, :write)
 
-    Mnesia.call(:delete, [table, key, lock])
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :query, :delete],
+      %{table: table, key: key, lock: lock},
+      fn ->
+        result = Mnesia.call(:delete, [table, key, lock])
+        {result, %{}}
+      end
+    )
   end
 
   @doc """

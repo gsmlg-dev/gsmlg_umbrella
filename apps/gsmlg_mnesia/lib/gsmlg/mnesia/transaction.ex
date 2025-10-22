@@ -55,12 +55,29 @@ defmodule GSMLG.Mnesia.Transaction do
   Default value of `retries` is `:infinity`. Returns either
   `{:ok, result}` or `{:error, reason}`. Also see
   `:mnesia.transaction/2`.
+
+  Emits telemetry events:
+  - `[:gsmlg, :mnesia, :transaction, :start]` - When transaction begins
+  - `[:gsmlg, :mnesia, :transaction, :stop]` - When transaction completes successfully
+  - `[:gsmlg, :mnesia, :transaction, :exception]` - When transaction fails
   """
   @spec execute(fun, retries) :: {:ok, any} | {:error, any}
   def execute(function, retries \\ :infinity) do
-    :transaction
-    |> GSMLG.Mnesia.Mnesia.call_and_catch([function, retries])
-    |> GSMLG.Mnesia.Mnesia.handle_result()
+    start_time = System.monotonic_time()
+    metadata = %{retries: retries}
+
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :transaction],
+      metadata,
+      fn ->
+        result =
+          :transaction
+          |> GSMLG.Mnesia.Mnesia.call_and_catch([function, retries])
+          |> GSMLG.Mnesia.Mnesia.handle_result()
+
+        {result, %{status: elem(result, 0)}}
+      end
+    )
   end
 
   @doc """
@@ -83,12 +100,28 @@ defmodule GSMLG.Mnesia.Transaction do
 
   Returns either `{:ok, result}` or `{:error, reason}`. Also see
   `:mnesia.sync_transaction/2`.
+
+  Emits telemetry events:
+  - `[:gsmlg, :mnesia, :transaction_sync, :start]` - When sync transaction begins
+  - `[:gsmlg, :mnesia, :transaction_sync, :stop]` - When sync transaction completes
+  - `[:gsmlg, :mnesia, :transaction_sync, :exception]` - When sync transaction fails
   """
   @spec execute_sync(fun, retries) :: {:ok, any} | {:error, any}
   def execute_sync(function, retries \\ :infinity) do
-    :sync_transaction
-    |> GSMLG.Mnesia.Mnesia.call_and_catch([function, retries])
-    |> GSMLG.Mnesia.Mnesia.handle_result()
+    metadata = %{retries: retries, sync: true}
+
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :transaction_sync],
+      metadata,
+      fn ->
+        result =
+          :sync_transaction
+          |> GSMLG.Mnesia.Mnesia.call_and_catch([function, retries])
+          |> GSMLG.Mnesia.Mnesia.handle_result()
+
+        {result, %{status: elem(result, 0)}}
+      end
+    )
   end
 
   @doc """

@@ -53,6 +53,8 @@ defmodule GSMLG.Mnesia.Schema do
   that the directory exists.
 
   Also see `:mnesia.create_schema/1`.
+
+  Emits telemetry event: `[:gsmlg, :mnesia, :schema, :create]`
   """
   @spec create(list(node)) :: :ok | {:error, any}
   def create(nodes) do
@@ -60,9 +62,18 @@ defmodule GSMLG.Mnesia.Schema do
       :ok = File.mkdir_p!(path)
     end
 
-    :create_schema
-    |> GSMLG.Mnesia.Mnesia.call_and_catch([nodes])
-    |> GSMLG.Mnesia.Mnesia.handle_result()
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :schema, :create],
+      %{nodes: nodes, node_count: length(nodes)},
+      fn ->
+        result =
+          :create_schema
+          |> GSMLG.Mnesia.Mnesia.call_and_catch([nodes])
+          |> GSMLG.Mnesia.Mnesia.handle_result()
+
+        {result, %{status: elem(result, 0)}}
+      end
+    )
   end
 
   @doc """
@@ -71,12 +82,23 @@ defmodule GSMLG.Mnesia.Schema do
 
   Use this with caution, as it makes persisting data obsolete. Also see
   `:mnesia.delete_schema/1`.
+
+  Emits telemetry event: `[:gsmlg, :mnesia, :schema, :delete]`
   """
   @spec delete(list(node)) :: :ok | {:error, any}
   def delete(nodes) do
-    :delete_schema
-    |> GSMLG.Mnesia.Mnesia.call_and_catch([nodes])
-    |> GSMLG.Mnesia.Mnesia.handle_result()
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :schema, :delete],
+      %{nodes: nodes, node_count: length(nodes)},
+      fn ->
+        result =
+          :delete_schema
+          |> GSMLG.Mnesia.Mnesia.call_and_catch([nodes])
+          |> GSMLG.Mnesia.Mnesia.handle_result()
+
+        {result, %{status: elem(result, 0)}}
+      end
+    )
   end
 
   @doc """

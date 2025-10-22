@@ -140,6 +140,8 @@ defmodule GSMLG.Mnesia.Table do
   You can optionally pass a set of options keyword, which will override
   all options specified in the definition except `:attributes`.  See
   `:mnesia.create_table/2` for all available options.
+
+  Emits telemetry event: `[:gsmlg, :mnesia, :table, :create]`
   """
   @spec create(name, Keyword.t()) :: :ok | {:error, any}
   def create(table, opts \\ []) do
@@ -153,20 +155,29 @@ defmodule GSMLG.Mnesia.Table do
     type = info.type
     auto = Keyword.get(opts.gsmlg_mnesia, :autoincrement, false)
 
-    cond do
-      # Return error if autoincrement is used without ordered_set
-      auto && type != :ordered_set ->
-        {:error, {:autoincrement, "can only be used with :ordered_set"}}
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :table, :create],
+      %{table: table, type: type, autoincrement: auto},
+      fn ->
+        result =
+          cond do
+            # Return error if autoincrement is used without ordered_set
+            auto && type != :ordered_set ->
+              {:error, {:autoincrement, "can only be used with :ordered_set"}}
 
-      # Else create the Table
-      true ->
-        main = [attributes: info.attributes]
-        mnesia_opts = Keyword.merge(opts.mnesia, main)
+            # Else create the Table
+            true ->
+              main = [attributes: info.attributes]
+              mnesia_opts = Keyword.merge(opts.mnesia, main)
 
-        :create_table
-        |> GSMLG.Mnesia.Mnesia.call([table, mnesia_opts])
-        |> GSMLG.Mnesia.Mnesia.handle_result()
-    end
+              :create_table
+              |> GSMLG.Mnesia.Mnesia.call([table, mnesia_opts])
+              |> GSMLG.Mnesia.Mnesia.handle_result()
+          end
+
+        {result, %{status: elem(result, 0)}}
+      end
+    )
   end
 
   @doc "Same as `create/2`, but raises error on failure."
@@ -181,14 +192,25 @@ defmodule GSMLG.Mnesia.Table do
   Deletes a GSMLG.Mnesia Table for Mnesia.
 
   Returns `:ok` on success and `{:error, reason}` on failure.
+
+  Emits telemetry event: `[:gsmlg, :mnesia, :table, :delete]`
   """
   @spec delete(name) :: :ok | {:error, any}
   def delete(table) do
     Definition.validate_table!(table)
 
-    :delete_table
-    |> GSMLG.Mnesia.Mnesia.call([table])
-    |> GSMLG.Mnesia.Mnesia.handle_result()
+    GSMLG.Telemetry.span(
+      [:gsmlg, :mnesia, :table, :delete],
+      %{table: table},
+      fn ->
+        result =
+          :delete_table
+          |> GSMLG.Mnesia.Mnesia.call([table])
+          |> GSMLG.Mnesia.Mnesia.handle_result()
+
+        {result, %{status: elem(result, 0)}}
+      end
+    )
   end
 
   @doc "Same as `delete/1`, but raises error on failure."
