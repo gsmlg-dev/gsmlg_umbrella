@@ -259,7 +259,7 @@ defmodule GSMLG.Socket.Web do
     origin = local[:origin]
     protocols = local[:protocol]
     extensions = local[:extensions]
-    handshake = :base64.encode(local[:handshake] || "fork the dongles")
+    handshake = :base64.encode(local[:handshake] || :crypto.strong_rand_bytes(16))
     headers = Enum.map(local[:headers] || %{}, fn {k, v} -> ["#{k}: #{v}", "\r\n"] end)
 
     client = mod.connect!(address, port, global)
@@ -474,7 +474,7 @@ defmodule GSMLG.Socket.Web do
 
     headers = headers(%{}, client, local)
 
-    if headers["upgrade"] != "websocket" and headers["connection"] != "Upgrade" do
+    if headers["upgrade"] != "websocket" or headers["connection"] != "Upgrade" do
       client |> GSMLG.Socket.close()
 
       raise RuntimeError, message: "malformed upgrade request"
@@ -608,32 +608,33 @@ defmodule GSMLG.Socket.Web do
 
   @spec unmask(integer, binary) :: binary
   defp unmask(key, data) do
-    unmask(key, data, <<>>)
+    unmask(key, data, []) |> IO.iodata_to_binary()
   end
 
   # we have to XOR the key with the data iterating over the key when there's
   # more data, this means we can optimize and do it 4 bytes at a time and then
   # fallback to the smaller sizes
+  # Using iolist for better performance (O(n) instead of O(n²))
   defp unmask(key, <<data::32, rest::binary>>, acc) do
-    unmask(key, rest, <<acc::binary, bxor(data, key)::32>>)
+    unmask(key, rest, [acc | <<bxor(data, key)::32>>])
   end
 
   defp unmask(key, <<data::24>>, acc) do
     <<key::24, _::8>> = <<key::32>>
 
-    unmask(key, <<>>, <<acc::binary, bxor(data, key)::24>>)
+    unmask(key, <<>>, [acc | <<bxor(data, key)::24>>])
   end
 
   defp unmask(key, <<data::16>>, acc) do
     <<key::16, _::16>> = <<key::32>>
 
-    unmask(key, <<>>, <<acc::binary, bxor(data, key)::16>>)
+    unmask(key, <<>>, [acc | <<bxor(data, key)::16>>])
   end
 
   defp unmask(key, <<data::8>>, acc) do
     <<key::8, _::24>> = <<key::32>>
 
-    unmask(key, <<>>, <<acc::binary, bxor(data, key)::8>>)
+    unmask(key, <<>>, [acc | <<bxor(data, key)::8>>])
   end
 
   defp unmask(_, <<>>, acc) do

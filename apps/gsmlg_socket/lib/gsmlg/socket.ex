@@ -40,7 +40,7 @@ defmodule GSMLG.Socket do
             reason |> to_string
         end
 
-      %Error{message: message}
+      %TCP.Error{message: message}
     end
   end
 
@@ -60,7 +60,7 @@ defmodule GSMLG.Socket do
             reason |> to_string
         end
 
-      %Error{message: message}
+      %SSL.Error{message: message}
     end
   end
 

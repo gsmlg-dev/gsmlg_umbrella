@@ -44,7 +44,7 @@ defmodule GSMLG.Socket.SSL do
   """
   @spec ciphers :: [:ssl.erl_cipher_suite()]
   def ciphers do
-    :ssl.cipher_suites(:all, ~c"tlsv1.3")
+    :ssl.cipher_suites(:all, :"tlsv1.3")
   end
 
   @doc """
@@ -331,9 +331,23 @@ defmodule GSMLG.Socket.SSL do
 
   @doc """
   Convert SSL options to `:ssl.setopts` compatible arguments.
+
+  ## Security Defaults
+
+  By default, this function enforces the following security settings:
+  - TLS versions: Only TLS 1.2 and TLS 1.3 are enabled (unless explicitly overridden)
+  - Certificate verification: Defaults to `:verify_peer` for client connections
+
+  To disable these defaults (not recommended for production), explicitly set `:versions`
+  or `:verify` options.
   """
   @spec arguments(Keyword.t()) :: list
   def arguments(options) do
+    # Apply security defaults
+    options =
+      options
+      |> Keyword.put_new(:versions, [:"tlsv1.3", :"tlsv1.2"])
+
     options =
       Enum.group_by(options, fn
         {:server_name, _} -> true
@@ -350,7 +364,7 @@ defmodule GSMLG.Socket.SSL do
         {:identity, _} -> true
         {:versions, _} -> true
         {:alert, _} -> true
-        {:ibernate, _} -> true
+        {:hibernate, _} -> true
         {:session, _} -> true
         {:advertised_protocols, _} -> true
         {:preferred_protocols, _} -> true

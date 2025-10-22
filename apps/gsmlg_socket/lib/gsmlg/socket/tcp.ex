@@ -182,22 +182,29 @@ defmodule GSMLG.Socket.TCP do
 
     case :gen_tcp.accept(socket, timeout) do
       {:ok, socket} ->
-        # XXX: the error code here is not checked
-        case options[:mode] do
-          :active ->
-            :inet.setopts(socket, active: true)
+        result =
+          case options[:mode] do
+            :active ->
+              :inet.setopts(socket, active: true)
 
-          :once ->
-            :inet.setopts(socket, active: :once)
+            :once ->
+              :inet.setopts(socket, active: :once)
 
-          :passive ->
-            :inet.setopts(socket, active: false)
+            :passive ->
+              :inet.setopts(socket, active: false)
 
-          nil ->
-            :ok
+            nil ->
+              :ok
+          end
+
+        case result do
+          :ok ->
+            {:ok, socket}
+
+          {:error, reason} ->
+            :gen_tcp.close(socket)
+            {:error, reason}
         end
-
-        {:ok, socket}
 
       {:error, reason} ->
         {:error, reason}
