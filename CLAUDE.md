@@ -15,9 +15,10 @@ GSMLG.Umbrella is a multi-purpose Elixir umbrella application providing web serv
 ### Umbrella Structure
 - **apps/gsmlg**: Core business logic, database models (Ecto), and background services
 - **apps/gsmlg_web**: Public Phoenix web application (port 4110)
-- **apps/gsmlg_admin_web**: Admin Phoenix web application (port 4111)  
+- **apps/gsmlg_admin_web**: Admin Phoenix web application (port 4111)
 - **apps/gsmlg_commander**: Standalone command execution service
 - **apps/gsmlg_component**: Shared React components and frontend assets
+- **apps/gsmlg_telemetry**: Centralized logging, metrics collection, and performance monitoring
 - **Multiple utility libraries**: TOML parsing, PKI, CouchDB client, Web Push, etc.
 
 ### Key Technologies
@@ -34,6 +35,7 @@ GSMLG.Umbrella is a multi-purpose Elixir umbrella application providing web serv
 - **Web Push**: Push notification system
 - **Chess**: Multiplayer chess game with WebSocket channels
 - **Toolbox**: IP geolocation, WHOIS lookup, SVG utilities, MAC address tools
+- **GSMLG.Telemetry**: Comprehensive logging, metrics collection, and performance monitoring system with CloudWatch integration
 
 ## Development Setup
 
@@ -123,6 +125,75 @@ mix tailwind gsmlg_web --watch
 mix bun gsmlg_web --watch
 ```
 
+### Telemetry and Logging
+
+The GSMLG.Telemetry application provides comprehensive logging, metrics collection, and performance monitoring across all applications.
+
+**Basic Usage:**
+```elixir
+# Structured logging with metadata
+GSMLG.Telemetry.info("User action completed", %{user_id: user.id, action: "login"})
+
+# Error logging with rich context
+GSMLG.Telemetry.error("Database operation failed", %{query: query, error: reason})
+
+# Performance monitoring with span tracking
+GSMLG.Telemetry.span(:api_request, %{endpoint: "/api/users"}, fn ->
+  # Code to measure
+  result = make_api_request()
+  {result, %{status: "success", count: length(result)}}
+end)
+```
+
+**Telemetry Configuration:**
+```elixir
+# config/config.exs
+config :gsmlg_telemetry,
+  level: :info,
+  backends: [
+    console: [enabled: true, colored: true, show_events: true, level: :debug],
+    file: [enabled: false, path: "logs/gsmlg.log", format: :json],
+    cloudwatch: [enabled: false, log_group_name: "/gsmlg/development"]
+  ]
+```
+
+**CloudWatch Integration (Production):**
+```elixir
+# config/prod.exs
+config :gsmlg_telemetry,
+  level: :info,
+  backends: [
+    console: [enabled: false],
+    file: [enabled: true, path: "/var/log/gsmlg/app.log", format: :json],
+    cloudwatch: [
+      enabled: true,
+      log_group_name: "/gsmlg/production",
+      log_stream_prefix: "app-",
+      batch_size: 100,
+      flush_interval_ms: 5000
+    ]
+  ]
+```
+
+**Available Metrics:**
+- Phoenix request/response times and counts
+- Database query performance and error rates
+- VM memory and process information
+- Custom business metrics (user actions, cache hits, external API calls)
+- Authentication events and security monitoring
+
+**Viewing Metrics:**
+```bash
+# Get current metrics summary
+iex> GSMLG.Telemetry.Metrics.get_summary()
+
+# Get metrics for specific events
+iex> GSMLG.Telemetry.Metrics.get_metrics([:phoenix, :router_dispatch, :stop])
+
+# Reset all metrics
+iex> GSMLG.Telemetry.Metrics.reset_metrics()
+```
+
 ### Key Configuration
 
 **Environment Variables:**
@@ -162,6 +233,12 @@ mix bun gsmlg_web --watch
 **Authentication:** Guardian JWT tokens with session management via Phoenix.SessionProcess
 
 **Background services:** Add to supervision tree in `lib/gsmlg/application.ex`
+
+**Logging and Telemetry:** Use GSMLG.Telemetry for structured logging
+- Replace `Logger.info("message")` with `GSMLG.Telemetry.info("message", metadata)`
+- Add performance monitoring with `GSMLG.Telemetry.span/3` for critical operations
+- Include rich metadata like user_id, request_id, module names for better observability
+- Authentication errors are automatically logged with security context
 
 ### Deployment
 
