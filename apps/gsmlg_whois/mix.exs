@@ -22,6 +22,7 @@ defmodule GSMLG.Whois.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {GSMLG.Whois.Application, []},
       extra_applications: [:logger]
     ]
   end
@@ -32,7 +33,8 @@ defmodule GSMLG.Whois.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:gsmlg_telemetry, in_umbrella: true},
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false}
     ]
   end
 

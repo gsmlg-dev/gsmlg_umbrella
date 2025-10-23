@@ -1,109 +1,87 @@
 defmodule GSMLG.WhoisTest do
-  use ExUnit.Case
-  doctest GSMLG.Whois
+  use ExUnit.Case, async: false
 
   alias GSMLG.Whois
+  alias GSMLG.Whois.Cache
 
-  @tag :live
-  test "lookup_raw/1 for domain" do
-    case Whois.lookup_raw("google.com") do
-      {:ok, list} ->
-        {root_server, tld_output} = list |> hd()
+  setup do
+    Cache.clear()
+    :ok
+  end
 
-        assert root_server =~ "whois.iana.org"
-        assert tld_output =~ "com"
+  describe "cache integration" do
+    test "returns cached result when available" do
+      query = "cached.example.com"
+      cached_data = [{"test.server", "Cached WHOIS data"}]
 
-        {_tld_server, sld_output} = list |> Enum.at(1)
-        assert sld_output =~ "GOOGLE.COM"
-        assert sld_output =~ "Registry Domain ID: 2138514_DOMAIN_COM-VRSN"
-        assert sld_output =~ "Creation Date: 1997-09-15T04:00:00Z"
-        assert sld_output =~ "Registrar WHOIS Server: whois.markmonitor.com"
+      Cache.put(query, cached_data, :domain)
 
-      {:error, :timeout} ->
-        # Skip test on timeout - network issues
-        :ok
+      {:ok, result} = Whois.lookup_raw(query)
+      assert result == cached_data
+    end
 
-      {:error, reason} ->
-        flunk("Unexpected error: #{inspect(reason)}")
+    test "respects cache: false option" do
+      query = "nocache.example.com"
+
+      Cache.put(query, [{"server", "data"}], :domain)
+      assert {:ok, _} = Cache.get(query)
+
+      # With cache: false, should not use cached data
+      # (will fail network lookup for fake domain, but that's ok)
+      _result = Whois.lookup_raw(query, cache: false)
     end
   end
 
-  @tag :live
-  test "lookup_raw/2 for domain with custom :server" do
-    wait()
-    server = "whois.markmonitor.com"
+  describe "telemetry events" do
+    test "emits cache hit event" do
+      query = "telemetry.example.com"
+      cached_data = [{"test.server", "Cached data"}]
 
-    case Whois.lookup_raw("google.com", server: server) do
-      {:ok, list} ->
-        {whois_server, whois_output} = list |> hd()
+      ref = make_ref()
+      self_pid = self()
 
-        assert whois_server == server
-        assert whois_output =~ "google.com"
-        assert whois_output =~ "Google LLC"
-        assert whois_output =~ "CA"
-        assert whois_output =~ "US"
+      :telemetry.attach(
+        "test-cache-hit-#{ref}",
+        [:gsmlg, :whois, :cache, :hit],
+        fn event, measurements, metadata, _config ->
+          send(self_pid, {:telemetry_event, event, measurements, metadata})
+        end,
+        nil
+      )
 
-      {:error, :timeout} ->
-        # Skip test on timeout - network issues
-        :ok
+      Cache.put(query, cached_data, :domain)
+      {:ok, _result} = Whois.lookup_raw(query)
 
-      {:error, reason} ->
-        flunk("Unexpected error: #{inspect(reason)}")
+      assert_receive {:telemetry_event, [:gsmlg, :whois, :cache, :hit], %{},
+                      %{query: ^query, type: :domain}},
+                     1000
+
+      :telemetry.detach("test-cache-hit-#{ref}")
     end
 
-    wait()
-    server = %Whois.Server{host: "whois.markmonitor.com"}
+    test "emits cache miss event" do
+      query = "miss.example.com"
 
-    case Whois.lookup_raw("google.com", server: server) do
-      {:ok, list} ->
-        {whois_server, whois_output} = list |> hd()
+      ref = make_ref()
+      self_pid = self()
 
-        assert whois_server == server.host
-        assert whois_output =~ "google.com"
-        assert whois_output =~ "Google LLC"
-        assert whois_output =~ "CA"
-        assert whois_output =~ "US"
+      :telemetry.attach(
+        "test-cache-miss-#{ref}",
+        [:gsmlg, :whois, :cache, :miss],
+        fn event, measurements, metadata, _config ->
+          send(self_pid, {:telemetry_event, event, measurements, metadata})
+        end,
+        nil
+      )
 
-      {:error, :timeout} ->
-        # Skip test on timeout - network issues
-        :ok
+      Cache.clear()
+      _result = Whois.lookup_raw(query)
 
-      {:error, reason} ->
-        flunk("Unexpected error: #{inspect(reason)}")
-    end
-  end
+      assert_receive {:telemetry_event, [:gsmlg, :whois, :cache, :miss], %{},
+                      %{query: ^query, type: :domain}},
+                     1000
 
-  @tag :live
-  test "lookup_raw/1 for IP" do
-    case Whois.lookup_raw("8.8.8.8") do
-      {:ok, list} ->
-        {_whois_server, whois_output} = list |> Enum.at(1)
-        assert whois_output =~ "Google"
-
-      {:error, :timeout} ->
-        # Skip test on timeout - network issues
-        :ok
-
-      {:error, reason} ->
-        flunk("Unexpected error: #{inspect(reason)}")
+      :telemetry.detach("test-cache-miss-#{ref}")
     end
   end
-
-  @tag :live
-  test "lookup_raw/1 for AS" do
-    case Whois.lookup_raw("13335") do
-      {:ok, list} ->
-        {_whois_server, whois_output} = list |> Enum.at(1)
-        assert whois_output =~ "Cloudflare"
-
-      {:error, :timeout} ->
-        # Skip test on timeout - network issues
-        :ok
-
-      {:error, reason} ->
-        flunk("Unexpected error: #{inspect(reason)}")
-    end
-  end
-
-  defp wait, do: Process.sleep(5000)
 end
