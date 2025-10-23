@@ -28,7 +28,6 @@ defmodule GSMLG.Commander.MixProject do
     [
       {:gsmlg_phoenix_client, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
-      {:gsmlg_toml, in_umbrella: true},
       {:gsmlg_config, in_umbrella: true},
       {:phoenix_socket_client, "~> 0.7"},
       {:jason, "~> 1.2"}

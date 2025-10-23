@@ -1,0 +1,25 @@
+# Development environment configuration
+# Overrides base.toml values for local development
+
+[logger]
+log_level = "debug"
+
+[database]
+hostname = "mariadb-server.gsmlg.net"
+show_sensitive_data_on_connection_error = true
+
+[web]
+url = "https://gsmlg.org"
+secret_key_base = "o5xg8yDgSOFVrcrH4seZJ7+wJie4BHGOHmf9wP4mlhDFPPIqNETW8GU+gKVgrtFs"
+
+[admin_web]
+url = "https://admin.gsmlg.org"
+secret_key_base = "o5xg8yDgSOFVrcrH4seZJ7+wJie4BHGOHmf9wP4mlhDFPPIqNETW8GU+gKVgrtFs"
+
+[commander]
+platform_key = "o5xg8yDgSOFVrcrH4seZJ7+w"
+
+[web_push]
+subject = "mailto:administrator@gsmlg.com"
+public_key = "BIiu8m_dqtrKSvdquIqUJxsrkwswa0Zgep4myzmHlUcHjEtRdxdK4bZAEAd4dhFTARNGrbIkOJIcjdn13Z-yC4w"
+private_key = "7mYUWrgUKIE_YGuFaIw2bRO0WjreR0iY6WoE7mDwbak"
