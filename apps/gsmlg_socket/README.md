@@ -11,6 +11,9 @@ A comprehensive Elixir socket library providing unified interfaces for TCP, SSL,
 - **URI-based Connections**: Simple URI string support for common protocols
 - **High Performance**: Optimized WebSocket masking using iolists
 - **Well-typed**: Comprehensive `@spec` annotations throughout
+- **Telemetry Integration**: Built-in observability with GSMLG.Telemetry for production monitoring
+- **Enhanced Error Handling**: Structured errors with categorization and actionable suggestions
+- **Security Monitoring**: Automatic logging of SSL/TLS events and certificate validation
 
 ## Installation
 
@@ -315,25 +318,34 @@ GSMLG.Socket.Address.to_string({192, 168, 1, 1})
 
 ## Error Handling
 
+GSMLG.Socket provides enhanced error handling with structured error information:
+
 ```elixir
 case GSMLG.Socket.TCP.connect("example.com", 80) do
   {:ok, socket} ->
     # Handle success
-
-  {:error, :econnrefused} ->
-    # Connection refused
-
-  {:error, :timeout} ->
-    # Connection timeout
+    {:ok, socket}
 
   {:error, reason} ->
-    # Other error
-    IO.puts(GSMLG.Socket.TCP.error(reason))
+    # Get structured error information
+    error_info = GSMLG.Socket.Errors.categorize(reason, :tcp)
+
+    # Check if error is retryable
+    if error_info.retryable do
+      Logger.warning("Retryable error: #{error_info.message}")
+      # Implement retry logic
+    else
+      # Log error with suggestions
+      Logger.error(GSMLG.Socket.Errors.format(error_info))
+      {:error, error_info}
+    end
 end
 
 # Or use bang version to raise on error
 socket = GSMLG.Socket.TCP.connect!("example.com", 80)
 ```
+
+See [Error Handling Guide](ERROR_HANDLING.md) for comprehensive error handling patterns.
 
 ## Testing
 
@@ -352,6 +364,32 @@ mix test test/gsmlg/socket/udp_test.exs
 mix test test/gsmlg/socket/web_test.exs
 ```
 
+## Telemetry and Monitoring
+
+GSMLG.Socket integrates with GSMLG.Telemetry for production observability:
+
+```elixir
+# All operations are automatically instrumented
+{:ok, socket} = GSMLG.Socket.SSL.connect("api.example.com", 443)
+
+# Events logged include:
+# - Connection attempts and results
+# - SSL/TLS handshake details
+# - Certificate validation
+# - Data transfer metrics
+# - Error details with categorization
+
+# Configure output via GSMLG.Telemetry
+config :gsmlg_telemetry,
+  level: :info,
+  backends: [
+    console: [enabled: true],
+    cloudwatch: [enabled: true, log_group_name: "/gsmlg/production"]
+  ]
+```
+
+See [Telemetry Guide](TELEMETRY.md) for detailed event reference and monitoring strategies.
+
 ## Performance
 
 The library is optimized for performance:
@@ -359,6 +397,7 @@ The library is optimized for performance:
 - **WebSocket masking** uses iolists for O(n) complexity instead of O(n²)
 - **Zero-copy operations** where possible using `:file.sendfile/2`
 - **Minimal overhead** wrapping Erlang's battle-tested socket implementations
+- **Efficient telemetry** with minimal performance impact
 
 ## License
 

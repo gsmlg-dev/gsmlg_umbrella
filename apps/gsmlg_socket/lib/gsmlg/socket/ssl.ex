@@ -142,6 +142,8 @@ defmodule GSMLG.Socket.SSL do
   @spec connect(GSMLG.Socket.Address.t(), :inet.port_number(), Keyword.t()) ::
           {:ok, t} | {:error, term}
   def connect(address, port, options) do
+    address_str = if is_binary(address), do: address, else: inspect(address)
+
     address =
       if address |> is_binary do
         String.to_charlist(address)
@@ -152,8 +154,63 @@ defmodule GSMLG.Socket.SSL do
     timeout = options[:timeout] || :infinity
     options = Keyword.delete(options, :timeout)
 
-    :ssl.connect(address, port, arguments(options), timeout)
+    metadata = %{
+      socket_type: :ssl,
+      host: address_str,
+      port: port,
+      timeout: timeout,
+      module: __MODULE__,
+      tls_versions: options[:versions] || [:"tlsv1.3", :"tlsv1.2"]
+    }
+
+    GSMLG.Socket.Telemetry.span(:ssl_connect, metadata, fn ->
+      case :ssl.connect(address, port, arguments(options), timeout) do
+        {:ok, socket} = result ->
+          # Log successful SSL connection with security details
+          conn_info = :ssl.connection_information(socket)
+
+          ssl_metadata = %{
+            host: address_str,
+            port: port,
+            protocol: get_in(conn_info, [:ok, :protocol]),
+            cipher: get_in(conn_info, [:ok, :cipher_suite]),
+            sni: get_in(conn_info, [:ok, :sni_hostname])
+          }
+
+          GSMLG.Socket.Telemetry.log_security(
+            "SSL connection established: #{address_str}:#{port}",
+            ssl_metadata
+          )
+
+          {result, %{success: true, ssl_info: ssl_metadata}}
+
+        {:error, reason} = error ->
+          # Log SSL connection failure with security context
+          error_msg = error(reason) || inspect(reason)
+
+          GSMLG.Socket.Telemetry.log_security(
+            "SSL connection failed: #{address_str}:#{port} - #{error_msg}",
+            %{
+              host: address_str,
+              port: port,
+              reason: reason,
+              error_type: categorize_ssl_error(reason)
+            }
+          )
+
+          {error, %{success: false, error: reason}}
+      end
+    end)
   end
+
+  # Categorize SSL errors for better debugging
+  defp categorize_ssl_error({:tls_alert, {:handshake_failure, _}}), do: :handshake_failure
+  defp categorize_ssl_error({:tls_alert, {:certificate_unknown, _}}), do: :certificate_error
+  defp categorize_ssl_error({:tls_alert, {:bad_certificate, _}}), do: :certificate_error
+  defp categorize_ssl_error({:tls_alert, _}), do: :tls_alert
+  defp categorize_ssl_error(:timeout), do: :timeout
+  defp categorize_ssl_error(:econnrefused), do: :connection_refused
+  defp categorize_ssl_error(_), do: :unknown
 
   @doc """
   Connect to the given address and port with the given options, raising if an
@@ -275,7 +332,35 @@ defmodule GSMLG.Socket.SSL do
   def handshake(socket, options \\ []) when socket |> Record.is_record(:sslsocket) do
     timeout = options[:timeout] || :infinity
 
-    :ssl.handshake(socket, timeout)
+    metadata = %{
+      socket_type: :ssl,
+      operation: :handshake,
+      timeout: timeout,
+      module: __MODULE__
+    }
+
+    GSMLG.Socket.Telemetry.span(:ssl_handshake, metadata, fn ->
+      case :ssl.handshake(socket, timeout) do
+        :ok = result ->
+          GSMLG.Socket.Telemetry.log_security("SSL handshake completed", %{
+            operation: :handshake
+          })
+
+          {result, %{success: true}}
+
+        {:error, reason} = error ->
+          GSMLG.Socket.Telemetry.log_security(
+            "SSL handshake failed: #{inspect(reason)}",
+            %{
+              operation: :handshake,
+              reason: reason,
+              error_type: categorize_ssl_error(reason)
+            }
+          )
+
+          {error, %{success: false, error: reason}}
+      end
+    end)
   end
 
   @doc """

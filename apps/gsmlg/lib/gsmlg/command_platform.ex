@@ -65,12 +65,14 @@ defmodule GSMLG.CommandPlatform do
         exit_code: Map.get(result, :code)
       }
     )
+
     GenServer.cast(__MODULE__, {:add_run_result, result})
   end
 
   @impl true
   def init(_init) do
     state = %{commanders: [], run_results: []}
+
     GSMLG.Telemetry.info("CommandPlatform initializing",
       metadata: %{
         module: __MODULE__,
@@ -79,6 +81,7 @@ defmodule GSMLG.CommandPlatform do
         initial_state_keys: Map.keys(state)
       }
     )
+
     {:ok, state, {:continue, :start_mnesia}}
   end
 
@@ -108,6 +111,7 @@ defmodule GSMLG.CommandPlatform do
               node: node()
             }
           )
+
           {:ok, state}
       end
     end)
@@ -121,7 +125,9 @@ defmodule GSMLG.CommandPlatform do
             results_count: length(new_state.run_results)
           }
         )
+
         {:noreply, new_state}
+
       state ->
         {:noreply, state}
     end
@@ -137,6 +143,7 @@ defmodule GSMLG.CommandPlatform do
         results_count: length(state.run_results)
       }
     )
+
     {:reply, {:ok, state}, state}
   end
 
@@ -148,6 +155,7 @@ defmodule GSMLG.CommandPlatform do
         commanders_count: length(commanders)
       }
     )
+
     {:reply, {:ok, commanders}, state}
   end
 
@@ -159,12 +167,14 @@ defmodule GSMLG.CommandPlatform do
         results_count: length(run_results)
       }
     )
+
     {:reply, {:ok, run_results}, state}
   end
 
   @impl true
   def handle_cast({:commander_joined, commander}, state) do
     new_commanders_count = length(state.commanders) + 1
+
     new_state =
       state
       |> update_in([:commanders], fn commanders ->
@@ -210,6 +220,7 @@ defmodule GSMLG.CommandPlatform do
 
   def handle_cast({:add_run_result, result}, state) do
     new_results_count = length(state.run_results) + 1
+
     new_state =
       state
       |> update_in([:run_results], fn run_results ->
@@ -242,6 +253,7 @@ defmodule GSMLG.CommandPlatform do
         state_keys: Map.keys(state)
       }
     )
+
     {:noreply, state}
   end
 
@@ -250,11 +262,12 @@ defmodule GSMLG.CommandPlatform do
       GSMLG.Mnesia.stop()
       GSMLG.Mnesia.Schema.create([node()])
 
-      result = case GSMLG.Mnesia.start() do
-        :ok -> :ok
-        {:error, {:already_started, _}} -> :ok
-        {:error, _} = error -> error
-      end
+      result =
+        case GSMLG.Mnesia.start() do
+          :ok -> :ok
+          {:error, {:already_started, _}} -> :ok
+          {:error, _} = error -> error
+        end
 
       {result, %{node: node()}}
     end)

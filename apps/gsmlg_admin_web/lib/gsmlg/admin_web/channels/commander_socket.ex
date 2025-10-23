@@ -110,6 +110,7 @@ defmodule GSMLG.AdminWeb.CommanderSocket do
               reason: reason
             }
           )
+
           on_disconnect(commander_info)
       end
     end)
@@ -124,7 +125,9 @@ defmodule GSMLG.AdminWeb.CommanderSocket do
           {_, value} -> value
           nil -> nil
         end
-      _ -> nil
+
+      _ ->
+        nil
     end
   end
 end

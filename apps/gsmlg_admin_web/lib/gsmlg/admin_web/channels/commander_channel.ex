@@ -15,6 +15,7 @@ defmodule GSMLG.AdminWeb.CommanderChannel do
         user_id: socket.assigns[:user_id]
       }
     )
+
     {:ok, socket}
   end
 
@@ -28,6 +29,7 @@ defmodule GSMLG.AdminWeb.CommanderChannel do
         reason: reason
       }
     )
+
     :ok
   end
 
@@ -40,6 +42,7 @@ defmodule GSMLG.AdminWeb.CommanderChannel do
         socket_id: socket.id
       }
     )
+
     push(socket, event, payload)
     {:noreply, socket}
   end
@@ -54,6 +57,7 @@ defmodule GSMLG.AdminWeb.CommanderChannel do
         socket_id: socket.id
       }
     )
+
     {:reply, {:ok, %{"message" => "pong", "time" => System.system_time(:second)}}, socket}
   end
 
@@ -66,6 +70,7 @@ defmodule GSMLG.AdminWeb.CommanderChannel do
         socket_id: socket.id
       }
     )
+
     {:noreply, socket}
   end
 end

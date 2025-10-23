@@ -15,7 +15,8 @@ defmodule GSMLG.Telemetry.Application do
   def start(_type, _args) do
     config = Application.get_all_env(:gsmlg_telemetry)
 
-    children = [
+    # Build base children
+    base_children = [
       # Metrics collector
       {Metrics, config},
       # Metrics reporter
@@ -23,10 +24,12 @@ defmodule GSMLG.Telemetry.Application do
       # Telemetry poller for VM metrics
       start_telemetry_poller(config),
       # Event handler
-      {Handler, config},
-      # Backends
-      start_backends(config)
+      {Handler, config}
     ]
+
+    # Add backends (which returns a list)
+    backends = start_backends(config)
+    children = base_children ++ backends
 
     opts = [strategy: :one_for_one, name: GSMLG.Telemetry.Supervisor]
     Supervisor.start_link(children, opts)
@@ -35,20 +38,20 @@ defmodule GSMLG.Telemetry.Application do
   defp start_telemetry_poller(config) do
     poller_config = Keyword.get(config, :telemetry_poller, [])
 
+    # Use simple built-in measurements
     default_measurements = [
-      {Telemetry.Poller, :measure_memory, []},
-      {Telemetry.Poller, :measure_total_run_queue_lengths, []},
-      {Telemetry.Poller, :measure_system_counts, []}
+      :memory,
+      :total_run_queue_lengths
     ]
 
     measurements = Keyword.get(poller_config, :measurements, default_measurements)
     period = Keyword.get(poller_config, :period, 5_000)
-    name = Keyword.get(poller_config, :name, TelemetryPoller)
+    name = Keyword.get(poller_config, :name, GSMLG.Telemetry.Poller)
 
     %{
       id: name,
       start: {
-        Telemetry.Poller,
+        :telemetry_poller,
         :start_link,
         [[measurements: measurements, period: period, name: name]]
       }
@@ -58,10 +61,11 @@ defmodule GSMLG.Telemetry.Application do
   defp start_backends(config) do
     backends_config = Keyword.get(config, :backends, [])
 
-    backends = []
-    |> maybe_add_console_backend(backends_config)
-    |> maybe_add_file_backend(backends_config)
-    |> maybe_add_cloudwatch_backend(backends_config)
+    backends =
+      []
+      |> maybe_add_console_backend(backends_config)
+      |> maybe_add_file_backend(backends_config)
+      |> maybe_add_cloudwatch_backend(backends_config)
 
     # Wrap each backend in a supervisor to handle failures
     Enum.map(backends, fn backend_config ->

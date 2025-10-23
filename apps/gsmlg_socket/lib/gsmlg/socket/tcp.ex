@@ -105,7 +105,36 @@ defmodule GSMLG.Socket.TCP do
     timeout = options[:timeout] || :infinity
     options = Keyword.delete(options, :timeout)
 
-    :gen_tcp.connect(String.to_charlist(address), port, arguments(options), timeout)
+    metadata = %{
+      socket_type: :tcp,
+      host: address,
+      port: port,
+      timeout: timeout,
+      module: __MODULE__
+    }
+
+    GSMLG.Socket.Telemetry.span(:connect, metadata, fn ->
+      case :gen_tcp.connect(String.to_charlist(address), port, arguments(options), timeout) do
+        {:ok, socket} = result ->
+          GSMLG.Socket.Telemetry.log_connection(:tcp, :connect, %{
+            host: address,
+            port: port,
+            local: inspect(:inet.sockname(socket))
+          })
+
+          {result, %{success: true}}
+
+        {:error, reason} = error ->
+          GSMLG.Socket.Telemetry.log_error(:tcp, "Connection failed: #{inspect(reason)}", %{
+            host: address,
+            port: port,
+            reason: reason,
+            error_message: error(reason) || "Unknown error"
+          })
+
+          {error, %{success: false, error: reason}}
+      end
+    end)
   end
 
   @doc """

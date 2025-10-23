@@ -262,6 +262,17 @@ defmodule GSMLG.Socket.Web do
     handshake = :base64.encode(local[:handshake] || :crypto.strong_rand_bytes(16))
     headers = Enum.map(local[:headers] || %{}, fn {k, v} -> ["#{k}: #{v}", "\r\n"] end)
 
+    metadata = %{
+      socket_type: :websocket,
+      host: address,
+      port: port,
+      path: path,
+      secure: local[:secure] || false,
+      module: __MODULE__
+    }
+
+    GSMLG.Socket.Telemetry.log_connection(:websocket, :connect, metadata)
+
     client = mod.connect!(address, port, global)
     client |> GSMLG.Socket.packet!(:raw)
 
@@ -725,66 +736,99 @@ defmodule GSMLG.Socket.Web do
   def recv(self, options \\ [])
 
   def recv(%W{socket: socket, version: 13} = self, options) do
-    case socket |> GSMLG.Socket.Stream.recv(2, options) do
-      # a non fragmented message packet
-      {:ok, <<1::1, 0::3, opcode::4, mask::1, length::7>>} when known?(opcode) and data?(opcode) ->
-        case on_success({opcode(opcode), data}, options) do
-          {:ok, {:text, data}} = result ->
-            if String.valid?(data) do
+    start_time = System.monotonic_time()
+
+    result =
+      case socket |> GSMLG.Socket.Stream.recv(2, options) do
+        # a non fragmented message packet
+        {:ok, <<1::1, 0::3, opcode::4, mask::1, length::7>>} when known?(opcode) and data?(opcode) ->
+          case on_success({opcode(opcode), data}, options) do
+            {:ok, {:text, data}} = result ->
+              if String.valid?(data) do
+                result
+              else
+                {:error, :invalid_payload}
+              end
+
+            {:ok, {:binary, _}} = result ->
               result
-            else
-              {:error, :invalid_payload}
-            end
+          end
 
-          {:ok, {:binary, _}} = result ->
-            result
-        end
+        # beginning of a fragmented packet
+        {:ok, <<0::1, 0::3, opcode::4, mask::1, length::7>>}
+        when known?(opcode) and not control?(opcode) ->
+          {:fragmented, opcode(opcode), data} |> on_success(options)
 
-      # beginning of a fragmented packet
-      {:ok, <<0::1, 0::3, opcode::4, mask::1, length::7>>}
-      when known?(opcode) and not control?(opcode) ->
-        {:fragmented, opcode(opcode), data} |> on_success(options)
+        # a fragmented continuation
+        {:ok, <<0::1, 0::3, 0::4, mask::1, length::7>>} ->
+          {:fragmented, :continuation, data} |> on_success(options)
 
-      # a fragmented continuation
-      {:ok, <<0::1, 0::3, 0::4, mask::1, length::7>>} ->
-        {:fragmented, :continuation, data} |> on_success(options)
+        # final fragmented packet
+        {:ok, <<1::1, 0::3, 0::4, mask::1, length::7>>} ->
+          {:fragmented, :end, data} |> on_success(options)
 
-      # final fragmented packet
-      {:ok, <<1::1, 0::3, 0::4, mask::1, length::7>>} ->
-        {:fragmented, :end, data} |> on_success(options)
+        # control packet
+        {:ok, <<1::1, 0::3, opcode::4, mask::1, length::7>>}
+        when known?(opcode) and control?(opcode) ->
+          case opcode(opcode) do
+            :ping ->
+              {:ping, data}
 
-      # control packet
-      {:ok, <<1::1, 0::3, opcode::4, mask::1, length::7>>}
-      when known?(opcode) and control?(opcode) ->
-        case opcode(opcode) do
-          :ping ->
-            {:ping, data}
+            :pong ->
+              {:pong, data}
 
-          :pong ->
-            {:pong, data}
+            :close ->
+              case data do
+                <<>> ->
+                  :close
 
-          :close ->
-            case data do
-              <<>> ->
-                :close
+                <<code::16, rest::binary>> ->
+                  {:close, close_code(code), rest}
+              end
+          end
+          |> on_success(options)
 
-              <<code::16, rest::binary>> ->
-                {:close, close_code(code), rest}
-            end
-        end
-        |> on_success(options)
+        {:ok, nil} ->
+          # 1006 is reserved for connection closed with no close frame
+          # https://tools.ietf.org/html/rfc6455#section-7.4.1
+          {:ok, {:close, close_code(1006), nil}}
 
-      {:ok, nil} ->
-        # 1006 is reserved for connection closed with no close frame
-        # https://tools.ietf.org/html/rfc6455#section-7.4.1
-        {:ok, {:close, close_code(1006), nil}}
+        {:ok, _} ->
+          {:error, :protocol_error}
 
-      {:ok, _} ->
-        {:error, :protocol_error}
+        {:error, reason} ->
+          {:error, reason}
+      end
+
+    # Log receive metrics
+    duration = System.monotonic_time() - start_time
+
+    case result do
+      {:ok, packet} ->
+        packet_type =
+          case packet do
+            {:text, _} -> :text
+            {:binary, _} -> :binary
+            {:ping, _} -> :ping
+            {:pong, _} -> :pong
+            {:close, _, _} -> :close
+            :close -> :close
+            _ -> :other
+          end
+
+        GSMLG.Socket.Telemetry.log_data_transfer(:websocket, :recv, 0, %{
+          packet_type: packet_type,
+          duration_native: duration
+        })
 
       {:error, reason} ->
-        {:error, reason}
+        GSMLG.Socket.Telemetry.log_error(:websocket, "Receive failed: #{inspect(reason)}", %{
+          reason: reason,
+          duration_native: duration
+        })
     end
+
+    result
   end
 
   @doc """

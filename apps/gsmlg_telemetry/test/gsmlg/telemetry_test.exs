@@ -86,10 +86,11 @@ defmodule GSMLG.TelemetryTest do
         %{}
       )
 
-      result = Telemetry.span([:test, :span], %{operation: "test"}, fn ->
-        :timer.sleep(10)
-        "success"
-      end)
+      result =
+        Telemetry.span([:test, :span], %{operation: "test"}, fn ->
+          :timer.sleep(10)
+          "success"
+        end)
 
       assert result == "success"
 
@@ -141,9 +142,10 @@ defmodule GSMLG.TelemetryTest do
         %{}
       )
 
-      {result, extra_meta} = Telemetry.span_with_metadata([:test, :span_meta], %{base: "meta"}, fn ->
-        {"success", %{extra: "metadata", count: 5}}
-      end)
+      {result, extra_meta} =
+        Telemetry.span_with_metadata([:test, :span_meta], %{base: "meta"}, fn ->
+          {"success", %{extra: "metadata", count: 5}}
+        end)
 
       assert result == "success"
       assert extra_meta == %{extra: "metadata", count: 5}
@@ -170,9 +172,10 @@ defmodule GSMLG.TelemetryTest do
         %{}
       )
 
-      {result, extra_meta} = Telemetry.span_with_metadata([:test, :span_simple], %{base: "meta"}, fn ->
-        "success"
-      end)
+      {result, extra_meta} =
+        Telemetry.span_with_metadata([:test, :span_simple], %{base: "meta"}, fn ->
+          "success"
+        end)
 
       assert result == "success"
       assert extra_meta == %{}

@@ -71,7 +71,10 @@ defmodule GSMLG.Telemetry.Handler do
   end
 
   @impl true
-  def handle_cast({:attach_handler, handler_id, event_name, handler_module, handler_config}, state) do
+  def handle_cast(
+        {:attach_handler, handler_id, event_name, handler_module, handler_config},
+        state
+      ) do
     case attach(handler_id, event_name, handler_module, handler_config) do
       :ok ->
         {:noreply, %{state | handlers: [handler_id | state.handlers]}}
@@ -123,22 +126,25 @@ defmodule GSMLG.Telemetry.Handler do
     handlers_config = Keyword.get(config, :handlers, [])
 
     # Attach our main handler
-    {:ok, _} = attach(:gsmlg_telemetry_main_handler, events, __MODULE__, %{})
+    :ok = attach(:gsmlg_telemetry_main_handler, events, __MODULE__, %{})
 
     # Attach additional handlers from config
-    additional_handlers = Enum.map(handlers_config, fn handler_config ->
-      handler_id = Keyword.get(handler_config, :id)
-      event_names = Keyword.get(handler_config, :events)
-      handler_module = Keyword.get(handler_config, :module)
-      handler_opts = Keyword.get(handler_config, :config, %{})
+    additional_handlers =
+      Enum.map(handlers_config, fn handler_config ->
+        handler_id = Keyword.get(handler_config, :id)
+        event_names = Keyword.get(handler_config, :events)
+        handler_module = Keyword.get(handler_config, :module)
+        handler_opts = Keyword.get(handler_config, :config, %{})
 
-      case attach(handler_id, event_names, handler_module, handler_opts) do
-        :ok -> handler_id
-        {:error, :already_exists} ->
-          Logger.warning("Handler #{handler_id} already exists, skipping")
-          nil
-      end
-    end)
+        case attach(handler_id, event_names, handler_module, handler_opts) do
+          :ok ->
+            handler_id
+
+          {:error, :already_exists} ->
+            Logger.warning("Handler #{handler_id} already exists, skipping")
+            nil
+        end
+      end)
 
     [:gsmlg_telemetry_main_handler | Enum.filter(additional_handlers, & &1)]
   end
@@ -176,7 +182,10 @@ defmodule GSMLG.Telemetry.Handler do
   """
   @spec attach_handler(atom(), [atom()] | atom(), atom(), any()) :: :ok
   def attach_handler(handler_id, event_name, handler_module, handler_config) do
-    GenServer.cast(__MODULE__, {:attach_handler, handler_id, event_name, handler_module, handler_config})
+    GenServer.cast(
+      __MODULE__,
+      {:attach_handler, handler_id, event_name, handler_module, handler_config}
+    )
   end
 
   @doc """

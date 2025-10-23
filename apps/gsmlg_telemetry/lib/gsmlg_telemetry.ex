@@ -11,7 +11,10 @@ defmodule GSMLGTelemetry do
   defdelegate span_with_metadata(event_name, base_metadata, function), to: GSMLG.Telemetry
   defdelegate config(), to: GSMLG.Telemetry
   defdelegate enabled?(level), to: GSMLG.Telemetry
-  defdelegate attach_handler(handler_id, event_name, handler_module, handler_config \\ %{}), to: GSMLG.Telemetry
+
+  defdelegate attach_handler(handler_id, event_name, handler_module, handler_config \\ %{}),
+    to: GSMLG.Telemetry
+
   defdelegate detach_handler(handler_id), to: GSMLG.Telemetry
   defdelegate debug(message, opts \\ []), to: GSMLG.Telemetry
   defdelegate info(message, opts \\ []), to: GSMLG.Telemetry

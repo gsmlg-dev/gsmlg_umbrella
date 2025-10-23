@@ -10,6 +10,7 @@ defmodule GSMLG.AdminWeb.MnesiaLive.Index do
         user_id: socket.assigns[:current_user]
       }
     )
+
     {:ok, assign(socket, info: nil, tables_info: nil)}
   end
 
@@ -22,6 +23,7 @@ defmodule GSMLG.AdminWeb.MnesiaLive.Index do
         live_action: socket.assigns[:live_action]
       }
     )
+
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
@@ -40,6 +42,7 @@ defmodule GSMLG.AdminWeb.MnesiaLive.Index do
         user_id: socket.assigns[:current_user]
       }
     )
+
     {:noreply, socket}
   end
 
@@ -59,6 +62,7 @@ defmodule GSMLG.AdminWeb.MnesiaLive.Index do
                   operation: "fetch_system_info"
                 }
               )
+
               []
           end
 
@@ -92,6 +96,7 @@ defmodule GSMLG.AdminWeb.MnesiaLive.Index do
               operation: "fetch_mnesia_info"
             }
           )
+
           {:ok, socket}
       end
     end)

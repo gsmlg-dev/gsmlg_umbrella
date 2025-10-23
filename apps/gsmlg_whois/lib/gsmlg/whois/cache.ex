@@ -49,7 +49,7 @@ defmodule GSMLG.Whois.Cache do
   @doc """
   Starts the cache GenServer.
   """
-  def start_link(opts \\\\ []) do
+  def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 

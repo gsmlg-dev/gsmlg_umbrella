@@ -7,10 +7,11 @@ defmodule GSMLG.Web.Guardian.WebAuthErrorHandler do
   @impl Guardian.Plug.ErrorHandler
   def auth_error(conn, {type, reason}, _opts) do
     # Get connection info safely
-    remote_ip = case Plug.Conn.get_peer_data(conn) do
-      %{remote_ip: ip} -> ip
-      _ -> nil
-    end
+    remote_ip =
+      case Plug.Conn.get_peer_data(conn) do
+        %{remote_ip: ip} -> ip
+        _ -> nil
+      end
 
     GSMLG.Telemetry.error("Authentication error occurred",
       metadata: %{

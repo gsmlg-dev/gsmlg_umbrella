@@ -39,10 +39,10 @@ defmodule GSMLG.Socket.SSLTest do
 
       # Should contain TLS version settings
       assert Keyword.has_key?(args, :versions) or
-             Enum.any?(args, fn
-               {:versions, _} -> true
-               _ -> false
-             end)
+               Enum.any?(args, fn
+                 {:versions, _} -> true
+                 _ -> false
+               end)
     end
 
     test "allows overriding security defaults" do
