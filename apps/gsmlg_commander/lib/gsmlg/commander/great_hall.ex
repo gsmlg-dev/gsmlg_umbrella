@@ -3,10 +3,6 @@ defmodule GSMLG.Commander.GreatHall do
 
   use SocketClient.Channel
 
-  def get_state() do
-    GenServer.call(__MODULE__, :get_state)
-  end
-
   @doc """
   push event to server
   """
@@ -21,8 +17,7 @@ defmodule GSMLG.Commander.GreatHall do
       }
     )
 
-    chn = get_state() |> Map.get(:channel)
-    PhoenixClient.Channel.push(chn, topic, message)
+    Phoenix.SocketClient.Channel.push(__MODULE__, topic, message)
   end
 
   @doc """
@@ -39,8 +34,7 @@ defmodule GSMLG.Commander.GreatHall do
       }
     )
 
-    chn = get_state() |> Map.get(:channel)
-    PhoenixClient.Channel.push_async(chn, topic, message)
+    Phoenix.SocketClient.Channel.push_async(__MODULE__, topic, message)
   end
 
   ## Callbacks
@@ -55,7 +49,7 @@ defmodule GSMLG.Commander.GreatHall do
       }
     )
 
-    {:ok, %{peons: [], jobs: [], channel: nil}, {:continue, :join}}
+    {:ok, %{peons: [], jobs: []}, {:continue, :join}}
   end
 
   @impl true
@@ -63,13 +57,12 @@ defmodule GSMLG.Commander.GreatHall do
     GSMLG.Telemetry.info("GreatHall attempting to join command platform",
       metadata: %{
         module: __MODULE__,
-        operation: "join_platform",
-        state_has_channel: Map.has_key?(state, :channel)
+        operation: "join_platform"
       }
     )
 
     case Phoenix.SocketClient.Channel.join(GSMLG.Commander.Socket, "command_platform") do
-      {:ok, response, channel} ->
+      {:ok, response, _channel} ->
         GSMLG.Telemetry.info("GreatHall successfully joined command platform",
           metadata: %{
             module: __MODULE__,
@@ -79,7 +72,6 @@ defmodule GSMLG.Commander.GreatHall do
           }
         )
 
-        state = state |> Map.put(:channel, channel)
         Process.send_after(__MODULE__, :ping, 60_000)
         {:noreply, state}
 
@@ -107,48 +99,7 @@ defmodule GSMLG.Commander.GreatHall do
   end
 
   @impl true
-  def handle_call(:get_state, _from, state) do
-    {:reply, state, state}
-  end
-
-  @impl true
-  def handle_message(event, payload, state) do
-    GSMLG.Telemetry.debug("GreatHall received message",
-      metadata: %{
-        module: __MODULE__,
-        event: event,
-        payload: payload
-      }
-    )
-
-    {:noreply, state}
-  end
-
-  @impl true
-  def handle_info(:ping, %{:channel => chn} = state) do
-    Process.send_after(__MODULE__, :ping, 60_000)
-
-    ping_time = System.system_time(:second)
-
-    reply =
-      PhoenixClient.Channel.push(chn, "ping", %{
-        "message" => "ping",
-        "time" => ping_time
-      })
-
-    GSMLG.Telemetry.debug("GreatHall ping sent",
-      metadata: %{
-        module: __MODULE__,
-        operation: "ping",
-        ping_time: ping_time,
-        reply: reply
-      }
-    )
-
-    {:noreply, state}
-  end
-
-  def handle_info(%Message{event: "report", payload: payload}, state) do
+  def handle_message("report", payload, state) do
     GSMLG.Telemetry.debug("GreatHall received report",
       metadata: %{
         module: __MODULE__,
@@ -161,13 +112,38 @@ defmodule GSMLG.Commander.GreatHall do
     {:noreply, state}
   end
 
-  def handle_info(%Message{event: event, payload: payload}, state) do
+  @impl true
+  def handle_message(event, payload, state) do
     GSMLG.Telemetry.warn("GreatHall received unhandled event",
       metadata: %{
         module: __MODULE__,
         event: event,
         payload: payload,
         state_keys: Map.keys(state)
+      }
+    )
+
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:ping, state) do
+    Process.send_after(__MODULE__, :ping, 60_000)
+
+    ping_time = System.system_time(:second)
+
+    reply =
+      Phoenix.SocketClient.Channel.push(__MODULE__, "ping", %{
+        "message" => "ping",
+        "time" => ping_time
+      })
+
+    GSMLG.Telemetry.debug("GreatHall ping sent",
+      metadata: %{
+        module: __MODULE__,
+        operation: "ping",
+        ping_time: ping_time,
+        reply: reply
       }
     )
 

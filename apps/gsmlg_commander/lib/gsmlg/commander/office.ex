@@ -1,11 +1,7 @@
 defmodule GSMLG.Commander.Office do
-  use GenServer
+  alias Phoenix.SocketClient
 
-  alias PhoenixClient.{Channel, Message}
-
-  def get_channel() do
-    GenServer.call(__MODULE__, :get_channel)
-  end
+  use SocketClient.Channel
 
   @doc """
   push event to server
@@ -21,8 +17,7 @@ defmodule GSMLG.Commander.Office do
       }
     )
 
-    chn = get_channel()
-    PhoenixClient.Channel.push(chn, topic, message)
+    Phoenix.SocketClient.Channel.push(__MODULE__, topic, message)
   end
 
   @doc """
@@ -39,18 +34,13 @@ defmodule GSMLG.Commander.Office do
       }
     )
 
-    chn = get_channel()
-    PhoenixClient.Channel.push_async(chn, topic, message)
-  end
-
-  def start_link([]) do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+    Phoenix.SocketClient.Channel.push_async(__MODULE__, topic, message)
   end
 
   ## Callbacks
 
   @impl true
-  def init([]) do
+  def init(args) when is_list(args) do
     GSMLG.Telemetry.info("Office initializing",
       metadata: %{
         module: __MODULE__,
@@ -60,7 +50,7 @@ defmodule GSMLG.Commander.Office do
       }
     )
 
-    {:ok, %{channel: nil}, {:continue, :join}}
+    {:ok, %{}, {:continue, :join}}
   end
 
   @impl true
@@ -75,8 +65,8 @@ defmodule GSMLG.Commander.Office do
       }
     )
 
-    case Channel.join(GSMLG.Commander.Socket, channel_name) do
-      {:ok, response, channel} ->
+    case Phoenix.SocketClient.Channel.join(GSMLG.Commander.Socket, channel_name) do
+      {:ok, response, _channel} ->
         GSMLG.Telemetry.info("Office successfully joined channel",
           metadata: %{
             module: __MODULE__,
@@ -86,7 +76,6 @@ defmodule GSMLG.Commander.Office do
           }
         )
 
-        state = state |> Map.put(:channel, channel)
         Process.send_after(__MODULE__, :ping, 60_000)
         {:noreply, state}
 
@@ -116,23 +105,13 @@ defmodule GSMLG.Commander.Office do
   end
 
   @impl true
-  def handle_call(:get_state, _from, state) do
-    {:reply, state, state}
-  end
-
-  @impl true
-  def handle_call(:get_channel, _from, state) do
-    {:reply, state |> Map.get(:channel), state}
-  end
-
-  @impl true
-  def handle_info(:ping, %{:channel => chn} = state) do
+  def handle_info(:ping, state) do
     Process.send_after(__MODULE__, :ping, 60_000)
 
     ping_time = System.system_time(:second)
 
     reply =
-      PhoenixClient.Channel.push(chn, "ping", %{
+      Phoenix.SocketClient.Channel.push(__MODULE__, "ping", %{
         "message" => "ping",
         "time" => ping_time
       })
@@ -150,7 +129,8 @@ defmodule GSMLG.Commander.Office do
     {:noreply, state}
   end
 
-  def handle_info(%Message{event: "report", payload: payload}, state) do
+  @impl true
+  def handle_message("report", payload, state) do
     GSMLG.Telemetry.debug("Office received report",
       metadata: %{
         module: __MODULE__,
@@ -164,10 +144,8 @@ defmodule GSMLG.Commander.Office do
     {:noreply, state}
   end
 
-  def handle_info(
-        %Message{event: "command", payload: %{"command" => command} = payload},
-        %{:channel => chn} = state
-      ) do
+  @impl true
+  def handle_message("command", %{"command" => command} = payload, state) do
     GSMLG.Telemetry.info("Office executing command",
       metadata: %{
         module: __MODULE__,
@@ -213,8 +191,8 @@ defmodule GSMLG.Commander.Office do
       })
 
     push_result =
-      PhoenixClient.Channel.push_async(
-        chn,
+      Phoenix.SocketClient.Channel.push_async(
+        __MODULE__,
         "command:result",
         result_payload
       )
@@ -233,7 +211,8 @@ defmodule GSMLG.Commander.Office do
     {:noreply, state}
   end
 
-  def handle_info(%Message{event: event, payload: payload}, state) do
+  @impl true
+  def handle_message(event, payload, state) do
     GSMLG.Telemetry.warn("Office received unhandled event",
       metadata: %{
         module: __MODULE__,
