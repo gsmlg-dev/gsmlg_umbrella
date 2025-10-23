@@ -446,12 +446,6 @@ defmodule GSMLG.Web.Components.CoreComponents do
     |> JS.add_class("modal-open", to: "##{id}")
   end
 
-  defp hide_modal(js \\ %JS{}, id) do
-    js
-    |> JS.hide(to: "##{id}")
-    |> JS.remove_class("modal-open", to: "##{id}")
-  end
-
   defp translate_error({msg, opts}) do
     if count = opts[:count] do
       Gettext.dngettext(GSMLG.Web.Gettext, "errors", msg, msg, count, opts)

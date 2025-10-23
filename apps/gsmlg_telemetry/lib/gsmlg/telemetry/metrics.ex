@@ -8,99 +8,101 @@ defmodule GSMLG.Telemetry.Metrics do
 
   use GenServer
   require Logger
-  import Telemetry.Metrics
+  alias Telemetry.Metrics
 
-  @default_metrics [
-    # Phoenix metrics
-    distribution("phoenix.endpoint.stop.duration",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
-    ),
-    distribution("phoenix.router_dispatch.stop.duration",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
-    ),
-    counter("phoenix.router_dispatch.stop.count"),
-    sum("phoenix.router_dispatch.stop.duration", unit: {:native, :millisecond}),
-    last_value("phoenix.endpoint.stop.system_time"),
-    last_value("phoenix.router_dispatch.stop.system_time"),
+  defp default_metrics do
+    [
+      # Phoenix metrics
+      Metrics.distribution("phoenix.endpoint.stop.duration",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
+      ),
+      Metrics.distribution("phoenix.router_dispatch.stop.duration",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
+      ),
+      Metrics.counter("phoenix.router_dispatch.stop.count"),
+      Metrics.sum("phoenix.router_dispatch.stop.duration", unit: {:native, :millisecond}),
+      Metrics.last_value("phoenix.endpoint.stop.system_time"),
+      Metrics.last_value("phoenix.router_dispatch.stop.system_time"),
 
-    # LiveView metrics
-    distribution("phoenix.live_view.mount.stop.duration",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
-    ),
-    distribution("phoenix.live_view.handle_params.stop.duration",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
-    ),
-    counter("phoenix.live_view.mount.stop.count"),
-    counter("phoenix.live_view.handle_params.stop.count"),
+      # LiveView metrics
+      Metrics.distribution("phoenix.live_view.mount.stop.duration",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
+      ),
+      Metrics.distribution("phoenix.live_view.handle_params.stop.duration",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
+      ),
+      Metrics.counter("phoenix.live_view.mount.stop.count"),
+      Metrics.counter("phoenix.live_view.handle_params.stop.count"),
 
-    # Database metrics
-    distribution("ecto.repo.query.total_time",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
-    ),
-    distribution("ecto.repo.query.decode_time",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000]]
-    ),
-    distribution("ecto.repo.query.query_time",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000]]
-    ),
-    distribution("ecto.repo.query.queue_time",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000]]
-    ),
-    counter("ecto.repo.query.count"),
-    sum("ecto.repo.query.total_time", unit: {:native, :millisecond}),
+      # Database metrics
+      Metrics.distribution("ecto.repo.query.total_time",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
+      ),
+      Metrics.distribution("ecto.repo.query.decode_time",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000]]
+      ),
+      Metrics.distribution("ecto.repo.query.query_time",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000]]
+      ),
+      Metrics.distribution("ecto.repo.query.queue_time",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000]]
+      ),
+      Metrics.counter("ecto.repo.query.count"),
+      Metrics.sum("ecto.repo.query.total_time", unit: {:native, :millisecond}),
 
-    # VM metrics
-    last_value("vm.memory.total", unit: :byte),
-    last_value("vm.memory.processes", unit: :byte),
-    last_value("vm.memory.processes_used", unit: :byte),
-    last_value("vm.memory.system", unit: :byte),
-    last_value("vm.memory.atom", unit: :byte),
-    last_value("vm.memory.atom_used", unit: :byte),
-    last_value("vm.memory.binary", unit: :byte),
-    last_value("vm.memory.code", unit: :byte),
-    last_value("vm.memory.ets", unit: :byte),
-    last_value("vm.total_run_queue_lengths.total"),
-    last_value("vm.total_run_queue_lengths.cpu"),
-    last_value("vm.total_run_queue_lengths.io"),
-    last_value("vm.system_counts.process_count"),
-    last_value("vm.system_counts.atom_count"),
-    last_value("vm.system_counts.port_count"),
+      # VM metrics
+      Metrics.last_value("vm.memory.total", unit: :byte),
+      Metrics.last_value("vm.memory.processes", unit: :byte),
+      Metrics.last_value("vm.memory.processes_used", unit: :byte),
+      Metrics.last_value("vm.memory.system", unit: :byte),
+      Metrics.last_value("vm.memory.atom", unit: :byte),
+      Metrics.last_value("vm.memory.atom_used", unit: :byte),
+      Metrics.last_value("vm.memory.binary", unit: :byte),
+      Metrics.last_value("vm.memory.code", unit: :byte),
+      Metrics.last_value("vm.memory.ets", unit: :byte),
+      Metrics.last_value("vm.total_run_queue_lengths.total"),
+      Metrics.last_value("vm.total_run_queue_lengths.cpu"),
+      Metrics.last_value("vm.total_run_queue_lengths.io"),
+      Metrics.last_value("vm.system_counts.process_count"),
+      Metrics.last_value("vm.system_counts.atom_count"),
+      Metrics.last_value("vm.system_counts.port_count"),
 
-    # Application-specific metrics
-    distribution("gsmlg.web.request.duration",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
-    ),
-    counter("gsmlg.web.request.count"),
-    counter("gsmlg.web.request.error_count"),
-    last_value("gsmlg.web.request.status"),
-    distribution("gsmlg.repo.query.duration",
-                 unit: {:native, :millisecond},
-                 reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
-    ),
-    counter("gsmlg.repo.query.count"),
-    counter("gsmlg.repo.query.error_count"),
-    sum("gsmlg.repo.query.duration", unit: {:native, :millisecond}),
+      # Application-specific metrics
+      Metrics.distribution("gsmlg.web.request.duration",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
+      ),
+      Metrics.counter("gsmlg.web.request.count"),
+      Metrics.counter("gsmlg.web.request.error_count"),
+      Metrics.last_value("gsmlg.web.request.status"),
+      Metrics.distribution("gsmlg.repo.query.duration",
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000]]
+      ),
+      Metrics.counter("gsmlg.repo.query.count"),
+      Metrics.counter("gsmlg.repo.query.error_count"),
+      Metrics.sum("gsmlg.repo.query.duration", unit: {:native, :millisecond}),
 
-    # Custom business metrics
-    counter("gsmlg.user.login.count"),
-    counter("gsmlg.user.logout.count"),
-    counter("gsmlg.user.register.count"),
-    distribution("gsmlg.cache.hit.duration", unit: {:native, :millisecond}),
-    counter("gsmlg.cache.hit.count"),
-    counter("gsmlg.cache.miss.count"),
-    distribution("gsmlg.external_api.request.duration", unit: {:native, :millisecond}),
-    counter("gsmlg.external_api.request.count"),
-    counter("gsmlg.external_api.error.count")
-  ]
+      # Custom business metrics
+      Metrics.counter("gsmlg.user.login.count"),
+      Metrics.counter("gsmlg.user.logout.count"),
+      Metrics.counter("gsmlg.user.register.count"),
+      Metrics.distribution("gsmlg.cache.hit.duration", unit: {:native, :millisecond}),
+      Metrics.counter("gsmlg.cache.hit.count"),
+      Metrics.counter("gsmlg.cache.miss.count"),
+      Metrics.distribution("gsmlg.external_api.request.duration", unit: {:native, :millisecond}),
+      Metrics.counter("gsmlg.external_api.request.count"),
+      Metrics.counter("gsmlg.external_api.error.count")
+    ]
+  end
 
   defstruct [:metrics, :ets_table, :config]
 
@@ -156,13 +158,14 @@ defmodule GSMLG.Telemetry.Metrics do
   @impl true
   def init(config) do
     # Create ETS table for storing metrics
-    ets_table = :ets.new(:gsmlg_telemetry_metrics, [
-      :set,
-      :public,
-      :named_table,
-      {:read_concurrency, true},
-      {:write_concurrency, true}
-    ])
+    ets_table =
+      :ets.new(:gsmlg_telemetry_metrics, [
+        :set,
+        :public,
+        :named_table,
+        {:read_concurrency, true},
+        {:write_concurrency, true}
+      ])
 
     # Initialize metrics
     metrics = initialize_metrics(config)
@@ -191,7 +194,10 @@ defmodule GSMLG.Telemetry.Metrics do
   @impl true
   def handle_call({:get_metrics, event_name}, _from, state) do
     pattern = {{event_name, :_}, :_}
-    metrics = :ets.select(state.ets_table, [{pattern, [], [[{:element, 1, :"$_"}, {:element, 2, :"$_"}]]}])
+
+    metrics =
+      :ets.select(state.ets_table, [{pattern, [], [[{:element, 1, :"$_"}, {:element, 2, :"$_"}]]}])
+
     {:reply, metrics, state}
   end
 
@@ -201,15 +207,32 @@ defmodule GSMLG.Telemetry.Metrics do
     {:reply, summary, state}
   end
 
+  @impl true
+  def handle_call(:get_configured_metrics, _from, state) do
+    {:reply, state.metrics, state}
+  end
+
   defp initialize_metrics(config) do
-    custom_metrics = Keyword.get(config, :metrics, @default_metrics)
+    custom_metrics = Keyword.get(config, :metrics, default_metrics())
 
     Enum.map(custom_metrics, fn metric ->
       case metric do
         name when is_atom(name) or is_list(name) ->
           create_metric_from_name(name)
 
-        %Telemetry.Metrics{} = metric ->
+        %{__struct__: Telemetry.Metrics.Counter} = metric ->
+          metric
+
+        %{__struct__: Telemetry.Metrics.Distribution} = metric ->
+          metric
+
+        %{__struct__: Telemetry.Metrics.LastValue} = metric ->
+          metric
+
+        %{__struct__: Telemetry.Metrics.Sum} = metric ->
+          metric
+
+        %{__struct__: Telemetry.Metrics.Summary} = metric ->
           metric
 
         _ ->
@@ -265,19 +288,27 @@ defmodule GSMLG.Telemetry.Metrics do
     :ets.insert(state.ets_table, {count_key, current_count + 1})
 
     # Sum duration measurements
-    Enum.each(measurements, fn {key, value} when is_number(value) ->
-      if String.contains?(Atom.to_string(key), "duration") or
-         String.contains?(Atom.to_string(key), "time") do
-        sum_key = {:sum, event_name, key}
-        current_sum = :ets.lookup_element(state.ets_table, sum_key, 2, 0)
-        :ets.insert(state.ets_table, {sum_key, current_sum + value})
-      end
+    Enum.each(measurements, fn
+      {key, value} when is_number(value) ->
+        if String.contains?(Atom.to_string(key), "duration") or
+             String.contains?(Atom.to_string(key), "time") do
+          sum_key = {:sum, event_name, key}
+          current_sum = :ets.lookup_element(state.ets_table, sum_key, 2, 0)
+          :ets.insert(state.ets_table, {sum_key, current_sum + value})
+        end
+
+      _ ->
+        :ok
     end)
 
     # Track last values
     Enum.each(measurements, fn {key, value} ->
       last_key = {:last, event_name, key}
-      :ets.insert(state.ets_table, {last_key, %{value: value, timestamp: System.system_time(:millisecond)}})
+
+      :ets.insert(
+        state.ets_table,
+        {last_key, %{value: value, timestamp: System.system_time(:millisecond)}}
+      )
     end)
 
     # Track error counts
@@ -307,6 +338,7 @@ defmodule GSMLG.Telemetry.Metrics do
   defp calculate_top_events(state) do
     count_pattern = {{:count, :"$1"}, :"$2"}
     top_events = :ets.select(state.ets_table, [{count_pattern, [], [{{:"$1", :"$2"}}]}])
+
     Enum.sort(top_events, fn {_, count1}, {_, count2} -> count1 >= count2 end)
     |> Enum.take(10)
   end
@@ -319,11 +351,12 @@ defmodule GSMLG.Telemetry.Metrics do
       total_count = :ets.lookup_element(state.ets_table, {:count, event_name}, 2, 0)
       error_count = :ets.lookup_element(state.ets_table, {:error_count, event_name}, 2, 0)
 
-      error_rate = if total_count > 0 do
-        (error_count / total_count) * 100
-      else
-        0
-      end
+      error_rate =
+        if total_count > 0 do
+          error_count / total_count * 100
+        else
+          0
+        end
 
       {event_name, %{total_count: total_count, error_count: error_count, error_rate: error_rate}}
     end)
@@ -337,14 +370,17 @@ defmodule GSMLG.Telemetry.Metrics do
     Enum.map(event_names, fn event_name ->
       # Look for sum and count for duration measurements
       duration_sum_pattern = {{:sum, event_name, :"$1"}, :"$2"}
-      duration_sums = :ets.select(state.ets_table, [{duration_sum_pattern, [], [{{:"$1", :"$2"}}]}])
+
+      duration_sums =
+        :ets.select(state.ets_table, [{duration_sum_pattern, [], [{{:"$1", :"$2"}}]}])
 
       count = :ets.lookup_element(state.ets_table, {:count, event_name}, 2, 0)
 
-      avg_durations = Enum.map(duration_sums, fn {measurement_name, sum} ->
-        average = if count > 0, do: sum / count, else: 0
-        {measurement_name, average}
-      end)
+      avg_durations =
+        Enum.map(duration_sums, fn {measurement_name, sum} ->
+          average = if count > 0, do: sum / count, else: 0
+          {measurement_name, average}
+        end)
 
       if length(avg_durations) > 0 do
         {event_name, avg_durations}
@@ -359,13 +395,15 @@ defmodule GSMLG.Telemetry.Metrics do
     one_minute_ago = now - 60_000
 
     recent_pattern = {{:"$1", :"$2"}, :"$3"}
-    recent_events = :ets.select(state.ets_table, [
-      {
-        recent_pattern,
-        [{:andalso, {:is_tuple, :"$1"}, {">=", :"$2", one_minute_ago}}],
-        [:"$_"]
-      }
-    ])
+
+    recent_events =
+      :ets.select(state.ets_table, [
+        {
+          recent_pattern,
+          [{:andalso, {:is_tuple, :"$1"}, {">=", :"$2", one_minute_ago}}],
+          [:"$_"]
+        }
+      ])
 
     %{
       count: length(recent_events),
@@ -375,6 +413,7 @@ defmodule GSMLG.Telemetry.Metrics do
 
   defp get_unique_event_names(state) do
     pattern = {{:"$1", :_}, :_}
+
     :ets.select(state.ets_table, [{pattern, [], [{{:element, 1, :"$1"}}]}])
     |> List.flatten()
     |> Enum.uniq()
@@ -403,10 +442,5 @@ defmodule GSMLG.Telemetry.Metrics do
   @spec get_configured_metrics() :: [Telemetry.Metrics.t()]
   def get_configured_metrics do
     GenServer.call(__MODULE__, :get_configured_metrics)
-  end
-
-  @impl true
-  def handle_call(:get_configured_metrics, _from, state) do
-    {:reply, state.metrics, state}
   end
 end

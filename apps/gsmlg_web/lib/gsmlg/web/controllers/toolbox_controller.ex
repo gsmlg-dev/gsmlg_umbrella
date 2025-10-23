@@ -148,16 +148,4 @@ defmodule GSMLG.Web.ToolboxController do
   def screensaver(conn, _params) do
     render(conn, :screensaver, title: "Screen Saver")
   end
-
-  defp header_slot(title) do
-    assigns = %{title: title}
-
-    ~H"""
-    <div class="header-hero-container @container">
-      <h1 class="header-hero-text @xs:text-xl @md:text-2xl @xl:text-3xl @3xl:text-4xl @5xl:text-6xl @7xl:text-8xl">
-        {@title}
-      </h1>
-    </div>
-    """
-  end
 end

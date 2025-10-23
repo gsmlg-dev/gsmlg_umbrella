@@ -63,7 +63,7 @@ defmodule GSMLG.Mnesia.Transaction do
   """
   @spec execute(fun, retries) :: {:ok, any} | {:error, any}
   def execute(function, retries \\ :infinity) do
-    start_time = System.monotonic_time()
+    _start_time = System.monotonic_time()
     metadata = %{retries: retries}
 
     GSMLG.Telemetry.span(

@@ -109,6 +109,21 @@ defmodule GSMLG.Telemetry.Backends.Console do
     {:noreply, state}
   end
 
+  @impl true
+  def handle_cast({:update_config, new_opts}, state) do
+    updated_config = Map.merge(state.config, Map.new(new_opts))
+
+    new_state = %{
+      state
+      | config: updated_config,
+        colors: Keyword.get(new_opts, :colors, state.colors),
+        format: Keyword.get(new_opts, :format, state.format),
+        filters: Keyword.get(new_opts, :filters, state.filters)
+    }
+
+    {:noreply, new_state}
+  end
+
   defp output_event(event_name, measurements, metadata, state) do
     # Determine log level from metadata or event name
     level = determine_event_level(event_name, measurements, metadata)
@@ -127,7 +142,7 @@ defmodule GSMLG.Telemetry.Backends.Console do
     end
   end
 
-  defp output_metrics(event_name, aggregates, raw_events, state) do
+  defp output_metrics(event_name, aggregates, _raw_events, _state) do
     event_str = Enum.join(event_name, ".")
 
     # Output summary
@@ -136,14 +151,17 @@ defmodule GSMLG.Telemetry.Backends.Console do
 
     # Output measurement aggregates
     Enum.each(aggregates.aggregates, fn {measurement_name, stats} ->
-      stats_str = "  #{measurement_name}: avg=#{Float.round(stats.avg, 2)}, min=#{stats.min}, max=#{stats.max}, count=#{stats.count}"
+      stats_str =
+        "  #{measurement_name}: avg=#{Float.round(stats.avg, 2)}, min=#{stats.min}, max=#{stats.max}, count=#{stats.count}"
+
       IO.puts("  #{stats_str}")
     end)
 
-    IO.puts("") # Empty line for readability
+    # Empty line for readability
+    IO.puts("")
   end
 
-  defp output_report(report, state) do
+  defp output_report(report, _state) do
     timestamp = format_timestamp(DateTime.to_iso8601(report.timestamp))
 
     IO.puts(IO.ANSI.format([:bright, :underline, "METRICS REPORT - #{timestamp}"]))
@@ -152,24 +170,31 @@ defmodule GSMLG.Telemetry.Backends.Console do
     # Summary statistics
     IO.puts(IO.ANSI.format([:bright, "Summary:"]))
     IO.puts("  Total events: #{report.total_events}")
-    IO.puts("  Unique event types: #{report.unique_event_types || length(report.top_events || [])}")
+
+    IO.puts(
+      "  Unique event types: #{report.unique_event_types || length(report.top_events || [])}"
+    )
+
     IO.puts("  Active reporters: #{report.active_reporters}")
     IO.puts("")
 
     # Top events
     if report.top_events && length(report.top_events) > 0 do
       IO.puts(IO.ANSI.format([:bright, "Top Events:"]))
+
       Enum.take(report.top_events, 5)
       |> Enum.each(fn {event_name, count} ->
         event_str = Enum.join(event_name, ".")
         IO.puts("  #{event_str}: #{count} events")
       end)
+
       IO.puts("")
     end
 
     # Error rates
     if report.error_rates && length(report.error_rates) > 0 do
       IO.puts(IO.ANSI.format([:bright, "Error Rates:"]))
+
       Enum.take(report.error_rates, 5)
       |> Enum.each(fn {event_name, %{error_rate: rate}} ->
         if rate > 0 do
@@ -177,58 +202,66 @@ defmodule GSMLG.Telemetry.Backends.Console do
           IO.puts(IO.ANSI.format([:red, "  #{event_str}: #{Float.round(rate, 2)}% error rate"]))
         end
       end)
+
       IO.puts("")
     end
 
     # Average durations
     if report.average_durations && length(report.average_durations) > 0 do
       IO.puts(IO.ANSI.format([:bright, "Average Durations:"]))
+
       Enum.take(report.average_durations, 5)
       |> Enum.each(fn {event_name, durations} ->
         event_str = Enum.join(event_name, ".")
+
         Enum.each(durations, fn {measurement_name, avg} ->
           IO.puts("  #{event_str}.#{measurement_name}: #{Float.round(avg, 2)}ms")
         end)
       end)
+
       IO.puts("")
     end
 
     IO.puts(IO.ANSI.format([:faint, "---"]))
   end
 
-  defp format_event(event_name, measurements, metadata, level, state) do
+  defp format_event(event_name, measurements, metadata, level, _state) do
     timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
     level_str = String.upcase(Atom.to_string(level))
     event_str = Enum.join(event_name, ".")
 
     # Build message from metadata
-    message = case metadata do
-      %{message: msg} -> msg
-      _ -> "Event: #{event_str}"
-    end
+    message =
+      case metadata do
+        %{message: msg} -> msg
+        _ -> "Event: #{event_str}"
+      end
 
     # Format measurements
-    measurements_str = if map_size(measurements) > 0 do
-      measurements
-      |> Enum.map(fn {k, v} -> "#{k}=#{format_value(v)}" end)
-      |> Enum.join(" ")
-    else
-      ""
-    end
-
-    # Format metadata
-    metadata_str = if map_size(metadata) > 0 do
-      filtered_metadata = Map.delete(metadata, :message)
-      if map_size(filtered_metadata) > 0 do
-        filtered_metadata
+    measurements_str =
+      if map_size(measurements) > 0 do
+        measurements
         |> Enum.map(fn {k, v} -> "#{k}=#{format_value(v)}" end)
         |> Enum.join(" ")
       else
         ""
       end
-    else
-      ""
-    end
+
+    # Format metadata
+    metadata_str =
+      if map_size(metadata) > 0 do
+        filtered_metadata = Map.delete(metadata, :message)
+
+        if map_size(filtered_metadata) > 0 do
+          filtered_metadata
+          |> Enum.map(fn {k, v} -> "#{k}=#{format_value(v)}" end)
+          |> Enum.join(" ")
+        else
+          ""
+        end
+      else
+        ""
+      end
 
     # Combine all parts
     parts = [
@@ -237,22 +270,24 @@ defmodule GSMLG.Telemetry.Backends.Console do
       message
     ]
 
-    parts = if measurements_str != "" do
-      parts ++ ["(#{measurements_str})"]
-    else
-      parts
-    end
+    parts =
+      if measurements_str != "" do
+        parts ++ ["(#{measurements_str})"]
+      else
+        parts
+      end
 
-    parts = if metadata_str != "" do
-      parts ++ ["[#{metadata_str}]"]
-    else
-      parts
-    end
+    parts =
+      if metadata_str != "" do
+        parts ++ ["[#{metadata_str}]"]
+      else
+        parts
+      end
 
     Enum.join(parts, " ")
   end
 
-  defp determine_event_level(event_name, measurements, metadata) do
+  defp determine_event_level(_event_name, measurements, metadata) do
     cond do
       # Use explicit level from metadata
       Map.has_key?(metadata, :level) ->
@@ -282,9 +317,10 @@ defmodule GSMLG.Telemetry.Backends.Console do
 
   defp has_long_duration?(measurements) do
     Enum.any?(measurements, fn {key, value} ->
+      # > 1 second
       (String.contains?(Atom.to_string(key), "duration") or
-       String.contains?(Atom.to_string(key), "time")) and
-      is_number(value) and value > 1000 # > 1 second
+         String.contains?(Atom.to_string(key), "time")) and
+        is_number(value) and value > 1000
     end)
   end
 
@@ -355,6 +391,7 @@ defmodule GSMLG.Telemetry.Backends.Console do
     case DateTime.from_iso8601(iso_string) do
       {:ok, dt, _} ->
         dt |> DateTime.to_time() |> Time.to_string()
+
       _ ->
         iso_string
     end
@@ -366,20 +403,6 @@ defmodule GSMLG.Telemetry.Backends.Console do
   @spec update_config(keyword()) :: :ok
   def update_config(new_opts) do
     GenServer.cast(__MODULE__, {:update_config, new_opts})
-  end
-
-  @impl true
-  def handle_cast({:update_config, new_opts}, state) do
-    updated_config = Map.merge(state.config, Map.new(new_opts))
-
-    new_state = %{state |
-      config: updated_config,
-      colors: Keyword.get(new_opts, :colors, state.colors),
-      format: Keyword.get(new_opts, :format, state.format),
-      filters: Keyword.get(new_opts, :filters, state.filters)
-    }
-
-    {:noreply, new_state}
   end
 
   @doc """

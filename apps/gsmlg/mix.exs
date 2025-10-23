@@ -44,6 +44,7 @@ defmodule GSMLG.MixProject do
       {:gsmlg_aws, in_umbrella: true},
       {:gsmlg_mnesia, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
+      {:gsmlg_telemetry, in_umbrella: true},
       {:gsmlg_toml, in_umbrella: true},
       {:gsmlg_web_push, in_umbrella: true},
       {:gsmlg_nx, in_umbrella: true},

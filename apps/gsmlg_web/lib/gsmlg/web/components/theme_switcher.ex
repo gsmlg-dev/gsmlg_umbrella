@@ -38,7 +38,7 @@ defmodule GSMLG.Web.Components.ThemeSwitcher do
         <%= for theme <- @themes do %>
           <li>
             <a href="#" phx-click="set_theme" phx-value-theme={theme} class={theme_item_class(theme)}>
-              <span class="badge badge-sm" style="background-color: #{theme_color(theme)}"></span>
+              <span class="badge badge-sm" style={"background-color: #{theme_color(theme)}"}></span>
               {Phoenix.Naming.humanize(theme)}
             </a>
           </li>

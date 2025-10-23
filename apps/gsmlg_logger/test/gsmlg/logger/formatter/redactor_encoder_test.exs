@@ -81,7 +81,9 @@ defmodule GSMLG.Logger.Formatter.RedactorEncoderTest do
       assert encode(%{1 => 2}, []) == %{1 => 2}
       assert encode(%{:a => 1}, []) == %{:a => 1}
       assert encode(%{{"a", "b"} => 1}, []) == %{"{\"a\", \"b\"}" => 1}
-      assert encode(%{%{a: 1, b: 2} => 3}, []) == %{"%{a: 1, b: 2}" => 3}
+      # Map key ordering is non-deterministic, so we check both possible orders
+      result = encode(%{%{a: 1, b: 2} => 3}, [])
+      assert result == %{"%{a: 1, b: 2}" => 3} or result == %{"%{b: 2, a: 1}" => 3}
       assert encode(%{[{:a, :b}] => 3}, []) == %{"[a: :b]" => 3}
     end
 

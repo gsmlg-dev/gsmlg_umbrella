@@ -1,8 +1,6 @@
 defmodule GSMLG.Web.Layouts do
   use GSMLG.Web, :html
 
-  alias GSMLG.Web.Layouts
-
   # Phoenix 1.8: The file name becomes the function name
   # root.html.heex -> root/1 function
   # app.html.heex -> app/1 function

@@ -2,7 +2,6 @@ defmodule GSMLG.Commander.Office do
   use GenServer
 
   alias PhoenixClient.{Channel, Message}
-  alias Phoenix.SocketClient
 
   def get_channel() do
     GenServer.call(__MODULE__, :get_channel)
@@ -60,12 +59,14 @@ defmodule GSMLG.Commander.Office do
         node: node()
       }
     )
+
     {:ok, %{channel: nil}, {:continue, :join}}
   end
 
   @impl true
   def handle_continue(:join, state) do
     channel_name = office_name()
+
     GSMLG.Telemetry.info("Office attempting to join channel",
       metadata: %{
         module: __MODULE__,
@@ -84,6 +85,7 @@ defmodule GSMLG.Commander.Office do
             response: response
           }
         )
+
         state = state |> Map.put(:channel, channel)
         Process.send_after(__MODULE__, :ping, 60_000)
         {:noreply, state}
@@ -98,6 +100,7 @@ defmodule GSMLG.Commander.Office do
             will_retry: true
           }
         )
+
         GSMLG.Telemetry.debug("Office will rejoin after 15 seconds",
           metadata: %{
             module: __MODULE__,
@@ -106,6 +109,7 @@ defmodule GSMLG.Commander.Office do
             retry_delay: 15_000
           }
         )
+
         Process.sleep(15_000)
         {:noreply, state, {:continue, :join}}
     end
@@ -126,6 +130,7 @@ defmodule GSMLG.Commander.Office do
     Process.send_after(__MODULE__, :ping, 60_000)
 
     ping_time = System.system_time(:second)
+
     reply =
       PhoenixClient.Channel.push(chn, "ping", %{
         "message" => "ping",
@@ -155,6 +160,7 @@ defmodule GSMLG.Commander.Office do
         state_keys: Map.keys(state)
       }
     )
+
     {:noreply, state}
   end
 
@@ -172,20 +178,21 @@ defmodule GSMLG.Commander.Office do
     )
 
     # Use span to measure command execution time
-    {output, exit_code, execution_time} = GSMLG.Telemetry.span_with_metadata(
-      [:commander, :office, :command_execution],
-      %{
-        command: command,
-        office_name: office_name()
-      },
-      fn ->
-        start_time = System.monotonic_time(:millisecond)
-        {out, code} = System.cmd("bash", ["-c", command])
-        end_time = System.monotonic_time(:millisecond)
-        duration = end_time - start_time
-        {out, code, %{duration: duration, exit_code: code}}
-      end
-    )
+    {output, exit_code, execution_time} =
+      GSMLG.Telemetry.span_with_metadata(
+        [:commander, :office, :command_execution],
+        %{
+          command: command,
+          office_name: office_name()
+        },
+        fn ->
+          start_time = System.monotonic_time(:millisecond)
+          {out, code} = System.cmd("bash", ["-c", command])
+          end_time = System.monotonic_time(:millisecond)
+          duration = end_time - start_time
+          {out, code, %{duration: duration, exit_code: code}}
+        end
+      )
 
     GSMLG.Telemetry.info("Command execution completed",
       metadata: %{
@@ -199,10 +206,11 @@ defmodule GSMLG.Commander.Office do
       }
     )
 
-    result_payload = Map.merge(payload, %{
-      "output" => output,
-      "code" => exit_code
-    })
+    result_payload =
+      Map.merge(payload, %{
+        "output" => output,
+        "code" => exit_code
+      })
 
     push_result =
       PhoenixClient.Channel.push_async(
@@ -235,6 +243,7 @@ defmodule GSMLG.Commander.Office do
         state_keys: Map.keys(state)
       }
     )
+
     {:noreply, state}
   end
 

@@ -3,13 +3,6 @@ defmodule GSMLG.Commander.GreatHall do
 
   use SocketClient.Channel
 
-  @impl true
-  def init(args) do
-    # initialize your channel state
-    # args: {sup_pid, socket_pid, topic, params}
-    {:ok, args}
-  end
-
   def get_state() do
     GenServer.call(__MODULE__, :get_state)
   end
@@ -53,7 +46,7 @@ defmodule GSMLG.Commander.GreatHall do
   ## Callbacks
 
   @impl true
-  def init([]) do
+  def init(args) when is_list(args) do
     GSMLG.Telemetry.info("GreatHall initializing",
       metadata: %{
         module: __MODULE__,
@@ -61,6 +54,7 @@ defmodule GSMLG.Commander.GreatHall do
         node: node()
       }
     )
+
     {:ok, %{peons: [], jobs: [], channel: nil}, {:continue, :join}}
   end
 
@@ -74,7 +68,7 @@ defmodule GSMLG.Commander.GreatHall do
       }
     )
 
-    case Channel.join(GSMLG.Commander.Socket, "command_platform") do
+    case Phoenix.SocketClient.Channel.join(GSMLG.Commander.Socket, "command_platform") do
       {:ok, response, channel} ->
         GSMLG.Telemetry.info("GreatHall successfully joined command platform",
           metadata: %{
@@ -84,6 +78,7 @@ defmodule GSMLG.Commander.GreatHall do
             channel_connected: true
           }
         )
+
         state = state |> Map.put(:channel, channel)
         Process.send_after(__MODULE__, :ping, 60_000)
         {:noreply, state}
@@ -97,6 +92,7 @@ defmodule GSMLG.Commander.GreatHall do
             will_retry: true
           }
         )
+
         GSMLG.Telemetry.debug("GreatHall will rejoin after 15 seconds",
           metadata: %{
             module: __MODULE__,
@@ -104,6 +100,7 @@ defmodule GSMLG.Commander.GreatHall do
             retry_delay: 15_000
           }
         )
+
         Process.sleep(15_000)
         {:noreply, state, {:continue, :join}}
     end
@@ -115,10 +112,24 @@ defmodule GSMLG.Commander.GreatHall do
   end
 
   @impl true
+  def handle_message(event, payload, state) do
+    GSMLG.Telemetry.debug("GreatHall received message",
+      metadata: %{
+        module: __MODULE__,
+        event: event,
+        payload: payload
+      }
+    )
+
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(:ping, %{:channel => chn} = state) do
     Process.send_after(__MODULE__, :ping, 60_000)
 
     ping_time = System.system_time(:second)
+
     reply =
       PhoenixClient.Channel.push(chn, "ping", %{
         "message" => "ping",
@@ -146,6 +157,7 @@ defmodule GSMLG.Commander.GreatHall do
         state_keys: Map.keys(state)
       }
     )
+
     {:noreply, state}
   end
 
@@ -158,6 +170,7 @@ defmodule GSMLG.Commander.GreatHall do
         state_keys: Map.keys(state)
       }
     )
+
     {:noreply, state}
   end
 

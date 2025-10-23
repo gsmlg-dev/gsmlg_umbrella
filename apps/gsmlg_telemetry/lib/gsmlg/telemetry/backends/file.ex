@@ -10,7 +10,8 @@ defmodule GSMLG.Telemetry.Backends.File do
   require Logger
 
   @default_file_path "logs/gsmlg.log"
-  @default_max_file_size 50 * 1024 * 1024 # 50MB
+  # 50MB
+  @default_max_file_size 50 * 1024 * 1024
   @default_max_files 5
   @default_format :json
 
@@ -189,9 +190,11 @@ defmodule GSMLG.Telemetry.Backends.File do
   def handle_info({:EXIT, device, reason}, state) do
     if device == state.device do
       Logger.error("File device crashed: #{inspect(reason)}, attempting to reopen...")
+
       case reopen_log_file(state) do
         {:ok, new_state} ->
           {:noreply, new_state}
+
         {:error, reason} ->
           Logger.error("Failed to reopen log file: #{inspect(reason)}")
           {:noreply, %{state | device: nil}}
@@ -205,6 +208,7 @@ defmodule GSMLG.Telemetry.Backends.File do
     case File.open(file_path, [:append, :utf8]) do
       {:ok, device} ->
         device
+
       {:error, reason} ->
         Logger.error("Failed to open log file #{file_path}: #{inspect(reason)}")
         raise "Failed to open log file: #{inspect(reason)}"
@@ -216,6 +220,7 @@ defmodule GSMLG.Telemetry.Backends.File do
       {:ok, device} ->
         new_state = %{state | device: device}
         {:ok, new_state}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -243,7 +248,7 @@ defmodule GSMLG.Telemetry.Backends.File do
         {:empty, _} ->
           # Buffer is empty, sync if needed
           if state.config.sync_mode == :sync do
-            File.sync(state.device)
+            :file.sync(state.device)
           end
 
           %{state | buffer: :queue.new()}
@@ -286,10 +291,7 @@ defmodule GSMLG.Telemetry.Backends.File do
       last_rotation: DateTime.utc_now()
     }
 
-    %{state |
-      device: new_device,
-      rotation_state: new_rotation_state
-    }
+    %{state | device: new_device, rotation_state: new_rotation_state}
   end
 
   defp rotate_existing_files(file_path, max_files, compress) do
@@ -357,21 +359,24 @@ defmodule GSMLG.Telemetry.Backends.File do
       {"node", Atom.to_string(log_entry.node)}
     ]
 
-    fields = if log_entry.event_name do
-      [{"event", Enum.join(log_entry.event_name, ".")} | fields]
-    else
-      fields
-    end
+    fields =
+      if log_entry.event_name do
+        [{"event", Enum.join(log_entry.event_name, ".")} | fields]
+      else
+        fields
+      end
 
     # Add data as fields
-    data_fields = Enum.map(log_entry.data, fn {k, v} ->
-      {Atom.to_string(k), format_value_for_ltsv(v)}
-    end)
+    data_fields =
+      Enum.map(log_entry.data, fn {k, v} ->
+        {Atom.to_string(k), format_value_for_ltsv(v)}
+      end)
 
     # Add metadata as fields
-    metadata_fields = Enum.map(log_entry.metadata, fn {k, v} ->
-      {Atom.to_string(k), format_value_for_ltsv(v)}
-    end)
+    metadata_fields =
+      Enum.map(log_entry.metadata, fn {k, v} ->
+        {Atom.to_string(k), format_value_for_ltsv(v)}
+      end)
 
     (fields ++ data_fields ++ metadata_fields)
     |> Enum.map(fn {k, v} -> "#{k}:#{v}" end)
@@ -380,7 +385,7 @@ defmodule GSMLG.Telemetry.Backends.File do
 
   defp format_log_entry(log_entry, :text) do
     timestamp = log_entry.timestamp
-    type = Atom.to_string(log_entry.type)
+    _type = Atom.to_string(log_entry.type)
     level = String.upcase(Atom.to_string(log_entry.type))
     event_str = if log_entry.event_name, do: Enum.join(log_entry.event_name, "."), else: ""
 
@@ -422,8 +427,11 @@ defmodule GSMLG.Telemetry.Backends.File do
 
   defp format_metadata_text(metadata) when map_size(metadata) > 0 do
     filtered_metadata = Map.delete(metadata, :message)
+
     if map_size(filtered_metadata) > 0 do
-      " [" <> (filtered_metadata |> Enum.map(fn {k, v} -> "#{k}=#{inspect(v)}" end) |> Enum.join(", ")) <> "]"
+      " [" <>
+        (filtered_metadata |> Enum.map(fn {k, v} -> "#{k}=#{inspect(v)}" end) |> Enum.join(", ")) <>
+        "]"
     else
       ""
     end
@@ -431,20 +439,26 @@ defmodule GSMLG.Telemetry.Backends.File do
 
   defp format_metadata_text(_), do: ""
 
-  defp determine_event_level(event_name, measurements, metadata) do
+  defp determine_event_level(_event_name, measurements, metadata) do
     cond do
       Map.has_key?(metadata, :level) ->
         Map.get(metadata, :level)
+
       metadata[:status] == :error ->
         :error
+
       metadata[:status] == :error or metadata[:kind] == :exception ->
         :error
+
       metadata[:status] && metadata[:status] >= 400 ->
         if metadata[:status] >= 500, do: :error, else: :warn
+
       has_long_duration?(measurements) ->
         :warn
+
       metadata[:security] ->
         :warn
+
       true ->
         :info
     end
@@ -453,8 +467,8 @@ defmodule GSMLG.Telemetry.Backends.File do
   defp has_long_duration?(measurements) do
     Enum.any?(measurements, fn {key, value} ->
       (String.contains?(Atom.to_string(key), "duration") or
-       String.contains?(Atom.to_string(key), "time")) and
-      is_number(value) and value > 1000
+         String.contains?(Atom.to_string(key), "time")) and
+        is_number(value) and value > 1000
     end)
   end
 

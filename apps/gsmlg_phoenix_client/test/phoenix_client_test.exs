@@ -117,10 +117,12 @@ defmodule PhoenixClientTest do
       super(conn, opts)
     end
 
-    socket("/ws", UserSocket, websocket: [origins: ["//example.com"], connect_info: [:x_headers]])
+    socket("/ws", UserSocket,
+      websocket: [check_origin: ["//example.com"], connect_info: [:x_headers]]
+    )
 
     socket("/ws/admin", UserSocket,
-      websocket: [origins: ["//example.com"], connect_info: [:x_headers]]
+      websocket: [check_origin: ["//example.com"], connect_info: [:x_headers]]
     )
 
     plug(

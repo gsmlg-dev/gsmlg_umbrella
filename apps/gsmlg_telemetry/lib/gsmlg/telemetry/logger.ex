@@ -21,10 +21,11 @@ defmodule GSMLG.Telemetry.Logger do
   def log(level, message, metadata \\ %{}) when level in @levels do
     if enabled?(level) do
       # Ensure message is a string for consistent formatting
-      message_str = case message do
-        msg when is_binary(msg) -> msg
-        msg -> inspect(msg)
-      end
+      message_str =
+        case message do
+          msg when is_binary(msg) -> msg
+          msg -> inspect(msg)
+        end
 
       # Build structured log data
       log_data = %{
@@ -100,13 +101,15 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec exception(Exception.t(), map()) :: :ok
   def exception(exception, metadata \\ %{}) do
-    stacktrace = Process.info(self(), :current_stacktrace)
-    |> elem(1)
+    stacktrace =
+      Process.info(self(), :current_stacktrace)
+      |> elem(1)
 
-    error_metadata = metadata
-    |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
-    |> Map.put(:exception_kind, :error)
-    |> Map.put(:exception_message, Exception.message(exception))
+    error_metadata =
+      metadata
+      |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
+      |> Map.put(:exception_kind, :error)
+      |> Map.put(:exception_message, Exception.message(exception))
 
     log(:error, "Exception: #{Exception.message(exception)}", error_metadata)
   end
@@ -116,10 +119,11 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec exception_with_stacktrace(Exception.t(), Exception.stacktrace(), map()) :: :ok
   def exception_with_stacktrace(exception, stacktrace, metadata \\ %{}) do
-    error_metadata = metadata
-    |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
-    |> Map.put(:exception_kind, :error)
-    |> Map.put(:exception_message, Exception.message(exception))
+    error_metadata =
+      metadata
+      |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
+      |> Map.put(:exception_kind, :error)
+      |> Map.put(:exception_message, Exception.message(exception))
 
     log(:error, "Exception: #{Exception.message(exception)}", error_metadata)
   end
@@ -129,13 +133,15 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec warn_exception(Exception.t(), map()) :: :ok
   def warn_exception(exception, metadata \\ %{}) do
-    stacktrace = Process.info(self(), :current_stacktrace)
-    |> elem(1)
+    stacktrace =
+      Process.info(self(), :current_stacktrace)
+      |> elem(1)
 
-    warn_metadata = metadata
-    |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
-    |> Map.put(:exception_kind, :warning)
-    |> Map.put(:exception_message, Exception.message(exception))
+    warn_metadata =
+      metadata
+      |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
+      |> Map.put(:exception_kind, :warning)
+      |> Map.put(:exception_message, Exception.message(exception))
 
     log(:warn, "Warning: #{Exception.message(exception)}", warn_metadata)
   end
@@ -145,10 +151,11 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec warn_exception_with_stacktrace(Exception.t(), Exception.stacktrace(), map()) :: :ok
   def warn_exception_with_stacktrace(exception, stacktrace, metadata \\ %{}) do
-    warn_metadata = metadata
-    |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
-    |> Map.put(:exception_kind, :warning)
-    |> Map.put(:exception_message, Exception.message(exception))
+    warn_metadata =
+      metadata
+      |> Map.put(:exception, Exception.format(:error, exception, stacktrace))
+      |> Map.put(:exception_kind, :warning)
+      |> Map.put(:exception_message, Exception.message(exception))
 
     log(:warn, "Warning: #{Exception.message(exception)}", warn_metadata)
   end
@@ -158,10 +165,11 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec performance(String.t(), number(), map()) :: :ok
   def performance(operation, duration_ms, metadata \\ %{}) do
-    perf_metadata = metadata
-    |> Map.put(:operation, operation)
-    |> Map.put(:duration_ms, duration_ms)
-    |> Map.put(:performance, true)
+    perf_metadata =
+      metadata
+      |> Map.put(:operation, operation)
+      |> Map.put(:duration_ms, duration_ms)
+      |> Map.put(:performance, true)
 
     log(:info, "Performance: #{operation} took #{duration_ms}ms", perf_metadata)
   end
@@ -171,14 +179,20 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec request(String.t(), atom(), number(), map()) :: :ok
   def request(method, status, duration_ms, metadata \\ %{}) do
-    request_metadata = metadata
-    |> Map.put(:method, method)
-    |> Map.put(:status, status)
-    |> Map.put(:duration_ms, duration_ms)
-    |> Map.put(:request, true)
+    request_metadata =
+      metadata
+      |> Map.put(:method, method)
+      |> Map.put(:status, status)
+      |> Map.put(:duration_ms, duration_ms)
+      |> Map.put(:request, true)
 
     level = if status >= 400, do: :warn, else: :info
-    log(level, "#{String.upcase(Atom.to_string(method))} #{status} (#{duration_ms}ms)", request_metadata)
+
+    log(
+      level,
+      "#{String.upcase(Atom.to_string(method))} #{status} (#{duration_ms}ms)",
+      request_metadata
+    )
   end
 
   @doc """
@@ -186,17 +200,19 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec database_query(String.t(), number(), non_neg_integer(), map()) :: :ok
   def database_query(query, duration_ms, result_count \\ nil, metadata \\ %{}) do
-    query_metadata = metadata
-    |> Map.put(:query, query)
-    |> Map.put(:duration_ms, duration_ms)
-    |> Map.put(:result_count, result_count)
-    |> Map.put(:database, true)
+    query_metadata =
+      metadata
+      |> Map.put(:query, query)
+      |> Map.put(:duration_ms, duration_ms)
+      |> Map.put(:result_count, result_count)
+      |> Map.put(:database, true)
 
-    message = if result_count do
-      "DB query (#{result_count} rows) in #{duration_ms}ms: #{truncate_query(query)}"
-    else
-      "DB query in #{duration_ms}ms: #{truncate_query(query)}"
-    end
+    message =
+      if result_count do
+        "DB query (#{result_count} rows) in #{duration_ms}ms: #{truncate_query(query)}"
+      else
+        "DB query in #{duration_ms}ms: #{truncate_query(query)}"
+      end
 
     level = if duration_ms > 1000, do: :warn, else: :debug
     log(level, message, query_metadata)
@@ -207,10 +223,11 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec audit(String.t(), map()) :: :ok
   def audit(action, metadata \\ %{}) do
-    audit_metadata = metadata
-    |> Map.put(:action, action)
-    |> Map.put(:audit, true)
-    |> Map.put(:timestamp, DateTime.utc_now())
+    audit_metadata =
+      metadata
+      |> Map.put(:action, action)
+      |> Map.put(:audit, true)
+      |> Map.put(:timestamp, DateTime.utc_now())
 
     log(:info, "Audit: #{action}", audit_metadata)
   end
@@ -220,10 +237,11 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec security(String.t(), map()) :: :ok
   def security(event, metadata \\ %{}) do
-    security_metadata = metadata
-    |> Map.put(:security_event, event)
-    |> Map.put(:security, true)
-    |> Map.put(:timestamp, DateTime.utc_now())
+    security_metadata =
+      metadata
+      |> Map.put(:security_event, event)
+      |> Map.put(:security, true)
+      |> Map.put(:timestamp, DateTime.utc_now())
 
     log(:warn, "Security: #{event}", security_metadata)
   end
@@ -231,18 +249,7 @@ defmodule GSMLG.Telemetry.Logger do
   # Private functions
 
   defp format_log_message(log_data) do
-    # Use GSMLG.Logger if available, otherwise fall back to basic formatting
-    if Code.ensure_loaded?(GSMLG.Logger) do
-      try do
-        GSMLG.Logger.format(log_data)
-      rescue
-        _ -> default_format(log_data)
-      catch
-        _ -> default_format(log_data)
-      end
-    else
-      default_format(log_data)
-    end
+    default_format(log_data)
   end
 
   defp default_format(log_data) do
@@ -253,9 +260,10 @@ defmodule GSMLG.Telemetry.Logger do
     base = "[#{timestamp}] #{level} #{message}"
 
     if map_size(log_data.metadata) > 0 do
-      metadata_str = log_data.metadata
-      |> Enum.map(fn {k, v} -> "#{k}=#{inspect(v)}" end)
-      |> Enum.join(" ")
+      metadata_str =
+        log_data.metadata
+        |> Enum.map(fn {k, v} -> "#{k}=#{inspect(v)}" end)
+        |> Enum.join(" ")
 
       "#{base} #{metadata_str}"
     else
@@ -304,20 +312,6 @@ defmodule GSMLG.Telemetry.Logger do
     end
   end
 
-  @doc """
-  Create a structured logger for a specific context.
-
-  ## Examples
-
-      logger = GSMLG.Telemetry.Logger.context(%{module: MyModule, request_id: "123"})
-      logger.info("Processing started")
-      logger.error("Processing failed", %{error: "timeout"})
-  """
-  @spec context(map()) :: module()
-  def context(context_metadata) do
-    %ContextLogger{metadata: context_metadata}
-  end
-
   defmodule ContextLogger do
     @moduledoc """
     A logger with pre-bound context metadata.
@@ -348,5 +342,19 @@ defmodule GSMLG.Telemetry.Logger do
     def log(%__MODULE__{metadata: metadata}, level, message, extra_metadata \\ %{}) do
       GSMLG.Telemetry.Logger.log(level, message, Map.merge(metadata, extra_metadata))
     end
+  end
+
+  @doc """
+  Create a structured logger for a specific context.
+
+  ## Examples
+
+      logger = GSMLG.Telemetry.Logger.context(%{module: MyModule, request_id: "123"})
+      logger.info("Processing started")
+      logger.error("Processing failed", %{error: "timeout"})
+  """
+  @spec context(map()) :: ContextLogger.t()
+  def context(context_metadata) do
+    %ContextLogger{metadata: context_metadata}
   end
 end

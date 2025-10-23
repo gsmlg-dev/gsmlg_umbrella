@@ -73,6 +73,7 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
   @impl true
   def init(opts) do
     enabled = Keyword.get(opts, :enabled, false)
+
     unless enabled do
       Logger.info("CloudWatch backend disabled")
     end
@@ -85,11 +86,13 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
   end
 
   defp do_init(opts) do
-    log_group_name = Keyword.get(opts, :log_group_name) ||
-      raise ArgumentError, "log_group_name is required for CloudWatch backend"
+    log_group_name =
+      Keyword.get(opts, :log_group_name) ||
+        raise ArgumentError, "log_group_name is required for CloudWatch backend"
 
-    log_stream_name = Keyword.get(opts, :log_stream_name) ||
-      raise ArgumentError, "log_stream_name is required for CloudWatch backend"
+    log_stream_name =
+      Keyword.get(opts, :log_stream_name) ||
+        raise ArgumentError, "log_stream_name is required for CloudWatch backend"
 
     region = Keyword.get(opts, :region, @default_region)
     buffer_size = Keyword.get(opts, :buffer_size, @default_buffer_size)
@@ -163,7 +166,9 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
       {:noreply, state}
     end
 
-    log_event = create_cloudwatch_log_event(:metrics, event_name, aggregates, %{events: raw_events})
+    log_event =
+      create_cloudwatch_log_event(:metrics, event_name, aggregates, %{events: raw_events})
+
     new_state = add_to_buffer(log_event, state)
 
     if length(new_state.buffer) >= state.config.buffer_size do
@@ -200,6 +205,13 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
   end
 
   @impl true
+  def handle_cast({:update_config, new_opts}, state) do
+    updated_config = Map.merge(state.config, Map.new(new_opts))
+    new_state = %{state | config: updated_config}
+    {:noreply, new_state}
+  end
+
+  @impl true
   def handle_info(:flush_to_cloudwatch, state) do
     if state.config.enabled do
       new_state = flush_to_cloudwatch(state)
@@ -224,6 +236,22 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
     {:reply, stats, state}
   end
 
+  @impl true
+  def handle_call(:test_connectivity, _from, state) do
+    if not state.config.enabled do
+      {:reply, {:error, :disabled}, state}
+    else
+      case describe_log_streams(
+             state.client,
+             state.config.log_group_name,
+             state.config.log_stream_name
+           ) do
+        {:ok, _} -> {:reply, :ok, state}
+        error -> {:reply, error, state}
+      end
+    end
+  end
+
   # Private functions
 
   defp init_cloudwatch_client(region, opts) do
@@ -241,13 +269,14 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
 
   defp fallback_cloudwatch_client(region, opts) do
     # Fallback to ex_aws configuration
-    ex_aws_config = [
-      region: region,
-      access_key_id: Keyword.get(opts, :access_key_id),
-      secret_access_key: Keyword.get(opts, :secret_access_key),
-      role_arn: Keyword.get(opts, :role_arn)
-    ]
-    |> Enum.filter(fn {_, v} -> v != nil end)
+    ex_aws_config =
+      [
+        region: region,
+        access_key_id: Keyword.get(opts, :access_key_id),
+        secret_access_key: Keyword.get(opts, :secret_access_key),
+        role_arn: Keyword.get(opts, :role_arn)
+      ]
+      |> Enum.filter(fn {_, v} -> v != nil end)
 
     ExAws.new(:cloudwatch_logs, ex_aws_config)
   end
@@ -305,15 +334,16 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
   defp create_cloudwatch_log_event(type, event_name, data, metadata, level \\ :info) do
     %{
       timestamp: System.system_time(:millisecond),
-      message: Jason.encode!(%{
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601(),
-        type: Atom.to_string(type),
-        event_name: if(event_name, do: Enum.join(event_name, "."), else: nil),
-        level: Atom.to_string(level),
-        data: data,
-        metadata: metadata,
-        node: node()
-      })
+      message:
+        Jason.encode!(%{
+          timestamp: DateTime.utc_now() |> DateTime.to_iso8601(),
+          type: Atom.to_string(type),
+          event_name: if(event_name, do: Enum.join(event_name, "."), else: nil),
+          level: Atom.to_string(level),
+          data: data,
+          metadata: metadata,
+          node: node()
+        })
     }
   end
 
@@ -326,21 +356,20 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
       # Reverse buffer to maintain order
       events = Enum.reverse(state.buffer)
 
-      case put_log_events(state.client, state.config.log_group_name, state.config.log_stream_name, events, state.sequence_token) do
+      case put_log_events(
+             state.client,
+             state.config.log_group_name,
+             state.config.log_stream_name,
+             events,
+             state.sequence_token
+           ) do
         {:ok, %{nextSequenceToken: next_token}} ->
           Logger.debug("Sent #{length(events)} log events to CloudWatch")
-          %{state |
-            buffer: [],
-            sequence_token: next_token,
-            last_flush_time: DateTime.utc_now()
-          }
+          %{state | buffer: [], sequence_token: next_token, last_flush_time: DateTime.utc_now()}
 
         {:ok, result} ->
           Logger.debug("Sent #{length(events)} log events to CloudWatch: #{inspect(result)}")
-          %{state |
-            buffer: [],
-            last_flush_time: DateTime.utc_now()
-          }
+          %{state | buffer: [], last_flush_time: DateTime.utc_now()}
 
         {:error, reason} ->
           Logger.error("Failed to send log events to CloudWatch: #{inspect(reason)}")
@@ -352,20 +381,26 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
     end
   end
 
-  defp determine_event_level(event_name, measurements, metadata) do
+  defp determine_event_level(_event_name, measurements, metadata) do
     cond do
       Map.has_key?(metadata, :level) ->
         Map.get(metadata, :level)
+
       metadata[:status] == :error ->
         :error
+
       metadata[:kind] == :exception ->
         :error
+
       metadata[:status] && metadata[:status] >= 400 ->
         if metadata[:status] >= 500, do: :error, else: :warn
+
       has_long_duration?(measurements) ->
         :warn
+
       metadata[:security] ->
         :warn
+
       true ->
         :info
     end
@@ -374,8 +409,8 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
   defp has_long_duration?(measurements) do
     Enum.any?(measurements, fn {key, value} ->
       (String.contains?(Atom.to_string(key), "duration") or
-       String.contains?(Atom.to_string(key), "time")) and
-      is_number(value) and value > 1000
+         String.contains?(Atom.to_string(key), "time")) and
+        is_number(value) and value > 1000
     end)
   end
 
@@ -423,11 +458,12 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
       logEvents: events
     }
 
-    params = if sequence_token do
-      Map.put(params, :sequenceToken, sequence_token)
-    else
-      params
-    end
+    params =
+      if sequence_token do
+        Map.put(params, :sequenceToken, sequence_token)
+      else
+        params
+      end
 
     if Code.ensure_loaded?(GSMLG.AWS.CloudWatchLogs) do
       GSMLG.AWS.CloudWatchLogs.put_log_events(client, params)
@@ -445,32 +481,11 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
     GenServer.cast(__MODULE__, {:update_config, new_opts})
   end
 
-  @impl true
-  def handle_cast({:update_config, new_opts}, state) do
-    updated_config = Map.merge(state.config, Map.new(new_opts))
-    new_state = %{state | config: updated_config}
-    {:noreply, new_state}
-  end
-
   @doc """
   Test CloudWatch connectivity.
   """
   @spec test_connectivity() :: :ok | {:error, term()}
   def test_connectivity do
     GenServer.call(__MODULE__, :test_connectivity)
-  end
-
-  @impl true
-  def handle_call(:test_connectivity, _from, state) do
-    if not state.config.enabled do
-      {:reply, {:error, :disabled}, state}
-    else
-      case describe_log_streams(state.client, state.config.log_group_name, state.config.log_stream_name) do
-        {:ok, _} ->
-          {:reply, :ok, state}
-        {:error, reason} ->
-          {:reply, {:error, reason}, state}
-      end
-    end
   end
 end

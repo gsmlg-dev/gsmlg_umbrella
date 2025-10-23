@@ -50,8 +50,11 @@ defmodule GSMLG.Telemetry do
     measurements = Keyword.get(opts, :measurements, %{})
 
     # Emit telemetry event
-    :telemetry.execute(telemetry_event, Map.put(measurements, :level, level),
-                       Map.put(metadata, :message, message))
+    :telemetry.execute(
+      telemetry_event,
+      Map.put(measurements, :level, level),
+      Map.put(metadata, :message, message)
+    )
 
     # Log using our logger wrapper
     Logger.log(level, message, metadata)
@@ -119,10 +122,11 @@ defmodule GSMLG.Telemetry do
           monotonic_time: start_time
         }
 
-        error_metadata = metadata
-        |> Map.put(:status, :error)
-        |> Map.put(:error, Exception.message(exception))
-        |> Map.put(:kind, :exception)
+        error_metadata =
+          metadata
+          |> Map.put(:status, :error)
+          |> Map.put(:error, Exception.message(exception))
+          |> Map.put(:kind, :exception)
 
         :telemetry.execute(event_name, measurements, error_metadata)
 
@@ -135,10 +139,11 @@ defmodule GSMLG.Telemetry do
           monotonic_time: start_time
         }
 
-        error_metadata = metadata
-        |> Map.put(:status, :error)
-        |> Map.put(:error, inspect(value))
-        |> Map.put(:kind, kind)
+        error_metadata =
+          metadata
+          |> Map.put(:status, :error)
+          |> Map.put(:error, inspect(value))
+          |> Map.put(:kind, kind)
 
         :telemetry.execute(event_name, measurements, error_metadata)
 
@@ -179,22 +184,25 @@ defmodule GSMLG.Telemetry do
             monotonic_time: start_time
           }
 
-          metadata = base_metadata
-          |> Map.merge(extra_metadata)
-          |> Map.put(:status, :ok)
+          metadata =
+            base_metadata
+            |> Map.merge(extra_metadata)
+            |> Map.put(:status, :ok)
 
           :telemetry.execute(event_name, measurements, metadata)
 
           {result, extra_metadata}
 
         {result, extra_metadata, extra_measurements} ->
-          measurements = extra_measurements
-          |> Map.put(:duration, System.monotonic_time() - start_time)
-          |> Map.put(:monotonic_time, start_time)
+          measurements =
+            extra_measurements
+            |> Map.put(:duration, System.monotonic_time() - start_time)
+            |> Map.put(:monotonic_time, start_time)
 
-          metadata = base_metadata
-          |> Map.merge(extra_metadata)
-          |> Map.put(:status, :ok)
+          metadata =
+            base_metadata
+            |> Map.merge(extra_metadata)
+            |> Map.put(:status, :ok)
 
           :telemetry.execute(event_name, measurements, metadata)
 
@@ -217,10 +225,11 @@ defmodule GSMLG.Telemetry do
           monotonic_time: start_time
         }
 
-        error_metadata = base_metadata
-        |> Map.put(:status, :error)
-        |> Map.put(:error, Exception.message(exception))
-        |> Map.put(:kind, :exception)
+        error_metadata =
+          base_metadata
+          |> Map.put(:status, :error)
+          |> Map.put(:error, Exception.message(exception))
+          |> Map.put(:kind, :exception)
 
         :telemetry.execute(event_name, measurements, error_metadata)
 
@@ -232,10 +241,11 @@ defmodule GSMLG.Telemetry do
           monotonic_time: start_time
         }
 
-        error_metadata = base_metadata
-        |> Map.put(:status, :error)
-        |> Map.put(:error, inspect(value))
-        |> Map.put(:kind, kind)
+        error_metadata =
+          base_metadata
+          |> Map.put(:status, :error)
+          |> Map.put(:error, inspect(value))
+          |> Map.put(:kind, kind)
 
         :telemetry.execute(event_name, measurements, error_metadata)
 
@@ -272,7 +282,8 @@ defmodule GSMLG.Telemetry do
 
       GSMLG.Telemetry.attach_handler(:my_handler, [:gsmlg, :web], MyHandler, [])
   """
-  @spec attach_handler(atom(), [atom()] | atom(), atom(), any()) :: :ok | {:error, :already_exists}
+  @spec attach_handler(atom(), [atom()] | atom(), atom(), any()) ::
+          :ok | {:error, :already_exists}
   def attach_handler(handler_id, event_name, handler_module, handler_config \\ %{}) do
     Handler.attach(handler_id, event_name, handler_module, handler_config)
   end
@@ -310,4 +321,28 @@ defmodule GSMLG.Telemetry do
   """
   @spec error(any(), keyword()) :: :ok
   def error(message, opts \\ []), do: log(:error, message, opts)
+
+  @doc """
+  Log an exception with stacktrace.
+
+  ## Parameters
+
+  - `exception` - The exception struct
+  - `stacktrace` - The stacktrace from __STACKTRACE__
+  - `opts` - Keyword list of options (metadata will be extracted if present)
+
+  ## Examples
+
+      try do
+        risky_operation()
+      rescue
+        e ->
+          GSMLG.Telemetry.exception(e, __STACKTRACE__, metadata: %{operation: "risky"})
+      end
+  """
+  @spec exception(Exception.t(), Exception.stacktrace(), keyword()) :: :ok
+  def exception(exception, stacktrace, opts \\ []) do
+    metadata = Keyword.get(opts, :metadata, %{})
+    Logger.exception_with_stacktrace(exception, stacktrace, metadata)
+  end
 end

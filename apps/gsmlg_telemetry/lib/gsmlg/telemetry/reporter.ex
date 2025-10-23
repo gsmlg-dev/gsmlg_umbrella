@@ -76,12 +76,13 @@ defmodule GSMLG.Telemetry.Reporter do
     reporters = initialize_reporters(config)
 
     # Initialize buffer for batching events
-    buffer = :ets.new(:gsmlg_telemetry_reporter_buffer, [
-      :duplicate_bag,
-      :public,
-      {:read_concurrency, true},
-      {:write_concurrency, true}
-    ])
+    buffer =
+      :ets.new(:gsmlg_telemetry_reporter_buffer, [
+        :duplicate_bag,
+        :public,
+        {:read_concurrency, true},
+        {:write_concurrency, true}
+      ])
 
     # Schedule periodic reporting
     schedule_report(config)
@@ -131,14 +132,35 @@ defmodule GSMLG.Telemetry.Reporter do
   end
 
   @impl true
+  def handle_call(:get_stats, _from, state) do
+    stats = %{
+      buffer_size: :ets.info(state.buffer, :size),
+      buffer_memory: :ets.info(state.buffer, :memory),
+      active_reporters: map_size(state.reporters),
+      reporters:
+        Enum.map(state.reporters, fn {name, info} ->
+          {name,
+           %{
+             module: info.module,
+             pid: info.pid,
+             opts: info.opts
+           }}
+        end)
+    }
+
+    {:reply, stats, state}
+  end
+
+  @impl true
   def handle_call({:add_reporter, name, reporter_module, opts}, _from, state) do
     case start_reporter(name, reporter_module, opts) do
       {:ok, pid} ->
-        updated_reporters = Map.put(state.reporters, name, %{
-          module: reporter_module,
-          pid: pid,
-          opts: opts
-        })
+        updated_reporters =
+          Map.put(state.reporters, name, %{
+            module: reporter_module,
+            pid: pid,
+            opts: opts
+          })
 
         new_state = %{state | reporters: updated_reporters}
         {:reply, :ok, new_state}
@@ -183,9 +205,11 @@ defmodule GSMLG.Telemetry.Reporter do
 
         case start_reporter(name, reporter_info.module, reporter_info.opts) do
           {:ok, new_pid} ->
-            updated_reporters = Map.put(state.reporters, name, %{
-              reporter_info | pid: new_pid
-            })
+            updated_reporters =
+              Map.put(state.reporters, name, %{
+                reporter_info
+                | pid: new_pid
+              })
 
             Logger.info("Reporter #{name} restarted successfully")
             {:noreply, %{state | reporters: updated_reporters}}
@@ -224,7 +248,8 @@ defmodule GSMLG.Telemetry.Reporter do
   end
 
   defp start_reporter(name, reporter_module, opts) do
-    if Code.ensure_loaded?(reporter_module) and function_exported?(reporter_module, :start_link, 1) do
+    if Code.ensure_loaded?(reporter_module) and
+         function_exported?(reporter_module, :start_link, 1) do
       reporter_opts = Keyword.put(opts, :name, name)
       GenServer.start_link(reporter_module, reporter_opts)
     else
@@ -234,6 +259,7 @@ defmodule GSMLG.Telemetry.Reporter do
 
   defp buffer_event(buffer, event_name, measurements, metadata) do
     timestamp = System.system_time(:millisecond)
+
     event_data = {
       event_name,
       measurements,
@@ -292,17 +318,19 @@ defmodule GSMLG.Telemetry.Reporter do
 
   defp aggregate_numeric_measurements(measurements) do
     # Extract all numeric measurement keys
-    all_keys = measurements
-    |> Enum.flat_map(&Map.keys/1)
-    |> Enum.uniq()
+    all_keys =
+      measurements
+      |> Enum.flat_map(&Map.keys/1)
+      |> Enum.uniq()
 
     Enum.reduce(all_keys, %{}, fn key, acc ->
-      values = Enum.flat_map(measurements, fn measurement ->
-        case Map.get(measurement, key) do
-          value when is_number(value) -> [value]
-          _ -> []
-        end
-      end)
+      values =
+        Enum.flat_map(measurements, fn measurement ->
+          case Map.get(measurement, key) do
+            value when is_number(value) -> [value]
+            _ -> []
+          end
+        end)
 
       if length(values) > 0 do
         Map.put(acc, key, %{
@@ -327,7 +355,9 @@ defmodule GSMLG.Telemetry.Reporter do
           Logger.error("Reporter #{inspect(reporter_info.module)} failed: #{inspect(error)}")
       catch
         kind, value ->
-          Logger.error("Reporter #{inspect(reporter_info.module)} crashed: #{inspect({kind, value})}")
+          Logger.error(
+            "Reporter #{inspect(reporter_info.module)} crashed: #{inspect({kind, value})}"
+          )
       end
     end
   end
@@ -342,16 +372,20 @@ defmodule GSMLG.Telemetry.Reporter do
           reporter_info.module.handle_report(report)
         rescue
           error ->
-            Logger.error("Reporter #{inspect(reporter_info.module)} report failed: #{inspect(error)}")
+            Logger.error(
+              "Reporter #{inspect(reporter_info.module)} report failed: #{inspect(error)}"
+            )
         catch
           kind, value ->
-            Logger.error("Reporter #{inspect(reporter_info.module)} report crashed: #{inspect({kind, value})}")
+            Logger.error(
+              "Reporter #{inspect(reporter_info.module)} report crashed: #{inspect({kind, value})}"
+            )
         end
       end
     end)
 
     # Log summary
-    Logger.info("Generated metrics report: #{report.total_events} events, #{report.unique_event_types} types")
+    Logger.info("Generated metrics report: #{report.total_events} events")
   end
 
   defp build_current_report(state) do
@@ -388,7 +422,8 @@ defmodule GSMLG.Telemetry.Reporter do
   end
 
   defp schedule_report(config) do
-    interval = Keyword.get(config, :report_interval, 60_000) # 1 minute default
+    # 1 minute default
+    interval = Keyword.get(config, :report_interval, 60_000)
 
     Process.send_after(self(), :generate_periodic_report, interval)
   end
@@ -399,23 +434,5 @@ defmodule GSMLG.Telemetry.Reporter do
   @spec get_stats() :: map()
   def get_stats do
     GenServer.call(__MODULE__, :get_stats)
-  end
-
-  @impl true
-  def handle_call(:get_stats, _from, state) do
-    stats = %{
-      buffer_size: :ets.info(state.buffer, :size),
-      buffer_memory: :ets.info(state.buffer, :memory),
-      active_reporters: map_size(state.reporters),
-      reporters: Enum.map(state.reporters, fn {name, info} ->
-        {name, %{
-          module: info.module,
-          pid: info.pid,
-          opts: info.opts
-        }}
-      end)
-    }
-
-    {:reply, stats, state}
   end
 end
