@@ -12,7 +12,7 @@ defmodule GSMLG.MAC.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       name: "GSMLG.MAC",
-      description: "MAC's manufacturer lookup for",
+      description: "Fast compile-time MAC address vendor lookup and utilities",
       package: package(),
       deps: deps()
     ]
@@ -28,7 +28,7 @@ defmodule GSMLG.MAC.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false}
     ]
   end
 
