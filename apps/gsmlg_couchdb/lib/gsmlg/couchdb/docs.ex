@@ -1,4 +1,154 @@
 defmodule GSMLG.CouchDB.Docs do
+  @moduledoc """
+  Document-level operations for Apache CouchDB.
+
+  This module provides the complete API for working with CouchDB documents including
+  CRUD operations, bulk operations, Mango queries, index management, and attachments.
+
+  ## Document CRUD
+
+      alias GSMLG.CouchDB.Docs
+
+      # Create document (CouchDB generates ID)
+      Docs.create_doc("mydb", %{type: "user", name: "Alice"})
+      #=> %{id: "generated-uuid", ok: true, rev: "1-abc"}
+
+      # Create document with specific ID
+      Docs.put_doc("mydb", "user-123", %{type: "user", name: "Alice"})
+      #=> %{id: "user-123", ok: true, rev: "1-xyz"}
+
+      # Get document
+      Docs.get_doc("mydb", "user-123")
+      #=> %{_id: "user-123", _rev: "1-xyz", type: "user", name: "Alice"}
+
+      # Update document (requires revision)
+      Docs.put_doc("mydb", "user-123", %{
+        _rev: "1-xyz",
+        type: "user",
+        name: "Alice Smith"
+      })
+      #=> %{id: "user-123", ok: true, rev: "2-new"}
+
+      # Delete document (requires revision)
+      Docs.delete_doc("mydb", "user-123?rev=2-new")
+      #=> %{id: "user-123", ok: true, rev: "3-deleted"}
+
+  ## Mango Queries
+
+  Mango is CouchDB's declarative JSON query language:
+
+      # Find documents by selector
+      Docs.find("mydb", %{
+        selector: %{type: "user", status: "active"},
+        limit: 10,
+        sort: [%{created_at: "desc"}]
+      })
+      #=> %{docs: [...], bookmark: "..."}
+
+      # Pagination with bookmarks
+      {:ok, page1} = Docs.find("mydb", %{
+        selector: %{type: "post"},
+        limit: 25
+      })
+
+      Docs.find("mydb", %{
+        selector: %{type: "post"},
+        limit: 25,
+        bookmark: page1.bookmark
+      })
+
+  ## Selector Operators
+
+  - Comparison: `$lt`, `$lte`, `$eq`, `$ne`, `$gte`, `$gt`
+  - Logical: `$and`, `$or`, `$not`, `$nor`
+  - Existence: `$exists`
+  - Type: `$type`
+  - Array: `$in`, `$nin`, `$all`, `$elemMatch`, `$size`
+  - String: `$regex`
+
+  Example:
+
+      Docs.find("mydb", %{
+        selector: %{
+          type: "user",
+          age: %{"$gte": 18, "$lt": 65},
+          status: %{"$in": ["active", "pending"]}
+        }
+      })
+
+  ## Indexes
+
+  Create indexes to improve query performance:
+
+      # Create index
+      Docs.create_index("mydb", %{
+        index: %{fields: ["type", "created_at"]},
+        name: "type-created-idx"
+      })
+      #=> %{id: "_design/...", name: "type-created-idx", result: "created"}
+
+      # List indexes
+      Docs.get_index("mydb")
+      #=> %{total_rows: 2, indexes: [...]}
+
+      # Delete index
+      Docs.delete_index("mydb", "design_doc_id", "index_name")
+      #=> %{ok: true}
+
+      # Explain query (see which index will be used)
+      Docs.explain_query("mydb", %{
+        selector: %{type: "user"}
+      })
+
+  ## Bulk Operations
+
+      # Bulk create/update
+      Docs.bulk_docs("mydb", [
+        %{_id: "doc1", data: "value1"},
+        %{_id: "doc2", data: "value2"}
+      ])
+      #=> [%{id: "doc1", ok: true, rev: "1-..."}, ...]
+
+      # Bulk get
+      Docs.bulk_get("mydb", [
+        %{id: "doc1"},
+        %{id: "doc2"}
+      ])
+      #=> %{results: [...]}
+
+  ## Attachments
+
+      # Upload attachment
+      data = File.read!("photo.jpg")
+      Docs.put_attachment("mydb", "doc123?rev=1-abc", "photo.jpg", data,
+        [{"Content-Type", "image/jpeg"}])
+      #=> %{id: "doc123", ok: true, rev: "2-new"}
+
+      # Download attachment
+      {:ok, binary} = Docs.get_attachment("mydb", "doc123", "photo.jpg")
+
+      # Check if attachment exists
+      Docs.attachment_exists?("mydb", "doc123", "photo.jpg")
+      #=> true
+
+      # Delete attachment
+      Docs.delete_attachment("mydb", "doc123?rev=2-new", "photo.jpg")
+      #=> %{id: "doc123", ok: true, rev: "3-deleted"}
+
+  ## Document Revisions
+
+  CouchDB uses MVCC (Multi-Version Concurrency Control) and requires the current
+  revision for updates and deletes. If the revision doesn't match, you'll get a
+  conflict error:
+
+      {:error, %{error: "conflict", reason: "Document update conflict"}}
+
+  Always fetch the current document before updating:
+
+      {:ok, doc} = Docs.get_doc("mydb", "doc123")
+      Docs.put_doc("mydb", "doc123", Map.put(doc, :field, "new_value"))
+  """
+
   alias GSMLG.CouchDB.Connection
 
   def create_doc(db_name, doc) do

@@ -11,6 +11,9 @@ defmodule GSMLG.CouchDB.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      name: "GSMLG.CouchDB",
+      description: "Elixir HTTP client for Apache CouchDB with persistent connections",
+      package: package(),
       deps: deps()
     ]
   end
@@ -27,7 +30,20 @@ defmodule GSMLG.CouchDB.MixProject do
   defp deps do
     [
       {:jason, "~> 1.2"},
-      {:mint, "~> 1.0"}
+      {:mint, "~> 1.0"},
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Jonathan Gao"],
+      licenses: ["MIT"],
+      files: ~w(lib LICENSE mix.exs README.md),
+      links: %{
+        GitHub: "https://github.com/gsmlg/gsmlg_umbrella",
+        Changelog: "https://hexdocs.pm/gsmlg_couchdb/changelog.html"
+      }
     ]
   end
 end

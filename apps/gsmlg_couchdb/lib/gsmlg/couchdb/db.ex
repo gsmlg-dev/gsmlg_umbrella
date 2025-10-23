@@ -1,4 +1,66 @@
 defmodule GSMLG.CouchDB.DB do
+  @moduledoc """
+  Database-level operations for Apache CouchDB.
+
+  This module provides functions for managing CouchDB databases including
+  creation, deletion, compaction, security settings, and administrative tasks.
+
+  ## Common Operations
+
+      alias GSMLG.CouchDB.DB
+
+      # List all databases
+      DB.all_dbs()
+      #=> ["_replicator", "_users", "myapp"]
+
+      # Create database
+      DB.create_db("myapp")
+      #=> %{ok: true}
+
+      # Get database info
+      DB.info_db("myapp")
+      #=> %{db_name: "myapp", doc_count: 123, ...}
+
+      # Delete database
+      DB.drop_db("old_db")
+      #=> %{ok: true}
+
+  ## Database Naming Rules
+
+  Database names must:
+  - Start with a lowercase letter (a-z)
+  - Contain only: lowercase letters, digits, and the characters `_$()+-/`
+  - Not start with an underscore (reserved for system databases)
+
+  Valid examples: `"mydb"`, `"app_production"`, `"project-2024"`
+
+  Invalid examples: `"MyDB"` (uppercase), `"123db"` (starts with digit), `"my.db"` (contains period)
+
+  ## Security
+
+  CouchDB uses a security object to control database access:
+
+      # Get current security
+      DB.get_security("myapp")
+
+      # Set security (admins and members)
+      DB.put_security("myapp", %{
+        admins: %{names: ["admin"], roles: []},
+        members: %{names: [], roles: ["user"]}
+      })
+
+  ## Maintenance
+
+      # Compact database (reclaim disk space)
+      DB.compact("myapp")
+
+      # Compact design document views
+      DB.compact("myapp", "design_doc_id")
+
+      # Clean up old view index files
+      DB.view_cleanup("myapp")
+  """
+
   alias GSMLG.CouchDB.Connection
 
   def all_dbs() do

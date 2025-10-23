@@ -1,6 +1,56 @@
 defmodule GSMLG.CouchDB.Connection do
   @moduledoc """
-  Documentation for `GSMLG.CouchDB.Connection`.
+  HTTP connection manager for Apache CouchDB using Mint.
+
+  This GenServer maintains a persistent HTTP/1.1 connection to a CouchDB server
+  and handles request/response correlation. It provides a clean API for making
+  HTTP requests (GET, POST, PUT, DELETE, COPY) with automatic JSON encoding/decoding.
+
+  ## Architecture
+
+  - Single persistent connection per application instance
+  - Asynchronous request handling with `GenServer.call/2`
+  - Automatic request/response correlation via Mint
+  - Basic authentication on every request
+  - JSON response parsing when `Content-Type: application/json`
+
+  ## Configuration
+
+      config :gsmlg_couchdb, GSMLG.CouchDB.Connection,
+        scheme: :http,          # or :https
+        host: "localhost",
+        port: 5984,
+        username: "admin",
+        password: "password"
+
+  ## Usage
+
+  Most users should use the higher-level `GSMLG.CouchDB.DB` and `GSMLG.CouchDB.Docs`
+  modules instead of calling this module directly. However, for custom requests:
+
+      # GET request
+      Connection.get("/_all_dbs")
+      #=> {:ok, ["_replicator", "_users", "mydb"]}
+
+      # POST request with JSON body
+      Connection.post("/mydb", %{type: "user", name: "Alice"})
+      #=> {:ok, %{id: "...", ok: true, rev: "1-..."}}
+
+      # PUT request
+      Connection.put("/mydb/doc123", %{_rev: "1-...", field: "value"})
+      #=> {:ok, %{id: "doc123", ok: true, rev: "2-..."}}
+
+  ## Connection Lifecycle
+
+  The connection is established during GenServer initialization and maintained
+  throughout the application lifecycle. If the connection drops, the GenServer
+  will crash and be restarted by its supervisor, re-establishing the connection.
+
+  ## Bang Variants
+
+  All request functions have bang (`!`) variants that raise on error:
+
+      Connection.get!("/_all_dbs")  # Returns data directly or raises
   """
   use GenServer
 
