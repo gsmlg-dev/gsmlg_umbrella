@@ -14,7 +14,7 @@ defmodule GSMLG.Commander do
     children =
       if start do
         [
-          {Phoenix.SocketClient, socket_opts()},
+          {Phoenix.SocketClient, {socket_opts(), name: GSMLG.Commander.Socket}},
           {GSMLG.Commander.GreatHall, []},
           {GSMLG.Commander.Office, []},
           {GSMLG.Commander.Resource, []}
