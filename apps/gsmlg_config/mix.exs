@@ -27,7 +27,8 @@ defmodule GSMLG.Config.MixProject do
   defp deps do
     [
       {:gsmlg_logger, in_umbrella: true},
-      {:gsmlg_toml, in_umbrella: true}
+      {:gsmlg_telemetry, in_umbrella: true},
+      {:nimble_options, "~> 1.0"}
     ]
   end
 end

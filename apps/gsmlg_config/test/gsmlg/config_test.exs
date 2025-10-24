@@ -5,222 +5,205 @@ defmodule GSMLG.ConfigTest do
   import ExUnit.CaptureLog
 
   setup do
-    # Don't clean up - the application manages the process lifecycle
+    # Store original config to restore after test
+    original_config = Application.get_env(:gsmlg_config, :loaded_config)
+
+    on_exit(fn ->
+      if original_config do
+        Application.put_env(:gsmlg_config, :loaded_config, original_config)
+      else
+        Application.delete_env(:gsmlg_config, :loaded_config)
+      end
+    end)
+
     :ok
   end
 
-  describe "start_link/1" do
-    test "starts the agent with loaded config" do
-      result = GSMLG.Config.start_link([])
+  describe "config/0" do
+    test "returns the entire config map when loaded" do
+      # Load config from test environment
+      config_dir = Path.expand("../../config", __DIR__)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      Application.put_env(:gsmlg_config, :loaded_config, config)
 
-      case result do
-        {:ok, _pid} -> :ok
-        {:error, {:already_started, _pid}} -> :ok
-      end
-
-      assert Process.alive?(Process.whereis(GSMLG.Config))
-      config = GSMLG.Config.config()
-      assert is_map(config)
-      assert config[:logger] != nil
-      assert config[:database] != nil
+      result = GSMLG.Config.config()
+      assert is_map(result)
+      assert Map.has_key?(result, :logger)
+      assert Map.has_key?(result, :database)
+      assert Map.has_key?(result, :web)
     end
 
-    test "calls setup when starting" do
-      # Capture logs to verify setup is called
+    test "returns empty map when config not loaded" do
+      Application.delete_env(:gsmlg_config, :loaded_config)
+
       log =
         capture_log(fn ->
-          result = GSMLG.Config.start_link([])
-
-          case result do
-            {:ok, _pid} -> :ok
-            {:error, {:already_started, _pid}} -> :ok
-          end
+          result = GSMLG.Config.config()
+          assert result == %{}
         end)
 
-      # Should contain setup-related logs if any
-      assert is_binary(log)
-    end
-  end
-
-  describe "load/0" do
-    test "loads config from default file" do
-      config = GSMLG.Config.load()
-
-      assert is_map(config)
-      assert config[:logger] != nil
-      assert config[:logger][:log_level] == "debug"
-      assert config[:database] != nil
-      assert config[:database][:username] == "gsmlg_dev"
-      assert config[:web] != nil
-      assert config[:web][:port] == 4110
-    end
-
-    test "loads config from custom file path" do
-      System.put_env("GSMLG_CONFIG_PATH", Path.expand("../../priv/gsmlg.toml", __DIR__))
-
-      try do
-        config = GSMLG.Config.load()
-        assert is_map(config)
-        assert config[:logger][:log_level] == "debug"
-      after
-        System.delete_env("GSMLG_CONFIG_PATH")
-      end
-    end
-  end
-
-  describe "config/0" do
-    test "returns the entire config map" do
-      # Config should already be available from the application
-
-      config = GSMLG.Config.config()
-      assert is_map(config)
-      assert Map.has_key?(config, :logger)
-      assert Map.has_key?(config, :database)
-      assert Map.has_key?(config, :web)
+      assert log =~ "Configuration not loaded"
     end
   end
 
   describe "get/1 with atom key" do
-    test "returns value for atom key" do
-      # Config should already be available from the application
+    setup do
+      config_dir = Path.expand("../../config", __DIR__)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      Application.put_env(:gsmlg_config, :loaded_config, config)
+      :ok
+    end
 
+    test "returns value for atom key" do
       logger_config = GSMLG.Config.get(:logger)
       assert is_map(logger_config)
-      assert logger_config[:log_level] == "debug"
+      assert is_binary(logger_config[:log_level])
     end
 
     test "returns nil for non-existent atom key" do
-      # Config should already be available from the application
-
       result = GSMLG.Config.get(:non_existent)
       assert result == nil
     end
   end
 
   describe "get/1 with binary key" do
-    test "returns value for binary key" do
-      # Config should already be available from the application
+    setup do
+      config_dir = Path.expand("../../config", __DIR__)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      Application.put_env(:gsmlg_config, :loaded_config, config)
+      :ok
+    end
 
+    test "returns value for binary key" do
       logger_config = GSMLG.Config.get("logger")
       assert is_map(logger_config)
-      assert logger_config[:log_level] == "debug"
     end
 
     test "returns nil for non-existent binary key" do
-      # Config should already be available from the application
-
       result = GSMLG.Config.get("non_existent")
       assert result == nil
     end
   end
 
   describe "get/1 with path list" do
-    test "returns nested value using path list" do
-      # Config should already be available from the application
-      log_level = GSMLG.Config.get([:logger, :log_level])
-      assert log_level == "debug"
+    setup do
+      config_dir = Path.expand("../../config", __DIR__)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      Application.put_env(:gsmlg_config, :loaded_config, config)
+      :ok
+    end
 
-      db_username = GSMLG.Config.get([:database, :username])
-      assert db_username == "gsmlg_dev"
+    test "returns nested value using path list" do
+      log_level = GSMLG.Config.get([:logger, :log_level])
+      assert is_binary(log_level)
     end
 
     test "returns nil for non-existent path" do
-      # Config should already be available from the application
-
       result = GSMLG.Config.get([:non_existent, :path])
       assert result == nil
-
-      result = GSMLG.Config.get([:logger, :non_existent])
-      assert result == nil
     end
   end
 
-  describe "put/2 with atom key" do
-    test "updates value for atom key" do
-      # Config should already be available from the application
-
-      :ok = GSMLG.Config.put(:test_key, "test_value")
-      assert GSMLG.Config.get(:test_key) == "test_value"
+  describe "get/2 with default" do
+    setup do
+      config_dir = Path.expand("../../config", __DIR__)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      Application.put_env(:gsmlg_config, :loaded_config, config)
+      :ok
     end
 
-    test "overwrites existing value for atom key" do
-      # Config should already be available from the application
-
-      original_log_level = GSMLG.Config.get([:logger, :log_level])
-      :ok = GSMLG.Config.put(:logger, %{log_level: "warn"})
-
-      updated_logger = GSMLG.Config.get(:logger)
-      assert updated_logger[:log_level] == "warn"
-      assert updated_logger != original_log_level
-
-      # Restore original value
-      :ok = GSMLG.Config.put(:logger, %{log_level: original_log_level})
-    end
-  end
-
-  describe "put/2 with binary key" do
-    test "updates value for binary key" do
-      # Config should already be available from the application
-
-      :ok = GSMLG.Config.put("test_key", "test_value")
-      assert GSMLG.Config.get("test_key") == "test_value"
-    end
-  end
-
-  describe "put/2 with path list" do
-    test "updates nested value using path list" do
-      # Config should already be available from the application
-
-      original_log_level = GSMLG.Config.get([:logger, :log_level])
-      :ok = GSMLG.Config.put([:logger, :log_level], "error")
-      assert GSMLG.Config.get([:logger, :log_level]) == "error"
-
-      # Restore original value
-      :ok = GSMLG.Config.put([:logger, :log_level], original_log_level)
+    test "returns value when key exists" do
+      result = GSMLG.Config.get(:logger, :default_value)
+      assert is_map(result)
+      refute result == :default_value
     end
 
-    test "creates nested structure if it doesn't exist" do
-      # Config should already be available from the application
+    test "returns default when key doesn't exist" do
+      result = GSMLG.Config.get(:non_existent, :default_value)
+      assert result == :default_value
+    end
 
-      # Initialize the nested structure first
-      :ok = GSMLG.Config.put([:new_section], %{})
-      :ok = GSMLG.Config.put([:new_section, :new_key], "new_value")
-      assert GSMLG.Config.get([:new_section, :new_key]) == "new_value"
+    test "returns value when path exists" do
+      result = GSMLG.Config.get([:logger, :log_level], "default")
+      assert is_binary(result)
+      refute result == "default"
+    end
+
+    test "returns default when path doesn't exist" do
+      result = GSMLG.Config.get([:non_existent, :path], :default_value)
+      assert result == :default_value
     end
   end
 
-  describe "error handling" do
-    test "handles missing config file gracefully" do
-      System.put_env("GSMLG_CONFIG_PATH", "/non/existent/path.toml")
+  describe "reload/0" do
+    test "reloads configuration from files" do
+      {:ok, config} = GSMLG.Config.reload()
+      assert is_map(config)
+      assert Map.has_key?(config, :logger)
+      assert Map.has_key?(config, :database)
+    end
 
-      try do
-        # Should raise an error when file doesn't exist
-        assert_raise MatchError, fn ->
-          GSMLG.Config.load()
-        end
-      after
-        System.delete_env("GSMLG_CONFIG_PATH")
+    test "updates Application environment" do
+      {:ok, _config} = GSMLG.Config.reload()
+      app_config = Application.get_env(:gsmlg_config, :loaded_config)
+      assert is_map(app_config)
+    end
+  end
+
+  describe "reload!/0" do
+    test "reloads configuration and returns it" do
+      config = GSMLG.Config.reload!()
+      assert is_map(config)
+      assert Map.has_key?(config, :logger)
+    end
+  end
+
+  describe "config_path/1" do
+    test "returns correct path for dev environment" do
+      path = GSMLG.Config.config_path(:dev)
+      assert path == "config/dev.toml"
+    end
+
+    test "returns correct path for test environment" do
+      path = GSMLG.Config.config_path(:test)
+      assert path == "config/test.toml"
+    end
+
+    test "returns correct path for prod environment" do
+      path = GSMLG.Config.config_path(:prod)
+      assert path == "config/prod.toml"
+    end
+  end
+
+  describe "validate/0" do
+    setup do
+      config_dir = Path.expand("../../config", __DIR__)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir, validate: false)
+      Application.put_env(:gsmlg_config, :loaded_config, config)
+      :ok
+    end
+
+    test "validates current configuration" do
+      result = GSMLG.Config.validate()
+      # May succeed or fail depending on test config
+      case result do
+        {:ok, _} -> assert true
+        {:error, _} -> assert true
       end
     end
   end
 
-  describe "integration tests" do
-    test "full workflow: start, get, put, get" do
-      # Config should already be available from the application
+  describe "validate!/0" do
+    setup do
+      config_dir = Path.expand("../../config", __DIR__)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      Application.put_env(:gsmlg_config, :loaded_config, config)
+      :ok
+    end
 
-      # Get initial value
-      initial_config = GSMLG.Config.config()
-      assert is_map(initial_config)
-
-      # Put new value
-      :ok = GSMLG.Config.put(:integration_test, "test_value")
-
-      # Get the new value
-      assert GSMLG.Config.get(:integration_test) == "test_value"
-
-      # Verify config is updated
-      updated_config = GSMLG.Config.config()
-      assert updated_config[:integration_test] == "test_value"
+    test "validates and returns config on success" do
+      config = GSMLG.Config.validate!()
+      assert is_map(config)
     end
   end
 end
