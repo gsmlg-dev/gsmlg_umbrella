@@ -14,6 +14,7 @@ defmodule GSMLG.Socket.MixProject do
       name: "GSMLG.Socket",
       description: "GSMLG specify Socket connection package",
       package: package(),
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -30,6 +31,7 @@ defmodule GSMLG.Socket.MixProject do
     [
       {:gsmlg_telemetry, in_umbrella: true},
       {:ex_doc, "~> 0.18", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"},
@@ -44,6 +46,12 @@ defmodule GSMLG.Socket.MixProject do
       links: %{
         Changelog: "https://hexdocs.pm/gsmlg_socket/changelog.html"
       }
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

@@ -15,6 +15,7 @@ defmodule GSMLG.Whois.MixProject do
       name: "GSMLG.Whois",
       description: "Whois lookup for Domain / IP / ASN",
       package: package(),
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -34,7 +35,9 @@ defmodule GSMLG.Whois.MixProject do
   defp deps do
     [
       {:gsmlg_telemetry, in_umbrella: true},
-      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false}
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -46,6 +49,12 @@ defmodule GSMLG.Whois.MixProject do
       links: %{
         Changelog: "https://hexdocs.pm/gsmlg_whois/changelog.html"
       }
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

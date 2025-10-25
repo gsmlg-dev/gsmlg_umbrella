@@ -11,6 +11,7 @@ defmodule GSMLG.PKI.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -26,7 +27,15 @@ defmodule GSMLG.PKI.MixProject do
   defp deps do
     [
       {:gsmlg_couchdb, in_umbrella: true},
-      {:gsmlg_telemetry, in_umbrella: true}
+      {:gsmlg_telemetry, in_umbrella: true},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

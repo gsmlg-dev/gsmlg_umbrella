@@ -15,6 +15,7 @@ defmodule GSMLG.Mnesia.MixProject do
       name: "GSMLG.Mnesia",
       description: ":mnesia database wrapper",
       package: package(),
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -30,7 +31,9 @@ defmodule GSMLG.Mnesia.MixProject do
   defp deps do
     [
       {:gsmlg_telemetry, in_umbrella: true},
-      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false}
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -42,6 +45,12 @@ defmodule GSMLG.Mnesia.MixProject do
       links: %{
         Changelog: "https://hexdocs.pm/gsmlg_mnesia/changelog.html"
       }
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 

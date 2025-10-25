@@ -63,7 +63,9 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:jason, "~> 1.2"},
       {:guardian, "~> 2.0"},
       {:guardian_phoenix, "~> 2.0"},
-      {:guardian_db, "~> 3.0"}
+      {:guardian_db, "~> 3.0"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -76,7 +78,8 @@ defmodule GSMLG.AdminWeb.MixProject do
         "tailwind gsmlg_admin_web --minify",
         "bun gsmlg_admin_web --minify",
         "phx.digest"
-      ]
+      ],
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

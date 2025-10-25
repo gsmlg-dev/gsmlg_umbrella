@@ -11,6 +11,7 @@ defmodule GSMLG.Component.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.14.1 or ~> 1.15",
       start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -30,7 +31,15 @@ defmodule GSMLG.Component.MixProject do
       {:phoenix_react_server, "~> 0.7"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.0"},
-      {:gettext, "~> 0.18 or ~> 1.0"}
+      {:gettext, "~> 0.18 or ~> 1.0"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

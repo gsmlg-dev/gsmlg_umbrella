@@ -11,6 +11,7 @@ defmodule GSMLG.Nx.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -27,7 +28,15 @@ defmodule GSMLG.Nx.MixProject do
     [
       {:bumblebee, "~> 0.6.2"},
       # {:exla, ">= 0.0.0"},
-      {:nx, "~> 0.9.0 or ~> 0.10.0"}
+      {:nx, "~> 0.9.0 or ~> 0.10.0"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

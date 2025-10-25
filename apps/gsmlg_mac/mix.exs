@@ -14,6 +14,7 @@ defmodule GSMLG.MAC.MixProject do
       name: "GSMLG.MAC",
       description: "Fast compile-time MAC address vendor lookup and utilities",
       package: package(),
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -29,7 +30,15 @@ defmodule GSMLG.MAC.MixProject do
   defp deps do
     [
       {:telemetry, "~> 1.0"},
-      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false}
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 

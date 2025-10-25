@@ -15,6 +15,7 @@ defmodule GSMLG.Telemetry.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       package: package(),
+      aliases: aliases(),
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
       description: "Centralized telemetry and logging for GSMLG projects"
@@ -48,7 +49,8 @@ defmodule GSMLG.Telemetry.MixProject do
       {:excoveralls, ">= 0.15.0", only: [:dev, :test]},
       {:junit_formatter, "~> 3.3", only: [:test]},
       {:ex_doc, ">= 0.15.0", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4.0", only: [:dev], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -60,6 +62,12 @@ defmodule GSMLG.Telemetry.MixProject do
       links: %{
         Changelog: "https://hexdocs.pm/gsmlg_telemetry/changelog.html"
       }
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

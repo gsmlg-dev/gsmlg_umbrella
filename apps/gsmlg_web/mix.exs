@@ -63,7 +63,9 @@ defmodule GSMLG.Web.MixProject do
       {:guardian_phoenix, "~> 2.0"},
       {:guardian_db, "~> 3.0"},
       {:ueberauth, "~> 0.10"},
-      {:ueberauth_github, "~> 0.8"}
+      {:ueberauth_github, "~> 0.8"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -79,7 +81,8 @@ defmodule GSMLG.Web.MixProject do
         "tailwind gsmlg_web --minify",
         "bun gsmlg_web --minify",
         "phx.digest"
-      ]
+      ],
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

@@ -14,6 +14,7 @@ defmodule GSMLG.Tor.MixProject do
       name: "GSMLG.Tor",
       description: "Start a Tor service at localhost:9050",
       package: package(),
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -29,7 +30,9 @@ defmodule GSMLG.Tor.MixProject do
   defp deps do
     [
       {:httpoison, "~> 2.0"},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -41,6 +44,12 @@ defmodule GSMLG.Tor.MixProject do
       links: %{
         Changelog: "https://hexdocs.pm/gsmlg_tor/changelog.html"
       }
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

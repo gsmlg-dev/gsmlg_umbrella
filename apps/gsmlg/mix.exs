@@ -49,7 +49,9 @@ defmodule GSMLG.MixProject do
       {:gsmlg_nx, in_umbrella: true},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_github, "~> 0.8"},
-      {:meck, "~> 0.9 or ~> 1.0", only: :test}
+      {:meck, "~> 0.9 or ~> 1.0", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -58,7 +60,8 @@ defmodule GSMLG.MixProject do
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
+      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

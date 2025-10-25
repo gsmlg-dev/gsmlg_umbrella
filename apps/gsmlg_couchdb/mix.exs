@@ -14,6 +14,7 @@ defmodule GSMLG.CouchDB.MixProject do
       name: "GSMLG.CouchDB",
       description: "Elixir HTTP client for Apache CouchDB with persistent connections",
       package: package(),
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -31,7 +32,9 @@ defmodule GSMLG.CouchDB.MixProject do
     [
       {:jason, "~> 1.2"},
       {:mint, "~> 1.0"},
-      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false}
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -44,6 +47,12 @@ defmodule GSMLG.CouchDB.MixProject do
         GitHub: "https://github.com/gsmlg/gsmlg_umbrella",
         Changelog: "https://hexdocs.pm/gsmlg_couchdb/changelog.html"
       }
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end

@@ -11,6 +11,7 @@ defmodule GSMLG.Commander.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -29,7 +30,15 @@ defmodule GSMLG.Commander.MixProject do
       {:gsmlg_logger, in_umbrella: true},
       {:gsmlg_config, in_umbrella: true},
       {:phoenix_socket_client, "~> 0.7"},
-      {:jason, "~> 1.2"}
+      {:jason, "~> 1.2"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["credo --strict", "dialyzer"]
     ]
   end
 end
