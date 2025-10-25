@@ -434,7 +434,7 @@ defmodule GSMLG.Telemetry.Metrics do
 
   defp last_value(name, opts \\ []), do: Telemetry.Metrics.last_value(name, opts)
 
-  defp distribution(name, opts \\ []), do: Telemetry.Metrics.distribution(name, opts)
+  defp distribution(name, opts), do: Telemetry.Metrics.distribution(name, opts)
 
   @doc """
   Get the configured metrics list.

@@ -60,7 +60,14 @@ defmodule GSMLG.Telemetry.Logger do
   """
   @spec compare_levels(atom(), atom()) :: :lt | :eq | :gt
   def compare_levels(level1, level2) when level1 in @levels and level2 in @levels do
-    level_index(@levels, level1) - level_index(@levels, level2)
+    index1 = level_index(@levels, level1)
+    index2 = level_index(@levels, level2)
+
+    cond do
+      index1 < index2 -> :lt
+      index1 > index2 -> :gt
+      true -> :eq
+    end
   end
 
   @doc """

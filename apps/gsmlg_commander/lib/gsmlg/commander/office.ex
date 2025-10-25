@@ -156,7 +156,7 @@ defmodule GSMLG.Commander.Office do
     )
 
     # Use span to measure command execution time
-    {output, exit_code, execution_time} =
+    {{output, exit_code}, execution_time} =
       GSMLG.Telemetry.span_with_metadata(
         [:commander, :office, :command_execution],
         %{
@@ -168,7 +168,7 @@ defmodule GSMLG.Commander.Office do
           {out, code} = System.cmd("bash", ["-c", command])
           end_time = System.monotonic_time(:millisecond)
           duration = end_time - start_time
-          {out, code, %{duration: duration, exit_code: code}}
+          {{out, code}, %{duration: duration, exit_code: code}}
         end
       )
 

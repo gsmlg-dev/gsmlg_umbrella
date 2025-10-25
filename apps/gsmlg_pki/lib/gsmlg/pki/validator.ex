@@ -337,9 +337,6 @@ defmodule GSMLG.PKI.Validator do
 
         {:ok, {:revoked, reason}} ->
           {:halt, {:error, {:revoked, reason}}}
-
-        {:error, reason} ->
-          {:halt, {:error, reason}}
       end
     end)
   end

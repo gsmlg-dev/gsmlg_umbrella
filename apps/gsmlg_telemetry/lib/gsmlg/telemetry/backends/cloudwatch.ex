@@ -1,10 +1,14 @@
-defmodule GSMLG.Telemetry.Backends.CloudWatch do
-  @moduledoc """
-  AWS CloudWatch Logs backend for GSMLG telemetry system.
+# TODO: CloudWatch backend disabled - requires GSMLG.AWS.CloudWatchLogs implementation
+# See Issue #4 in post-merge validation
+# Requires: GSMLG.AWS.Client and GSMLG.AWS.CloudWatchLogs modules
+if false do
+  defmodule GSMLG.Telemetry.Backends.CloudWatch do
+    @moduledoc """
+    AWS CloudWatch Logs backend for GSMLG telemetry system.
 
-  This backend sends telemetry events to AWS CloudWatch Logs with
-  batching, error handling, and automatic retry logic.
-  """
+    This backend sends telemetry events to AWS CloudWatch Logs with
+    batching, error handling, and automatic retry logic.
+    """
 
   use GenServer
   require Logger
@@ -487,5 +491,6 @@ defmodule GSMLG.Telemetry.Backends.CloudWatch do
   @spec test_connectivity() :: :ok | {:error, term()}
   def test_connectivity do
     GenServer.call(__MODULE__, :test_connectivity)
+  end
   end
 end

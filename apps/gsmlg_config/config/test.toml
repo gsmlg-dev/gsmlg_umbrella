@@ -1,0 +1,12 @@
+# Test environment configuration overrides
+# These settings override base.toml for test environment
+
+[logger]
+log_level = "debug"
+
+[database]
+database = "gsmlg_test"
+pool_size = 5
+
+[web]
+port = 4112

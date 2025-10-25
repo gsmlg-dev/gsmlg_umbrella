@@ -234,7 +234,9 @@ defmodule GSMLG.Config.Schema do
         {:ok, config}
 
       schema when is_list(schema) ->
-        case NimbleOptions.validate(config || [], schema) do
+        # Convert map to keyword list for NimbleOptions.validate
+        config_list = if is_map(config), do: Map.to_list(config), else: config || []
+        case NimbleOptions.validate(config_list, schema) do
           {:ok, validated} -> {:ok, Map.new(validated)}
           {:error, %NimbleOptions.ValidationError{} = error} -> {:error, Exception.message(error)}
         end
@@ -312,7 +314,9 @@ defmodule GSMLG.Config.Schema do
               {:ok, value}
 
             nested_schema when is_list(nested_schema) ->
-              case NimbleOptions.validate(value || [], nested_schema) do
+              # Convert map to keyword list for NimbleOptions.validate
+              value_list = if is_map(value), do: Map.to_list(value), else: value || []
+              case NimbleOptions.validate(value_list, nested_schema) do
                 {:ok, validated} -> {:ok, Map.new(validated)}
                 {:error, %NimbleOptions.ValidationError{} = error} -> {:error, Exception.message(error)}
               end

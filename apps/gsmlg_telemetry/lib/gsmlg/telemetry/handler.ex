@@ -10,7 +10,8 @@ defmodule GSMLG.Telemetry.Handler do
   require Logger
 
   alias GSMLG.Telemetry.{Metrics, Reporter}
-  alias GSMLG.Telemetry.Backends.{Console, File, CloudWatch}
+  alias GSMLG.Telemetry.Backends.{Console, File}
+  # CloudWatch backend disabled - see cloudwatch.ex
 
   @default_events [
     [:gsmlg, :log],
@@ -163,10 +164,10 @@ defmodule GSMLG.Telemetry.Handler do
       File.handle_event(event_name, measurements, metadata)
     end
 
-    # Forward to CloudWatch backend
-    if Keyword.get(backends_config, :cloudwatch, []) |> Keyword.get(:enabled, false) do
-      CloudWatch.handle_event(event_name, measurements, metadata)
-    end
+    # CloudWatch backend disabled - see cloudwatch.ex for TODO
+    # if Keyword.get(backends_config, :cloudwatch, []) |> Keyword.get(:enabled, false) do
+    #   CloudWatch.handle_event(event_name, measurements, metadata)
+    # end
   end
 
   @doc """

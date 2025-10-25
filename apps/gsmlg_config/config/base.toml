@@ -1,0 +1,24 @@
+# Base configuration for GSMLG applications
+# This file contains default settings that apply across all environments
+
+[gsmlg]
+mnesia_dir = "/tmp/mnesia_test"
+tailwind_path = "/usr/bin/tailwindcss"
+bun_path = "/usr/bin/bun"
+
+[logger]
+log_level = "info"
+
+[database]
+username = "test_user"
+password = "test_password"
+hostname = "localhost"
+database = "gsmlg_dev"
+port = 3306
+pool_size = 10
+
+[web]
+host = "localhost"
+port = 4110
+secret_key_base = "test_secret_key_base_for_testing_only_minimum_64_characters_long_required"
+url_scheme = "http"

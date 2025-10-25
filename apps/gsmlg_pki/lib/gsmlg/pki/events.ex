@@ -345,7 +345,7 @@ defmodule GSMLG.PKI.Events do
   # Private Functions
 
   defp generate_event_id do
-    "event:" <> UUID.uuid4()
+    "event:" <> GSMLG.PKI.Events.UUID.uuid4()
   end
 
   defp get_next_sequence(ca_id) do

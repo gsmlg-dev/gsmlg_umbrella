@@ -108,13 +108,14 @@ defmodule GSMLG.PKI.Store.CouchDB do
         selector
       end
 
-    query_opts = [
+    query_params = %{
+      selector: selector,
       sort: [%{"ca_id" => if(descending, do: "desc", else: "asc"), "sequence" => if(descending, do: "desc", else: "asc")}]
-    ]
+    }
 
-    query_opts = if limit, do: Keyword.put(query_opts, :limit, limit), else: query_opts
+    query_params = if limit, do: Map.put(query_params, :limit, limit), else: query_params
 
-    case Docs.find(@database, %{selector: selector}, query_opts) do
+    case Docs.find(@database, query_params) do
       {:ok, %{"docs" => docs}} ->
         events = Enum.map(docs, &document_to_event/1)
         {:ok, events}
@@ -170,13 +171,14 @@ defmodule GSMLG.PKI.Store.CouchDB do
         selector
       end
 
-    query_opts = [
+    query_params = %{
+      selector: selector,
       sort: [%{"event_type" => "asc", "timestamp" => "asc"}]
-    ]
+    }
 
-    query_opts = if limit, do: Keyword.put(query_opts, :limit, limit), else: query_opts
+    query_params = if limit, do: Map.put(query_params, :limit, limit), else: query_params
 
-    case Docs.find(@database, %{selector: selector}, query_opts) do
+    case Docs.find(@database, query_params) do
       {:ok, %{"docs" => docs}} ->
         events = Enum.map(docs, &document_to_event/1)
         {:ok, events}
@@ -205,11 +207,12 @@ defmodule GSMLG.PKI.Store.CouchDB do
       "metadata.serial" => serial
     }
 
-    query_opts = [
+    query_params = %{
+      selector: selector,
       sort: [%{"timestamp" => "asc"}]
-    ]
+    }
 
-    case Docs.find(@database, %{selector: selector}, query_opts) do
+    case Docs.find(@database, query_params) do
       {:ok, %{"docs" => docs}} ->
         events = Enum.map(docs, &document_to_event/1)
         {:ok, events}
@@ -283,7 +286,7 @@ defmodule GSMLG.PKI.Store.CouchDB do
   """
   @spec get_stats() :: {:ok, map()} | {:error, term()}
   def get_stats do
-    DB.get_db(@database)
+    DB.info_db(@database)
   end
 
   # Private Functions

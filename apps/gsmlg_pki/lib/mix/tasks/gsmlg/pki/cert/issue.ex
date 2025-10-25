@@ -74,7 +74,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Cert.Issue do
   - Certificate lifecycle tracking
   """
 
-  alias GSMLG.PKI.{CA, Certificate, PrivateKey, CSR}
+  alias GSMLG.PKI.{CA, Certificate, PrivateKey}
 
   @impl Mix.Task
   def run(args) do
