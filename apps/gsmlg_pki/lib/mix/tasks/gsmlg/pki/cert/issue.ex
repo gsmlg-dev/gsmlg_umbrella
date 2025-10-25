@@ -169,9 +169,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Cert.Issue do
         Mix.shell().info("Subject: #{subject}")
         Mix.shell().info("Output: #{output}")
         Mix.shell().info("")
-        Mix.shell().info(
-          "Certificate has been logged to CouchDB for revocation tracking."
-        )
+        Mix.shell().info("Certificate has been logged to CouchDB for revocation tracking.")
 
       {:error, reason} ->
         Mix.shell().error([:red, "✗ Failed to issue certificate"])

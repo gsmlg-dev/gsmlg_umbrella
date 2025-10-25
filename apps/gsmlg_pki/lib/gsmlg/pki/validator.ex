@@ -80,7 +80,8 @@ defmodule GSMLG.PKI.Validator do
   @spec validate_chain(Certificate.t(), [Certificate.t()], validation_opts()) ::
           {:ok, validation_result()} | {:error, term()}
   def validate_chain(cert, trust_anchors, opts \\ []) do
-    GSMLG.Telemetry.span([:gsmlg, :pki, :validation, :chain],
+    GSMLG.Telemetry.span(
+      [:gsmlg, :pki, :validation, :chain],
       %{cert_subject: extract_subject(cert)},
       fn ->
         check_revocation = Keyword.get(opts, :check_revocation, true)
@@ -285,6 +286,7 @@ defmodule GSMLG.PKI.Validator do
     import GSMLG.PKI.ASN1
 
     otp_certificate(tbsCertificate: tbs) = cert
+
     {:Validity, {:utcTime, not_before_char}, {:utcTime, not_after_char}} =
       otp_tbs_certificate(tbs, :validity)
 
@@ -359,7 +361,8 @@ defmodule GSMLG.PKI.Validator do
       correlation_id: opts[:correlation_id]
     )
   catch
-    _, _ -> :ok  # Ignore logging errors
+    # Ignore logging errors
+    _, _ -> :ok
   end
 
   defp format_validation_result({:ok, :valid}), do: "valid"
@@ -417,7 +420,9 @@ defmodule GSMLG.PKI.Validator do
     # Adjust year (00-49 = 2000-2049, 50-99 = 1950-1999)
     year = if year < 50, do: 2000 + year, else: 1900 + year
 
-    {:ok, dt} = DateTime.new(Date.new!(year, month, day), Time.new!(hour, minute, second), "Etc/UTC")
+    {:ok, dt} =
+      DateTime.new(Date.new!(year, month, day), Time.new!(hour, minute, second), "Etc/UTC")
+
     dt
   end
 end

@@ -178,7 +178,10 @@ defmodule GSMLG.ConfigTest do
   describe "validate/0" do
     setup do
       config_dir = Path.expand("../../config", __DIR__)
-      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir, validate: false)
+
+      {:ok, config} =
+        GSMLG.Config.Loader.load(env: :test, config_dir: config_dir, validate: false)
+
       Application.put_env(:gsmlg_config, :loaded_config, config)
       :ok
     end

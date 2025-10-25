@@ -110,7 +110,12 @@ defmodule GSMLG.PKI.Store.CouchDB do
 
     query_params = %{
       selector: selector,
-      sort: [%{"ca_id" => if(descending, do: "desc", else: "asc"), "sequence" => if(descending, do: "desc", else: "asc")}]
+      sort: [
+        %{
+          "ca_id" => if(descending, do: "desc", else: "asc"),
+          "sequence" => if(descending, do: "desc", else: "asc")
+        }
+      ]
     }
 
     query_params = if limit, do: Map.put(query_params, :limit, limit), else: query_params
@@ -241,9 +246,7 @@ defmodule GSMLG.PKI.Store.CouchDB do
     # Create database
     case DB.create_db(@database) do
       {:ok, _} ->
-        GSMLG.Telemetry.log(:info, "Created PKI database",
-          metadata: %{database: @database}
-        )
+        GSMLG.Telemetry.log(:info, "Created PKI database", metadata: %{database: @database})
 
       {:error, %{"error" => "file_exists"}} ->
         GSMLG.Telemetry.log(:debug, "PKI database already exists",
@@ -359,7 +362,8 @@ defmodule GSMLG.PKI.Store.CouchDB do
           :error -> value
         end
 
-      String.ends_with?(key, "_date") or String.ends_with?(key, "_time") or key in ["timestamp", "not_before", "not_after"] ->
+      String.ends_with?(key, "_date") or String.ends_with?(key, "_time") or
+          key in ["timestamp", "not_before", "not_after"] ->
         # Timestamp strings
         case DateTime.from_iso8601(value) do
           {:ok, dt, _} -> dt

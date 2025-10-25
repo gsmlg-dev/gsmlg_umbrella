@@ -131,8 +131,11 @@ defmodule GSMLG.Config do
   """
   def reload! do
     case reload() do
-      {:ok, config} -> config
-      {:error, reason} -> raise ArgumentError, "Failed to reload configuration: #{inspect(reason)}"
+      {:ok, config} ->
+        config
+
+      {:error, reason} ->
+        raise ArgumentError, "Failed to reload configuration: #{inspect(reason)}"
     end
   end
 

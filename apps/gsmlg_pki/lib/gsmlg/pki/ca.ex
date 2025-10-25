@@ -276,7 +276,8 @@ defmodule GSMLG.PKI.CA do
   @spec revoke_certificate(ca(), non_neg_integer(), keyword()) ::
           :ok | {:error, term()}
   def revoke_certificate(ca, serial, opts \\ []) do
-    GSMLG.Telemetry.span([:gsmlg, :pki, :certificate, :revoke],
+    GSMLG.Telemetry.span(
+      [:gsmlg, :pki, :certificate, :revoke],
       %{ca_id: ca.id, serial: serial},
       fn ->
         reason = Keyword.get(opts, :reason, :unspecified)
@@ -456,9 +457,12 @@ defmodule GSMLG.PKI.CA do
         # Get extensions from CSR extension_request attribute
         csr_exts = CSR.extension_request(csr)
         # Extract SAN if present
-        case Enum.find(csr_exts, fn ext -> elem(ext, 0) == :Extension and elem(elem(ext, 1), 0) == :subject_alt_name end) do
+        case Enum.find(csr_exts, fn ext ->
+               elem(ext, 0) == :Extension and elem(elem(ext, 1), 0) == :subject_alt_name
+             end) do
           nil -> []
-          _ext -> []  # For now, don't auto-extract CSR extensions
+          # For now, don't auto-extract CSR extensions
+          _ext -> []
         end
       else
         []
@@ -580,6 +584,7 @@ defmodule GSMLG.PKI.CA do
 
     otp_certificate(tbsCertificate: tbs) = cert
     otp_tbs_certificate(serialNumber: serial) = tbs
+
     {:Validity, {:utcTime, not_before_char}, {:utcTime, not_after_char}} =
       otp_tbs_certificate(tbs, :validity)
 
@@ -611,7 +616,9 @@ defmodule GSMLG.PKI.CA do
     # Adjust year (00-49 = 2000-2049, 50-99 = 1950-1999)
     year = if year < 50, do: 2000 + year, else: 1900 + year
 
-    {:ok, dt} = DateTime.new(Date.new!(year, month, day), Time.new!(hour, minute, second), "Etc/UTC")
+    {:ok, dt} =
+      DateTime.new(Date.new!(year, month, day), Time.new!(hour, minute, second), "Etc/UTC")
+
     dt
   end
 
@@ -641,7 +648,7 @@ defmodule GSMLG.PKI.CA do
   defp generate_ca_id(subject) do
     # Generate CA ID from subject
     hash = :crypto.hash(:sha256, subject)
-    "ca:" <> Base.encode16(hash, case: :lower) |> String.slice(0, 16)
+    ("ca:" <> Base.encode16(hash, case: :lower)) |> String.slice(0, 16)
   end
 
   defp get_next_crl_number(ca_id) do

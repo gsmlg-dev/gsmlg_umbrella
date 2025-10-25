@@ -194,12 +194,11 @@ defmodule Mix.Tasks.Gsmlg.Pki.Ca.Init do
   defp parse_curve("secp256r1"), do: :secp256r1
   defp parse_curve("secp384r1"), do: :secp384r1
   defp parse_curve("secp521r1"), do: :secp521r1
-  defp parse_curve("prime256v1"), do: :secp256r1  # Alias
+  # Alias
+  defp parse_curve("prime256v1"), do: :secp256r1
 
   defp parse_curve(curve) do
-    Mix.raise(
-      "Invalid curve '#{curve}'. Must be one of: secp256r1, secp384r1, secp521r1"
-    )
+    Mix.raise("Invalid curve '#{curve}'. Must be one of: secp256r1, secp384r1, secp521r1")
   end
 
   defp missing_required(option) do

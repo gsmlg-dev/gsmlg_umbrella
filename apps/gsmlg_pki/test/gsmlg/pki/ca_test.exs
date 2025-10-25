@@ -12,7 +12,8 @@ defmodule GSMLG.PKI.CATest do
     # Create test database
     case GSMLG.PKI.Store.CouchDB.setup() do
       :ok -> :ok
-      {:error, _} -> :ok  # Database might already exist
+      # Database might already exist
+      {:error, _} -> :ok
     end
 
     :ok
@@ -188,9 +189,7 @@ defmodule GSMLG.PKI.CATest do
 
       # Validate certificate
       {:ok, :valid} =
-        Validator.validate_chain(cert, [ca.certificate],
-          check_revocation: true
-        )
+        Validator.validate_chain(cert, [ca.certificate], check_revocation: true)
     end
   end
 
@@ -366,9 +365,7 @@ defmodule GSMLG.PKI.CATest do
       public_key = PublicKey.derive(key)
 
       {:ok, _cert} =
-        CA.issue_certificate_direct(ca, public_key, "/CN=expiring.com",
-          validity: 10
-        )
+        CA.issue_certificate_direct(ca, public_key, "/CN=expiring.com", validity: 10)
 
       # Query expiring certificates (within 30 days)
       {:ok, expiring} = CA.get_expiring_certificates(ca.id, 30)
@@ -385,9 +382,7 @@ defmodule GSMLG.PKI.CATest do
       public_key = PublicKey.derive(key)
 
       {:ok, _cert} =
-        CA.issue_certificate_direct(ca, public_key, "/CN=fresh.com",
-          validity: 365
-        )
+        CA.issue_certificate_direct(ca, public_key, "/CN=fresh.com", validity: 365)
 
       # Query expiring in next 30 days
       {:ok, expiring} = CA.get_expiring_certificates(ca.id, 30)

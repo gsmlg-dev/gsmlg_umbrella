@@ -154,7 +154,7 @@ defmodule GSMLG.PKI.EventsTest do
     end
 
     test "returns empty list for unknown serial" do
-      {:ok, events} = Events.query_by_serial(999999999)
+      {:ok, events} = Events.query_by_serial(999_999_999)
       assert events == []
     end
   end
@@ -241,7 +241,7 @@ defmodule GSMLG.PKI.EventsTest do
     end
 
     test "returns unknown for nonexistent certificate" do
-      {:ok, state} = Events.get_certificate_state(999999999)
+      {:ok, state} = Events.get_certificate_state(999_999_999)
       assert state.status == :unknown
     end
   end

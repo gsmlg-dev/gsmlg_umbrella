@@ -187,15 +187,17 @@ defmodule Mix.Tasks.Gsmlg.Pki.Cert.Revoke do
         Mix.shell().info("Reason: #{reason}")
         Mix.shell().info("Revoked By: #{actor}")
         Mix.shell().info("")
+
         Mix.shell().info(
           "Revocation has been logged to CouchDB for validation and CRL generation."
         )
-        Mix.shell().info("")
-        Mix.shell().info(
-          [:yellow, "⚠️  Remember to regenerate and distribute the CRL:"]
-        )
 
-        Mix.shell().info("  mix gsmlg.pki.crl.generate --ca-cert #{ca_cert_path} --ca-key #{ca_key_path}")
+        Mix.shell().info("")
+        Mix.shell().info([:yellow, "⚠️  Remember to regenerate and distribute the CRL:"])
+
+        Mix.shell().info(
+          "  mix gsmlg.pki.crl.generate --ca-cert #{ca_cert_path} --ca-key #{ca_key_path}"
+        )
 
       {:error, :already_revoked} ->
         Mix.shell().error([:red, "✗ Certificate already revoked"])

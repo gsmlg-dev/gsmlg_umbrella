@@ -63,7 +63,8 @@ defmodule GSMLG.PKI.ValidatorTest do
       :ok = CA.revoke_certificate(root_ca, serial, reason: :keyCompromise)
 
       # Should still be valid if revocation checking is disabled
-      {:ok, :valid} = Validator.validate_chain(cert, [root_ca.certificate], check_revocation: false)
+      {:ok, :valid} =
+        Validator.validate_chain(cert, [root_ca.certificate], check_revocation: false)
     end
 
     test "detects revoked certificate", %{root_ca: root_ca} do
@@ -87,9 +88,7 @@ defmodule GSMLG.PKI.ValidatorTest do
 
       # Issue certificate valid for 1 day
       {:ok, cert} =
-        CA.issue_certificate_direct(root_ca, public_key, "/CN=expired.com",
-          validity: 1
-        )
+        CA.issue_certificate_direct(root_ca, public_key, "/CN=expired.com", validity: 1)
 
       # Check at future time (2 days from now)
       future_time = DateTime.add(DateTime.utc_now(), 2, :day)
@@ -202,9 +201,7 @@ defmodule GSMLG.PKI.ValidatorTest do
       key = PrivateKey.new_rsa(2048)
 
       cert =
-        GSMLG.PKI.Certificate.self_signed(key, "/CN=Unknown Cert",
-          template: :server
-        )
+        GSMLG.PKI.Certificate.self_signed(key, "/CN=Unknown Cert", template: :server)
 
       # Should return not_revoked (unknown certificates are not revoked)
       {:ok, :not_revoked} = Validator.check_revocation(cert)
@@ -217,9 +214,7 @@ defmodule GSMLG.PKI.ValidatorTest do
       public_key = PublicKey.derive(key)
 
       {:ok, cert} =
-        CA.issue_certificate_direct(root_ca, public_key, "/CN=server.com",
-          template: :server
-        )
+        CA.issue_certificate_direct(root_ca, public_key, "/CN=server.com", template: :server)
 
       # Server template should have serverAuth
       :ok = Validator.validate_key_usage(cert, :serverAuth)

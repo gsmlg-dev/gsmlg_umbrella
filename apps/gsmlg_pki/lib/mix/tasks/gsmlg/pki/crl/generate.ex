@@ -166,9 +166,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Crl.Generate do
         Mix.shell().info("Revoked Certificates: #{revoked_count}")
         Mix.shell().info("This Update: #{DateTime.utc_now() |> DateTime.to_iso8601()}")
 
-        Mix.shell().info(
-          "Next Update: #{next_update |> DateTime.to_iso8601()}"
-        )
+        Mix.shell().info("Next Update: #{next_update |> DateTime.to_iso8601()}")
 
         Mix.shell().info("")
 
@@ -182,9 +180,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Crl.Generate do
         Mix.shell().info("  1. Distribute the CRL to clients")
         Mix.shell().info("  2. Update CRL Distribution Points if needed")
 
-        Mix.shell().info(
-          "  3. Schedule automatic regeneration (recommended: daily or weekly)"
-        )
+        Mix.shell().info("  3. Schedule automatic regeneration (recommended: daily or weekly)")
 
       {:error, reason} ->
         Mix.shell().error([:red, "✗ Failed to generate CRL"])
