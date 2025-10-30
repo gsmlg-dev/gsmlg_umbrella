@@ -5,15 +5,12 @@ defmodule GSMLG.Application do
 
   @impl true
   def start(_type, _args) do
+    # Ensure configuration is loaded synchronously before starting any supervised processes
+    # This prevents race conditions with database connections and other config-dependent services
+    GSMLG.Config.config()
+    |> GSMLG.Config.Setup.setup()
+
     children = [
-      Supervisor.child_spec(
-        {Task,
-         fn ->
-           GSMLG.Config.config()
-           |> GSMLG.Config.Setup.setup()
-         end},
-        id: :pre_start
-      ),
       {GSMLG.SimpleCache, []},
       {GSMLG.AWS, []},
       # {GSMLG.Nx, []},

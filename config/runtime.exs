@@ -1,14 +1,26 @@
 import Config
 
-# Load GSMLG configuration from layered TOML files
+# Load GSMLG configuration from TOML files
 # This happens before any applications start, ensuring configuration is available
-# Configuration layers (in precedence order):
-#   1. config/base.toml - Base defaults
-#   2. config/{env}.toml - Environment-specific overrides
-#   3. config/local.toml - Local overrides (optional, gitignored)
+# Configuration sources (in precedence order):
+#   1. GSMLG_CONFIG_PATH environment variable - Custom config file path
+#   2. apps/gsmlg_config/priv/gsmlg.{env}.toml - Environment-specific config
+#   3. apps/gsmlg_config/priv/gsmlg.toml - Fallback default config
 #   4. GSMLG_* environment variables - Runtime overrides
+#
+# Example: GSMLG_CONFIG_PATH=/custom/config.toml mix phx.server
 
-if Code.ensure_loaded?(GSMLG.Config.Loader) and File.exists?("config/base.toml") do
+config_dir = Path.expand("../apps/gsmlg_config/priv", __DIR__)
+env_config_file = Path.join(config_dir, "gsmlg.#{config_env()}.toml")
+fallback_config_file = Path.join(config_dir, "gsmlg.toml")
+
+# Check if at least one config file exists
+has_config? =
+  (System.get_env("GSMLG_CONFIG_PATH") != nil) or
+    File.exists?(env_config_file) or
+    File.exists?(fallback_config_file)
+
+if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? do
   try do
     case GSMLG.Config.Loader.load(env: config_env()) do
       {:ok, gsmlg_config} ->
@@ -28,6 +40,12 @@ if Code.ensure_loaded?(GSMLG.Config.Loader) and File.exists?("config/base.toml")
     e ->
       IO.warn("Error loading GSMLG configuration: #{inspect(e)}")
       IO.warn("Using default configuration")
+  end
+else
+  if Code.ensure_loaded?(GSMLG.Config.Loader) do
+    IO.warn("No GSMLG configuration file found in #{config_dir}")
+    IO.warn("Looked for: gsmlg.#{config_env()}.toml or gsmlg.toml")
+    IO.warn("Using default configuration")
   end
 end
 

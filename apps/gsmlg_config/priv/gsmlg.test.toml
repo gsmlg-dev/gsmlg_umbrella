@@ -1,0 +1,43 @@
+[gsmlg]
+mnesia_dir = ""
+
+[logger]
+log_level = "warning"
+
+[database]
+username = "gsmlg_test"
+password = "gsmlg_test"
+hostname = "10.100.10.13"
+port = 3306
+database = "gsmlg_test"
+show_sensitive_data_on_connection_error = true
+pool_size = 5
+
+[web]
+url = "http://localhost:4112"
+secret_key_base = "test_secret_key_base_test_secret_key_base_test_secret_key_base_test"
+port = 4112
+user_register = false
+enable_adsense = false
+show_icp = false
+
+[admin_web]
+url = "http://localhost:4113"
+secret_key_base = "test_secret_key_base_test_secret_key_base_test_secret_key_base_test"
+port = 4113
+user_register = false
+
+[commander]
+start = false
+name = "test_commander"
+platform_url = "ws://localhost:4113/commander-socket/websocket"
+platform_key = "test_platform_key"
+
+[oauth.github]
+client_id = ""
+client_secret = ""
+
+[web_push]
+subject = "mailto:test@gsmlg.com"
+public_key = "test_public_key"
+private_key = "test_private_key"

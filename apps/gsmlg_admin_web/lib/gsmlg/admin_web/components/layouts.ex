@@ -31,7 +31,7 @@ defmodule GSMLG.AdminWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
-  slot :inner_block, required: true
+  attr :inner_content, :any, required: true
 
   def app(assigns) do
     ~H"""
@@ -40,7 +40,7 @@ defmodule GSMLG.AdminWeb.Layouts do
     <.dm_flash_group flash={@flash} />
 
     <main class="flex flex-1 justify-center w-full">
-      {render_slot(@inner_block)}
+      {@inner_content}
     </main>
     """
   end
@@ -65,7 +65,7 @@ defmodule GSMLG.AdminWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
-  slot :inner_block, required: true
+  attr :inner_content, :any, required: true
 
   def auth(assigns) do
     ~H"""
@@ -73,7 +73,7 @@ defmodule GSMLG.AdminWeb.Layouts do
 
     <main class="flex justify-center items-center flex-1 w-full">
       <div class="mx-auto w-full max-w-2xl">
-        {render_slot(@inner_block)}
+        {@inner_content}
       </div>
     </main>
     """
@@ -102,7 +102,7 @@ defmodule GSMLG.AdminWeb.Layouts do
   attr :page_title, :string, default: nil
   attr :active_menu, :string, default: nil
 
-  slot :inner_block, required: true
+  attr :inner_content, :any, required: true
 
   def aws(assigns) do
     ~H"""
@@ -153,7 +153,7 @@ defmodule GSMLG.AdminWeb.Layouts do
         </:menu>
       </.dm_left_menu>
       <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
-        {render_slot(@inner_block)}
+        {@inner_content}
       </div>
     </main>
     """
@@ -182,7 +182,7 @@ defmodule GSMLG.AdminWeb.Layouts do
   attr :page_title, :string, default: nil
   attr :active_menu, :string, default: nil
 
-  slot :inner_block, required: true
+  attr :inner_content, :any, required: true
 
   def bumblebee(assigns) do
     ~H"""
@@ -212,7 +212,7 @@ defmodule GSMLG.AdminWeb.Layouts do
         </.dm_left_menu>
       </div>
       <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
-        {render_slot(@inner_block)}
+        {@inner_content}
       </div>
     </main>
     """
@@ -241,7 +241,7 @@ defmodule GSMLG.AdminWeb.Layouts do
   attr :page_title, :string, default: nil
   attr :active_menu, :string, default: nil
 
-  slot :inner_block, required: true
+  attr :inner_content, :any, required: true
 
   def user(assigns) do
     ~H"""
@@ -310,7 +310,7 @@ defmodule GSMLG.AdminWeb.Layouts do
         </.dm_left_menu>
       </div>
       <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
-        {render_slot(@inner_block)}
+        {@inner_content}
       </div>
     </main>
     """

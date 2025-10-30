@@ -20,7 +20,8 @@ defmodule GSMLG.Config.Loader do
   ## Options
 
     * `:env` - The environment to load config for (:dev, :test, :prod). Defaults to Mix.env()
-    * `:config_dir` - Directory containing config files. Defaults to "config"
+    * `:config_path` - Override path to config file. Takes precedence over default paths.
+    * `:config_dir` - Directory containing config files. Defaults to "apps/gsmlg_config/priv"
     * `:validate` - Whether to validate config against schema. Defaults to true
 
   ## Examples
@@ -28,15 +29,23 @@ defmodule GSMLG.Config.Loader do
       iex> GSMLG.Config.Loader.load(env: :dev)
       {:ok, %{database: %{username: "gsmlg_dev", ...}, ...}}
 
+      iex> GSMLG.Config.Loader.load(config_path: "/custom/path/config.toml")
+      {:ok, %{...}}
+
   """
   def load(opts \\ []) do
     env = Keyword.get(opts, :env, Mix.env())
-    config_dir = Keyword.get(opts, :config_dir, "config")
+    config_path = Keyword.get(opts, :config_path) || System.get_env("GSMLG_CONFIG_PATH")
+    config_dir = Keyword.get(opts, :config_dir, "apps/gsmlg_config/priv")
     validate? = Keyword.get(opts, :validate, true)
 
-    GSMLG.Telemetry.info("Loading configuration", env: env, config_dir: config_dir)
+    GSMLG.Telemetry.info("Loading configuration",
+      env: env,
+      config_dir: config_dir,
+      config_path: config_path
+    )
 
-    with {:ok, config} <- load_layers(env, config_dir),
+    with {:ok, config} <- load_config_file(env, config_dir, config_path),
          {:ok, config} <- apply_env_overrides(config),
          {:ok, config} <- maybe_validate(config, validate?) do
       GSMLG.Telemetry.info("Configuration loaded successfully",
@@ -67,40 +76,58 @@ defmodule GSMLG.Config.Loader do
   end
 
   @doc """
-  Loads configuration layers and merges them.
+  Loads configuration from a single file.
+
+  Priority order:
+  1. Custom config_path if provided
+  2. Environment-specific file: gsmlg.{env}.toml
+  3. Fallback to gsmlg.toml
   """
-  def load_layers(env, config_dir) do
-    layers = [
-      {:base, Path.join(config_dir, "base.toml"), required: true},
-      {:env, Path.join(config_dir, "#{env}.toml"), required: true},
-      {:local, Path.join(config_dir, "local.toml"), required: false}
-    ]
+  def load_config_file(env, config_dir, custom_path \\ nil) do
+    paths =
+      if custom_path do
+        # If custom path provided, try only that
+        [{:custom, custom_path, required: true}]
+      else
+        # Otherwise try env-specific, then fallback
+        [
+          {:env, Path.join(config_dir, "gsmlg.#{env}.toml"), required: false},
+          {:fallback, Path.join(config_dir, "gsmlg.toml"), required: true}
+        ]
+      end
 
-    result =
-      Enum.reduce_while(layers, {:ok, %{}}, fn {layer_name, path, opts}, {:ok, acc} ->
-        case load_toml_file(path, opts) do
-          {:ok, layer_config} ->
-            GSMLG.Telemetry.debug("Loaded config layer",
-              layer: layer_name,
-              path: path,
-              sections: Map.keys(layer_config)
-            )
+    # Try each path until we find one that works
+    Enum.reduce_while(paths, {:error, :no_config_found}, fn {type, path, opts}, _acc ->
+      required? = Keyword.get(opts, :required, true)
 
-            merged = deep_merge(acc, layer_config)
-            {:cont, {:ok, merged}}
+      case load_toml_file(path, opts) do
+        {:ok, config} ->
+          GSMLG.Telemetry.info("Loaded configuration file",
+            type: type,
+            path: path,
+            sections: Map.keys(config)
+          )
 
-          {:error, reason} = error ->
-            GSMLG.Telemetry.error("Failed to load config layer",
-              layer: layer_name,
-              path: path,
-              reason: reason
-            )
+          {:halt, {:ok, config}}
 
-            {:halt, error}
-        end
-      end)
+        {:error, {:file_not_found, _}} when not required? ->
+          GSMLG.Telemetry.debug("Optional config file not found, trying next",
+            type: type,
+            path: path
+          )
 
-    result
+          {:cont, {:error, :no_config_found}}
+
+        {:error, reason} = error ->
+          GSMLG.Telemetry.error("Failed to load config file",
+            type: type,
+            path: path,
+            reason: reason
+          )
+
+          {:halt, error}
+      end
+    end)
   end
 
   @doc """

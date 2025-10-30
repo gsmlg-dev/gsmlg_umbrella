@@ -1,0 +1,43 @@
+[gsmlg]
+mnesia_dir = ""
+
+[logger]
+log_level = "info"
+
+[database]
+username = "gsmlg_prod"
+password = "change_me_in_production"
+hostname = "mariadb-server.gsmlg.net"
+port = 3306
+database = "gsmlg_prod"
+show_sensitive_data_on_connection_error = false
+pool_size = 20
+
+[web]
+url = "https://gsmlg.org"
+secret_key_base = "CHANGE_ME_IN_PRODUCTION_USE_mix_phx.gen.secret"
+port = 4110
+user_register = false
+enable_adsense = true
+show_icp = true
+
+[admin_web]
+url = "https://admin.gsmlg.org"
+secret_key_base = "CHANGE_ME_IN_PRODUCTION_USE_mix_phx.gen.secret"
+port = 4111
+user_register = false
+
+[commander]
+start = true
+name = "production_commander"
+platform_url = "wss://admin.gsmlg.org/commander-socket/websocket"
+platform_key = "CHANGE_ME_IN_PRODUCTION"
+
+[oauth.github]
+client_id = "CHANGE_ME"
+client_secret = "CHANGE_ME"
+
+[web_push]
+subject = "mailto:administrator@gsmlg.com"
+public_key = "CHANGE_ME_IN_PRODUCTION"
+private_key = "CHANGE_ME_IN_PRODUCTION"

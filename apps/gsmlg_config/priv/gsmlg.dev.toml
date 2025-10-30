@@ -1,23 +1,41 @@
-# Development environment configuration
-# Overrides base.toml values for local development
+[gsmlg]
+mnesia_dir = ""
 
 [logger]
 log_level = "debug"
 
 [database]
-hostname = "mariadb-server.gsmlg.net"
+username = "gsmlg_dev"
+password = "gsmlg_dev"
+hostname = "10.100.10.13"
+port = 3306
+database = "gsmlg_dev"
 show_sensitive_data_on_connection_error = true
+pool_size = 10
 
 [web]
-url = "https://gsmlg.org"
+url = "http://localhost:4110"
 secret_key_base = "o5xg8yDgSOFVrcrH4seZJ7+wJie4BHGOHmf9wP4mlhDFPPIqNETW8GU+gKVgrtFs"
+port = 4110
+user_register = true
+enable_adsense = false
+show_icp = false
 
 [admin_web]
-url = "https://admin.gsmlg.org"
+url = "http://localhost:4111"
 secret_key_base = "o5xg8yDgSOFVrcrH4seZJ7+wJie4BHGOHmf9wP4mlhDFPPIqNETW8GU+gKVgrtFs"
+port = 4111
+user_register = false
 
 [commander]
+start = false
+name = "commander"
+platform_url = "ws://localhost:4111/commander-socket/websocket"
 platform_key = "o5xg8yDgSOFVrcrH4seZJ7+w"
+
+[oauth.github]
+client_id = ""
+client_secret = ""
 
 [web_push]
 subject = "mailto:administrator@gsmlg.com"

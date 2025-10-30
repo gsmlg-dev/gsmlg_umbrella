@@ -400,7 +400,7 @@ defmodule GSMLG.Telemetry.Metrics do
       :ets.select(state.ets_table, [
         {
           recent_pattern,
-          [{:andalso, {:is_tuple, :"$1"}, {">=", :"$2", one_minute_ago}}],
+          [{:andalso, {:is_tuple, :"$1"}, {:>=, :"$2", one_minute_ago}}],
           [:"$_"]
         }
       ])
