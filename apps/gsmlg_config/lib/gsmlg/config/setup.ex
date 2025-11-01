@@ -70,6 +70,7 @@ defmodule GSMLG.Config.Setup do
       username: config[:username],
       password: config[:password],
       hostname: config[:hostname],
+      port: config[:port] || 3306,
       database: config[:database],
       pool_size: config[:pool_size],
       show_sensitive_data_on_connection_error:
