@@ -74,7 +74,7 @@ config :gsmlg_telemetry,
     console: [
       enabled: true,
       colored: true,
-      show_events: true,
+      show_events: false,
       show_metrics: true,
       level: :debug
     ],
