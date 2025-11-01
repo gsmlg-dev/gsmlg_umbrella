@@ -14,7 +14,13 @@ defmodule GSMLG.Application do
       {GSMLG.SimpleCache, []},
       {GSMLG.AWS, []},
       # {GSMLG.Nx, []},
-      {Phoenix.SessionProcess.Supervisor, name: GSMLG.SessionProcess},
+      {Phoenix.SessionProcess.Supervisor,
+       [
+         session_process: GSMLG.SessionProcess,
+         max_sessions: 1_000_000,
+         session_ttl: 1_440_000,
+         rate_limit: 10_000
+       ]},
       {Task.Supervisor, name: GSMLG.TaskSupervisor},
       # Start the Ecto repository
       GSMLG.Repo,

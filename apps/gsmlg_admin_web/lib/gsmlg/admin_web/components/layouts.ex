@@ -40,7 +40,7 @@ defmodule GSMLG.AdminWeb.Layouts do
     <.dm_flash_group flash={@flash} />
 
     <main class="flex flex-1 justify-center w-full">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </main>
     """
   end
@@ -73,7 +73,7 @@ defmodule GSMLG.AdminWeb.Layouts do
 
     <main class="flex justify-center items-center flex-1 w-full">
       <div class="mx-auto w-full max-w-2xl">
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </div>
     </main>
     """
@@ -153,7 +153,7 @@ defmodule GSMLG.AdminWeb.Layouts do
         </:menu>
       </.dm_left_menu>
       <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </div>
     </main>
     """
@@ -212,7 +212,7 @@ defmodule GSMLG.AdminWeb.Layouts do
         </.dm_left_menu>
       </div>
       <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </div>
     </main>
     """
@@ -310,7 +310,7 @@ defmodule GSMLG.AdminWeb.Layouts do
         </.dm_left_menu>
       </div>
       <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </div>
     </main>
     """

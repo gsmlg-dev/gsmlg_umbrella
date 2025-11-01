@@ -5,8 +5,6 @@ defmodule GSMLG.AdminWeb.AuthController do
   alias GSMLG.Accounts.User
   alias GSMLG.AdminWeb.Guardian
 
-  plug(:put_layout, html: {GSMLG.AdminWeb.Layouts, :auth})
-
   def index(conn, _params) do
     if Guardian.Plug.authenticated?(conn) do
       user = Guardian.Plug.current_resource(conn)

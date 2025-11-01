@@ -151,7 +151,7 @@ defmodule GSMLG.AdminWeb.Router do
       conn
     else
       user = Guardian.Plug.current_resource(conn)
-      Phoenix.SessionProcess.start(session_id, GSMLG.SessionProcess, %{user: user})
+      Phoenix.SessionProcess.start_session(session_id, args: %{user: user})
       conn
     end
   end

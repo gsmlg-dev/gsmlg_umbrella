@@ -108,12 +108,6 @@ config :tailwind,
     cd: Path.expand("../apps/gsmlg_admin_web", __DIR__)
   ]
 
-config :phoenix_session_process,
-  session_process: GSMLG.SessionProcess,
-  max_sessions: 1_000_000,
-  session_ttl: 1_440_000,
-  rate_limit: 10_000
-
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 

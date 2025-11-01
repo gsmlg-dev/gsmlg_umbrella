@@ -1,20 +1,16 @@
 defmodule GSMLG.SessionProcess do
   use Phoenix.SessionProcess, :process
 
-  @schedule_interval 3000
+  alias GSMLG.SessionProcess.UserReducer
 
   @impl true
-  def init(args) do
-    Process.flag(:trap_exit, true)
+  def init_state(_args) do
+    %{}
+  end
 
-    state =
-      Map.merge(args, %{
-        start_at: System.system_time(:second),
-        update_at: System.system_time(:second)
-      })
-
-    Process.send_after(self(), :schedule, @schedule_interval)
-    {:ok, state}
+  @impl true
+  def combined_reducers() do
+    [UserReducer]
   end
 
   @impl true
@@ -22,28 +18,18 @@ defmodule GSMLG.SessionProcess do
     {:stop, :normal, state}
   end
 
-  def handle_info(:schedule, state) do
-    Process.send_after(self(), :schedule, @schedule_interval)
-    # IO.inspect({"SessionProcess is alive", label: "SessionProcess", state: state})
-    {:noreply, state |> Map.put(:update_at, System.system_time(:second))}
+  def handle_info({:DOWN, _ref, :process, pid, {:shutdown, _reason}}, %{_redux_subscriptions: redux_subscriptions} = state) do
+    redux_subscriptions = Enum.filter(redux_subscriptions, fn(subscription) ->
+      cond do
+        subscription.pid == pid -> false
+        true -> true
+      end
+    end)
+    {:noreply, %{state | _redux_subscriptions: redux_subscriptions}}
   end
 
-  @impl true
-  def handle_call({:get, key}, _from, state) do
-    {:reply, Map.get(state, key), state}
-  end
-
-  def handle_call(:get_github_token, _from, state) do
-    github = Map.get(state, :github)
-    {:reply, get_in(github, [:credentials, :token]), state}
-  end
-
-  @impl true
-  def handle_cast({:put, key, value}, state) do
-    {:noreply, Map.put(state, key, value)}
-  end
-
-  def handle_cast({:update_github, auth}, state) do
-    {:noreply, Map.put(state, :github, auth)}
+  def handle_info(any, state) do
+    IO.inspect({"Unhandled info message", any, state})
+    {:noreply, state}
   end
 end

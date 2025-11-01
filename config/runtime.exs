@@ -16,7 +16,7 @@ fallback_config_file = Path.join(config_dir, "gsmlg.toml")
 
 # Check if at least one config file exists
 has_config? =
-  (System.get_env("GSMLG_CONFIG_PATH") != nil) or
+  System.get_env("GSMLG_CONFIG_PATH") != nil or
     File.exists?(env_config_file) or
     File.exists?(fallback_config_file)
 

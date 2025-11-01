@@ -1,12 +1,25 @@
 defmodule GSMLG.AdminWeb.UserLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
+  alias Phoenix.SessionProcess
   alias GSMLG.Accounts
   alias GSMLG.Accounts.User
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok, assign(socket, users: [], active_menu: "user_list")}
+  def mount(_params, %{"session_id" => session_id} = _session, socket) do
+    Process.flag(:trap_exit, true)
+
+    {:ok, _sub_id} =
+      SessionProcess.subscribe(
+        session_id,
+        fn state ->
+          get_in(state, [:user, :users])
+        end,
+        :list_users,
+        self()
+      )
+
+    {:ok, assign(socket, users: [], active_menu: "user_list", session_id: session_id)}
   end
 
   @impl true
@@ -15,9 +28,10 @@ defmodule GSMLG.AdminWeb.UserLive.Index do
   end
 
   defp apply_action(socket, :index, _params) do
+    SessionProcess.dispatch(socket.assigns.session_id, "list_users")
+
     socket
     |> assign(:page_title, "Listing Users")
-    |> apply_users()
   end
 
   defp apply_action(socket, :new, _params) do
@@ -48,10 +62,9 @@ defmodule GSMLG.AdminWeb.UserLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    user = Accounts.get_user!(id)
-    {:ok, _} = Accounts.delete_user(user)
+    SessionProcess.dispatch(socket.assigns.session_id, "remove-user", %{user_id: id})
 
-    {:noreply, socket |> apply_users()}
+    {:noreply, socket}
   end
 
   def handle_event("save", %{"user" => user_params}, socket) do
@@ -59,6 +72,8 @@ defmodule GSMLG.AdminWeb.UserLive.Index do
 
     case Accounts.update_user(user, user_params) do
       {:ok, _user} ->
+        SessionProcess.dispatch(socket.assigns.session_id, "list_users")
+
         {:noreply, socket |> redirect(to: ~p"/users")}
 
       {:error, changeset} ->
@@ -66,8 +81,19 @@ defmodule GSMLG.AdminWeb.UserLive.Index do
     end
   end
 
-  defp apply_users(socket) do
-    socket
-    |> assign(:users, Accounts.list_users())
+  @impl true
+  def handle_info({:list_users, users}, socket) do
+    {:noreply, socket |> assign(:users, users)}
+  end
+
+  @impl true
+  def handle_info({:EXIT, _pid, _reason}, state) do
+    IO.inspect({:user_view_stopped, state})
+    {:stop, :normal, state}
+  end
+
+  def handle_info({:DOWN, ref, :process, pid, {:shutdown, reason}}, state) do
+    IO.inspect({:live_view, :DOWN, ref, :process, pid, {:shutdown, reason}})
+    {:noreply, state}
   end
 end
