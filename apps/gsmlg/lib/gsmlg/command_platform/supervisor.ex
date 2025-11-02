@@ -8,8 +8,14 @@ defmodule GSMLG.CommandPlatform.Supervisor do
   @impl true
   def init(_) do
     children = [
+      # Legacy commander agent
       {GSMLG.CommandPlatform.Agent, %{commanders: []}},
-      {GSMLG.CommandPlatform, []}
+      # Main command platform GenServer
+      {GSMLG.CommandPlatform, []},
+      # PTY agent registry
+      {GSMLG.CommandPlatform.AgentRegistry, []},
+      # PTY session tracker with Mnesia
+      {GSMLG.CommandPlatform.SessionTracker, []}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

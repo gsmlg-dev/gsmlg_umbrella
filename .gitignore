@@ -3,6 +3,14 @@
 
 # If you run "mix test --cover", coverage assets end up here.
 /cover/
+*.coverdata
+
+# Test artifacts and reports
+/test/reports/
+/test/screenshots/
+/test/tmp/
+**/test/**/*.beam
+**/test/**/*.coverdata
 
 # The directory Mix downloads your dependencies sources to.
 /deps/
@@ -28,6 +36,23 @@ erl_crash.dump
 
 # Elixir Language Server
 .elixir_ls
+
+# Dialyzer
+/*.plt
+/*.plt.hash
+.dialyzer_cache/
+
+# ExUnit test cache
+.mix_test_cache/
+
+# Test logs and temporary files
+test.log
+**/test/**/*.log
+**/test/**/tmp/
+
+# Mnesia test database
+priv/mnesia/test/
+**/test/**/mnesia/
 
 # burrito binary
 /burrito_out

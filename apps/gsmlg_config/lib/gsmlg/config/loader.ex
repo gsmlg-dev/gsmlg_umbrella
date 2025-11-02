@@ -3,13 +3,34 @@ defmodule GSMLG.Config.Loader do
   Layered configuration loader for GSMLG applications.
 
   Loads configuration from multiple sources in priority order:
-  1. Base configuration (base.toml)
-  2. Environment-specific configuration (dev.toml, test.toml, prod.toml)
-  3. Local overrides (local.toml - gitignored)
+  1. Custom config file (if specified via --config flag or GSMLG_CONFIG_PATH)
+  2. Environment-specific configuration (gsmlg.{env}.toml)
+  3. Default configuration (gsmlg.toml)
   4. Environment variables (GSMLG_* prefix)
 
   Each layer is deep-merged with the previous layer, with later layers
   taking precedence over earlier ones.
+
+  ## Configuration Path Priority
+
+  The configuration file path is determined in the following order:
+
+  1. Command line argument: `--config=/path/to/config.toml` (in production release)
+  2. Environment variable: `GSMLG_CONFIG_PATH=/path/to/config.toml`
+  3. Loader option: `GSMLG.Config.Loader.load(config_path: "/path/to/config.toml")`
+  4. Default: `apps/gsmlg_config/priv/gsmlg.{env}.toml` or `gsmlg.toml`
+
+  ## Usage Examples
+
+      # Development (Mix)
+      GSMLG_CONFIG_PATH=/etc/gsmlg/custom.toml mix phx.server
+
+      # Production (Release)
+      ./bin/gsmlg_umbrella start --config=/etc/gsmlg/custom.toml
+
+      # Programmatic
+      GSMLG.Config.Loader.load(config_path: "/custom/config.toml")
+
   """
 
   require GSMLG.Telemetry

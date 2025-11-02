@@ -14,9 +14,18 @@ defmodule GSMLG.Commander do
     children =
       if start do
         [
-          {Phoenix.SocketClient, {socket_opts(), name: GSMLG.Commander.Socket}},
+          # Registry for PTY session lookup
+          {Registry, keys: :unique, name: GSMLG.Commander.SessionRegistry},
+          # Session manager for PTY sessions
+          {GSMLG.Commander.SessionManager, []},
+          # WebSocket connection
+          {Phoenix.SocketClient, socket_opts() ++ [name: GSMLG.Commander.Socket]},
+          # Legacy channels (backward compatibility)
           {GSMLG.Commander.GreatHall, []},
           {GSMLG.Commander.Office, []},
+          # New PTY terminal channel
+          {GSMLG.Commander.Terminal, [socket: GSMLG.Commander.Socket, name: config[:name]]},
+          # Legacy resource manager (kept for compatibility)
           {GSMLG.Commander.Resource, []}
         ]
       else

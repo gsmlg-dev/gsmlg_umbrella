@@ -18,6 +18,10 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
 
 config :logger, level: :warning
 
+# Configure Mnesia
+config :mnesia,
+  dir: ~c"priv/mnesia/test"
+
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test
 
 config :phoenix, :plug_init_mode, :runtime

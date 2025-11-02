@@ -5,6 +5,9 @@
   "dependencies": {
     "@uiw/react-markdown-preview": "^5.1.4",
     "@uiw/react-md-editor": "^4.0.7",
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
     "gsmlg_component": "file:../gsmlg_component",
     "highlight.js": "^11.11.1",
     "phoenix": "file:../../deps/phoenix",

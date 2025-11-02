@@ -6,5 +6,6 @@
 @source "../../../../deps/phoenix_duskmoon/lib/phoenix_duskmoon/**/*.*ex";
 
 @import "gsmlg_component/assets/css/shared.css";
+@import '@xterm/xterm/css/xterm.css';
 
 @import './main.css';

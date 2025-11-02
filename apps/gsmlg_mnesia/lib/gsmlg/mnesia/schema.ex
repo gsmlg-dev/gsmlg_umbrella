@@ -58,8 +58,15 @@ defmodule GSMLG.Mnesia.Schema do
   """
   @spec create(list(node)) :: :ok | {:error, any}
   def create(nodes) do
-    if path = Application.get_env(:mnesia, :dir) do
-      :ok = File.mkdir_p!(path)
+    case Application.get_env(:mnesia, :dir) do
+      path when is_binary(path) and byte_size(path) > 0 ->
+        :ok = File.mkdir_p!(path)
+
+      path when is_list(path) and length(path) > 0 ->
+        :ok = File.mkdir_p!(path)
+
+      _ ->
+        :ok
     end
 
     GSMLG.Telemetry.span(

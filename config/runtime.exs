@@ -53,6 +53,16 @@ if System.get_env("MIX_TAILWIND_PATH") do
   config :tailwind, path: System.get_env("MIX_TAILWIND_PATH")
 end
 
+# Configure Mnesia directory based on environment
+mnesia_dir =
+  case System.get_env("MNESIA_DIR") do
+    nil -> "priv/mnesia/#{config_env()}"
+    "" -> "priv/mnesia/#{config_env()}"
+    dir -> dir
+  end
+
+config :mnesia, dir: String.to_charlist(mnesia_dir)
+
 if config_env() == :prod do
   config :phoenix_react_server, Phoenix.React.Runtime.Bun,
     cmd: System.get_env("MIX_BUN_PATH", System.find_executable("bun")),

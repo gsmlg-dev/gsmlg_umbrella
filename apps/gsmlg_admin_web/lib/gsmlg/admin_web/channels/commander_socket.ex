@@ -3,6 +3,7 @@ defmodule GSMLG.AdminWeb.CommanderSocket do
 
   channel("command_platform", GSMLG.AdminWeb.CommandPlatformChannel)
   channel("commander:*", GSMLG.AdminWeb.CommanderChannel)
+  channel("terminal:*", GSMLG.AdminWeb.TerminalChannel)
 
   @impl true
   def connect(
@@ -92,6 +93,11 @@ defmodule GSMLG.AdminWeb.CommanderSocket do
     )
 
     GSMLG.CommandPlatform.commander_leave(commander_info)
+
+    # Mark PTY sessions as orphaned
+    if commander_info[:name] do
+      GSMLG.CommandPlatform.SessionTracker.mark_agent_sessions_orphaned(commander_info[:name])
+    end
 
     Phoenix.PubSub.broadcast(GSMLG.PubSub, "commander_updates", :commander_updates)
   end
