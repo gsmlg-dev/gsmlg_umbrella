@@ -1,13 +1,13 @@
 import Config
 
 # Configure your database
-# config :gsmlg, GSMLG.Repo,
-#   username: System.get_env("MARIADB_USER", "gsmlg_dev"),
-#   password: System.get_env("MARIADB_PASS", "gsmlg_dev"),
-#   hostname: System.get_env("MARIADB_HOST", "mariadb-server.gsmlg.net"),
-#   database: "gsmlg_dev",
-#   show_sensitive_data_on_connection_error: true,
-#   pool_size: 10
+config :gsmlg, GSMLG.Repo,
+  username: System.get_env("POSTGRES_USER", "gsmlg_dev"),
+  password: System.get_env("POSTGRES_PASSWORD", "gsmlg_dev"),
+  hostname: System.get_env("POSTGRES_HOST", "postgres-server.gsmlg.net"),
+  database: "gsmlg_dev",
+  show_sensitive_data_on_connection_error: true,
+  pool_size: 10
 
 config :gsmlg_web, GSMLG.Web.Endpoint,
   debug_errors: true,

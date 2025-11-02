@@ -4,7 +4,7 @@ config :gsmlg, GSMLG.Repo,
   username: "gsmlg_test",
   password: "gsmlg_test",
   database: "gsmlg_test#{System.get_env("MIX_TEST_PARTITION")}",
-  hostname: "mariadb-server.gsmlg.net",
+  hostname: "postgres-server.gsmlg.net",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 

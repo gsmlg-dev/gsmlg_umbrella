@@ -31,9 +31,9 @@ defmodule GSMLG.MixProject do
   defp deps do
     [
       {:phoenix_pubsub, "~> 2.0"},
-      {:phoenix_session_process, "~> 1.0.0-rc.0"},
+      {:phoenix_session_process, "~> 1.0"},
       {:ecto_sql, "~> 3.0"},
-      {:myxql, ">= 0.0.0"},
+      {:postgrex, ">= 0.0.0"},
       {:jason, "~> 1.2"},
       {:swoosh, "~> 1.3"},
       {:httpoison, "~> 2.0"},
