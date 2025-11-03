@@ -50,8 +50,9 @@ test.log
 **/test/**/*.log
 **/test/**/tmp/
 
-# Mnesia test database
-priv/mnesia/test/
+# Mnesia database directories
+priv/mnesia/
+apps/**/priv/mnesia/
 **/test/**/mnesia/
 
 # burrito binary
