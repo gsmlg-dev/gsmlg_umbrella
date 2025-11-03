@@ -42,10 +42,10 @@
       };
       commander_app = pkgs.callPackage ./pkgs/gsmlg_commander.nix {inherit system;};
     in {
-      packages.umbrella_docker = umbrella_img;
+      packages.gsmlg-umbrella-docker = umbrella_img;
 
-      packages.umbrella_app = umbrella_app;
-      packages.commander_app = commander_app;
+      packages.gsmlg-umbrella = umbrella_app;
+      packages.gsmlg-commander = commander_app;
 
       packages.default = umbrella_app;
     });
