@@ -78,4 +78,4 @@ devenv.local.nix
 apps/gsmlg_component/server.js
 
 *.LOG
-
+*.DAT
