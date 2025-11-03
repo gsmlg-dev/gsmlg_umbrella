@@ -381,6 +381,37 @@ config :gsmlg, GSMLG.Repo,
   ]
 ```
 
+## Critical: User Signup Timestamp Issue
+
+### Problem
+
+After migration, attempting to sign up a new user will result in this error:
+```
+** (DBConnection.EncodeError) Postgrex expected %DateTime{}, got ~N[2025-11-02 17:12:56]
+```
+
+This occurs because **ALL** tables with timestamp columns need to use `TIMESTAMP WITHOUT TIME ZONE`, not just `schema_migrations`.
+
+### Solution
+
+Run the provided fix script:
+```bash
+mix run fix_timestamps.exs
+```
+
+Or manually run these SQL commands:
+```sql
+ALTER TABLE blogs ALTER COLUMN inserted_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE blogs ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE users ALTER COLUMN inserted_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE users ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE users ALTER COLUMN active_time TYPE TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE user_tokens ALTER COLUMN inserted_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE user_tokens ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+```
+
+After running the fix, user signup and all other database operations will work correctly.
+
 ## Known Issues
 
 ### DateTime Encoding Issue During Migrations (RESOLVED)
