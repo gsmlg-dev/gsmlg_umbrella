@@ -48,32 +48,5 @@
       packages.commander_app = commander_app;
 
       packages.default = umbrella_app;
-
-      devShells.default = pkgs.mkShell {
-        name = "GSMLG UMBRELLA Dev Shell";
-
-        buildInputs = [
-          pkgs.figlet
-          pkgs.dart
-
-          pkgs.elixir
-          pkgs.bun
-          pkgs.tailwindcss
-
-          pkgs.nodejs_20
-
-          pkgs.nodePackages.pnpm
-
-          pkgs.zig
-          pkgs.p7zip
-        ];
-
-        shellHook = ''
-          figlet -w 120 -f starwars GSMLG UMBRELLA
-          figlet -w 120 -f starwars Dev Shell
-          export PATH="$PATH":"$HOME/.pub-cache/bin"
-          export EDITOR=vim
-        '';
-      };
     });
 }
