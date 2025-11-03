@@ -25,9 +25,10 @@ defmodule GSMLG.Commander.Terminal do
 
     GSMLG.Telemetry.info("Starting Terminal channel",
       metadata: %{
-      topic: topic,
-      name: name
-    })
+        topic: topic,
+        name: name
+      }
+    )
 
     state = %{
       topic: topic,
@@ -47,9 +48,10 @@ defmodule GSMLG.Commander.Terminal do
   def handle_info({:phoenix_channel_join, {:ok, response}}, state) do
     GSMLG.Telemetry.info("Terminal channel joined successfully",
       metadata: %{
-      topic: state.topic,
-      response: inspect(response)
-    })
+        topic: state.topic,
+        response: inspect(response)
+      }
+    )
 
     # Send registration message with current sessions
     send_register_message(state)
@@ -63,9 +65,10 @@ defmodule GSMLG.Commander.Terminal do
   def handle_info({:phoenix_channel_join, {:error, reason}}, state) do
     GSMLG.Telemetry.error("Failed to join Terminal channel",
       metadata: %{
-      topic: state.topic,
-      reason: inspect(reason)
-    })
+        topic: state.topic,
+        reason: inspect(reason)
+      }
+    )
 
     schedule_reconnect()
     {:noreply, state}
@@ -75,8 +78,9 @@ defmodule GSMLG.Commander.Terminal do
   def handle_info({:phoenix_channel_message, "message", payload}, state) do
     GSMLG.Telemetry.debug("Received message on Terminal channel",
       metadata: %{
-      payload: inspect(payload)
-    })
+        payload: inspect(payload)
+      }
+    )
 
     case Protocol.parse_message(payload) do
       {:ok, message_type, data} ->
@@ -84,10 +88,11 @@ defmodule GSMLG.Commander.Terminal do
 
       {:error, reason} ->
         GSMLG.Telemetry.warn("Failed to parse message",
-      metadata: %{
-          reason: inspect(reason),
-          payload: inspect(payload)
-        })
+          metadata: %{
+            reason: inspect(reason),
+            payload: inspect(payload)
+          }
+        )
 
         {:noreply, state}
     end
@@ -97,9 +102,10 @@ defmodule GSMLG.Commander.Terminal do
   def handle_info({:phoenix_channel_leave, reason}, state) do
     GSMLG.Telemetry.warn("Terminal channel left",
       metadata: %{
-      topic: state.topic,
-      reason: inspect(reason)
-    })
+        topic: state.topic,
+        reason: inspect(reason)
+      }
+    )
 
     if state.heartbeat_timer do
       Process.cancel_timer(state.heartbeat_timer)
@@ -111,58 +117,73 @@ defmodule GSMLG.Commander.Terminal do
 
   @impl true
   def handle_info({:pty_created, data}, state) do
-    send_message(%{
-      type: "pty_created",
-      session_id: data.session_id,
-      command: data.command,
-      dimensions: data.dimensions,
-      os_pid: data.os_pid
-    }, state)
+    send_message(
+      %{
+        type: "pty_created",
+        session_id: data.session_id,
+        command: data.command,
+        dimensions: data.dimensions,
+        os_pid: data.os_pid
+      },
+      state
+    )
 
     new_sessions = Map.put(state.sessions, data.session_id, %{state: :running})
     {:noreply, %{state | sessions: new_sessions}}
   end
 
   def handle_info({:pty_output, data}, state) do
-    send_message(%{
-      type: "pty_output",
-      session_id: data.session_id,
-      data: data.data
-    }, state)
+    send_message(
+      %{
+        type: "pty_output",
+        session_id: data.session_id,
+        data: data.data
+      },
+      state
+    )
 
     {:noreply, state}
   end
 
   def handle_info({:pty_closed, data}, state) do
-    send_message(%{
-      type: "pty_closed",
-      session_id: data.session_id,
-      exit_code: data.exit_code,
-      reason: inspect(data.reason)
-    }, state)
+    send_message(
+      %{
+        type: "pty_closed",
+        session_id: data.session_id,
+        exit_code: data.exit_code,
+        reason: inspect(data.reason)
+      },
+      state
+    )
 
     new_sessions = Map.delete(state.sessions, data.session_id)
     {:noreply, %{state | sessions: new_sessions}}
   end
 
   def handle_info({:pty_resized, data}, state) do
-    send_message(%{
-      type: "pty_resized",
-      session_id: data.session_id,
-      rows: data.rows,
-      cols: data.cols
-    }, state)
+    send_message(
+      %{
+        type: "pty_resized",
+        session_id: data.session_id,
+        rows: data.rows,
+        cols: data.cols
+      },
+      state
+    )
 
     {:noreply, state}
   end
 
   def handle_info({:pty_error, data}, state) do
-    send_message(%{
-      type: "error",
-      session_id: data.session_id,
-      error_code: "pty_spawn_failed",
-      message: inspect(data.reason)
-    }, state)
+    send_message(
+      %{
+        type: "error",
+        session_id: data.session_id,
+        error_code: "pty_spawn_failed",
+        message: inspect(data.reason)
+      },
+      state
+    )
 
     {:noreply, state}
   end
@@ -170,11 +191,14 @@ defmodule GSMLG.Commander.Terminal do
   def handle_info(:heartbeat, state) do
     active_sessions = SessionManager.session_count()
 
-    send_message(%{
-      type: "heartbeat",
-      active_sessions: active_sessions,
-      timestamp: System.system_time(:millisecond)
-    }, state)
+    send_message(
+      %{
+        type: "heartbeat",
+        active_sessions: active_sessions,
+        timestamp: System.system_time(:millisecond)
+      },
+      state
+    )
 
     timer = Process.send_after(self(), :heartbeat, @heartbeat_interval)
     {:noreply, %{state | heartbeat_timer: timer}}
@@ -184,8 +208,9 @@ defmodule GSMLG.Commander.Terminal do
   def handle_info(:reconnect, state) do
     GSMLG.Telemetry.info("Attempting to reconnect Terminal channel",
       metadata: %{
-      topic: state.topic
-    })
+        topic: state.topic
+      }
+    )
 
     # Rejoin the channel
     Phoenix.SocketClient.Channel.join(state.socket, state.topic)
@@ -196,8 +221,9 @@ defmodule GSMLG.Commander.Terminal do
   def handle_info(msg, state) do
     GSMLG.Telemetry.debug("Unhandled message in Terminal channel",
       metadata: %{
-      message: inspect(msg)
-    })
+        message: inspect(msg)
+      }
+    )
 
     {:noreply, state}
   end
@@ -207,9 +233,10 @@ defmodule GSMLG.Commander.Terminal do
   defp handle_protocol_message(:create_pty, data, state) do
     GSMLG.Telemetry.info("Creating PTY session",
       metadata: %{
-      session_id: data.session_id,
-      command: data.command
-    })
+        session_id: data.session_id,
+        command: data.command
+      }
+    )
 
     session_opts = [
       session_id: data.session_id,
@@ -223,25 +250,30 @@ defmodule GSMLG.Commander.Terminal do
     case SessionManager.create_session(session_opts) do
       {:ok, session_id} ->
         GSMLG.Telemetry.info("PTY session created successfully",
-      metadata: %{
-          session_id: session_id
-        })
+          metadata: %{
+            session_id: session_id
+          }
+        )
 
         {:noreply, state}
 
       {:error, reason} ->
         GSMLG.Telemetry.error("Failed to create PTY session",
-      metadata: %{
-          session_id: data.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: data.session_id,
+            reason: inspect(reason)
+          }
+        )
 
-        send_message(%{
-          type: "error",
-          session_id: data.session_id,
-          error_code: "create_failed",
-          message: inspect(reason)
-        }, state)
+        send_message(
+          %{
+            type: "error",
+            session_id: data.session_id,
+            error_code: "create_failed",
+            message: inspect(reason)
+          },
+          state
+        )
 
         {:noreply, state}
     end
@@ -250,9 +282,10 @@ defmodule GSMLG.Commander.Terminal do
   defp handle_protocol_message(:close_pty, data, state) do
     GSMLG.Telemetry.info("Closing PTY session",
       metadata: %{
-      session_id: data.session_id,
-      force: data.force
-    })
+        session_id: data.session_id,
+        force: data.force
+      }
+    )
 
     case SessionManager.terminate_session(data.session_id, data.force) do
       :ok ->
@@ -260,10 +293,11 @@ defmodule GSMLG.Commander.Terminal do
 
       {:error, reason} ->
         GSMLG.Telemetry.warn("Failed to close PTY session",
-      metadata: %{
-          session_id: data.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: data.session_id,
+            reason: inspect(reason)
+          }
+        )
 
         {:noreply, state}
     end
@@ -273,18 +307,20 @@ defmodule GSMLG.Commander.Terminal do
     case SessionManager.attach_session(data.session_id, self()) do
       :ok ->
         GSMLG.Telemetry.debug("Attached to PTY session",
-      metadata: %{
-          session_id: data.session_id
-        })
+          metadata: %{
+            session_id: data.session_id
+          }
+        )
 
         {:noreply, state}
 
       {:error, reason} ->
         GSMLG.Telemetry.warn("Failed to attach to PTY session",
-      metadata: %{
-          session_id: data.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: data.session_id,
+            reason: inspect(reason)
+          }
+        )
 
         {:noreply, state}
     end
@@ -294,18 +330,20 @@ defmodule GSMLG.Commander.Terminal do
     case SessionManager.detach_session(data.session_id) do
       :ok ->
         GSMLG.Telemetry.debug("Detached from PTY session",
-      metadata: %{
-          session_id: data.session_id
-        })
+          metadata: %{
+            session_id: data.session_id
+          }
+        )
 
         {:noreply, state}
 
       {:error, reason} ->
         GSMLG.Telemetry.warn("Failed to detach from PTY session",
-      metadata: %{
-          session_id: data.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: data.session_id,
+            reason: inspect(reason)
+          }
+        )
 
         {:noreply, state}
     end
@@ -318,10 +356,11 @@ defmodule GSMLG.Commander.Terminal do
 
       {:error, reason} ->
         GSMLG.Telemetry.warn("Failed to send input to PTY",
-      metadata: %{
-          session_id: data.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: data.session_id,
+            reason: inspect(reason)
+          }
+        )
 
         {:noreply, state}
     end
@@ -331,20 +370,22 @@ defmodule GSMLG.Commander.Terminal do
     case SessionManager.resize_session(data.session_id, data.rows, data.cols) do
       :ok ->
         GSMLG.Telemetry.debug("Resized PTY session",
-      metadata: %{
-          session_id: data.session_id,
-          rows: data.rows,
-          cols: data.cols
-        })
+          metadata: %{
+            session_id: data.session_id,
+            rows: data.rows,
+            cols: data.cols
+          }
+        )
 
         {:noreply, state}
 
       {:error, reason} ->
         GSMLG.Telemetry.warn("Failed to resize PTY session",
-      metadata: %{
-          session_id: data.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: data.session_id,
+            reason: inspect(reason)
+          }
+        )
 
         {:noreply, state}
     end
@@ -353,10 +394,13 @@ defmodule GSMLG.Commander.Terminal do
   defp handle_protocol_message(:list_sessions, _data, state) do
     sessions = SessionManager.list_sessions()
 
-    send_message(%{
-      type: "sessions_list",
-      sessions: sessions
-    }, state)
+    send_message(
+      %{
+        type: "sessions_list",
+        sessions: sessions
+      },
+      state
+    )
 
     {:noreply, state}
   end
@@ -364,8 +408,9 @@ defmodule GSMLG.Commander.Terminal do
   defp handle_protocol_message(:configure, data, state) do
     GSMLG.Telemetry.info("Received configuration update",
       metadata: %{
-      settings: inspect(data.settings)
-    })
+        settings: inspect(data.settings)
+      }
+    )
 
     # TODO: Apply configuration settings
     {:noreply, state}

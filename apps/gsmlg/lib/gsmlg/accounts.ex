@@ -360,4 +360,61 @@ defmodule GSMLG.Accounts do
   end
 
   def get_user_by_session_token(_token), do: nil
+
+  @doc """
+  Gets a user by username or email.
+
+  ## Examples
+
+      iex> get_user_by_username_or_email("john")
+      %User{}
+
+      iex> get_user_by_username_or_email("john@example.com")
+      %User{}
+
+      iex> get_user_by_username_or_email("nonexistent")
+      nil
+
+  """
+  def get_user_by_username_or_email(username_or_email) when is_binary(username_or_email) do
+    query =
+      from(u in User,
+        where: u.username == ^username_or_email or u.email == ^username_or_email
+      )
+
+    Repo.one(query)
+  end
+
+  def get_user_by_username_or_email(_), do: nil
+
+  @doc """
+  Resets a user's password.
+
+  ## Examples
+
+      iex> reset_password(user, "newpassword123")
+      {:ok, %User{}}
+
+      iex> reset_password(user, "short")
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def reset_password(%User{} = user, new_password) when is_binary(new_password) do
+    if String.length(new_password) < 8 do
+      {:error, "Password must be at least 8 characters long"}
+    else
+      # Generate new salt and hash the password
+      new_salt = GSMLG.Accounts.Auth.gen_salt()
+      hashed_password = :crypto.mac(:hmac, :sha256, new_salt, new_password) |> Base.encode16()
+
+      user
+      |> Ecto.Changeset.change(%{
+        password: hashed_password,
+        password_salt: new_salt
+      })
+      |> Repo.update()
+    end
+  end
+
+  def reset_password(_, _), do: {:error, "Invalid user or password"}
 end

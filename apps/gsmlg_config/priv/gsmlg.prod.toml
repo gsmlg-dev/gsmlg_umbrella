@@ -7,8 +7,8 @@ log_level = "info"
 [database]
 username = "gsmlg_prod"
 password = "change_me_in_production"
-hostname = "mariadb-server.gsmlg.net"
-port = 3306
+hostname = "postgresql-server.gsmlg.net"
+port = 5432
 database = "gsmlg_prod"
 show_sensitive_data_on_connection_error = false
 pool_size = 20

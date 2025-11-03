@@ -40,8 +40,6 @@ defmodule GSMLG.Telemetry.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.4"},
-      {:ex_aws, "~> 2.4"},
-      {:ex_aws_cloudwatch_logs, "~> 1.0"},
       {:gsmlg_aws, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
       {:stream_data, "~> 1.0", only: [:dev, :test]},

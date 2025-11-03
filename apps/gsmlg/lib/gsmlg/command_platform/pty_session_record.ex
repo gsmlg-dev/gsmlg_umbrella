@@ -67,9 +67,10 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
 
       {:aborted, reason} ->
         GSMLG.Telemetry.error("Failed to create PTY sessions table",
-      metadata: %{
-          reason: inspect(reason)
-        })
+          metadata: %{
+            reason: inspect(reason)
+          }
+        )
 
         {:error, reason}
     end
@@ -133,7 +134,11 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
           :mnesia.index_read(@table, state_filter, :state)
 
         true ->
-          :mnesia.match_object(@table, {:pty_sessions, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_}, :read)
+          :mnesia.match_object(
+            @table,
+            {:pty_sessions, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_},
+            :read
+          )
       end
     end)
     |> case do
@@ -157,7 +162,12 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
     cutoff = now - max_age_ms
 
     :mnesia.transaction(fn ->
-      sessions = :mnesia.match_object(@table, {:pty_sessions, :_, :_, :_, :_, :_, :_, :_, :closed, :_, :_, :_}, :read)
+      sessions =
+        :mnesia.match_object(
+          @table,
+          {:pty_sessions, :_, :_, :_, :_, :_, :_, :_, :closed, :_, :_, :_},
+          :read
+        )
 
       Enum.each(sessions, fn record ->
         session = record_to_map(record)

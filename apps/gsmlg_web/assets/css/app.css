@@ -1,10 +1,3 @@
-@import "tailwindcss";
-@plugin "@tailwindcss/forms";
-@plugin "daisyui";
-@variant phx-click-loading ([".phx-click-loading&", ".phx-click-loading &"]);
-@variant phx-submit-loading ([".phx-submit-loading&", ".phx-submit-loading &"]);
-@variant phx-change-loading ([".phx-change-loading&", ".phx-change-loading &"]);
-
 @source "../js/**/*.js";
 @source "../../lib/*_web.ex";
 @source "../../lib/*_web/**/*.*ex";
@@ -14,19 +7,13 @@
 
 @import "gsmlg_component/assets/css/shared.css";
 
-@import './main.css';
-
+@import "./main.css";
 
 .fullscreen-canvas {
   @apply fixed top-0 left-0 w-screen h-screen z-50;
 }
 body:has(.fullscreen-canvas) {
   overflow: hidden;
-}
-
-/* Phoenix 1.8 DaisyUI Theming Configuration */
-@plugin "daisyui" {
-  themes: light, dark, cupcake, bumblebee, emerald, corporate, synthwave, retro, cyberpunk, valentine, halloween, garden, forest, aqua, lofi, pastel, fantasy, wireframe, black, luxury, dracula, cmyk, autumn, business, acid, lemonade, night, coffee, winter, dim, nord, sunset;
 }
 
 /* Default theme variables */
@@ -43,5 +30,8 @@ body:has(.fullscreen-canvas) {
 
 /* Custom theme transitions */
 * {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
 }

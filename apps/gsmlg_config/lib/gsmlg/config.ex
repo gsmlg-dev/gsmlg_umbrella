@@ -51,7 +51,7 @@ defmodule GSMLG.Config do
 
       # Get a nested value
       GSMLG.Config.get([:database, :hostname])
-      #=> "mariadb-server.gsmlg.net"
+      #=> "postgresql-server.gsmlg.net"
 
       # String keys are converted to atoms
       GSMLG.Config.get("database")

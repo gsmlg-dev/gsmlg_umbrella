@@ -41,10 +41,11 @@ defmodule GSMLG.Commander.SessionManager do
 
         {:error, reason} ->
           GSMLG.Telemetry.error("Failed to create PTY session",
-      metadata: %{
-            session_id: session_id,
-            reason: inspect(reason)
-          })
+            metadata: %{
+              session_id: session_id,
+              reason: inspect(reason)
+            }
+          )
 
           {:error, reason}
       end
@@ -173,10 +174,11 @@ defmodule GSMLG.Commander.SessionManager do
 
       if idle_time > idle_threshold and session.state == :detached do
         GSMLG.Telemetry.info("Cleaning up idle session",
-      metadata: %{
-          session_id: session.session_id,
-          idle_time: idle_time
-        })
+          metadata: %{
+            session_id: session.session_id,
+            idle_time: idle_time
+          }
+        )
 
         terminate_session(session.session_id)
       end
@@ -211,10 +213,11 @@ defmodule GSMLG.Commander.SessionManager do
   defp check_session_limit do
     if session_count() >= @max_sessions do
       GSMLG.Telemetry.warn("Session limit reached",
-      metadata: %{
-        current: session_count(),
-        max: @max_sessions
-      })
+        metadata: %{
+          current: session_count(),
+          max: @max_sessions
+        }
+      )
 
       {:error, :session_limit_reached}
     else

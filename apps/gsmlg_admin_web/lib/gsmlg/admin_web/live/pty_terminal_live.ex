@@ -92,10 +92,11 @@ defmodule GSMLG.AdminWeb.PTYTerminalLive do
   def handle_info({:pty_resized, _session_id, rows, cols}, socket) do
     GSMLG.Telemetry.debug("Terminal resized",
       metadata: %{
-      session_id: socket.assigns.session_id,
-      rows: rows,
-      cols: cols
-    })
+        session_id: socket.assigns.session_id,
+        rows: rows,
+        cols: cols
+      }
+    )
 
     {:noreply, socket}
   end

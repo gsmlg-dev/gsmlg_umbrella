@@ -183,9 +183,10 @@ defmodule GSMLG.CommandPlatform.AgentRegistry do
           end
 
         GSMLG.Telemetry.info("Agent unregistered",
-      metadata: %{
-          agent_id: agent_id
-        })
+          metadata: %{
+            agent_id: agent_id
+          }
+        )
 
         # Update old CommandPlatform.Agent for backward compatibility
         commander = %{name: agent_id}
@@ -245,9 +246,10 @@ defmodule GSMLG.CommandPlatform.AgentRegistry do
 
       agent_id ->
         GSMLG.Telemetry.warn("Agent channel process died",
-      metadata: %{
-          agent_id: agent_id
-        })
+          metadata: %{
+            agent_id: agent_id
+          }
+        )
 
         :ets.delete(@table, agent_id)
 
@@ -292,9 +294,10 @@ defmodule GSMLG.CommandPlatform.AgentRegistry do
 
     Enum.each(stale_agents, fn agent_id ->
       GSMLG.Telemetry.warn("Removing stale agent",
-      metadata: %{
-        agent_id: agent_id
-      })
+        metadata: %{
+          agent_id: agent_id
+        }
+      )
 
       :ets.delete(@table, agent_id)
     end)

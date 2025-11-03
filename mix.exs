@@ -69,7 +69,8 @@ defmodule GSMLG.Umbrella.MixProject do
       {:burrito, "~> 1.0", runtime: false},
       {:phoenix, "~> 1.7"},
       {:phoenix_live_view, "~> 1.0"},
-      {:telemetry, "~> 1.0", override: true}
+      {:telemetry, "~> 1.0", override: true},
+      {:inflex, "~> 2.0", override: true, github: "warmwaffles/inflex"}
     ]
   end
 

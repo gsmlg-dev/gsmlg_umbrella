@@ -161,10 +161,12 @@ defmodule GSMLG.Commander.Protocol do
 
   # Private parsing functions
 
-  defp parse_create_pty(%{
-         "session_id" => session_id,
-         "command" => command
-       } = msg) do
+  defp parse_create_pty(
+         %{
+           "session_id" => session_id,
+           "command" => command
+         } = msg
+       ) do
     dimensions = msg["dimensions"] || %{"rows" => 24, "cols" => 80}
     env_vars = msg["env_vars"] || %{}
     working_dir = msg["working_dir"]

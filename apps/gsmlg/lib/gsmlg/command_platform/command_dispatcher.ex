@@ -23,10 +23,11 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
 
         {:error, reason} ->
           GSMLG.Telemetry.error("Failed to dispatch create_pty command",
-      metadata: %{
-            agent_id: agent_id,
-            reason: inspect(reason)
-          })
+            metadata: %{
+              agent_id: agent_id,
+              reason: inspect(reason)
+            }
+          )
 
           {:error, reason}
       end
@@ -165,9 +166,10 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
       # Check for potentially dangerous patterns
       dangerous_pattern?(command) ->
         GSMLG.Telemetry.warn("Potentially dangerous command detected",
-      metadata: %{
-          command: command
-        })
+          metadata: %{
+            command: command
+          }
+        )
 
         {:error, :dangerous_command}
 
@@ -201,7 +203,9 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
   end
 
   defp validate_command(:close_pty, %{session_id: session_id}) when is_binary(session_id), do: :ok
-  defp validate_command(:attach_pty, %{session_id: session_id}) when is_binary(session_id), do: :ok
+
+  defp validate_command(:attach_pty, %{session_id: session_id}) when is_binary(session_id),
+    do: :ok
 
   defp validate_command(:detach_pty, %{session_id: session_id}) when is_binary(session_id),
     do: :ok
@@ -247,11 +251,12 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
   defp audit_log(command_type, agent_id, params) do
     GSMLG.Telemetry.info("PTY command dispatched",
       metadata: %{
-      command_type: command_type,
-      agent_id: agent_id,
-      params: inspect(params),
-      timestamp: System.system_time(:millisecond)
-    })
+        command_type: command_type,
+        agent_id: agent_id,
+        params: inspect(params),
+        timestamp: System.system_time(:millisecond)
+      }
+    )
 
     # Store in audit log table (if needed)
     # GSMLG.CommandPlatform.AuditLog.log(command_type, agent_id, params)

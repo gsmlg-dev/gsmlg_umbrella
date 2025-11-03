@@ -18,13 +18,18 @@ defmodule GSMLG.SessionProcess do
     {:stop, :normal, state}
   end
 
-  def handle_info({:DOWN, _ref, :process, pid, {:shutdown, _reason}}, %{_redux_subscriptions: redux_subscriptions} = state) do
-    redux_subscriptions = Enum.filter(redux_subscriptions, fn(subscription) ->
-      cond do
-        subscription.pid == pid -> false
-        true -> true
-      end
-    end)
+  def handle_info(
+        {:DOWN, _ref, :process, pid, {:shutdown, _reason}},
+        %{_redux_subscriptions: redux_subscriptions} = state
+      ) do
+    redux_subscriptions =
+      Enum.filter(redux_subscriptions, fn subscription ->
+        cond do
+          subscription.pid == pid -> false
+          true -> true
+        end
+      end)
+
     {:noreply, %{state | _redux_subscriptions: redux_subscriptions}}
   end
 

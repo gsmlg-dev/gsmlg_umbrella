@@ -16,9 +16,10 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     GSMLG.Telemetry.info("Terminal channel joined",
       metadata: %{
-      commander: commander_name,
-      socket_id: socket.id
-    })
+        commander: commander_name,
+        socket_id: socket.id
+      }
+    )
 
     # Register agent in registry
     case GSMLG.CommandPlatform.AgentRegistry.register_agent(commander_name, self()) do
@@ -31,10 +32,11 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
       {:error, reason} ->
         GSMLG.Telemetry.error("Failed to register agent",
-      metadata: %{
-          commander: commander_name,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            commander: commander_name,
+            reason: inspect(reason)
+          }
+        )
 
         {:error, %{reason: "registration_failed"}}
     end
@@ -46,9 +48,10 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     GSMLG.Telemetry.debug("Received message from agent",
       metadata: %{
-      commander: commander_name,
-      type: payload["type"]
-    })
+        commander: commander_name,
+        type: payload["type"]
+      }
+    )
 
     case payload["type"] do
       "register" ->
@@ -77,10 +80,11 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
       _ ->
         GSMLG.Telemetry.warn("Unknown message type from agent",
-      metadata: %{
-          commander: commander_name,
-          type: payload["type"]
-        })
+          metadata: %{
+            commander: commander_name,
+            type: payload["type"]
+          }
+        )
 
         {:noreply, socket}
     end
@@ -93,9 +97,10 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     GSMLG.Telemetry.info("Dispatching command to agent",
       metadata: %{
-      commander: commander_name,
-      command_type: payload["type"]
-    })
+        commander: commander_name,
+        command_type: payload["type"]
+      }
+    )
 
     {:noreply, socket}
   end
@@ -196,9 +201,10 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     if commander_name do
       GSMLG.Telemetry.info("Terminal channel terminated",
-      metadata: %{
-        commander: commander_name
-      })
+        metadata: %{
+          commander: commander_name
+        }
+      )
 
       GSMLG.CommandPlatform.AgentRegistry.unregister_agent(commander_name)
 
@@ -229,9 +235,10 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     GSMLG.Telemetry.info("Agent registered",
       metadata: %{
-      commander: commander_name,
-      info: agent_info
-    })
+        commander: commander_name,
+        info: agent_info
+      }
+    )
 
     # Update agent info in registry
     GSMLG.CommandPlatform.AgentRegistry.update_agent_info(commander_name, agent_info)
@@ -289,9 +296,10 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     GSMLG.Telemetry.info("PTY session created",
       metadata: %{
-      commander: commander_name,
-      session_id: session_id
-    })
+        commander: commander_name,
+        session_id: session_id
+      }
+    )
 
     # Register session in tracker
     GSMLG.CommandPlatform.SessionTracker.register_session(
@@ -316,10 +324,11 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     GSMLG.Telemetry.info("PTY session closed",
       metadata: %{
-      commander: commander_name,
-      session_id: session_id,
-      exit_code: payload["exit_code"]
-    })
+        commander: commander_name,
+        session_id: session_id,
+        exit_code: payload["exit_code"]
+      }
+    )
 
     # Update session state
     GSMLG.CommandPlatform.SessionTracker.close_session(
@@ -362,11 +371,12 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     GSMLG.Telemetry.error("Agent reported error",
       metadata: %{
-      commander: commander_name,
-      error_code: payload["error_code"],
-      message: payload["message"],
-      session_id: payload["session_id"]
-    })
+        commander: commander_name,
+        error_code: payload["error_code"],
+        message: payload["message"],
+        session_id: payload["session_id"]
+      }
+    )
 
     # Broadcast to admin UI
     if payload["session_id"] do
@@ -397,9 +407,10 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     GSMLG.Telemetry.debug("Received sessions list from agent",
       metadata: %{
-      commander: commander_name,
-      count: length(sessions)
-    })
+        commander: commander_name,
+        count: length(sessions)
+      }
+    )
 
     # Update session tracker
     Enum.each(sessions, fn session ->

@@ -126,9 +126,10 @@ defmodule GSMLG.Commander.PTYSession do
 
     GSMLG.Telemetry.info("Starting PTY session",
       metadata: %{
-      session_id: state.session_id,
-      command: state.command
-    })
+        session_id: state.session_id,
+        command: state.command
+      }
+    )
 
     {:ok, state, {:continue, :spawn_pty}}
   end
@@ -147,20 +148,22 @@ defmodule GSMLG.Commander.PTYSession do
         })
 
         GSMLG.Telemetry.info("PTY session spawned successfully",
-      metadata: %{
-          session_id: state.session_id,
-          os_pid: os_pid
-        })
+          metadata: %{
+            session_id: state.session_id,
+            os_pid: os_pid
+          }
+        )
 
         schedule_idle_check()
         {:noreply, new_state}
 
       {:error, reason} ->
         GSMLG.Telemetry.error("Failed to spawn PTY",
-      metadata: %{
-          session_id: state.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: state.session_id,
+            reason: inspect(reason)
+          }
+        )
 
         notify_terminal(state.terminal_pid, :pty_error, %{
           session_id: state.session_id,
@@ -179,10 +182,11 @@ defmodule GSMLG.Commander.PTYSession do
 
       {:error, reason} ->
         GSMLG.Telemetry.warn("Failed to send input to PTY",
-      metadata: %{
-          session_id: state.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: state.session_id,
+            reason: inspect(reason)
+          }
+        )
 
         {:noreply, state}
     end
@@ -201,20 +205,22 @@ defmodule GSMLG.Commander.PTYSession do
         })
 
         GSMLG.Telemetry.debug("PTY resized",
-      metadata: %{
-          session_id: state.session_id,
-          rows: rows,
-          cols: cols
-        })
+          metadata: %{
+            session_id: state.session_id,
+            rows: rows,
+            cols: cols
+          }
+        )
 
         {:noreply, new_state}
 
       {:error, reason} ->
         GSMLG.Telemetry.warn("Failed to resize PTY",
-      metadata: %{
-          session_id: state.session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: state.session_id,
+            reason: inspect(reason)
+          }
+        )
 
         {:noreply, state}
     end
@@ -228,9 +234,10 @@ defmodule GSMLG.Commander.PTYSession do
 
     GSMLG.Telemetry.debug("Terminal attached to session",
       metadata: %{
-      session_id: state.session_id,
-      terminal_pid: inspect(terminal_pid)
-    })
+        session_id: state.session_id,
+        terminal_pid: inspect(terminal_pid)
+      }
+    )
 
     {:reply, :ok, new_state}
   end
@@ -241,8 +248,9 @@ defmodule GSMLG.Commander.PTYSession do
 
     GSMLG.Telemetry.debug("Terminal detached from session",
       metadata: %{
-      session_id: state.session_id
-    })
+        session_id: state.session_id
+      }
+    )
 
     {:reply, :ok, new_state}
   end
@@ -251,9 +259,10 @@ defmodule GSMLG.Commander.PTYSession do
   def handle_call({:close, force}, _from, state) do
     GSMLG.Telemetry.info("Closing PTY session",
       metadata: %{
-      session_id: state.session_id,
-      force: force
-    })
+        session_id: state.session_id,
+        force: force
+      }
+    )
 
     if force do
       :exec.kill(state.os_pid, 9)
@@ -310,10 +319,11 @@ defmodule GSMLG.Commander.PTYSession do
 
     GSMLG.Telemetry.info("PTY process terminated",
       metadata: %{
-      session_id: state.session_id,
-      exit_code: exit_code,
-      status: inspect(status)
-    })
+        session_id: state.session_id,
+        exit_code: exit_code,
+        status: inspect(status)
+      }
+    )
 
     flush_buffer(state)
 
@@ -337,10 +347,11 @@ defmodule GSMLG.Commander.PTYSession do
 
     if idle_time > @idle_timeout do
       GSMLG.Telemetry.info("PTY session idle timeout",
-      metadata: %{
-        session_id: state.session_id,
-        idle_time: idle_time
-      })
+        metadata: %{
+          session_id: state.session_id,
+          idle_time: idle_time
+        }
+      )
 
       :exec.stop(state.os_pid)
       {:noreply, %{state | state: :closing}}
@@ -354,8 +365,9 @@ defmodule GSMLG.Commander.PTYSession do
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{terminal_pid: pid} = state) do
     GSMLG.Telemetry.info("Terminal process died, detaching",
       metadata: %{
-      session_id: state.session_id
-    })
+        session_id: state.session_id
+      }
+    )
 
     {:noreply, %{state | state: :detached}}
   end
@@ -369,9 +381,10 @@ defmodule GSMLG.Commander.PTYSession do
   def terminate(reason, state) do
     GSMLG.Telemetry.info("PTY session terminating",
       metadata: %{
-      session_id: state.session_id,
-      reason: inspect(reason)
-    })
+        session_id: state.session_id,
+        reason: inspect(reason)
+      }
+    )
 
     if state.os_pid do
       :exec.stop(state.os_pid)
@@ -445,10 +458,11 @@ defmodule GSMLG.Commander.PTYSession do
   defp check_memory_limit(state) do
     if byte_size(state.output_buffer) > @buffer_max_size do
       GSMLG.Telemetry.warn("Buffer size exceeded, flushing",
-      metadata: %{
-        session_id: state.session_id,
-        buffer_size: byte_size(state.output_buffer)
-      })
+        metadata: %{
+          session_id: state.session_id,
+          buffer_size: byte_size(state.output_buffer)
+        }
+      )
 
       flush_buffer(state)
     else

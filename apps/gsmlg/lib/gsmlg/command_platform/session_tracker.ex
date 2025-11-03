@@ -150,17 +150,19 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
     case PTYSessionRecord.write(session) do
       :ok ->
         GSMLG.Telemetry.info("Session registered",
-      metadata: %{
-          session_id: session_id,
-          agent_id: agent_id
-        })
+          metadata: %{
+            session_id: session_id,
+            agent_id: agent_id
+          }
+        )
 
       {:error, reason} ->
         GSMLG.Telemetry.error("Failed to register session",
-      metadata: %{
-          session_id: session_id,
-          reason: inspect(reason)
-        })
+          metadata: %{
+            session_id: session_id,
+            reason: inspect(reason)
+          }
+        )
     end
 
     {:noreply, state}
@@ -194,10 +196,11 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
         PTYSessionRecord.write(updated)
 
         GSMLG.Telemetry.info("Session closed",
-      metadata: %{
-          session_id: session_id,
-          exit_code: exit_code
-        })
+          metadata: %{
+            session_id: session_id,
+            exit_code: exit_code
+          }
+        )
 
       {:error, _} ->
         :ok
@@ -239,10 +242,11 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
         PTYSessionRecord.write(updated)
 
         GSMLG.Telemetry.info("Session marked as orphaned",
-      metadata: %{
-          session_id: session.session_id,
-          agent_id: agent_id
-        })
+          metadata: %{
+            session_id: session.session_id,
+            agent_id: agent_id
+          }
+        )
       end
     end)
 

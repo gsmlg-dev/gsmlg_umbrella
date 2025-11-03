@@ -4,7 +4,7 @@ import Config
 config :gsmlg, GSMLG.Repo,
   username: System.get_env("POSTGRES_USER", "gsmlg_dev"),
   password: System.get_env("POSTGRES_PASSWORD", "gsmlg_dev"),
-  hostname: System.get_env("POSTGRES_HOST", "postgres-server.gsmlg.net"),
+  hostname: System.get_env("POSTGRES_HOST", "localhost"),
   database: "gsmlg_dev",
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
@@ -41,6 +41,10 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
       ~r"lib/gsmlg_component/.*(ex)$",
       ~r"lib/gsmlg_admin_web/(controllers|live|components)/.*(ex|heex)$"
     ]
+  ],
+  live_view: [
+    signing_salt: "gmmaSSOy",
+    debug_heex_annotations: true
   ]
 
 config :gsmlg_admin_web, dev_routes: true
