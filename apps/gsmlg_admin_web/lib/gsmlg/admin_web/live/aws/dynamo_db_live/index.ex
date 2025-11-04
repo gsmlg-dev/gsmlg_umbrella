@@ -27,7 +27,7 @@ defmodule GSMLG.AdminWeb.DynamoDBLive.Index do
             {:ok, %{table: table}}
 
           {:error, reason} ->
-            {:error, reason}
+            {:error, %{table: reason}}
         end
       end)
 
@@ -61,7 +61,7 @@ defmodule GSMLG.AdminWeb.DynamoDBLive.Index do
             {:ok, %{db_streams: streams}}
 
           {:error, reason} ->
-            {:error, reason}
+            {:error, %{db_streams: reason}}
         end
       end)
 
@@ -81,7 +81,7 @@ defmodule GSMLG.AdminWeb.DynamoDBLive.Index do
           {:ok, %{tables: tables}}
 
         {:error, reason} ->
-          {:error, reason}
+          {:error, %{tables: reason}}
       end
     end)
   end
@@ -104,7 +104,7 @@ defmodule GSMLG.AdminWeb.DynamoDBLive.Index do
           {:ok, %{table_data: table_data}}
 
         {:error, reason} ->
-          {:error, reason}
+          {:error, %{table_data: reason}}
       end
     end)
   end
