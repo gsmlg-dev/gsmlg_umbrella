@@ -1,7 +1,6 @@
-
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@plugin "daisyui";
+@plugin "duskmoonui";
 @import "phoenix_duskmoon/theme";
 @import "phoenix_duskmoon/components";
 
@@ -12,5 +11,4 @@
 @import "@uiw/react-markdown-preview/markdown.css";
 
 @import "./github-markdown.css";
-@import 'highlight.js/styles/github.css';
-
+@import "highlight.js/styles/github.css";

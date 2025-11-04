@@ -53,11 +53,14 @@ if System.get_env("MIX_TAILWIND_PATH") do
   config :tailwind, path: System.get_env("MIX_TAILWIND_PATH")
 end
 
+mnesia_dir_default =
+  Path.expand("../_build/tmp/mnesia/#{Mix.env()}/#{node()}", __DIR__)
+
 # Configure Mnesia directory based on environment
 mnesia_dir =
   case System.get_env("MNESIA_DIR") do
-    nil -> "priv/mnesia/#{config_env()}"
-    "" -> "priv/mnesia/#{config_env()}"
+    nil -> mnesia_dir_default
+    "" -> mnesia_dir_default
     dir -> dir
   end
 
