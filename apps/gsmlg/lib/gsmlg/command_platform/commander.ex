@@ -26,10 +26,10 @@ defmodule GSMLG.CommandPlatform.Commander do
 
   def create_table_if_not_exists do
     case GSMLG.Mnesia.Table.create(CommandPlatform.Commander) do
-      {:atomic, :ok} ->
+      {{:atomic, :ok}, _metadata} ->
         :ok
 
-      {:error, {:already_exists, CommandPlatform.Commander}} ->
+      {{:error, {:already_exists, CommandPlatform.Commander}}, _metadata} ->
         :ok
     end
   end

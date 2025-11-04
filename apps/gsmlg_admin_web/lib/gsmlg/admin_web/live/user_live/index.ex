@@ -9,17 +9,23 @@ defmodule GSMLG.AdminWeb.UserLive.Index do
   def mount(_params, %{"session_id" => session_id} = _session, socket) do
     Process.flag(:trap_exit, true)
 
-    {:ok, _sub_id} =
-      SessionProcess.subscribe(
-        session_id,
-        fn state ->
-          get_in(state, [:user, :users])
-        end,
-        :list_users,
-        self()
-      )
+    case SessionProcess.subscribe(
+           session_id,
+           fn state ->
+             get_in(state, [:user, :users])
+           end,
+           :list_users,
+           self()
+         ) do
+      {:ok, _sub_id} ->
+        {:ok, assign(socket, users: [], active_menu: "user_list", session_id: session_id)}
 
-    {:ok, assign(socket, users: [], active_menu: "user_list", session_id: session_id)}
+      {:error, {:session_not_found, _}} ->
+        {:ok,
+         socket
+         |> put_flash(:error, "Session not found. Please log in again.")
+         |> redirect(to: ~p"/sign_in")}
+    end
   end
 
   @impl true

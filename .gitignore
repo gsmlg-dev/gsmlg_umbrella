@@ -50,10 +50,19 @@ test.log
 **/test/**/*.log
 **/test/**/tmp/
 
-# Mnesia database directories
+# Mnesia database directories and files
 priv/mnesia/
 apps/**/priv/mnesia/
 **/test/**/mnesia/
+# Mnesia files that might be created in project root
+*.DCD
+*.DCL
+*.DAT
+*.LOG
+*.TMP
+Mnesia.*
+LATEST.LOG
+PREVIOUS.LOG
 
 # burrito binary
 /burrito_out
