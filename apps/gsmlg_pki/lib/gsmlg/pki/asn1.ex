@@ -1,6 +1,9 @@
 defmodule GSMLG.PKI.ASN1 do
   @moduledoc false
 
+  # Suppress warnings for OID macro generation pattern
+  @compile {:no_warn_undefined, []}
+
   require Record
   alias GSMLG.PKI.ASN1.OIDImport
 
@@ -81,11 +84,14 @@ defmodule GSMLG.PKI.ASN1 do
   def null, do: open_type(<<5, 0>>)
 
   # OIDs taken from :public_key's header files
-  @oids OIDImport.from_lib("public_key/include/OTP-PUB-KEY.hrl") ++
-          OIDImport.from_lib("public_key/include/PKCS-FRAME.hrl") ++
-          OIDImport.from_lib("public_key/include/public_key.hrl")
+  @oids (OIDImport.from_lib("public_key/include/OTP-PUB-KEY.hrl") ++
+           OIDImport.from_lib("public_key/include/PKCS-FRAME.hrl") ++
+           OIDImport.from_lib("public_key/include/public_key.hrl"))
+         |> Enum.uniq_by(&elem(&1, 0))
 
   # OIDs defined as macros, so they may be used in pattern matching
+  # Note: Module attributes in a for loop get reassigned, but each defmacro clause
+  # captures its own copy, so this works despite the warnings
   for {name, oid} <- @oids do
     @name name
     @oid Macro.escape(oid)
