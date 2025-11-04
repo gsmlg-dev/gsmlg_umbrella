@@ -1,6 +1,3 @@
-[install]
-globalDir = "./deps"
-
 [jsx]
 jsx = "react/jsx-runtime"
 jsxFactory = "h"

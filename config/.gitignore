@@ -1,3 +1,0 @@
-# Local configuration overrides (not checked into git)
-local.toml
-*.local.toml
