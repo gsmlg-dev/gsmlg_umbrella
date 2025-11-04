@@ -51,10 +51,10 @@ defmodule GSMLG.AdminWeb.MnesiaLive.Index do
       try do
         info =
           case GSMLG.Mnesia.Transaction.execute_sync(fn -> GSMLG.Mnesia.system() end) do
-            {:ok, system_info} ->
+            {{:ok, system_info}, _metadata} ->
               system_info
 
-            {:error, reason} ->
+            {{:error, reason}, _metadata} ->
               GSMLG.Telemetry.error("Failed to fetch Mnesia system info",
                 metadata: %{
                   live_view: "MnesiaLive.Index",
@@ -84,10 +84,12 @@ defmodule GSMLG.AdminWeb.MnesiaLive.Index do
           }
         )
 
-        socket
-        |> assign(:info, info)
-        |> assign(:tables_info, tables_info)
-        |> then(&{:ok, &1})
+        result_socket =
+          socket
+          |> assign(:info, info)
+          |> assign(:tables_info, tables_info)
+
+        {result_socket, %{status: :ok}}
       rescue
         e ->
           GSMLG.Telemetry.exception(e, __STACKTRACE__,
@@ -97,12 +99,11 @@ defmodule GSMLG.AdminWeb.MnesiaLive.Index do
             }
           )
 
-          {:ok, socket}
+          {socket, %{status: :error}}
       end
     end)
     |> case do
-      {:ok, socket} -> socket
-      socket -> socket
+      {socket, _metadata} -> socket
     end
   end
 end
