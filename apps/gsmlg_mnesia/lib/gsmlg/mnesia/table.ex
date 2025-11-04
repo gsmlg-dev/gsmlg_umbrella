@@ -175,7 +175,8 @@ defmodule GSMLG.Mnesia.Table do
               |> GSMLG.Mnesia.Mnesia.handle_result()
           end
 
-        {result, %{status: elem(result, 0)}}
+        status = if is_atom(result), do: result, else: elem(result, 0)
+        {result, %{status: status}}
       end
     )
   end
@@ -208,7 +209,8 @@ defmodule GSMLG.Mnesia.Table do
           |> GSMLG.Mnesia.Mnesia.call([table])
           |> GSMLG.Mnesia.Mnesia.handle_result()
 
-        {result, %{status: elem(result, 0)}}
+        status = if is_atom(result), do: result, else: elem(result, 0)
+        {result, %{status: status}}
       end
     )
   end

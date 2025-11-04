@@ -160,7 +160,7 @@ defmodule GSMLG.Mnesia.Table.Definition do
   @doc "Raise error if a given module is not a valid GSMLG.Mnesia Table"
   @spec validate_table!(module) :: :ok | no_return
   def validate_table!(module) do
-    GSMLG.Mnesia.Table = module.__info__.meta
+    GSMLG.Mnesia.Table = module.__info__().meta
     :ok
   rescue
     _ ->
