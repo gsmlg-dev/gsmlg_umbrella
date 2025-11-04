@@ -79,8 +79,7 @@ defmodule GSMLG.AdminWeb.PKILive.CertificateLive.Index do
     {:noreply,
      socket
      |> push_patch(
-       to:
-         ~p"/pki/certificates?status=#{params["status"]}&ca_id=#{params["ca_id"] || ""}"
+       to: ~p"/pki/certificates?status=#{params["status"]}&ca_id=#{params["ca_id"] || ""}"
      )}
   end
 

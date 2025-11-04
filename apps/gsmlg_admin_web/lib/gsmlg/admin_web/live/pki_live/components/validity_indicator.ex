@@ -23,9 +23,9 @@ defmodule GSMLG.AdminWeb.PKILive.Components.ValidityIndicator do
       <div class={["w-3 h-3 rounded-full", alert_color(@alert_level)]}></div>
       <span class={text_color(@alert_level)}>
         <%= if @days_remaining > 0 do %>
-          Expires in <%= @days_remaining %> days
+          Expires in {@days_remaining} days
         <% else %>
-          Expired <%= abs(@days_remaining) %> days ago
+          Expired {abs(@days_remaining)} days ago
         <% end %>
       </span>
     </div>

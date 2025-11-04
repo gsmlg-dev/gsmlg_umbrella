@@ -87,7 +87,7 @@ defmodule GSMLG.PKI.ASN1 do
   @oids (OIDImport.from_lib("public_key/include/OTP-PUB-KEY.hrl") ++
            OIDImport.from_lib("public_key/include/PKCS-FRAME.hrl") ++
            OIDImport.from_lib("public_key/include/public_key.hrl"))
-         |> Enum.uniq_by(&elem(&1, 0))
+        |> Enum.uniq_by(&elem(&1, 0))
 
   # OIDs defined as macros, so they may be used in pattern matching
   # Note: Module attributes in a for loop get reassigned, but each defmacro clause

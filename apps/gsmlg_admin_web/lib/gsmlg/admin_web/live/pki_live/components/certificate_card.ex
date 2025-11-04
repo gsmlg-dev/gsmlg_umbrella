@@ -16,9 +16,9 @@ defmodule GSMLG.AdminWeb.PKILive.Components.CertificateCard do
         <div class="flex justify-between items-start">
           <div class="flex-1">
             <h3 class="card-title text-lg">
-              <%= @certificate.subject %>
+              {@certificate.subject}
             </h3>
-            <p class="text-sm text-gray-500">Serial: <%= @certificate.serial %></p>
+            <p class="text-sm text-gray-500">Serial: {@certificate.serial}</p>
           </div>
           <CertificateStatus.certificate_status status={@certificate.status} />
         </div>
@@ -28,11 +28,11 @@ defmodule GSMLG.AdminWeb.PKILive.Components.CertificateCard do
         <div class="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span class="font-semibold">Issued:</span>
-            <span class="ml-2"><%= format_date(@certificate.not_before) %></span>
+            <span class="ml-2">{format_date(@certificate.not_before)}</span>
           </div>
           <div>
             <span class="font-semibold">Expires:</span>
-            <span class="ml-2"><%= format_date(@certificate.not_after) %></span>
+            <span class="ml-2">{format_date(@certificate.not_after)}</span>
           </div>
         </div>
 
@@ -43,11 +43,11 @@ defmodule GSMLG.AdminWeb.PKILive.Components.CertificateCard do
             <span class="text-sm font-semibold">Subject Alternative Names:</span>
             <div class="flex flex-wrap gap-1 mt-1">
               <%= for san <- Enum.take(@certificate.subject_alt_names, 5) do %>
-                <span class="badge badge-sm badge-ghost"><%= san %></span>
+                <span class="badge badge-sm badge-ghost">{san}</span>
               <% end %>
               <%= if length(@certificate.subject_alt_names) > 5 do %>
                 <span class="badge badge-sm badge-ghost">
-                  +<%= length(@certificate.subject_alt_names) - 5 %> more
+                  +{length(@certificate.subject_alt_names) - 5} more
                 </span>
               <% end %>
             </div>

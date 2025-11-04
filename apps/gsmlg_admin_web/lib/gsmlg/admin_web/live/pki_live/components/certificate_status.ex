@@ -10,7 +10,7 @@ defmodule GSMLG.AdminWeb.PKILive.Components.CertificateStatus do
   def certificate_status(assigns) do
     ~H"""
     <span class={["badge", status_class(@status), @class]}>
-      <%= status_label(@status) %>
+      {status_label(@status)}
     </span>
     """
   end

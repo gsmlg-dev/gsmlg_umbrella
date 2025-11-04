@@ -22,7 +22,9 @@ defmodule GSMLG.Repo.Migrations.CreatePkiEvents do
     create index(:pki_events, [:ca_id, :sequence], name: :pki_events_ca_id_sequence_idx)
 
     # Index for querying events by type with timestamp ordering
-    create index(:pki_events, [:event_type, :timestamp], name: :pki_events_event_type_timestamp_idx)
+    create index(:pki_events, [:event_type, :timestamp],
+             name: :pki_events_event_type_timestamp_idx
+           )
 
     # General timestamp index for time-range queries
     create index(:pki_events, [:timestamp])

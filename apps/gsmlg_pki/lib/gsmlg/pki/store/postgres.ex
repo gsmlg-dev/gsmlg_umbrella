@@ -109,33 +109,34 @@ defmodule GSMLG.PKI.Store.Postgres do
     descending = Keyword.get(opts, :descending, false)
 
     query =
-      from e in Event,
+      from(e in Event,
         where: e.ca_id == ^ca_id
+      )
 
     query =
       if start_seq do
-        from e in query, where: e.sequence >= ^start_seq
+        from(e in query, where: e.sequence >= ^start_seq)
       else
         query
       end
 
     query =
       if end_seq do
-        from e in query, where: e.sequence <= ^end_seq
+        from(e in query, where: e.sequence <= ^end_seq)
       else
         query
       end
 
     query =
       if descending do
-        from e in query, order_by: [desc: e.sequence]
+        from(e in query, order_by: [desc: e.sequence])
       else
-        from e in query, order_by: [asc: e.sequence]
+        from(e in query, order_by: [asc: e.sequence])
       end
 
     query =
       if limit do
-        from e in query, limit: ^limit
+        from(e in query, limit: ^limit)
       else
         query
       end
@@ -179,27 +180,28 @@ defmodule GSMLG.PKI.Store.Postgres do
     end_time = Keyword.get(opts, :end_time)
 
     query =
-      from e in Event,
+      from(e in Event,
         where: e.event_type == ^event_type,
         order_by: [asc: e.timestamp]
+      )
 
     query =
       if start_time do
-        from e in query, where: e.timestamp >= ^start_time
+        from(e in query, where: e.timestamp >= ^start_time)
       else
         query
       end
 
     query =
       if end_time do
-        from e in query, where: e.timestamp <= ^end_time
+        from(e in query, where: e.timestamp <= ^end_time)
       else
         query
       end
 
     query =
       if limit do
-        from e in query, limit: ^limit
+        from(e in query, limit: ^limit)
       else
         query
       end
@@ -236,9 +238,10 @@ defmodule GSMLG.PKI.Store.Postgres do
   def query_events_by_serial(serial) do
     # Use JSONB query for metadata->>'serial'
     query =
-      from e in Event,
+      from(e in Event,
         where: fragment("?->>'serial' = ?", e.metadata, ^to_string(serial)),
         order_by: [asc: e.timestamp]
+      )
 
     events =
       query
@@ -289,13 +292,14 @@ defmodule GSMLG.PKI.Store.Postgres do
   """
   @spec get_stats() :: {:ok, map()} | {:error, term()}
   def get_stats do
-    total_events_query = from e in Event, select: count(e.id)
+    total_events_query = from(e in Event, select: count(e.id))
     total_events = Repo.one(total_events_query)
 
     events_by_type_query =
-      from e in Event,
+      from(e in Event,
         group_by: e.event_type,
         select: {e.event_type, count(e.id)}
+      )
 
     events_by_type = Repo.all(events_by_type_query) |> Map.new()
 

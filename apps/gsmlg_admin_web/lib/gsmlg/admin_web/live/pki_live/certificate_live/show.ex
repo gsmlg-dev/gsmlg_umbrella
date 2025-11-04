@@ -70,7 +70,8 @@ defmodule GSMLG.AdminWeb.PKILive.CertificateLive.Show do
     {filename, content, mime_type} =
       case format do
         "pem" ->
-          {"certificate_#{cert.serial}.pem", socket.assigns.certificate_pem, "application/x-pem-file"}
+          {"certificate_#{cert.serial}.pem", socket.assigns.certificate_pem,
+           "application/x-pem-file"}
 
         "der" ->
           {"certificate_#{cert.serial}.der", cert.certificate_der, "application/x-x509-ca-cert"}

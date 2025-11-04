@@ -60,7 +60,11 @@ defmodule GSMLG.AdminWeb.PKILive.CRLLive.Index do
   defp load_crl(socket) do
     case PKIContext.get_latest_crl(socket.assigns.ca_id) do
       {:ok, crl} ->
-        pem = :public_key.pem_encode([{:CertificateList, :public_key.der_encode(:CertificateList, crl), :not_encrypted}])
+        pem =
+          :public_key.pem_encode([
+            {:CertificateList, :public_key.der_encode(:CertificateList, crl), :not_encrypted}
+          ])
+
         assign(socket, crl: crl, crl_pem: pem)
 
       _ ->

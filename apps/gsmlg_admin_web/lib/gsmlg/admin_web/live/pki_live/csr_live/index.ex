@@ -21,7 +21,13 @@ defmodule GSMLG.AdminWeb.PKILive.CSRLive.Index do
   defp apply_action(socket, :index, _params), do: socket
 
   defp apply_action(socket, :upload, _params) do
-    assign(socket, :upload_form, %{"ca_id" => "", "csr_pem" => "", "template" => "server", "validity_days" => "365", "notes" => ""})
+    assign(socket, :upload_form, %{
+      "ca_id" => "",
+      "csr_pem" => "",
+      "template" => "server",
+      "validity_days" => "365",
+      "notes" => ""
+    })
   end
 
   @impl true
@@ -30,10 +36,15 @@ defmodule GSMLG.AdminWeb.PKILive.CSRLive.Index do
 
     case PKIContext.create_csr_request(params, user.email) do
       {:ok, _csr_request} ->
-        {:noreply, socket |> put_flash(:info, "CSR uploaded successfully") |> load_csr_requests() |> push_navigate(to: ~p"/pki/csr")}
+        {:noreply,
+         socket
+         |> put_flash(:info, "CSR uploaded successfully")
+         |> load_csr_requests()
+         |> push_navigate(to: ~p"/pki/csr")}
 
       {:error, changeset} ->
-        {:noreply, socket |> put_flash(:error, "Failed to upload CSR: #{inspect(changeset.errors)}")}
+        {:noreply,
+         socket |> put_flash(:error, "Failed to upload CSR: #{inspect(changeset.errors)}")}
     end
   end
 
@@ -43,7 +54,11 @@ defmodule GSMLG.AdminWeb.PKILive.CSRLive.Index do
 
     case PKIContext.approve_csr_request(String.to_integer(id), actor: user.email) do
       {:ok, cert} ->
-        {:noreply, socket |> put_flash(:info, "CSR approved and certificate issued") |> load_csr_requests() |> push_navigate(to: ~p"/pki/certificates/#{cert.serial}")}
+        {:noreply,
+         socket
+         |> put_flash(:info, "CSR approved and certificate issued")
+         |> load_csr_requests()
+         |> push_navigate(to: ~p"/pki/certificates/#{cert.serial}")}
 
       {:error, reason} ->
         {:noreply, socket |> put_flash(:error, "Failed to approve CSR: #{inspect(reason)}")}
