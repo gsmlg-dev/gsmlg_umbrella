@@ -13,8 +13,8 @@ ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 ARG MIX_TAILWIND_PATH=/usr/bin/tailwind
 ARG MIX_BUN_PATH=/usr/bin/bun
 
-ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-x64-musl
-ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-arm64-musl
+ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-x64-musl
+ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-arm64-musl
 
 ARG XLA_BUILD=true
 
@@ -28,9 +28,22 @@ RUN <<EOF
 set -evx
 cd /build
 
+# Select correct Tailwind binary based on architecture
+if [ "$TARGETARCH" = "arm64" ]; then
+  TAILWIND_URL="${TAILWIND_URL_ARM64}"
+  TAILWIND_ARCH="arm64"
+else
+  TAILWIND_URL="${TAILWIND_URL_AMD64}"
+  TAILWIND_ARCH="x64"
+fi
+
+# Download architecture-specific Tailwind binary
+wget -O /tmp/tailwindcss "${TAILWIND_URL}"
+chmod +x /tmp/tailwindcss
+
 mix deps.get
 bun install
-install -m 755 -D $MIX_TAILWIND_PATH /build/_build/tailwind-linux-x64
+install -m 755 -D /tmp/tailwindcss /build/_build/tailwind-linux-${TAILWIND_ARCH}
 install -m 755 -D $MIX_BUN_PATH /build/_build/bun
 
 bash update_version.sh $RELEASE_VERSION
@@ -78,3 +91,4 @@ ENV PATH="/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 EXPOSE 80 1080 4369
 
 CMD ["/app/bin/gsmlg_umbrella", "start"]
+
