@@ -3,7 +3,7 @@ defmodule GSMLG.PKI.Events do
   Event sourcing interface for PKI operations.
 
   This module provides functions to append and query immutable events
-  representing all PKI operations. Events are stored in CouchDB and provide
+  representing all PKI operations. Events are stored in PostgreSQL and provide
   a complete audit trail.
 
   ## Event Types
@@ -36,7 +36,7 @@ defmodule GSMLG.PKI.Events do
       {:ok, state} = GSMLG.PKI.Events.get_certificate_state(12345)
   """
 
-  alias GSMLG.PKI.Store.CouchDB
+  alias GSMLG.PKI.Store.Postgres, as: Store
 
   @type event_type ::
           :ca_initialized
@@ -110,7 +110,7 @@ defmodule GSMLG.PKI.Events do
       }
     )
 
-    with {:ok, _doc} <- CouchDB.store_event(event) do
+    with {:ok, _doc} <- Store.store_event(event) do
       {:ok, event}
     end
   end
@@ -136,7 +136,7 @@ defmodule GSMLG.PKI.Events do
   @spec query_by_ca(String.t(), keyword()) ::
           {:ok, [event()]} | {:error, term()}
   def query_by_ca(ca_id, opts \\ []) do
-    CouchDB.query_events_by_ca(ca_id, opts)
+    Store.query_events_by_ca(ca_id, opts)
   end
 
   @doc """
@@ -159,7 +159,7 @@ defmodule GSMLG.PKI.Events do
   @spec query_by_type(event_type(), keyword()) ::
           {:ok, [event()]} | {:error, term()}
   def query_by_type(event_type, opts \\ []) do
-    CouchDB.query_events_by_type(event_type, opts)
+    Store.query_events_by_type(event_type, opts)
   end
 
   @doc """
@@ -178,7 +178,7 @@ defmodule GSMLG.PKI.Events do
   @spec query_by_serial(non_neg_integer()) ::
           {:ok, [event()]} | {:error, term()}
   def query_by_serial(serial) do
-    CouchDB.query_events_by_serial(serial)
+    Store.query_events_by_serial(serial)
   end
 
   @doc """

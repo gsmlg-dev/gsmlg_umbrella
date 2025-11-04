@@ -1,0 +1,61 @@
+<Layouts.app flash={@flash} page_title={@page_title}>
+  <div class="container mx-auto px-4 py-8">
+  <%= if @ca do %>
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <.link navigate={~p"/pki/ca/#{@ca_id}"} class="btn btn-sm btn-ghost mb-2">← Back to CA</.link>
+        <h1 class="text-3xl font-bold">Certificate Revocation List</h1>
+        <p class="text-sm text-gray-500"><%= @ca.subject %></p>
+      </div>
+      <button phx-click="generate_crl" class="btn btn-primary">Generate New CRL</button>
+    </div>
+
+    <%= if @crl do %>
+      <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+          <div class="flex justify-between items-center">
+            <h2 class="card-title">Current CRL</h2>
+            <div class="dropdown dropdown-end">
+              <label tabindex="0" class="btn btn-secondary btn-sm">Download</label>
+              <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+                <li>
+                  <a phx-click="download_crl" phx-value-format="pem">PEM Format</a>
+                </li>
+                <li>
+                  <a phx-click="download_crl" phx-value-format="der">DER Format</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="mockup-code mt-4">
+            <pre><code class="text-xs"><%= @crl_pem %></code></pre>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class="alert alert-warning">
+        <span>No CRL has been generated for this CA yet. Click "Generate New CRL" to create one.</span>
+      </div>
+    <% end %>
+  <% else %>
+    <div class="alert alert-error">
+      <span>CA not found.</span>
+    </div>
+  <% end %>
+</div>
+
+<script>
+  window.addEventListener("phx:download", (e) => {
+    const { filename, content, mime_type } = e.detail;
+    const blob = new Blob([atob(content)], { type: mime_type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+</script>
+</Layouts.app>

@@ -26,7 +26,8 @@ defmodule GSMLG.PKI.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:gsmlg_couchdb, in_umbrella: true},
+      {:gsmlg, in_umbrella: true},
+      {:ecto_sql, "~> 3.11"},
       {:gsmlg_telemetry, in_umbrella: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

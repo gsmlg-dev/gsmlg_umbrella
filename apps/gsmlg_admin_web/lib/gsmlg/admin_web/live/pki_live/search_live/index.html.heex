@@ -1,0 +1,82 @@
+<Layouts.app flash={@flash} page_title={@page_title}>
+  <div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-6">Advanced Certificate Search</h1>
+
+  <div class="card bg-base-100 shadow-xl mb-8">
+    <div class="card-body">
+      <.form for={%{}} phx-submit="search" class="space-y-4">
+        <div class="grid grid-cols-4 gap-4">
+          <div class="form-control col-span-3">
+            <label class="label"><span class="label-text">Search Query</span></label>
+            <input
+              type="text"
+              name="query"
+              value={@search_query}
+              placeholder="Enter search term..."
+              class="input input-bordered"
+            />
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text">Search By</span></label>
+            <select name="type" class="select select-bordered">
+              <option value="subject" selected={@search_type == :subject}>Subject</option>
+              <option value="san" selected={@search_type == :san}>SAN</option>
+              <option value="serial" selected={@search_type == :serial}>Serial</option>
+              <option value="fingerprint" selected={@search_type == :fingerprint}>Fingerprint</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Search</button>
+      </.form>
+    </div>
+  </div>
+
+  <%= if @search_query != "" do %>
+    <div class="mb-4">
+      <p class="text-sm text-gray-600">
+        Found <%= length(@results) %> result(s) for "<%= @search_query %>"
+      </p>
+    </div>
+  <% end %>
+
+  <%= if Enum.empty?(@results) && @search_query != "" do %>
+    <div class="alert alert-info">No certificates found matching your search criteria.</div>
+  <% else %>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <%= for cert <- @results do %>
+        <div class="card bg-base-100 shadow-md">
+          <div class="card-body">
+            <h3 class="card-title text-base"><%= cert.subject %></h3>
+            <div class="text-sm space-y-1">
+              <div>
+                <span class="font-semibold">Serial:</span>
+                <span class="ml-2 font-mono text-xs"><%= cert.serial %></span>
+              </div>
+              <div>
+                <span class="font-semibold">Status:</span>
+                <span class={[
+                  "ml-2 badge badge-sm",
+                  cert.status == :active && "badge-success",
+                  cert.status == :revoked && "badge-error",
+                  cert.status == :expired && "badge-warning"
+                ]}>
+                  <%= cert.status %>
+                </span>
+              </div>
+              <div>
+                <span class="font-semibold">Expires:</span>
+                <span class="ml-2"><%= Calendar.strftime(cert.not_after, "%Y-%m-%d") %></span>
+              </div>
+            </div>
+            <div class="card-actions justify-end mt-4">
+              <.link navigate={~p"/pki/certificates/#{cert.serial}"} class="btn btn-sm btn-primary">
+                View Details
+              </.link>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+</Layouts.app>

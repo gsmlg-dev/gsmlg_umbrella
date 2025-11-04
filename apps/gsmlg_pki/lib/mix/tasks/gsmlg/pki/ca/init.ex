@@ -53,7 +53,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Ca.Init do
 
   ## Event Logging
 
-  CA initialization is logged to CouchDB as an immutable event with:
+  CA initialization is logged to PostgreSQL as an immutable event with:
   - Timestamp
   - CA subject and ID
   - Key type and size
@@ -161,7 +161,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Ca.Init do
           3. Use 'mix gsmlg.pki.cert.issue' to issue certificates
 
         Event Logging:
-          CA initialization has been logged to CouchDB with complete audit trail.
+          CA initialization has been logged to PostgreSQL with complete audit trail.
         """
 
         info_path = Path.join(output_dir, "ca-info.txt")

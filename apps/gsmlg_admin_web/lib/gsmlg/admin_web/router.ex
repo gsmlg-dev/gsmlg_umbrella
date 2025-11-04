@@ -104,6 +104,25 @@ defmodule GSMLG.AdminWeb.Router do
 
     live("/bumblebee/stt", Bumblebee.SttLive.Index, :index)
 
+    # PKI Management Routes
+    live("/pki/ca", PKILive.CALive.Index, :index)
+    live("/pki/ca/new", PKILive.CALive.Index, :new)
+    live("/pki/ca/:ca_id", PKILive.CALive.Show, :show)
+    live("/pki/ca/:ca_id/stats", PKILive.CALive.Show, :stats)
+
+    live("/pki/certificates", PKILive.CertificateLive.Index, :index)
+    live("/pki/certificates/issue", PKILive.CertificateLive.Index, :issue)
+    live("/pki/certificates/:serial", PKILive.CertificateLive.Show, :show)
+    live("/pki/certificates/:serial/revoke", PKILive.CertificateLive.Show, :revoke)
+
+    live("/pki/csr", PKILive.CSRLive.Index, :index)
+    live("/pki/csr/upload", PKILive.CSRLive.Index, :upload)
+
+    live("/pki/crl/:ca_id", PKILive.CRLLive.Index, :show)
+
+    live("/pki/search", PKILive.SearchLive.Index, :index)
+    live("/pki/analytics", PKILive.AnalyticsLive.Index, :index)
+
     import Phoenix.LiveDashboard.Router
 
     live_dashboard("/live_dashboard", metrics: GSMLG.AdminWeb.Telemetry)

@@ -1,0 +1,199 @@
+<Layouts.app flash={@flash} page_title={@page_title}>
+  <div class="container mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">Certificates</h1>
+    <.link navigate={~p"/pki/certificates/issue"} class="btn btn-primary">
+      Issue Certificate
+    </.link>
+  </div>
+
+  <%= if @live_action == :issue do %>
+    <div class="card bg-base-100 shadow-xl mb-8">
+      <div class="card-body">
+        <h2 class="card-title">Issue New Certificate</h2>
+        <.form for={@issue_form} phx-submit="issue_certificate" class="space-y-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Certificate Authority</span>
+            </label>
+            <select name="ca_id" class="select select-bordered" required>
+              <option value="">Select CA...</option>
+              <%= for ca <- @cas do %>
+                <option value={ca.id} selected={ca.id == @issue_form["ca_id"]}>
+                  <%= ca.subject %>
+                </option>
+              <% end %>
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Certificate Signing Request (CSR)</span>
+            </label>
+            <textarea
+              name="csr_pem"
+              class="textarea textarea-bordered font-mono text-xs h-64"
+              placeholder="-----BEGIN CERTIFICATE REQUEST-----
+...
+-----END CERTIFICATE REQUEST-----"
+              required
+            ><%= @issue_form["csr_pem"] %></textarea>
+            <label class="label">
+              <span class="label-text-alt">Paste the PEM-encoded CSR here</span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Certificate Template</span>
+              </label>
+              <select name="template" class="select select-bordered">
+                <option value="server" selected>Server (TLS/SSL)</option>
+                <option value="client">Client Authentication</option>
+                <option value="code_signing">Code Signing</option>
+                <option value="email">Email Protection</option>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Validity (days)</span>
+              </label>
+              <input
+                type="number"
+                name="validity"
+                value={@issue_form["validity"]}
+                class="input input-bordered"
+                min="1"
+                max="7300"
+              />
+            </div>
+          </div>
+
+          <div class="card-actions justify-end">
+            <.link navigate={~p"/pki/certificates"} class="btn btn-ghost">Cancel</.link>
+            <button type="submit" class="btn btn-primary">Issue Certificate</button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="card bg-base-100 shadow-md mb-6">
+    <div class="card-body">
+      <.form for={%{}} phx-change="filter" class="grid grid-cols-3 gap-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Status</span>
+          </label>
+          <select name="status" class="select select-bordered select-sm">
+            <option value="all" selected={@filter.status == :all}>All</option>
+            <option value="active" selected={@filter.status == :active}>Active</option>
+            <option value="revoked" selected={@filter.status == :revoked}>Revoked</option>
+            <option value="expired" selected={@filter.status == :expired}>Expired</option>
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Certificate Authority</span>
+          </label>
+          <select name="ca_id" class="select select-bordered select-sm">
+            <option value="">All CAs</option>
+            <%= for ca <- @cas do %>
+              <option value={ca.id} selected={ca.id == @filter.ca_id}>
+                <%= ca.subject %>
+              </option>
+            <% end %>
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Actions</span>
+          </label>
+          <.link navigate={~p"/pki/search"} class="btn btn-sm btn-secondary">
+            Advanced Search
+          </.link>
+        </div>
+      </.form>
+    </div>
+  </div>
+
+  <%= if Enum.empty?(@certificates) do %>
+    <div class="alert alert-info">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        class="stroke-current shrink-0 w-6 h-6"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      <span>No certificates found matching the filter criteria.</span>
+    </div>
+  <% else %>
+    <div class="overflow-x-auto">
+      <table class="table table-zebra">
+        <thead>
+          <tr>
+            <th>Serial</th>
+            <th>Subject</th>
+            <th>CA</th>
+            <th>Status</th>
+            <th>Issued</th>
+            <th>Expires</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for cert <- @certificates do %>
+            <tr>
+              <td class="font-mono text-xs"><%= cert.serial %></td>
+              <td class="max-w-xs truncate"><%= cert.subject %></td>
+              <td class="text-xs text-gray-500"><%= cert.issuer_ca_id %></td>
+              <td>
+                <span class={[
+                  "badge badge-sm",
+                  cert.status == :active && "badge-success",
+                  cert.status == :revoked && "badge-error",
+                  cert.status == :expired && "badge-warning",
+                  cert.status == :not_yet_valid && "badge-info"
+                ]}>
+                  <%= cert.status %>
+                </span>
+              </td>
+              <td class="text-sm"><%= Calendar.strftime(cert.not_before, "%Y-%m-%d") %></td>
+              <td class="text-sm">
+                <div class="flex items-center gap-2">
+                  <%= Calendar.strftime(cert.not_after, "%Y-%m-%d") %>
+                  <%= if cert.days_until_expiry <= 30 && cert.days_until_expiry > 0 do %>
+                    <span class={[
+                      "badge badge-xs",
+                      cert.days_until_expiry <= 7 && "badge-error",
+                      cert.days_until_expiry > 7 && "badge-warning"
+                    ]}>
+                      <%= cert.days_until_expiry %>d
+                    </span>
+                  <% end %>
+                </div>
+              </td>
+              <td>
+                <.link navigate={~p"/pki/certificates/#{cert.serial}"} class="btn btn-xs btn-ghost">
+                  View
+                </.link>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>
+</Layouts.app>

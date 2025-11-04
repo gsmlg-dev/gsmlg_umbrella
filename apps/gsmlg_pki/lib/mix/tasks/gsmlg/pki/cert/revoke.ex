@@ -55,7 +55,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Cert.Revoke do
 
   ## Event Logging
 
-  Certificate revocation is logged to CouchDB as an immutable event with:
+  Certificate revocation is logged to PostgreSQL as an immutable event with:
   - Serial number
   - Revocation reason
   - Revocation timestamp
@@ -189,7 +189,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Cert.Revoke do
         Mix.shell().info("")
 
         Mix.shell().info(
-          "Revocation has been logged to CouchDB for validation and CRL generation."
+          "Revocation has been logged to PostgreSQL for validation and CRL generation."
         )
 
         Mix.shell().info("")

@@ -1,21 +1,13 @@
 defmodule GSMLG.PKI.EventsTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias GSMLG.PKI.Events
-
-  setup_all do
-    # Setup CouchDB database for testing
-    Application.put_env(:gsmlg_pki, GSMLG.PKI.Store.CouchDB, database: "pki_events_test")
-
-    case GSMLG.PKI.Store.CouchDB.setup() do
-      :ok -> :ok
-      {:error, _} -> :ok
-    end
-
-    :ok
-  end
+  alias GSMLG.Repo
 
   setup do
+    # Setup PostgreSQL database for testing with Ecto sandbox
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+
     test_id = :erlang.unique_integer([:positive])
     ca_id = "ca:test_#{test_id}"
 

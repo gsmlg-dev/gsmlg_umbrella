@@ -71,7 +71,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Crl.Generate do
 
   ## Event Logging
 
-  CRL generation is logged to CouchDB as an immutable event with:
+  CRL generation is logged to PostgreSQL as an immutable event with:
   - CRL number
   - This update and next update timestamps
   - Number of revoked certificates
@@ -174,7 +174,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Crl.Generate do
           Mix.shell().info([:yellow, "⚠️  No revoked certificates in this CRL"])
         end
 
-        Mix.shell().info("CRL generation has been logged to CouchDB.")
+        Mix.shell().info("CRL generation has been logged to PostgreSQL.")
         Mix.shell().info("")
         Mix.shell().info("Next steps:")
         Mix.shell().info("  1. Distribute the CRL to clients")

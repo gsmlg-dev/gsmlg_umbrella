@@ -1,0 +1,255 @@
+<Layouts.app flash={@flash} page_title={@page_title}>
+  <div class="container mx-auto px-4 py-8">
+  <%= if @certificate do %>
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <.link navigate={~p"/pki/certificates"} class="btn btn-sm btn-ghost mb-2">
+          ← Back to Certificates
+        </.link>
+        <h1 class="text-3xl font-bold"><%= @certificate.subject %></h1>
+        <p class="text-sm text-gray-500 font-mono">Serial: <%= @certificate.serial %></p>
+      </div>
+      <div class="flex gap-2">
+        <div class="dropdown dropdown-end">
+          <label tabindex="0" class="btn btn-secondary">Download</label>
+          <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+            <li>
+              <a phx-click="download" phx-value-format="pem">PEM Format</a>
+            </li>
+            <li>
+              <a phx-click="download" phx-value-format="der">DER Format</a>
+            </li>
+          </ul>
+        </div>
+        <%= if @certificate.status == :active do %>
+          <.link navigate={~p"/pki/certificates/#{@serial}/revoke"} class="btn btn-error">
+            Revoke Certificate
+          </.link>
+        <% end %>
+      </div>
+    </div>
+
+    <%= if @live_action == :revoke do %>
+      <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+          <h2 class="card-title text-error">Revoke Certificate</h2>
+          <div class="alert alert-warning">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="stroke-current shrink-0 h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span>
+              <strong>Warning:</strong>
+              Certificate revocation cannot be undone. The certificate will no longer be trusted.
+            </span>
+          </div>
+
+          <.form for={@revoke_form} phx-submit="revoke" class="space-y-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Revocation Reason</span>
+              </label>
+              <select name="reason" class="select select-bordered" required>
+                <option value="unspecified">Unspecified</option>
+                <option value="key_compromise">Key Compromise</option>
+                <option value="ca_compromise">CA Compromise</option>
+                <option value="affiliation_changed">Affiliation Changed</option>
+                <option value="superseded">Superseded</option>
+                <option value="cessation_of_operation">Cessation of Operation</option>
+                <option value="certificate_hold">Certificate Hold</option>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Notes (optional)</span>
+              </label>
+              <textarea
+                name="notes"
+                class="textarea textarea-bordered"
+                placeholder="Add any notes about this revocation..."
+              ><%= @revoke_form["notes"] %></textarea>
+            </div>
+
+            <div class="card-actions justify-end">
+              <.link navigate={~p"/pki/certificates/#{@serial}"} class="btn btn-ghost">
+                Cancel
+              </.link>
+              <button type="submit" class="btn btn-error">Confirm Revocation</button>
+            </div>
+          </.form>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-lg">Certificate Status</h2>
+          <div class="space-y-3">
+            <div>
+              <span class={[
+                "badge badge-lg",
+                @certificate.status == :active && "badge-success",
+                @certificate.status == :revoked && "badge-error",
+                @certificate.status == :expired && "badge-warning",
+                @certificate.status == :not_yet_valid && "badge-info"
+              ]}>
+                <%= String.upcase(to_string(@certificate.status)) %>
+              </span>
+            </div>
+            <%= if @certificate.status == :revoked && @certificate.revoked_at do %>
+              <div class="text-sm">
+                <span class="font-semibold">Revoked:</span>
+                <span class="ml-2">
+                  <%= Calendar.strftime(@certificate.revoked_at, "%Y-%m-%d %H:%M UTC") %>
+                </span>
+              </div>
+              <%= if @certificate.revocation_reason do %>
+                <div class="text-sm">
+                  <span class="font-semibold">Reason:</span>
+                  <span class="ml-2"><%= @certificate.revocation_reason %></span>
+                </div>
+              <% end %>
+            <% end %>
+            <%= if @certificate.status == :active && @certificate.days_until_expiry do %>
+              <div class="text-sm">
+                <span class="font-semibold">Expires in:</span>
+                <span class={[
+                  "ml-2",
+                  @certificate.days_until_expiry <= 7 && "text-error font-bold",
+                  @certificate.days_until_expiry > 7 and @certificate.days_until_expiry <= 30 &&
+                    "text-warning font-semibold"
+                ]}>
+                  <%= @certificate.days_until_expiry %> days
+                </span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <div class="card bg-base-100 shadow-xl lg:col-span-2">
+        <div class="card-body">
+          <h2 class="card-title text-lg">Certificate Information</h2>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span class="font-semibold">Subject:</span>
+              <p class="mt-1 font-mono text-xs break-all"><%= @certificate.subject %></p>
+            </div>
+            <div>
+              <span class="font-semibold">Issuer CA:</span>
+              <p class="mt-1 font-mono text-xs break-all"><%= @certificate.issuer_ca_id %></p>
+            </div>
+            <div>
+              <span class="font-semibold">Valid From:</span>
+              <p class="mt-1">
+                <%= Calendar.strftime(@certificate.not_before, "%Y-%m-%d %H:%M UTC") %>
+              </p>
+            </div>
+            <div>
+              <span class="font-semibold">Valid Until:</span>
+              <p class="mt-1">
+                <%= Calendar.strftime(@certificate.not_after, "%Y-%m-%d %H:%M UTC") %>
+              </p>
+            </div>
+            <%= if @certificate[:subject_alt_names] && length(@certificate.subject_alt_names) > 0 do %>
+              <div class="col-span-2">
+                <span class="font-semibold">Subject Alternative Names:</span>
+                <div class="flex flex-wrap gap-1 mt-2">
+                  <%= for san <- @certificate.subject_alt_names do %>
+                    <span class="badge badge-ghost"><%= san %></span>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl mb-8">
+      <div class="card-body">
+        <h2 class="card-title">Certificate (PEM)</h2>
+        <div class="mockup-code">
+          <pre><code class="text-xs"><%= @certificate_pem %></code></pre>
+        </div>
+        <div class="card-actions justify-end">
+          <button
+            type="button"
+            class="btn btn-sm btn-primary"
+            onclick="navigator.clipboard.writeText(this.previousElementSibling.previousElementSibling.textContent)"
+          >
+            Copy to Clipboard
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <%= if assigns[:certificate] && @certificate.events do %>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Event History</h2>
+          <div class="timeline timeline-vertical">
+            <%= for event <- @certificate.events do %>
+              <div class="timeline-item">
+                <div class="timeline-start text-xs">
+                  <%= Calendar.strftime(event.timestamp, "%Y-%m-%d %H:%M") %>
+                </div>
+                <div class="timeline-middle">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    class="w-5 h-5"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="timeline-end text-sm">
+                  <div class="font-semibold"><%= event.event_type %></div>
+                  <%= if event.metadata[:actor] do %>
+                    <div class="text-xs text-gray-500">by <%= event.metadata.actor %></div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  <% else %>
+    <div class="alert alert-error">
+      <span>Certificate not found or failed to load.</span>
+    </div>
+  <% end %>
+</div>
+
+<script>
+  window.addEventListener("phx:download", (e) => {
+    const { filename, content, mime_type } = e.detail;
+    const blob = new Blob([atob(content)], { type: mime_type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+</script>
+</Layouts.app>

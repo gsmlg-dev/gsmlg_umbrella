@@ -96,6 +96,14 @@ defmodule GSMLG.Component.Admin do
                       {"Bucket List", "/aws/s3/buckets"}
                     ]}
                  ]},
+                {"PKI Management",
+                 [
+                   {"Certificate Authorities", "/pki/ca"},
+                   {"Certificates", "/pki/certificates"},
+                   {"CSR Requests", "/pki/csr"},
+                   {"Search", "/pki/search"},
+                   {"Analytics", "/pki/analytics"}
+                 ]},
                 {"Dashboard",
                  [
                    {"Live Dashboard", "/live_dashboard"}

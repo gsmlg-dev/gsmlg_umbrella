@@ -1,10 +1,12 @@
 import Config
 
 # Configure your database
+# Note: runtime.exs will override these settings with values from gsmlg.toml
 config :gsmlg, GSMLG.Repo,
   username: System.get_env("POSTGRES_USER", "gsmlg_dev"),
   password: System.get_env("POSTGRES_PASSWORD", "gsmlg_dev"),
   hostname: System.get_env("POSTGRES_HOST", "localhost"),
+  port: String.to_integer(System.get_env("POSTGRES_PORT", "5432")),
   database: "gsmlg_dev",
   show_sensitive_data_on_connection_error: true,
   pool_size: 10

@@ -259,3 +259,4 @@ MIX_ENV=prod mix release gsmlg_umbrella
 # Run release
 _build/prod/rel/gsmlg_umbrella/bin/gsmlg_umbrella start
 ```
+- This project use a custom config system in apps/gsmlg_config, and the config file is apps/gsmlg_config/priv/gsmlg.toml

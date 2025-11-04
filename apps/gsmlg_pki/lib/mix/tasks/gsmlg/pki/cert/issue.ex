@@ -57,11 +57,11 @@ defmodule Mix.Tasks.Gsmlg.Pki.Cert.Issue do
   ## Output
 
   The issued certificate is written to the output file in PEM format.
-  The certificate is also logged to CouchDB for audit and revocation tracking.
+  The certificate is also logged to PostgreSQL for audit and revocation tracking.
 
   ## Event Logging
 
-  Certificate issuance is logged to CouchDB as an immutable event with:
+  Certificate issuance is logged to PostgreSQL as an immutable event with:
   - Serial number
   - Subject and issuer
   - Template and extensions
@@ -169,7 +169,7 @@ defmodule Mix.Tasks.Gsmlg.Pki.Cert.Issue do
         Mix.shell().info("Subject: #{subject}")
         Mix.shell().info("Output: #{output}")
         Mix.shell().info("")
-        Mix.shell().info("Certificate has been logged to CouchDB for revocation tracking.")
+        Mix.shell().info("Certificate has been logged to PostgreSQL for revocation tracking.")
 
       {:error, reason} ->
         Mix.shell().error([:red, "✗ Failed to issue certificate"])
