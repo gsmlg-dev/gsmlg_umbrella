@@ -10,7 +10,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Show do
   def mount(%{"ca_id" => ca_id}, _session, socket) do
     socket =
       socket
-      |> assign(ca_id: ca_id, ca: nil, certificates: [], stats: nil)
+      |> assign(ca_id: ca_id, ca: nil, certificates: [], stats: nil, active_menu: "pki_ca_list")
       |> load_ca_details()
 
     {:ok, socket}

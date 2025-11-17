@@ -1,5 +1,8 @@
 <Layouts.app flash={@flash} page_title={@page_title}>
-  <div class="container mx-auto px-4 py-8">
+  <div class="relative">
+    <GSMLG.AdminWeb.PKILive.Components.PkiLeftMenu.pki_left_menu active_menu={@active_menu} />
+  </div>
+  <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl px-4 py-8">
     <%= if @ca do %>
       <div class="flex justify-between items-center mb-6">
         <div>

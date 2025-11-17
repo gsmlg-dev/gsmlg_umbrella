@@ -7,7 +7,7 @@ defmodule GSMLG.AdminWeb.PKILive.CRLLive.Index do
   def mount(%{"ca_id" => ca_id}, _session, socket) do
     socket =
       socket
-      |> assign(ca_id: ca_id, ca: nil, crl: nil, crl_pem: nil, page_title: "CRL Management")
+      |> assign(ca_id: ca_id, ca: nil, crl: nil, crl_pem: nil, page_title: "CRL Management", active_menu: "pki_certificates")
       |> load_ca()
       |> load_crl()
 

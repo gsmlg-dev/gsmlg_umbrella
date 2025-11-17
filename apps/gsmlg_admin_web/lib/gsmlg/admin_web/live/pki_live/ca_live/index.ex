@@ -20,7 +20,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Index do
       socket
       |> assign(
         cas: [],
-        active_menu: "pki_management",
+        active_menu: "pki_ca_list",
         session_id: session_id,
         page_title: "Certificate Authorities"
       )

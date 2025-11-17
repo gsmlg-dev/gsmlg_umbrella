@@ -13,7 +13,7 @@ defmodule GSMLG.AdminWeb.PKILive.CertificateLive.Show do
 
     socket =
       socket
-      |> assign(serial: serial_int, certificate: nil, certificate_pem: nil)
+      |> assign(serial: serial_int, certificate: nil, certificate_pem: nil, active_menu: "pki_certificates")
       |> load_certificate()
 
     {:ok, socket}

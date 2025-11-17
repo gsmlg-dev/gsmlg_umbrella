@@ -14,7 +14,7 @@ defmodule GSMLG.AdminWeb.PKILive.CertificateLive.Index do
         certificates: [],
         cas: [],
         filter: %{status: :all, ca_id: nil},
-        active_menu: "pki_management",
+        active_menu: "pki_certificates",
         page_title: "Certificates"
       )
       |> load_cas()

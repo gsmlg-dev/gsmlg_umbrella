@@ -6,7 +6,7 @@ defmodule GSMLG.AdminWeb.PKILive.CSRLive.Index do
   def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(csr_requests: [], cas: [], page_title: "CSR Management")
+      |> assign(csr_requests: [], cas: [], page_title: "CSR Management", active_menu: "pki_csr")
       |> load_csr_requests()
       |> load_cas()
 

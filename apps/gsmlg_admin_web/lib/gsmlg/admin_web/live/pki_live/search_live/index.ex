@@ -10,7 +10,8 @@ defmodule GSMLG.AdminWeb.PKILive.SearchLive.Index do
         search_query: "",
         search_type: :subject,
         results: [],
-        page_title: "Certificate Search"
+        page_title: "Certificate Search",
+        active_menu: "pki_search"
       )
 
     {:ok, socket}
