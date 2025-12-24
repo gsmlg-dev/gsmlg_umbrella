@@ -1,22 +1,23 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: 1.0.1 → 1.0.2 (Patch - clarification)
+Version Change: 1.0.2 → 1.1.0 (Minor - new architectural principle added)
 Modified Principles:
-  - I. Umbrella Architecture - Clarified gsmlg_component as shared UI component library
-  - II. Phoenix DuskMoon UI Standard - Added reference to gsmlg_component for shared components
-Modified Sections: None (only principle clarifications)
-Added Sections: None
+  - IV. OTP Distribution Model - Enhanced with detailed commander architecture
+Added Sections:
+  - VI. Commander Platform Architecture (new principle)
 Removed Sections: None
 Templates Requiring Updates:
-  ✅ plan-template.md - No changes needed (already aligned)
-  ✅ spec-template.md - No changes needed (already aligned)
-  ✅ tasks-template.md - No changes needed (already aligned)
+  ✅ plan-template.md - Already references gsmlg_commander, no changes needed
+  ✅ spec-template.md - No changes needed (technology-agnostic)
+  ✅ tasks-template.md - Already includes gsmlg_commander paths, no changes needed
 Follow-up TODOs: None
-Rationale: PATCH bump - This clarifies the role of gsmlg_component as a shared UI
-component library between gsmlg_web and gsmlg_admin_web. The principle was already
-listed in Umbrella Architecture, but its specific purpose (UI component sharing) was
-not explicit. No semantic changes to requirements or governance, only improved clarity.
+Rationale: MINOR bump - This adds a new architectural principle (VI. Commander Platform
+Architecture) that codifies the phoenix_socket_client-based communication pattern between
+gsmlg_commander and gsmlg_admin_web. The principle also documents the PTY shell requirement
+for remote control and the command_platform management layer in the gsmlg core app.
+This is a non-breaking addition that provides architectural guidance for the distributed
+command execution system.
 -->
 
 # GSMLG Umbrella Constitution
@@ -87,6 +88,33 @@ Test organization:
 - Channel tests for WebSocket functionality
 
 **Rationale**: TDD ensures code correctness, prevents regressions, and serves as living documentation. ExUnit provides excellent tooling for Elixir testing.
+
+### VI. Commander Platform Architecture
+The distributed command execution system follows a client-server architecture with Phoenix Channels:
+
+**Communication Layer**:
+- Commander clients (`gsmlg_commander`) MUST use `phoenix_socket_client` to connect to `gsmlg_admin_web`
+- All commander-to-server communication MUST occur via Phoenix socket channels
+- Commanders MUST authenticate using HMAC-SHA256 signed tokens with name and timestamp
+
+**Server-Side Management** (`apps/gsmlg/lib/gsmlg/command_platform/`):
+- Commander registration and lifecycle MUST be managed in the `GSMLG.CommandPlatform` module
+- Commander state MUST be persisted in Mnesia for distributed consistency
+- The platform MUST support listing connected commanders and their status
+- Session records MUST track PTY session history for audit purposes
+
+**PTY Shell Requirements**:
+- Each commander MUST provide a PTY (pseudo-terminal) shell for remote control
+- PTY sessions MUST support bidirectional I/O streaming via the Terminal channel
+- Sessions MUST implement proper lifecycle management (create, attach, detach, resize, close)
+- Output buffering MUST be implemented with configurable flush intervals
+- Idle sessions MUST be automatically terminated after timeout (default: 30 minutes)
+
+**Channel Topics**:
+- `command_platform`: General commander registration and status
+- `terminal:<name>`: PTY session management for individual commanders
+
+**Rationale**: Enables secure remote administration of distributed nodes. The phoenix_socket_client provides reliable WebSocket communication with automatic reconnection. PTY shells enable full interactive terminal access to remote commanders.
 
 ## Technical Standards
 
@@ -189,4 +217,4 @@ This constitution is a living document. It should:
 - Remain concise and actionable (not bureaucratic)
 - Be referenced in daily development decisions
 
-**Version**: 1.0.2 | **Ratified**: 2025-01-17 | **Last Amended**: 2025-01-18
+**Version**: 1.1.0 | **Ratified**: 2025-01-17 | **Last Amended**: 2025-12-22
