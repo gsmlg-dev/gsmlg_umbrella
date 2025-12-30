@@ -54,7 +54,7 @@ if System.get_env("MIX_TAILWIND_PATH") do
 end
 
 mnesia_dir_default =
-  Path.expand("../_build/tmp/mnesia/#{Mix.env()}/#{node()}", __DIR__)
+  Path.expand("../_build/tmp/mnesia/#{config_env()}/#{node()}", __DIR__)
 
 # Configure Mnesia directory based on environment
 mnesia_dir =

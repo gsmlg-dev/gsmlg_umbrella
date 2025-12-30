@@ -109,7 +109,7 @@ defmodule GSMLG.Config do
   def reload do
     GSMLG.Telemetry.info("Reloading configuration")
 
-    case GSMLG.Config.Loader.load(env: Mix.env()) do
+    case GSMLG.Config.Loader.load(env: get_env()) do
       {:ok, config} ->
         Application.put_env(:gsmlg_config, :loaded_config, config)
         GSMLG.Config.Setup.setup(config)
@@ -168,5 +168,19 @@ defmodule GSMLG.Config do
   def validate! do
     config = config()
     GSMLG.Config.Schema.validate!(config)
+  end
+
+  # Get the current environment, works both in Mix and release
+  defp get_env do
+    cond do
+      env_str = System.get_env("MIX_ENV") ->
+        String.to_atom(env_str)
+
+      function_exported?(Mix, :env, 0) ->
+        Mix.env()
+
+      true ->
+        :prod
+    end
   end
 end

@@ -74,7 +74,7 @@ defmodule GSMLG.Config.Setup do
       database: config[:database],
       pool_size: config[:pool_size],
       show_sensitive_data_on_connection_error:
-        config[:show_sensitive_data_on_connection_error] || Mix.env() == :dev
+        config[:show_sensitive_data_on_connection_error] || get_env() == :dev
     )
   end
 
@@ -165,4 +165,18 @@ defmodule GSMLG.Config.Setup do
   end
 
   def deep_merge(_old, new), do: new
+
+  # Get the current environment, works both in Mix and release
+  defp get_env do
+    cond do
+      env_str = System.get_env("MIX_ENV") ->
+        String.to_atom(env_str)
+
+      function_exported?(Mix, :env, 0) ->
+        Mix.env()
+
+      true ->
+        :prod
+    end
+  end
 end

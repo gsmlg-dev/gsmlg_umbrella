@@ -38,7 +38,7 @@ config :gsmlg_telemetry,
       flush_interval: 10_000
     ],
     cloudwatch: [
-      enabled: true,
+      enabled: false,
       log_group_name: "/gsmlg/production",
       log_stream_name: "#{node()}-#{System.get_env("HOSTNAME", "unknown")}",
       region: System.get_env("AWS_REGION", "us-east-1"),

@@ -56,9 +56,12 @@ ENV ERL_EPMD_PORT=4369
 ENV ERLCOOKIE=erlang_cookie
 ENV BUN_BIN=/usr/bin/bun
 ENV BUN_SERVER_JS=/app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
-ENV GSMLG_CONFIG_PATH=/etc/gsmlg.toml
+ENV GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml
+ENV XDG_CONFIG_DIR=/etc/
 
-COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg.toml
+ENV ELIXIR_ERL_OPTIONS="+fnu"
+
+COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg_umbrella.toml
 
 COPY --from=builder /app /app
 COPY --from=builder /usr/bin/bun /usr/bin/bun

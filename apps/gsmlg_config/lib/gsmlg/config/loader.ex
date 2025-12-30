@@ -55,7 +55,7 @@ defmodule GSMLG.Config.Loader do
 
   """
   def load(opts \\ []) do
-    env = Keyword.get(opts, :env, Mix.env())
+    env = Keyword.get(opts, :env, get_env())
     config_path = Keyword.get(opts, :config_path) || System.get_env("GSMLG_CONFIG_PATH")
     config_dir = Keyword.get(opts, :config_dir, "apps/gsmlg_config/priv")
     validate? = Keyword.get(opts, :validate, true)
@@ -286,6 +286,23 @@ defmodule GSMLG.Config.Loader do
     case GSMLG.Config.Schema.validate(config) do
       {:ok, validated} -> {:ok, validated}
       {:error, reason} -> {:error, {:validation_error, reason}}
+    end
+  end
+
+  # Get the current environment, works both in Mix and release
+  defp get_env do
+    cond do
+      # Check environment variable first (useful for releases)
+      env_str = System.get_env("MIX_ENV") ->
+        String.to_atom(env_str)
+
+      # Check if Mix is available (development/test)
+      function_exported?(Mix, :env, 0) ->
+        Mix.env()
+
+      # Default to :prod for releases
+      true ->
+        :prod
     end
   end
 end
