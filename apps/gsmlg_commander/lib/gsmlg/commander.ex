@@ -1,6 +1,18 @@
 defmodule GSMLG.Commander do
   @moduledoc """
   # `GSMLG.Commander` is the worker of the GSMLG.CommandPlatform.
+
+  This module provides two modes of operation:
+  1. Agent mode (start: true) - Runs on remote machines to be managed
+  2. Server mode (server: true) - Runs on the management server
+
+  ## Configuration
+
+      config :gsmlg_commander, GSMLG.Commander,
+        start: false,  # Enable agent mode
+        server: true,  # Enable server mode (TokenManager)
+        platform_url: "wss://...",
+        platform_key: "..."
   """
 
   use Application
@@ -9,9 +21,22 @@ defmodule GSMLG.Commander do
   def start(_type, _args) do
     config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
     start = config |> Keyword.get(:start, false)
+    server = config |> Keyword.get(:server, true)
     Phoenix.SocketClient.Telemetry.attach_debug_handler()
 
-    children =
+    # Server-side services (always start when not in agent mode)
+    server_children =
+      if server do
+        [
+          # Token Manager for agent authentication
+          {GSMLG.Commander.TokenManager, []}
+        ]
+      else
+        []
+      end
+
+    # Agent-side services (only start when configured as agent)
+    agent_children =
       if start do
         [
           # Registry for PTY session lookup
@@ -31,6 +56,8 @@ defmodule GSMLG.Commander do
       else
         []
       end
+
+    children = server_children ++ agent_children
 
     Supervisor.start_link(children, strategy: :one_for_one, name: __MODULE__)
   end

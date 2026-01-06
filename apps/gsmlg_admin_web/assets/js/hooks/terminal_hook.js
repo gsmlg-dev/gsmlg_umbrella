@@ -80,7 +80,8 @@ export const TerminalHook = {
     // Handle terminal input
     this.terminal.onData((data) => {
       if (this.channel && this.attached) {
-        this.channel.push('send_input', { session_id: sessionId, data: data });
+        // Use 'input' event for operator channel
+        this.channel.push('input', { data: data });
       }
     });
 
@@ -144,22 +145,51 @@ export const TerminalHook = {
 
     socket.connect();
 
-    // Join PTY session channel
-    this.channel = socket.channel(`pty_session:${sessionId}`, {});
+    // Join operator terminal channel for the commander
+    // Uses the commander/session ID as the topic
+    const commanderId = agentId || sessionId;
+    this.channel = socket.channel(`operator:terminal:${commanderId}`, {});
 
     this.channel
       .join()
       .receive('ok', (resp) => {
-        console.log('Joined PTY session channel', resp);
+        console.log('Joined operator terminal channel', resp);
         this.attached = true;
         this.terminal.focus();
+        this.terminal.write('\x1b[1;32mConnected to terminal.\x1b[0m\r\n');
       })
       .receive('error', (resp) => {
-        console.error('Failed to join PTY session channel', resp);
-        this.terminal.write('\r\n\x1b[1;31m[Error: Failed to connect to session]\x1b[0m\r\n');
+        console.error('Failed to join operator terminal channel', resp);
+        this.terminal.write('\r\n\x1b[1;31m[Error: Failed to connect to session - ' + (resp.reason || 'unknown') + ']\x1b[0m\r\n');
       });
 
     // Handle messages from channel
+    this.channel.on('output', ({ data }) => {
+      // Data comes base64 encoded from the operator channel
+      try {
+        const decoded = atob(data);
+        this.terminal.write(decoded);
+      } catch (e) {
+        // If not base64, write directly
+        this.terminal.write(data);
+      }
+    });
+
+    this.channel.on('session_closed', ({ exit_code }) => {
+      this.terminal.write(`\r\n\r\n[Process exited with code ${exit_code}]\r\n`);
+      this.terminal.setOption('disableStdin', true);
+      this.pushEvent('session_closed', { session_id: sessionId, exit_code: exit_code });
+    });
+
+    this.channel.on('error', ({ message }) => {
+      this.terminal.write(`\r\n\x1b[1;31m[Error: ${message}]\x1b[0m\r\n`);
+    });
+
+    this.channel.on('resized', ({ rows, cols }) => {
+      console.log(`Terminal resized to ${rows}x${cols}`);
+    });
+
+    // Legacy event handlers for backward compatibility
     this.channel.on('pty_output', ({ data }) => {
       this.terminal.write(data);
     });
