@@ -133,6 +133,23 @@ config :mime, :types, %{
   "text/plain" => ["livemd"]
 }
 
+# Commander E2E Test configuration
+config :gsmlg_commander_test,
+  # Server settings
+  server_port: 14000,
+  # Timeouts
+  connect_timeout: 5_000,
+  scenario_timeout: 30_000,
+  health_check_timeout: 10_000,
+  # Test configuration for server
+  server_config: [
+    idle_timeout: :timer.seconds(30),
+    reconnect_grace_period: :timer.seconds(10),
+    heartbeat_interval: :timer.seconds(5)
+  ],
+  # Reporters
+  reporters: [:console]
+
 # GSMLG Telemetry configuration
 config :gsmlg_telemetry,
   # Minimum log level
