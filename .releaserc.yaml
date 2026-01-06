@@ -1,9 +1,9 @@
-repositoryUrl: https://gitlab.gsmlg.net/apps/gsmlg_umbrella.git
+repositoryUrl: https://github.com/gsmlg-dev/gsmlg_umbrella.git
 plugins:
   - "@semantic-release/commit-analyzer"
   - "@semantic-release/release-notes-generator"
   - "@semantic-release/changelog"
-  - "@semantic-release/gitlab"
+  - "@semantic-release/github"
   - - "@semantic-release/git"
     - "assets":
         - "CHANGELOG.md"

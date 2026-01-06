@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "description": "GSMLG Umbrella Project",
-  "homepage": "https://gitlab.gsmlg.net/apps/gsmlg_umbrella",
+  "homepage": "https://github.com/gsmlg-dev/gsmlg_umbrella",
   "bugs": {
-    "url": "https://gitlab.gsmlg.net/apps/gsmlg_umbrella/issues"
+    "url": "https://github.com/gsmlg-dev/gsmlg_umbrella/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git@gitlab.gsmlg.net:apps/gsmlg_umbrella.git"
+    "url": "https://github.com/gsmlg-dev/gsmlg_umbrella.git"
   },
   "license": "see LICENSE.txt",
   "author": "Jonathan Gao",
