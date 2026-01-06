@@ -133,6 +133,71 @@ config :mime, :types, %{
   "text/plain" => ["livemd"]
 }
 
+# Commander System Configuration
+# The Commander system supports two modes:
+# - Agent mode (start: true): Runs on remote machines, connects to control server
+# - Server mode (start_server: true): Control server that manages agents
+config :gsmlg_commander,
+  # Server configuration
+  server: [
+    # Agent WebSocket endpoint
+    agent_endpoint: "/agent/connect",
+    # Operator WebSocket endpoint
+    operator_endpoint: "/operator/terminal",
+
+    # Connection settings
+    heartbeat_interval_ms: 30_000,
+    heartbeat_timeout_ms: 90_000,
+    reconnect_grace_period_ms: 120_000,
+
+    # Limits
+    max_agents: 10_000,
+    max_ptys_per_agent: 10,
+    max_observers_per_pty: 5,
+    max_output_buffer_bytes: 1_048_576
+  ],
+
+  # Authentication configuration
+  auth: [
+    # Agent auth: :token | :certificate | :oauth
+    agent_auth_type: :token,
+    agent_token_secret: {:system, "COMMANDER_AGENT_SECRET"},
+
+    # Operator auth: :jwt
+    operator_auth_type: :jwt,
+    jwt_secret: {:system, "COMMANDER_JWT_SECRET"}
+  ],
+
+  # Policy engine configuration
+  policy: [
+    # Default policy for users without explicit rules
+    # :none | :tagged | :all
+    default_access: :none,
+
+    # Enable tag-based access (user metadata -> agent tags)
+    enable_tag_matching: true,
+
+    # Default max PTYs per user
+    default_max_ptys: 5,
+
+    # Admin users (bypass all policy checks)
+    admin_users: []
+  ],
+
+  # Telemetry configuration
+  telemetry: [
+    enabled: true,
+    forward_to_gsmlg_telemetry: true
+  ],
+
+  # Audit logging
+  audit: [
+    enabled: true,
+    log_command_content: false,
+    backend: :logger,
+    max_entries: 10_000
+  ]
+
 # GSMLG Telemetry configuration
 config :gsmlg_telemetry,
   # Minimum log level
@@ -152,7 +217,17 @@ config :gsmlg_telemetry,
     [:gsmlg, :web, :request, :duration],
     [:gsmlg, :repo, :query, :duration],
     [:gsmlg, :commander, :command_execution],
-    [:gsmlg, :admin, :mnesia, :fetch_info]
+    [:gsmlg, :admin, :mnesia, :fetch_info],
+    # Commander system metrics
+    [:commander, :session, :started],
+    [:commander, :session, :terminated],
+    [:commander, :session, :authenticated],
+    [:commander, :session, :disconnected],
+    [:commander, :session, :reconnected],
+    [:commander, :pty, :spawned],
+    [:commander, :policy, :authorization],
+    [:commander, :audit, :session_created],
+    [:commander, :manager, :health_check]
   ],
 
   # Backends configuration
