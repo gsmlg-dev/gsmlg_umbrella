@@ -1,10 +1,12 @@
 import Config
 
+# Database configuration - use environment variables for CI, defaults for local dev
 config :gsmlg, GSMLG.Repo,
-  username: "gsmlg_test",
-  password: "gsmlg_test",
-  database: "gsmlg_test#{System.get_env("MIX_TEST_PARTITION")}",
-  hostname: "postgres-server.gsmlg.net",
+  username: System.get_env("POSTGRES_USER", "gsmlg_test"),
+  password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
+  database:
+    System.get_env("POSTGRES_DB", "gsmlg_test") <> "#{System.get_env("MIX_TEST_PARTITION")}",
+  hostname: System.get_env("POSTGRES_HOST", "postgres-server.gsmlg.net"),
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 

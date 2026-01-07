@@ -14,9 +14,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: secrethub
-          POSTGRES_PASSWORD: secrethub_test_password
-          POSTGRES_DB: secrethub_test
+          POSTGRES_USER: gsmlg_test
+          POSTGRES_PASSWORD: gsmlg_test
+          POSTGRES_DB: gsmlg_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -34,6 +34,12 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_USER: gsmlg_test
+      POSTGRES_PASSWORD: gsmlg_test
+      POSTGRES_DB: gsmlg_test
 
     steps:
       - name: Checkout code
@@ -64,19 +70,16 @@ jobs:
       - name: Create database
         env:
           MIX_ENV: test
-          DATABASE_URL: postgresql://secrethub:secrethub_test_password@localhost:5432/secrethub_test
         run: mix ecto.create
 
       - name: Run migrations
         env:
           MIX_ENV: test
-          DATABASE_URL: postgresql://secrethub:secrethub_test_password@localhost:5432/secrethub_test
         run: mix ecto.migrate
 
       - name: Run tests
         env:
           MIX_ENV: test
-          DATABASE_URL: postgresql://secrethub:secrethub_test_password@localhost:5432/secrethub_test
           REDIS_URL: redis://localhost:6379
         run: mix test
 
@@ -84,7 +87,6 @@ jobs:
         if: success()
         env:
           MIX_ENV: test
-          DATABASE_URL: postgresql://secrethub:secrethub_test_password@localhost:5432/secrethub_test
           REDIS_URL: redis://localhost:6379
         run: mix coveralls.html
 
