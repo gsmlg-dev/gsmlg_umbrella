@@ -192,7 +192,7 @@ defmodule GSMLG.AdminWeb.PKIContext do
 
     with {:ok, keypair} <- GSMLG.PKI.KeyGenerator.generate_key(key_type, key_size, key_opts) do
       # Generate CA certificate
-      ca_id = "ca:#{Uniq.UUID.uuid4()}"
+      ca_id = "ca:#{Ecto.UUID.generate()}"
       serial = :crypto.strong_rand_bytes(20) |> Base.encode16(case: :lower)
 
       # Build X.509 certificate (using X509 library or :public_key)
