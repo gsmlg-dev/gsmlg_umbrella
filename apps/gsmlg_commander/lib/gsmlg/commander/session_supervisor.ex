@@ -64,7 +64,7 @@ defmodule GSMLG.Commander.SessionSupervisor do
     spec = {GSMLG.Commander.Session, opts}
 
     case DynamicSupervisor.start_child(__MODULE__, spec) do
-      {:ok, pid} = result ->
+      {:ok, _pid} = result ->
         emit_session_started(session_id, opts)
         result
 

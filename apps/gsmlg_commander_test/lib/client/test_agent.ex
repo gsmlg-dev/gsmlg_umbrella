@@ -276,7 +276,10 @@ defmodule GSMLG.CommanderTest.Client.TestAgent do
     end
   end
 
-  defp handle_protocol_message(%{"type" => "pty_input", "pty_id" => pty_id, "data" => data}, state) do
+  defp handle_protocol_message(
+         %{"type" => "pty_input", "pty_id" => pty_id, "data" => data},
+         state
+       ) do
     case Map.get(state.pty_sessions, pty_id) do
       nil ->
         Logger.warning("Received input for unknown PTY: #{pty_id}")

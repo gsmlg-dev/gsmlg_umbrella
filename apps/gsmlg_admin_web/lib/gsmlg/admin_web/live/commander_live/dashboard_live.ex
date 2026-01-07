@@ -43,8 +43,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
           Overview of all connected commander agents
         </p>
       </div>
-
-      <!-- Stats Cards -->
+      
+    <!-- Stats Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <.stats_card
           title="Total Commanders"
@@ -89,11 +89,11 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
                 </div>
                 <div class="ml-3 flex-1">
                   <p class="text-sm text-gray-900 dark:text-white">
-                    <span class="font-medium"><%= activity.agent_name %></span>
-                    <%= activity_text(activity.event) %>
+                    <span class="font-medium">{activity.agent_name}</span>
+                    {activity_text(activity.event)}
                   </p>
                   <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    <%= format_time_ago(activity.timestamp) %>
+                    {format_time_ago(activity.timestamp)}
                   </p>
                 </div>
               </div>
@@ -105,8 +105,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
             <% end %>
           </div>
         </div>
-
-        <!-- Commanders by Tag -->
+        
+    <!-- Commanders by Tag -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md">
           <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Commanders by Tag</h2>
@@ -117,7 +117,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
                 <%= for {tag, count} <- @by_tag |> Enum.sort_by(fn {_, c} -> -c end) |> Enum.take(10) do %>
                   <div class="flex items-center">
                     <span class="w-24 text-sm text-gray-600 dark:text-gray-400 truncate">
-                      <%= tag %>
+                      {tag}
                     </span>
                     <div class="flex-1 mx-4">
                       <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -129,7 +129,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
                       </div>
                     </div>
                     <span class="w-12 text-right text-sm font-medium text-gray-900 dark:text-white">
-                      <%= count %>
+                      {count}
                     </span>
                   </div>
                 <% end %>
@@ -142,8 +142,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
           </div>
         </div>
       </div>
-
-      <!-- Quick Actions -->
+      
+    <!-- Quick Actions -->
       <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
         <div class="flex flex-wrap gap-4">
@@ -191,8 +191,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
           </button>
         </div>
       </div>
-
-      <!-- Alerts Section -->
+      
+    <!-- Alerts Section -->
       <%= if length(@alerts) > 0 do %>
         <div class="mt-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 p-4 rounded">
           <div class="flex">
@@ -207,12 +207,12 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
             </div>
             <div class="ml-3">
               <h3 class="text-sm font-medium text-red-800 dark:text-red-200">
-                <%= length(@alerts) %> Alert(s)
+                {length(@alerts)} Alert(s)
               </h3>
               <div class="mt-2 text-sm text-red-700 dark:text-red-300">
                 <ul class="list-disc pl-5 space-y-1">
                   <%= for alert <- @alerts do %>
-                    <li><%= alert.message %></li>
+                    <li>{alert.message}</li>
                   <% end %>
                 </ul>
               </div>
@@ -320,12 +320,17 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
 
     Enum.count(sessions, fn s ->
       case s[:created_at] do
-        nil -> false
+        nil ->
+          false
+
         ts when is_integer(ts) ->
           DateTime.from_unix!(div(ts, 1000)) |> DateTime.to_date() == today
+
         %DateTime{} = dt ->
           DateTime.to_date(dt) == today
-        _ -> false
+
+        _ ->
+          false
       end
     end)
   end
@@ -400,10 +405,10 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
           <.icon name={@icon} class="w-6 h-6 text-white" />
         </div>
         <div class="ml-4">
-          <p class="text-sm font-medium text-gray-500 dark:text-gray-400"><%= @title %></p>
-          <p class="text-2xl font-bold text-gray-900 dark:text-white"><%= @value %></p>
+          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{@title}</p>
+          <p class="text-2xl font-bold text-gray-900 dark:text-white">{@value}</p>
           <%= if @trend != "" do %>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1"><%= @trend %></p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{@trend}</p>
           <% end %>
         </div>
       </div>

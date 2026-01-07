@@ -149,7 +149,9 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
         key_size: "4096",
         validity_start: DateTime.utc_now() |> DateTime.to_iso8601(),
         validity_end:
-          DateTime.utc_now() |> DateTime.add(10 * 365 * 24 * 3600, :second) |> DateTime.to_iso8601(),
+          DateTime.utc_now()
+          |> DateTime.add(10 * 365 * 24 * 3600, :second)
+          |> DateTime.to_iso8601(),
         encrypt_key: "false"
       }
 

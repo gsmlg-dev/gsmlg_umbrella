@@ -76,10 +76,10 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
               </.link>
               <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-                  <%= @commander.hostname %>
+                  {@commander.hostname}
                 </h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                  <%= @commander.id %>
+                  {@commander.id}
                 </p>
               </div>
             </div>
@@ -100,8 +100,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
               </button>
             </div>
           </div>
-
-          <!-- Tabs -->
+          
+    <!-- Tabs -->
           <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
             <nav class="-mb-px flex space-x-8">
               <.tab_link tab={:overview} current={@tab} commander_id={@commander_id}>
@@ -112,8 +112,10 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
                   Shell
                 </.tab_link>
               <% else %>
-                <span class="border-transparent text-gray-400 dark:text-gray-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm cursor-not-allowed"
-                      title="Shell not available">
+                <span
+                  class="border-transparent text-gray-400 dark:text-gray-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm cursor-not-allowed"
+                  title="Shell not available"
+                >
                   Shell
                 </span>
               <% end %>
@@ -139,8 +141,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
               <% end %>
             </nav>
           </div>
-
-          <!-- Tab Content -->
+          
+    <!-- Tab Content -->
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md">
             <%= case @tab do %>
               <% :overview -> %>
@@ -165,10 +167,22 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
           </div>
         <% else %>
           <div class="text-center py-12">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              class="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
-            <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">Commander not found</h3>
+            <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">
+              Commander not found
+            </h3>
             <p class="mt-1 text-gray-500 dark:text-gray-400">The commander may have disconnected.</p>
             <div class="mt-6">
               <.link navigate={~p"/commander/list"} class="text-blue-600 hover:text-blue-800">
@@ -333,7 +347,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
 
     ~H"""
     <span class={"inline-flex items-center px-3 py-1 rounded-full text-sm font-medium #{@bg_color} #{@text_color}"}>
-      <%= @label %>
+      {@label}
     </span>
     """
   end
@@ -360,7 +374,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
       patch={~p"/commander/#{@commander_id}/#{@tab}"}
       class={"whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm #{@class}"}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </.link>
     """
   end
@@ -381,20 +395,24 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
             </div>
             <div class="flex justify-between">
               <dt class="text-gray-500 dark:text-gray-400">Session ID</dt>
-              <dd class="font-mono text-sm text-gray-900 dark:text-white"><%= @commander.id %></dd>
+              <dd class="font-mono text-sm text-gray-900 dark:text-white">{@commander.id}</dd>
             </div>
             <div class="flex justify-between">
               <dt class="text-gray-500 dark:text-gray-400">Connected</dt>
-              <dd class="text-gray-900 dark:text-white"><%= format_datetime(@commander.connected_at) %></dd>
+              <dd class="text-gray-900 dark:text-white">
+                {format_datetime(@commander.connected_at)}
+              </dd>
             </div>
             <div class="flex justify-between">
               <dt class="text-gray-500 dark:text-gray-400">Last Activity</dt>
-              <dd class="text-gray-900 dark:text-white"><%= format_datetime(@commander.last_activity) %></dd>
+              <dd class="text-gray-900 dark:text-white">
+                {format_datetime(@commander.last_activity)}
+              </dd>
             </div>
             <%= if @commander.uptime do %>
               <div class="flex justify-between">
                 <dt class="text-gray-500 dark:text-gray-400">Uptime</dt>
-                <dd class="text-gray-900 dark:text-white"><%= format_uptime(@commander.uptime) %></dd>
+                <dd class="text-gray-900 dark:text-white">{format_uptime(@commander.uptime)}</dd>
               </div>
             <% end %>
           </dl>
@@ -407,37 +425,37 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
           <dl class="space-y-3">
             <div class="flex justify-between">
               <dt class="text-gray-500 dark:text-gray-400">Hostname</dt>
-              <dd class="text-gray-900 dark:text-white"><%= @commander.hostname %></dd>
+              <dd class="text-gray-900 dark:text-white">{@commander.hostname}</dd>
             </div>
             <%= if @commander.metadata[:os] do %>
               <div class="flex justify-between">
                 <dt class="text-gray-500 dark:text-gray-400">OS</dt>
-                <dd class="text-gray-900 dark:text-white"><%= @commander.metadata[:os] %></dd>
+                <dd class="text-gray-900 dark:text-white">{@commander.metadata[:os]}</dd>
               </div>
             <% end %>
             <%= if @commander.metadata[:kernel] do %>
               <div class="flex justify-between">
                 <dt class="text-gray-500 dark:text-gray-400">Kernel</dt>
-                <dd class="text-gray-900 dark:text-white"><%= @commander.metadata[:kernel] %></dd>
+                <dd class="text-gray-900 dark:text-white">{@commander.metadata[:kernel]}</dd>
               </div>
             <% end %>
             <%= if @commander.metadata[:arch] do %>
               <div class="flex justify-between">
                 <dt class="text-gray-500 dark:text-gray-400">Architecture</dt>
-                <dd class="text-gray-900 dark:text-white"><%= @commander.metadata[:arch] %></dd>
+                <dd class="text-gray-900 dark:text-white">{@commander.metadata[:arch]}</dd>
               </div>
             <% end %>
             <%= if @commander.metadata[:ip_address] do %>
               <div class="flex justify-between">
                 <dt class="text-gray-500 dark:text-gray-400">IP Address</dt>
-                <dd class="text-gray-900 dark:text-white"><%= @commander.metadata[:ip_address] %></dd>
+                <dd class="text-gray-900 dark:text-white">{@commander.metadata[:ip_address]}</dd>
               </div>
             <% end %>
           </dl>
         </div>
       </div>
-
-      <!-- Capabilities -->
+      
+    <!-- Capabilities -->
       <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Capabilities
@@ -448,14 +466,14 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
           <% end %>
         </div>
       </div>
-
-      <!-- Tags -->
+      
+    <!-- Tags -->
       <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Tags</h3>
         <div class="flex flex-wrap gap-2">
           <%= for tag <- @commander.tags do %>
             <span class="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-full">
-              <%= tag %>
+              {tag}
             </span>
           <% end %>
           <%= if @commander.tags == [] do %>
@@ -463,8 +481,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
           <% end %>
         </div>
       </div>
-
-      <!-- Quick Actions -->
+      
+    <!-- Quick Actions -->
       <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Quick Actions</h3>
         <div class="flex flex-wrap gap-3">
@@ -474,14 +492,24 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
               class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
             >
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
               Open Shell
             </.link>
           <% end %>
           <button class="inline-flex items-center px-4 py-2 border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
             </svg>
             Disconnect
           </button>
@@ -507,7 +535,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
                 "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               end}
           >
-            <span><%= terminal.title %></span>
+            <span>{terminal.title}</span>
             <button
               phx-click="close_terminal"
               phx-value-id={terminal.id}
@@ -524,8 +552,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
           + New Session
         </button>
       </div>
-
-      <!-- Terminal Container -->
+      
+    <!-- Terminal Container -->
       <%= if @active_terminal do %>
         <div
           id={"terminal-#{@active_terminal}"}
@@ -541,7 +569,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
             <span>Ctrl+D</span>
           </div>
           <div class="flex space-x-4">
-            <span><%= @commander.dimensions.cols %>x<%= @commander.dimensions.rows %></span>
+            <span>{@commander.dimensions.cols}x{@commander.dimensions.rows}</span>
             <span>bash</span>
             <span>UTF-8</span>
           </div>
@@ -549,10 +577,22 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
       <% else %>
         <div class="h-96 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
           <div class="text-center">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <svg
+              class="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
             </svg>
-            <p class="mt-2 text-gray-500 dark:text-gray-400">Click "New Session" to start a terminal</p>
+            <p class="mt-2 text-gray-500 dark:text-gray-400">
+              Click "New Session" to start a terminal
+            </p>
           </div>
         </div>
       <% end %>
@@ -563,8 +603,18 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   defp files_tab(assigns) do
     ~H"""
     <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+      <svg
+        class="mx-auto h-12 w-12 text-gray-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+        />
       </svg>
       <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">File Browser</h3>
       <p class="mt-1">File browser functionality coming soon.</p>
@@ -575,8 +625,18 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   defp processes_tab(assigns) do
     ~H"""
     <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+      <svg
+        class="mx-auto h-12 w-12 text-gray-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+        />
       </svg>
       <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">Process Manager</h3>
       <p class="mt-1">Process manager functionality coming soon.</p>
@@ -587,8 +647,18 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   defp logs_tab(assigns) do
     ~H"""
     <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      <svg
+        class="mx-auto h-12 w-12 text-gray-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
       </svg>
       <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">Log Viewer</h3>
       <p class="mt-1">Log viewer functionality coming soon.</p>
@@ -599,8 +669,18 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   defp metrics_tab(assigns) do
     ~H"""
     <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      <svg
+        class="mx-auto h-12 w-12 text-gray-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+        />
       </svg>
       <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">System Metrics</h3>
       <p class="mt-1">Metrics visualization coming soon.</p>
@@ -646,7 +726,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
             else
               "text-gray-500 dark:text-gray-400"
             end}>
-            <%= @label %>
+            {@label}
           </p>
           <p class={"text-xs " <>
             if @enabled do
@@ -654,7 +734,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
             else
               "text-gray-400 dark:text-gray-500"
             end}>
-            <%= if @enabled, do: "Supported", else: "Not available" %>
+            {if @enabled, do: "Supported", else: "Not available"}
           </p>
         </div>
       </div>
@@ -668,7 +748,12 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
 
     ~H"""
     <svg class={"w-4 h-4 #{@color}"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
     </svg>
     """
   end
@@ -679,7 +764,12 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
 
     ~H"""
     <svg class={"w-4 h-4 #{@color}"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+      />
     </svg>
     """
   end
@@ -690,7 +780,12 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
 
     ~H"""
     <svg class={"w-4 h-4 #{@color}"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M13 10V3L4 14h7v7l9-11h-7z"
+      />
     </svg>
     """
   end

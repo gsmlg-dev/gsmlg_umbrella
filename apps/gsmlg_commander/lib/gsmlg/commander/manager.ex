@@ -593,7 +593,7 @@ defmodule GSMLG.Commander.Manager do
     sessions = SessionRegistry.list_all()
 
     unhealthy =
-      Enum.filter(sessions, fn {session_id, _pid, metadata} ->
+      Enum.filter(sessions, fn {_session_id, _pid, metadata} ->
         metadata[:status] == :disconnected
       end)
 

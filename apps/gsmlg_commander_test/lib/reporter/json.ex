@@ -17,7 +17,9 @@ defmodule GSMLG.CommanderTest.Reporter.Json do
   @spec report([map()], map()) :: :ok
   def report(results, summary) do
     report = generate_report(results, summary)
-    output_path = Application.get_env(:gsmlg_commander_test, :json_report_path, @default_output_path)
+
+    output_path =
+      Application.get_env(:gsmlg_commander_test, :json_report_path, @default_output_path)
 
     case write_report(report, output_path) do
       :ok ->

@@ -14,7 +14,6 @@ defmodule GSMLG.AdminWeb.PKILive.Components.DateTimeRangePicker do
       />
   """
   use Phoenix.Component
-  import Phoenix.HTML.Form
 
   @doc """
   Renders a datetime range picker with start and end inputs.
@@ -57,12 +56,12 @@ defmodule GSMLG.AdminWeb.PKILive.Components.DateTimeRangePicker do
           />
           <%= if @start_field.errors != [] do %>
             <p class="mt-1 text-sm text-error">
-              <%= Enum.map(@start_field.errors, fn {msg, _opts} -> msg end) |> Enum.join(", ") %>
+              {Enum.map(@start_field.errors, fn {msg, _opts} -> msg end) |> Enum.join(", ")}
             </p>
           <% end %>
         </div>
-
-        <!-- End DateTime -->
+        
+    <!-- End DateTime -->
         <div>
           <label for={"#{@id}_end"} class="block text-sm font-medium text-gray-700 mb-1">
             {@end_label}
@@ -80,13 +79,13 @@ defmodule GSMLG.AdminWeb.PKILive.Components.DateTimeRangePicker do
           />
           <%= if @end_field.errors != [] do %>
             <p class="mt-1 text-sm text-error">
-              <%= Enum.map(@end_field.errors, fn {msg, _opts} -> msg end) |> Enum.join(", ") %>
+              {Enum.map(@end_field.errors, fn {msg, _opts} -> msg end) |> Enum.join(", ")}
             </p>
           <% end %>
         </div>
       </div>
-
-      <!-- Duration Display -->
+      
+    <!-- Duration Display -->
       <%= if @show_duration && @start_field.value && @end_field.value do %>
         <%= if is_struct(@start_field.value, DateTime) && is_struct(@end_field.value, DateTime) do %>
           <div class="alert alert-info">
@@ -111,8 +110,8 @@ defmodule GSMLG.AdminWeb.PKILive.Components.DateTimeRangePicker do
           </div>
         <% end %>
       <% end %>
-
-      <!-- Info Text -->
+      
+    <!-- Info Text -->
       <p class="text-sm text-gray-600">
         Specify the validity period for this Certificate Authority. For root CAs, consider 10-20 years. All times are in UTC.
       </p>

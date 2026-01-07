@@ -23,7 +23,7 @@ defmodule GSMLG.AdminWeb.OperatorChannel do
   alias GSMLG.Commander.SessionManager
 
   @impl true
-  def join("operator:terminal:" <> commander_id, params, socket) do
+  def join("operator:terminal:" <> commander_id, _params, socket) do
     # Verify operator has access (JWT validated in socket)
     user_id = socket.assigns[:user_id]
 

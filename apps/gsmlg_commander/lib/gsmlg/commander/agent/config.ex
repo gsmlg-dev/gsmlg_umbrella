@@ -323,6 +323,7 @@ defmodule GSMLG.Commander.Agent.Config do
   end
 
   defp ensure_config_exists(nil), do: {:error, :config_not_found}
+
   defp ensure_config_exists(path) when is_binary(path) do
     expanded = Path.expand(path)
 

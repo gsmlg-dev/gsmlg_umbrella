@@ -281,7 +281,14 @@ defmodule GSMLG.Commander.Policy do
       role: :admin,
       access_rules: [:all],
       max_concurrent_ptys: 100,
-      capabilities: [:spawn_pty, :view_sessions, :attach_pty, :terminate_session, :admin_api, :view_audit_log]
+      capabilities: [
+        :spawn_pty,
+        :view_sessions,
+        :attach_pty,
+        :terminate_session,
+        :admin_api,
+        :view_audit_log
+      ]
     }
   end
 
@@ -394,7 +401,14 @@ defmodule GSMLG.Commander.Policy do
   end
 
   defp validate_capabilities(errors, policy) do
-    valid_caps = [:spawn_pty, :view_sessions, :attach_pty, :terminate_session, :admin_api, :view_audit_log]
+    valid_caps = [
+      :spawn_pty,
+      :view_sessions,
+      :attach_pty,
+      :terminate_session,
+      :admin_api,
+      :view_audit_log
+    ]
 
     invalid =
       (policy[:capabilities] || [])

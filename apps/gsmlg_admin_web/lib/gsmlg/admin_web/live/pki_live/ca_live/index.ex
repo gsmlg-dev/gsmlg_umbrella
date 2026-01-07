@@ -8,7 +8,6 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Index do
   """
   use GSMLG.AdminWeb, :user_live_view
 
-  alias Phoenix.SessionProcess
   alias GSMLG.AdminWeb.PKIContext
   alias GSMLG.AdminWeb.PKILive.CALive.FormData
   alias GSMLG.PKI.KeyGenerator
@@ -179,7 +178,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Index do
   end
 
   @impl true
-  def handle_event("delete_ca", %{"ca_id" => ca_id}, socket) do
+  def handle_event("delete_ca", %{"ca_id" => _ca_id}, socket) do
     # Note: CA deletion should be carefully controlled
     # For now, we just show a confirmation
     {:noreply,

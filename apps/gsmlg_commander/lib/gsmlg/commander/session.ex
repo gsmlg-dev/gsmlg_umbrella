@@ -43,7 +43,8 @@ defmodule GSMLG.Commander.Session do
   @heartbeat_interval 30_000
   @heartbeat_timeout 90_000
   @reconnect_grace_period 120_000
-  @idle_timeout 3_600_000
+  # Reserved for future idle session cleanup
+  # @idle_timeout 3_600_000
 
   # Buffer limits
   @max_output_buffer_bytes 1_048_576
@@ -454,7 +455,10 @@ defmodule GSMLG.Commander.Session do
 
         # Send resize to agent
         if state.connection_pid do
-          send(state.connection_pid, {:send_to_agent, :pty_resize, pty_id, %{cols: cols, rows: rows}})
+          send(
+            state.connection_pid,
+            {:send_to_agent, :pty_resize, pty_id, %{cols: cols, rows: rows}}
+          )
         end
 
         {:reply, :ok, new_state}
@@ -582,7 +586,8 @@ defmodule GSMLG.Commander.Session do
   end
 
   @impl true
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) when pid == state.connection_pid do
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, state)
+      when pid == state.connection_pid do
     GSMLG.Telemetry.warn("Connection lost",
       session_id: state.id
     )

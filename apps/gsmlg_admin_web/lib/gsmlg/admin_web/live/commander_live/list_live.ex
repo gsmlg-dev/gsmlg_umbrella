@@ -57,7 +57,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
         <div>
           <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Commanders</h1>
           <p class="mt-1 text-gray-600 dark:text-gray-400">
-            <%= @total %> commander(s) connected
+            {@total} commander(s) connected
           </p>
         </div>
         <.link
@@ -75,8 +75,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
           Back to Dashboard
         </.link>
       </div>
-
-      <!-- Search and Filters -->
+      
+    <!-- Search and Filters -->
       <div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
         <div class="flex flex-wrap gap-4">
           <div class="flex-1 min-w-64">
@@ -138,8 +138,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
           </button>
         </div>
       </div>
-
-      <!-- Commanders Table -->
+      
+    <!-- Commanders Table -->
       <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead class="bg-gray-50 dark:bg-gray-700">
@@ -152,18 +152,24 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                   checked={all_selected?(@commanders, @selected)}
                 />
               </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                  phx-click="sort" phx-value-field="status">
+              <th
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                phx-click="sort"
+                phx-value-field="status"
+              >
                 Status
                 <%= if elem(@sort, 0) == :status do %>
-                  <span class="ml-1"><%= sort_indicator(elem(@sort, 1)) %></span>
+                  <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
                 <% end %>
               </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                  phx-click="sort" phx-value-field="hostname">
+              <th
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                phx-click="sort"
+                phx-value-field="hostname"
+              >
                 Hostname
                 <%= if elem(@sort, 0) == :hostname do %>
-                  <span class="ml-1"><%= sort_indicator(elem(@sort, 1)) %></span>
+                  <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
                 <% end %>
               </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -172,11 +178,14 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Tags
               </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                  phx-click="sort" phx-value-field="connected_at">
+              <th
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                phx-click="sort"
+                phx-value-field="connected_at"
+              >
                 Connected
                 <%= if elem(@sort, 0) == :connected_at do %>
-                  <span class="ml-1"><%= sort_indicator(elem(@sort, 1)) %></span>
+                  <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
                 <% end %>
               </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -204,11 +213,11 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                     navigate={~p"/commander/#{commander.id}"}
                     class="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                   >
-                    <%= commander.hostname %>
+                    {commander.hostname}
                   </.link>
                   <%= if commander.metadata[:ip_address] do %>
                     <span class="text-xs text-gray-500 dark:text-gray-400 block">
-                      <%= commander.metadata[:ip_address] %>
+                      {commander.metadata[:ip_address]}
                     </span>
                   <% end %>
                 </td>
@@ -219,7 +228,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                     <% end %>
                     <%= if length(commander.capabilities) > 4 do %>
                       <span class="text-xs text-gray-500">
-                        +<%= length(commander.capabilities) - 4 %>
+                        +{length(commander.capabilities) - 4}
                       </span>
                     <% end %>
                   </div>
@@ -228,18 +237,18 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                   <div class="flex flex-wrap gap-1">
                     <%= for tag <- commander.tags |> Enum.take(3) do %>
                       <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded">
-                        <%= tag %>
+                        {tag}
                       </span>
                     <% end %>
                     <%= if length(commander.tags) > 3 do %>
                       <span class="text-xs text-gray-500">
-                        +<%= length(commander.tags) - 3 %>
+                        +{length(commander.tags) - 3}
                       </span>
                     <% end %>
                   </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  <%= format_connected_at(commander.connected_at) %>
+                  {format_connected_at(commander.connected_at)}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex space-x-2">
@@ -274,12 +283,12 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
             <% end %>
           </tbody>
         </table>
-
-        <!-- Pagination -->
+        
+    <!-- Pagination -->
         <%= if @total > @per_page do %>
           <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div class="text-sm text-gray-500 dark:text-gray-400">
-              Showing <%= (@page - 1) * @per_page + 1 %> to <%= min(@page * @per_page, @total) %> of <%= @total %> commanders
+              Showing {(@page - 1) * @per_page + 1} to {min(@page * @per_page, @total)} of {@total} commanders
             </div>
             <div class="flex space-x-2">
               <%= if @page > 1 do %>
@@ -302,11 +311,11 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
           </div>
         <% end %>
       </div>
-
-      <!-- Bulk Actions -->
+      
+    <!-- Bulk Actions -->
       <%= if MapSet.size(@selected) > 0 do %>
         <div class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-4">
-          <span><%= MapSet.size(@selected) %> selected</span>
+          <span>{MapSet.size(@selected)} selected</span>
           <button
             phx-click="clear_selection"
             class="text-gray-400 hover:text-white text-sm"
@@ -498,7 +507,10 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
     params = []
     params = if search != "", do: [{"search", search} | params], else: params
     params = if filters.status, do: [{"status", filters.status} | params], else: params
-    params = if filters.tags != [], do: [{"tags", Enum.join(filters.tags, ",")} | params], else: params
+
+    params =
+      if filters.tags != [], do: [{"tags", Enum.join(filters.tags, ",")} | params], else: params
+
     params = if page > 1, do: [{"page", to_string(page)} | params], else: params
 
     if params == [] do
@@ -543,19 +555,31 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
   defp status_badge(assigns) do
     {bg_color, text_color, label} =
       case assigns.status do
-        :running -> {"bg-green-100 dark:bg-green-900", "text-green-800 dark:text-green-200", "Active"}
-        :attached -> {"bg-green-100 dark:bg-green-900", "text-green-800 dark:text-green-200", "Attached"}
-        :detached -> {"bg-yellow-100 dark:bg-yellow-900", "text-yellow-800 dark:text-yellow-200", "Detached"}
-        :initializing -> {"bg-blue-100 dark:bg-blue-900", "text-blue-800 dark:text-blue-200", "Pending"}
-        :closing -> {"bg-red-100 dark:bg-red-900", "text-red-800 dark:text-red-200", "Closing"}
-        _ -> {"bg-gray-100 dark:bg-gray-700", "text-gray-800 dark:text-gray-200", to_string(assigns.status)}
+        :running ->
+          {"bg-green-100 dark:bg-green-900", "text-green-800 dark:text-green-200", "Active"}
+
+        :attached ->
+          {"bg-green-100 dark:bg-green-900", "text-green-800 dark:text-green-200", "Attached"}
+
+        :detached ->
+          {"bg-yellow-100 dark:bg-yellow-900", "text-yellow-800 dark:text-yellow-200", "Detached"}
+
+        :initializing ->
+          {"bg-blue-100 dark:bg-blue-900", "text-blue-800 dark:text-blue-200", "Pending"}
+
+        :closing ->
+          {"bg-red-100 dark:bg-red-900", "text-red-800 dark:text-red-200", "Closing"}
+
+        _ ->
+          {"bg-gray-100 dark:bg-gray-700", "text-gray-800 dark:text-gray-200",
+           to_string(assigns.status)}
       end
 
     assigns = assign(assigns, bg_color: bg_color, text_color: text_color, label: label)
 
     ~H"""
     <span class={"inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium #{@bg_color} #{@text_color}"}>
-      <%= @label %>
+      {@label}
     </span>
     """
   end
@@ -587,40 +611,90 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
 
   defp cap_icon(%{name: "terminal"} = assigns) do
     ~H"""
-    <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    <svg
+      class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
     </svg>
     """
   end
 
   defp cap_icon(%{name: "folder"} = assigns) do
     ~H"""
-    <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+    <svg
+      class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+      />
     </svg>
     """
   end
 
   defp cap_icon(%{name: "cpu"} = assigns) do
     ~H"""
-    <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+    <svg
+      class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+      />
     </svg>
     """
   end
 
   defp cap_icon(%{name: "info"} = assigns) do
     ~H"""
-    <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <svg
+      class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
     </svg>
     """
   end
 
   defp cap_icon(assigns) do
     ~H"""
-    <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <svg
+      class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
     </svg>
     """
   end

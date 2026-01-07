@@ -27,7 +27,7 @@ defmodule GSMLG.CommanderTest.Helpers.Wait do
       wait_until(fn -> something() end, timeout: 10_000)
 
   """
-  @spec wait_until((() -> boolean()), keyword()) :: :ok | {:error, :timeout}
+  @spec wait_until((-> boolean()), keyword()) :: :ok | {:error, :timeout}
   def wait_until(condition_fn, opts \\ []) do
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     interval = Keyword.get(opts, :interval, @default_interval)
@@ -55,7 +55,7 @@ defmodule GSMLG.CommanderTest.Helpers.Wait do
   Same as `wait_until/2` but raises an exception on timeout.
 
   """
-  @spec wait_until!((() -> boolean()), keyword()) :: :ok
+  @spec wait_until!((-> boolean()), keyword()) :: :ok
   def wait_until!(condition_fn, opts \\ []) do
     case wait_until(condition_fn, opts) do
       :ok -> :ok

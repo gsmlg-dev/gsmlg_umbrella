@@ -185,7 +185,8 @@ defmodule GSMLG.CommanderTest.Helpers.Assertions do
         unquote(fun).()
 
         raise GSMLG.CommanderTest.AssertionError,
-          message: "Expected #{inspect(unquote(exception_type))} to be raised, but nothing was raised"
+          message:
+            "Expected #{inspect(unquote(exception_type))} to be raised, but nothing was raised"
       rescue
         e in unquote(exception_type) ->
           :ok

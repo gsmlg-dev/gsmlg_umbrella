@@ -122,8 +122,7 @@ defmodule GSMLG.Commander do
     [
       url: url,
       params: %{
-        signature:
-          :crypto.mac(:hmac, :sha256, priv_key, "#{name}/#{sign_at}") |> Base.encode16(),
+        signature: :crypto.mac(:hmac, :sha256, priv_key, "#{name}/#{sign_at}") |> Base.encode16(),
         name: name,
         sign_at: sign_at
       }
@@ -195,8 +194,7 @@ defmodule GSMLG.Commander do
           {GSMLG.Commander.GreatHall, []},
           {GSMLG.Commander.Office, []},
           # New PTY terminal channel
-          {GSMLG.Commander.Terminal,
-           [socket: GSMLG.Commander.Socket, name: config[:name]]},
+          {GSMLG.Commander.Terminal, [socket: GSMLG.Commander.Socket, name: config[:name]]},
           # Legacy resource manager (kept for compatibility)
           {GSMLG.Commander.Resource, []}
         ]

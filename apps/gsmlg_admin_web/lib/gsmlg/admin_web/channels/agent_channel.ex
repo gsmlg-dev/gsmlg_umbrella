@@ -126,7 +126,11 @@ defmodule GSMLG.AdminWeb.AgentChannel do
   end
 
   @impl true
-  def handle_in("tool_response", %{"tool" => tool, "request_id" => request_id, "result" => result}, socket) do
+  def handle_in(
+        "tool_response",
+        %{"tool" => tool, "request_id" => request_id, "result" => result},
+        socket
+      ) do
     session_id = socket.assigns.session_id
 
     # Forward tool response to operators

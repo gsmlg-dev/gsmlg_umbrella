@@ -18,9 +18,7 @@ defmodule GSMLG.CommanderTest.Application do
 
       # DynamicSupervisor for test agent processes
       {DynamicSupervisor,
-       name: GSMLG.CommanderTest.AgentSupervisor,
-       strategy: :one_for_one,
-       max_restarts: 0}
+       name: GSMLG.CommanderTest.AgentSupervisor, strategy: :one_for_one, max_restarts: 0}
     ]
 
     opts = [strategy: :one_for_one, name: GSMLG.CommanderTest.Supervisor]

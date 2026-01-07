@@ -9,6 +9,9 @@ defmodule GSMLG.PKI.Schema.CSRRequest do
 
   alias GSMLG.PKI.CSR
 
+  # Suppress undefined module warnings for PKI modules not yet implemented
+  @compile {:no_warn_undefined, [GSMLG.PKI.CSR, GSMLG.PKI.RDNSequence]}
+
   schema "pki_csr_requests" do
     field :csr_pem, :string
     field :subject, :string

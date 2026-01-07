@@ -289,23 +289,24 @@ defmodule GSMLG.Commander.TokenManager do
       expires_at = calculate_expiration(opts)
 
       # Build token struct
-      token = Token.new(%{
-        id: id,
-        name: name,
-        description: Keyword.get(opts, :description),
-        token_hash: token_hash,
-        token_prefix: token_prefix,
-        capabilities: Keyword.get(opts, :capabilities, Token.all_capabilities()),
-        auto_tags: Keyword.get(opts, :auto_tags, []),
-        expires_at: expires_at,
-        created_at: DateTime.utc_now(),
-        created_by: created_by,
-        last_used_at: nil,
-        use_count: 0,
-        revoked: false,
-        revoked_at: nil,
-        revoked_by: nil
-      })
+      token =
+        Token.new(%{
+          id: id,
+          name: name,
+          description: Keyword.get(opts, :description),
+          token_hash: token_hash,
+          token_prefix: token_prefix,
+          capabilities: Keyword.get(opts, :capabilities, Token.all_capabilities()),
+          auto_tags: Keyword.get(opts, :auto_tags, []),
+          expires_at: expires_at,
+          created_at: DateTime.utc_now(),
+          created_by: created_by,
+          last_used_at: nil,
+          use_count: 0,
+          revoked: false,
+          revoked_at: nil,
+          revoked_by: nil
+        })
 
       # Store in ETS
       :ets.insert(@ets_table, {id, token})

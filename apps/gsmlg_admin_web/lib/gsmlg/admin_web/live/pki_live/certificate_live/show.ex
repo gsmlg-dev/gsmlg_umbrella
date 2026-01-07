@@ -2,6 +2,10 @@ defmodule GSMLG.AdminWeb.PKILive.CertificateLive.Show do
   @moduledoc """
   LiveView for displaying certificate details.
   """
+
+  # Suppress undefined module warnings for PKI modules not yet implemented
+  @compile {:no_warn_undefined, [GSMLG.PKI.Certificate]}
+
   use GSMLG.AdminWeb, :user_live_view
 
   alias GSMLG.AdminWeb.PKIContext
@@ -13,7 +17,12 @@ defmodule GSMLG.AdminWeb.PKILive.CertificateLive.Show do
 
     socket =
       socket
-      |> assign(serial: serial_int, certificate: nil, certificate_pem: nil, active_menu: "pki_certificates")
+      |> assign(
+        serial: serial_int,
+        certificate: nil,
+        certificate_pem: nil,
+        active_menu: "pki_certificates"
+      )
       |> load_certificate()
 
     {:ok, socket}

@@ -95,19 +95,19 @@ defmodule GSMLG.AdminWeb.CommanderLive.TokensLive do
                   <div class="flex items-center">
                     <div>
                       <div class="text-sm font-medium text-gray-900 dark:text-white">
-                        <%= token.name %>
+                        {token.name}
                       </div>
                       <div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                        <%= token.token_prefix %>...
+                        {token.token_prefix}...
                       </div>
                     </div>
                   </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  <%= format_date(token.created_at) %>
+                  {format_date(token.created_at)}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  <%= format_last_used(token.last_used_at) %>
+                  {format_last_used(token.last_used_at)}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <.status_badge status={Token.status(token)} />
@@ -224,7 +224,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.TokensLive do
                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                      <%= capability_label(cap) %>
+                      {capability_label(cap)}
                     </span>
                   </label>
                 <% end %>
@@ -300,7 +300,12 @@ defmodule GSMLG.AdminWeb.CommanderLive.TokensLive do
                 data-clipboard-target="#generated-token"
                 class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
               >
-                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  class="w-5 h-5 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
@@ -316,19 +321,19 @@ defmodule GSMLG.AdminWeb.CommanderLive.TokensLive do
                 Agent Configuration Example (config.toml):
               </h4>
               <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md text-sm overflow-x-auto"><code class="text-gray-800 dark:text-gray-200"># Commander Agent Configuration
-[server]
-url = "wss://commander.example.com/agent/connect"
-token = "<%= @generated_token %>"
+    [server]
+    url = "wss://commander.example.com/agent/connect"
+    token = "<%= @generated_token %>"
 
-[agent]
-hostname = "web-prod-01"
-heartbeat_interval = 30
+    [agent]
+    hostname = "web-prod-01"
+    heartbeat_interval = 30
 
-[capabilities]
-shell = true
-files = true
-processes = true
-system_info = true</code></pre>
+    [capabilities]
+    shell = true
+    files = true
+    processes = true
+    system_info = true</code></pre>
             </div>
 
             <div class="flex justify-end pt-4">
@@ -351,40 +356,52 @@ system_info = true</code></pre>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Name</label>
-                <p class="text-gray-900 dark:text-white"><%= @selected_token.name %></p>
+                <p class="text-gray-900 dark:text-white">{@selected_token.name}</p>
               </div>
               <div>
                 <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Status</label>
                 <p><.status_badge status={Token.status(@selected_token)} /></p>
               </div>
               <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Token Prefix</label>
-                <p class="font-mono text-gray-900 dark:text-white"><%= @selected_token.token_prefix %>...</p>
+                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Token Prefix
+                </label>
+                <p class="font-mono text-gray-900 dark:text-white">
+                  {@selected_token.token_prefix}...
+                </p>
               </div>
               <div>
                 <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Use Count</label>
-                <p class="text-gray-900 dark:text-white"><%= @selected_token.use_count %></p>
+                <p class="text-gray-900 dark:text-white">{@selected_token.use_count}</p>
               </div>
               <div>
                 <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Created</label>
-                <p class="text-gray-900 dark:text-white"><%= format_datetime(@selected_token.created_at) %></p>
+                <p class="text-gray-900 dark:text-white">
+                  {format_datetime(@selected_token.created_at)}
+                </p>
               </div>
               <div>
                 <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Last Used</label>
-                <p class="text-gray-900 dark:text-white"><%= format_last_used(@selected_token.last_used_at) %></p>
+                <p class="text-gray-900 dark:text-white">
+                  {format_last_used(@selected_token.last_used_at)}
+                </p>
               </div>
               <%= if @selected_token.expires_at do %>
                 <div>
                   <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Expires</label>
-                  <p class="text-gray-900 dark:text-white"><%= format_datetime(@selected_token.expires_at) %></p>
+                  <p class="text-gray-900 dark:text-white">
+                    {format_datetime(@selected_token.expires_at)}
+                  </p>
                 </div>
               <% end %>
             </div>
 
             <%= if @selected_token.description do %>
               <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Description</label>
-                <p class="text-gray-900 dark:text-white"><%= @selected_token.description %></p>
+                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Description
+                </label>
+                <p class="text-gray-900 dark:text-white">{@selected_token.description}</p>
               </div>
             <% end %>
 
@@ -393,7 +410,7 @@ system_info = true</code></pre>
               <div class="flex flex-wrap gap-2 mt-1">
                 <%= for cap <- @selected_token.capabilities do %>
                   <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded">
-                    <%= capability_label(cap) %>
+                    {capability_label(cap)}
                   </span>
                 <% end %>
               </div>
@@ -405,7 +422,7 @@ system_info = true</code></pre>
                 <div class="flex flex-wrap gap-2 mt-1">
                   <%= for tag <- @selected_token.auto_tags do %>
                     <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs rounded">
-                      <%= tag %>
+                      {tag}
                     </span>
                   <% end %>
                 </div>
@@ -650,17 +667,24 @@ system_info = true</code></pre>
   defp status_badge(assigns) do
     {bg_color, text_color, label} =
       case assigns.status do
-        :active -> {"bg-green-100 dark:bg-green-900", "text-green-800 dark:text-green-200", "Active"}
-        :unused -> {"bg-yellow-100 dark:bg-yellow-900", "text-yellow-800 dark:text-yellow-200", "Unused"}
-        :expired -> {"bg-red-100 dark:bg-red-900", "text-red-800 dark:text-red-200", "Expired"}
-        :revoked -> {"bg-gray-100 dark:bg-gray-700", "text-gray-800 dark:text-gray-200", "Revoked"}
+        :active ->
+          {"bg-green-100 dark:bg-green-900", "text-green-800 dark:text-green-200", "Active"}
+
+        :unused ->
+          {"bg-yellow-100 dark:bg-yellow-900", "text-yellow-800 dark:text-yellow-200", "Unused"}
+
+        :expired ->
+          {"bg-red-100 dark:bg-red-900", "text-red-800 dark:text-red-200", "Expired"}
+
+        :revoked ->
+          {"bg-gray-100 dark:bg-gray-700", "text-gray-800 dark:text-gray-200", "Revoked"}
       end
 
     assigns = assign(assigns, bg_color: bg_color, text_color: text_color, label: label)
 
     ~H"""
     <span class={"inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium #{@bg_color} #{@text_color}"}>
-      <%= @label %>
+      {@label}
     </span>
     """
   end
@@ -688,7 +712,7 @@ system_info = true</code></pre>
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white" id="modal-title">
-              <%= render_slot(@title) %>
+              {render_slot(@title)}
             </h3>
             <button
               type="button"
@@ -705,7 +729,7 @@ system_info = true</code></pre>
               </svg>
             </button>
           </div>
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </div>
       </div>
     </div>

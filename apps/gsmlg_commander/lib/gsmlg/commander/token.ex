@@ -110,6 +110,7 @@ defmodule GSMLG.Commander.Token do
   """
   @spec status(t()) :: :active | :expired | :revoked | :unused
   def status(%__MODULE__{revoked: true}), do: :revoked
+
   def status(%__MODULE__{} = token) do
     cond do
       expired?(token) -> :expired

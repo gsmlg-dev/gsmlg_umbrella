@@ -31,6 +31,8 @@ defmodule GSMLG.AdminWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
+  attr :page_title, :string, default: nil, doc: "the page title"
+
   slot :inner_block, required: true
 
   def app(assigns) do
