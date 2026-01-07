@@ -32,19 +32,36 @@ defmodule GSMLG.Commander do
   └─────────────────────────────────────────────────────────────────────────┘
   ```
 
+  ## Modes of Operation
+
+  1. **Agent mode** (`start: true`) - Runs on remote machines to be managed
+  2. **Server mode** (`server: true`) - Runs on the management server
+
   ## Components
 
+  ### Server-Side
   - `GSMLG.Commander.Session` - Server-side session managing agent connection
   - `GSMLG.Commander.SessionRegistry` - Registry with metadata support
   - `GSMLG.Commander.SessionSupervisor` - DynamicSupervisor for sessions
   - `GSMLG.Commander.Manager` - Orchestration and health monitoring
+  - `GSMLG.Commander.TokenManager` - Agent authentication tokens
   - `GSMLG.Commander.Policy` - Authorization rules
   - `GSMLG.Commander.Protocol` - Wire protocol definitions
+
+  ### Agent-Side
   - `GSMLG.Commander.Agent.Config` - Agent configuration from TOML
+  - `GSMLG.Commander.SessionManager` - Local PTY session manager
+  - `GSMLG.Commander.Terminal` - PTY terminal channel
 
   ## Configuration
 
   ```elixir
+  config :gsmlg_commander, GSMLG.Commander,
+    start: false,           # Enable agent mode
+    server: true,           # Enable server mode
+    platform_url: "wss://...",
+    platform_key: "..."
+
   config :gsmlg_commander,
     server: [
       agent_endpoint: "/agent/connect",
@@ -74,7 +91,7 @@ defmodule GSMLG.Commander do
   def start(_type, _args) do
     config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
     start_agent = Keyword.get(config, :start, false)
-    start_server = Keyword.get(config, :start_server, false)
+    start_server = Keyword.get(config, :server, true)
 
     Phoenix.SocketClient.Telemetry.attach_debug_handler()
 
@@ -128,7 +145,7 @@ defmodule GSMLG.Commander do
   @spec server_mode?() :: boolean()
   def server_mode? do
     config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
-    Keyword.get(config, :start_server, false)
+    Keyword.get(config, :server, true)
   end
 
   @doc """
@@ -151,6 +168,8 @@ defmodule GSMLG.Commander do
     server_children =
       if start_server do
         [
+          # Token Manager for agent authentication
+          {GSMLG.Commander.TokenManager, []},
           # Session Registry for lookup
           {GSMLG.Commander.SessionRegistry, []},
           # Session Supervisor (DynamicSupervisor)

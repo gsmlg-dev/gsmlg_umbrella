@@ -90,6 +90,15 @@ defmodule GSMLG.AdminWeb.Router do
     live("/command_platform", CommandPlatformLive.Index, :index)
     live("/pty_terminal/:agent_id", PTYTerminalLive, :show)
 
+    # Commander Management Routes
+    live("/commander", CommanderLive.DashboardLive, :index)
+    live("/commander/list", CommanderLive.ListLive, :index)
+    live("/commander/tokens", CommanderLive.TokensLive, :index)
+    live("/commander/tokens/new", CommanderLive.TokensLive, :new)
+    live("/commander/:id", CommanderLive.ShowLive, :show)
+    live("/commander/:id/shell", CommanderLive.ShowLive, :shell)
+    live("/commander/:id/:tab", CommanderLive.ShowLive, :show)
+
     live("/mnesia", MnesiaLive.Index, :index)
 
     live("/github", GithubLive.Index, :index)

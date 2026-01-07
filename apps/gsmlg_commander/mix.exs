@@ -30,8 +30,10 @@ defmodule GSMLG.Commander.MixProject do
       {:gsmlg_logger, in_umbrella: true},
       {:gsmlg_config, in_umbrella: true},
       {:phoenix_socket_client, "~> 0.7"},
+      {:phoenix_pubsub, "~> 2.1"},
       {:jason, "~> 1.2"},
       {:erlexec, "~> 2.0"},
+      {:bcrypt_elixir, "~> 3.0"},
       # Jido - Autonomous agent framework for Elixir
       # Used for building distributed, autonomous agents with dynamic workflows
       # Docs: https://hexdocs.pm/jido | GitHub: https://github.com/agentjido/jido
