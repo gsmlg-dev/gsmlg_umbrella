@@ -66,6 +66,21 @@ mnesia_dir =
 
 config :mnesia, dir: String.to_charlist(mnesia_dir)
 
+# Configure database for test environment from environment variables (for CI)
+if config_env() == :test do
+  if System.get_env("POSTGRES_HOST") do
+    config :gsmlg, GSMLG.Repo,
+      username: System.get_env("POSTGRES_USER", "gsmlg_test"),
+      password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
+      database:
+        System.get_env("POSTGRES_DB", "gsmlg_test") <>
+          "#{System.get_env("MIX_TEST_PARTITION")}",
+      hostname: System.get_env("POSTGRES_HOST"),
+      pool: Ecto.Adapters.SQL.Sandbox,
+      pool_size: 10
+  end
+end
+
 if config_env() == :prod do
   config :phoenix_react_server, Phoenix.React.Runtime.Bun,
     cmd: System.get_env("MIX_BUN_PATH", System.find_executable("bun")),
