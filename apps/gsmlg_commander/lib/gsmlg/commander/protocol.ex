@@ -37,6 +37,8 @@ defmodule GSMLG.Commander.Protocol do
   | ERROR | 0xFF | A<->S | Error notification |
   """
 
+  import Bitwise
+
   # Message Type Codes
   @auth_request 0x01
   @auth_response 0x02
