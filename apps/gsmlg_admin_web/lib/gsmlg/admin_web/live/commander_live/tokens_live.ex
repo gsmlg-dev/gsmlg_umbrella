@@ -5,6 +5,9 @@ defmodule GSMLG.AdminWeb.CommanderLive.TokensLive do
   Provides token generation, listing, revocation, and regeneration.
   """
 
+  # Suppress undefined module warnings for Commander modules (loaded at runtime)
+  @compile {:no_warn_undefined, [GSMLG.Commander.Token, GSMLG.Commander.TokenManager]}
+
   use GSMLG.AdminWeb, :live_view
 
   alias GSMLG.Commander.{Token, TokenManager}

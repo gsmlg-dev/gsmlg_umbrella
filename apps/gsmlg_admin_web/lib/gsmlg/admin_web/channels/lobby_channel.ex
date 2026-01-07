@@ -17,6 +17,9 @@ defmodule GSMLG.AdminWeb.LobbyChannel do
   - Aggregate statistics
   """
 
+  # Suppress undefined module warnings for Commander modules (loaded at runtime)
+  @compile {:no_warn_undefined, [GSMLG.Commander.SessionManager]}
+
   use Phoenix.Channel
   require Logger
 

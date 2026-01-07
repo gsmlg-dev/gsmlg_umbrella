@@ -17,6 +17,9 @@ defmodule GSMLG.AdminWeb.AgentChannel do
   4. On failure: Connection rejected with error reason
   """
 
+  # Suppress undefined module warnings for Commander modules (loaded at runtime)
+  @compile {:no_warn_undefined, [GSMLG.Commander.TokenManager, GSMLG.Commander.SessionManager]}
+
   use Phoenix.Channel
   require Logger
 

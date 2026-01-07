@@ -6,6 +6,9 @@ defmodule GSMLG.AdminWeb.CommanderLive.DashboardLive do
   for all connected commanders.
   """
 
+  # Suppress undefined module warnings for Commander modules (loaded at runtime)
+  @compile {:no_warn_undefined, [GSMLG.Commander.SessionManager, GSMLG.Commander.TokenManager]}
+
   use GSMLG.AdminWeb, :live_view
 
   alias GSMLG.Commander.{SessionManager, TokenManager}

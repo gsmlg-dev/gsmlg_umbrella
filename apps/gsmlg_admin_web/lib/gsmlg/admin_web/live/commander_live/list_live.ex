@@ -6,6 +6,9 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
   connected commander agents with real-time status updates.
   """
 
+  # Suppress undefined module warnings for Commander modules (loaded at runtime)
+  @compile {:no_warn_undefined, [GSMLG.Commander.SessionManager]}
+
   use GSMLG.AdminWeb, :live_view
 
   alias GSMLG.Commander.SessionManager

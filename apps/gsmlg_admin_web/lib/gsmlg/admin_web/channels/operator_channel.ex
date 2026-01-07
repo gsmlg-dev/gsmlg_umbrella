@@ -17,6 +17,9 @@ defmodule GSMLG.AdminWeb.OperatorChannel do
   - Session state synchronization
   """
 
+  # Suppress undefined module warnings for Commander modules (loaded at runtime)
+  @compile {:no_warn_undefined, [GSMLG.Commander.SessionManager]}
+
   use Phoenix.Channel
   require Logger
 

@@ -11,6 +11,9 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   - Metrics (system metrics)
   """
 
+  # Suppress undefined module warnings for Commander modules (loaded at runtime)
+  @compile {:no_warn_undefined, [GSMLG.Commander.SessionManager]}
+
   use GSMLG.AdminWeb, :live_view
 
   alias GSMLG.Commander.SessionManager
