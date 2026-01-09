@@ -11,7 +11,8 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
     user = user_fixture()
 
     # Sign in the user using Guardian
-    {:ok, token, _claims} = GSMLG.AdminWeb.Guardian.encode_and_sign(user, %{}, token_type: "access")
+    {:ok, token, _claims} =
+      GSMLG.AdminWeb.Guardian.encode_and_sign(user, %{}, token_type: "access")
 
     conn =
       conn
@@ -257,5 +258,4 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
       assert html =~ "Validity Period" || html =~ "years"
     end
   end
-
 end

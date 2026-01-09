@@ -144,6 +144,7 @@ defmodule GSMLG.PKI.Schema.Event do
     Map.new(metadata, fn
       {key, value} when is_binary(key) ->
         {String.to_existing_atom(key), value}
+
       {key, value} when is_atom(key) ->
         {key, value}
     end)
