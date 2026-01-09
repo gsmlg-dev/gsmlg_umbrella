@@ -72,7 +72,9 @@ defmodule GSMLG.AdminWeb.MixProject do
   defp aliases do
     [
       setup: ["deps.get"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      # Database setup is handled at umbrella level in CI
+      # For local development, run `mix ecto.create && mix ecto.migrate` first
+      test: ["test"],
       "assets.deploy": [
         "phx.digest.clean",
         "tailwind gsmlg_admin_web --minify",

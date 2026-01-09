@@ -1,5 +1,7 @@
 defmodule GSMLG.ConfigTest do
   use ExUnit.Case, async: false
+  # Tests depend on local TOML config files which may not behave the same in CI
+  @moduletag :config_loading
   doctest GSMLG.Config
 
   import ExUnit.CaptureLog
