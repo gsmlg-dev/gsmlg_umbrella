@@ -1,6 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.Error.MnesiaException do
   use GSMLG.Mnesia.Support.Case
-  @moduletag :mnesia, async: true
+  @moduletag :mnesia
 
   alias GSMLG.Mnesia.MnesiaException
   require MnesiaException

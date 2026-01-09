@@ -1,6 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.TransactionAborted do
   use GSMLG.Mnesia.Support.Case
-  @moduletag :mnesia, async: true
+  @moduletag :mnesia
   require GSMLG.Mnesia.TransactionAborted
 
   describe "#raise" do

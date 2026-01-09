@@ -1,6 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.Error do
   use GSMLG.Mnesia.Support.Case
-  @moduletag :mnesia, async: true
+  @moduletag :mnesia
   require GSMLG.Mnesia.Error
 
   describe "#raise" do
