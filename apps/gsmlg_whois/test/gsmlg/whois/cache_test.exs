@@ -162,7 +162,8 @@ defmodule GSMLG.Whois.CacheTest do
       Task.await_many(tasks)
 
       for i <- 1..10 do
-        assert {:ok, "value#{i}"} = Cache.get("key#{i}.com")
+        expected_value = "value#{i}"
+        assert {:ok, ^expected_value} = Cache.get("key#{i}.com")
       end
     end
   end
