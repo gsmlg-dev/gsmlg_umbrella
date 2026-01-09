@@ -20,8 +20,9 @@ defmodule GSMLG.PKI.Schema.CertificateAuthorityTest do
 
       assert changeset.valid?
       assert changeset.changes.subject == "/CN=Test CA/O=Test Org/C=US"
-      assert changeset.changes.status == "active"
-      assert changeset.changes.key_type == "rsa"
+      # Default values are on the schema, not in changes - use get_field to access them
+      assert Ecto.Changeset.get_field(changeset, :status) == "active"
+      assert Ecto.Changeset.get_field(changeset, :key_type) == "rsa"
     end
 
     test "requires id field" do

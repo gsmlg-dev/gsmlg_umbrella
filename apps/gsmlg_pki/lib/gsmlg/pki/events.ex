@@ -369,6 +369,8 @@ defmodule GSMLG.PKI.Events do
       not_before: nil,
       not_after: nil,
       certificate_der: nil,
+      revoked_at: nil,
+      revocation_reason: nil,
       events: []
     }
 
