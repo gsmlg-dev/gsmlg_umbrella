@@ -73,6 +73,10 @@ jobs:
           # Skip Sandbox pool for migrations to avoid lock issues
           SKIP_SANDBOX_POOL: "true"
         run: |
+          # Debug: Print Repo config (using eval to avoid starting app)
+          echo "=== REPO CONFIG ==="
+          mix eval 'IO.inspect(Application.get_env(:gsmlg, GSMLG.Repo), label: "Repo config", limit: :infinity)'
+          echo "==================="
           mix ecto.drop --force || true
           mix ecto.create
           mix ecto.migrate
