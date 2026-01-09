@@ -1,12 +1,14 @@
 import Config
 
-# Database configuration for local development
-# CI configuration is handled by runtime.exs using POSTGRES_* environment variables
+# Database configuration for tests
+# Uses localhost by default for CI compatibility
+# Runtime configuration can be overridden via TOML files or POSTGRES_* env vars
 config :gsmlg, GSMLG.Repo,
   username: "gsmlg_test",
   password: "gsmlg_test",
   database: "gsmlg_test#{System.get_env("MIX_TEST_PARTITION")}",
-  hostname: "postgres-server.gsmlg.net",
+  hostname: "localhost",
+  port: 5432,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 
