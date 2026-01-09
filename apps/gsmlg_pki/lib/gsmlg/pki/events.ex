@@ -260,10 +260,12 @@ defmodule GSMLG.PKI.Events do
           is_nil(since) or DateTime.compare(event.timestamp, since) == :gt
         end)
         |> Enum.map(fn event ->
+          metadata = event.metadata
+
           %{
-            serial: event.metadata.serial,
-            revocation_date: event.metadata.revocation_date,
-            reason: event.metadata.reason
+            serial: Map.get(metadata, :serial),
+            revocation_date: Map.get(metadata, :revocation_date),
+            reason: normalize_atom(Map.get(metadata, :reason))
           }
         end)
 
@@ -373,30 +375,31 @@ defmodule GSMLG.PKI.Events do
     final_state =
       Enum.reduce(events, initial_state, fn event, state ->
         state = Map.update!(state, :events, &(&1 ++ [event]))
+        metadata = event.metadata
 
         case event.event_type do
           :certificate_issued ->
             %{
               state
               | status: :active,
-                serial: event.metadata.serial,
-                subject: event.metadata.subject,
-                not_before: parse_datetime(event.metadata.not_before),
-                not_after: parse_datetime(event.metadata.not_after),
-                certificate_der: event.metadata.certificate_der
+                serial: Map.get(metadata, :serial),
+                subject: Map.get(metadata, :subject),
+                not_before: parse_datetime(Map.get(metadata, :not_before)),
+                not_after: parse_datetime(Map.get(metadata, :not_after)),
+                certificate_der: Map.get(metadata, :certificate_der)
             }
 
           :certificate_revoked ->
             %{
               state
               | status: :revoked,
-                revoked_at: parse_datetime(event.metadata.revocation_date),
-                revocation_reason: event.metadata.reason
+                revoked_at: parse_datetime(Map.get(metadata, :revocation_date)),
+                revocation_reason: normalize_atom(Map.get(metadata, :reason))
             }
 
           :certificate_renewed ->
             # Mark as renewed, but state is determined by subsequent issuance event
-            Map.put(state, :renewed_from, event.metadata.old_serial)
+            Map.put(state, :renewed_from, Map.get(metadata, :old_serial))
 
           _ ->
             state
@@ -428,6 +431,15 @@ defmodule GSMLG.PKI.Events do
       {:ok, dt, _offset} -> dt
       {:error, _} -> nil
     end
+  end
+
+  defp normalize_atom(nil), do: nil
+  defp normalize_atom(atom) when is_atom(atom), do: atom
+
+  defp normalize_atom(str) when is_binary(str) do
+    String.to_existing_atom(str)
+  rescue
+    ArgumentError -> String.to_atom(str)
   end
 
   # UUID generation helper (simple implementation)
