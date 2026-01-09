@@ -1,5 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.Table do
   use GSMLG.Mnesia.Support.Case
+  @moduletag :mnesia
 
   describe "__using__" do
     test "works with simple definition" do

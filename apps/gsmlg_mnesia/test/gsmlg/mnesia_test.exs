@@ -1,5 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.GSMLG.Mnesia do
   use GSMLG.Mnesia.Support.Case
+  @moduletag :mnesia
 
   describe "#add_nodes" do
     test "raises error when an atom is not passed" do

@@ -1,5 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.Query do
   use GSMLG.Mnesia.Support.Case
+  @moduletag :mnesia
   alias GSMLG.Mnesia.Query
 
   describe "#read" do
