@@ -3,11 +3,8 @@ name: Test
 on:
   push:
     branches: [ main, develop ]
-  # Disabled for PRs due to migration compatibility issues
-  # The migrations have PostgreSQL-incompatible operations (changing PK type)
-  # TODO: Fix migrations to be PostgreSQL compatible, then re-enable
-  # pull_request:
-  #   branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   test:
