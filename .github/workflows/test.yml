@@ -67,19 +67,26 @@ jobs:
           mix local.rebar --force
           mix deps.get
 
-      - name: Setup database
+      - name: Drop database
         env:
           MIX_ENV: test
-          # Skip Sandbox pool for migrations to avoid lock issues
           SKIP_SANDBOX_POOL: "true"
-        run: |
-          # Debug: Print Repo config (using eval to avoid starting app)
-          echo "=== REPO CONFIG ==="
-          mix eval 'IO.inspect(Application.get_env(:gsmlg, GSMLG.Repo), label: "Repo config", limit: :infinity)'
-          echo "==================="
-          mix ecto.drop --force || true
-          mix ecto.create
-          mix ecto.migrate
+        run: mix ecto.drop --force || true
+        timeout-minutes: 2
+
+      - name: Create database
+        env:
+          MIX_ENV: test
+          SKIP_SANDBOX_POOL: "true"
+        run: mix ecto.create
+        timeout-minutes: 2
+
+      - name: Run migrations
+        env:
+          MIX_ENV: test
+          SKIP_SANDBOX_POOL: "true"
+        run: mix ecto.migrate
+        timeout-minutes: 5
 
       - name: Run tests
         env:
