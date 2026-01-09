@@ -19,7 +19,7 @@
     </script>
     <script defer phx-track-static type="module" src={~p"/assets/app.js"}>
     </script>
-    <%= if Application.get_env(:gsmlg_web, GSMLG.Web.Endpoint) |> Keyword.get(:enable_adsense) |> Kernel.==("yes") do %>
+    <%= if (Application.get_env(:gsmlg_web, GSMLG.Web.Endpoint) || []) |> Keyword.get(:enable_adsense) == true do %>
       <script
         async
         src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2900591828353755"
