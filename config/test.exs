@@ -6,8 +6,8 @@ import Config
 
 pool_config =
   if System.get_env("SKIP_SANDBOX_POOL") do
-    # Standard connection pool for migrations
-    []
+    # Standard connection pool for migrations - explicitly set to override any deep merge
+    [pool: DBConnection.ConnectionPool]
   else
     # Sandbox pool for running tests
     [pool: Ecto.Adapters.SQL.Sandbox]

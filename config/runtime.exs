@@ -71,9 +71,11 @@ if config_env() == :test do
   if System.get_env("POSTGRES_HOST") do
     # Use Sandbox pool for tests, but standard pool for migrations
     # Set SKIP_SANDBOX_POOL=true for migrations to avoid lock issues
+    # Must explicitly set pool: DBConnection.ConnectionPool to override any
+    # Sandbox pool setting from test.exs (since Config deep merges)
     pool_config =
       if System.get_env("SKIP_SANDBOX_POOL") do
-        [pool_size: 10]
+        [pool: DBConnection.ConnectionPool, pool_size: 10]
       else
         [pool: Ecto.Adapters.SQL.Sandbox, pool_size: 10]
       end
