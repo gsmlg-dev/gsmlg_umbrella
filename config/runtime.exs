@@ -80,20 +80,32 @@ if config_env() == :test do
         [pool: Ecto.Adapters.SQL.Sandbox, pool_size: 10]
       end
 
-    config :gsmlg,
-           GSMLG.Repo,
-           Keyword.merge(
-             [
-               username: System.get_env("POSTGRES_USER", "gsmlg_test"),
-               password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
-               database:
-                 System.get_env("POSTGRES_DB", "gsmlg_test") <>
-                   "#{System.get_env("MIX_TEST_PARTITION")}",
-               hostname: System.get_env("POSTGRES_HOST"),
-               port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
-             ],
-             pool_config
-           )
+    repo_config =
+      Keyword.merge(
+        [
+          username: System.get_env("POSTGRES_USER", "gsmlg_test"),
+          password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
+          database:
+            System.get_env("POSTGRES_DB", "gsmlg_test") <>
+              "#{System.get_env("MIX_TEST_PARTITION")}",
+          hostname: System.get_env("POSTGRES_HOST"),
+          port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
+        ],
+        pool_config
+      )
+
+    # Use config to set the base config
+    config :gsmlg, GSMLG.Repo, repo_config
+
+    # Also use Application.put_env directly to ensure pool override takes effect
+    # This is needed because config macros get merged, but Application.put_env
+    # with a complete config replacement ensures our settings take precedence
+    if System.get_env("SKIP_SANDBOX_POOL") do
+      # Get existing config and merge our settings on top, ensuring pool is set correctly
+      existing = Application.get_env(:gsmlg, GSMLG.Repo, [])
+      merged = Keyword.merge(existing, repo_config)
+      Application.put_env(:gsmlg, GSMLG.Repo, merged)
+    end
   end
 end
 
