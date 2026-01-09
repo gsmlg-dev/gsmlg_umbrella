@@ -8,7 +8,8 @@ defmodule GSMLG.Repo.Migrations.CreateUserTokens do
       add :token_type, :string
       add :create_time, :utc_datetime
       add :expire_at, :utc_datetime
-      add :user_id, references(:users, on_delete: :nothing)
+      # Users table uses :string primary key (40 chars), so FK must match
+      add :user_id, references(:users, on_delete: :nothing, type: :string)
 
       timestamps()
     end
