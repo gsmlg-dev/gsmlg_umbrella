@@ -70,6 +70,8 @@ jobs:
       - name: Setup database
         env:
           MIX_ENV: test
+          # Skip Sandbox pool for migrations to avoid lock issues
+          SKIP_SANDBOX_POOL: "true"
         run: |
           mix ecto.drop --force || true
           mix ecto.create

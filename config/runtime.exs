@@ -69,16 +69,28 @@ config :mnesia, dir: String.to_charlist(mnesia_dir)
 # Configure database for test environment from environment variables (for CI)
 if config_env() == :test do
   if System.get_env("POSTGRES_HOST") do
+    # Use Sandbox pool for tests, but standard pool for migrations
+    # Set SKIP_SANDBOX_POOL=true for migrations to avoid lock issues
+    pool_config =
+      if System.get_env("SKIP_SANDBOX_POOL") do
+        [pool_size: 10]
+      else
+        [pool: Ecto.Adapters.SQL.Sandbox, pool_size: 10]
+      end
+
     config :gsmlg, GSMLG.Repo,
-      username: System.get_env("POSTGRES_USER", "gsmlg_test"),
-      password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
-      database:
-        System.get_env("POSTGRES_DB", "gsmlg_test") <>
-          "#{System.get_env("MIX_TEST_PARTITION")}",
-      hostname: System.get_env("POSTGRES_HOST"),
-      port: String.to_integer(System.get_env("POSTGRES_PORT", "5432")),
-      pool: Ecto.Adapters.SQL.Sandbox,
-      pool_size: 10
+      Keyword.merge(
+        [
+          username: System.get_env("POSTGRES_USER", "gsmlg_test"),
+          password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
+          database:
+            System.get_env("POSTGRES_DB", "gsmlg_test") <>
+              "#{System.get_env("MIX_TEST_PARTITION")}",
+          hostname: System.get_env("POSTGRES_HOST"),
+          port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
+        ],
+        pool_config
+      )
   end
 end
 
