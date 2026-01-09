@@ -313,8 +313,8 @@ defmodule GSMLG.Socket.Errors do
   ## Example
 
       iex> error_info = GSMLG.Socket.Errors.categorize(:econnrefused, :tcp)
-      iex> GSMLG.Socket.Errors.format(error_info)
-      "[TCP] Connection refused - the remote server is not accepting connections\\nSuggestions:\\n  - Check if the server is running\\n  - ..."
+      iex> GSMLG.Socket.Errors.format(error_info) |> String.starts_with?("[TCP] Connection refused")
+      true
   """
   @spec format(error_info()) :: String.t()
   def format(%{message: message, socket_type: socket_type, suggestions: suggestions}) do

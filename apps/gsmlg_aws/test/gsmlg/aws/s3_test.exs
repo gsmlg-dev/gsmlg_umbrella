@@ -22,29 +22,35 @@ defmodule GSMLG.AWS.S3Test do
 
   describe "S3 module structure" do
     test "exports list_buckets/0" do
+      Code.ensure_loaded!(S3)
       assert function_exported?(S3, :list_buckets, 0)
     end
 
     test "exports list_objects/1, list_objects/2, list_objects/3" do
+      Code.ensure_loaded!(S3)
       assert function_exported?(S3, :list_objects, 1)
       assert function_exported?(S3, :list_objects, 2)
       assert function_exported?(S3, :list_objects, 3)
     end
 
     test "exports head_object/2" do
+      Code.ensure_loaded!(S3)
       assert function_exported?(S3, :head_object, 2)
     end
 
     test "exports get_object/2" do
+      Code.ensure_loaded!(S3)
       assert function_exported?(S3, :get_object, 2)
     end
 
     test "exports put_object/3 and put_object/4" do
+      Code.ensure_loaded!(S3)
       assert function_exported?(S3, :put_object, 3)
       assert function_exported?(S3, :put_object, 4)
     end
 
     test "exports delete_object/2" do
+      Code.ensure_loaded!(S3)
       assert function_exported?(S3, :delete_object, 2)
     end
   end

@@ -10,6 +10,28 @@ defmodule GSMLG.Commander.Test do
   doctest GSMLG.Commander
 
   describe "socket_opts/0" do
+    setup do
+      # Store original config to restore later
+      original_config = Application.get_env(:gsmlg_commander, GSMLG.Commander)
+
+      # Setup test configuration
+      Application.put_env(:gsmlg_commander, GSMLG.Commander,
+        platform_url: "wss://test.example.com/agent",
+        platform_key: "test_secret_key_for_testing",
+        name: "test-agent"
+      )
+
+      on_exit(fn ->
+        if original_config do
+          Application.put_env(:gsmlg_commander, GSMLG.Commander, original_config)
+        else
+          Application.delete_env(:gsmlg_commander, GSMLG.Commander)
+        end
+      end)
+
+      :ok
+    end
+
     test "returns keyword list with :url key" do
       opts = GSMLG.Commander.socket_opts()
       assert Keyword.has_key?(opts, :url)
@@ -21,13 +43,6 @@ defmodule GSMLG.Commander.Test do
     end
 
     test "returns :params as a map with required keys when configured" do
-      # Setup test configuration
-      Application.put_env(:gsmlg_commander, GSMLG.Commander,
-        platform_url: "wss://test.example.com/agent",
-        platform_key: "test_secret_key_for_testing",
-        name: "test-agent"
-      )
-
       opts = GSMLG.Commander.socket_opts()
 
       assert {:ok, url} = Keyword.fetch(opts, :url)
@@ -39,9 +54,6 @@ defmodule GSMLG.Commander.Test do
       assert Map.has_key?(params, :signature)
       assert Map.has_key?(params, :sign_at)
       assert params.name == "test-agent"
-
-      # Cleanup
-      Application.delete_env(:gsmlg_commander, GSMLG.Commander)
     end
   end
 
