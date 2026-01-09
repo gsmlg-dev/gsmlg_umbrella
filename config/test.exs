@@ -2,15 +2,30 @@ import Config
 
 # Database configuration for tests
 # Uses localhost by default for CI compatibility
-# Runtime configuration can be overridden via TOML files or POSTGRES_* env vars
-config :gsmlg, GSMLG.Repo,
-  username: "gsmlg_test",
-  password: "gsmlg_test",
-  database: "gsmlg_test#{System.get_env("MIX_TEST_PARTITION")}",
-  hostname: "localhost",
-  port: 5432,
-  pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: 10
+# Set SKIP_SANDBOX_POOL=true for migrations to avoid Sandbox pool lock issues
+
+pool_config =
+  if System.get_env("SKIP_SANDBOX_POOL") do
+    # Standard connection pool for migrations
+    []
+  else
+    # Sandbox pool for running tests
+    [pool: Ecto.Adapters.SQL.Sandbox]
+  end
+
+config :gsmlg,
+       GSMLG.Repo,
+       Keyword.merge(
+         [
+           username: "gsmlg_test",
+           password: "gsmlg_test",
+           database: "gsmlg_test#{System.get_env("MIX_TEST_PARTITION")}",
+           hostname: "localhost",
+           port: 5432,
+           pool_size: 10
+         ],
+         pool_config
+       )
 
 config :gsmlg_web, GSMLG.Web.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4112],

@@ -78,19 +78,20 @@ if config_env() == :test do
         [pool: Ecto.Adapters.SQL.Sandbox, pool_size: 10]
       end
 
-    config :gsmlg, GSMLG.Repo,
-      Keyword.merge(
-        [
-          username: System.get_env("POSTGRES_USER", "gsmlg_test"),
-          password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
-          database:
-            System.get_env("POSTGRES_DB", "gsmlg_test") <>
-              "#{System.get_env("MIX_TEST_PARTITION")}",
-          hostname: System.get_env("POSTGRES_HOST"),
-          port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
-        ],
-        pool_config
-      )
+    config :gsmlg,
+           GSMLG.Repo,
+           Keyword.merge(
+             [
+               username: System.get_env("POSTGRES_USER", "gsmlg_test"),
+               password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
+               database:
+                 System.get_env("POSTGRES_DB", "gsmlg_test") <>
+                   "#{System.get_env("MIX_TEST_PARTITION")}",
+               hostname: System.get_env("POSTGRES_HOST"),
+               port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
+             ],
+             pool_config
+           )
   end
 end
 
