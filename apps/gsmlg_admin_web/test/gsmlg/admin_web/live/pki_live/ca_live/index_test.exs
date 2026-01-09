@@ -133,7 +133,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("#ca-form", %{common_name: ""})
+        |> form("form", %{common_name: ""})
         |> render_change()
 
       assert html =~ "can&#39;t be blank"
@@ -144,7 +144,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("#ca-form", %{country: "usa"})
+        |> form("form", %{country: "usa"})
         |> render_change()
 
       assert html =~ "must be uppercase" || html =~ "must be exactly 2 characters"
@@ -155,7 +155,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("#ca-form", %{encrypt_key: "true"})
+        |> form("form", %{encrypt_key: "true"})
         |> render_change()
 
       assert html =~ "Password"
@@ -184,7 +184,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
       }
 
       view
-      |> form("#ca-form", valid_params)
+      |> form("form", valid_params)
       |> render_submit()
 
       assert_redirect(view, ~p"/pki/ca")
@@ -207,7 +207,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("#ca-form", invalid_params)
+        |> form("form", invalid_params)
         |> render_submit()
 
       assert html =~ "can&#39;t be blank"
@@ -227,7 +227,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("#ca-form", invalid_params)
+        |> form("form", invalid_params)
         |> render_submit()
 
       assert html =~ "must be at least 12 characters"
@@ -247,7 +247,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("#ca-form", invalid_params)
+        |> form("form", invalid_params)
         |> render_submit()
 
       assert html =~ "does not match"
