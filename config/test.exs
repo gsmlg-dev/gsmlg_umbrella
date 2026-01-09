@@ -5,12 +5,19 @@ import Config
 # Set SKIP_SANDBOX_POOL=true for migrations to avoid Sandbox pool lock issues
 
 pool_config =
-  if System.get_env("SKIP_SANDBOX_POOL") do
-    # Standard connection pool for migrations - explicitly set to override any deep merge
-    [pool: DBConnection.ConnectionPool]
-  else
-    # Sandbox pool for running tests
-    [pool: Ecto.Adapters.SQL.Sandbox]
+  cond do
+    # Skip Sandbox pool for migrations (set explicitly in CI)
+    System.get_env("SKIP_SANDBOX_POOL") != nil ->
+      [pool: DBConnection.ConnectionPool]
+
+    # When POSTGRES_HOST is set (CI), use standard pool - runtime.exs handles this
+    # but we still need to NOT set Sandbox here to avoid conflicts
+    System.get_env("POSTGRES_HOST") != nil ->
+      []
+
+    # Local development: Sandbox pool for running tests
+    true ->
+      [pool: Ecto.Adapters.SQL.Sandbox]
   end
 
 config :gsmlg,
