@@ -1,11 +1,26 @@
 defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
-  use GSMLG.AdminWeb.ConnCase, async: true
+  use GSMLG.AdminWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
+  import GSMLG.AccountsFixtures
 
   alias GSMLG.AdminWeb.PKIContext
 
-  setup :register_and_log_in_user
+  setup %{conn: conn} do
+    # Create a real user in the database
+    user = user_fixture()
+
+    # Sign in the user using Guardian
+    {:ok, token, _claims} = GSMLG.AdminWeb.Guardian.encode_and_sign(user, %{}, token_type: "access")
+
+    conn =
+      conn
+      |> Plug.Test.init_test_session(%{})
+      |> Guardian.Plug.sign_in(GSMLG.AdminWeb.Guardian, user, %{}, token_type: "access")
+      |> put_session(:guardian_default_token, token)
+
+    %{conn: conn, user: user}
+  end
 
   describe "Index LiveView - :index action" do
     test "renders CA list page", %{conn: conn} do
@@ -243,17 +258,4 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
     end
   end
 
-  # Helper functions
-
-  defp register_and_log_in_user(%{conn: conn}) do
-    user = %{
-      id: 1,
-      email: "test@example.com",
-      username: "testuser"
-    }
-
-    conn = Plug.Test.init_test_session(conn, %{user_id: user.id})
-
-    %{conn: conn, user: user}
-  end
 end

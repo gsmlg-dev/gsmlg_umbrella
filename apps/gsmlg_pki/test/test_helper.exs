@@ -1,9 +1,26 @@
-ExUnit.start()
+# Check if CouchDB is available
+couchdb_available =
+  case :gen_tcp.connect(~c"localhost", 5984, [], 1000) do
+    {:ok, socket} ->
+      :gen_tcp.close(socket)
+      true
 
-# Note: PKI tests require CouchDB to be running on localhost:5984
-# If CouchDB is not available, tests will fail with connection errors
-# To run tests, ensure CouchDB is running:
-#   docker run -d -p 5984:5984 -e COUCHDB_USER=admin -e COUCHDB_PASSWORD=password couchdb:latest
-#
-# Or skip integration tests and only run unit tests:
-#   mix test --exclude integration
+    {:error, _} ->
+      false
+  end
+
+# Configure ExUnit to exclude CouchDB tests if CouchDB is not available
+exclude_tags =
+  if couchdb_available do
+    []
+  else
+    IO.puts(
+      "\n⚠️  CouchDB not available - excluding :couchdb tests\n" <>
+        "   To run all tests, start CouchDB:\n" <>
+        "   docker run -d -p 5984:5984 -e COUCHDB_USER=admin -e COUCHDB_PASSWORD=password couchdb:latest\n"
+    )
+
+    [:couchdb]
+  end
+
+ExUnit.start(exclude: exclude_tags)

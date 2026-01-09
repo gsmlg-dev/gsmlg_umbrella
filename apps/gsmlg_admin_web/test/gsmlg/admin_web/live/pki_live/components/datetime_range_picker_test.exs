@@ -13,13 +13,15 @@ defmodule GSMLG.AdminWeb.PKILive.Components.DateTimeRangePickerTest do
     end
 
     test "removes timezone information" do
-      dt = ~U[2025-01-15 09:00:00Z]
+      dt = ~U[2025-11-25 14:30:45Z]
 
       result = DateTimeRangePicker.format_datetime_local(dt)
 
+      # Should not contain timezone markers like Z or +00:00
       refute String.contains?(result, "Z")
-      refute String.contains?(result, "+")
-      refute String.contains?(result, "-0")
+      refute String.contains?(result, "+00")
+      # The format should be YYYY-MM-DDTHH:MM:SS without timezone suffix
+      assert result == "2025-11-25T14:30:45"
     end
 
     test "returns empty string for nil" do

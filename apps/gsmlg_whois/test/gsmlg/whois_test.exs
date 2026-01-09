@@ -37,11 +37,11 @@ defmodule GSMLG.WhoisTest do
       query = "telemetry.example.com"
       cached_data = [{"test.server", "Cached data"}]
 
-      ref = make_ref()
+      handler_id = :test_cache_hit_handler
       self_pid = self()
 
       :telemetry.attach(
-        "test-cache-hit-#{ref}",
+        handler_id,
         [:gsmlg, :whois, :cache, :hit],
         fn event, measurements, metadata, _config ->
           send(self_pid, {:telemetry_event, event, measurements, metadata})
@@ -56,17 +56,17 @@ defmodule GSMLG.WhoisTest do
                       %{query: ^query, type: :domain}},
                      1000
 
-      :telemetry.detach("test-cache-hit-#{ref}")
+      :telemetry.detach(handler_id)
     end
 
     test "emits cache miss event" do
       query = "miss.example.com"
 
-      ref = make_ref()
+      handler_id = :test_cache_miss_handler
       self_pid = self()
 
       :telemetry.attach(
-        "test-cache-miss-#{ref}",
+        handler_id,
         [:gsmlg, :whois, :cache, :miss],
         fn event, measurements, metadata, _config ->
           send(self_pid, {:telemetry_event, event, measurements, metadata})
@@ -81,7 +81,7 @@ defmodule GSMLG.WhoisTest do
                       %{query: ^query, type: :domain}},
                      1000
 
-      :telemetry.detach("test-cache-miss-#{ref}")
+      :telemetry.detach(handler_id)
     end
   end
 end

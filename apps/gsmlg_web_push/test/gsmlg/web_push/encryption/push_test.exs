@@ -5,6 +5,13 @@ defmodule GSMLG.WebPush.Encryption.PushTest do
 
   setup_all do
     {:ok, _pid} = HTTPoisonSandbox.start_link(:ok)
+    # Configure the http_client to use our sandbox
+    Application.put_env(:gsmlg_web_push, :http_client, HTTPoisonSandbox)
+
+    on_exit(fn ->
+      Application.delete_env(:gsmlg_web_push, :http_client)
+    end)
+
     :ok
   end
 
