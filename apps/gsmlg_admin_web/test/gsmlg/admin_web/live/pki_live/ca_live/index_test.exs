@@ -133,7 +133,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("form", %{common_name: ""})
+        |> form("form[phx-submit='create_ca']", %{common_name: ""})
         |> render_change()
 
       assert html =~ "can&#39;t be blank"
@@ -144,7 +144,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("form", %{country: "usa"})
+        |> form("form[phx-submit='create_ca']", %{country: "usa"})
         |> render_change()
 
       assert html =~ "must be uppercase" || html =~ "must be exactly 2 characters"
@@ -155,7 +155,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("form", %{encrypt_key: "true"})
+        |> form("form[phx-submit='create_ca']", %{encrypt_key: "true"})
         |> render_change()
 
       assert html =~ "Password"
@@ -166,7 +166,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
   describe "create_ca event with valid data" do
     @tag :skip
     # Skipped because it requires full PKI infrastructure
-    test "creates CA successfully with RSA key", %{conn: conn, user: user} do
+    test "creates CA successfully with RSA key", %{conn: conn, user: _user} do
       {:ok, view, _html} = live(conn, ~p"/pki/ca/new")
 
       valid_params = %{
@@ -184,7 +184,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
       }
 
       view
-      |> form("form", valid_params)
+      |> form("form[phx-submit='create_ca']", valid_params)
       |> render_submit()
 
       assert_redirect(view, ~p"/pki/ca")
@@ -207,7 +207,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("form", invalid_params)
+        |> form("form[phx-submit='create_ca']", invalid_params)
         |> render_submit()
 
       assert html =~ "can&#39;t be blank"
@@ -227,7 +227,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("form", invalid_params)
+        |> form("form[phx-submit='create_ca']", invalid_params)
         |> render_submit()
 
       assert html =~ "must be at least 12 characters"
@@ -247,7 +247,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
 
       html =
         view
-        |> form("form", invalid_params)
+        |> form("form[phx-submit='create_ca']", invalid_params)
         |> render_submit()
 
       assert html =~ "does not match"
