@@ -10,6 +10,13 @@ defmodule GSMLG.Umbrella.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ],
       listeners: [Phoenix.CodeReloader],
       releases: [
         gsmlg_commander: [
@@ -67,6 +74,7 @@ defmodule GSMLG.Umbrella.MixProject do
   defp deps do
     [
       {:burrito, "~> 1.0", runtime: false},
+      {:excoveralls, "~> 0.18", only: :test},
       {:phoenix, "~> 1.7"},
       {:phoenix_live_view, "~> 1.0"},
       {:telemetry, "~> 1.0", override: true}
