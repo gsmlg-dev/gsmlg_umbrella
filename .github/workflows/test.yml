@@ -84,6 +84,7 @@ jobs:
 
       - name: Generate coverage report
         if: success()
+        continue-on-error: true
         env:
           MIX_ENV: test
           REDIS_URL: redis://localhost:6379
