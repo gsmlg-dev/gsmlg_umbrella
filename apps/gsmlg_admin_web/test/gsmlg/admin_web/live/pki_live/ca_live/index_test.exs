@@ -199,16 +199,11 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
     test "shows validation errors when common_name is missing", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/pki/ca/new")
 
-      invalid_params = %{
-        common_name: "",
-        key_type: "rsa",
-        key_size: "4096"
-      }
-
+      # Use render_change to trigger validation on empty common_name
       html =
         view
-        |> form("form[phx-submit='create_ca']", invalid_params)
-        |> render_submit()
+        |> form("form[phx-submit='create_ca']", %{common_name: ""})
+        |> render_change()
 
       assert html =~ "can&#39;t be blank"
     end
@@ -216,19 +211,21 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
     test "shows validation errors for invalid password", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/pki/ca/new")
 
-      invalid_params = %{
-        common_name: "Test CA",
-        key_type: "rsa",
-        key_size: "4096",
-        encrypt_key: "true",
-        password: "short",
-        password_confirmation: "short"
-      }
+      # First, enable encryption to show password fields
+      view
+      |> form("form[phx-submit='create_ca']", %{encrypt_key: "true"})
+      |> render_change()
 
+      # Now submit with short password
       html =
         view
-        |> form("form[phx-submit='create_ca']", invalid_params)
-        |> render_submit()
+        |> form("form[phx-submit='create_ca']", %{
+          common_name: "Test CA",
+          encrypt_key: "true",
+          password: "short",
+          password_confirmation: "short"
+        })
+        |> render_change()
 
       assert html =~ "must be at least 12 characters"
     end
@@ -236,19 +233,21 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.IndexTest do
     test "shows validation error for mismatched passwords", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/pki/ca/new")
 
-      invalid_params = %{
-        common_name: "Test CA",
-        key_type: "rsa",
-        key_size: "4096",
-        encrypt_key: "true",
-        password: "SecurePassword123",
-        password_confirmation: "DifferentPassword123"
-      }
+      # First, enable encryption to show password fields
+      view
+      |> form("form[phx-submit='create_ca']", %{encrypt_key: "true"})
+      |> render_change()
 
+      # Now submit with mismatched passwords
       html =
         view
-        |> form("form[phx-submit='create_ca']", invalid_params)
-        |> render_submit()
+        |> form("form[phx-submit='create_ca']", %{
+          common_name: "Test CA",
+          encrypt_key: "true",
+          password: "SecurePassword123",
+          password_confirmation: "DifferentPassword123"
+        })
+        |> render_change()
 
       assert html =~ "does not match"
     end
