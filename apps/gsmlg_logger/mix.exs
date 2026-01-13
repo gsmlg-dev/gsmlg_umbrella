@@ -18,6 +18,7 @@ defmodule GSMLG.Logger.MixProject do
       aliases: aliases(),
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
+      coveralls: [minimum_coverage: 0],
       description: "The log formatter in GSMLG projects"
     ]
   end
