@@ -76,15 +76,8 @@ jobs:
           mix ecto.create
           mix ecto.migrate
 
-      - name: Run tests with coverage
+      - name: Run tests
         env:
           MIX_ENV: test
           REDIS_URL: redis://localhost:6379
-        run: mix test --cover
-
-      - name: Upload coverage report
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: cover/
+        run: mix test
