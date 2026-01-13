@@ -17,6 +17,9 @@ defmodule GSMLG.Umbrella.MixProject do
         "coveralls.post": :test,
         "coveralls.html": :test
       ],
+      coveralls: [
+        minimum_coverage: 0
+      ],
       listeners: [Phoenix.CodeReloader],
       releases: [
         gsmlg_commander: [

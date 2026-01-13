@@ -84,11 +84,10 @@ jobs:
 
       - name: Generate coverage report
         if: success()
-        continue-on-error: true
         env:
           MIX_ENV: test
           REDIS_URL: redis://localhost:6379
-        run: mix coveralls.html
+        run: mix coveralls.html --umbrella
 
       - name: Upload coverage report
         if: success()
