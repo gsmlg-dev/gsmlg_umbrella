@@ -1,6 +1,9 @@
 defmodule GSMLG.PKI.ValidatorTest do
   use ExUnit.Case, async: false
 
+  # These tests require CouchDB to be running
+  @moduletag :couchdb
+
   alias GSMLG.PKI.{CA, Validator, PrivateKey, PublicKey, Events}
 
   import GSMLG.PKI.ASN1

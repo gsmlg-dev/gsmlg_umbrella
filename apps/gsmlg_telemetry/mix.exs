@@ -18,6 +18,7 @@ defmodule GSMLG.Telemetry.MixProject do
       aliases: aliases(),
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
+      coveralls: [minimum_coverage: 0],
       description: "Centralized telemetry and logging for GSMLG projects"
     ]
   end

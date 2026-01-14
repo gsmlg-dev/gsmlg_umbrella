@@ -101,7 +101,8 @@ defmodule GSMLG.PKI.KeyGenerator do
       curve = Map.fetch!(@ecdsa_curve_names, key_size)
 
       # Generate ECDSA key pair
-      private_key = :public_key.generate_key({:namedCurve, :pubkey_cert_records.namedCurves(curve)})
+      private_key =
+        :public_key.generate_key({:namedCurve, :pubkey_cert_records.namedCurves(curve)})
 
       # Extract public key
       {:ECPrivateKey, _, _, {_, public_key_point}, _} = private_key
@@ -208,8 +209,7 @@ defmodule GSMLG.PKI.KeyGenerator do
 
     subject_public_key_info = {
       :SubjectPublicKeyInfo,
-      {:PublicKeyAlgorithm, {1, 2, 840, 10045, 2, 1},
-       {:namedCurve, curve_oid}},
+      {:PublicKeyAlgorithm, {1, 2, 840, 10045, 2, 1}, {:namedCurve, curve_oid}},
       public_key
     }
 

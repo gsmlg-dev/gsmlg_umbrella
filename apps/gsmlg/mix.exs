@@ -60,7 +60,9 @@ defmodule GSMLG.MixProject do
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      # Database setup is handled at umbrella level in CI
+      # For local development, run `mix ecto.create && mix ecto.migrate` first
+      test: ["test"],
       lint: ["credo --strict", "dialyzer"]
     ]
   end

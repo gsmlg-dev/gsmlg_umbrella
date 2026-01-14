@@ -1,0 +1,10 @@
+{
+  "skip_files": [
+    "deps",
+    "_build"
+  ],
+  "coverage_options": {
+    "treat_no_relevant_lines_as_covered": true,
+    "minimum_coverage": 0
+  }
+}

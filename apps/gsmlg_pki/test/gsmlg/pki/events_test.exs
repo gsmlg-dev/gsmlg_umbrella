@@ -55,8 +55,8 @@ defmodule GSMLG.PKI.EventsTest do
     end
 
     test "requires ca_id", %{ca_id: _ca_id} do
-      # Should raise ArgumentError when ca_id is missing
-      assert_raise ArgumentError, fn ->
+      # Should raise KeyError when ca_id is missing (Keyword.fetch! raises KeyError)
+      assert_raise KeyError, fn ->
         Events.append(:certificate_issued, %{})
       end
     end

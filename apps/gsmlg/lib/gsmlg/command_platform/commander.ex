@@ -31,6 +31,16 @@ defmodule GSMLG.CommandPlatform.Commander do
 
       {{:error, {:already_exists, CommandPlatform.Commander}}, _metadata} ->
         :ok
+
+      {:ok, %{status: :ok}} ->
+        :ok
+
+      {:ok, %{status: :already_exists}} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to create Commander table: #{inspect(reason)}")
+        :error
     end
   end
 

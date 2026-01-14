@@ -1,5 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.Mnesia do
   use GSMLG.Mnesia.Support.Case
+  @moduletag :mnesia
 
   alias GSMLG.Mnesia.Mnesia
   alias GSMLG.Mnesia.MnesiaException

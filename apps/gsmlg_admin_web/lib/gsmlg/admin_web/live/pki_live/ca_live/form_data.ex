@@ -12,25 +12,25 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.FormData do
   @primary_key false
   embedded_schema do
     # X.509 Subject Components
-    field :common_name, :string
-    field :organization, :string
-    field :organizational_unit, :string
-    field :country, :string
-    field :state, :string
-    field :locality, :string
+    field(:common_name, :string)
+    field(:organization, :string)
+    field(:organizational_unit, :string)
+    field(:country, :string)
+    field(:state, :string)
+    field(:locality, :string)
 
     # Key Configuration
-    field :key_type, :string, default: "rsa"
-    field :key_size, :integer, default: 4096
+    field(:key_type, :string, default: "rsa")
+    field(:key_size, :integer, default: 4096)
 
     # Validity Period
-    field :validity_start, :utc_datetime
-    field :validity_end, :utc_datetime
+    field(:validity_start, :utc_datetime)
+    field(:validity_end, :utc_datetime)
 
     # Private Key Encryption
-    field :encrypt_key, :boolean, default: false
-    field :password, :string, virtual: true
-    field :password_confirmation, :string, virtual: true
+    field(:encrypt_key, :boolean, default: false)
+    field(:password, :string, virtual: true)
+    field(:password_confirmation, :string, virtual: true)
   end
 
   @doc """

@@ -122,6 +122,7 @@ defmodule GSMLG.PKI.Schema.Event do
   Converts an Ecto PKI event back to the Events module format.
 
   This ensures compatibility with the existing GSMLG.PKI library code.
+  Metadata keys are converted from strings (JSON) to atoms for convenient access.
   """
   def to_pki_event(%__MODULE__{} = event) do
     %{
@@ -131,9 +132,31 @@ defmodule GSMLG.PKI.Schema.Event do
       timestamp: event.timestamp,
       sequence: event.sequence,
       ca_id: event.ca_id,
-      metadata: event.metadata || %{},
+      metadata: atomize_metadata_keys(event.metadata || %{}),
       actor: event.actor,
       correlation_id: event.correlation_id
     }
   end
+
+  # Convert string keys to atoms for metadata maps.
+  # This handles the JSON deserialization where keys become strings.
+  defp atomize_metadata_keys(metadata) when is_map(metadata) do
+    Map.new(metadata, fn
+      {key, value} when is_binary(key) ->
+        {String.to_existing_atom(key), value}
+
+      {key, value} when is_atom(key) ->
+        {key, value}
+    end)
+  rescue
+    # If the key doesn't exist as an atom, use String.to_atom/1
+    # This can happen with dynamic metadata fields
+    ArgumentError ->
+      Map.new(metadata, fn
+        {key, value} when is_binary(key) -> {String.to_atom(key), value}
+        {key, value} when is_atom(key) -> {key, value}
+      end)
+  end
+
+  defp atomize_metadata_keys(metadata), do: metadata
 end

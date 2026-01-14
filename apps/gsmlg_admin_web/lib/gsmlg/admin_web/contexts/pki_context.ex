@@ -23,9 +23,20 @@ defmodule GSMLG.AdminWeb.PKIContext do
   ```
   """
 
+  # Suppress undefined module warnings for PKI modules not yet implemented
+  @compile {:no_warn_undefined,
+            [
+              GSMLG.PKI.CA,
+              GSMLG.PKI.Events,
+              GSMLG.PKI.Certificate,
+              GSMLG.PKI.CSR,
+              GSMLG.PKI.CRL,
+              Phoenix.SessionProcess
+            ]}
+
   import Ecto.Query
   alias GSMLG.Repo
-  alias GSMLG.PKI.{CA, Events, Certificate, CSR, CRL}
+  alias GSMLG.PKI.{CA, Events, Certificate, CSR}
   alias GSMLG.Schema.CSRRequest
   alias GSMLG.AdminWeb.PKIKeyStore
   alias Phoenix.SessionProcess
@@ -181,7 +192,7 @@ defmodule GSMLG.AdminWeb.PKIContext do
 
     with {:ok, keypair} <- GSMLG.PKI.KeyGenerator.generate_key(key_type, key_size, key_opts) do
       # Generate CA certificate
-      ca_id = "ca:#{UUID.uuid4()}"
+      ca_id = "ca:#{Ecto.UUID.generate()}"
       serial = :crypto.strong_rand_bytes(20) |> Base.encode16(case: :lower)
 
       # Build X.509 certificate (using X509 library or :public_key)
@@ -214,7 +225,14 @@ defmodule GSMLG.AdminWeb.PKIContext do
     end
   end
 
-  defp build_ca_certificate(subject, public_key_pem, private_key_pem, serial, not_before, not_after) do
+  defp build_ca_certificate(
+         _subject,
+         public_key_pem,
+         _private_key_pem,
+         _serial,
+         _not_before,
+         _not_after
+       ) do
     # This is a simplified version - in production you'd use X509 library
     # or full :public_key certificate generation
 
@@ -226,7 +244,7 @@ defmodule GSMLG.AdminWeb.PKIContext do
     }
   end
 
-  defp store_ca_data(ca_data, opts) do
+  defp store_ca_data(ca_data, _opts) do
     # Store in database using Ecto schema
     changeset =
       GSMLG.PKI.Schema.CertificateAuthority.changeset(
@@ -363,12 +381,12 @@ defmodule GSMLG.AdminWeb.PKIContext do
   @doc """
   Renew a certificate (issue new certificate with same subject/SANs).
   """
-  def renew_certificate(serial, opts \\ []) do
+  def renew_certificate(serial, _opts \\ []) do
     with {:ok, cert_state} <- Events.get_certificate_state(serial),
          {:ok, cert} <- Certificate.from_der(cert_state.certificate_der),
-         {:ok, ca} <- get_ca(cert_state.issuer_ca_id) do
+         {:ok, _ca} <- get_ca(cert_state.issuer_ca_id) do
       # Extract subject and SANs from original certificate
-      {:ok, subject} = Certificate.subject(cert)
+      {:ok, _subject} = Certificate.subject(cert)
 
       # Create new CSR with same subject (in production, you'd need the original key)
       # For now, require a new CSR to be provided

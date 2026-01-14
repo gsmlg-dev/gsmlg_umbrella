@@ -6,7 +6,12 @@ defmodule GSMLG.AdminWeb.PKILive.AnalyticsLive.Index do
   def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(analytics: nil, expiry_stats: nil, page_title: "PKI Analytics", active_menu: "pki_analytics")
+      |> assign(
+        analytics: nil,
+        expiry_stats: nil,
+        page_title: "PKI Analytics",
+        active_menu: "pki_analytics"
+      )
       |> load_analytics()
       |> load_expiry_stats()
 

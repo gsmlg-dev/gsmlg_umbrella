@@ -13,6 +13,11 @@ defmodule GSMLG.AdminWeb.UserSocket do
   channel("node:lobby", GSMLG.AdminWeb.NodeChannel)
   channel("room:chess", GSMLG.AdminWeb.ChessChannel)
 
+  # Commander Management Channels
+  channel("agent:connect", GSMLG.AdminWeb.AgentChannel)
+  channel("operator:terminal:*", GSMLG.AdminWeb.OperatorChannel)
+  channel("commander:lobby", GSMLG.AdminWeb.LobbyChannel)
+
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After
   # verification, you can put default assigns into

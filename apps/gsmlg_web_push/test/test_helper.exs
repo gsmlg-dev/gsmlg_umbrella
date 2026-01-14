@@ -31,8 +31,6 @@ defmodule Fixtures do
 end
 
 defmodule HTTPoisonSandbox do
-  use HTTPoison.Base
-
   def start_link(_) do
     Agent.start_link(fn -> [] end, name: __MODULE__)
   end
@@ -40,6 +38,11 @@ defmodule HTTPoisonSandbox do
   def request(method, url, body \\ "", headers \\ [], options \\ []) do
     req = %{method: method, url: url, body: body, headers: headers, options: options}
     Agent.update(__MODULE__, &[req | &1])
+    {:ok, %HTTPoison.Response{status_code: 201, body: ""}}
+  end
+
+  def post(url, body, headers, options \\ []) do
+    request(:post, url, body, headers, options)
   end
 
   def requests() do

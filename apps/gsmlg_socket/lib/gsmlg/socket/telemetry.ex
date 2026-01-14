@@ -148,7 +148,7 @@ defmodule GSMLG.Socket.Telemetry do
     GSMLG.Telemetry.log(
       level,
       "Socket #{event}: #{socket_type}",
-      metadata
+      metadata: metadata
     )
 
     :ok
@@ -164,7 +164,7 @@ defmodule GSMLG.Socket.Telemetry do
       |> Map.put(:socket_type, socket_type)
       |> Map.put_new(:module, __MODULE__)
 
-    GSMLG.Telemetry.error(message, metadata)
+    GSMLG.Telemetry.error(message, metadata: metadata)
     :ok
   end
 
@@ -178,7 +178,7 @@ defmodule GSMLG.Socket.Telemetry do
       |> Map.put(:security_event, true)
       |> Map.put_new(:module, __MODULE__)
 
-    GSMLG.Telemetry.warn(message, metadata)
+    GSMLG.Telemetry.warn(message, metadata: metadata)
     :ok
   end
 
@@ -193,7 +193,7 @@ defmodule GSMLG.Socket.Telemetry do
       |> Map.put(:direction, direction)
       |> Map.put(:bytes, bytes)
 
-    GSMLG.Telemetry.debug("Socket #{direction}: #{bytes} bytes", metadata)
+    GSMLG.Telemetry.debug("Socket #{direction}: #{bytes} bytes", metadata: metadata)
     :ok
   end
 
@@ -202,14 +202,14 @@ defmodule GSMLG.Socket.Telemetry do
   defp emit_stop(operation, metadata, measurements) do
     GSMLG.Telemetry.info(
       "Socket operation completed: #{operation}",
-      Map.merge(metadata, measurements)
+      metadata: Map.merge(metadata, measurements)
     )
   end
 
   defp emit_error(operation, metadata, measurements) do
     GSMLG.Telemetry.error(
       "Socket operation failed: #{operation}",
-      Map.merge(metadata, measurements)
+      metadata: Map.merge(metadata, measurements)
     )
   end
 end

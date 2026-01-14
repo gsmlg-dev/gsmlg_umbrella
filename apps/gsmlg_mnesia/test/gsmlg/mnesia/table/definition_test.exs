@@ -1,5 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.Table.Definition do
   use GSMLG.Mnesia.Support.Case
+  @moduletag :mnesia
   alias GSMLG.Mnesia.Table.Definition
 
   # NOTE:

@@ -27,8 +27,24 @@
                 <div class="form-control">
                   <label class="label">
                     <span class="label-text">Common Name (CN) *</span>
-                    <div class="tooltip tooltip-left" data-tip="The primary name for this CA. Appears in certificate chains and trust stores.">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-info shrink-0"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div
+                      class="tooltip tooltip-left"
+                      data-tip="The primary name for this CA. Appears in certificate chains and trust stores."
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        class="w-4 h-4 stroke-info shrink-0"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        >
+                        </path>
+                      </svg>
                     </div>
                   </label>
                   <input
@@ -45,8 +61,8 @@
                   <%= if @form[:common_name].errors != [] do %>
                     <label class="label">
                       <span class="label-text-alt text-error">
-                        <%= Enum.map(@form[:common_name].errors, fn {msg, _} -> msg end)
-                        |> Enum.join(", ") %>
+                        {Enum.map(@form[:common_name].errors, fn {msg, _} -> msg end)
+                        |> Enum.join(", ")}
                       </span>
                     </label>
                   <% end %>
@@ -72,7 +88,9 @@
                   <input
                     type="text"
                     name="organizational_unit"
-                    value={Phoenix.HTML.Form.normalize_value("text", @form[:organizational_unit].value)}
+                    value={
+                      Phoenix.HTML.Form.normalize_value("text", @form[:organizational_unit].value)
+                    }
                     class="input input-bordered"
                     placeholder="IT Department"
                   />
@@ -96,8 +114,8 @@
                   <%= if @form[:country].errors != [] do %>
                     <label class="label">
                       <span class="label-text-alt text-error">
-                        <%= Enum.map(@form[:country].errors, fn {msg, _} -> msg end)
-                        |> Enum.join(", ") %>
+                        {Enum.map(@form[:country].errors, fn {msg, _} -> msg end)
+                        |> Enum.join(", ")}
                       </span>
                     </label>
                   <% end %>
@@ -130,16 +148,32 @@
                 </div>
               </div>
             </div>
-
-            <!-- Key Configuration -->
+            
+<!-- Key Configuration -->
             <div class="space-y-4">
               <h3 class="text-lg font-semibold">Key Configuration</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="form-control">
                   <label class="label">
                     <span class="label-text">Key Type *</span>
-                    <div class="tooltip tooltip-left" data-tip="RSA: Traditional, widely supported. ECDSA: Modern, smaller keys. Ed25519: Fastest, most secure.">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-info shrink-0"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div
+                      class="tooltip tooltip-left"
+                      data-tip="RSA: Traditional, widely supported. ECDSA: Modern, smaller keys. Ed25519: Fastest, most secure."
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        class="w-4 h-4 stroke-info shrink-0"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        >
+                        </path>
+                      </svg>
                     </div>
                   </label>
                   <select
@@ -177,13 +211,29 @@
                 <% end %>
               </div>
             </div>
-
-            <!-- Validity Period -->
+            
+<!-- Validity Period -->
             <div class="space-y-4">
               <h3 class="text-lg font-semibold inline-flex items-center gap-2">
                 Validity Period
-                <div class="tooltip" data-tip="CA certificate will be valid from start date to end date. Default is 10 years. Industry best practice: max 20 years.">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-info shrink-0"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div
+                  class="tooltip"
+                  data-tip="CA certificate will be valid from start date to end date. Default is 10 years. Industry best practice: max 20 years."
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    class="w-4 h-4 stroke-info shrink-0"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    >
+                    </path>
+                  </svg>
                 </div>
               </h3>
               <GSMLG.AdminWeb.PKILive.Components.DateTimeRangePicker.datetime_range_picker
@@ -192,8 +242,8 @@
                 end_field={@form[:validity_end]}
               />
             </div>
-
-            <!-- Private Key Encryption -->
+            
+<!-- Private Key Encryption -->
             <div class="space-y-4">
               <h3 class="text-lg font-semibold">Private Key Security</h3>
               <div class="form-control">
@@ -227,8 +277,8 @@
                     <%= if @form[:password].errors != [] do %>
                       <label class="label">
                         <span class="label-text-alt text-error">
-                          <%= Enum.map(@form[:password].errors, fn {msg, _} -> msg end)
-                          |> Enum.join(", ") %>
+                          {Enum.map(@form[:password].errors, fn {msg, _} -> msg end)
+                          |> Enum.join(", ")}
                         </span>
                       </label>
                     <% end %>
@@ -250,8 +300,8 @@
                     <%= if @form[:password_confirmation].errors != [] do %>
                       <label class="label">
                         <span class="label-text-alt text-error">
-                          <%= Enum.map(@form[:password_confirmation].errors, fn {msg, _} -> msg end)
-                          |> Enum.join(", ") %>
+                          {Enum.map(@form[:password_confirmation].errors, fn {msg, _} -> msg end)
+                          |> Enum.join(", ")}
                         </span>
                       </label>
                     <% end %>
@@ -307,7 +357,12 @@
                 class="btn btn-primary"
                 phx-disable-with="Generating Keys..."
               >
-                <span class="loading loading-spinner loading-sm" style="display: none;" data-phx-submit-loading></span>
+                <span
+                  class="loading loading-spinner loading-sm"
+                  style="display: none;"
+                  data-phx-submit-loading
+                >
+                </span>
                 <span data-phx-submit-not-loading>Initialize CA</span>
               </button>
             </div>

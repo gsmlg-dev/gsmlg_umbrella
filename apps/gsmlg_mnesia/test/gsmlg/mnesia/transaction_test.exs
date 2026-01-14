@@ -1,5 +1,6 @@
 defmodule GSMLG.Mnesia.Tests.Transaction do
   use GSMLG.Mnesia.Support.Case
+  @moduletag :mnesia
   alias GSMLG.Mnesia.Transaction
 
   # Don't need to extensively rest these methods, just how

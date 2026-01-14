@@ -7,8 +7,9 @@ log_level = "warning"
 [database]
 username = "gsmlg_test"
 password = "gsmlg_test"
-hostname = "10.100.10.13"
-port = 5433
+# Use localhost for CI compatibility - override with POSTGRES_HOST env var if needed
+hostname = "localhost"
+port = 5432
 database = "gsmlg_test"
 show_sensitive_data_on_connection_error = true
 pool_size = 5

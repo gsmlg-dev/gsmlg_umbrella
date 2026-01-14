@@ -138,9 +138,7 @@ defmodule GSMLG.PKI.Schema.CertificateAuthority do
     |> unique_constraint(:subject, name: :certificate_authorities_subject_unique)
   end
 
-  @doc """
-  Validates that key_algorithm_details contains appropriate fields for the key_type.
-  """
+  # Validates that key_algorithm_details contains appropriate fields for the key_type.
   defp validate_key_algorithm_details(changeset) do
     key_type = get_field(changeset, :key_type)
     details = get_field(changeset, :key_algorithm_details)
@@ -168,9 +166,7 @@ defmodule GSMLG.PKI.Schema.CertificateAuthority do
     end
   end
 
-  @doc """
-  Validates that not_after is after not_before.
-  """
+  # Validates that not_after is after not_before.
   defp validate_validity_period(changeset) do
     not_before = get_field(changeset, :not_before)
     not_after = get_field(changeset, :not_after)

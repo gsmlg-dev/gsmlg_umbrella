@@ -8,7 +8,9 @@ defmodule GSMLG.Config.Setup do
       setup_logger(config[:logger])
     end
 
-    if config[:database] != nil do
+    # Skip database setup when SKIP_SANDBOX_POOL is set (during CI migrations)
+    # to avoid deep_merge preserving the Sandbox pool from test.exs
+    if config[:database] != nil and not skip_database_setup?() do
       setup_database(config[:database])
     end
 
@@ -178,5 +180,10 @@ defmodule GSMLG.Config.Setup do
       true ->
         :prod
     end
+  end
+
+  # Check if database setup should be skipped (for CI migrations)
+  defp skip_database_setup? do
+    System.get_env("SKIP_SANDBOX_POOL") != nil
   end
 end

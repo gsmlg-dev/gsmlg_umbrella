@@ -20,7 +20,11 @@ has_config? =
     File.exists?(env_config_file) or
     File.exists?(fallback_config_file)
 
-if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? do
+# Skip GSMLG.Config loading entirely when SKIP_SANDBOX_POOL is set (for CI migrations)
+# This avoids any interference with the database pool configuration
+skip_config_loading? = System.get_env("SKIP_SANDBOX_POOL") != nil
+
+if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? and not skip_config_loading? do
   try do
     case GSMLG.Config.Loader.load(env: config_env()) do
       {:ok, gsmlg_config} ->
@@ -42,7 +46,7 @@ if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? do
       IO.warn("Using default configuration")
   end
 else
-  if Code.ensure_loaded?(GSMLG.Config.Loader) do
+  if Code.ensure_loaded?(GSMLG.Config.Loader) and not skip_config_loading? do
     IO.warn("No GSMLG configuration file found in #{config_dir}")
     IO.warn("Looked for: gsmlg.#{config_env()}.toml or gsmlg.toml")
     IO.warn("Using default configuration")
@@ -65,6 +69,35 @@ mnesia_dir =
   end
 
 config :mnesia, dir: String.to_charlist(mnesia_dir)
+
+# Configure database for test environment from environment variables (for CI)
+if config_env() == :test do
+  if System.get_env("POSTGRES_HOST") do
+    # Use Sandbox pool for tests, but standard pool for migrations
+    # Set SKIP_SANDBOX_POOL=true for migrations to avoid lock issues
+    pool_config =
+      if System.get_env("SKIP_SANDBOX_POOL") do
+        [pool: DBConnection.ConnectionPool, pool_size: 10]
+      else
+        [pool: Ecto.Adapters.SQL.Sandbox, pool_size: 10]
+      end
+
+    config :gsmlg,
+           GSMLG.Repo,
+           Keyword.merge(
+             [
+               username: System.get_env("POSTGRES_USER", "gsmlg_test"),
+               password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
+               database:
+                 System.get_env("POSTGRES_DB", "gsmlg_test") <>
+                   "#{System.get_env("MIX_TEST_PARTITION")}",
+               hostname: System.get_env("POSTGRES_HOST"),
+               port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
+             ],
+             pool_config
+           )
+  end
+end
 
 if config_env() == :prod do
   config :phoenix_react_server, Phoenix.React.Runtime.Bun,

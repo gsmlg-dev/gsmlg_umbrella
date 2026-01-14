@@ -30,8 +30,14 @@ defmodule GSMLG.Repo.Migrations.AddKeyTypeToCertificateAuthorities do
     end
 
     # Indexes for efficient querying
-    create unique_index(:certificate_authorities, [:serial], name: :certificate_authorities_serial_unique)
-    create unique_index(:certificate_authorities, [:subject], name: :certificate_authorities_subject_unique)
+    create unique_index(:certificate_authorities, [:serial],
+             name: :certificate_authorities_serial_unique
+           )
+
+    create unique_index(:certificate_authorities, [:subject],
+             name: :certificate_authorities_subject_unique
+           )
+
     create index(:certificate_authorities, [:status])
     create index(:certificate_authorities, [:not_after])
   end

@@ -1,13 +1,19 @@
 defmodule GSMLG.AdminWeb.PKILive.CRLLive.Index do
   use GSMLG.AdminWeb, :user_live_view
   alias GSMLG.AdminWeb.PKIContext
-  alias GSMLG.PKI.CRL
 
   @impl true
   def mount(%{"ca_id" => ca_id}, _session, socket) do
     socket =
       socket
-      |> assign(ca_id: ca_id, ca: nil, crl: nil, crl_pem: nil, page_title: "CRL Management", active_menu: "pki_certificates")
+      |> assign(
+        ca_id: ca_id,
+        ca: nil,
+        crl: nil,
+        crl_pem: nil,
+        page_title: "CRL Management",
+        active_menu: "pki_certificates"
+      )
       |> load_ca()
       |> load_crl()
 

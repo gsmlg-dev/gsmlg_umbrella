@@ -18,6 +18,9 @@ defmodule GSMLG.PKI.Store.CouchDB do
   Use `GSMLG.PKI.Store.CouchDB.setup/0` to manually initialize the database.
   """
 
+  # Suppress undefined module warnings for CouchDB modules
+  @compile {:no_warn_undefined, [GSMLG.CouchDB.DB, GSMLG.CouchDB.Docs]}
+
   alias GSMLG.CouchDB.{DB, Docs}
 
   @database Application.compile_env(:gsmlg_pki, [__MODULE__, :database], "pki_events")
