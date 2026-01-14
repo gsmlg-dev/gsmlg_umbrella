@@ -78,10 +78,7 @@ jobs:
           mix deps.get
 
       - name: Install JavaScript dependencies
-        run: |
-          cd apps/gsmlg_component && bun install
-          cd ../gsmlg_web && bun install
-          cd ../gsmlg_admin_web && bun install
+        run: bun install
 
       - name: Setup database
         env:
