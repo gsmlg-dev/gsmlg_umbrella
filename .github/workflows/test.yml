@@ -77,6 +77,12 @@ jobs:
           mix local.rebar --force
           mix deps.get
 
+      - name: Install JavaScript dependencies
+        run: |
+          cd apps/gsmlg_component && bun install
+          cd ../gsmlg_web && bun install
+          cd ../gsmlg_admin_web && bun install
+
       - name: Setup database
         env:
           MIX_ENV: test
