@@ -75,7 +75,8 @@ defmodule GSMLG.Mnesia.Transaction do
           |> GSMLG.Mnesia.Mnesia.call_and_catch([function, retries])
           |> GSMLG.Mnesia.Mnesia.handle_result()
 
-        {result, %{status: elem(result, 0)}}
+        status = if is_tuple(result), do: elem(result, 0), else: result
+        {result, %{status: status}}
       end
     )
   end
@@ -119,7 +120,8 @@ defmodule GSMLG.Mnesia.Transaction do
           |> GSMLG.Mnesia.Mnesia.call_and_catch([function, retries])
           |> GSMLG.Mnesia.Mnesia.handle_result()
 
-        {result, %{status: elem(result, 0)}}
+        status = if is_tuple(result), do: elem(result, 0), else: result
+        {result, %{status: status}}
       end
     )
   end
