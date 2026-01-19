@@ -19,10 +19,14 @@ defmodule Toml.Provider do
 
       config_providers: [
         {Toml.Provider, [
-          path: {:system, "GSMLG_CONFIG_PATH", "/etc/myapp.toml"},
+          path: {:system, "GSMLG_CONFIG_PATH", ""},
           transforms: [...]
         ]}
       ]
+
+  Note: The `{:system, "VAR", "suffix"}` syntax **concatenates** the env var
+  value with the suffix. Use an empty string `""` if `GSMLG_CONFIG_PATH`
+  contains the full path to the config file.
 
   This will result in `Toml.Provider` being invoked during boot, at which point it
   will evaluate the given path and read the TOML file it finds. If one is not
