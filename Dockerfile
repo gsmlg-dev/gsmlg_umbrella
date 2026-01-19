@@ -57,7 +57,6 @@ ENV ERLCOOKIE=erlang_cookie
 ENV BUN_BIN=/usr/bin/bun
 ENV BUN_SERVER_JS=/app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
 ENV GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml
-ENV XDG_CONFIG_DIR=/etc/
 
 ENV ELIXIR_ERL_OPTIONS="+fnu"
 

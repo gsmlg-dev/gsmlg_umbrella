@@ -11,7 +11,7 @@ defmodule Toml.Provider do
       release :myapp do
         # ...snip...
         set config_providers: [
-          {Toml.Provider, [path: "${XDG_CONFIG_DIR}/myapp.toml", transforms: [...]]}
+          {Toml.Provider, [path: "${GSMLG_CONFIG_PATH}", transforms: [...]]}
         ]
       end
 
@@ -19,7 +19,7 @@ defmodule Toml.Provider do
 
       config_providers: [
         {Toml.Provider, [
-          path: {:system, "XDG_CONFIG_DIR", "myapp.toml"},
+          path: {:system, "GSMLG_CONFIG_PATH", "/etc/myapp.toml"},
           transforms: [...]
         ]}
       ]

@@ -29,7 +29,7 @@ defmodule GSMLG.Umbrella.MixProject do
           config_providers: [
             {Toml.Provider,
              [
-               path: {:system, "XDG_CONFIG_DIR", "gsmlg_commander.toml"},
+               path: {:system, "GSMLG_CONFIG_PATH", "/etc/gsmlg_commander.toml"},
                transforms: []
              ]}
           ]
@@ -45,7 +45,7 @@ defmodule GSMLG.Umbrella.MixProject do
           config_providers: [
             {Toml.Provider,
              [
-               path: {:system, "XDG_CONFIG_DIR", "gsmlg_umbrella.toml"},
+               path: {:system, "GSMLG_CONFIG_PATH", "/etc/gsmlg_umbrella.toml"},
                transforms: []
              ]}
           ]
