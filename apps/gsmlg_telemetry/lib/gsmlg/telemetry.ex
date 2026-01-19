@@ -26,6 +26,21 @@ defmodule GSMLG.Telemetry do
   alias GSMLG.Telemetry.Logger
   alias GSMLG.Telemetry.Handler
 
+  # Check if the telemetry application is started
+  # This prevents warnings during early startup (e.g., runtime.exs config loading)
+  defp telemetry_available? do
+    # Check if telemetry ETS table exists (created when telemetry app starts)
+    :ets.whereis(:telemetry_handler_table) != :undefined
+  end
+
+  defp safe_telemetry_execute(event_name, measurements, metadata) do
+    if telemetry_available?() do
+      :telemetry.execute(event_name, measurements, metadata)
+    end
+
+    :ok
+  end
+
   @doc """
   Log a message with the specified level and metadata.
 
@@ -49,8 +64,8 @@ defmodule GSMLG.Telemetry do
     telemetry_event = Keyword.get(opts, :telemetry_event, [:gsmlg, :log])
     measurements = Keyword.get(opts, :measurements, %{})
 
-    # Emit telemetry event
-    :telemetry.execute(
+    # Emit telemetry event (safely, in case telemetry app isn't started yet)
+    safe_telemetry_execute(
       telemetry_event,
       Map.put(measurements, :level, level),
       Map.put(metadata, :message, message)
@@ -76,7 +91,7 @@ defmodule GSMLG.Telemetry do
   """
   @spec emit([atom()], map(), map()) :: :ok
   def emit(event_name, measurements \\ %{}, metadata \\ %{}) do
-    :telemetry.execute(event_name, measurements, metadata)
+    safe_telemetry_execute(event_name, measurements, metadata)
   end
 
   @doc """
@@ -111,7 +126,7 @@ defmodule GSMLG.Telemetry do
         monotonic_time: start_time
       }
 
-      :telemetry.execute(event_name, measurements, Map.put(metadata, :status, :ok))
+      safe_telemetry_execute(event_name, measurements, Map.put(metadata, :status, :ok))
 
       result
     rescue
@@ -128,7 +143,7 @@ defmodule GSMLG.Telemetry do
           |> Map.put(:error, Exception.message(exception))
           |> Map.put(:kind, :exception)
 
-        :telemetry.execute(event_name, measurements, error_metadata)
+        safe_telemetry_execute(event_name, measurements, error_metadata)
 
         reraise exception, __STACKTRACE__
     catch
@@ -145,7 +160,7 @@ defmodule GSMLG.Telemetry do
           |> Map.put(:error, inspect(value))
           |> Map.put(:kind, kind)
 
-        :telemetry.execute(event_name, measurements, error_metadata)
+        safe_telemetry_execute(event_name, measurements, error_metadata)
 
         :erlang.raise(kind, value, __STACKTRACE__)
     end
@@ -189,7 +204,7 @@ defmodule GSMLG.Telemetry do
             |> Map.merge(extra_metadata)
             |> Map.put(:status, :ok)
 
-          :telemetry.execute(event_name, measurements, metadata)
+          safe_telemetry_execute(event_name, measurements, metadata)
 
           {result, extra_metadata}
 
@@ -204,7 +219,7 @@ defmodule GSMLG.Telemetry do
             |> Map.merge(extra_metadata)
             |> Map.put(:status, :ok)
 
-          :telemetry.execute(event_name, measurements, metadata)
+          safe_telemetry_execute(event_name, measurements, metadata)
 
           {result, extra_metadata}
 
@@ -214,7 +229,7 @@ defmodule GSMLG.Telemetry do
             monotonic_time: start_time
           }
 
-          :telemetry.execute(event_name, measurements, Map.put(base_metadata, :status, :ok))
+          safe_telemetry_execute(event_name, measurements, Map.put(base_metadata, :status, :ok))
 
           {result, %{}}
       end
@@ -231,7 +246,7 @@ defmodule GSMLG.Telemetry do
           |> Map.put(:error, Exception.message(exception))
           |> Map.put(:kind, :exception)
 
-        :telemetry.execute(event_name, measurements, error_metadata)
+        safe_telemetry_execute(event_name, measurements, error_metadata)
 
         reraise exception, __STACKTRACE__
     catch
@@ -247,7 +262,7 @@ defmodule GSMLG.Telemetry do
           |> Map.put(:error, inspect(value))
           |> Map.put(:kind, kind)
 
-        :telemetry.execute(event_name, measurements, error_metadata)
+        safe_telemetry_execute(event_name, measurements, error_metadata)
 
         :erlang.raise(kind, value, __STACKTRACE__)
     end
