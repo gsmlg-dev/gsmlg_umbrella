@@ -68,16 +68,30 @@ defmodule GSMLG.Config.Setup do
   end
 
   def setup_database(config) do
-    update_env(:gsmlg, GSMLG.Repo,
+    # Build base config
+    base_config = [
       username: config[:username],
       password: config[:password],
-      hostname: config[:hostname],
-      port: config[:port] || 3306,
       database: config[:database],
       pool_size: config[:pool_size],
       show_sensitive_data_on_connection_error:
         config[:show_sensitive_data_on_connection_error] || get_env() == :dev
-    )
+    ]
+
+    # Add connection config - prefer socket_dir over hostname
+    connection_config =
+      cond do
+        config[:socket_dir] not in [nil, ""] ->
+          [socket_dir: config[:socket_dir]]
+
+        config[:hostname] not in [nil, ""] ->
+          [hostname: config[:hostname], port: config[:port] || 5432]
+
+        true ->
+          [hostname: "localhost", port: config[:port] || 5432]
+      end
+
+    update_env(:gsmlg, GSMLG.Repo, base_config ++ connection_config)
   end
 
   def setup_web(config) do

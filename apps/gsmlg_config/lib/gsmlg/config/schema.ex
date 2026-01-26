@@ -41,9 +41,14 @@ defmodule GSMLG.Config.Schema do
       doc: "Database password"
     ],
     hostname: [
-      type: :string,
-      default: "localhost",
-      doc: "Database hostname"
+      type: {:or, [:string, nil]},
+      default: nil,
+      doc: "Database hostname (use this OR socket_dir, not both)"
+    ],
+    socket_dir: [
+      type: {:or, [:string, nil]},
+      default: nil,
+      doc: "Unix socket directory for local connections (use this OR hostname, not both)"
     ],
     database: [
       type: :string,
@@ -52,8 +57,8 @@ defmodule GSMLG.Config.Schema do
     ],
     port: [
       type: :pos_integer,
-      default: 3306,
-      doc: "Database port"
+      default: 5432,
+      doc: "Database port (only used with hostname, not socket_dir)"
     ],
     pool_size: [
       type: :pos_integer,

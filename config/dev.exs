@@ -2,14 +2,39 @@ import Config
 
 # Configure your database
 # Note: runtime.exs will override these settings with values from gsmlg.toml
-config :gsmlg, GSMLG.Repo,
-  username: System.get_env("POSTGRES_USER", "gsmlg_dev"),
-  password: System.get_env("POSTGRES_PASSWORD", "gsmlg_dev"),
-  hostname: System.get_env("POSTGRES_HOST", "localhost"),
-  port: String.to_integer(System.get_env("POSTGRES_PORT", "5432")),
-  database: "gsmlg_dev",
-  show_sensitive_data_on_connection_error: true,
-  pool_size: 10
+# Supports Unix socket via PGHOST env var (set by devenv)
+db_config =
+  [
+    username: System.get_env("POSTGRES_USER", "gsmlg_dev"),
+    password: System.get_env("POSTGRES_PASSWORD", "gsmlg_dev"),
+    database: System.get_env("POSTGRES_DB", "gsmlg_dev"),
+    show_sensitive_data_on_connection_error: true,
+    pool_size: 10
+  ]
+  |> then(fn config ->
+    case System.get_env("PGHOST") do
+      nil ->
+        config ++
+          [
+            hostname: System.get_env("POSTGRES_HOST", "localhost"),
+            port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
+          ]
+
+      pghost ->
+        if String.starts_with?(pghost, "/") do
+          # Unix socket path
+          config ++ [socket_dir: pghost]
+        else
+          config ++
+            [
+              hostname: pghost,
+              port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
+            ]
+        end
+    end
+  end)
+
+config :gsmlg, GSMLG.Repo, db_config
 
 config :gsmlg_web, GSMLG.Web.Endpoint,
   debug_errors: true,

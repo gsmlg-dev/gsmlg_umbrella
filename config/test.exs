@@ -20,19 +20,38 @@ pool_config =
       [pool: Ecto.Adapters.SQL.Sandbox]
   end
 
-config :gsmlg,
-       GSMLG.Repo,
-       Keyword.merge(
-         [
-           username: "gsmlg_test",
-           password: "gsmlg_test",
-           database: "gsmlg_test#{System.get_env("MIX_TEST_PARTITION")}",
-           hostname: "localhost",
-           port: 5432,
-           pool_size: 10
-         ],
-         pool_config
-       )
+# Base database config - supports Unix socket via PGHOST
+db_base_config =
+  [
+    username: System.get_env("POSTGRES_USER", "gsmlg_test"),
+    password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
+    database: System.get_env("POSTGRES_DB", "gsmlg_test") <> "#{System.get_env("MIX_TEST_PARTITION")}",
+    pool_size: 10
+  ]
+  |> then(fn config ->
+    case System.get_env("PGHOST") do
+      nil ->
+        config ++
+          [
+            hostname: System.get_env("POSTGRES_HOST", "localhost"),
+            port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
+          ]
+
+      pghost ->
+        if String.starts_with?(pghost, "/") do
+          # Unix socket path
+          config ++ [socket_dir: pghost]
+        else
+          config ++
+            [
+              hostname: pghost,
+              port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
+            ]
+        end
+    end
+  end)
+
+config :gsmlg, GSMLG.Repo, Keyword.merge(db_base_config, pool_config)
 
 config :gsmlg_web, GSMLG.Web.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4112],

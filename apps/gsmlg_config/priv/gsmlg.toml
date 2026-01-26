@@ -7,8 +7,10 @@ log_level = "debug"
 [database]
 username = "gsmlg_dev"
 password = "gsmlg_dev"
-hostname = "10.100.10.13"
-port = 5433
+# Use Unix socket - set socket_dir for local, or hostname for remote
+# hostname = "10.100.10.13"
+# port = 5433
+socket_dir = "/run/postgresql"
 database = "gsmlg_dev"
 show_sensitive_data_on_connection_error = true
 pool_size = 10
