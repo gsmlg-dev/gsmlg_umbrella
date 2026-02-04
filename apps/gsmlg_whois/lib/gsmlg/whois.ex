@@ -84,7 +84,7 @@ defmodule GSMLG.Whois do
                 :ok
             end
 
-            {result, %{status: elem(result, 0), cached: false}}
+            result
           end
         )
 
@@ -94,8 +94,7 @@ defmodule GSMLG.Whois do
           [:gsmlg, :whois, :lookup],
           %{query: qs, type: lookup_type, cached: false},
           fn ->
-            result = do_lookup_raw(qs, opts)
-            {result, %{status: elem(result, 0), cached: false}}
+            do_lookup_raw(qs, opts)
           end
         )
     end
