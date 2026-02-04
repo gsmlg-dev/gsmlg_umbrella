@@ -76,7 +76,7 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   live_view: [signing_salt: "gmmaSSOy"]
 
 config :bun,
-  version: "1.2.15",
+  version: "1.3.4",
   gsmlg_web: [
     args:
       ~w(build assets/js/app.js assets/js/sw.js assets/js/worker.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
