@@ -10,7 +10,17 @@ import Config
 #
 # Example: GSMLG_CONFIG_PATH=/custom/config.toml mix phx.server
 
-config_dir = Path.expand("../apps/gsmlg_config/priv", __DIR__)
+# Resolve config directory - works in both Mix and release environments
+config_dir =
+  case :code.priv_dir(:gsmlg_config) do
+    {:error, _} ->
+      # Fallback for Mix environment
+      Path.expand("../apps/gsmlg_config/priv", __DIR__)
+
+    priv_dir ->
+      List.to_string(priv_dir)
+  end
+
 env_config_file = Path.join(config_dir, "gsmlg.#{config_env()}.toml")
 fallback_config_file = Path.join(config_dir, "gsmlg.toml")
 
@@ -26,7 +36,7 @@ skip_config_loading? = System.get_env("SKIP_SANDBOX_POOL") != nil
 
 if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? and not skip_config_loading? do
   try do
-    case GSMLG.Config.Loader.load(env: config_env()) do
+    case GSMLG.Config.Loader.load(env: config_env(), config_dir: config_dir) do
       {:ok, gsmlg_config} ->
         # Store the loaded configuration for the application to access
         config :gsmlg_config, :loaded_config, gsmlg_config
