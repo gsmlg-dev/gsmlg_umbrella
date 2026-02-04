@@ -97,8 +97,11 @@ defmodule GSMLG.Config.Setup do
   def setup_web(config) do
     uri = URI.parse(config[:url])
 
+    check_origin = parse_check_origin(config[:check_origin])
+
     update_env(:gsmlg_web, GSMLG.Web.Endpoint,
       secret_key_base: config[:secret_key_base],
+      check_origin: check_origin,
       http: [
         ip: {0, 0, 0, 0, 0, 0, 0, 0},
         port: config[:port]
@@ -114,9 +117,12 @@ defmodule GSMLG.Config.Setup do
   def setup_admin_web(config) do
     uri = URI.parse(config[:url])
 
+    check_origin = parse_check_origin(config[:check_origin])
+
     update_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
       adapter: Bandit.PhoenixAdapter,
       secret_key_base: config[:secret_key_base],
+      check_origin: check_origin,
       http: [
         ip: {0, 0, 0, 0, 0, 0, 0, 0},
         port: config[:port]
@@ -181,6 +187,12 @@ defmodule GSMLG.Config.Setup do
   end
 
   def deep_merge(_old, new), do: new
+
+  # Parse check_origin config value
+  # Supports: boolean, list of strings (patterns), or nil (defaults to false for proxy setups)
+  defp parse_check_origin(nil), do: false
+  defp parse_check_origin(value) when is_boolean(value), do: value
+  defp parse_check_origin(value) when is_list(value), do: value
 
   # Get the current environment, works both in Mix and release
   defp get_env do

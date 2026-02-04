@@ -106,6 +106,10 @@ defmodule GSMLG.Config.Schema do
       type: :boolean,
       default: false,
       doc: "Show ICP information"
+    ],
+    check_origin: [
+      type: {:or, [:boolean, {:list, :string}]},
+      doc: "Check origin for WebSocket connections (boolean or list of allowed origins)"
     ]
   ]
 
@@ -133,6 +137,10 @@ defmodule GSMLG.Config.Schema do
       type: :boolean,
       default: false,
       doc: "Enable user registration"
+    ],
+    check_origin: [
+      type: {:or, [:boolean, {:list, :string}]},
+      doc: "Check origin for WebSocket connections (boolean or list of allowed origins)"
     ]
   ]
 
