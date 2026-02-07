@@ -16,6 +16,10 @@ config :logger, :default_handler,
   level: :info,
   formatter: {GSMLG.Logger.Formatters.GsmlgNet, metadata: :all, planet: "gsmlg_umbrella"}
 
+# Remove Erlang's default logger handler to prevent non-JSON SASL progress reports
+# during boot. Elixir's Logger adds its own handler with the JSON formatter above.
+config :kernel, :logger, [{:handler, :default, :undefined}]
+
 config :phoenix_react_server, Phoenix.React, cache_ttl: 1440
 
 config :phoenix_react_server, Phoenix.React.Runtime.Bun,
