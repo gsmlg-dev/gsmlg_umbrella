@@ -347,7 +347,9 @@ defmodule GSMLG.Telemetry.Backends.File do
   end
 
   defp format_log_entry(log_entry, :json) do
-    Jason.encode!(log_entry)
+    log_entry
+    |> sanitize_for_json()
+    |> Jason.encode!()
   end
 
   defp format_log_entry(log_entry, :ltsv) do
@@ -409,6 +411,41 @@ defmodule GSMLG.Telemetry.Backends.File do
         "#{timestamp} [REPORT] Total events: #{total_events}"
     end
   end
+
+  # Recursively sanitize data structures to ensure all values are JSON-encodable.
+  # Non-encodable terms (structs, PIDs, functions, refs, ports) are converted to
+  # their inspected string representation.
+  defp sanitize_for_json(value) when is_map(value) do
+    if Map.has_key?(value, :__struct__) and value.__struct__ not in [DateTime, NaiveDateTime, Date, Time, URI, Decimal] do
+      inspect(value)
+    else
+      Map.new(value, fn {k, v} -> {sanitize_key(k), sanitize_for_json(v)} end)
+    end
+  end
+
+  defp sanitize_for_json(value) when is_list(value) do
+    Enum.map(value, &sanitize_for_json/1)
+  end
+
+  defp sanitize_for_json(value) when is_tuple(value) do
+    value |> Tuple.to_list() |> sanitize_for_json()
+  end
+
+  defp sanitize_for_json(value) when is_pid(value), do: inspect(value)
+  defp sanitize_for_json(value) when is_port(value), do: inspect(value)
+  defp sanitize_for_json(value) when is_reference(value), do: inspect(value)
+  defp sanitize_for_json(value) when is_function(value), do: inspect(value)
+
+  defp sanitize_for_json(value)
+       when is_binary(value) or is_number(value) or is_boolean(value) or is_nil(value) or
+              is_atom(value),
+       do: value
+
+  defp sanitize_for_json(value), do: inspect(value)
+
+  defp sanitize_key(key) when is_atom(key), do: key
+  defp sanitize_key(key) when is_binary(key), do: key
+  defp sanitize_key(key), do: inspect(key)
 
   defp format_value_for_ltsv(value) when is_binary(value) do
     # Escape tabs and newlines for LTSV
