@@ -53,7 +53,7 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
              :controller_pid,
              :metadata
            ],
-           disc_copies: [node()],
+           ram_copies: [node()],
            type: :set,
            index: [:agent_id, :state]
          ) do

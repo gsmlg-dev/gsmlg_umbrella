@@ -122,14 +122,23 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
 
   @impl true
   def init(_opts) do
-    # Ensure Mnesia table exists
-    PTYSessionRecord.create_table()
-
     GSMLG.Telemetry.info("SessionTracker started", metadata: %{})
 
     schedule_cleanup()
 
-    {:ok, %{}}
+    # Defer Mnesia table creation to avoid blocking the supervisor tree.
+    # Mnesia suspends schema transactions when disk_almost_full or
+    # system_memory_high_watermark alarms are active, which would hang init/1.
+    {:ok, %{}, {:continue, :create_mnesia_table}}
+  end
+
+  @impl true
+  def handle_continue(:create_mnesia_table, state) do
+    Task.start(fn ->
+      PTYSessionRecord.create_table()
+    end)
+
+    {:noreply, state}
   end
 
   @impl true

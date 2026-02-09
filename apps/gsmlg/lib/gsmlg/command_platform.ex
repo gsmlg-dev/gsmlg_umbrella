@@ -87,50 +87,41 @@ defmodule GSMLG.CommandPlatform do
 
   @impl true
   def handle_continue(:start_mnesia, state) do
-    GSMLG.Telemetry.span([:command_platform, :mnesia_setup], %{node: node()}, fn ->
-      try do
-        ensure_mnesia_started()
-        ensure_mnesia_table()
+    # Run Mnesia setup in a separate task to avoid blocking this GenServer.
+    # Mnesia suspends schema transactions when disk_almost_full or
+    # system_memory_high_watermark alarms are active, which would hang
+    # handle_continue and make the process unresponsive.
+    Task.start(fn ->
+      GSMLG.Telemetry.span([:command_platform, :mnesia_setup], %{node: node()}, fn ->
+        try do
+          ensure_mnesia_started()
+          ensure_mnesia_table()
 
-        GSMLG.Telemetry.info("CommandPlatform Mnesia setup completed",
-          metadata: %{
-            module: __MODULE__,
-            operation: "mnesia_setup_complete",
-            node: node()
-          }
-        )
-
-        state
-        |> then(&{:ok, &1})
-      rescue
-        e ->
-          GSMLG.Telemetry.exception(e, __STACKTRACE__,
+          GSMLG.Telemetry.info("CommandPlatform Mnesia setup completed",
             metadata: %{
               module: __MODULE__,
-              operation: "mnesia_setup_failed",
+              operation: "mnesia_setup_complete",
               node: node()
             }
           )
 
-          {:ok, state}
-      end
+          {:ok, nil}
+        rescue
+          e ->
+            GSMLG.Telemetry.exception(e, __STACKTRACE__,
+              metadata: %{
+                module: __MODULE__,
+                operation: "mnesia_setup_failed",
+                node: node()
+              }
+            )
+
+            {:ok, nil}
+        end
+      end)
     end)
-    |> case do
-      {:ok, new_state} ->
-        GSMLG.Telemetry.debug("CommandPlatform initialized successfully",
-          metadata: %{
-            module: __MODULE__,
-            operation: "init_complete",
-            commanders_count: length(new_state.commanders),
-            results_count: length(new_state.run_results)
-          }
-        )
 
-        {:noreply, new_state}
-
-      state ->
-        {:noreply, state}
-    end
+    {:noreply, state}
   end
 
   @impl true
