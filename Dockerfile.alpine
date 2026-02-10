@@ -80,7 +80,7 @@ COPY --from=builder /usr/bin/bun /usr/bin/bun
 
 RUN <<EOF
 apk update
-apk add --no-cache openssl bash libstdc++
+apk add --no-cache openssl bash libstdc++ ca-certificates procps
 mkdir -p /var/lib/mnesia
 EOF
 

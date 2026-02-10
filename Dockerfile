@@ -67,7 +67,8 @@ COPY --from=builder /usr/bin/bun /usr/bin/bun
 
 RUN <<EOF
 apt-get update
-apt-get install openssl
+apt-get install -y --no-install-recommends openssl ca-certificates procps
+rm -rf /var/lib/apt/lists/*
 mkdir -p /var/lib/mnesia
 EOF
 
