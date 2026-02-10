@@ -51,6 +51,15 @@ For Docker deployments:
 docker exec <container> /app/bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
 ```
 
+### List Users
+
+```shell
+./bin/gsmlg_umbrella eval "GSMLG.Release.list_users()"
+
+# Docker
+docker exec <container> /app/bin/gsmlg_umbrella eval "GSMLG.Release.list_users()"
+```
+
 ### Reset Admin Password
 
 Reset a user's password by username or email:

@@ -14,6 +14,36 @@ defmodule GSMLG.Release do
     {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
   end
 
+  def list_users do
+    load_app()
+
+    {:ok, _, _} =
+      Ecto.Migrator.with_repo(GSMLG.Repo, fn repo ->
+        import Ecto.Query
+
+        users =
+          from(u in GSMLG.Accounts.User,
+            select: %{
+              id: u.id,
+              username: u.username,
+              email: u.email,
+              is_active: u.is_active,
+              active_time: u.active_time
+            },
+            order_by: [asc: u.username]
+          )
+          |> repo.all()
+
+        IO.puts("#{length(users)} user(s) found:\n")
+
+        Enum.each(users, fn u ->
+          status = if u.is_active, do: "active", else: "inactive"
+          last_seen = if u.active_time, do: Calendar.strftime(u.active_time, "%Y-%m-%d %H:%M"), else: "never"
+          IO.puts("  #{u.username}\t#{u.email || "-"}\t#{status}\tlast_seen: #{last_seen}")
+        end)
+      end)
+  end
+
   def reset_password(username_or_email, new_password) do
     load_app()
 
