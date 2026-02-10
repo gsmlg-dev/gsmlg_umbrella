@@ -51,6 +51,20 @@ For Docker deployments:
 docker exec <container> /app/bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
 ```
 
+### Reset Admin Password
+
+Reset a user's password by username or email:
+
+```shell
+# Standard release
+./bin/gsmlg_umbrella eval 'GSMLG.Release.reset_password("admin@example.com", "new_password")'
+
+# Docker
+docker exec <container> /app/bin/gsmlg_umbrella eval 'GSMLG.Release.reset_password("admin", "new_password")'
+```
+
+Password must be at least 8 characters.
+
 # Build
 
 I'm using nix develop shell to build package.
