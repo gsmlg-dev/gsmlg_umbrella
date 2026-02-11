@@ -60,6 +60,13 @@ defmodule GSMLG.AdminWeb.UserLive.Index do
     |> assign(:user, user)
   end
 
+  defp apply_action(socket, :reset_password, %{"id" => id} = _params) do
+    socket
+    |> assign(:page_title, "Reset Password")
+    |> assign(:user, Accounts.get_user!(id))
+    |> assign(:password_error, nil)
+  end
+
   defp apply_action(socket, :show, %{"id" => id} = _params) do
     socket
     |> assign(:page_title, "Show User")
@@ -71,6 +78,30 @@ defmodule GSMLG.AdminWeb.UserLive.Index do
     SessionProcess.dispatch(socket.assigns.session_id, "remove-user", %{user_id: id})
 
     {:noreply, socket}
+  end
+
+  def handle_event(
+        "reset_password",
+        %{"password" => password, "password_confirmation" => confirmation},
+        socket
+      ) do
+    if password != confirmation do
+      {:noreply, assign(socket, :password_error, "Passwords do not match")}
+    else
+      case Accounts.reset_password(socket.assigns.user, password) do
+        {:ok, _user} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Password reset successfully for #{socket.assigns.user.username}")
+           |> push_patch(to: ~p"/users/#{socket.assigns.user.id}")}
+
+        {:error, msg} when is_binary(msg) ->
+          {:noreply, assign(socket, :password_error, msg)}
+
+        {:error, changeset} ->
+          {:noreply, assign(socket, :password_error, inspect(changeset.errors))}
+      end
+    end
   end
 
   def handle_event("save", %{"user" => user_params}, socket) do

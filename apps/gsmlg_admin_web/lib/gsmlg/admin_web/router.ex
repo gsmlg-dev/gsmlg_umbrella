@@ -79,6 +79,7 @@ defmodule GSMLG.AdminWeb.Router do
     live("/users/new", UserLive.Index, :new)
     live("/users/:id", UserLive.Index, :show)
     live("/users/:id/edit", UserLive.Index, :edit)
+    live("/users/:id/reset_password", UserLive.Index, :reset_password)
 
     live("/user_tokens", UserTokenLive.Index, :index)
     live("/user_tokens/new", UserTokenLive.Index, :new)

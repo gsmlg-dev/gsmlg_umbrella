@@ -33,6 +33,9 @@
           <.link class="btn btn-warning" patch={~p"/users/#{u.id}/edit"}>
             Edit
           </.link>
+          <.link class="btn btn-secondary" patch={~p"/users/#{u.id}/reset_password"}>
+            Reset Password
+          </.link>
           <.dm_btn
             id={"id-del-#{u.username}"}
             confirm={dgettext("user", "Do you want to remove this user?")}
@@ -103,6 +106,9 @@
       <.link class="btn btn-warning" patch={~p"/users/#{@user.id}/edit"}>
         Edit User
       </.link>
+      <.link class="btn btn-secondary" patch={~p"/users/#{@user.id}/reset_password"}>
+        Reset Password
+      </.link>
     </div>
 
     <div class="mx-8 my-2">
@@ -116,6 +122,64 @@
           </div>
         </div>
       <% end %>
+    </div>
+  </div>
+
+  <div :if={@live_action == :reset_password} class="container flex flex-col gap-2 mt-4 w-full">
+    <div class="mx-4 my-2 flex gap-2">
+      <.link class="btn btn-primary" patch={~p"/users"}>
+        All User List
+      </.link>
+      <.link class="btn btn-info" patch={~p"/users/#{@user.id}"}>
+        Show User
+      </.link>
+    </div>
+
+    <div class="mx-4 my-2">
+      <h2 class="text-xl font-semibold mb-4">
+        Reset password for {@user.username}
+      </h2>
+
+      <p :if={@password_error} class="text-error mb-4">{@password_error}</p>
+
+      <form
+        id="reset-password-form"
+        class="flex flex-col gap-4 w-full max-w-2xl"
+        phx-submit="reset_password"
+      >
+        <div class="form-control w-full max-w-7xl">
+          <label class="label" for="password">
+            <span class="label-text">New Password</span>
+          </label>
+          <input
+            type="password"
+            name="password"
+            id="password"
+            required
+            minlength="8"
+            class="input input-bordered w-full"
+            placeholder="Minimum 8 characters"
+          />
+        </div>
+        <div class="form-control w-full max-w-7xl">
+          <label class="label" for="password_confirmation">
+            <span class="label-text">Confirm Password</span>
+          </label>
+          <input
+            type="password"
+            name="password_confirmation"
+            id="password_confirmation"
+            required
+            minlength="8"
+            class="input input-bordered w-full"
+          />
+        </div>
+        <div>
+          <.dm_btn class="btn-primary w-full max-w-md" phx-disable-with="Resetting...">
+            Reset Password
+          </.dm_btn>
+        </div>
+      </form>
     </div>
   </div>
 </Layouts.user>
