@@ -70,7 +70,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Index do
   def handle_event("validate_form", params, socket) do
     changeset =
       %FormData{}
-      |> FormData.changeset(params)
+      |> FormData.changeset(extract_form_params(params))
       |> Map.put(:action, :validate)
 
     {:noreply,
@@ -101,7 +101,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Index do
 
   @impl true
   def handle_event("create_ca", params, socket) do
-    changeset = FormData.changeset(%FormData{}, params)
+    changeset = FormData.changeset(%FormData{}, extract_form_params(params))
 
     if changeset.valid? do
       form_data = Ecto.Changeset.apply_changes(changeset)
@@ -197,6 +197,18 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Index do
       {:error, _} ->
         assign(socket, :cas, [])
     end
+  end
+
+  # Merges form params that may be split between bare names (e.g. "common_name")
+  # and form-prefixed names (e.g. "form_data[validity_start]") into a single flat map.
+  # This happens because the template mixes raw HTML inputs (bare names) with
+  # Phoenix form components (DateTimeRangePicker) that use @field.name.
+  defp extract_form_params(params) do
+    nested = Map.get(params, "form_data", %{})
+
+    params
+    |> Map.drop(["_csrf_token", "_target", "form_data"])
+    |> Map.merge(nested)
   end
 
   # Build user-friendly success message with key details
