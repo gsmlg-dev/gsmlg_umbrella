@@ -68,30 +68,48 @@ defmodule GSMLG.Config.Setup do
   end
 
   def setup_database(config) do
-    # Build base config
-    base_config = [
-      username: config[:username],
-      password: config[:password],
-      database: config[:database],
-      pool_size: config[:pool_size],
-      show_sensitive_data_on_connection_error:
-        config[:show_sensitive_data_on_connection_error] || get_env() == :dev
-    ]
+    # DATABASE_URL from env takes priority (set by devenv or deployment)
+    if url = System.get_env("DATABASE_URL") do
+      db_config = [
+        url: url,
+        pool_size: config[:pool_size] || 10,
+        show_sensitive_data_on_connection_error:
+          config[:show_sensitive_data_on_connection_error] || get_env() == :dev
+      ]
 
-    # Add connection config - prefer socket_dir over hostname
-    connection_config =
-      cond do
-        config[:socket_dir] not in [nil, ""] ->
-          [socket_dir: config[:socket_dir]]
+      # PGHOST as a path means Unix socket (devenv sets this)
+      db_config =
+        case System.get_env("PGHOST") do
+          "/" <> _ = pghost -> Keyword.put(db_config, :socket_dir, pghost)
+          _ -> db_config
+        end
 
-        config[:hostname] not in [nil, ""] ->
-          [hostname: config[:hostname], port: config[:port] || 5432]
+      update_env(:gsmlg, GSMLG.Repo, db_config)
+    else
+      base_config = [
+        username: config[:username],
+        password: config[:password],
+        database: config[:database],
+        pool_size: config[:pool_size],
+        show_sensitive_data_on_connection_error:
+          config[:show_sensitive_data_on_connection_error] || get_env() == :dev
+      ]
 
-        true ->
-          [hostname: "localhost", port: config[:port] || 5432]
-      end
+      # Add connection config - prefer socket_dir over hostname
+      connection_config =
+        cond do
+          config[:socket_dir] not in [nil, ""] ->
+            [socket_dir: config[:socket_dir]]
 
-    update_env(:gsmlg, GSMLG.Repo, base_config ++ connection_config)
+          config[:hostname] not in [nil, ""] ->
+            [hostname: config[:hostname], port: config[:port] || 5432]
+
+          true ->
+            [hostname: "localhost", port: config[:port] || 5432]
+        end
+
+      update_env(:gsmlg, GSMLG.Repo, base_config ++ connection_config)
+    end
   end
 
   def setup_web(config) do

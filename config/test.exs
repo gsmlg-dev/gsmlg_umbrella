@@ -1,57 +1,43 @@
 import Config
 
 # Database configuration for tests
-# Uses localhost by default for CI compatibility
+# devenv exports DATABASE_URL + PGHOST; CI sets POSTGRES_HOST for TCP
 # Set SKIP_SANDBOX_POOL=true for migrations to avoid Sandbox pool lock issues
 
-pool_config =
-  cond do
-    # Skip Sandbox pool for migrations (set explicitly in CI)
-    System.get_env("SKIP_SANDBOX_POOL") != nil ->
-      [pool: DBConnection.ConnectionPool]
-
-    # When POSTGRES_HOST is set (CI), use standard pool - runtime.exs handles this
-    # but we still need to NOT set Sandbox here to avoid conflicts
-    System.get_env("POSTGRES_HOST") != nil ->
-      []
-
-    # Local development: Sandbox pool for running tests
-    true ->
-      [pool: Ecto.Adapters.SQL.Sandbox]
+pool_opt =
+  if System.get_env("SKIP_SANDBOX_POOL") do
+    [pool: DBConnection.ConnectionPool]
+  else
+    [pool: Ecto.Adapters.SQL.Sandbox]
   end
 
-# Base database config - supports Unix socket via PGHOST
-db_base_config =
-  [
-    username: System.get_env("POSTGRES_USER", "gsmlg_test"),
-    password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
-    database: System.get_env("POSTGRES_DB", "gsmlg_test") <> "#{System.get_env("MIX_TEST_PARTITION")}",
-    pool_size: 10
-  ]
-  |> then(fn config ->
-    case System.get_env("PGHOST") do
-      nil ->
-        config ++
-          [
-            hostname: System.get_env("POSTGRES_HOST", "localhost"),
-            port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
-          ]
+test_db = System.get_env("POSTGRES_DB", "gsmlg_test") <> "#{System.get_env("MIX_TEST_PARTITION")}"
 
-      pghost ->
-        if String.starts_with?(pghost, "/") do
-          # Unix socket path
-          config ++ [socket_dir: pghost]
-        else
-          config ++
-            [
-              hostname: pghost,
-              port: String.to_integer(System.get_env("POSTGRES_PORT", "5432"))
-            ]
-        end
-    end
-  end)
+db_config =
+  if url = System.get_env("DATABASE_URL") do
+    # Replace dev database name with test database + partition
+    test_url = String.replace(url, "gsmlg_dev", test_db)
+    [url: test_url]
+  else
+    [
+      username: System.get_env("POSTGRES_USER", "gsmlg_test"),
+      password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
+      hostname: System.get_env("POSTGRES_HOST", "localhost"),
+      port: String.to_integer(System.get_env("POSTGRES_PORT", "5432")),
+      database: test_db
+    ]
+  end
 
-config :gsmlg, GSMLG.Repo, Keyword.merge(db_base_config, pool_config)
+# PGHOST set to a path means Unix socket (devenv sets this automatically)
+db_config =
+  case System.get_env("PGHOST") do
+    "/" <> _ = pghost -> Keyword.put(db_config, :socket_dir, pghost)
+    _ -> db_config
+  end
+
+db_config = db_config ++ [pool_size: 10]
+
+config :gsmlg, GSMLG.Repo, Keyword.merge(db_config, pool_opt)
 
 config :gsmlg_web, GSMLG.Web.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4112],

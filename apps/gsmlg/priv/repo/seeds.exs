@@ -10,10 +10,13 @@
 # We recommend using the bang functions (`insert!`, `update!`
 # and so on) as they will fail if something goes wrong.
 
-%GSMLG.Accounts.User{}
-|> GSMLG.Accounts.User.create_changeset(%{
-  username: "test",
-  email: "test@gsmlg.dev",
-  password: "test"
-})
-|> GSMLG.Repo.insert!()
+users = [
+  %{username: "test", email: "test@gsmlg.dev", password: "test"},
+  %{username: "josh", email: "josh@gsmlg.dev", password: "Josh2026"}
+]
+
+for attrs <- users do
+  %GSMLG.Accounts.User{}
+  |> GSMLG.Accounts.User.create_changeset(attrs)
+  |> GSMLG.Repo.insert!(on_conflict: :nothing, conflict_target: :username)
+end
