@@ -31,7 +31,7 @@ bun install
 install -m 755 -D $MIX_TAILWIND_PATH /build/_build/tailwind-linux-x64
 install -m 755 -D $MIX_BUN_PATH /build/_build/bun
 
-bash update_version.sh $RELEASE_VERSION
+bash scripts/update_version.sh $RELEASE_VERSION
 
 mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
 

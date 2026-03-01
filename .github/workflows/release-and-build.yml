@@ -141,7 +141,7 @@ jobs:
           DATABASE_URL: "ecto://USER:PASS@HOST/DATABASE"
         run: |
           cd ${{ github.workspace }}
-          bash update_version.sh ${RELEASE_VERSION}
+          bash scripts/update_version.sh ${RELEASE_VERSION}
           mix prerelease
           mix release gsmlg_umbrella --version ${RELEASE_VERSION}
           mix release gsmlg_commander --version ${RELEASE_VERSION}
