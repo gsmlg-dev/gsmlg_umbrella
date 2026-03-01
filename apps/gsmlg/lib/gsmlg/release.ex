@@ -38,7 +38,12 @@ defmodule GSMLG.Release do
 
         Enum.each(users, fn u ->
           status = if u.is_active, do: "active", else: "inactive"
-          last_seen = if u.active_time, do: Calendar.strftime(u.active_time, "%Y-%m-%d %H:%M"), else: "never"
+
+          last_seen =
+            if u.active_time,
+              do: Calendar.strftime(u.active_time, "%Y-%m-%d %H:%M"),
+              else: "never"
+
           IO.puts("  #{u.username}\t#{u.email || "-"}\t#{status}\tlast_seen: #{last_seen}")
         end)
       end)

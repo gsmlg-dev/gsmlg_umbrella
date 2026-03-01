@@ -416,7 +416,8 @@ defmodule GSMLG.Telemetry.Backends.File do
   # Non-encodable terms (structs, PIDs, functions, refs, ports) are converted to
   # their inspected string representation.
   defp sanitize_for_json(value) when is_map(value) do
-    if Map.has_key?(value, :__struct__) and value.__struct__ not in [DateTime, NaiveDateTime, Date, Time, URI, Decimal] do
+    if Map.has_key?(value, :__struct__) and
+         value.__struct__ not in [DateTime, NaiveDateTime, Date, Time, URI, Decimal] do
       inspect(value)
     else
       Map.new(value, fn {k, v} -> {sanitize_key(k), sanitize_for_json(v)} end)
