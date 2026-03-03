@@ -111,7 +111,6 @@ defmodule GSMLG.AdminWeb do
       use Gettext, backend: GSMLG.AdminWeb.Gettext
       use GSMLG.Component
       use PhoenixDuskmoon.Component
-      use PhoenixDuskmoon.Fun
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

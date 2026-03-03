@@ -44,3 +44,41 @@ worker.port.onmessage = (msg) => {
 console.log('connect to shared worker', worker);
 
 window.sworker = worker;
+
+// PageHeader sticky nav — works without LiveView (no phx-hook required)
+// See: https://github.com/duskmoon-dev/phoenix-duskmoon-ui/issues/16
+document.querySelectorAll('[phx-hook="PageHeader"]').forEach((header) => {
+  const navId = header.dataset.navId;
+  const navEl = navId && document.getElementById(navId);
+  if (!navEl) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.intersectionRatio <= 0.5) {
+        navEl.classList.remove('hidden');
+        navEl.style.opacity = 1 - entry.intersectionRatio;
+      } else {
+        navEl.classList.add('hidden');
+      }
+    });
+  }, { threshold: Array.from({ length: 11 }, (_, i) => i / 10) });
+
+  observer.observe(header);
+});
+
+// Theme switcher — works without LiveView (no phx-hook required)
+// Listens for radio changes in dm_theme_switcher component
+document.addEventListener('change', (e) => {
+  if (e.target.matches('.theme-controller-item')) {
+    const theme = e.target.value;
+    localStorage.setItem('theme', theme);
+    if (theme && theme !== 'default') {
+      document.documentElement.setAttribute('data-theme', theme);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    // Close the details dropdown
+    const details = e.target.closest('details');
+    if (details) details.removeAttribute('open');
+  }
+});

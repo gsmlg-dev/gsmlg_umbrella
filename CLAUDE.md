@@ -102,6 +102,22 @@ PostgreSQL in production and CI. Dev supports both TCP (`POSTGRES_HOST`) and Uni
 
 Hybrid rendering: Phoenix LiveView for most pages, React components via `phoenix_react_server` (Bun runtime). Shared components live in `apps/gsmlg_component/assets/component/`. Assets built with Tailwind CSS v4 and Bun.
 
+### UI Framework: Duskmoon
+
+This project uses two Duskmoon packages for all UI:
+
+- **`@duskmoon-dev/core`** (npm) — Tailwind CSS plugin providing design tokens, utility classes, and component styles.
+- **`phoenix_duskmoon`** (hex, `~> 9.0`) — Phoenix function components with the `.dm_` prefix (`dm_form`, `dm_input`, `dm_btn`, `dm_table`, `dm_modal`, etc.). Used in `gsmlg_web` and `gsmlg_admin_web`.
+
+**Upstream repositories:**
+- CSS: [duskmoon-dev/duskmoonui](https://github.com/duskmoon-dev/duskmoonui)
+- Elements: [duskmoon-dev/duskmoon-elements](https://github.com/duskmoon-dev/duskmoon-elements)
+- Components: [duskmoon-dev/phoenix-duskmoon-ui](https://github.com/duskmoon-dev/phoenix-duskmoon-ui)
+
+**`phoenix_duskmoon` wraps `@duskmoon-dev/elements`** — the Elixir components render the custom elements from the elements package. Bugs or missing features may originate in any layer (CSS, elements, or Phoenix components).
+
+**When any Duskmoon package has a bug or lacks a feature we need:** file an issue on the appropriate repo above (CSS issues → duskmoonui, element issues → duskmoon-elements, component issues → phoenix-duskmoon-ui) with the label `internal request`. Do NOT work around missing functionality locally without first filing the upstream issue.
+
 ## Critical Gotchas
 
 ### Mnesia + OTP Alarms
