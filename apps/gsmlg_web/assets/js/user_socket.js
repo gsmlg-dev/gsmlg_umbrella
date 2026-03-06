@@ -38,7 +38,7 @@ export const startSocket = (t) => {
   if (token != null) {
     params.token = token;
   }
-  const socket = new LiveSocket("/socket", Socket, { params, hooks });
+  const socket = new LiveSocket("/live", Socket, { params, hooks, longPollFallbackMs: 2500 });
   return socket;
 };
 

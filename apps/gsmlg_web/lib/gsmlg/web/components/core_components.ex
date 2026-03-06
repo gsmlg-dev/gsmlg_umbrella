@@ -81,9 +81,11 @@ defmodule GSMLG.Web.Components.CoreComponents do
   attr :size, :string, default: "md", values: ["xs", "sm", "md", "lg"]
 
   def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
+    errors = if Phoenix.Component.used_input?(field), do: field.errors, else: []
+
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
-    |> assign(:errors, Enum.map(field.errors, &translate_error/1))
+    |> assign(:errors, Enum.map(errors, &translate_error/1))
     |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
     |> assign_new(:value, fn -> field.value end)
     |> input()
@@ -115,7 +117,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
           <span class="label-text">{@label}</span>
         <% end %>
       </label>
-      <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
+      <.error :for={msg <- @errors} message={msg} />
     </div>
     """
   end
@@ -136,7 +138,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
         <option :if={@prompt} value="">{@prompt}</option>
         {Phoenix.HTML.Form.options_for_select(@options, @value)}
       </select>
-      <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
+      <.error :for={msg <- @errors} message={msg} />
     </div>
     """
   end
@@ -153,7 +155,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
         class={["textarea textarea-bordered textarea-#{@size}", @class]}
         {@rest}
       >{@value}</textarea>
-      <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
+      <.error :for={msg <- @errors} message={msg} />
     </div>
     """
   end
@@ -172,7 +174,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
         class={["input input-bordered input-#{@size}", @class]}
         {@rest}
       />
-      <.error :for={msg <- @errors} message={msg} phx_feedback_for={@name} />
+      <.error :for={msg <- @errors} message={msg} />
     </div>
     """
   end
@@ -180,13 +182,11 @@ defmodule GSMLG.Web.Components.CoreComponents do
   @doc """
   Phoenix 1.8 simplified error component.
   """
-  attr :for, :string, default: nil
   attr :message, :string, required: true
-  attr :phx_feedback_for, :string, default: nil
 
   def error(assigns) do
     ~H"""
-    <p :if={@message} class="mt-1 text-sm text-error" phx-feedback-for={@for}>
+    <p :if={@message} class="mt-1 text-sm text-error">
       {@message}
     </p>
     """

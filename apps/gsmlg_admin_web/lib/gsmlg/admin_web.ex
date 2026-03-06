@@ -42,8 +42,7 @@ defmodule GSMLG.AdminWeb do
         formats: [:html, :json]
 
       import Plug.Conn
-      import GSMLG.AdminWeb.Gettext
-      import Phoenix.Component
+      use Gettext, backend: GSMLG.AdminWeb.Gettext
 
       unquote(verified_routes())
     end
@@ -95,7 +94,7 @@ defmodule GSMLG.AdminWeb do
 
       # Import convenience functions from controllers
       import Phoenix.Controller,
-        only: [get_csrf_token: 0, view_module: 1, view_template: 1]
+        only: [get_csrf_token: 0]
 
       # Include general helpers for rendering HTML
       unquote(html_helpers())
@@ -106,7 +105,6 @@ defmodule GSMLG.AdminWeb do
     quote do
       # HTML escaping functionality
       import Phoenix.HTML
-      import Phoenix.Component
       # Core UI components and translation
       use Gettext, backend: GSMLG.AdminWeb.Gettext
       use GSMLG.Component

@@ -36,6 +36,7 @@ config :gsmlg_web, GSMLG.Web.Endpoint,
     bun: {Bun, :install_and_run, [:gsmlg_web, ~w(--sourcemap=inline --watch)]}
   ],
   live_reload: [
+    web_console_logger: true,
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
@@ -53,6 +54,7 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
     bun: {Bun, :install_and_run, [:gsmlg_admin_web, ~w(--sourcemap=inline --watch)]}
   ],
   live_reload: [
+    web_console_logger: true,
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
@@ -79,6 +81,7 @@ config :phoenix, :stacktrace_depth, 20
 
 config :phoenix_live_view,
   debug_heex_annotations: true,
+  debug_attributes: true,
   enable_expensive_runtime_checks: true
 
 config :phoenix_react_server, Phoenix.React,
