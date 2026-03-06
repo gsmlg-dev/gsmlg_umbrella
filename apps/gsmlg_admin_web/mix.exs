@@ -9,7 +9,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      elixir: "~> 1.14.1 or ~> 1.15",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: Mix.compilers(),
       start_permanent: Mix.env() == :prod,
@@ -37,7 +37,7 @@ defmodule GSMLG.AdminWeb.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.7"},
+      {:phoenix, "~> 1.8"},
       {:phoenix_ecto, "~> 4.5"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.6", only: :dev},

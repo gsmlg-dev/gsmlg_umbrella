@@ -9,7 +9,7 @@ defmodule GSMLG.Socket.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      elixir: "~> 1.14",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       name: "GSMLG.Socket",
       description: "GSMLG specify Socket connection package",
