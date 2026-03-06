@@ -63,8 +63,7 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
     ]
   ],
   live_view: [
-    signing_salt: "gmmaSSOy",
-    debug_heex_annotations: true
+    signing_salt: "gmmaSSOy"
   ]
 
 config :gsmlg_admin_web, dev_routes: true

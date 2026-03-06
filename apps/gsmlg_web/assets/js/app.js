@@ -41,7 +41,9 @@ worker.port.onmessage = (msg) => {
     console.log('SharedWorker connected:', msg.data);
   }
 };
-console.log('connect to shared worker', worker);
+if (process.env.NODE_ENV === 'development') {
+  console.log('connect to shared worker', worker);
+}
 
 window.sworker = worker;
 
@@ -66,19 +68,5 @@ document.querySelectorAll('[phx-hook="PageHeader"]').forEach((header) => {
   observer.observe(header);
 });
 
-// Theme switcher — works without LiveView (no phx-hook required)
-// Listens for radio changes in dm_theme_switcher component
-document.addEventListener('change', (e) => {
-  if (e.target.matches('.theme-controller-item')) {
-    const theme = e.target.value;
-    localStorage.setItem('theme', theme);
-    if (theme && theme !== 'default') {
-      document.documentElement.setAttribute('data-theme', theme);
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
-    // Close the details dropdown
-    const details = e.target.closest('details');
-    if (details) details.removeAttribute('open');
-  }
-});
+// Theme switching is handled by the ThemeSwitcher LiveView hook in user_socket.js.
+// No duplicate listener needed here — the hook covers both LiveView and non-LiveView pages.
