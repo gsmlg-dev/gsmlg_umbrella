@@ -44,16 +44,35 @@ docker build -f Dockerfile.alpine \
   --build-arg NPM_CONFIG_REGISTRY=https://registry.npmjs.org \
   -t gsmlg-umbrella .
 
+# Pre-release asset build (React component bundle)
+mix prerelease
+
 # Production release
 MIX_ENV=prod mix release gsmlg_umbrella
 
-# Release migrations
+# Standalone binary (via Burrito)
+MIX_ENV=prod BURRITO_TARGET=linux_amd64 mix release gsmlg_umbrella_standalone
+
+# Update version in all mix.exs files
+scripts/update_version.sh 1.2.3
+
+# Release operations (production)
 ./bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
+./bin/gsmlg_umbrella eval "GSMLG.Release.rollback(GSMLG.Repo, 20231001000000)"
+./bin/gsmlg_umbrella eval "GSMLG.Release.list_users()"
+./bin/gsmlg_umbrella eval 'GSMLG.Release.reset_password("admin@example.com", "new_password")'
 ```
+
+## Development Environment
+
+Uses [devenv](https://devenv.sh/) (Nix-based). `devenv shell` automatically:
+- Starts PostgreSQL with Unix socket (sets `PGHOST`, `DATABASE_URL`)
+- Creates `gsmlg_dev` and `gsmlg_test` databases with `gsmlg_dev` user
+- Provides Elixir 1.18, OTP 28, Bun, Tailwind CLI
 
 ## CI
 
-GitHub Actions runs on every push: `compile --warnings-as-errors`, `format --check-formatted`, `credo --strict`, and `dialyzer` (non-blocking). Tests run on pushes to main/develop and PRs to main. CI uses Elixir 1.18 + OTP 28, PostgreSQL 16.
+GitHub Actions runs on every push: `compile --warnings-as-errors`, `format --check-formatted`, `credo --strict`, and `dialyzer` (non-blocking). Tests run on pushes to main/develop and PRs to main. CI uses Elixir 1.18 + OTP 28, PostgreSQL 16. Test workflow also requires Redis 7.
 
 ## Project Architecture
 
@@ -93,6 +112,16 @@ When adding new config fields: update the TOML file, add to schema.ex, add to se
 
 `GSMLG.Web.Application`: `Telemetry → Endpoint`
 `GSMLG.AdminWeb.Application`: `Telemetry → Endpoint → Guardian.DB.Sweeper`
+
+### Authentication
+
+Guardian (JWT) for both web apps, with DB-backed token persistence via `GuardianDB`:
+- **`GSMLG.Web.Guardian`** — public web app auth
+- **`GSMLG.AdminWeb.Guardian`** — admin app auth (includes `Guardian.DB.Sweeper` for token cleanup)
+
+Auth methods: username/password (`GSMLG.Accounts.Auth`), GitHub OAuth2 (optional), magic link email authentication for public web.
+
+Router pipelines: `maybe_browser_auth` / `maybe_api_auth` (optional auth), `ensure_authed_access` (required auth). Admin routes also use `ensure_session_process_started` for `phoenix_session_process` integration.
 
 ### Database
 
