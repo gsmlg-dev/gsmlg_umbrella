@@ -4,13 +4,16 @@ import { LiveSocket } from "phoenix_live_view";
 import { hooks } from './hooks';
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+
+// LiveSocket for LiveView — connects to /live
 const liveSocket = new LiveSocket("/live", Socket, { params: { _csrf_token: csrfToken }, hooks, longPollFallbackMs: 2500 });
 
+// Separate raw Socket for custom channels — connects to /socket (UserSocket)
+const userSocket = new Socket("/socket", { params: { _csrf_token: csrfToken } });
+
 export const joinChannels = () => {
-  if (!liveSocket.socket.isConnected()) {
-    liveSocket.socket.connect();
-  }
-  const channel = liveSocket.socket.channel("node:lobby", {});
+  userSocket.connect();
+  const channel = userSocket.channel("node:lobby", {});
   channel.join()
     .receive("ok", resp => { console.log("Joined successfully", resp) })
     .receive("error", resp => { console.log("Unable to join", resp) });

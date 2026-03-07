@@ -13,7 +13,7 @@ let socket;
 window.addEventListener('socket:start', (event) => {
   const { token } = event.detail;
   socket = startSocket(token);
-  joinChannels(socket);
+  joinChannels();
 });
 
 window.addEventListener('socket:stop', (event) => {

@@ -38,12 +38,18 @@ export const startSocket = (t) => {
   if (token != null) {
     params.token = token;
   }
-  const socket = new LiveSocket("/live", Socket, { params, hooks, longPollFallbackMs: 2500 });
-  return socket;
+  // LiveSocket for LiveView — connects to /live
+  const liveSocket = new LiveSocket("/live", Socket, { params, hooks, longPollFallbackMs: 2500 });
+  return liveSocket;
 };
 
-export const joinChannels = (socket) => {
-  const channel = socket.channel("node:lobby", {});
+export const joinChannels = () => {
+  // Separate raw Socket for custom channels — connects to /socket (UserSocket)
+  const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+  const userSocket = new Socket("/socket", { params: { _csrf_token: csrfToken } });
+  userSocket.connect();
+
+  const channel = userSocket.channel("node:lobby", {});
   channel.join()
     .receive("ok", resp => { console.log("Joined successfully", resp) })
     .receive("error", resp => { console.log("Unable to join", resp) });
