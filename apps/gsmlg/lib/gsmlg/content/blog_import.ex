@@ -44,9 +44,12 @@ defmodule GSMLG.Content.BlogImport do
   defp do_import(%Ecto.Changeset{changes: %{data: data}} = changeset) do
     case Repo.transaction(fn ->
            Enum.each(Jason.decode!(data), fn blog ->
-             %Blog{}
-             |> Blog.changeset(blog)
-             |> Repo.insert!()
+             case %Blog{}
+                  |> Blog.changeset(blog)
+                  |> Repo.insert(on_conflict: :replace_all, conflict_target: :id) do
+               {:ok, _} -> :ok
+               {:error, err} -> Repo.rollback(err)
+             end
            end)
          end) do
       {:ok, _} ->
@@ -57,7 +60,7 @@ defmodule GSMLG.Content.BlogImport do
          changeset
          |> add_error(
            :data,
-           "Error: #{err}"
+           "Error: #{inspect(err)}"
          )}
     end
   end
