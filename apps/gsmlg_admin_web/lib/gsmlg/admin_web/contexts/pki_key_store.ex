@@ -86,13 +86,26 @@ defmodule GSMLG.AdminWeb.PKIKeyStore do
 
     case File.read(key_path(ca_id)) do
       {:ok, key_der} ->
-        # Decode the private key
-        case :public_key.der_decode(:RSAPrivateKey, key_der) do
-          {:RSAPrivateKey, _, _, _, _, _, _, _, _, _, _} = key ->
+        # Try RSA first, then EC, since the stored DER has no type tag
+        rsa_result =
+          try do
+            {:RSAPrivateKey, _, _, _, _, _, _, _, _, _, _} = :public_key.der_decode(:RSAPrivateKey, key_der)
+            {:ok, :public_key.der_decode(:RSAPrivateKey, key_der)}
+          rescue
+            _ -> :error
+          end
+
+        case rsa_result do
+          {:ok, key} ->
             {:ok, key}
 
-          _ ->
-            {:error, :invalid_key_format}
+          :error ->
+            try do
+              key = :public_key.der_decode(:ECPrivateKey, key_der)
+              {:ok, key}
+            rescue
+              _ -> {:error, :invalid_key_format}
+            end
         end
 
       {:error, :enoent} ->
