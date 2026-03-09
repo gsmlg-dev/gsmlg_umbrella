@@ -60,6 +60,8 @@ defmodule GSMLG.AdminWeb do
     quote do
       use Phoenix.LiveView
 
+      on_mount GSMLG.AdminWeb.Live.Hooks.AssignCurrentUser
+
       unquote(html_helpers())
     end
   end
