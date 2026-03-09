@@ -42,7 +42,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.6", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
-      {:phoenix_duskmoon, "~> 9.0.0-rc.2"},
+      {:phoenix_duskmoon, "~> 9.0.0-rc"},
       {:bandit, "~> 1.0"},
       {:floki, "~> 0.32", only: :test},
       {:lazy_html, "~> 0.1.0", only: :test},

@@ -406,9 +406,6 @@ defmodule GSMLG.Web.Components.CoreComponents do
       {@rest}
     >
       <div class="modal-box">
-        <form method="dialog" class="modal-backdrop">
-          <button phx-click={@on_cancel}>close</button>
-        </form>
         <div :if={@header != []} class="modal-header">
           {render_slot(@header)}
         </div>
@@ -419,6 +416,9 @@ defmodule GSMLG.Web.Components.CoreComponents do
           {render_slot(@footer)}
         </div>
       </div>
+      <form method="dialog" class="modal-backdrop">
+        <button phx-click={@on_cancel}>close</button>
+      </form>
     </div>
     """
   end
