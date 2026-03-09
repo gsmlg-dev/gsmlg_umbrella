@@ -44,9 +44,11 @@ worker.port.postMessage({
   data: { csrfToken },
 });
 worker.port.onmessage = (msg) => {
-  console.log('SharedWorker message:', msg);
-  if (msg.data.type === 'connected') {
-    console.log('SharedWorker connected:', msg.data);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('SharedWorker message:', msg);
+    if (msg.data.type === 'connected') {
+      console.log('SharedWorker connected:', msg.data);
+    }
   }
 };
 if (process.env.NODE_ENV === 'development') {
