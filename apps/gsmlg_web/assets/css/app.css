@@ -16,22 +16,3 @@ body:has(.fullscreen-canvas) {
   overflow: hidden;
 }
 
-/* Default theme variables */
-:root {
-  --theme-rounded-btn: 0.5rem;
-  --theme-rounded-box: 1rem;
-  --theme-rounded-badge: 1.9rem;
-}
-
-/* Theme switcher component styles */
-.theme-switcher {
-  @apply fixed bottom-4 right-4 z-50;
-}
-
-/* Custom theme transitions */
-* {
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease,
-    border-color 0.3s ease;
-}

@@ -9,7 +9,7 @@ defmodule GSMLG.Component.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      elixir: "~> 1.14.1 or ~> 1.15",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps()
@@ -27,7 +27,7 @@ defmodule GSMLG.Component.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:phoenix_duskmoon, "~> 7.0"},
+      {:phoenix_duskmoon, "~> 9.0.0-rc.2"},
       {:phoenix_react_server, "~> 0.7"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.0"},

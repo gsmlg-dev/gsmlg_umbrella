@@ -1,0 +1,41 @@
+[gsmlg]
+mnesia_dir = "/data/mnesia"
+
+[logger]
+log_level = "debug"
+
+[database]
+username = "gsmlg"
+password = "gsmlg"
+hostname = "127.0.0.1"
+port = 5432
+database = "gsmlg"
+show_sensitive_data_on_connection_error = true
+pool_size = 10
+
+[web]
+url = "https://gsmlg.org"
+secret_key_base = "o5xg8yDgSOFVrcrH4seZJ7+wJie4BHGOHmf9wP4mlhDFPPIqNETW8GU+gKVgrtFs"
+port = 10280
+user_register = false
+enable_adsense = false
+show_icp = false
+
+[admin_web]
+url = "https://admin.gsmlg.org"
+secret_key_base = "o5xg8yDgSOFVrcrH4seZJ7+wJie4BHGOHmf9wP4mlhDFPPIqNETW8GU+gKVgrtFs"
+port = 10281
+user_register = false
+
+[commander]
+start = false
+
+[oauth.github]
+client_id = ""
+client_secret = ""
+
+[web_push]
+subject = "mailto:administrator@gsmlg.org"
+public_key = "BIiu8m_dqtrKSvdquIqUJxsrkwswa0Zgep4myzmHlUcHjEtRdxdK4bZAEAd4dhFTARNGrbIkOJIcjdn13Z-yC4w"
+private_key = "7mYUWrgUKIE_YGuFaIw2bRO0WjreR0iY6WoE7mDwbak"
+

@@ -1,102 +1,130 @@
 <Layouts.app flash={@flash}>
-  <div class="flex flex-col gap-12 m-auto p-6">
+  <div class="flex flex-col gap-8 p-6 w-full">
+    <%!-- ── Content Overview ─────────────────────────────────────── --%>
     <section class="flex flex-col gap-4">
-      <header class="flex items-center">
-        <h1 class="text-2xl">Content Overview</h1>
-      </header>
-      <div class="flex flex-row items-center gap-4">
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/users"}>User List</.dm_link>
-          <div class="flex flex-row gap-2 items-center">
-            <label class="after:content-[':']">User Count</label>
-            <span class="text-primary">{@data.user_count}</span>
-          </div>
-        </div>
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/user_tokens"}>User Token List</.dm_link>
-          <div class="flex flex-row gap-2 items-center">
-            <label class="after:content-[':']">Logined User Count</label>
-            <span class="text-primary">{@data.token_count}</span>
-          </div>
-        </div>
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/blogs"}>Blog List</.dm_link>
-          <div class="flex flex-row gap-2 items-center">
-            <label class="after:content-[':']">Blog Count</label>
-            <span class="text-primary">{@data.blog_count}</span>
-          </div>
-        </div>
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/github"}>Github</.dm_link>
-          <div class="flex flex-row gap-2 items-center">
-            <label class="after:content-[':']">Github</label>
-            <span class="text-primary">Github Management</span>
-          </div>
-        </div>
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/bumblebee/stt"}>Speech to Text</.dm_link>
-          <div class="flex flex-row gap-2 items-center">
-            <label class="after:content-[':']">Whisper</label>
-            <span class="text-primary">Speech to Text</span>
-          </div>
-        </div>
+      <div class="flex items-center gap-2">
+        <.dm_mdi name="view-dashboard-outline" class="w-5 h-5 text-primary" />
+        <h2 class="font-semibold text-base-content">Content Overview</h2>
+      </div>
+      <div class="flex flex-wrap gap-4">
+        <.link navigate={~p"/users"}>
+          <.dm_stat title="Users" value={to_string(@data.user_count)} class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4">
+            <:icon><.dm_mdi name="account-group-outline" class="w-8 h-8 text-primary" /></:icon>
+          </.dm_stat>
+        </.link>
+        <.link navigate={~p"/user_tokens"}>
+          <.dm_stat title="Active Sessions" value={to_string(@data.token_count)} class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4">
+            <:icon><.dm_mdi name="key-outline" class="w-8 h-8 text-secondary" /></:icon>
+          </.dm_stat>
+        </.link>
+        <.link navigate={~p"/blogs"}>
+          <.dm_stat title="Blog Posts" value={to_string(@data.blog_count)} class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4">
+            <:icon><.dm_mdi name="post-outline" class="w-8 h-8 text-accent" /></:icon>
+          </.dm_stat>
+        </.link>
+        <.link navigate={~p"/github"}>
+          <.dm_stat title="GitHub" value="Repos" class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4">
+            <:icon><.dm_mdi name="github" class="w-8 h-8 text-base-content/60" /></:icon>
+          </.dm_stat>
+        </.link>
+        <.link navigate={~p"/bumblebee/stt"}>
+          <.dm_stat title="Bumblebee" value="STT" class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4">
+            <:icon><.dm_mdi name="microphone-outline" class="w-8 h-8 text-info" /></:icon>
+          </.dm_stat>
+        </.link>
       </div>
     </section>
 
+    <%!-- ── Cluster Overview ─────────────────────────────────────── --%>
     <section class="flex flex-col gap-4">
-      <header class="flex items-center">
-        <h1 class="text-2xl">Cluster Overview</h1>
-      </header>
-      <div class="flex flex-row items-center gap-4">
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/node_management"}>Node Management</.dm_link>
-          <div class="flex flex-row gap-2 items-center">
-            <label class="after:content-[':']">Node Count</label>
-            <span class="text-primary">{Node.list() |> length}</span>
-          </div>
-        </div>
+      <div class="flex items-center gap-2">
+        <.dm_mdi name="server-network" class="w-5 h-5 text-primary" />
+        <h2 class="font-semibold text-base-content">Cluster Overview</h2>
+      </div>
+      <div class="flex flex-wrap gap-4">
+        <.link navigate={~p"/node_management"}>
+          <.dm_stat title="Nodes" value={Node.list() |> length() |> to_string()} class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4">
+            <:icon><.dm_mdi name="server-outline" class="w-8 h-8 text-success" /></:icon>
+          </.dm_stat>
+        </.link>
       </div>
     </section>
 
+    <%!-- ── Command Platform ─────────────────────────────────────── --%>
     <section class="flex flex-col gap-4">
-      <header class="flex items-center">
-        <h1 class="text-2xl">Command Platform</h1>
-      </header>
-      <div class="flex flex-row items-center gap-4">
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/command_platform"}>Commander Management</.dm_link>
-        </div>
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/mnesia"}>Mnesia Management</.dm_link>
-        </div>
+      <div class="flex items-center gap-2">
+        <.dm_mdi name="console-line" class="w-5 h-5 text-primary" />
+        <h2 class="font-semibold text-base-content">Command Platform</h2>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <.link navigate={~p"/command_platform"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="console" class="w-5 h-5 text-primary" />
+              <span class="text-sm font-medium">Commander</span>
+            </div>
+          </.dm_card>
+        </.link>
+        <.link navigate={~p"/mnesia"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="database-outline" class="w-5 h-5 text-secondary" />
+              <span class="text-sm font-medium">Mnesia</span>
+            </div>
+          </.dm_card>
+        </.link>
       </div>
     </section>
 
+    <%!-- ── AWS ────────────────────────────────────────────────────── --%>
     <section class="flex flex-col gap-4">
-      <header class="flex items-center">
-        <h1 class="text-2xl">AWS</h1>
-      </header>
-      <div class="flex flex-row items-center gap-4">
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/aws/dynamo_db"}>Dynamo DB</.dm_link>
-        </div>
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/aws/route53/hosted_zones"}>Route 53</.dm_link>
-        </div>
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/aws/s3/buckets"}>S3</.dm_link>
-        </div>
+      <div class="flex items-center gap-2">
+        <.dm_mdi name="aws" class="w-5 h-5 text-primary" />
+        <h2 class="font-semibold text-base-content">AWS</h2>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <.link navigate={~p"/aws/dynamo_db"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="table-large" class="w-5 h-5 text-warning" />
+              <span class="text-sm font-medium">DynamoDB</span>
+            </div>
+          </.dm_card>
+        </.link>
+        <.link navigate={~p"/aws/route53/hosted_zones"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="dns-outline" class="w-5 h-5 text-info" />
+              <span class="text-sm font-medium">Route 53</span>
+            </div>
+          </.dm_card>
+        </.link>
+        <.link navigate={~p"/aws/s3/buckets"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="bucket-outline" class="w-5 h-5 text-success" />
+              <span class="text-sm font-medium">S3</span>
+            </div>
+          </.dm_card>
+        </.link>
       </div>
     </section>
 
+    <%!-- ── Dashboard ─────────────────────────────────────────────── --%>
     <section class="flex flex-col gap-4">
-      <header class="flex items-center">
-        <h1 class="text-2xl">Dashboard</h1>
-      </header>
-      <div class="flex flex-row items-center gap-4">
-        <div class="flex flex-col border border-secondary p-4">
-          <.dm_link navigate={~p"/live_dashboard"}>Live Dashboard</.dm_link>
-        </div>
+      <div class="flex items-center gap-2">
+        <.dm_mdi name="chart-line" class="w-5 h-5 text-primary" />
+        <h2 class="font-semibold text-base-content">Dashboard</h2>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <.link navigate={~p"/live_dashboard"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="monitor-dashboard" class="w-5 h-5 text-primary" />
+              <span class="text-sm font-medium">Live Dashboard</span>
+            </div>
+          </.dm_card>
+        </.link>
       </div>
     </section>
   </div>

@@ -1,27 +1,43 @@
 <Layouts.auth flash={@flash}>
-  <div class="flex flex-col">
-    <h3 class="text-3xl text-center text-primary">Sign in</h3>
+  <div class="flex flex-col gap-6">
+    <%!-- Header --%>
+    <div class="space-y-1">
+      <p class="font-mono text-[10px] tracking-[0.35em] uppercase text-primary opacity-60">
+        AUTHENTICATE
+      </p>
+      <h2 class="font-mono text-2xl font-bold text-base-content">
+        Sign in
+      </h2>
+      <p class="text-sm text-base-content opacity-40">
+        Enter your credentials to continue.
+      </p>
+    </div>
+
+    <%!-- Form --%>
     <.dm_form
       :let={f}
       for={@changeset}
       id="user-form"
-      class="w-full *:w-full"
-      method={:post}
-      phx-change="validate"
-      phx-submit="save"
+      action={~p"/sign_in"}
+      class="flex flex-col gap-4 w-full"
     >
-      <input name="_csrf_token" type="hidden" value={get_csrf_token()} />
-      <.dm_input field={f[:username]} type="text" label="Username" class="w-full" />
-      <.dm_input field={f[:password]} type="password" label="Password" class="w-full" />
+      <.dm_input field={f[:username]} type="text" label="Username" variant="bordered" class="w-full" />
+      <.dm_input field={f[:password]} type="password" label="Password" variant="bordered" class="w-full" />
       <:actions>
-        <button class="btn btn-primary btn-block" phx-disable-with="Saving...">Sign in</button>
+        <.dm_btn type="submit" variant="primary" class="w-full mt-1">
+          Sign in →
+        </.dm_btn>
       </:actions>
     </.dm_form>
 
-    <div class="divider">OR</div>
+    <%!-- Divider + sign-up link --%>
+    <.dm_divider>OR</.dm_divider>
 
-    <.link class="btn btn-info btn-block" navigate={~p"/sign_up"}>
-      Sign up
+    <.link
+      class="btn btn-ghost w-full border border-base-300 font-mono text-xs tracking-wider"
+      navigate={~p"/sign_up"}
+    >
+      Create an account
     </.link>
   </div>
 </Layouts.auth>

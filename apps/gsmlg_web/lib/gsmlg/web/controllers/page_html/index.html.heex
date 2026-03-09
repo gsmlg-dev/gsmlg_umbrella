@@ -1,24 +1,35 @@
 <Layouts.app flash={@flash}>
   <:header_slot>
-    <section class={[
-      "w-full h-64",
-      "font-bold select-none drop-shadow-md text-shadow-lg",
-      "flex flex-col items-center justify-evenly"
-    ]}>
-      <h2 class="header-hero-text uppercase">
+    <section class="w-full py-14 flex flex-col items-center gap-3 select-none">
+      <h2 class="header-hero-text text-primary-content font-black uppercase tracking-tighter drop-shadow-lg">
         {dgettext("homepage", "slogan-1")}
       </h2>
-      <h2 class="header-hero-text uppercase">
+      <h2 class="header-hero-text text-primary-content/70 uppercase tracking-tight">
         {dgettext("homepage", "slogan-2")}
       </h2>
+      <div class="flex items-center gap-4 mt-2" aria-hidden="true">
+        <div class="w-16 h-px bg-primary-content/20"></div>
+        <span class="font-mono text-[11px] text-primary-content/35 tracking-[0.25em] uppercase">
+          gsmlg · Jonathan Gao
+        </span>
+        <div class="w-16 h-px bg-primary-content/20"></div>
+      </div>
     </section>
   </:header_slot>
-  <section :for={{group, repos} <- @group_repos} class="container flex flex-col my-12">
-    <h3 class="flex justify-center gap-4 flex-wrap text-4xl my-24">
-      <code class="text-info">{group}</code>
-      <span class="text-neutral-content">{dgettext("github", "Github Repos")}</span>
-    </h3>
-    <div class="grid grid-cols-auto-fill-96 gap-4 px-4">
+
+  <section :for={{group, repos} <- @group_repos} class="w-full max-w-screen-xl px-6 mx-auto my-20">
+    <div class="flex items-center gap-5 mb-8">
+      <div class="flex-1 h-px bg-base-300"></div>
+      <h3 class="flex items-center gap-2 shrink-0">
+        <.dm_mdi name="github" class="w-5 h-5 text-primary" />
+        <span class="font-mono font-bold text-lg text-primary">{group}</span>
+        <span class="text-base-content/40 text-sm font-normal">
+          {dgettext("github", "Github Repos")}
+        </span>
+      </h3>
+      <div class="flex-1 h-px bg-base-300"></div>
+    </div>
+    <div class="grid grid-cols-auto-fill-96 gap-4">
       <.github_repo_card :for={repo <- repos} repo={repo} />
     </div>
   </section>

@@ -56,6 +56,7 @@ config :mnesia,
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test
 
 config :phoenix, :plug_init_mode, :runtime
+config :phoenix, :sort_verified_routes_query_params, true
 
 config :gsmlg_web_push, :vapid_details,
   subject: "mailto:administrator@gsmlg.com",

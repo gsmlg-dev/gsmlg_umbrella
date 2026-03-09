@@ -1,27 +1,35 @@
 <Layouts.app flash={@flash}>
-  <div :if={@live_action == :index} class="container">
-    <.dm_async_card :let={repos} assign={@repos} class="section-card" skeleton_class="min-h-48">
-      <:title class="flex flex-row justify-center">
-        <h3 class="font-semibold text-2xl">Github Repos of GSMLG</h3>
-      </:title>
-
-      <div class="mx-4 my-2 w-full grid grid-cols-3 gap-4">
-        <div :for={repo <- repos}>
-          <.github_repo_info_card repo={repo} />
+  <div :if={@live_action == :index} class="flex flex-col gap-6 p-6 w-full">
+    <%!-- ── Personal repos ───────────────────────────────────────── --%>
+    <.dm_async_card :let={repos} assign={@repos} skeleton_class="min-h-48">
+      <:title>
+        <div class="flex items-center gap-2">
+          <.dm_mdi name="github" class="w-5 h-5 text-primary" />
+          <h3 class="font-semibold text-base-content">GSMLG Repos</h3>
         </div>
+      </:title>
+      <div class="flex items-center gap-2 mb-4">
+        <.dm_badge variant="ghost" size="sm" class="font-mono tabular-nums">
+          {length(repos)}
+        </.dm_badge>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <.github_repo_card :for={repo <- repos} repo={repo} />
       </div>
     </.dm_async_card>
 
+    <%!-- ── Org repos ──────────────────────────────────────────────── --%>
     <.async_result :let={org_repos} assign={@org_repos}>
-      <.dm_card :for={{org, repos} <- org_repos} class="section-card">
-        <:title class="flex flex-row justify-center">
-          <h3 class="font-semibold text-2xl">Github Repos of {org}</h3>
-        </:title>
-
-        <div class="mx-4 my-2 w-full grid grid-cols-3 gap-4">
-          <div :for={repo <- repos}>
-            <.github_repo_info_card repo={repo} />
+      <.dm_card :for={{org, repos} <- org_repos} class="w-full">
+        <:title>
+          <div class="flex items-center gap-2">
+            <.dm_mdi name="account-group-outline" class="w-5 h-5 text-secondary" />
+            <h3 class="font-semibold text-base-content">{org}</h3>
+            <.dm_badge variant="ghost" size="sm" class="font-mono tabular-nums">{length(repos)}</.dm_badge>
           </div>
+        </:title>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <.github_repo_card :for={repo <- repos} repo={repo} />
         </div>
       </.dm_card>
     </.async_result>

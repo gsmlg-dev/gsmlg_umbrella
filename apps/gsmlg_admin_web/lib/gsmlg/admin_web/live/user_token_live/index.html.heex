@@ -2,7 +2,7 @@
   <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
     <div class="mx-4 my-2 flex flex-row justify-end"></div>
     <.dm_table
-      class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+      class="table-bordered [&_thead]:bg-primary [&_thead]:text-primary-content"
       data={@user_tokens}
     >
       <:col :let={t} label="Aud">

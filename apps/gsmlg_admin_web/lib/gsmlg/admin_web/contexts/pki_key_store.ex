@@ -86,13 +86,26 @@ defmodule GSMLG.AdminWeb.PKIKeyStore do
 
     case File.read(key_path(ca_id)) do
       {:ok, key_der} ->
-        # Decode the private key
-        case :public_key.der_decode(:RSAPrivateKey, key_der) do
-          {:RSAPrivateKey, _, _, _, _, _, _, _, _, _, _} = key ->
+        # Try RSA first, then EC, since the stored DER has no type tag
+        rsa_result =
+          try do
+            {:RSAPrivateKey, _, _, _, _, _, _, _, _, _, _} = :public_key.der_decode(:RSAPrivateKey, key_der)
+            {:ok, :public_key.der_decode(:RSAPrivateKey, key_der)}
+          rescue
+            _ -> :error
+          end
+
+        case rsa_result do
+          {:ok, key} ->
             {:ok, key}
 
-          _ ->
-            {:error, :invalid_key_format}
+          :error ->
+            try do
+              key = :public_key.der_decode(:ECPrivateKey, key_der)
+              {:ok, key}
+            rescue
+              _ -> {:error, :invalid_key_format}
+            end
         end
 
       {:error, :enoent} ->
@@ -130,8 +143,15 @@ defmodule GSMLG.AdminWeb.PKIKeyStore do
     # Ensure directory exists
     File.mkdir_p!(@storage_path)
 
-    # Encode private key to DER format
-    key_der = :public_key.der_encode(:RSAPrivateKey, private_key)
+    # Decode PEM to DER format for storage
+    # private_key may be a PEM string or an actual key struct
+    key_der =
+      if is_binary(private_key) do
+        [{_key_type, der, :not_encrypted}] = :public_key.pem_decode(private_key)
+        der
+      else
+        :public_key.der_encode(:RSAPrivateKey, private_key)
+      end
 
     # Write to file (INSECURE - for development only!)
     case File.write(key_path(ca_id), key_der, [:binary]) do

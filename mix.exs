@@ -76,7 +76,7 @@ defmodule GSMLG.Umbrella.MixProject do
     [
       {:burrito, "~> 1.0", runtime: false},
       {:excoveralls, "~> 0.18", only: [:dev, :test]},
-      {:phoenix, "~> 1.7"},
+      {:phoenix, "~> 1.8"},
       {:phoenix_live_view, "~> 1.0"},
       {:telemetry, "~> 1.0", override: true}
     ]

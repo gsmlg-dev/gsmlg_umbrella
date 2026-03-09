@@ -9,7 +9,7 @@ defmodule GSMLG.WebPush.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      elixir: "~> 1.12",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps()
@@ -28,7 +28,7 @@ defmodule GSMLG.WebPush.MixProject do
       {:httpoison, "~> 2.0"},
       {:jose, "~> 1.11"},
       {:jason, "~> 1.2"},
-      {:phoenix, "~> 1.7"},
+      {:phoenix, "~> 1.8"},
       {:earmark, "~> 1.0", only: :dev},
       {:ex_doc, "~> 0.11", only: :dev},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

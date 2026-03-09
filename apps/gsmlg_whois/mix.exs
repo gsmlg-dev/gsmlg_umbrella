@@ -10,7 +10,7 @@ defmodule GSMLG.Whois.MixProject do
       deps_path: "../../deps",
       elixirc_paths: elixirc_paths(Mix.env()),
       lockfile: "../../mix.lock",
-      elixir: "~> 1.14",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       name: "GSMLG.Whois",
       description: "Whois lookup for Domain / IP / ASN",

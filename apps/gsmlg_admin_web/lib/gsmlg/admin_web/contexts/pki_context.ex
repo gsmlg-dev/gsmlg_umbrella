@@ -61,8 +61,8 @@ defmodule GSMLG.AdminWeb.PKIContext do
             key_type: event.metadata.key_type,
             key_size: event.metadata[:key_size],
             serial: event.metadata.serial,
-            not_before: event.metadata.not_before,
-            not_after: event.metadata.not_after,
+            not_before: parse_datetime(event.metadata.not_before),
+            not_after: parse_datetime(event.metadata.not_after),
             created_at: event.timestamp,
             stats: stats,
             has_private_key: PKIKeyStore.key_exists?(event.metadata.ca_id)
@@ -78,11 +78,8 @@ defmodule GSMLG.AdminWeb.PKIContext do
   Get a specific CA by ID with full details.
   """
   def get_ca(ca_id) do
-    with {:ok, events} <- Events.query_by_ca(ca_id),
-         init_event when not is_nil(init_event) <-
-           Enum.find(events, &(&1.event_type == :ca_initialized)) do
-      {:ok, cert} = Certificate.from_der(init_event.metadata.certificate_der)
-
+    with {:ok, ca_record} <- fetch_ca_from_db(ca_id),
+         {:ok, cert} <- Certificate.from_pem(ca_record.certificate_pem) do
       # Load private key if available
       private_key =
         case PKIKeyStore.load_ca_private_key(ca_id) do
@@ -93,17 +90,25 @@ defmodule GSMLG.AdminWeb.PKIContext do
       ca = %{
         id: ca_id,
         certificate: cert,
-        subject: init_event.metadata.subject,
+        subject: ca_record.subject,
         private_key: private_key,
-        key_type: init_event.metadata.key_type,
-        not_before: init_event.metadata.not_before,
-        not_after: init_event.metadata.not_after
+        key_type: ca_record.key_type,
+        not_before: ca_record.not_before,
+        not_after: ca_record.not_after
       }
 
       {:ok, ca}
     else
       nil -> {:error, :not_found}
       error -> error
+    end
+  end
+
+  # Helper to fetch CA record from database
+  defp fetch_ca_from_db(ca_id) do
+    case Repo.get(GSMLG.PKI.Schema.CertificateAuthority, ca_id) do
+      nil -> {:error, :not_found}
+      ca -> {:ok, ca}
     end
   end
 
@@ -226,25 +231,75 @@ defmodule GSMLG.AdminWeb.PKIContext do
   end
 
   defp build_ca_certificate(
-         _subject,
-         public_key_pem,
-         _private_key_pem,
-         _serial,
-         _not_before,
-         _not_after
+         subject,
+         _public_key_pem,
+         private_key_pem,
+         serial,
+         not_before,
+         not_after
        ) do
-    # This is a simplified version - in production you'd use X509 library
-    # or full :public_key certificate generation
+    # Parse private key and generate self-signed certificate
+    with [{:PrivateKeyInfo, der, :not_encrypted}] <- :public_key.pem_decode(private_key_pem),
+         {:ok, private_key} <- parse_private_key(der) do
+      # Create self-signed certificate with serial and validity dates
+      cert_opts = [
+        template: :ca,
+        serial: parse_serial(serial),
+        validity: {not_before, not_after}
+      ]
 
-    # For now, delegate to existing CA.initialize if it exists,
-    # or return minimal structure for testing
-    %{
-      certificate_pem: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
-      ski: :crypto.hash(:sha, public_key_pem) |> Base.encode16(case: :lower)
-    }
+      certificate = Certificate.self_signed(private_key, subject, cert_opts)
+      certificate_pem = Certificate.to_pem(certificate)
+
+      %{
+        certificate_pem: certificate_pem,
+        ski: extract_ski(certificate)
+      }
+    else
+      _ ->
+        # Fallback if certificate generation fails
+        %{
+          certificate_pem: "-----BEGIN CERTIFICATE-----\nMIIC\n-----END CERTIFICATE-----",
+          ski: ""
+        }
+    end
   end
 
-  defp store_ca_data(ca_data, _opts) do
+  # Helper to parse private key DER
+  defp parse_private_key(der) do
+    case :public_key.pkix_decode_encrypted_private_key(der, "") do
+      {:RSAPrivateKey, key} -> {:ok, key}
+      {:DSAPrivateKey, key} -> {:ok, key}
+      {:ECPrivateKey, key} -> {:ok, key}
+      _ -> {:error, :invalid_key}
+    end
+  end
+
+  # Convert hex serial string to integer
+  defp parse_serial(hex_serial) when is_binary(hex_serial) do
+    case Integer.parse(hex_serial, 16) do
+      {num, ""} -> num
+      _ -> :crypto.strong_rand_bytes(16) |> :binary.decode_unsigned()
+    end
+  end
+
+  # Extract SKI from certificate
+  defp extract_ski(cert) do
+    try do
+      # Try to extract Subject Key Identifier extension
+      cert
+      |> Certificate.extensions()
+      |> Enum.find(&match?(%{"id-ce-subjectKeyIdentifier" => _}, &1))
+      |> case do
+        %{"id-ce-subjectKeyIdentifier" => ski} -> String.upcase(ski)
+        _ -> ""
+      end
+    rescue
+      _ -> ""
+    end
+  end
+
+  defp store_ca_data(ca_data, opts) do
     # Store in database using Ecto schema
     changeset =
       GSMLG.PKI.Schema.CertificateAuthority.changeset(
@@ -254,8 +309,31 @@ defmodule GSMLG.AdminWeb.PKIContext do
 
     case Repo.insert(changeset) do
       {:ok, _ca_record} ->
-        # Store private key in key store
-        PKIKeyStore.store_ca_private_key(ca_data.id, ca_data.private_key_pem)
+        # Emit ca_initialized event so list_cas/0 can discover this CA
+        event_metadata = %{
+          ca_id: ca_data.id,
+          subject: ca_data.subject,
+          key_type: ca_data.key_type,
+          key_size: Keyword.get(opts, :key_size),
+          serial: ca_data.serial,
+          not_before: ca_data.not_before,
+          not_after: ca_data.not_after,
+          ski: ca_data.ski
+        }
+
+        actor = Keyword.get(opts, :actor)
+
+        case GSMLG.PKI.Events.append(:ca_initialized, event_metadata,
+               ca_id: ca_data.id,
+               actor: actor
+             ) do
+          {:ok, _event} ->
+            # Store private key in key store
+            PKIKeyStore.store_ca_private_key(ca_data.id, ca_data.private_key_pem)
+
+          {:error, reason} ->
+            {:error, reason}
+        end
 
       {:error, changeset} ->
         {:error, {:database_error, changeset}}
@@ -692,6 +770,16 @@ defmodule GSMLG.AdminWeb.PKIContext do
   defp handle_get_expiry_stats(_state, _args) do
     {:ok, stats} = get_expiry_stats()
     {:ok, %{pki: %{expiry_stats: stats}}}
+  end
+
+  defp parse_datetime(nil), do: nil
+  defp parse_datetime(%DateTime{} = dt), do: dt
+
+  defp parse_datetime(str) when is_binary(str) do
+    case DateTime.from_iso8601(str) do
+      {:ok, dt, _} -> dt
+      _ -> nil
+    end
   end
 
   ## Private Helpers

@@ -29,6 +29,11 @@ defmodule GSMLG.AdminWeb.Endpoint do
     longpoll: false
   )
 
+  socket("/live", Phoenix.LiveView.Socket,
+    websocket: @websocket_options,
+    longpoll: @websocket_options
+  )
+
   plug Plug.Static,
     at: "/",
     from: :gsmlg_admin_web,

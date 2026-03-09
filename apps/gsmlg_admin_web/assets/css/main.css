@@ -3,35 +3,59 @@ body > .phx-connected {
   @apply min-h-screen flex flex-col;
 }
 
+/* ─── Auth Page ─────────────────────────────────────────────── */
+@keyframes auth-fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes auth-ring-pulse {
+  0%   { transform: scale(1);   opacity: 0.4; }
+  100% { transform: scale(1.6); opacity: 0;   }
+}
+
+@keyframes auth-scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.auth-enter-1 { animation: auth-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
+.auth-enter-2 { animation: auth-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
+.auth-enter-3 { animation: auth-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both; }
+
+.auth-cursor::after {
+  content: '_';
+  animation: auth-blink 1.1s step-end infinite;
+  color: var(--color-primary);
+}
+
+.auth-ring-pulse {
+  animation: auth-ring-pulse 2.4s ease-out infinite;
+}
+
+.auth-scan-line {
+  animation: auth-scan 10s linear infinite;
+}
+
+.auth-grid-bg {
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--color-primary) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--color-primary) 8%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.auth-card-border {
+  border-left: 3px solid var(--color-primary);
+}
 
 @layer components {
   nav > .menu.w-full :where(h2,li) {
     min-width: max-content;
   }
 
-  .table-primary-border {
-    th, td {
-      @apply border border-primary;
-    }
-  }
-
-  .table-animate-row {
-    > tbody > tr {
-      transition: opacity 0.5s;
-      opacity: 1;
-
-      @starting-style {
-        opacity: 0;
-      }
-
-      td {
-        transition: scale 0.1s 0.2s;
-        @apply scale-100 origin-left;
-
-        @starting-style {
-          @apply scale-0;
-        }
-      }
-    }
-  }
 }

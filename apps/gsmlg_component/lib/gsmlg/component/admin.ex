@@ -26,22 +26,10 @@ defmodule GSMLG.Component.Admin do
         </.dm_link>
       </:logo>
       <:user_profile>
-        <.dm_btn
-          class="btn-error"
-          confirm_class="btn-error btn-sm"
-          cancel_class="btn-ghost btn-sm"
-          confirm_title="Sign Out!"
-          confirm="Really?"
-        >
-          Sign Out
-          <:confirm_action>
-            <form method="dialog">
-              <.dm_link class="btn btn-error btn-sm" href="/sign_out" method="DELETE">
-                Sign Out
-              </.dm_link>
-            </form>
-          </:confirm_action>
-        </.dm_btn>
+        <.dm_theme_switcher />
+        <.link href="/sign_out" method="delete" data-confirm="Really sign out?">
+          <.dm_btn variant="error" size="sm">Sign Out</.dm_btn>
+        </.link>
       </:user_profile>
     </.dm_simple_appbar>
     """
@@ -49,102 +37,94 @@ defmodule GSMLG.Component.Admin do
 
   def local_app_menus(assigns) do
     ~H"""
-    <div class="card bg-neutral text-neutral-content shadow shadow-lg shadow-neutral-content">
-      <div class="card-body">
-        <div class="card-title text-primary">GSMLG Umbrella Modules</div>
-        <div class="flex flex-col gap-4">
-          <section
-            :for={
-              {title, list} <- [
-                {"Content Overview",
-                 [
-                   {"User List", "/users"},
-                   {"User Token List", "/user_tokens"},
-                   {"Blog List", "/blogs"},
-                   {"Web Push", "/web_push"},
-                   {"Github", "/github"}
-                 ]},
-                {"Bumblebee Overview",
-                 [
-                   {"Whisper Speech to Text", "/bumblebee/stt"}
-                 ]},
-                {"Cluster Overview",
-                 [
-                   {"Node Management", "/node_management"}
-                 ]},
-                {"Command Platform",
-                 [
-                   {"Commander Management", "/command_platform"},
-                   {"Mnesia Management", "/mnesia"}
-                 ]},
-                {"AWS",
-                 [
-                   {"DynamoDB",
-                    [
-                      {"Table List", "/aws/dynamo_db"}
-                    ]},
-                    {"Lightsail",
-                    [
-                      {"Instance", "/aws/lightsail"}
-                    ]},
-                   {"Route53",
-                    [
-                      {"Hosted Zones", "/aws/route53/hosted_zones"}
-                    ]},
-                    {"S3",
-                    [
-                      {"Bucket List", "/aws/s3/buckets"}
-                    ]}
-                 ]},
-                {"PKI Management",
-                 [
-                   {"Certificate Authorities", "/pki/ca"},
-                   {"Certificates", "/pki/certificates"},
-                   {"CSR Requests", "/pki/csr"},
-                   {"Search", "/pki/search"},
-                   {"Analytics", "/pki/analytics"}
-                 ]},
-                {"Dashboard",
-                 [
-                   {"Live Dashboard", "/live_dashboard"}
-                 ]}
-              ]
-            }
-            class="flex flex-col gap-2"
-          >
-            <header class="flex items-center">
-              <h2 class="text-xl text-secondary">{title}</h2>
-            </header>
-            <div class="grid grid-flow-col auto-cols-max gap-2">
-              <.dm_link
-                :for={{name, url} <- list}
-                :if={is_binary(url)}
-                class="btn btn-primary btn-sm"
-                navigate={url}
-              >
-                <span>{name}</span>
-              </.dm_link>
-              <div
-                :for={{sub_title, sub_list} <- list}
-                :if={is_list(sub_list)}
-                class="flex flex-col items-start gap-2 ml-8"
-              >
-                <h3 class="text-lg text-left opacity-70">{sub_title}</h3>
-                <div class="grid grid-flow-col auto-cols-max gap-4">
-                  <.dm_link
-                    :for={{sub_name, sub_url} <- sub_list}
-                    class="btn btn-primary btn-sm"
-                    navigate={sub_url}
-                  >
-                    <span>{sub_name}</span>
-                  </.dm_link>
-                </div>
-              </div>
-            </div>
-          </section>
+    <.dm_card class="w-max shadow-2xl" body_class="p-6 flex flex-col gap-6">
+      <:title>
+        <div class="flex items-center gap-2">
+          <.dm_mdi name="view-grid-outline" class="w-4 h-4 text-primary" />
+          <span class="font-mono text-xs tracking-widest uppercase text-primary">GSMLG Umbrella</span>
         </div>
-      </div>
-    </div>
+      </:title>
+      <section
+        :for={
+          {title, list} <- [
+            {"Content",
+             [
+               {"Users", "/users"},
+               {"User Tokens", "/user_tokens"},
+               {"Blogs", "/blogs"},
+               {"Web Push", "/web_push"},
+               {"Github", "/github"}
+             ]},
+            {"Bumblebee",
+             [
+               {"Speech to Text", "/bumblebee/stt"}
+             ]},
+            {"Cluster",
+             [
+               {"Node Management", "/node_management"}
+             ]},
+            {"Command Platform",
+             [
+               {"Commander", "/command_platform"},
+               {"Mnesia", "/mnesia"}
+             ]},
+            {"AWS",
+             [
+               {"DynamoDB",
+                [
+                  {"Table List", "/aws/dynamo_db"}
+                ]},
+               {"Lightsail",
+                [
+                  {"Instance", "/aws/lightsail"}
+                ]},
+               {"Route53",
+                [
+                  {"Hosted Zones", "/aws/route53/hosted_zones"}
+                ]},
+               {"S3",
+                [
+                  {"Bucket List", "/aws/s3/buckets"}
+                ]}
+             ]},
+            {"PKI",
+             [
+               {"Certificate Authorities", "/pki/ca"},
+               {"Certificates", "/pki/certificates"},
+               {"CSR Requests", "/pki/csr"},
+               {"Search", "/pki/search"},
+               {"Analytics", "/pki/analytics"}
+             ]},
+            {"Dashboard",
+             [
+               {"Live Dashboard", "/live_dashboard"}
+             ]}
+          ]
+        }
+        class="flex flex-col gap-2"
+      >
+        <h2 class="font-mono text-[10px] tracking-[0.3em] uppercase text-base-content/40 mb-1">
+          {title}
+        </h2>
+        <div class="flex flex-wrap gap-1.5">
+          <.link :for={{name, url} <- list} :if={is_binary(url)} navigate={url}>
+            <.dm_btn variant="ghost" size="sm">{name}</.dm_btn>
+          </.link>
+          <div
+            :for={{sub_title, sub_list} <- list}
+            :if={is_list(sub_list)}
+            class="flex flex-col items-start gap-1.5"
+          >
+            <span class="text-xs text-base-content/50">{sub_title}</span>
+            <div class="flex flex-wrap gap-1.5">
+              <.link :for={{sub_name, sub_url} <- sub_list} navigate={sub_url}>
+                <.dm_btn variant="ghost" size="sm">{sub_name}</.dm_btn>
+              </.link>
+            </div>
+          </div>
+        </div>
+      </section>
+    </.dm_card>
     """
   end
 
