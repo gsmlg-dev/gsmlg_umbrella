@@ -1,22 +1,49 @@
 <Layouts.app flash={@flash}>
   <:header_slot>
-    <div class="header-hero-container">
-      <h1 class="header-hero-text">
-        Blog
+    <section class="w-full py-14 flex flex-col items-center gap-3 select-none">
+      <div class="flex items-center gap-2 mb-1">
+        <.dm_mdi name="pencil-outline" class="w-5 h-5 text-primary-content/50" />
+        <span class="font-mono text-[11px] tracking-[0.3em] uppercase text-primary-content/50">
+          {dgettext("blog", "Writing & Notes")}
+        </span>
+      </div>
+      <h1 class="header-hero-text text-primary-content font-black uppercase tracking-tighter drop-shadow-lg">
+        {dgettext("blog", "Blog")}
       </h1>
-    </div>
+      <div class="flex items-center gap-4 mt-2" aria-hidden="true">
+        <div class="w-16 h-px bg-primary-content/20"></div>
+        <span class="font-mono text-[11px] text-primary-content/35 tracking-[0.25em] uppercase">
+          {length(@blogs)} {ngettext("post", "posts", length(@blogs))}
+        </span>
+        <div class="w-16 h-px bg-primary-content/20"></div>
+      </div>
+    </section>
   </:header_slot>
-  <div class="container list">
-    <div :for={blog <- @blogs} class="list-row items-baseline ">
-      <h3 class="list-col-grow inline-flex gap-4 items-baseline text-xl">
-        <.link class="link link-primary link-hover" href={~p"/blogs/#{blog.slug}"}>
-          {blog.title}
+
+  <div class="w-full max-w-screen-lg px-6 mx-auto my-16">
+    <div :if={@blogs == []} class="flex flex-col items-center gap-4 py-24 text-base-content/30">
+      <.dm_mdi name="pencil-off-outline" class="w-12 h-12" />
+      <p class="font-mono text-sm tracking-widest uppercase">{dgettext("blog", "No posts yet")}</p>
+    </div>
+
+    <div :if={@blogs != []} class="divide-y divide-base-200">
+      <article :for={blog <- @blogs} class="group py-6 first:pt-0 last:pb-0">
+        <.link href={~p"/blogs/#{blog.slug}"} class="flex items-start justify-between gap-6">
+          <div class="flex-1 min-w-0">
+            <h2 class="text-lg font-semibold text-base-content group-hover:text-primary transition-colors duration-150 leading-snug">
+              {blog.title}
+            </h2>
+            <p class="mt-1 font-mono text-sm text-base-content/45">{blog.author}</p>
+          </div>
+          <div class="flex items-center gap-3 shrink-0 pt-0.5">
+            <time class="font-mono text-sm text-base-content/40 tabular-nums">{blog.date}</time>
+            <.dm_mdi
+              name="arrow-right"
+              class="w-4 h-4 text-primary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150"
+            />
+          </div>
         </.link>
-        <author class="italic text-secondary text-base">
-          {blog.author}
-        </author>
-      </h3>
-      <time class="text-info max-md:!list-col-wrap">{blog.date}</time>
+      </article>
     </div>
   </div>
 </Layouts.app>

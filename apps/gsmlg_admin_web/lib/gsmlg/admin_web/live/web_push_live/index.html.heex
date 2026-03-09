@@ -1,10 +1,22 @@
 <Layouts.user flash={@flash} page_title={@page_title} active_menu={@active_menu}>
-  <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
-    <div class="mx-4 my-2 flex flex-row justify-end">
+  <div :if={@live_action == :index} class="flex flex-col gap-4 p-6 w-full">
+    <%!-- ── Header ─────────────────────────────────────────────── --%>
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <.dm_mdi name="bell-outline" class="w-5 h-5 text-primary" />
+        <h1 class="font-semibold text-base-content">Web Push Subscriptions</h1>
+        <.dm_badge variant="ghost" size="sm" class="font-mono tabular-nums">
+          {length(@web_push)}
+        </.dm_badge>
+      </div>
       <.dm_modal>
         <:trigger :let={dialog_id}>
-          <.dm_btn onclick={"document.getElementById('#{dialog_id}').showModal()"}>
-            Broadcast Message
+          <.dm_btn
+            variant="primary"
+            size="sm"
+            onclick={"document.getElementById('#{dialog_id}').showModal()"}
+          >
+            <.dm_mdi name="broadcast" class="w-4 h-4" /> Broadcast
           </.dm_btn>
         </:trigger>
         <:title>Broadcast Message</:title>
@@ -14,6 +26,7 @@
               field={f[:title]}
               label="Title"
               placeholder="Enter your message title"
+              variant="bordered"
               required
             />
             <.dm_input
@@ -21,17 +34,20 @@
               type="textarea"
               label="Content"
               placeholder="Enter your message content"
+              variant="bordered"
               required
             />
-            <.dm_btn type="submit" class="btn-primary">
-              Send Web Push
+            <.dm_btn variant="primary" type="submit">
+              <.dm_mdi name="send-outline" class="w-4 h-4" /> Send
             </.dm_btn>
           </.dm_form>
         </:body>
       </.dm_modal>
     </div>
+
+    <%!-- ── Table ─────────────────────────────────────────────── --%>
     <.dm_table
-      class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+      class="table-bordered [&_thead]:bg-primary [&_thead]:text-primary-content"
       data={@web_push}
     >
       <:col :let={t} label="Endpoint">
@@ -39,34 +55,37 @@
           <div class="tooltip-content max-w-fit">
             <div class="whitespace-nowrap">{t[:endpoint]}</div>
           </div>
-          <div class="whitespace-nowrap w-auto overflow-hidden max-w-84 text-ellipsis">
+          <div class="whitespace-nowrap w-auto overflow-hidden max-w-84 text-ellipsis font-mono text-xs">
             {t[:endpoint]}
           </div>
         </div>
       </:col>
       <:col :let={t} label="Auth">
-        {t[:keys][:auth]}
+        <span class="font-mono text-xs">{t[:keys][:auth]}</span>
       </:col>
       <:col :let={t} label="p256dh">
         <div class="tooltip">
           <div class="tooltip-content max-w-fit">
             <div class="whitespace-nowrap">{t[:keys][:p256dh]}</div>
           </div>
-          <div class="whitespace-nowrap w-auto overflow-hidden max-w-64 text-ellipsis">
-            {"******"}
+          <div class="whitespace-nowrap w-auto overflow-hidden max-w-64 text-ellipsis font-mono text-xs">
+            {"••••••"}
           </div>
         </div>
       </:col>
       <:col :let={t} label="Expiration">
-        {t[:expiration_time]}
+        <span class="font-mono text-xs">{t[:expiration_time]}</span>
       </:col>
-
       <:col :let={t} label="">
-        <div class="flex gap-2">
+        <div class="flex items-center gap-1.5">
           <.dm_modal>
             <:trigger :let={dialog_id}>
-              <.dm_btn onclick={"document.getElementById('#{dialog_id}').showModal()"}>
-                Push Message
+              <.dm_btn
+                size="xs"
+                variant="ghost"
+                onclick={"document.getElementById('#{dialog_id}').showModal()"}
+              >
+                <.dm_mdi name="send-outline" class="w-3.5 h-3.5" />
               </.dm_btn>
             </:trigger>
             <:title>Push Message</:title>
@@ -81,6 +100,7 @@
                   field={f[:title]}
                   label="Title"
                   placeholder="Enter your message title"
+                  variant="bordered"
                   required
                 />
                 <.dm_input
@@ -88,10 +108,11 @@
                   type="textarea"
                   label="Content"
                   placeholder="Enter your message content"
+                  variant="bordered"
                   required
                 />
-                <.dm_btn type="submit" class="btn-primary">
-                  Send Web Push
+                <.dm_btn variant="primary" type="submit">
+                  <.dm_mdi name="send-outline" class="w-4 h-4" /> Send
                 </.dm_btn>
               </.dm_form>
             </:body>
@@ -99,19 +120,21 @@
           <.dm_btn
             id={"id-del-#{t[:endpoint]}"}
             confirm={dgettext("webpush", "Do you want to remove this subscribtion?")}
-            class="btn-error"
+            size="xs"
+            variant="ghost"
+            class="text-error"
             confirm_class="btn-error btn-sm"
             cancel_class="btn-ghost btn-sm"
             confirm_title="Attention!"
           >
-            Delete
+            <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5" />
             <:confirm_action>
               <form method="dialog">
                 <.dm_btn
                   phx-click={JS.push("delete", value: %{endpoint: t[:endpoint]})}
                   class="btn-error btn-sm"
                 >
-                  Delete
+                  {dgettext("webpush", "Delete")}
                 </.dm_btn>
               </form>
             </:confirm_action>

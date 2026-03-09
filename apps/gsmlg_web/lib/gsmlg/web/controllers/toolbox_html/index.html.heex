@@ -1,44 +1,69 @@
 <Layouts.app flash={@flash}>
   <:header_slot>
-    <div class="header-hero-container">
-      <h1 class="header-hero-text">
+    <section class="w-full py-14 flex flex-col items-center gap-3 select-none">
+      <div class="flex items-center gap-2 mb-1">
+        <.dm_mdi name="toolbox-outline" class="w-5 h-5 text-primary-content/50" />
+        <span class="font-mono text-[11px] tracking-[0.3em] uppercase text-primary-content/50">
+          Developer Utilities
+        </span>
+      </div>
+      <h1 class="header-hero-text text-primary-content font-black uppercase tracking-tighter drop-shadow-lg">
         {@title}
       </h1>
-    </div>
-  </:header_slot>
-  <div class={[
-    "container px-8 my-24",
-    "grid grid-cols-auto-fit-64",
-    "gap-4"
-  ]}>
-    <div
-      :for={
-        {name, url} <- [
-          {dgettext("menu", "GeoIP2 Database"), ~p"/toolbox/geoip2"},
-          {dgettext("menu", "Whois Domain / IP / ASN"), ~p"/toolbox/whois"},
-          {dgettext("menu", "Lookup MAC Manufacturer"), ~p"/toolbox/mac_manufacturer"},
-          {dgettext("menu", "SVG to React Component"), ~p"/toolbox/svg2react"},
-          {dgettext("menu", "SVG Autocrop, Optimize SVG"), ~p"/toolbox/svg_autocrop"},
-          {dgettext("menu", "IP to Geo Map"), ~p"/toolbox/ip_to_geomap"},
-          {dgettext("menu", "Screen Saver"), ~p"/toolbox/screensaver"}
-        ]
-      }
-      class={[
-        "card bg-primary text-primary-content shadow-base-content shadow",
-        "shadow shadow-base-content rounded-box",
-        "transition duration-300 origin-center",
-        "hover:shadow-lg hover:scale-105 hover:translate-z-12",
-        "bg-primary text-primary-content"
-      ]}
-    >
-      <div class="card-body justify-between">
-        <h2 class="card-title">{name}</h2>
-        <div class="card-actions justify-end">
-          <.link href={url} class="btn">
-            {gettext("Open")}
-          </.link>
-        </div>
+      <div class="flex items-center gap-4 mt-2" aria-hidden="true">
+        <div class="w-16 h-px bg-primary-content/20"></div>
+        <span class="font-mono text-[11px] text-primary-content/35 tracking-[0.25em] uppercase">
+          {Enum.count([1,2,3,4,5,6,7])} tools available
+        </span>
+        <div class="w-16 h-px bg-primary-content/20"></div>
       </div>
+    </section>
+  </:header_slot>
+
+  <div class="w-full max-w-screen-xl px-6 mx-auto my-16">
+    <div class="grid grid-cols-auto-fill-72 gap-5">
+      <.dm_card
+        :for={
+          {name, url, icon, desc} <- [
+            {dgettext("menu", "GeoIP2 Database"), ~p"/toolbox/geoip2",
+             "earth-box-outline", gettext("Query IP geolocation using MaxMind GeoIP2 databases")},
+            {dgettext("menu", "Whois Domain / IP / ASN"), ~p"/toolbox/whois",
+             "magnify-scan", gettext("Look up registration info for domains, IPs and ASNs")},
+            {dgettext("menu", "Lookup MAC Manufacturer"), ~p"/toolbox/mac_manufacturer",
+             "ethernet-cable", gettext("Identify device vendors from MAC address OUI prefixes")},
+            {dgettext("menu", "SVG to React Component"), ~p"/toolbox/svg2react",
+             "code-braces", gettext("Convert SVG markup into clean React functional components")},
+            {dgettext("menu", "SVG Autocrop, Optimize SVG"), ~p"/toolbox/svg_autocrop",
+             "crop", gettext("Remove excess whitespace and optimize SVG file size")},
+            {dgettext("menu", "IP to Geo Map"), ~p"/toolbox/ip_to_geomap",
+             "map-marker-radius-outline", gettext("Visualize IP addresses on an interactive world map")},
+            {dgettext("menu", "Screen Saver"), ~p"/toolbox/screensaver",
+             "monitor-shimmer", gettext("Ambient screensaver for display or presentation mode")}
+          ]
+        }
+        variant="bordered"
+        interactive={true}
+        body_class="flex flex-col gap-2"
+        class="transition-all duration-300 hover:-translate-y-1"
+      >
+        <:title>
+          <div class="flex items-center gap-2.5">
+            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 shrink-0">
+              <.dm_mdi name={icon} class="w-4.5 h-4.5 text-primary" />
+            </span>
+            <span class="font-semibold text-sm leading-snug">{name}</span>
+          </div>
+        </:title>
+        <p class="text-xs text-base-content/55 leading-relaxed min-h-8">{desc}</p>
+        <:action>
+          <.link
+            href={url}
+            class="btn btn-primary btn-sm w-full"
+          >
+            {gettext("Open")} →
+          </.link>
+        </:action>
+      </.dm_card>
     </div>
   </div>
 </Layouts.app>

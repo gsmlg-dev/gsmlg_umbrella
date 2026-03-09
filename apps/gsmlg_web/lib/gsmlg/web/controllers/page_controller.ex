@@ -2,7 +2,14 @@ defmodule GSMLG.Web.PageController do
   use GSMLG.Web, :controller
 
   def index(conn, _params) do
-    orgs = ["gsmlg-dev", "Gao-OS"]
+    orgs = [
+      "gsmlg-dev",
+      "gsmlg-opt",
+      "gsmlg-app",
+      "gsmlg-ci",
+      "duskmoon-dev",
+      "Gao-OS"
+    ]
     users = ["gsmlg"]
 
     org_r =

@@ -1,46 +1,75 @@
 <Layouts.user flash={@flash} page_title={@page_title} active_menu={@active_menu}>
-  <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
-    <div class="mx-4 my-2 flex flex-row gap-6 justify-end">
-      <.link class="btn btn-primary" patch={~p"/blogs/new"}>
-        Compose
-      </.link>
+  <%!-- ── INDEX ─────────────────────────────────────────────── --%>
+  <div :if={@live_action == :index} class="flex flex-col gap-4 p-6 w-full">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <.dm_mdi name="post-outline" class="w-5 h-5 text-primary" />
+        <h1 class="font-semibold text-base-content">Blog Posts</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <.link navigate={~p"/blogs/import"}>
+          <.dm_btn size="sm" variant="ghost">
+            <.dm_mdi name="database-import-outline" class="w-4 h-4" /> Import
+          </.dm_btn>
+        </.link>
+        <.link patch={~p"/blogs/new"}>
+          <.dm_btn variant="primary" size="sm">
+            <.dm_mdi name="pencil-plus-outline" class="w-4 h-4" /> Compose
+          </.dm_btn>
+        </.link>
+      </div>
     </div>
+
     <.dm_table
       id="blog-table"
-      class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content [&_thead]:z-10"
+      class="table-bordered [&_thead]:bg-primary [&_thead]:text-primary-content [&_thead]:z-10"
       stream={true}
       data={@streams.blogs}
     >
       <:col :let={b} label="ID">
-        {b.id}
+        <span class="font-mono text-xs text-base-content/60">{b.id}</span>
       </:col>
       <:col :let={b} label="Slug">
-        {b.slug}
+        <span class="font-mono text-xs">{b.slug}</span>
       </:col>
       <:col :let={b} label="Title">
-        {b.title}
+        <span class="font-medium text-sm">{b.title}</span>
       </:col>
       <:col :let={b} label="Author">
-        {b.author}
+        <span class="text-sm">{b.author}</span>
       </:col>
       <:col :let={b} label="Date">
-        {b.date}
+        <span class="font-mono text-xs tabular-nums">{b.date}</span>
       </:col>
-
       <:col :let={b} label="">
-        <div class="flex gap-2">
-          <.link class="btn btn-info" patch={~p"/blogs/#{b.id}"}>
-            Show
+        <div class="flex items-center gap-1.5">
+          <.link patch={~p"/blogs/#{b.id}"}>
+            <.dm_btn size="xs" variant="ghost">
+              <.dm_mdi name="eye-outline" class="w-3.5 h-3.5" />
+            </.dm_btn>
           </.link>
-          <.link class="btn btn-warning" patch={~p"/blogs/#{b.id}/edit"}>
-            Edit
+          <.link patch={~p"/blogs/#{b.id}/edit"}>
+            <.dm_btn size="xs" variant="ghost">
+              <.dm_mdi name="pencil-outline" class="w-3.5 h-3.5" />
+            </.dm_btn>
           </.link>
-          <.dm_btn class="btn btn-error" confirm="Are you sure?">
-            Delete
+          <.dm_btn
+            id={"blog-del-#{b.id}"}
+            confirm="Are you sure you want to delete this post?"
+            size="xs"
+            variant="ghost"
+            class="text-error"
+            confirm_class="btn-error btn-sm"
+            cancel_class="btn-ghost btn-sm"
+            confirm_title="Delete Post"
+          >
+            <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5" />
             <:confirm_action>
-              <.dm_btn class="btn-error" phx-click={JS.push("delete", value: %{id: b.id})}>
-                Delete
-              </.dm_btn>
+              <form method="dialog">
+                <.dm_btn phx-click={JS.push("delete", value: %{id: b.id})} class="btn-error btn-sm">
+                  Delete
+                </.dm_btn>
+              </form>
             </:confirm_action>
           </.dm_btn>
         </div>
@@ -48,83 +77,82 @@
     </.dm_table>
   </div>
 
+  <%!-- ── NEW / EDIT ────────────────────────────────────────── --%>
   <div
     :if={@live_action == :new || @live_action == :edit}
-    class="container flex flex-col gap-2 mt-4 w-full"
+    class="flex flex-col gap-4 p-6 w-full"
   >
-    <div class="mx-4 my-2 flex gap-2">
-      <.link class="btn btn-primary" patch={~p"/blogs"}>
-        All Blog List
-      </.link>
-      <%= if !is_nil(@blog.id) do %>
-        <.link class="btn btn-info" patch={~p"/blogs/#{@blog.id}"}>
-          Show Blog
-        </.link>
-      <% end %>
+    <div class="flex items-center gap-3">
+      <.dm_mdi name={if @live_action == :new, do: "pencil-plus-outline", else: "pencil-outline"} class="w-5 h-5 text-primary" />
+      <h1 class="font-semibold text-base-content">{@page_title}</h1>
     </div>
 
-    <div class="mx-4 my-2">
-      <div
-        id="react_blog_form"
-        data-id={@blog.id}
-        phx-update="ignore"
-        phx-hook="blogFormHook"
-        phx-no-format
-      ><.react_blog_form blog={@blog} /></div>
+    <div class="flex gap-2">
+      <.link patch={~p"/blogs"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="arrow-left" class="w-4 h-4" /> All Blogs
+        </.dm_btn>
+      </.link>
+      <.link :if={!is_nil(@blog.id)} patch={~p"/blogs/#{@blog.id}"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="eye-outline" class="w-4 h-4" /> View Post
+        </.dm_btn>
+      </.link>
     </div>
+
+    <div
+      id="react_blog_form"
+      data-id={@blog.id}
+      phx-update="ignore"
+      phx-hook="blogFormHook"
+      phx-no-format
+    ><.react_blog_form blog={@blog} /></div>
   </div>
 
-  <div :if={@live_action == :show} class="container flex flex-col gap-2 mt-4 w-full">
-    <div class="mx-4 my-2 flex gap-2">
-      <.link class="btn btn-primary" patch={~p"/blogs"}>
-        All Blog List
-      </.link>
+  <%!-- ── SHOW ─────────────────────────────────────────────── --%>
+  <div :if={@live_action == :show} class="flex flex-col gap-4 p-6 w-full max-w-4xl">
+    <div class="flex items-center gap-3">
+      <.dm_mdi name="post-outline" class="w-5 h-5 text-primary" />
+      <h1 class="font-semibold text-base-content">{@blog.title}</h1>
+    </div>
 
-      <.link class="btn btn-warning" patch={~p"/blogs/#{@blog.id}/edit"}>
-        Edit Blog
+    <div class="flex gap-2">
+      <.link patch={~p"/blogs"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="arrow-left" class="w-4 h-4" /> All Blogs
+        </.dm_btn>
+      </.link>
+      <.link patch={~p"/blogs/#{@blog.id}/edit"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="pencil-outline" class="w-4 h-4" /> Edit
+        </.dm_btn>
       </.link>
     </div>
 
-    <div class="w-full max-w-6xl flex flex-col gap-6 *:w-full">
-      <div class="flex flex-row gap-6">
-        <div class="w-40 text-neutral/50">
-          Slug
-        </div>
-        <div class="flex-1">
-          {Map.get(@blog, :slug)}
-        </div>
-      </div>
-      <div class="flex flex-row gap-6">
-        <div class="w-40 text-neutral/50">
-          Title
-        </div>
-        <div class="flex-1">
-          {Map.get(@blog, :title)}
-        </div>
-      </div>
-      <div class="flex flex-row gap-6">
-        <div class="w-40 text-neutral/50">
-          Author
-        </div>
-        <div class="flex-1">
-          {Map.get(@blog, :author)}
-        </div>
-      </div>
-      <div class="flex flex-row gap-6">
-        <div class="w-40 text-neutral/50">
-          Date
-        </div>
-        <div class="flex-1">
-          {Map.get(@blog, :date)}
-        </div>
-      </div>
-      <div class="flex flex-col gap-6">
-        <div class="text-neutral/50">
-          Content
-        </div>
-        <div class="w-full">
-          <.react_markdown data={Map.get(@blog, :content)} />
-        </div>
+    <.dm_card variant="bordered" body_class="p-0">
+      <dl class="divide-y divide-base-200 text-sm">
+        <%= for {label, value} <- [
+          {"Slug", @blog.slug},
+          {"Title", @blog.title},
+          {"Author", @blog.author},
+          {"Date", @blog.date}
+        ] do %>
+          <div class="flex px-4 py-2.5 gap-4">
+            <dt class="w-24 shrink-0 font-mono text-xs text-base-content/45 uppercase tracking-wide pt-0.5">
+              {label}
+            </dt>
+            <dd class="flex-1 font-mono text-xs text-base-content break-all">
+              {value}
+            </dd>
+          </div>
+        <% end %>
+      </dl>
+    </.dm_card>
+
+    <div class="flex flex-col gap-3">
+      <div class="font-mono text-xs text-base-content/45 uppercase tracking-wide">Content</div>
+      <div class="w-full">
+        <.react_markdown data={Map.get(@blog, :content)} />
       </div>
     </div>
   </div>

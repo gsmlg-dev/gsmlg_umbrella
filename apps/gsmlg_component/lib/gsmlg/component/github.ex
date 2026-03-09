@@ -17,55 +17,61 @@ defmodule GSMLG.Component.Github do
 
   def github_repo_card(assigns) do
     ~H"""
-    <div
+    <.dm_card
       class={[
-        "flex flex-col h-44 p-4 shadow shadow-base-content rounded-box",
-        "transition duration-300 origin-center",
-        "hover:shadow-lg hover:scale-105 hover:translate-z-12",
-        "bg-primary text-primary-content",
+        "transition-all duration-300 hover:-translate-y-1",
         @class
       ]}
+      variant="bordered"
+      interactive={true}
+      body_class="flex flex-col gap-1"
     >
-      <div class="flex justify-between">
-        <h3 class="font-bold text-xl">
-          {@repo["name"]}
-        </h3>
-        <.dm_link
-          class="text-info-content/50 font-light text-lg"
-          href={"https://github.com/#{@repo["full_name"]}"}
-          target="_blank"
-        >
-          {dgettext("github", "View Repo")}
-        </.dm_link>
-      </div>
-
-      <div class="text-medium text-secondary">
-        <%= if @repo["has_pages"] do %>
+      <:title>
+        <div class="flex items-start justify-between gap-2 w-full">
           <.dm_link
-            class="text-accent font-light text-lg"
-            href={~s[https://#{@repo["owner"]["login"]}.github.io/#{@repo["name"]}]}
+            class="font-bold text-sm leading-snug line-clamp-1 hover:text-primary transition-colors duration-150"
+            href={"https://github.com/#{@repo["full_name"]}"}
             target="_blank"
           >
-            {dgettext("github", "GH Page")}
+            {@repo["name"]}
           </.dm_link>
-        <% end %>
-        <.dm_link
-          class="flex items-center gap-2 float-right"
-          href={~s[https://github.com/#{@repo["owner"]["login"]}/#{@repo["name"]}/stargazers]}
-          target="_blank"
-        >
-          <label class="flex items-center">
-            <.dm_mdi name="star" class="w-5 h-5 inline-block" />
-          </label>
-          <span>{@repo["stargazers_count"]}</span>
-        </.dm_link>
-      </div>
-      <div class="flex gap-4 text-sm text-neutral-content/60">
-        <label class="after:content-[':']">{dgettext("github", "Last updated")}</label>
-        <time>{@repo["updated_at"]}</time>
-      </div>
-      <p class="text-neutral-content text-ellipsis overflow-y-auto">{@repo["description"]}</p>
-    </div>
+          <a
+            href={~s[https://github.com/#{@repo["owner"]["login"]}/#{@repo["name"]}/stargazers]}
+            target="_blank"
+            class="flex items-center gap-1 shrink-0 text-xs font-mono text-warning hover:opacity-80"
+          >
+            <.dm_mdi name="star" class="w-3.5 h-3.5" />
+            <span>{@repo["stargazers_count"]}</span>
+          </a>
+        </div>
+      </:title>
+
+      <p class="text-sm text-base-content/55 line-clamp-2 min-h-10">
+        {@repo["description"] || ""}
+      </p>
+
+      <:action>
+        <div class="flex items-center justify-between w-full text-xs text-base-content/40">
+          <time class="font-mono tabular-nums">
+            {String.slice(@repo["updated_at"] || "", 0, 10)}
+          </time>
+          <div class="flex items-center gap-2">
+            <%= if @repo["has_pages"] do %>
+              <.dm_link
+                class="text-accent hover:underline"
+                href={~s[https://#{@repo["owner"]["login"]}.github.io/#{@repo["name"]}]}
+                target="_blank"
+              >
+                {dgettext("github", "GH Page")}
+              </.dm_link>
+            <% end %>
+            <%= if @repo["language"] do %>
+              <.dm_badge variant="ghost" size="xs">{@repo["language"]}</.dm_badge>
+            <% end %>
+          </div>
+        </div>
+      </:action>
+    </.dm_card>
     """
   end
 
@@ -194,36 +200,67 @@ defmodule GSMLG.Component.Github do
 
   def github_repo_info_card(assigns) do
     ~H"""
-    <div class="card card-bordered card-compact bg-neutral text-neutral-content">
-      <div class="card-body">
-        <div class="card-title">
-          <div :if={@repo["private"]} class="badge badge-error tooltip" data-tip="Private">
-            <.dm_mdi name="account-key-outline" class="w-5 h-5 text-neutral-content" />
+    <.dm_card variant="bordered" body_class="flex flex-col gap-3">
+      <:title>
+        <div class="flex items-start justify-between gap-2 w-full">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <.dm_badge :if={@repo["private"]} size="xs" class="badge-error">
+              <.dm_mdi name="lock-outline" class="w-3 h-3" /> Private
+            </.dm_badge>
+            <.link
+              href={@repo["html_url"]}
+              target="_blank"
+              class="font-semibold text-sm leading-snug truncate hover:text-primary transition-colors"
+            >
+              {@repo["name"]}
+            </.link>
           </div>
-          {@repo["name"]}
-          <div :if={@repo["language"]} class="badge badge-accent">{@repo["language"]}</div>
+          <.dm_badge :if={@repo["language"]} variant="ghost" size="xs" class="shrink-0">
+            {@repo["language"]}
+          </.dm_badge>
         </div>
-        <div>
-          <.link href={@repo["html_url"] <> "/stargazers"} class="btn btn-xs" target="_blank">
-            Star {@repo["stargazers_count"]}
-          </.link>
-          <.link href={@repo["html_url"] <> "/forks"} class="btn btn-xs" target="_blank">
-            Fork {@repo["forks"]}
-          </.link>
-          <.link href={@repo["html_url"] <> "/issues"} class="btn btn-xs" target="_blank">
-            Issue {@repo["open_issues"]}
+      </:title>
+
+      <p class="text-sm text-base-content/55 line-clamp-2 min-h-9">
+        {@repo["description"] || gettext("No description")}
+      </p>
+
+      <:action>
+        <div class="flex items-center justify-between w-full">
+          <div class="flex items-center gap-3 text-xs text-base-content/50 font-mono">
+            <a
+              href={@repo["html_url"] <> "/stargazers"}
+              target="_blank"
+              class="flex items-center gap-1 hover:text-warning transition-colors"
+            >
+              <.dm_mdi name="star-outline" class="w-3.5 h-3.5" />
+              {@repo["stargazers_count"]}
+            </a>
+            <a
+              href={@repo["html_url"] <> "/forks"}
+              target="_blank"
+              class="flex items-center gap-1 hover:text-info transition-colors"
+            >
+              <.dm_mdi name="source-fork" class="w-3.5 h-3.5" />
+              {@repo["forks"]}
+            </a>
+            <a
+              href={@repo["html_url"] <> "/issues"}
+              target="_blank"
+              class="flex items-center gap-1 hover:text-error transition-colors"
+            >
+              <.dm_mdi name="alert-circle-outline" class="w-3.5 h-3.5" />
+              {@repo["open_issues"]}
+            </a>
+          </div>
+          <.link href={@repo["html_url"]} target="_blank">
+            <.dm_btn variant="ghost" size="xs">
+              <.dm_mdi name="github" class="w-3.5 h-3.5" /> View
+            </.dm_btn>
           </.link>
         </div>
-        <p>
-          {@repo["description"] || gettext("No description")}
-        </p>
-        <div class="card-actions justify-end">
-          <.link href={@repo["html_url"]} class="btn btn-primary btn-sm" target="_blank">
-            Home Page
-          </.link>
-        </div>
-      </div>
-    </div>
+      </:action>
+    </.dm_card>
     """
   end
 end

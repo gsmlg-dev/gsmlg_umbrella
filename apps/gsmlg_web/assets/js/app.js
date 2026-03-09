@@ -9,15 +9,23 @@ if (process.env.NODE_ENV === 'development') {
   console.log('NODE_ENV: ', process.env.NODE_ENV);
 }
 
-let socket;
+// Start LiveSocket immediately so hooks (ThemeSwitcher, PageHeader) work on all pages,
+// including unauthenticated public pages where socket:start is never dispatched.
+let socket = startSocket(null);
+socket.connect();
+window.liveSocket = socket;
+
 window.addEventListener('socket:start', (event) => {
   const { token } = event.detail;
+  socket.disconnect();
   socket = startSocket(token);
+  socket.connect();
+  window.liveSocket = socket;
   joinChannels();
 });
 
 window.addEventListener('socket:stop', (event) => {
-  socket?.close();
+  socket?.disconnect();
 });
 
 // registerSW();

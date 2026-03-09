@@ -1,57 +1,85 @@
 <Layouts.user flash={@flash} page_title={@page_title} active_menu={@active_menu}>
-  <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
-    <div class="mx-4 my-2 flex flex-row justify-end">
-      <.link class="btn btn-primary" patch={~p"/users/new"}>
-        Add User
+  <%!-- ── INDEX ─────────────────────────────────────────────── --%>
+  <div :if={@live_action == :index} class="flex flex-col gap-4 p-6 w-full">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <.dm_mdi name="account-group-outline" class="w-5 h-5 text-primary" />
+        <h1 class="font-semibold text-base-content">
+          {dgettext("user", "Users")}
+        </h1>
+        <.dm_badge variant="ghost" size="sm" class="font-mono tabular-nums">
+          {length(@users)}
+        </.dm_badge>
+      </div>
+      <.link patch={~p"/users/new"}>
+        <.dm_btn variant="primary" size="sm">
+          <.dm_mdi name="account-plus-outline" class="w-4 h-4" />
+          {dgettext("user", "Add User")}
+        </.dm_btn>
       </.link>
     </div>
+
     <.dm_table
       data={@users}
-      class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content"
+      class="table-primary-border table-animate-row [&_thead]:bg-primary [&_thead]:text-primary-content border-b border-primary"
     >
-      <:col :let={u} label="Email">
-        {u.email}
+      <:col :let={u} label={dgettext("user", "Email")}>
+        <span class="font-mono text-sm">{u.email}</span>
       </:col>
-      <:col :let={u} label="Username">
-        {u.username}
+      <:col :let={u} label={dgettext("user", "Username")}>
+        <span class="font-mono font-medium">{u.username}</span>
       </:col>
-      <:col :let={u} label="Name">
+      <:col :let={u} label={dgettext("user", "Name")}>
         {u.name}
       </:col>
-      <:col :let={u} label="Active">
-        {u.is_active}
+      <:col :let={u} label={dgettext("user", "Active")}>
+        <.dm_badge :if={u.is_active} size="sm" class="badge-success">
+          <.dm_mdi name="check-circle-outline" class="w-3 h-3" /> Active
+        </.dm_badge>
+        <.dm_badge :if={!u.is_active} variant="ghost" size="sm" class="badge-error">
+          <.dm_mdi name="close-circle-outline" class="w-3 h-3" /> Inactive
+        </.dm_badge>
       </:col>
-      <:col :let={u} label="Enable 2FA">
-        {u.is_2fa_enabled}
+      <:col :let={u} label={dgettext("user", "2FA")}>
+        <.dm_badge :if={u.is_2fa_enabled} size="sm" class="badge-success">
+          <.dm_mdi name="shield-check-outline" class="w-3 h-3" /> Enabled
+        </.dm_badge>
+        <.dm_badge :if={!u.is_2fa_enabled} variant="ghost" size="sm">
+          <.dm_mdi name="shield-off-outline" class="w-3 h-3" /> Off
+        </.dm_badge>
       </:col>
-
       <:col :let={u} label="">
-        <div class="flex gap-2">
-          <.link class="btn btn-info" patch={~p"/users/#{u.id}"}>
-            Show
+        <div class="flex items-center gap-1.5">
+          <.link patch={~p"/users/#{u.id}"}>
+            <.dm_btn size="xs" variant="ghost">
+              <.dm_mdi name="eye-outline" class="w-3.5 h-3.5" />
+            </.dm_btn>
           </.link>
-          <.link class="btn btn-warning" patch={~p"/users/#{u.id}/edit"}>
-            Edit
+          <.link patch={~p"/users/#{u.id}/edit"}>
+            <.dm_btn size="xs" variant="ghost">
+              <.dm_mdi name="pencil-outline" class="w-3.5 h-3.5" />
+            </.dm_btn>
           </.link>
-          <.link class="btn btn-secondary" patch={~p"/users/#{u.id}/reset_password"}>
-            Reset Password
+          <.link patch={~p"/users/#{u.id}/reset_password"}>
+            <.dm_btn size="xs" variant="ghost">
+              <.dm_mdi name="lock-reset" class="w-3.5 h-3.5" />
+            </.dm_btn>
           </.link>
           <.dm_btn
             id={"id-del-#{u.username}"}
             confirm={dgettext("user", "Do you want to remove this user?")}
-            class="btn-error"
+            size="xs"
+            variant="ghost"
+            class="text-error"
             confirm_class="btn-error btn-sm"
             cancel_class="btn-ghost btn-sm"
             confirm_title="Attention!"
           >
-            Delete
+            <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5" />
             <:confirm_action>
               <form method="dialog">
-                <.dm_btn
-                  phx-click={JS.push("delete", value: %{id: u.id})}
-                  class="btn-error btn-sm"
-                >
-                  Delete
+                <.dm_btn phx-click={JS.push("delete", value: %{id: u.id})} class="btn-error btn-sm">
+                  {dgettext("user", "Delete")}
                 </.dm_btn>
               </form>
             </:confirm_action>
@@ -61,125 +89,147 @@
     </.dm_table>
   </div>
 
+  <%!-- ── NEW / EDIT ────────────────────────────────────────── --%>
   <div
     :if={@live_action == :new || @live_action == :edit}
-    class="container flex flex-col gap-2 mt-4 w-full"
+    class="flex flex-col gap-4 p-6 w-full max-w-2xl"
   >
-    <div class="mx-4 my-2 flex gap-2">
-      <.link class="btn btn-primary" patch={~p"/users"}>
-        All User List
-      </.link>
-      <%= if !is_nil(@user.id) do %>
-        <.link class="btn btn-info" patch={~p"/users/#{@user.id}"}>
-          Show User
-        </.link>
-      <% end %>
+    <div class="flex items-center gap-3">
+      <.dm_mdi name={if @live_action == :new, do: "account-plus-outline", else: "account-edit-outline"} class="w-5 h-5 text-primary" />
+      <h1 class="font-semibold text-base-content">{@page_title}</h1>
     </div>
 
-    <div class="mx-4 my-2">
-      <.dm_form
-        :let={f}
-        for={@changeset}
-        id="user-form"
-        class="flex flex-col gap-4 w-full max-w-2xl *:w-full"
-        phx-submit="save"
-      >
-        <.dm_input field={f[:email]} type="text" label="Email" class="w-full max-w-7xl" />
-        <.dm_input field={f[:username]} type="text" label="Username" class="w-full max-w-7xl" />
-        <.dm_input field={f[:name]} type="text" label="Name" class="w-full max-w-7xl" />
-        <.dm_input field={f[:portrait]} type="text" label="Portrait" class="w-full max-w-7xl" />
-        <.dm_input field={f[:otp_token]} type="text" label="TOTP Token" class="w-full max-w-7xl" />
-        <.dm_input field={f[:is_2fa_enabled]} type="toggle" label="2FA" class="" />
-        <:actions>
-          <.dm_btn class="btn-primary w-full max-w-md" phx-disable-with="Saving...">Save</.dm_btn>
-        </:actions>
-      </.dm_form>
+    <div class="flex gap-2">
+      <.link patch={~p"/users"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="arrow-left" class="w-4 h-4" /> {dgettext("user", "All Users")}
+        </.dm_btn>
+      </.link>
+      <.link :if={!is_nil(@user.id)} patch={~p"/users/#{@user.id}"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="eye-outline" class="w-4 h-4" /> {dgettext("user", "View User")}
+        </.dm_btn>
+      </.link>
     </div>
+
+    <.dm_form
+      :let={f}
+      for={@changeset}
+      id="user-form"
+      class="flex flex-col gap-4 w-full"
+      phx-submit="save"
+    >
+      <.dm_input field={f[:email]} type="text" label={dgettext("user", "Email")} variant="bordered" />
+      <.dm_input field={f[:username]} type="text" label={dgettext("user", "Username")} variant="bordered" />
+      <.dm_input field={f[:name]} type="text" label={dgettext("user", "Name")} variant="bordered" />
+      <.dm_input field={f[:portrait]} type="text" label={dgettext("user", "Portrait URL")} variant="bordered" />
+      <.dm_input field={f[:otp_token]} type="text" label={dgettext("user", "TOTP Token")} variant="bordered" />
+      <.dm_input field={f[:is_2fa_enabled]} type="toggle" label={dgettext("user", "Enable 2FA")} />
+      <:actions>
+        <.dm_btn variant="primary" class="w-full max-w-xs" phx-disable-with="Saving…">
+          {dgettext("user", "Save")}
+        </.dm_btn>
+      </:actions>
+    </.dm_form>
   </div>
 
-  <div :if={@live_action == :show} class="container flex flex-col gap-2 mt-4 w-full">
-    <div class="mx-4 my-2 flex gap-2">
-      <.link class="btn btn-primary" patch={~p"/users"}>
-        All User List
-      </.link>
+  <%!-- ── SHOW ─────────────────────────────────────────────── --%>
+  <div :if={@live_action == :show} class="flex flex-col gap-4 p-6 w-full max-w-2xl">
+    <div class="flex items-center gap-3">
+      <.dm_mdi name="account-circle-outline" class="w-5 h-5 text-primary" />
+      <h1 class="font-semibold text-base-content">{@user.username}</h1>
+      <.dm_badge :if={@user.is_active} size="sm" class="badge-success">Active</.dm_badge>
+      <.dm_badge :if={!@user.is_active} variant="ghost" size="sm" class="badge-error">Inactive</.dm_badge>
+    </div>
 
-      <.link class="btn btn-warning" patch={~p"/users/#{@user.id}/edit"}>
-        Edit User
+    <div class="flex gap-2">
+      <.link patch={~p"/users"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="arrow-left" class="w-4 h-4" /> {dgettext("user", "All Users")}
+        </.dm_btn>
       </.link>
-      <.link class="btn btn-secondary" patch={~p"/users/#{@user.id}/reset_password"}>
-        Reset Password
+      <.link patch={~p"/users/#{@user.id}/edit"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="pencil-outline" class="w-4 h-4" /> {dgettext("user", "Edit")}
+        </.dm_btn>
+      </.link>
+      <.link patch={~p"/users/#{@user.id}/reset_password"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="lock-reset" class="w-4 h-4" /> {dgettext("user", "Reset Password")}
+        </.dm_btn>
       </.link>
     </div>
 
-    <div class="mx-8 my-2">
-      <%= for name <- Map.keys(@user) do %>
-        <div class="flex flex-row">
-          <div class="flex-1 text-blue-400">
-            {name}
+    <.dm_card variant="bordered" body_class="p-0">
+      <dl class="divide-y divide-base-200 text-sm">
+        <%= for {label, value} <- [
+          {dgettext("user", "ID"), @user.id},
+          {dgettext("user", "Email"), @user.email},
+          {dgettext("user", "Username"), @user.username},
+          {dgettext("user", "Name"), @user.name},
+          {dgettext("user", "Active"), if(@user.is_active, do: "Yes", else: "No")},
+          {dgettext("user", "2FA Enabled"), if(@user.is_2fa_enabled, do: "Yes", else: "No")},
+          {dgettext("user", "Created"), @user.inserted_at},
+          {dgettext("user", "Updated"), @user.updated_at}
+        ] do %>
+          <div class="flex px-4 py-2.5 gap-4">
+            <dt class="w-32 shrink-0 font-mono text-xs text-base-content/45 uppercase tracking-wide pt-0.5">
+              {label}
+            </dt>
+            <dd class="flex-1 font-mono text-xs text-base-content break-all">
+              {value}
+            </dd>
           </div>
-          <div class="flex-1">
-            {Map.get(@user, name) |> inspect}
-          </div>
-        </div>
-      <% end %>
-    </div>
+        <% end %>
+      </dl>
+    </.dm_card>
   </div>
 
-  <div :if={@live_action == :reset_password} class="container flex flex-col gap-2 mt-4 w-full">
-    <div class="mx-4 my-2 flex gap-2">
-      <.link class="btn btn-primary" patch={~p"/users"}>
-        All User List
+  <%!-- ── RESET PASSWORD ──────────────────────────────────── --%>
+  <div :if={@live_action == :reset_password} class="flex flex-col gap-4 p-6 w-full max-w-2xl">
+    <div class="flex items-center gap-3">
+      <.dm_mdi name="lock-reset" class="w-5 h-5 text-primary" />
+      <h1 class="font-semibold text-base-content">
+        {dgettext("user", "Reset Password")} — {@user.username}
+      </h1>
+    </div>
+
+    <div class="flex gap-2">
+      <.link patch={~p"/users"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="arrow-left" class="w-4 h-4" /> {dgettext("user", "All Users")}
+        </.dm_btn>
       </.link>
-      <.link class="btn btn-info" patch={~p"/users/#{@user.id}"}>
-        Show User
+      <.link patch={~p"/users/#{@user.id}"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="eye-outline" class="w-4 h-4" /> {dgettext("user", "View User")}
+        </.dm_btn>
       </.link>
     </div>
 
-    <div class="mx-4 my-2">
-      <h2 class="text-xl font-semibold mb-4">
-        Reset password for {@user.username}
-      </h2>
+    <p :if={@password_error} class="text-sm text-error">{@password_error}</p>
 
-      <p :if={@password_error} class="text-error mb-4">{@password_error}</p>
-
-      <form
-        id="reset-password-form"
-        class="flex flex-col gap-4 w-full max-w-2xl"
-        phx-submit="reset_password"
-      >
-        <div class="form-control w-full max-w-7xl">
-          <label class="label" for="password">
-            <span class="label-text">New Password</span>
-          </label>
-          <input
-            type="password"
-            name="password"
-            id="password"
-            required
-            minlength="8"
-            class="input input-bordered w-full"
-            placeholder="Minimum 8 characters"
-          />
-        </div>
-        <div class="form-control w-full max-w-7xl">
-          <label class="label" for="password_confirmation">
-            <span class="label-text">Confirm Password</span>
-          </label>
-          <input
-            type="password"
-            name="password_confirmation"
-            id="password_confirmation"
-            required
-            minlength="8"
-            class="input input-bordered w-full"
-          />
-        </div>
-        <div>
-          <.dm_btn class="btn-primary w-full max-w-md" phx-disable-with="Resetting...">
-            Reset Password
-          </.dm_btn>
-        </div>
-      </form>
-    </div>
+    <form id="reset-password-form" class="flex flex-col gap-4 w-full" phx-submit="reset_password">
+      <.dm_input
+        id="password"
+        name="password"
+        type="password"
+        label={dgettext("user", "New Password")}
+        placeholder="Minimum 8 characters"
+        required
+        variant="bordered"
+      />
+      <.dm_input
+        id="password_confirmation"
+        name="password_confirmation"
+        type="password"
+        label={dgettext("user", "Confirm Password")}
+        required
+        variant="bordered"
+      />
+      <.dm_btn variant="primary" class="w-full max-w-xs" phx-disable-with="Resetting…">
+        {dgettext("user", "Reset Password")}
+      </.dm_btn>
+    </form>
   </div>
 </Layouts.user>

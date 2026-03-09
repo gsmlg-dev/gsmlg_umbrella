@@ -23,6 +23,7 @@
   },
   "workspaces": ["apps/gsmlg_admin_web", "apps/gsmlg_web", "apps/gsmlg_component"],
   "overrides": {
-    "character-entities": "^2.0.0"
+    "character-entities": "^2.0.0",
+    "mdast-util-to-string": "^4.0.0"
   }
 }
