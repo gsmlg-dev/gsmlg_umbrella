@@ -61,8 +61,8 @@ defmodule GSMLG.AdminWeb.PKIContext do
             key_type: event.metadata.key_type,
             key_size: event.metadata[:key_size],
             serial: event.metadata.serial,
-            not_before: event.metadata.not_before,
-            not_after: event.metadata.not_after,
+            not_before: parse_datetime(event.metadata.not_before),
+            not_after: parse_datetime(event.metadata.not_after),
             created_at: event.timestamp,
             stats: stats,
             has_private_key: PKIKeyStore.key_exists?(event.metadata.ca_id)
@@ -244,7 +244,7 @@ defmodule GSMLG.AdminWeb.PKIContext do
     }
   end
 
-  defp store_ca_data(ca_data, _opts) do
+  defp store_ca_data(ca_data, opts) do
     # Store in database using Ecto schema
     changeset =
       GSMLG.PKI.Schema.CertificateAuthority.changeset(
@@ -254,8 +254,31 @@ defmodule GSMLG.AdminWeb.PKIContext do
 
     case Repo.insert(changeset) do
       {:ok, _ca_record} ->
-        # Store private key in key store
-        PKIKeyStore.store_ca_private_key(ca_data.id, ca_data.private_key_pem)
+        # Emit ca_initialized event so list_cas/0 can discover this CA
+        event_metadata = %{
+          ca_id: ca_data.id,
+          subject: ca_data.subject,
+          key_type: ca_data.key_type,
+          key_size: Keyword.get(opts, :key_size),
+          serial: ca_data.serial,
+          not_before: ca_data.not_before,
+          not_after: ca_data.not_after,
+          ski: ca_data.ski
+        }
+
+        actor = Keyword.get(opts, :actor)
+
+        case GSMLG.PKI.Events.append(:ca_initialized, event_metadata,
+               ca_id: ca_data.id,
+               actor: actor
+             ) do
+          {:ok, _event} ->
+            # Store private key in key store
+            PKIKeyStore.store_ca_private_key(ca_data.id, ca_data.private_key_pem)
+
+          {:error, reason} ->
+            {:error, reason}
+        end
 
       {:error, changeset} ->
         {:error, {:database_error, changeset}}
@@ -692,6 +715,16 @@ defmodule GSMLG.AdminWeb.PKIContext do
   defp handle_get_expiry_stats(_state, _args) do
     {:ok, stats} = get_expiry_stats()
     {:ok, %{pki: %{expiry_stats: stats}}}
+  end
+
+  defp parse_datetime(nil), do: nil
+  defp parse_datetime(%DateTime{} = dt), do: dt
+
+  defp parse_datetime(str) when is_binary(str) do
+    case DateTime.from_iso8601(str) do
+      {:ok, dt, _} -> dt
+      _ -> nil
+    end
   end
 
   ## Private Helpers
