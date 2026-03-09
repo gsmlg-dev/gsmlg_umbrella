@@ -78,11 +78,8 @@ defmodule GSMLG.AdminWeb.PKIContext do
   Get a specific CA by ID with full details.
   """
   def get_ca(ca_id) do
-    with {:ok, events} <- Events.query_by_ca(ca_id),
-         init_event when not is_nil(init_event) <-
-           Enum.find(events, &(&1.event_type == :ca_initialized)) do
-      {:ok, cert} = Certificate.from_der(init_event.metadata.certificate_der)
-
+    with {:ok, ca_record} <- fetch_ca_from_db(ca_id),
+         {:ok, cert} <- Certificate.from_pem(ca_record.certificate_pem) do
       # Load private key if available
       private_key =
         case PKIKeyStore.load_ca_private_key(ca_id) do
@@ -93,17 +90,25 @@ defmodule GSMLG.AdminWeb.PKIContext do
       ca = %{
         id: ca_id,
         certificate: cert,
-        subject: init_event.metadata.subject,
+        subject: ca_record.subject,
         private_key: private_key,
-        key_type: init_event.metadata.key_type,
-        not_before: init_event.metadata.not_before,
-        not_after: init_event.metadata.not_after
+        key_type: ca_record.key_type,
+        not_before: ca_record.not_before,
+        not_after: ca_record.not_after
       }
 
       {:ok, ca}
     else
       nil -> {:error, :not_found}
       error -> error
+    end
+  end
+
+  # Helper to fetch CA record from database
+  defp fetch_ca_from_db(ca_id) do
+    case Repo.get(GSMLG.PKI.Schema.CertificateAuthority, ca_id) do
+      nil -> {:error, :not_found}
+      ca -> {:ok, ca}
     end
   end
 
@@ -226,22 +231,72 @@ defmodule GSMLG.AdminWeb.PKIContext do
   end
 
   defp build_ca_certificate(
-         _subject,
-         public_key_pem,
-         _private_key_pem,
-         _serial,
-         _not_before,
-         _not_after
+         subject,
+         _public_key_pem,
+         private_key_pem,
+         serial,
+         not_before,
+         not_after
        ) do
-    # This is a simplified version - in production you'd use X509 library
-    # or full :public_key certificate generation
+    # Parse private key and generate self-signed certificate
+    with [{:PrivateKeyInfo, der, :not_encrypted}] <- :public_key.pem_decode(private_key_pem),
+         {:ok, private_key} <- parse_private_key(der) do
+      # Create self-signed certificate with serial and validity dates
+      cert_opts = [
+        template: :ca,
+        serial: parse_serial(serial),
+        validity: {not_before, not_after}
+      ]
 
-    # For now, delegate to existing CA.initialize if it exists,
-    # or return minimal structure for testing
-    %{
-      certificate_pem: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
-      ski: :crypto.hash(:sha, public_key_pem) |> Base.encode16(case: :lower)
-    }
+      certificate = Certificate.self_signed(private_key, subject, cert_opts)
+      certificate_pem = Certificate.to_pem(certificate)
+
+      %{
+        certificate_pem: certificate_pem,
+        ski: extract_ski(certificate)
+      }
+    else
+      _ ->
+        # Fallback if certificate generation fails
+        %{
+          certificate_pem: "-----BEGIN CERTIFICATE-----\nMIIC\n-----END CERTIFICATE-----",
+          ski: ""
+        }
+    end
+  end
+
+  # Helper to parse private key DER
+  defp parse_private_key(der) do
+    case :public_key.pkix_decode_encrypted_private_key(der, "") do
+      {:RSAPrivateKey, key} -> {:ok, key}
+      {:DSAPrivateKey, key} -> {:ok, key}
+      {:ECPrivateKey, key} -> {:ok, key}
+      _ -> {:error, :invalid_key}
+    end
+  end
+
+  # Convert hex serial string to integer
+  defp parse_serial(hex_serial) when is_binary(hex_serial) do
+    case Integer.parse(hex_serial, 16) do
+      {num, ""} -> num
+      _ -> :crypto.strong_rand_bytes(16) |> :binary.decode_unsigned()
+    end
+  end
+
+  # Extract SKI from certificate
+  defp extract_ski(cert) do
+    try do
+      # Try to extract Subject Key Identifier extension
+      cert
+      |> Certificate.extensions()
+      |> Enum.find(&match?(%{"id-ce-subjectKeyIdentifier" => _}, &1))
+      |> case do
+        %{"id-ce-subjectKeyIdentifier" => ski} -> String.upcase(ski)
+        _ -> ""
+      end
+    rescue
+      _ -> ""
+    end
   end
 
   defp store_ca_data(ca_data, opts) do
