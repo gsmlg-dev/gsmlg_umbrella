@@ -130,8 +130,15 @@ defmodule GSMLG.AdminWeb.PKIKeyStore do
     # Ensure directory exists
     File.mkdir_p!(@storage_path)
 
-    # Encode private key to DER format
-    key_der = :public_key.der_encode(:RSAPrivateKey, private_key)
+    # Decode PEM to DER format for storage
+    # private_key may be a PEM string or an actual key struct
+    key_der =
+      if is_binary(private_key) do
+        [{_key_type, der, :not_encrypted}] = :public_key.pem_decode(private_key)
+        der
+      else
+        :public_key.der_encode(:RSAPrivateKey, private_key)
+      end
 
     # Write to file (INSECURE - for development only!)
     case File.write(key_path(ca_id), key_der, [:binary]) do
