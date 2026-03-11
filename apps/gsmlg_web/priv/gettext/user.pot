@@ -1,0 +1,72 @@
+## This file is a PO Template file.
+##
+## "msgid"s here are often extracted from source code.
+## Add new messages manually only if they're dynamic
+## messages that can't be statically extracted.
+##
+## Run "mix gettext.extract" to bring this file up to
+## date. Leave "msgstr"s empty as changing them here has no
+## effect: edit them in PO (.po) files instead.
+#
+msgid ""
+msgstr ""
+
+#: lib/gsmlg/web/controllers/sign_controller.ex
+msgid "Already signed in."
+msgstr ""
+
+#: lib/gsmlg/web/controllers/sign_controller.ex
+msgid "Sign In"
+msgstr ""
+
+#: lib/gsmlg/web/controllers/sign_controller.ex
+msgid "Sign in successfully."
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_controller.ex
+msgid "Magic link sent! Check your email."
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_controller.ex
+msgid "Welcome back!"
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/new.html.heex
+msgid "Magic Link Login"
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/new.html.heex
+msgid "Enter your email address and we'll send you a magic link to sign in instantly. No passwords required!"
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/new.html.heex
+msgid "Your link will expire in 24 hours and can only be used once."
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/new.html.heex
+msgid "Email"
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/new.html.heex
+msgid "Send Magic Link"
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/new.html.heex
+msgid "Continue with GitHub"
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/sent.html.heex
+msgid "Check your email"
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/sent.html.heex
+msgid "We've sent a magic link to your email address. Click the link in the email to sign in instantly."
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/sent.html.heex
+msgid "The link will expire in 24 hours and can only be used once."
+msgstr ""
+
+#: lib/gsmlg/web/controllers/magic_link_html/sent.html.heex
+msgid "Didn't receive the email? Send another link"
+msgstr ""

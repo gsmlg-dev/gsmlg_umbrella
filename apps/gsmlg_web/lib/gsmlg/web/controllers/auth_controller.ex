@@ -7,7 +7,7 @@ defmodule GSMLG.Web.AuthController do
 
   def callback(%{assigns: %{ueberauth_failure: %Ueberauth.Failure{}}} = conn, _params) do
     conn
-    |> put_flash(:error, "Failed to authenticate")
+    |> put_flash(:error, dgettext("errors", "Failed to authenticate"))
     |> redirect(to: ~p"/")
   end
 

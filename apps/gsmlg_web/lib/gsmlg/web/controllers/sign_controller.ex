@@ -8,14 +8,14 @@ defmodule GSMLG.Web.SignController do
   def index(conn, _params) do
     if Guardian.Plug.authenticated?(conn) do
       conn
-      |> put_flash(:info, "Alredy sign in.")
+      |> put_flash(:info, dgettext("user", "Already signed in."))
       |> redirect(to: ~p"/")
     else
       # No user
       changeset = Auth.sign_in_changeset(%Auth{}, %{})
 
       conn
-      |> render(:sign_in, changeset: changeset, page_title: "SIGN IN")
+      |> render(:sign_in, changeset: changeset, page_title: dgettext("user", "Sign In"))
     end
   end
 
@@ -25,14 +25,14 @@ defmodule GSMLG.Web.SignController do
         # Use access tokens.
         # Other tokens can be used, like :refresh etc
         conn
-        |> put_flash(:info, "Sign in successfully.")
+        |> put_flash(:info, dgettext("user", "Sign in successfully."))
         |> Guardian.Plug.sign_in(user)
         |> redirect(to: ~p"/")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
-        |> put_flash(:error, "invalid")
-        |> render(:sign_in, changeset: changeset, page_title: "SIGN IN")
+        |> put_flash(:error, dgettext("errors", "Invalid credentials"))
+        |> render(:sign_in, changeset: changeset, page_title: dgettext("user", "Sign In"))
     end
   end
 

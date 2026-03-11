@@ -102,3 +102,31 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "longitude"
 msgstr ""
+
+## Page titles from toolbox_controller.ex
+msgid "Toolbox"
+msgstr ""
+
+msgid "GeoIP2"
+msgstr ""
+
+msgid "Whois"
+msgstr ""
+
+msgid "SVG to React"
+msgstr ""
+
+msgid "SVG Autocrop"
+msgstr ""
+
+msgid "MAC Manufacturer"
+msgstr ""
+
+msgid "IP to GeoMap"
+msgstr ""
+
+msgid "Screen Saver"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""

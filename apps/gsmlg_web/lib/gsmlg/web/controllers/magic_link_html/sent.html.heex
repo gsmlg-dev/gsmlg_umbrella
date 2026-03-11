@@ -7,16 +7,15 @@
     </div>
 
     <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-      Check your email
+      {dgettext("user", "Check your email")}
     </h2>
 
     <p class="mt-2 text-center text-sm text-gray-600">
-      We've sent a magic link to your email address.
-      Click the link in the email to sign in instantly.
+      {dgettext("user", "We've sent a magic link to your email address. Click the link in the email to sign in instantly.")}
     </p>
 
     <p class="mt-4 text-center text-xs text-gray-500">
-      The link will expire in 24 hours and can only be used once.
+      {dgettext("user", "The link will expire in 24 hours and can only be used once.")}
     </p>
 
     <div class="mt-6">
@@ -24,7 +23,7 @@
         href={~p"/auth/magic-link/new"}
         class="text-indigo-600 hover:text-indigo-500 text-sm font-medium"
       >
-        Didn't receive the email? Send another link
+        {dgettext("user", "Didn't receive the email? Send another link")}
       </a>
     </div>
   </div>

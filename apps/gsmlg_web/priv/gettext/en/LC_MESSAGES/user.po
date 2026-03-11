@@ -1,0 +1,57 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Already signed in."
+msgstr "Already signed in."
+
+msgid "Sign In"
+msgstr "Sign In"
+
+msgid "Sign in successfully."
+msgstr "Sign in successfully."
+
+msgid "Magic link sent! Check your email."
+msgstr "Magic link sent! Check your email."
+
+msgid "Welcome back!"
+msgstr "Welcome back!"
+
+msgid "Magic Link Login"
+msgstr "Magic Link Login"
+
+msgid "Enter your email address and we'll send you a magic link to sign in instantly. No passwords required!"
+msgstr "Enter your email address and we'll send you a magic link to sign in instantly. No passwords required!"
+
+msgid "Your link will expire in 24 hours and can only be used once."
+msgstr "Your link will expire in 24 hours and can only be used once."
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Send Magic Link"
+msgstr "Send Magic Link"
+
+msgid "Continue with GitHub"
+msgstr "Continue with GitHub"
+
+msgid "Check your email"
+msgstr "Check your email"
+
+msgid "We've sent a magic link to your email address. Click the link in the email to sign in instantly."
+msgstr "We've sent a magic link to your email address. Click the link in the email to sign in instantly."
+
+msgid "The link will expire in 24 hours and can only be used once."
+msgstr "The link will expire in 24 hours and can only be used once."
+
+msgid "Didn't receive the email? Send another link"
+msgstr "Didn't receive the email? Send another link"

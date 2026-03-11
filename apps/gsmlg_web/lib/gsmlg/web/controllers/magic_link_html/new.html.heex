@@ -1,10 +1,9 @@
 <div class="hero min-h-screen bg-base-200">
   <div class="hero-content flex-col lg:flex-row-reverse">
     <div class="text-center lg:text-left">
-      <h1 class="text-5xl font-bold">Magic Link Login</h1>
+      <h1 class="text-5xl font-bold">{dgettext("user", "Magic Link Login")}</h1>
       <p class="py-6">
-        Enter your email address and we'll send you a magic link to sign in instantly.
-        No passwords required!
+        {dgettext("user", "Enter your email address and we'll send you a magic link to sign in instantly. No passwords required!")}
       </p>
       <div class="alert alert-info">
         <svg
@@ -21,7 +20,7 @@
           >
           </path>
         </svg>
-        <span>Your link will expire in 24 hours and can only be used once.</span>
+        <span>{dgettext("user", "Your link will expire in 24 hours and can only be used once.")}</span>
       </div>
     </div>
 
@@ -50,7 +49,7 @@
 
         <div class="form-control">
           <label class="label" for="email">
-            <span class="label-text">Email</span>
+            <span class="label-text">{dgettext("user", "Email")}</span>
           </label>
           <input
             type="email"
@@ -65,11 +64,11 @@
 
         <div class="form-control mt-6">
           <button type="submit" class="btn btn-primary">
-            Send Magic Link
+            {dgettext("user", "Send Magic Link")}
           </button>
         </div>
 
-        <div class="divider">OR</div>
+        <div class="divider">{gettext("OR")}</div>
 
         <div class="form-control">
           <a href={~p"/auth/github"} class="btn btn-outline btn-wide">
@@ -80,7 +79,7 @@
                 clip-rule="evenodd"
               />
             </svg>
-            <span class="ml-2">Continue with GitHub</span>
+            <span class="ml-2">{dgettext("user", "Continue with GitHub")}</span>
           </a>
         </div>
       </form>

@@ -60,7 +60,7 @@ defmodule GSMLG.Web.PageController do
       _ ->
         conn
         |> put_status(:not_found)
-        |> render(:"404", page_title: "404 Page Not Found")
+        |> render(:"404", page_title: dgettext("errors", "404 Page Not Found"))
     end
   end
 

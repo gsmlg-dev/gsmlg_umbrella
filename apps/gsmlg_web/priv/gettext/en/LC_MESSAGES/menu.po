@@ -78,3 +78,6 @@ msgstr "SVG to React Component"
 #, elixir-autogen, elixir-format
 msgid "Whois Domain / IP / ASN"
 msgstr "Whois Domain / IP / ASN"
+
+msgid "Sign In"
+msgstr "Sign In"

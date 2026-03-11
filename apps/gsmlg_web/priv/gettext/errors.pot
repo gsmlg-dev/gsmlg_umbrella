@@ -92,3 +92,19 @@ msgstr ""
 
 msgid "must be equal to %{number}"
 msgstr ""
+
+## From controllers (flash messages)
+msgid "Invalid credentials"
+msgstr ""
+
+msgid "Failed to authenticate"
+msgstr ""
+
+msgid "404 Page Not Found"
+msgstr ""
+
+msgid "Failed to send magic link"
+msgstr ""
+
+msgid "Invalid or expired magic link. Please request a new one."
+msgstr ""

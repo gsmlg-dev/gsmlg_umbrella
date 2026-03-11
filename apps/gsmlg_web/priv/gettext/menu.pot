@@ -78,3 +78,7 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Whois Domain / IP / ASN"
 msgstr ""
+
+#: lib/gsmlg/web/components/layouts/root.html.heex
+msgid "Sign In"
+msgstr ""

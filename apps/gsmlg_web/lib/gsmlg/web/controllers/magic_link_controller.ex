@@ -16,11 +16,11 @@ defmodule GSMLG.Web.MagicLinkController do
         end)
 
         conn
-        |> put_flash(:info, "Magic link sent! Check your email.")
+        |> put_flash(:info, dgettext("user", "Magic link sent! Check your email."))
         |> redirect(to: ~p"/auth/magic-link/sent")
 
       {:error, _changeset} ->
-        render(conn, :new, email: email, error: "Failed to send magic link")
+        render(conn, :new, email: email, error: dgettext("errors", "Failed to send magic link"))
     end
   end
 
@@ -34,12 +34,12 @@ defmodule GSMLG.Web.MagicLinkController do
         # Create session for the user
         conn
         |> put_session(:user_token, generate_session_token(user))
-        |> put_flash(:info, "Welcome back!")
+        |> put_flash(:info, dgettext("user", "Welcome back!"))
         |> redirect(to: ~p"/")
 
       {:error, :invalid_or_expired_token} ->
         conn
-        |> put_flash(:error, "Invalid or expired magic link. Please request a new one.")
+        |> put_flash(:error, dgettext("errors", "Invalid or expired magic link. Please request a new one."))
         |> redirect(to: ~p"/auth/magic-link/new")
     end
   end
