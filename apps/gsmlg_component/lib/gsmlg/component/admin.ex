@@ -26,10 +26,12 @@ defmodule GSMLG.Component.Admin do
         </.dm_link>
       </:logo>
       <:user_profile>
-        <.dm_theme_switcher />
-        <.link href="/sign_out" method="delete" data-confirm="Really sign out?">
-          <.dm_btn variant="error" size="sm">Sign Out</.dm_btn>
-        </.link>
+        <div class="flex items-center gap-2">
+          <.dm_theme_switcher />
+          <.link href="/sign_out" method="delete" data-confirm="Really sign out?">
+            <.dm_btn variant="error" size="sm">Sign Out</.dm_btn>
+          </.link>
+        </div>
       </:user_profile>
     </.dm_simple_appbar>
     """

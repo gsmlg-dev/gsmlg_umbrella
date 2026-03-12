@@ -110,6 +110,56 @@
       </div>
     </section>
 
+    <%!-- ── Caddy ────────────────────────────────────────────────────── --%>
+    <section class="flex flex-col gap-4">
+      <div class="flex items-center gap-2">
+        <.dm_mdi name="shield-check-outline" class="w-5 h-5 text-primary" />
+        <h2 class="font-semibold text-base-content">Caddy</h2>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <.link navigate={~p"/caddy"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="view-dashboard-outline" class="w-5 h-5 text-primary" />
+              <span class="text-sm font-medium">Dashboard</span>
+            </div>
+          </.dm_card>
+        </.link>
+        <.link navigate={~p"/caddy/config"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="text-box-outline" class="w-5 h-5 text-secondary" />
+              <span class="text-sm font-medium">Configuration</span>
+            </div>
+          </.dm_card>
+        </.link>
+        <.link navigate={~p"/caddy/server"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="cog-outline" class="w-5 h-5 text-warning" />
+              <span class="text-sm font-medium">Server Control</span>
+            </div>
+          </.dm_card>
+        </.link>
+        <.link navigate={~p"/caddy/metrics"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="chart-bar" class="w-5 h-5 text-success" />
+              <span class="text-sm font-medium">Metrics</span>
+            </div>
+          </.dm_card>
+        </.link>
+        <.link navigate={~p"/caddy/logs"}>
+          <.dm_card variant="bordered" body_class="" class="cursor-pointer hover:border-primary transition-colors w-48">
+            <div class="flex items-center gap-3 py-1">
+              <.dm_mdi name="file-search-outline" class="w-5 h-5 text-info" />
+              <span class="text-sm font-medium">Logs</span>
+            </div>
+          </.dm_card>
+        </.link>
+      </div>
+    </section>
+
     <%!-- ── Dashboard ─────────────────────────────────────────────── --%>
     <section class="flex flex-col gap-4">
       <div class="flex items-center gap-2">

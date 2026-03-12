@@ -63,4 +63,12 @@ body > .phx-connected {
   el-dm-badge[color="ghost"]::part(badge) {
     background-color: transparent;
   }
+
+  /* Normalize theme switcher trigger height to match btn-sm (2rem) in the appbar */
+  .appbar .theme-controller-trigger {
+    height: 2rem;
+    min-height: 2rem;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
 }
