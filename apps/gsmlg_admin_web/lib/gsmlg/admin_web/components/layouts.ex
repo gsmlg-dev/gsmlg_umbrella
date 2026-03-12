@@ -300,6 +300,114 @@ defmodule GSMLG.AdminWeb.Layouts do
   end
 
   @doc """
+  Renders your Caddy management layout.
+
+  Used for all /caddy/* management pages with a left sidebar
+  containing navigation links to each Caddy management section.
+
+  ## Examples
+
+      <Layouts.caddy flash={@flash}>
+        <h1>Content</h1>
+      </Layouts.caddy>
+
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_scope, :map,
+    default: nil,
+    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+
+  attr :page_title, :string, default: nil
+  attr :active_menu, :string, default: nil
+
+  slot :inner_block, required: true
+
+  def caddy(assigns) do
+    ~H"""
+    <.local_app_bar page_title={@page_title} />
+
+    <.dm_flash_group flash={@flash} />
+
+    <main class="flex flex-1 w-full">
+      <div class="relative">
+        <.dm_left_menu class="sticky top-0">
+          <:menu>
+            <h1 class="menu-title text-primary">Caddy</h1>
+          </:menu>
+          <:menu>
+            <h2 class="menu-title">Overview</h2>
+            <ul>
+              <li>
+                <.link
+                  class={if("caddy_dashboard" == @active_menu, do: "active")}
+                  navigate={~p"/caddy"}
+                >
+                  Dashboard
+                </.link>
+              </li>
+            </ul>
+          </:menu>
+          <:menu>
+            <h2 class="menu-title">Management</h2>
+            <ul>
+              <li>
+                <.link
+                  class={if("caddy_config" == @active_menu, do: "active")}
+                  navigate={~p"/caddy/config"}
+                >
+                  Configuration
+                </.link>
+              </li>
+              <li>
+                <.link
+                  class={if("caddy_server" == @active_menu, do: "active")}
+                  navigate={~p"/caddy/server"}
+                >
+                  Server Control
+                </.link>
+              </li>
+              <li>
+                <.link
+                  class={if("caddy_runtime" == @active_menu, do: "active")}
+                  navigate={~p"/caddy/runtime"}
+                >
+                  Runtime Config
+                </.link>
+              </li>
+            </ul>
+          </:menu>
+          <:menu>
+            <h2 class="menu-title">Observability</h2>
+            <ul>
+              <li>
+                <.link
+                  class={if("caddy_metrics" == @active_menu, do: "active")}
+                  navigate={~p"/caddy/metrics"}
+                >
+                  Metrics
+                </.link>
+              </li>
+              <li>
+                <.link
+                  class={if("caddy_logs" == @active_menu, do: "active")}
+                  navigate={~p"/caddy/logs"}
+                >
+                  Logs
+                </.link>
+              </li>
+            </ul>
+          </:menu>
+        </.dm_left_menu>
+      </div>
+      <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
+        {render_slot(@inner_block)}
+      </div>
+    </main>
+    """
+  end
+
+  @doc """
   Renders your user layout.
 
   This function is typically invoked from every template,

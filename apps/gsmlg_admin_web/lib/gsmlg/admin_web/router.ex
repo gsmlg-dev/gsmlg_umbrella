@@ -133,6 +133,14 @@ defmodule GSMLG.AdminWeb.Router do
     live("/pki/search", PKILive.SearchLive.Index, :index)
     live("/pki/analytics", PKILive.AnalyticsLive.Index, :index)
 
+    # Caddy Management Routes
+    live("/caddy", CaddyLive.DashboardLive, :index)
+    live("/caddy/config", CaddyLive.ConfigLive, :index)
+    live("/caddy/server", CaddyLive.ServerLive, :index)
+    live("/caddy/metrics", CaddyLive.MetricsLive, :index)
+    live("/caddy/runtime", CaddyLive.RuntimeLive, :index)
+    live("/caddy/logs", CaddyLive.LogsLive, :index)
+
     import Phoenix.LiveDashboard.Router
 
     live_dashboard("/live_dashboard", metrics: GSMLG.AdminWeb.Telemetry)

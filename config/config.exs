@@ -280,6 +280,13 @@ config :gsmlg_telemetry,
   report_interval: 60_000,
   max_buffer_size: 1000
 
+# Caddy reverse proxy configuration
+config :caddy,
+  mode: :external,
+  admin_url: "http://localhost:2019",
+  metrics: true,
+  health_interval: 15_000
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
