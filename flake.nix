@@ -13,37 +13,8 @@
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
       umbrella_app = pkgs.callPackage ./pkgs/gsmlg_umbrella.nix {inherit system;};
-      umbrella_img = pkgs.dockerTools.buildImage {
-        name = "ghcr.io/gsmlg-dev/gsmlg-umbrella";
-        tag = "latest";
-        created = "now";
-        copyToRoot = pkgs.buildEnv {
-          name = "image-root";
-          paths = [
-            pkgs.busybox
-            pkgs.dockerTools.usrBinEnv
-            pkgs.dockerTools.binSh
-            pkgs.dockerTools.caCertificates
-            pkgs.dockerTools.fakeNss
-            umbrella_app
-          ];
-          pathsToLink = ["/bin" "/etc" "/var"];
-        };
-
-        config = {
-          Entrypoint = ["/bin/gsmlg_umbrella"];
-          Cmd = ["start"];
-          Env = [
-            "REPLACE_OS_VARS=true"
-            "ERL_EPMD_PORT=4369"
-            "ERLCOOKIE=96myjWoLCTZRko38UdngxxQo/SwP9vfga28/B6IL"
-          ];
-        };
-      };
       commander_app = pkgs.callPackage ./pkgs/gsmlg_commander.nix {inherit system;};
     in {
-      packages.gsmlg-umbrella-docker = umbrella_img;
-
       packages.gsmlg-umbrella = umbrella_app;
       packages.gsmlg-commander = commander_app;
 
