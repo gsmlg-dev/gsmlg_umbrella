@@ -72,6 +72,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.LogsLive do
         end
       rescue
         e -> {[], Exception.message(e)}
+      catch
+        :exit, _ -> {[], "Caddy service unavailable"}
       end
 
     socket

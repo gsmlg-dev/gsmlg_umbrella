@@ -58,4 +58,9 @@ body > .phx-connected {
     min-width: max-content;
   }
 
+  /* Workaround: el-dm-badge shadow DOM has no .badge-ghost CSS.
+     Track upstream fix: https://github.com/duskmoon-dev/duskmoon-elements/issues/27 */
+  el-dm-badge[color="ghost"]::part(badge) {
+    background-color: transparent;
+  }
 }

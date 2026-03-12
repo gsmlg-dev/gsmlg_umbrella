@@ -40,6 +40,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
       Caddy.get_config()
     rescue
       _ -> %Caddy.Config{}
+    catch
+      :exit, _ -> %Caddy.Config{}
     end
   end
 

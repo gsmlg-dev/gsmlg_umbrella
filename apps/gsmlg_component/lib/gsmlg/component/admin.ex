@@ -87,6 +87,15 @@ defmodule GSMLG.Component.Admin do
                   {"Bucket List", "/aws/s3/buckets"}
                 ]}
              ]},
+            {"Caddy",
+             [
+               {"Dashboard", "/caddy"},
+               {"Configuration", "/caddy/config"},
+               {"Server Control", "/caddy/server"},
+               {"Runtime Config", "/caddy/runtime"},
+               {"Metrics", "/caddy/metrics"},
+               {"Logs", "/caddy/logs"}
+             ]},
             {"PKI",
              [
                {"Certificate Authorities", "/pki/ca"},

@@ -57,6 +57,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
         Caddy.rollback()
       rescue
         e -> {:error, Exception.message(e)}
+      catch
+        :exit, _ -> {:error, "Caddy service unavailable"}
       end
 
     {config, error} = fetch_config(socket.assigns.current_path)
@@ -82,6 +84,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
           else: Caddy.apply_runtime_config(path, decoded)
       rescue
         e -> {:error, Exception.message(e)}
+      catch
+        :exit, _ -> {:error, "Caddy service unavailable"}
       end
 
     {config, error} = fetch_config(socket.assigns.current_path)
@@ -98,6 +102,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
       end
     rescue
       e -> {nil, Exception.message(e)}
+    catch
+      :exit, _ -> {nil, "Caddy service unavailable"}
     end
   end
 
@@ -109,6 +115,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
       end
     rescue
       e -> {nil, Exception.message(e)}
+    catch
+      :exit, _ -> {nil, "Caddy service unavailable"}
     end
   end
 

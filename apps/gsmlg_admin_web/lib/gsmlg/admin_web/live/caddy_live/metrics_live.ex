@@ -61,6 +61,9 @@ defmodule GSMLG.AdminWeb.CaddyLive.MetricsLive do
         socket
         |> assign(:metrics, nil)
         |> assign(:metrics_error, "Failed to fetch metrics: #{Exception.message(error)}")
+    catch
+      :exit, _ ->
+        socket |> assign(:metrics, nil) |> assign(:metrics_error, "Caddy service unavailable")
     end
   end
 
@@ -72,6 +75,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.MetricsLive do
       end
     rescue
       error -> assign(socket, :raw_metrics, "Error: #{Exception.message(error)}")
+    catch
+      :exit, _ -> assign(socket, :raw_metrics, "Caddy service unavailable")
     end
   end
 

@@ -134,6 +134,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
         Caddy.Server.check_status()
       rescue
         _ -> :unknown
+      catch
+        :exit, _ -> :unknown
       end
 
     assign(socket, :status, status)
@@ -148,6 +150,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
         end
       rescue
         _ -> nil
+      catch
+        :exit, _ -> nil
       end
 
     assign(socket, :server_info, server_info)

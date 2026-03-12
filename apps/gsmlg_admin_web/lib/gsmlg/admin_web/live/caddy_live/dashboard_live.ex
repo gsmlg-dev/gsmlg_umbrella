@@ -49,6 +49,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
       Caddy.get_state()
     rescue
       _ -> :unavailable
+    catch
+      :exit, _ -> :unavailable
     end
   end
 
@@ -59,6 +61,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
       Caddy.ready?()
     rescue
       _ -> false
+    catch
+      :exit, _ -> false
     end
   end
 
@@ -67,6 +71,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
       Caddy.configured?()
     rescue
       _ -> false
+    catch
+      :exit, _ -> false
     end
   end
 
@@ -75,6 +81,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
       Caddy.check_sync_status()
     rescue
       _ -> {:error, :unavailable}
+    catch
+      :exit, _ -> {:error, :unavailable}
     end
   end
 
