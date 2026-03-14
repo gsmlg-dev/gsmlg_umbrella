@@ -37,6 +37,10 @@ defmodule GSMLG.Config.Setup do
     if config[:web_push] != nil do
       setup_web_push(config[:web_push])
     end
+
+    if config[:caddy] != nil do
+      setup_caddy(config[:caddy])
+    end
   end
 
   def setup_gsmlg(config) do
@@ -184,6 +188,13 @@ defmodule GSMLG.Config.Setup do
       public_key: config[:public_key],
       private_key: config[:private_key]
     )
+  end
+
+  def setup_caddy(config) do
+    Application.put_env(:caddy, :start, config[:start] == true)
+    Application.put_env(:caddy, :mode, String.to_atom(config[:mode] || "external"))
+    Application.put_env(:caddy, :admin_url, config[:admin_url])
+    Application.put_env(:caddy, :health_interval, config[:health_interval])
   end
 
   def update_env(app, key, new_value) do

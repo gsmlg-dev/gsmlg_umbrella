@@ -73,8 +73,8 @@ defmodule GSMLG.Web.Router do
     get("/blogs/:slug", BlogController, :show)
 
     get("/toolbox", ToolboxController, :index)
-    get("/toolbox/geoip2", ToolboxController, :geoip2)
-    post("/toolbox/geoip2", ToolboxController, :geoip2_find)
+    get("/toolbox/ip_geo", ToolboxController, :ip_geo)
+    post("/toolbox/ip_geo", ToolboxController, :ip_geo_find)
     get("/toolbox/whois", ToolboxController, :whois)
     post("/toolbox/whois", ToolboxController, :whois_find)
     get("/toolbox/svg2react", ToolboxController, :svg2react)

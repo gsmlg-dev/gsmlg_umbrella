@@ -137,13 +137,18 @@ defmodule GSMLG.AdminWeb.Router do
     live("/caddy", CaddyLive.DashboardLive, :index)
     live("/caddy/config", CaddyLive.ConfigLive, :index)
     live("/caddy/server", CaddyLive.ServerLive, :index)
+    live("/caddy/server/settings", CaddyLive.ServerSettingsLive, :index)
     live("/caddy/metrics", CaddyLive.MetricsLive, :index)
     live("/caddy/runtime", CaddyLive.RuntimeLive, :index)
     live("/caddy/logs", CaddyLive.LogsLive, :index)
 
     import Phoenix.LiveDashboard.Router
 
-    live_dashboard("/live_dashboard", metrics: GSMLG.AdminWeb.Telemetry)
+    live_dashboard("/live_dashboard",
+      metrics: GSMLG.AdminWeb.Telemetry,
+      ecto_repos: [GSMLG.Repo],
+      ecto_psql_extras_options: [{GSMLG.Repo, [lang: :en]}]
+    )
   end
 
   scope "/api", GSMLG.AdminWeb do

@@ -7,28 +7,25 @@ defmodule GSMLG.Web.ToolboxController do
     render(conn, :index, tools: tools, title: dgettext("toolbox", "Toolbox"))
   end
 
-  def geoip2(conn, params) do
-    lang = Map.get(params, "lang", "en")
-
-    render(conn, :geoip2,
+  def ip_geo(conn, _params) do
+    render(conn, :ip_geo,
       ipInfo: nil,
       ip: nil,
-      lang: lang,
-      langs: GSMLG.GeoIP2.langs(),
-      title: dgettext("toolbox", "GeoIP2")
+      title: dgettext("toolbox", "IP Geo")
     )
   end
 
-  def geoip2_find(conn, %{"ip" => ip} = params) do
-    lang = Map.get(params, "lang", "en")
-    ipInfo = GSMLG.GeoIP2.get_ip_info(ip, lang)
+  def ip_geo_find(conn, %{"ip" => ip} = _params) do
+    ipInfo =
+      case GSMLG.IpGeo.lookup(ip) do
+        {:ok, info} -> info
+        {:error, _} -> nil
+      end
 
-    render(conn, :geoip2,
+    render(conn, :ip_geo,
       ipInfo: ipInfo,
       ip: ip,
-      lang: lang,
-      langs: GSMLG.GeoIP2.langs(),
-      title: dgettext("toolbox", "GeoIP2")
+      title: dgettext("toolbox", "IP Geo")
     )
   end
 
@@ -141,7 +138,12 @@ defmodule GSMLG.Web.ToolboxController do
   end
 
   def ip_to_geomap_post(conn, %{"ip" => ip}) do
-    ipInfo = GSMLG.GeoIP2.get_ip_info(ip)
+    ipInfo =
+      case GSMLG.IpGeo.lookup(ip) do
+        {:ok, info} -> info
+        {:error, _} -> %{}
+      end
+
     conn |> json(%{data: ipInfo})
   end
 

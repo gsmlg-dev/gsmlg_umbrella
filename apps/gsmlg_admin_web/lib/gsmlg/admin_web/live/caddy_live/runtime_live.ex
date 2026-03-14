@@ -9,7 +9,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {config, error} = fetch_config("")
+    enabled = Application.get_env(:caddy, :start, false)
+    {config, error} = if enabled, do: fetch_config(""), else: {nil, nil}
 
     {:ok,
      assign(socket,
@@ -18,6 +19,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
        current_path: "",
        config: config,
        error: error,
+       enabled: enabled,
        apply_json: "",
        apply_result: nil
      )}
@@ -46,8 +48,12 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
 
   @impl true
   def handle_event("refresh", _params, socket) do
-    {config, error} = fetch_config(socket.assigns.current_path)
-    {:noreply, assign(socket, config: config, error: error)}
+    if socket.assigns.enabled do
+      {config, error} = fetch_config(socket.assigns.current_path)
+      {:noreply, assign(socket, config: config, error: error)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -137,6 +143,15 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
 
   defp format_json(data), do: inspect(data, pretty: true)
 
+  defp format_error(:caddy_not_available) do
+    admin_url = Application.get_env(:caddy, :admin_url, "http://localhost:2019")
+    "Caddy is not reachable at #{admin_url}"
+  end
+
+  defp format_error(:not_found), do: "No configuration found at this path"
+  defp format_error(reason) when is_binary(reason), do: reason
+  defp format_error(reason), do: inspect(reason)
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -145,7 +160,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
         <div class="flex items-center justify-between">
           <h1 class="text-3xl font-bold">Runtime Configuration</h1>
           <div class="flex gap-2">
-            <button phx-click="rollback" class="btn btn-warning btn-sm">
+            <button phx-click="rollback" class="btn btn-warning btn-sm" disabled={not @enabled}>
               <.dm_mdi name="arrow-u-left-top" class="size-4" /> Rollback
             </button>
             <button phx-click="refresh" class="btn btn-primary btn-sm">
@@ -154,74 +169,87 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
           </div>
         </div>
 
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <form phx-submit="browse" class="flex gap-2">
-              <input
-                type="text"
-                name="path"
-                value={@current_path}
-                placeholder="e.g. apps/http/servers"
-                class="input input-bordered flex-1 font-mono text-sm"
-              />
-              <button type="submit" class="btn btn-primary btn-sm">Browse</button>
-              <button type="button" phx-click="browse_root" class="btn btn-ghost btn-sm">Root</button>
-            </form>
-            <div :if={@current_path != ""} class="flex items-center gap-1 text-sm mt-2">
-              <button phx-click="browse_root" class="link link-primary">/</button>
-              <%= for {segment, path} <- breadcrumbs(@current_path) do %>
-                <span class="text-base-content/40">/</span>
-                <button phx-click="navigate" phx-value-path={path} class="link link-primary">
-                  {segment}
+        <%= if not @enabled do %>
+          <div class="alert alert-warning">
+            <.dm_mdi name="alert-outline" class="size-6 shrink-0" />
+            <div>
+              <p class="font-semibold">Caddy module is disabled</p>
+              <p class="text-sm mt-1">
+                Enable Caddy on the <.link navigate={~p"/caddy"} class="link">Dashboard</.link>
+                to browse and manage the live runtime configuration.
+              </p>
+            </div>
+          </div>
+        <% else %>
+          <div class="card bg-base-100 shadow">
+            <div class="card-body p-4">
+              <form phx-submit="browse" class="flex gap-2">
+                <input
+                  type="text"
+                  name="path"
+                  value={@current_path}
+                  placeholder="e.g. apps/http/servers"
+                  class="input input-bordered flex-1 font-mono text-sm"
+                />
+                <button type="submit" class="btn btn-primary btn-sm">Browse</button>
+                <button type="button" phx-click="browse_root" class="btn btn-ghost btn-sm">Root</button>
+              </form>
+              <div :if={@current_path != ""} class="flex items-center gap-1 text-sm mt-2">
+                <button phx-click="browse_root" class="link link-primary">/</button>
+                <%= for {segment, path} <- breadcrumbs(@current_path) do %>
+                  <span class="text-base-content/40">/</span>
+                  <button phx-click="navigate" phx-value-path={path} class="link link-primary">
+                    {segment}
+                  </button>
+                <% end %>
+              </div>
+            </div>
+          </div>
+
+          <div :if={@error} class="alert alert-error">
+            <.dm_mdi name="alert-outline" class="size-5" />
+            <span>{format_error(@error)}</span>
+          </div>
+
+          <div :if={@config} class="card bg-base-100 shadow">
+            <div class="card-body p-4">
+              <h3 class="card-title text-sm">
+                Configuration
+                <span :if={@current_path != ""} class="font-mono text-primary">/{@current_path}</span>
+                <span :if={@current_path == ""} class="font-mono text-primary">/</span>
+              </h3>
+              <pre class="bg-base-200 rounded-lg p-4 overflow-auto max-h-96 text-sm font-mono">{format_json(@config)}</pre>
+            </div>
+          </div>
+
+          <div class="card bg-base-100 shadow">
+            <div class="card-body p-4">
+              <h3 class="card-title text-sm">Apply JSON Config</h3>
+              <p class="text-xs text-base-content/60">
+                Apply JSON directly to the running Caddy instance
+                <span :if={@current_path != ""}>at path <code class="font-mono text-primary">/{@current_path}</code></span>
+              </p>
+              <form phx-submit="apply_json">
+                <textarea
+                  name="json"
+                  rows="6"
+                  class="textarea textarea-bordered w-full font-mono text-sm mt-2"
+                  placeholder='{"key": "value"}'
+                >{@apply_json}</textarea>
+                <button type="submit" class="btn btn-warning btn-sm mt-2">
+                  <.dm_mdi name="lightning-bolt" class="size-4" /> Apply to Caddy
                 </button>
-              <% end %>
+              </form>
+              <div :if={@apply_result} class={[
+                "alert mt-2",
+                @apply_result == :ok && "alert-success",
+                @apply_result != :ok && "alert-error"
+              ]}>
+                <span>{inspect(@apply_result)}</span>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div :if={@error} class="alert alert-error">
-          <.dm_mdi name="alert-outline" class="size-5" />
-          <span>{inspect(@error)}</span>
-        </div>
-
-        <div :if={@config} class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <h3 class="card-title text-sm">
-              Configuration
-              <span :if={@current_path != ""} class="font-mono text-primary">/{@current_path}</span>
-              <span :if={@current_path == ""} class="font-mono text-primary">/</span>
-            </h3>
-            <pre class="bg-base-200 rounded-lg p-4 overflow-auto max-h-96 text-sm font-mono">{format_json(@config)}</pre>
-          </div>
-        </div>
-
-        <div class="card bg-base-100 shadow">
-          <div class="card-body p-4">
-            <h3 class="card-title text-sm">Apply JSON Config</h3>
-            <p class="text-xs text-base-content/60">
-              Apply JSON directly to the running Caddy instance
-              <span :if={@current_path != ""}>at path <code class="font-mono text-primary">/{@current_path}</code></span>
-            </p>
-            <form phx-submit="apply_json">
-              <textarea
-                name="json"
-                rows="6"
-                class="textarea textarea-bordered w-full font-mono text-sm mt-2"
-                placeholder='{"key": "value"}'
-              >{@apply_json}</textarea>
-              <button type="submit" class="btn btn-warning btn-sm mt-2">
-                <.dm_mdi name="lightning-bolt" class="size-4" /> Apply to Caddy
-              </button>
-            </form>
-            <div :if={@apply_result} class={[
-              "alert mt-2",
-              @apply_result == :ok && "alert-success",
-              @apply_result != :ok && "alert-error"
-            ]}>
-              <span>{inspect(@apply_result)}</span>
-            </div>
-          </div>
-        </div>
+        <% end %>
       </div>
     </Layouts.caddy>
     """

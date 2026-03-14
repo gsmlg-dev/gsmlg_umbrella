@@ -11,13 +11,15 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
     mode = Application.get_env(:caddy, :mode, :external)
     admin_url = Application.get_env(:caddy, :admin_url, "http://localhost:2019")
 
+    reload_caddy_modules()
+
     socket =
       socket
       |> assign(:mode, mode)
       |> assign(:admin_url, admin_url)
       |> assign(:status, :unknown)
       |> assign(:server_info, nil)
-      |> assign(:error, nil)
+      |> assign(:commands, load_commands())
       |> assign(:page_title, "Caddy Server Control")
       |> assign(:active_menu, "caddy_server")
       |> load_server_status()
@@ -35,10 +37,10 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
   def handle_event("health_check", _params, socket) do
     socket =
       try do
-        result = Caddy.Server.External.health_check()
-        assign(socket, :error, "Health check result: #{inspect(result)}")
+        Caddy.Server.External.health_check()
+        put_flash(socket, :info, "API health check triggered")
       rescue
-        e -> assign(socket, :error, "Health check failed: #{Exception.message(e)}")
+        e -> put_flash(socket, :error, "Health check failed: #{Exception.message(e)}")
       end
 
     {:noreply, socket}
@@ -51,23 +53,18 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
     socket =
       try do
         case Caddy.Server.execute_command(command_atom) do
-          :ok ->
-            socket
-            |> assign(:error, nil)
-            |> put_flash(:info, "Command '#{command}' executed successfully")
-            |> load_server_status()
+          {:ok, output} ->
+            msg = if output == "", do: "Command '#{command}' executed successfully", else: output
 
-          {:ok, _result} ->
             socket
-            |> assign(:error, nil)
-            |> put_flash(:info, "Command '#{command}' executed successfully")
+            |> put_flash(:info, msg)
             |> load_server_status()
 
           {:error, reason} ->
-            assign(socket, :error, "Command failed: #{inspect(reason)}")
+            put_flash(socket, :error, format_command_error(reason))
         end
       rescue
-        e -> assign(socket, :error, "Command execution failed: #{Exception.message(e)}")
+        e -> put_flash(socket, :error, "Command execution failed: #{Exception.message(e)}")
       end
 
     {:noreply, socket}
@@ -157,6 +154,38 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
     assign(socket, :server_info, server_info)
   end
 
+  defp format_command_error({:command_failed, exit_code, output}) do
+    msg = String.trim(output)
+    if msg == "", do: "Command failed (exit #{exit_code})", else: "Exit #{exit_code}: #{msg}"
+  end
+
+  defp format_command_error({:command_not_configured, cmd}) do
+    "Command not configured: #{cmd}. Set it in Dashboard Settings."
+  end
+
+  defp reload_caddy_modules do
+    for mod <- [Caddy.Admin.Request, Caddy.Server.External] do
+      :code.soft_purge(mod)
+      :code.load_file(mod)
+    end
+  end
+
+  defp load_commands do
+    cmds = Application.get_env(:caddy, :commands, [])
+
+    %{
+      start: Keyword.get(cmds, :start, ""),
+      stop: Keyword.get(cmds, :stop, ""),
+      restart: Keyword.get(cmds, :restart, ""),
+      health_check: Keyword.get(cmds, :health_check, "")
+    }
+  end
+
+  defp format_command_error({:command_error, reason}), do: "Command error: #{inspect(reason)}"
+  defp format_command_error(:empty_command), do: "Command string is empty"
+  defp format_command_error(:embedded_mode), do: "Not available in embedded mode"
+  defp format_command_error(reason), do: inspect(reason)
+
   defp status_badge_class(:running), do: "badge-success"
   defp status_badge_class(:stopped), do: "badge-error"
   defp status_badge_class(:unknown), do: "badge-warning"
@@ -172,11 +201,6 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
           <div class={["badge badge-lg", if(@mode == :external, do: "badge-primary", else: "badge-secondary")]}>
             Mode: {@mode}
           </div>
-        </div>
-
-        <div :if={@error} class="alert alert-error">
-          <.dm_mdi name="close-circle-outline" class="size-5" />
-          <span>{@error}</span>
         </div>
 
         <div class="card bg-base-100 shadow">
@@ -202,21 +226,51 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
                 <div class="badge badge-outline font-mono">{@admin_url}</div>
               </div>
               <div class="divider">Lifecycle Commands</div>
-              <div class="flex gap-2 flex-wrap">
-                <button class="btn btn-success btn-sm" phx-click="execute_command" phx-value-command="start">
+              <div class="flex gap-2 flex-wrap items-center">
+                <button
+                  class="btn btn-success btn-sm"
+                  phx-click="execute_command"
+                  phx-value-command="start"
+                  disabled={@commands.start == ""}
+                  title={if @commands.start == "", do: "Not configured — set in Dashboard Settings", else: @commands.start}
+                >
                   <.dm_mdi name="play" class="size-4" /> Start
                 </button>
-                <button class="btn btn-error btn-sm" phx-click="execute_command" phx-value-command="stop">
+                <button
+                  class="btn btn-error btn-sm"
+                  phx-click="execute_command"
+                  phx-value-command="stop"
+                  disabled={@commands.stop == ""}
+                  title={if @commands.stop == "", do: "Not configured — set in Dashboard Settings", else: @commands.stop}
+                >
                   <.dm_mdi name="stop" class="size-4" /> Stop
                 </button>
-                <button class="btn btn-warning btn-sm" phx-click="execute_command" phx-value-command="restart">
+                <button
+                  class="btn btn-warning btn-sm"
+                  phx-click="execute_command"
+                  phx-value-command="restart"
+                  disabled={@commands.restart == ""}
+                  title={if @commands.restart == "", do: "Not configured — set in Dashboard Settings", else: @commands.restart}
+                >
                   <.dm_mdi name="refresh" class="size-4" /> Restart
                 </button>
+                <.link navigate={~p"/caddy/server/settings"} class="btn btn-ghost btn-sm gap-1 text-base-content/50">
+                  <.dm_mdi name="cog-outline" class="size-4" /> Settings
+                </.link>
               </div>
               <div class="divider">Health & Diagnostics</div>
-              <div class="flex gap-2 flex-wrap">
+              <div class="flex gap-2 flex-wrap items-center">
                 <button class="btn btn-info btn-sm" phx-click="health_check">
-                  <.dm_mdi name="heart-pulse" class="size-4" /> Health Check
+                  <.dm_mdi name="heart-pulse" class="size-4" /> API Health Check
+                </button>
+                <button
+                  class="btn btn-info btn-sm btn-outline"
+                  phx-click="execute_command"
+                  phx-value-command="health_check"
+                  disabled={@commands.health_check == ""}
+                  title={if @commands.health_check == "", do: "Not configured — set in Dashboard Settings", else: @commands.health_check}
+                >
+                  <.dm_mdi name="console" class="size-4" /> Run Health Check Command
                 </button>
               </div>
             </div>

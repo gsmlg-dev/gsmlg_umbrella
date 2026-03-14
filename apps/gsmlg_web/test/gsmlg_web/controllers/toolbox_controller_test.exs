@@ -8,24 +8,24 @@ defmodule GSMLG.Web.ToolboxControllerTest do
     end
   end
 
-  describe "geoip2" do
+  describe "ip_geo" do
     test "renders form", %{conn: conn} do
-      conn = get(conn, ~p"/toolbox/geoip2")
-      assert html_response(conn, 200) =~ "GeoIP2"
+      conn = get(conn, ~p"/toolbox/ip_geo")
+      assert html_response(conn, 200) =~ "IP Geo"
     end
   end
 
-  describe "search geoip2" do
+  describe "search ip_geo" do
     test "redirects to show when data is valid", %{conn: conn} do
-      conn = post(conn, ~p"/toolbox/geoip2", ip: "2.4.6.8", lang: "en")
+      conn = post(conn, ~p"/toolbox/ip_geo", ip: "2.4.6.8")
 
-      assert html_response(conn, 200) =~ "GeoIP2"
+      assert html_response(conn, 200) =~ "IP Geo"
       assert html_response(conn, 200) =~ "France"
     end
 
     test "renders errors when data is invalid", %{conn: conn} do
-      conn = post(conn, ~p"/toolbox/geoip2", ip: "not an ip")
-      assert html_response(conn, 200) =~ "GeoIP2"
+      conn = post(conn, ~p"/toolbox/ip_geo", ip: "not an ip")
+      assert html_response(conn, 200) =~ "IP Geo"
     end
   end
 end

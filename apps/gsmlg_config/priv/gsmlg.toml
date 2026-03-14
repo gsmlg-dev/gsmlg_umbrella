@@ -37,6 +37,12 @@ platform_key = "o5xg8yDgSOFVrcrH4seZJ7+w"
 client_id = ""
 client_secret = ""
 
+[caddy]
+start = true
+mode = "external"
+admin_url = "http://127.0.0.1:2019"
+health_interval = 15000
+
 [web_push]
 subject = "mailto:administrator@gsmlg.com"
 public_key = "BIiu8m_dqtrKSvdquIqUJxsrkwswa0Zgep4myzmHlUcHjEtRdxdK4bZAEAd4dhFTARNGrbIkOJIcjdn13Z-yC4w"

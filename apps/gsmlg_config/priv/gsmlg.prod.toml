@@ -37,6 +37,12 @@ platform_key = "CHANGE_ME_IN_PRODUCTION"
 client_id = "CHANGE_ME"
 client_secret = "CHANGE_ME"
 
+[caddy]
+start = true
+mode = "external"
+admin_url = "http://127.0.0.1:2019"
+health_interval = 15000
+
 [web_push]
 subject = "mailto:administrator@gsmlg.com"
 public_key = "CHANGE_ME_IN_PRODUCTION"

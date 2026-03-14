@@ -31,17 +31,17 @@ msgstr ""
 msgid "Full Information"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:14
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:14
 #, elixir-autogen, elixir-format
 msgid "IP"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:20
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:20
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:24
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:24
 #: lib/gsmlg_web/controllers/toolbox_html/mac_manufacturer.html.heex:12
 #: lib/gsmlg_web/controllers/toolbox_html/whois.html.heex:16
 #, elixir-autogen, elixir-format
@@ -73,32 +73,32 @@ msgstr ""
 msgid "Whois Informaion"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:44
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "city"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:33
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "continent"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:49
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:49
 #, elixir-autogen, elixir-format
 msgid "coordinate"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:39
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:39
 #, elixir-autogen, elixir-format
 msgid "country"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:52
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:52
 #, elixir-autogen, elixir-format
 msgid "latitude"
 msgstr ""
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:53
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:53
 #, elixir-autogen, elixir-format
 msgid "longitude"
 msgstr ""
@@ -107,7 +107,7 @@ msgstr ""
 msgid "Toolbox"
 msgstr ""
 
-msgid "GeoIP2"
+msgid "IP Geo"
 msgstr ""
 
 msgid "Whois"

@@ -217,6 +217,29 @@ defmodule GSMLG.Config.Schema do
     ]
   ]
 
+  @caddy_schema [
+    start: [
+      type: :boolean,
+      default: false,
+      doc: "Start the Caddy integration service"
+    ],
+    mode: [
+      type: {:in, ["external", "embedded"]},
+      default: "external",
+      doc: "Caddy management mode: external (systemd/OS managed) or embedded (binary managed by this app)"
+    ],
+    admin_url: [
+      type: :string,
+      default: "http://localhost:2019",
+      doc: "Caddy Admin API URL (TCP: http://host:port, Unix: unix:///path/to/caddy.sock)"
+    ],
+    health_interval: [
+      type: :pos_integer,
+      default: 15_000,
+      doc: "Health check interval in milliseconds"
+    ]
+  ]
+
   @doc """
   Returns the complete configuration schema.
   """
@@ -230,7 +253,8 @@ defmodule GSMLG.Config.Schema do
       couchdb: @couchdb_schema,
       commander: @commander_schema,
       oauth: %{github: @github_oauth_schema},
-      web_push: @web_push_schema
+      web_push: @web_push_schema,
+      caddy: @caddy_schema
     }
   end
 
@@ -314,6 +338,7 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:commander), do: @commander_schema
   defp get_section_schema(:oauth), do: %{github: @github_oauth_schema}
   defp get_section_schema(:web_push), do: @web_push_schema
+  defp get_section_schema(:caddy), do: @caddy_schema
   defp get_section_schema(_), do: nil
 
   defp validate_nested(config, schema) when is_map(schema) do

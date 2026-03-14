@@ -96,3 +96,6 @@ apps/gsmlg_admin_web/priv/static/cache_manifest.json
 
 *.LOG
 *.DAT
+
+# MMDB database files (downloaded separately)
+*.mmdb

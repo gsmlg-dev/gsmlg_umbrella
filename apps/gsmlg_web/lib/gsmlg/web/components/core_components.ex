@@ -294,7 +294,7 @@ defmodule GSMLG.Web.Components.CoreComponents do
         <a href={~p"/about"} class="link link-hover">About</a>
       </div>
       <div class="grid grid-flow-col gap-4">
-        <a href="/toolbox/geoip2" class="link link-hover">GeoIP2 Database</a>
+        <a href="/toolbox/ip_geo" class="link link-hover">IP Geo Database</a>
         <a href="/toolbox/whois" class="link link-hover">Domain/IP Whois</a>
         <a href="/toolbox/svg2react" class="link link-hover">SVG to React</a>
         <a href="/toolbox/mac_manufacturer" class="link link-hover">MAC Lookup</a>

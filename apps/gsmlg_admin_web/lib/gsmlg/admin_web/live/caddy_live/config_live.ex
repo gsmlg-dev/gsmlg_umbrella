@@ -19,6 +19,12 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
       |> assign(:mode, mode)
       |> assign(:admin_url, Caddy.Config.admin_url())
       |> assign(:health_interval, Caddy.Config.health_interval())
+      |> assign(:config_file_path, Application.get_env(:caddy, :config_file_path, "/etc/caddy/Caddyfile"))
+      |> assign(:caddy_bin_path, safe_get_bin())
+      |> assign(:caddy_bin_status, nil)
+      |> assign(:show_config_file_modal, false)
+      |> assign(:config_file_content, nil)
+      |> assign(:config_file_error, nil)
       |> assign(:global, config.global || "")
       |> assign(:additionals, config.additionals || [])
       |> assign(:sites, config.sites || [])
@@ -48,6 +54,75 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, tab)}
+  end
+
+  @impl true
+  def handle_event("save_config_file_path", %{"config_file_path" => path}, socket) do
+    path = String.trim(path)
+    Application.put_env(:caddy, :config_file_path, path)
+    {:noreply, socket |> assign(:config_file_path, path) |> put_flash(:info, "Config file path saved")}
+  end
+
+  @impl true
+  def handle_event("view_config_file", _params, socket) do
+    path = socket.assigns.config_file_path
+
+    {content, error} =
+      case File.read(path) do
+        {:ok, text} -> {text, nil}
+        {:error, reason} -> {nil, "Cannot read #{path}: #{:file.format_error(reason)}"}
+      end
+
+    {:noreply,
+     socket
+     |> assign(:show_config_file_modal, true)
+     |> assign(:config_file_content, content)
+     |> assign(:config_file_error, error)}
+  end
+
+  @impl true
+  def handle_event("close_config_file_modal", _params, socket) do
+    {:noreply, assign(socket, :show_config_file_modal, false)}
+  end
+
+  @impl true
+  def handle_event("save_caddy_bin_path", %{"caddy_bin_path" => path}, socket) do
+    path = String.trim(path)
+
+    {socket, status} =
+      try do
+        case Caddy.ConfigProvider.set_bin(path) do
+          :ok ->
+            {socket |> assign(:caddy_bin_path, path) |> put_flash(:info, "Caddy binary path saved"),
+             {:ok, "Binary validated and saved"}}
+
+          {:error, reason} ->
+            {put_flash(socket, :error, "Invalid binary: #{reason}"), {:error, reason}}
+        end
+      rescue
+        _ ->
+          # ConfigProvider not running (Caddy disabled) — store path for later use
+          Application.put_env(:caddy, :caddy_bin, path)
+          {socket |> assign(:caddy_bin_path, path) |> put_flash(:info, "Caddy binary path saved (Caddy not running)"),
+           {:ok, "Saved (Caddy not running)"}}
+      catch
+        :exit, _ ->
+          Application.put_env(:caddy, :caddy_bin, path)
+          {socket |> assign(:caddy_bin_path, path) |> put_flash(:info, "Caddy binary path saved (Caddy not running)"),
+           {:ok, "Saved (Caddy not running)"}}
+      end
+
+    {:noreply, assign(socket, :caddy_bin_status, status)}
+  end
+
+  defp safe_get_bin do
+    try do
+      Caddy.ConfigProvider.get(:bin) || System.find_executable("caddy") || ""
+    rescue
+      _ -> System.find_executable("caddy") || ""
+    catch
+      :exit, _ -> System.find_executable("caddy") || ""
+    end
   end
 
   @impl true
@@ -425,7 +500,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
 
         <%= if @mode == :external do %>
           <div class="card bg-base-100 shadow">
-            <div class="card-body">
+            <div class="card-body space-y-4">
               <h2 class="card-title">
                 <.dm_mdi name="signal" class="size-5" /> External Caddy Connection
               </h2>
@@ -439,8 +514,97 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
                   <div class="stat-value text-lg">{div(@health_interval, 1000)}s</div>
                 </div>
               </div>
+              <div class="divider text-sm">Server Config File</div>
+              <p class="text-sm text-base-content/60">
+                Path to the Caddyfile used by the external Caddy process (e.g. <code class="font-mono">/etc/caddy/Caddyfile</code>).
+              </p>
+              <form phx-submit="save_config_file_path" class="flex gap-2 items-end">
+                <div class="form-control flex-1">
+                  <label class="label">
+                    <span class="label-text font-medium">Config File Path</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="config_file_path"
+                    value={@config_file_path}
+                    placeholder="/etc/caddy/Caddyfile"
+                    class="input input-bordered w-full font-mono text-sm"
+                  />
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <.dm_mdi name="content-save-outline" class="size-4" /> Save
+                </button>
+                <button type="button" phx-click="view_config_file" class="btn btn-outline btn-sm gap-1">
+                  <.dm_mdi name="file-eye-outline" class="size-4" /> View File
+                </button>
+              </form>
+
+              <div class="divider text-sm">Caddy Binary</div>
+              <p class="text-sm text-base-content/60">
+                Path to the <code class="font-mono">caddy</code> executable — used for <code class="font-mono">adapt</code> and <code class="font-mono">validate</code> operations.
+              </p>
+              <form phx-submit="save_caddy_bin_path" class="flex gap-2 items-end">
+                <div class="form-control flex-1">
+                  <label class="label">
+                    <span class="label-text font-medium">Caddy Binary Path</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="caddy_bin_path"
+                    value={@caddy_bin_path}
+                    placeholder="/usr/bin/caddy"
+                    class="input input-bordered w-full font-mono text-sm"
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/50">
+                      Leave empty to use <code class="font-mono">caddy</code> from <code class="font-mono">$PATH</code>
+                    </span>
+                  </label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <.dm_mdi name="content-save-outline" class="size-4" /> Save
+                </button>
+              </form>
+              <%= if @caddy_bin_status do %>
+                <div class={["alert alert-sm", if(elem(@caddy_bin_status, 0) == :ok, do: "alert-success", else: "alert-error")]}>
+                  <.dm_mdi name={if(elem(@caddy_bin_status, 0) == :ok, do: "check-circle-outline", else: "alert-circle-outline")} class="size-4" />
+                  <span class="text-sm">{elem(@caddy_bin_status, 1)}</span>
+                </div>
+              <% end %>
             </div>
           </div>
+
+          <%= if @show_config_file_modal do %>
+            <div class="modal modal-open" phx-click-away="close_config_file_modal">
+              <div class="modal-box max-w-4xl w-full" phx-click-away="">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="font-bold text-lg flex items-center gap-2">
+                    <.dm_mdi name="file-document-outline" class="size-5 text-primary" />
+                    <span class="font-mono text-base">{@config_file_path}</span>
+                  </h3>
+                  <button class="btn btn-sm btn-ghost btn-circle" phx-click="close_config_file_modal">
+                    <.dm_mdi name="close" class="size-5" />
+                  </button>
+                </div>
+                <%= if @config_file_error do %>
+                  <div class="alert alert-error">
+                    <.dm_mdi name="alert-circle-outline" class="size-5" />
+                    <span>{@config_file_error}</span>
+                  </div>
+                <% else %>
+                  <div class="bg-base-200 rounded-lg p-4 overflow-auto max-h-[60vh]">
+                    <pre class="text-sm font-mono whitespace-pre-wrap">{@config_file_content}</pre>
+                  </div>
+                  <div class="text-xs text-base-content/50 mt-2">
+                    {String.split(@config_file_content || "", "\n") |> length()} lines
+                  </div>
+                <% end %>
+                <div class="modal-action">
+                  <button class="btn" phx-click="close_config_file_modal">Close</button>
+                </div>
+              </div>
+            </div>
+          <% end %>
         <% end %>
 
         <div class="flex justify-end gap-2">

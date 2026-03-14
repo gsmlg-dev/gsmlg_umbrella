@@ -40,7 +40,7 @@ msgstr ""
 #: lib/gsmlg_web/components/layouts/root.html.heex:39
 #: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:9
 #, elixir-autogen, elixir-format
-msgid "GeoIP2 Database"
+msgid "IP Geo Database"
 msgstr ""
 
 #: lib/gsmlg_web/controllers/toolbox_html/index.html.heex:14

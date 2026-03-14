@@ -11,7 +11,7 @@
     <div class="flex justify-center items-center">
       <.dm_form
         :let={f}
-        for={to_form(%{"ip" => @ip, "lang" => @lang})}
+        for={to_form(%{"ip" => @ip})}
         id="ip-form"
         method="POST"
         class="flex flex-col justify-center items-center gap-4 w-84 my-4"
@@ -21,13 +21,6 @@
           class="w-full input-primary"
           field={f[:ip]}
           label={dgettext("toolbox", "IP")}
-        />
-        <.dm_compact_input
-          class="w-full select-primary"
-          type="select"
-          field={f[:lang]}
-          label={dgettext("toolbox", "Language")}
-          options={@langs}
         />
         <.dm_btn class="btn-primary btn-block" type="submit">
           {dgettext("toolbox", "Lookup")}

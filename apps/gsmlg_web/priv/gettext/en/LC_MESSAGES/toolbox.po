@@ -31,17 +31,17 @@ msgstr "Domain / IP / ASN"
 msgid "Full Information"
 msgstr "Full Information"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:14
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:14
 #, elixir-autogen, elixir-format
 msgid "IP"
 msgstr "IP"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:20
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:20
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr "Language"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:24
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:24
 #: lib/gsmlg_web/controllers/toolbox_html/mac_manufacturer.html.heex:12
 #: lib/gsmlg_web/controllers/toolbox_html/whois.html.heex:16
 #, elixir-autogen, elixir-format
@@ -73,32 +73,32 @@ msgstr "Short"
 msgid "Whois Informaion"
 msgstr "Whois Informaion"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:44
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "city"
 msgstr "City"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:33
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "continent"
 msgstr "Continent"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:49
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:49
 #, elixir-autogen, elixir-format
 msgid "coordinate"
 msgstr "Coordinate"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:39
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:39
 #, elixir-autogen, elixir-format
 msgid "country"
 msgstr "Country"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:52
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:52
 #, elixir-autogen, elixir-format
 msgid "latitude"
 msgstr "Latitude"
 
-#: lib/gsmlg_web/controllers/toolbox_html/geoip2.html.heex:53
+#: lib/gsmlg_web/controllers/toolbox_html/ip_geo.html.heex:53
 #, elixir-autogen, elixir-format
 msgid "longitude"
 msgstr "Longitude"
@@ -107,8 +107,8 @@ msgstr "Longitude"
 msgid "Toolbox"
 msgstr "Toolbox"
 
-msgid "GeoIP2"
-msgstr "GeoIP2"
+msgid "IP Geo"
+msgstr "IP Geo"
 
 msgid "Whois"
 msgstr "Whois"
