@@ -8,48 +8,28 @@ defmodule GSMLG.Web.ToolboxController do
   end
 
   def ip_geo(conn, _params) do
-    render(conn, :ip_geo,
-      ipInfo: nil,
-      ip: nil,
-      title: dgettext("toolbox", "IP Geo")
-    )
+    render(conn, :ip_geo, title: dgettext("toolbox", "IP Geo"))
   end
 
-  def ip_geo_find(conn, %{"ip" => ip} = _params) do
-    ipInfo =
-      case GSMLG.IpGeo.lookup(ip) do
-        {:ok, info} -> info
-        {:error, _} -> nil
-      end
-
-    render(conn, :ip_geo,
-      ipInfo: ipInfo,
-      ip: ip,
-      title: dgettext("toolbox", "IP Geo")
-    )
+  def ip_geo_json(conn, %{"ip" => ip}) do
+    case GSMLG.IpGeo.lookup(ip) do
+      {:ok, info} -> conn |> json(%{data: info})
+      {:error, reason} -> conn |> put_status(422) |> json(%{error: reason})
+    end
   end
 
   def whois(conn, _params) do
-    render(conn, :whois, look_for: nil, whois_info: nil, title: dgettext("toolbox", "Whois"))
+    render(conn, :whois, title: dgettext("toolbox", "Whois"))
   end
 
-  def whois_find(conn, %{"look_for" => look_for} = _params) do
+  def whois_json(conn, %{"look_for" => look_for}) do
     case GSMLG.Whois.lookup_raw(look_for) do
       {:ok, whois_info} ->
-        render(conn, :whois,
-          look_for: look_for,
-          whois_info: Enum.reverse(whois_info),
-          reason: nil,
-          title: dgettext("toolbox", "Whois")
-        )
+        data = whois_info |> Enum.reverse() |> Enum.map(fn {server, info} -> [server, info] end)
+        conn |> json(%{data: data})
 
       {:error, reason} ->
-        render(conn, :whois,
-          look_for: look_for,
-          whois_info: :error,
-          reason: reason,
-          title: dgettext("toolbox", "Whois")
-        )
+        conn |> put_status(422) |> json(%{error: inspect(reason)})
     end
   end
 
@@ -116,20 +96,10 @@ defmodule GSMLG.Web.ToolboxController do
     render(conn, :mac_manufacturer, title: dgettext("toolbox", "MAC Manufacturer"))
   end
 
-  def mac_manufacturer_lookup(conn, %{"mac" => mac} = _params) do
+  def mac_manufacturer_json(conn, %{"mac" => mac}) do
     case GSMLG.MAC.lookup_vendor(mac) do
-      {:ok, short, full} ->
-        render(conn, :mac_manufacturer,
-          short: short,
-          full: full,
-          title: dgettext("toolbox", "MAC Manufacturer")
-        )
-
-      :error ->
-        render(conn, :mac_manufacturer,
-          short: dgettext("toolbox", "Unknown"),
-          title: dgettext("toolbox", "MAC Manufacturer")
-        )
+      {:ok, short, full} -> conn |> json(%{data: %{short: short, full: full}})
+      :error -> conn |> put_status(404) |> json(%{error: "Unknown"})
     end
   end
 

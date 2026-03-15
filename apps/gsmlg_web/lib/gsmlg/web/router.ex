@@ -74,15 +74,12 @@ defmodule GSMLG.Web.Router do
 
     get("/toolbox", ToolboxController, :index)
     get("/toolbox/ip_geo", ToolboxController, :ip_geo)
-    post("/toolbox/ip_geo", ToolboxController, :ip_geo_find)
     get("/toolbox/whois", ToolboxController, :whois)
-    post("/toolbox/whois", ToolboxController, :whois_find)
     get("/toolbox/svg2react", ToolboxController, :svg2react)
     post("/toolbox/svg2react", ToolboxController, :svg2react_convert)
     get("/toolbox/svg_autocrop", ToolboxController, :svg_autocrop)
     post("/toolbox/svg_autocrop", ToolboxController, :svg_autocrop_convert)
     get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer)
-    post("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer_lookup)
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap)
     get("/toolbox/screensaver", ToolboxController, :screensaver)
   end
@@ -96,6 +93,9 @@ defmodule GSMLG.Web.Router do
     get("/blogs", BlogController, :index)
     get("/blogs/:id", BlogController, :show)
 
+    get("/toolbox/ip_geo", ToolboxController, :ip_geo_json)
+    get("/toolbox/whois", ToolboxController, :whois_json)
+    get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer_json)
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap_post)
   end
 

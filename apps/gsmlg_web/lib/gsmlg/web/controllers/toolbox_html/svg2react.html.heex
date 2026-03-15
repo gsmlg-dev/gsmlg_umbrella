@@ -28,37 +28,7 @@
           <.dm_mdi name="react" class="w-6" /> {dgettext("toolbox", "Convert")}
         </.dm_btn>
       </div>
-      <script>
-        const path = window.location.pathname;
-        const btn = document.getElementById('svg-convert');
-        const ipt = document.getElementById('svg-input');
-        const opt = document.getElementById('svg-output');
-
-        const convert = () => {
-          btn.disabled = true;
-          const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
-          const code = ipt.value;
-          const options = {};
-
-          fetch(path, {
-            method: 'POST',
-            body: JSON.stringify({code: code, options: options}),
-            headers: {
-              'content-type': 'application/json',
-              'x-csrf-token': csrfToken,
-            },
-          }).then((resp) => {
-            return resp.json();
-          }).then(({ data }) => {
-            opt.value = data.output;
-            btn.disabled = false;
-          }).catch((err) => {
-            console.error(err);
-            btn.disabled = false;
-          });
-        }
-
-        btn.addEventListener('click', convert);
+      <script type="module" src={~p"/assets/tools/svg2react.js"}>
       </script>
     </div>
   </div>

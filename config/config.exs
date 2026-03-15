@@ -79,7 +79,7 @@ config :bun,
   version: "1.3.4",
   gsmlg_web: [
     args:
-      ~w(build assets/js/app.js assets/js/sw.js assets/js/worker.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
+      ~w(build assets/js/app.js assets/js/sw.js assets/js/worker.js assets/js/tools/ip_geo.js assets/js/tools/whois.js assets/js/tools/mac_manufacturer.js assets/js/tools/svg2react.js assets/js/tools/svg_autocrop.js assets/js/tools/ip_to_geomap.js assets/js/tools/screensaver.js --root assets/js --outdir=priv/static/assets --external /fonts/* --external /images/* --external https://*),
     cd: Path.expand("../apps/gsmlg_web", __DIR__),
     env: %{}
   ],

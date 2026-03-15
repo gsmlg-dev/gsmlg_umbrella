@@ -1,24 +1,18 @@
 defmodule GSMLG.IpGeo.Download do
   @moduledoc """
-  Downloads DB-IP.com geolocation databases for use in releases.
+  Downloads DB-IP.com geolocation databases.
 
-  This module is designed to be called via release eval commands:
+  Can be called in release mode via eval:
 
       ./bin/gsmlg_umbrella eval "GSMLG.IpGeo.Download.run()"
-      ./bin/gsmlg_umbrella eval "GSMLG.IpGeo.Download.run(:country)"
-
-  Uses OTP's built-in `:httpc` so it works without any additional
-  dependencies at runtime.
+      ./bin/gsmlg_umbrella eval "GSMLG.IpGeo.Download.run(:city)"
+      ./bin/gsmlg_umbrella eval "GSMLG.IpGeo.Download.run(:country, force: true)"
 
   ## Options
 
-  The `opts` keyword list accepts:
     - `:force` - Overwrite existing database file (default: `false`)
 
   ## Configuration
-
-  Database files are saved to the `priv/data/` directory of the
-  `:gsmlg_ip_geo` application. Paths can be overridden via config:
 
       config :gsmlg_ip_geo,
         databases: %{
@@ -29,25 +23,26 @@ defmodule GSMLG.IpGeo.Download do
 
   require Logger
 
-  @db_ip_base_url ~c"https://download.db-ip.com/free"
+  @db_ip_base_url "https://download.db-ip.com/free"
 
   @doc """
-  Downloads both the city and country databases.
-
-  ## Examples
-
-      GSMLG.IpGeo.Download.run()
-      GSMLG.IpGeo.Download.run(force: true)
+  Downloads both city and country databases.
   """
   @spec run(keyword()) :: :ok
   def run(opts \\ []) do
     load_app()
-    start_http()
+    Application.ensure_all_started(:http_fetch)
 
     for type <- [:city, :country] do
       case download(type, opts) do
-        :ok -> :ok
-        {:error, reason} -> Logger.error("[GSMLG.IpGeo.Download] Failed", type: type, error: inspect(reason))
+        :ok ->
+          :ok
+
+        {:error, reason} ->
+          Logger.error("[GSMLG.IpGeo.Download] Failed",
+            type: type,
+            error: inspect(reason)
+          )
       end
     end
 
@@ -56,16 +51,11 @@ defmodule GSMLG.IpGeo.Download do
 
   @doc """
   Downloads a single database by type (`:city` or `:country`).
-
-  ## Examples
-
-      GSMLG.IpGeo.Download.run(:city)
-      GSMLG.IpGeo.Download.run(:country, force: true)
   """
   @spec run(atom(), keyword()) :: :ok | {:error, term()}
   def run(type, opts) when is_atom(type) do
     load_app()
-    start_http()
+    Application.ensure_all_started(:http_fetch)
     download(type, opts)
   end
 
@@ -76,7 +66,6 @@ defmodule GSMLG.IpGeo.Download do
 
     if File.exists?(target_path) and !opts[:force] do
       Logger.info("[GSMLG.IpGeo.Download] Database already exists, skipping", path: target_path)
-      Logger.info("[GSMLG.IpGeo.Download] Use force: true to overwrite")
       :ok
     else
       fetch_and_save(type, target_path)
@@ -110,11 +99,11 @@ defmodule GSMLG.IpGeo.Download do
 
     Logger.info("[GSMLG.IpGeo.Download] Downloading", type: type, url: url)
 
-    case :httpc.request(:get, {url, []}, [ssl: ssl_opts()], body_format: :binary) do
-      {:ok, {{_, 200, _}, _headers, body}} ->
+    case HTTP.fetch(url) |> HTTP.Promise.await() do
+      %HTTP.Response{ok: true, body: body} ->
         decompress_and_save(body, target_path)
 
-      {:ok, {{_, status, _}, _headers, _body}} ->
+      %HTTP.Response{status: status} ->
         {:error, {:http_error, status}}
 
       {:error, reason} ->
@@ -132,21 +121,6 @@ defmodule GSMLG.IpGeo.Download do
       _ ->
         {:error, :decompress_failed}
     end
-  end
-
-  defp start_http do
-    Application.ensure_all_started(:inets)
-    Application.ensure_all_started(:ssl)
-  end
-
-  defp ssl_opts do
-    [
-      verify: :verify_peer,
-      cacerts: :public_key.cacerts_get(),
-      customize_hostname_check: [
-        match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
-      ]
-    ]
   end
 
   defp load_app do
