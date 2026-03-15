@@ -61,7 +61,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:gsmlg_pki, in_umbrella: true},
       {:gsmlg_component, in_umbrella: true},
       {:gsmlg_web_push, in_umbrella: true},
-      {:caddy, path: "/home/gao/Workspace/gsmlg-dev/elixir_caddy", override: true},
+      {:caddy, "~> 2.3"},
       {:swoosh, "~> 1.3"},
       {:jason, "~> 1.2"},
       {:guardian, "~> 2.0"},
