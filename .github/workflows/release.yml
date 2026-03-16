@@ -1,0 +1,174 @@
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      release-version:
+        required: true
+        description: 'The version of the release'
+        default: '4.21.0'
+      revision:
+        required: true
+        description: 'The git ref to build from'
+        default: 'main'
+
+jobs:
+  build-docker:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.revision }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_PASSWD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
+            HEX_MIRROR=https://repo.hex.pm
+            RELEASE_VERSION=${{ github.event.inputs.release-version }}
+            DATABASE_URL=ecto://USER:PASS@HOST/DATABASE
+          tags: |
+            ghcr.io/gsmlg-dev/gsmlg-umbrella:v${{ github.event.inputs.release-version }}
+            ghcr.io/gsmlg-dev/gsmlg-umbrella:latest
+
+      - name: Write Docker image info
+        run: |
+          VERSION=${{ github.event.inputs.release-version }}
+          cat > docker-image-info.md <<EOF
+          ## Docker Image
+
+          \`\`\`
+          docker pull ghcr.io/gsmlg-dev/gsmlg-umbrella:v${VERSION}
+          \`\`\`
+
+          ### Available tags
+
+          - \`ghcr.io/gsmlg-dev/gsmlg-umbrella:v${VERSION}\`
+          - \`ghcr.io/gsmlg-dev/gsmlg-umbrella:latest\`
+
+          ### Platforms
+
+          - \`linux/amd64\`
+          EOF
+
+      - name: Upload Docker image info
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-image-info
+          path: docker-image-info.md
+
+  build-elixir:
+    name: Build Elixir release (linux/amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.revision }}
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.18.4"
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          always-auth: true
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install deps
+        env:
+          MIX_ENV: prod
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          mix deps.get
+          mix compile
+          bun install
+
+      - name: Build release
+        env:
+          MIX_ENV: prod
+          RELEASE_VERSION: ${{ github.event.inputs.release-version }}
+          DATABASE_URL: "ecto://USER:PASS@HOST/DATABASE"
+        run: |
+          bash scripts/update_version.sh ${RELEASE_VERSION}
+          mix prerelease
+          mix release gsmlg_umbrella
+          mix release gsmlg_commander
+          cp -r _build/prod/rel/gsmlg_umbrella gsmlg
+          tar zcf gsmlg.tar.gz gsmlg
+          cp -r _build/prod/rel/gsmlg_commander commander
+          tar zcf commander.tar.gz commander
+
+      - name: Upload release tarballs
+        uses: actions/upload-artifact@v7
+        with:
+          name: elixir-releases
+          path: "*.tar.gz"
+
+  create-release:
+    name: Create GitHub release v${{ github.event.inputs.release-version }}
+    runs-on: ubuntu-latest
+    needs: [build-docker, build-elixir]
+    steps:
+      - name: Download Elixir release tarballs
+        uses: actions/download-artifact@v8
+        with:
+          name: elixir-releases
+
+      - name: Download Docker image info
+        uses: actions/download-artifact@v8
+        with:
+          name: docker-image-info
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.release-version }}
+          name: v${{ github.event.inputs.release-version }}
+          body_path: docker-image-info.md
+          files: "*.tar.gz"
+          token: ${{ secrets.GITHUB_TOKEN }}
