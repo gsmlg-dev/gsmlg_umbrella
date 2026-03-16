@@ -31,7 +31,9 @@ defmodule GSMLG.Application do
       {Finch, name: GSMLG.Finch},
       GSMLG.WebPush.Subscriptions,
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
-      {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor}
+      {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
+      # Caddy reverse proxy management (no-op when caddy.start = false in config)
+      GSMLG.Caddy
       # Telemetry system starts automatically as an OTP application
     ]
 
