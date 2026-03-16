@@ -222,8 +222,15 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
     do: {:drift, "Drift detected (#{map_size(diff)} differences)"}
 
   defp format_sync_status({:error, :unavailable}), do: {:error, "Caddy not reachable"}
-  defp format_sync_status({:error, :caddy_not_available}), do: {:error, "Caddy not reachable at #{Application.get_env(:caddy, :admin_url, "http://localhost:2019")}"}
-  defp format_sync_status({:error, {:adaptation_failed, _}}), do: {:info, "No Caddyfile configured yet — add routes in the Configuration page"}
+
+  defp format_sync_status({:error, :caddy_not_available}),
+    do:
+      {:error,
+       "Caddy not reachable at #{Application.get_env(:caddy, :admin_url, "http://localhost:2019")}"}
+
+  defp format_sync_status({:error, {:adaptation_failed, _}}),
+    do: {:info, "No Caddyfile configured yet — add routes in the Configuration page"}
+
   defp format_sync_status({:error, reason}) when is_binary(reason), do: {:error, reason}
   defp format_sync_status({:error, reason}), do: {:error, "Error: #{inspect(reason)}"}
   defp format_sync_status(_), do: {:error, "Unknown"}
@@ -249,8 +256,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
             <div>
               <p class="font-semibold">Caddy module is disabled</p>
               <p class="text-sm mt-1">
-                Configure and enable it below, or set
-                <code class="font-mono">start = true</code>
+                Configure and enable it below, or set <code class="font-mono">start = true</code>
                 in the <code class="font-mono">[caddy]</code>
                 section of your TOML file for persistence across restarts.
               </p>
@@ -267,7 +273,12 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
                 Changes apply immediately but are not persisted to the TOML file.
               </p>
               <.form for={%{}} phx-submit="enable" class="space-y-4">
-                <.caddy_settings_fields mode={@mode} admin_url={@admin_url} health_interval={@health_interval} commands={@commands} />
+                <.caddy_settings_fields
+                  mode={@mode}
+                  admin_url={@admin_url}
+                  health_interval={@health_interval}
+                  commands={@commands}
+                />
                 <div class="flex items-center gap-3 pt-2">
                   <button type="submit" class="btn btn-success gap-2">
                     <.dm_mdi name="power" class="size-5" /> Enable Caddy
@@ -342,8 +353,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
           <div class="card bg-base-100 shadow">
             <div class="card-body">
               <h2 class="card-title flex items-center gap-2">
-                <.dm_mdi name="sync" class="size-5 text-primary" />
-                Synchronization Status
+                <.dm_mdi name="sync" class="size-5 text-primary" /> Synchronization Status
               </h2>
               <%= case format_sync_status(@sync_status) do %>
                 <% {:ok, message} -> %>
@@ -384,7 +394,12 @@ defmodule GSMLG.AdminWeb.CaddyLive.DashboardLive do
                 Changes apply immediately but are not persisted to the TOML file.
               </p>
               <.form for={%{}} phx-submit="save_settings" class="space-y-4">
-                <.caddy_settings_fields mode={@mode} admin_url={@admin_url} health_interval={@health_interval} commands={@commands} />
+                <.caddy_settings_fields
+                  mode={@mode}
+                  admin_url={@admin_url}
+                  health_interval={@health_interval}
+                  commands={@commands}
+                />
                 <div class="flex items-center gap-3 pt-2">
                   <button type="submit" class="btn btn-primary gap-2">
                     <.dm_mdi name="content-save-outline" class="size-5" /> Save & Restart

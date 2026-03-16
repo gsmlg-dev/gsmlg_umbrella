@@ -10,6 +10,7 @@ defmodule GSMLG.Web.PageController do
       "duskmoon-dev",
       "Gao-OS"
     ]
+
     users = ["gsmlg"]
 
     org_r =

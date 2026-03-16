@@ -226,7 +226,8 @@ defmodule GSMLG.Config.Schema do
     mode: [
       type: {:in, ["external", "embedded"]},
       default: "external",
-      doc: "Caddy management mode: external (systemd/OS managed) or embedded (binary managed by this app)"
+      doc:
+        "Caddy management mode: external (systemd/OS managed) or embedded (binary managed by this app)"
     ],
     admin_url: [
       type: :string,

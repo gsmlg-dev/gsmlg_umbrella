@@ -13,7 +13,7 @@
       <div class="flex items-center gap-4 mt-2" aria-hidden="true">
         <div class="w-16 h-px bg-primary-content/20"></div>
         <span class="font-mono text-[11px] text-primary-content/35 tracking-[0.25em] uppercase">
-          {Enum.count([1,2,3,4,5,6,7])} tools available
+          {Enum.count([1, 2, 3, 4, 5, 6, 7])} tools available
         </span>
         <div class="w-16 h-px bg-primary-content/20"></div>
       </div>
@@ -25,20 +25,21 @@
       <.dm_card
         :for={
           {name, url, icon, desc} <- [
-            {dgettext("menu", "IP Geo Database"), ~p"/toolbox/ip_geo",
-             "earth-box-outline", gettext("Query IP geolocation using MaxMind IP Geo databases")},
-            {dgettext("menu", "Whois Domain / IP / ASN"), ~p"/toolbox/whois",
-             "magnify-scan", gettext("Look up registration info for domains, IPs and ASNs")},
+            {dgettext("menu", "IP Geo Database"), ~p"/toolbox/ip_geo", "earth-box-outline",
+             gettext("Query IP geolocation using MaxMind IP Geo databases")},
+            {dgettext("menu", "Whois Domain / IP / ASN"), ~p"/toolbox/whois", "magnify-scan",
+             gettext("Look up registration info for domains, IPs and ASNs")},
             {dgettext("menu", "Lookup MAC Manufacturer"), ~p"/toolbox/mac_manufacturer",
              "ethernet-cable", gettext("Identify device vendors from MAC address OUI prefixes")},
-            {dgettext("menu", "SVG to React Component"), ~p"/toolbox/svg2react",
-             "code-braces", gettext("Convert SVG markup into clean React functional components")},
-            {dgettext("menu", "SVG Autocrop, Optimize SVG"), ~p"/toolbox/svg_autocrop",
-             "crop", gettext("Remove excess whitespace and optimize SVG file size")},
+            {dgettext("menu", "SVG to React Component"), ~p"/toolbox/svg2react", "code-braces",
+             gettext("Convert SVG markup into clean React functional components")},
+            {dgettext("menu", "SVG Autocrop, Optimize SVG"), ~p"/toolbox/svg_autocrop", "crop",
+             gettext("Remove excess whitespace and optimize SVG file size")},
             {dgettext("menu", "IP to Geo Map"), ~p"/toolbox/ip_to_geomap",
-             "map-marker-radius-outline", gettext("Visualize IP addresses on an interactive world map")},
-            {dgettext("menu", "Screen Saver"), ~p"/toolbox/screensaver",
-             "monitor-shimmer", gettext("Ambient screensaver for display or presentation mode")}
+             "map-marker-radius-outline",
+             gettext("Visualize IP addresses on an interactive world map")},
+            {dgettext("menu", "Screen Saver"), ~p"/toolbox/screensaver", "monitor-shimmer",
+             gettext("Ambient screensaver for display or presentation mode")}
           ]
         }
         variant="bordered"

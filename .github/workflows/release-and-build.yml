@@ -23,8 +23,6 @@ jobs:
         with:
           ref: ${{ steps.semantic.outputs.revision }}
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-
       - name: 💊 Setup Elixir
         uses: erlef/setup-beam@v1
         with:

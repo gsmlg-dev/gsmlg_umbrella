@@ -39,7 +39,10 @@ defmodule GSMLG.Web.MagicLinkController do
 
       {:error, :invalid_or_expired_token} ->
         conn
-        |> put_flash(:error, dgettext("errors", "Invalid or expired magic link. Please request a new one."))
+        |> put_flash(
+          :error,
+          dgettext("errors", "Invalid or expired magic link. Please request a new one.")
+        )
         |> redirect(to: ~p"/auth/magic-link/new")
     end
   end

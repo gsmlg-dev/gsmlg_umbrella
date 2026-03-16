@@ -146,7 +146,9 @@ defmodule GSMLG.AdminWeb.CaddyLive.MetricsLive do
         <div class="flex items-center justify-between">
           <div>
             <h1 class="text-3xl font-bold">Metrics</h1>
-            <p class="text-base-content/60 mt-1">Caddy Prometheus metrics and performance statistics</p>
+            <p class="text-base-content/60 mt-1">
+              Caddy Prometheus metrics and performance statistics
+            </p>
           </div>
           <div class="flex gap-2">
             <button phx-click="refresh" class="btn btn-primary btn-sm gap-2">
@@ -187,22 +189,30 @@ defmodule GSMLG.AdminWeb.CaddyLive.MetricsLive do
             </div>
             <div class="stat">
               <div class="stat-title">Error Rate</div>
-              <div class="stat-value text-2xl">{format_percentage(Caddy.Metrics.error_rate(@metrics))}</div>
+              <div class="stat-value text-2xl">
+                {format_percentage(Caddy.Metrics.error_rate(@metrics))}
+              </div>
               <div class="stat-desc">Failed requests</div>
             </div>
             <div class="stat">
               <div class="stat-title">P50 Latency</div>
-              <div class="stat-value text-2xl">{format_duration(Caddy.Metrics.latency_p50(@metrics))}</div>
+              <div class="stat-value text-2xl">
+                {format_duration(Caddy.Metrics.latency_p50(@metrics))}
+              </div>
               <div class="stat-desc">Median response time</div>
             </div>
             <div class="stat">
               <div class="stat-title">P99 Latency</div>
-              <div class="stat-value text-2xl">{format_duration(Caddy.Metrics.latency_p99(@metrics))}</div>
+              <div class="stat-value text-2xl">
+                {format_duration(Caddy.Metrics.latency_p99(@metrics))}
+              </div>
               <div class="stat-desc">99th percentile</div>
             </div>
             <div class="stat">
               <div class="stat-title">Total Requests</div>
-              <div class="stat-value text-2xl">{format_number(Caddy.Metrics.total_requests(@metrics))}</div>
+              <div class="stat-value text-2xl">
+                {format_number(Caddy.Metrics.total_requests(@metrics))}
+              </div>
               <div class="stat-desc">Lifetime count</div>
             </div>
           </div>
@@ -215,11 +225,15 @@ defmodule GSMLG.AdminWeb.CaddyLive.MetricsLive do
               <div class="stats stats-vertical lg:stats-horizontal shadow-sm">
                 <div class="stat">
                   <div class="stat-title">CPU Seconds</div>
-                  <div class="stat-value text-2xl">{format_number(@metrics.process_cpu_seconds_total)}</div>
+                  <div class="stat-value text-2xl">
+                    {format_number(@metrics.process_cpu_seconds_total)}
+                  </div>
                 </div>
                 <div class="stat">
                   <div class="stat-title">Memory Usage</div>
-                  <div class="stat-value text-2xl">{format_bytes(@metrics.process_resident_memory_bytes)}</div>
+                  <div class="stat-value text-2xl">
+                    {format_bytes(@metrics.process_resident_memory_bytes)}
+                  </div>
                 </div>
                 <div class="stat">
                   <div class="stat-title">Open FDs</div>
@@ -229,7 +243,10 @@ defmodule GSMLG.AdminWeb.CaddyLive.MetricsLive do
             </div>
           </div>
 
-          <div :if={map_size(@metrics.reverse_proxy_upstreams_healthy) > 0} class="card bg-base-100 shadow mt-6">
+          <div
+            :if={map_size(@metrics.reverse_proxy_upstreams_healthy) > 0}
+            class="card bg-base-100 shadow mt-6"
+          >
             <div class="card-body">
               <h2 class="card-title">
                 <.dm_mdi name="server" class="size-5" /> Upstream Health
@@ -237,14 +254,21 @@ defmodule GSMLG.AdminWeb.CaddyLive.MetricsLive do
               <div class="overflow-x-auto">
                 <table class="table table-zebra">
                   <thead>
-                    <tr><th>Upstream</th><th>Status</th></tr>
+                    <tr>
+                      <th>Upstream</th>
+                      <th>Status</th>
+                    </tr>
                   </thead>
                   <tbody>
                     <%= for {labels, value} <- @metrics.reverse_proxy_upstreams_healthy do %>
                       <tr>
                         <td><code class="text-sm">{Map.get(labels, :upstream, "unknown")}</code></td>
                         <td>
-                          <div class={["badge", value == 1 && "badge-success", value == 0 && "badge-error"]}>
+                          <div class={[
+                            "badge",
+                            value == 1 && "badge-success",
+                            value == 0 && "badge-error"
+                          ]}>
                             {if value == 1, do: "Healthy", else: "Unhealthy"}
                           </div>
                         </td>

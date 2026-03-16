@@ -76,7 +76,10 @@ defmodule GSMLG.AdminWeb.CaddyLive.LogsLive do
       |> cancel_refresh_timer()
       |> assign(:auto_refresh, auto_refresh)
 
-    socket = if auto_refresh and socket.assigns.selected_source, do: schedule_refresh(socket), else: socket
+    socket =
+      if auto_refresh and socket.assigns.selected_source,
+        do: schedule_refresh(socket),
+        else: socket
 
     {:noreply, socket}
   end
@@ -280,7 +283,10 @@ defmodule GSMLG.AdminWeb.CaddyLive.LogsLive do
                         ]}>
                           {source.type}
                         </span>
-                        <span :if={source.path} class="font-mono text-xs text-base-content/40 truncate w-full">
+                        <span
+                          :if={source.path}
+                          class="font-mono text-xs text-base-content/40 truncate w-full"
+                        >
                           {source.path}
                         </span>
                       </button>
@@ -313,15 +319,20 @@ defmodule GSMLG.AdminWeb.CaddyLive.LogsLive do
                     <h2 class="card-title text-sm">
                       <.dm_mdi name="tune-vertical" class="size-4" /> Controls
                     </h2>
-                    <div :if={@selected_source.type == :file and @file_size} class="text-xs text-base-content/50">
-                      File size: {format_bytes(@file_size)}
-                      &nbsp;· Path: <span class="font-mono">{@selected_source.path}</span>
+                    <div
+                      :if={@selected_source.type == :file and @file_size}
+                      class="text-xs text-base-content/50"
+                    >
+                      File size: {format_bytes(@file_size)} &nbsp;· Path:
+                      <span class="font-mono">{@selected_source.path}</span>
                     </div>
                   </div>
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="space-y-3">
                       <div class="form-control">
-                        <label class="label py-1"><span class="label-text text-xs">Tail Lines</span></label>
+                        <label class="label py-1">
+                          <span class="label-text text-xs">Tail Lines</span>
+                        </label>
                         <div class="join">
                           <input
                             type="number"
@@ -380,11 +391,14 @@ defmodule GSMLG.AdminWeb.CaddyLive.LogsLive do
               <div class="card bg-base-100 shadow">
                 <div class="card-body p-4">
                   <h2 class="card-title text-sm">
-                    <.dm_mdi name="text-box-outline" class="size-4" />
-                    Log Output — <span class="font-normal text-base-content/60">{@selected_source.name}</span>
+                    <.dm_mdi name="text-box-outline" class="size-4" /> Log Output —
+                    <span class="font-normal text-base-content/60">{@selected_source.name}</span>
                   </h2>
 
-                  <div :if={Enum.empty?(@filtered_lines)} class="text-center py-10 text-base-content/50">
+                  <div
+                    :if={Enum.empty?(@filtered_lines)}
+                    class="text-center py-10 text-base-content/50"
+                  >
                     <.dm_mdi name="file-search-outline" class="size-10 mx-auto mb-3 opacity-50" />
                     <p class="text-sm font-semibold">
                       {if @search_query != "", do: "No matching lines", else: "No log output"}
@@ -392,9 +406,11 @@ defmodule GSMLG.AdminWeb.CaddyLive.LogsLive do
                     <p :if={@search_query != ""} class="text-xs mt-1">Adjust your search query</p>
                   </div>
 
-                  <div :if={!Enum.empty?(@filtered_lines)}
-                       class="bg-base-200 rounded-lg p-4 overflow-auto"
-                       style="max-height: 600px;">
+                  <div
+                    :if={!Enum.empty?(@filtered_lines)}
+                    class="bg-base-200 rounded-lg p-4 overflow-auto"
+                    style="max-height: 600px;"
+                  >
                     <pre class="font-mono text-xs whitespace-pre-wrap break-words leading-relaxed"><code>{Enum.join(@filtered_lines, "\n")}</code></pre>
                   </div>
                 </div>

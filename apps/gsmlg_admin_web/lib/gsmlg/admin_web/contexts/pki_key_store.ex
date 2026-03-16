@@ -89,7 +89,9 @@ defmodule GSMLG.AdminWeb.PKIKeyStore do
         # Try RSA first, then EC, since the stored DER has no type tag
         rsa_result =
           try do
-            {:RSAPrivateKey, _, _, _, _, _, _, _, _, _, _} = :public_key.der_decode(:RSAPrivateKey, key_der)
+            {:RSAPrivateKey, _, _, _, _, _, _, _, _, _, _} =
+              :public_key.der_decode(:RSAPrivateKey, key_der)
+
             {:ok, :public_key.der_decode(:RSAPrivateKey, key_der)}
           rescue
             _ -> :error

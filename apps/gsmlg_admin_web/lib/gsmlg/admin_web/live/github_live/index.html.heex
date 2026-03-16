@@ -25,7 +25,9 @@
           <div class="flex items-center gap-2">
             <.dm_mdi name="account-group-outline" class="w-5 h-5 text-secondary" />
             <h3 class="font-semibold text-base-content">{org}</h3>
-            <.dm_badge variant="ghost" size="sm" class="font-mono tabular-nums">{length(repos)}</.dm_badge>
+            <.dm_badge variant="ghost" size="sm" class="font-mono tabular-nums">
+              {length(repos)}
+            </.dm_badge>
           </div>
         </:title>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

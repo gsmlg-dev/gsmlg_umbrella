@@ -22,8 +22,20 @@
       class="flex flex-col gap-4 w-full"
     >
       <.dm_input field={f[:email]} type="text" label="Email" variant="bordered" class="w-full" />
-      <.dm_input field={f[:username]} type="text" label="Username" variant="bordered" class="w-full" />
-      <.dm_input field={f[:password]} type="password" label="Password" variant="bordered" class="w-full" />
+      <.dm_input
+        field={f[:username]}
+        type="text"
+        label="Username"
+        variant="bordered"
+        class="w-full"
+      />
+      <.dm_input
+        field={f[:password]}
+        type="password"
+        label="Password"
+        variant="bordered"
+        class="w-full"
+      />
       <:actions>
         <.dm_btn type="submit" variant="primary" class="w-full mt-1">
           Create account →

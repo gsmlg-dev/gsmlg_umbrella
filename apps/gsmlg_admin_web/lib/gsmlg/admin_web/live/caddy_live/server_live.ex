@@ -198,7 +198,10 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
       <div class="p-6 space-y-6">
         <div class="flex items-center justify-between">
           <h1 class="text-3xl font-bold">Server Control</h1>
-          <div class={["badge badge-lg", if(@mode == :external, do: "badge-primary", else: "badge-secondary")]}>
+          <div class={[
+            "badge badge-lg",
+            if(@mode == :external, do: "badge-primary", else: "badge-secondary")
+          ]}>
             Mode: {@mode}
           </div>
         </div>
@@ -232,7 +235,11 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
                   phx-click="execute_command"
                   phx-value-command="start"
                   disabled={@commands.start == ""}
-                  title={if @commands.start == "", do: "Not configured — set in Dashboard Settings", else: @commands.start}
+                  title={
+                    if @commands.start == "",
+                      do: "Not configured — set in Dashboard Settings",
+                      else: @commands.start
+                  }
                 >
                   <.dm_mdi name="play" class="size-4" /> Start
                 </button>
@@ -241,7 +248,11 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
                   phx-click="execute_command"
                   phx-value-command="stop"
                   disabled={@commands.stop == ""}
-                  title={if @commands.stop == "", do: "Not configured — set in Dashboard Settings", else: @commands.stop}
+                  title={
+                    if @commands.stop == "",
+                      do: "Not configured — set in Dashboard Settings",
+                      else: @commands.stop
+                  }
                 >
                   <.dm_mdi name="stop" class="size-4" /> Stop
                 </button>
@@ -250,11 +261,18 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
                   phx-click="execute_command"
                   phx-value-command="restart"
                   disabled={@commands.restart == ""}
-                  title={if @commands.restart == "", do: "Not configured — set in Dashboard Settings", else: @commands.restart}
+                  title={
+                    if @commands.restart == "",
+                      do: "Not configured — set in Dashboard Settings",
+                      else: @commands.restart
+                  }
                 >
                   <.dm_mdi name="refresh" class="size-4" /> Restart
                 </button>
-                <.link navigate={~p"/caddy/server/settings"} class="btn btn-ghost btn-sm gap-1 text-base-content/50">
+                <.link
+                  navigate={~p"/caddy/server/settings"}
+                  class="btn btn-ghost btn-sm gap-1 text-base-content/50"
+                >
                   <.dm_mdi name="cog-outline" class="size-4" /> Settings
                 </.link>
               </div>
@@ -268,7 +286,11 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
                   phx-click="execute_command"
                   phx-value-command="health_check"
                   disabled={@commands.health_check == ""}
-                  title={if @commands.health_check == "", do: "Not configured — set in Dashboard Settings", else: @commands.health_check}
+                  title={
+                    if @commands.health_check == "",
+                      do: "Not configured — set in Dashboard Settings",
+                      else: @commands.health_check
+                  }
                 >
                   <.dm_mdi name="console" class="size-4" /> Run Health Check Command
                 </button>
@@ -295,8 +317,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
           <div class="card-body">
             <div class="flex items-center justify-between">
               <h2 class="card-title">
-                <.dm_mdi name="information-outline" class="size-5 text-primary" />
-                Server Information
+                <.dm_mdi name="information-outline" class="size-5 text-primary" /> Server Information
               </h2>
               <button class="btn btn-sm btn-outline" phx-click="refresh_server_info">
                 <.dm_mdi name="refresh" class="size-4" /> Refresh

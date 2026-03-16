@@ -78,7 +78,10 @@
             <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5" />
             <:confirm_action>
               <form method="dialog">
-                <.dm_btn phx-click={JS.push("delete", value: %{id: u.id})} class="btn-error btn-sm">
+                <.dm_btn
+                  phx-click={JS.push("delete", value: %{id: u.id})}
+                  class="btn-error btn-sm"
+                >
                   {dgettext("user", "Delete")}
                 </.dm_btn>
               </form>
@@ -95,7 +98,10 @@
     class="flex flex-col gap-4 p-6 w-full max-w-2xl"
   >
     <div class="flex items-center gap-3">
-      <.dm_mdi name={if @live_action == :new, do: "account-plus-outline", else: "account-edit-outline"} class="w-5 h-5 text-primary" />
+      <.dm_mdi
+        name={if @live_action == :new, do: "account-plus-outline", else: "account-edit-outline"}
+        class="w-5 h-5 text-primary"
+      />
       <h1 class="font-semibold text-base-content">{@page_title}</h1>
     </div>
 
@@ -119,11 +125,31 @@
       class="flex flex-col gap-4 w-full"
       phx-submit="save"
     >
-      <.dm_input field={f[:email]} type="text" label={dgettext("user", "Email")} variant="bordered" />
-      <.dm_input field={f[:username]} type="text" label={dgettext("user", "Username")} variant="bordered" />
+      <.dm_input
+        field={f[:email]}
+        type="text"
+        label={dgettext("user", "Email")}
+        variant="bordered"
+      />
+      <.dm_input
+        field={f[:username]}
+        type="text"
+        label={dgettext("user", "Username")}
+        variant="bordered"
+      />
       <.dm_input field={f[:name]} type="text" label={dgettext("user", "Name")} variant="bordered" />
-      <.dm_input field={f[:portrait]} type="text" label={dgettext("user", "Portrait URL")} variant="bordered" />
-      <.dm_input field={f[:otp_token]} type="text" label={dgettext("user", "TOTP Token")} variant="bordered" />
+      <.dm_input
+        field={f[:portrait]}
+        type="text"
+        label={dgettext("user", "Portrait URL")}
+        variant="bordered"
+      />
+      <.dm_input
+        field={f[:otp_token]}
+        type="text"
+        label={dgettext("user", "TOTP Token")}
+        variant="bordered"
+      />
       <.dm_input field={f[:is_2fa_enabled]} type="toggle" label={dgettext("user", "Enable 2FA")} />
       <:actions>
         <.dm_btn variant="primary" class="w-full max-w-xs" phx-disable-with="Saving…">
@@ -139,7 +165,9 @@
       <.dm_mdi name="account-circle-outline" class="w-5 h-5 text-primary" />
       <h1 class="font-semibold text-base-content">{@user.username}</h1>
       <.dm_badge :if={@user.is_active} size="sm" class="badge-success">Active</.dm_badge>
-      <.dm_badge :if={!@user.is_active} variant="ghost" size="sm" class="badge-error">Inactive</.dm_badge>
+      <.dm_badge :if={!@user.is_active} variant="ghost" size="sm" class="badge-error">
+        Inactive
+      </.dm_badge>
     </div>
 
     <div class="flex gap-2">

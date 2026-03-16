@@ -57,8 +57,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerSettingsLive do
         <div class="card bg-base-100 shadow">
           <div class="card-body space-y-4">
             <h2 class="card-title flex items-center gap-2">
-              <.dm_mdi name="terminal" class="size-5 text-primary" />
-              System Commands
+              <.dm_mdi name="terminal" class="size-5 text-primary" /> System Commands
             </h2>
             <p class="text-sm text-base-content/60">
               Shell commands executed for lifecycle operations in External mode.
@@ -114,7 +113,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerSettingsLive do
                 <div class="form-control">
                   <label class="label">
                     <span class="label-text font-medium">
-                      <.dm_mdi name="heart-pulse" class="size-4 inline text-info" /> Health Check Command
+                      <.dm_mdi name="heart-pulse" class="size-4 inline text-info" />
+                      Health Check Command
                     </span>
                   </label>
                   <input

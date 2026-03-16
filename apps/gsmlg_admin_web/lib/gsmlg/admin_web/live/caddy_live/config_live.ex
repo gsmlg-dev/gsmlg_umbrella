@@ -19,7 +19,10 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
       |> assign(:mode, mode)
       |> assign(:admin_url, Caddy.Config.admin_url())
       |> assign(:health_interval, Caddy.Config.health_interval())
-      |> assign(:config_file_path, Application.get_env(:caddy, :config_file_path, "/etc/caddy/Caddyfile"))
+      |> assign(
+        :config_file_path,
+        Application.get_env(:caddy, :config_file_path, "/etc/caddy/Caddyfile")
+      )
       |> assign(:caddy_bin_path, safe_get_bin())
       |> assign(:caddy_bin_status, nil)
       |> assign(:show_config_file_modal, false)
@@ -60,7 +63,9 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
   def handle_event("save_config_file_path", %{"config_file_path" => path}, socket) do
     path = String.trim(path)
     Application.put_env(:caddy, :config_file_path, path)
-    {:noreply, socket |> assign(:config_file_path, path) |> put_flash(:info, "Config file path saved")}
+
+    {:noreply,
+     socket |> assign(:config_file_path, path) |> put_flash(:info, "Config file path saved")}
   end
 
   @impl true
@@ -93,8 +98,9 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
       try do
         case Caddy.ConfigProvider.set_bin(path) do
           :ok ->
-            {socket |> assign(:caddy_bin_path, path) |> put_flash(:info, "Caddy binary path saved"),
-             {:ok, "Binary validated and saved"}}
+            {socket
+             |> assign(:caddy_bin_path, path)
+             |> put_flash(:info, "Caddy binary path saved"), {:ok, "Binary validated and saved"}}
 
           {:error, reason} ->
             {put_flash(socket, :error, "Invalid binary: #{reason}"), {:error, reason}}
@@ -103,12 +109,18 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
         _ ->
           # ConfigProvider not running (Caddy disabled) — store path for later use
           Application.put_env(:caddy, :caddy_bin, path)
-          {socket |> assign(:caddy_bin_path, path) |> put_flash(:info, "Caddy binary path saved (Caddy not running)"),
+
+          {socket
+           |> assign(:caddy_bin_path, path)
+           |> put_flash(:info, "Caddy binary path saved (Caddy not running)"),
            {:ok, "Saved (Caddy not running)"}}
       catch
         :exit, _ ->
           Application.put_env(:caddy, :caddy_bin, path)
-          {socket |> assign(:caddy_bin_path, path) |> put_flash(:info, "Caddy binary path saved (Caddy not running)"),
+
+          {socket
+           |> assign(:caddy_bin_path, path)
+           |> put_flash(:info, "Caddy binary path saved (Caddy not running)"),
            {:ok, "Saved (Caddy not running)"}}
       end
 
@@ -155,7 +167,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
 
   @impl true
   def handle_event("update_new_additional", %{"name" => name, "content" => content}, socket) do
-    {:noreply, socket |> assign(:new_additional_name, name) |> assign(:new_additional_content, content)}
+    {:noreply,
+     socket |> assign(:new_additional_name, name) |> assign(:new_additional_content, content)}
   end
 
   @impl true
@@ -175,7 +188,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
           |> assign(:new_additional_content, "")
           |> put_flash(:info, "Additional '#{name}' added")
         rescue
-          error -> put_flash(socket, :error, "Failed to add additional: #{Exception.message(error)}")
+          error ->
+            put_flash(socket, :error, "Failed to add additional: #{Exception.message(error)}")
         end
       else
         put_flash(socket, :error, "Additional name cannot be empty")
@@ -216,7 +230,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
         |> assign(:editing_additional, nil)
         |> put_flash(:info, "Additional '#{editing.name}' updated")
       rescue
-        error -> put_flash(socket, :error, "Failed to update additional: #{Exception.message(error)}")
+        error ->
+          put_flash(socket, :error, "Failed to update additional: #{Exception.message(error)}")
       end
 
     {:noreply, socket}
@@ -234,7 +249,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
         |> assign(:additionals, additionals)
         |> put_flash(:info, "Additional '#{name}' removed")
       rescue
-        error -> put_flash(socket, :error, "Failed to remove additional: #{Exception.message(error)}")
+        error ->
+          put_flash(socket, :error, "Failed to remove additional: #{Exception.message(error)}")
       end
 
     {:noreply, socket}
@@ -534,14 +550,21 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
                 <button type="submit" class="btn btn-primary btn-sm">
                   <.dm_mdi name="content-save-outline" class="size-4" /> Save
                 </button>
-                <button type="button" phx-click="view_config_file" class="btn btn-outline btn-sm gap-1">
+                <button
+                  type="button"
+                  phx-click="view_config_file"
+                  class="btn btn-outline btn-sm gap-1"
+                >
                   <.dm_mdi name="file-eye-outline" class="size-4" /> View File
                 </button>
               </form>
 
               <div class="divider text-sm">Caddy Binary</div>
               <p class="text-sm text-base-content/60">
-                Path to the <code class="font-mono">caddy</code> executable — used for <code class="font-mono">adapt</code> and <code class="font-mono">validate</code> operations.
+                Path to the <code class="font-mono">caddy</code>
+                executable — used for <code class="font-mono">adapt</code>
+                and <code class="font-mono">validate</code>
+                operations.
               </p>
               <form phx-submit="save_caddy_bin_path" class="flex gap-2 items-end">
                 <div class="form-control flex-1">
@@ -557,7 +580,8 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
                   />
                   <label class="label">
                     <span class="label-text-alt text-base-content/50">
-                      Leave empty to use <code class="font-mono">caddy</code> from <code class="font-mono">$PATH</code>
+                      Leave empty to use <code class="font-mono">caddy</code>
+                      from <code class="font-mono">$PATH</code>
                     </span>
                   </label>
                 </div>
@@ -566,8 +590,19 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
                 </button>
               </form>
               <%= if @caddy_bin_status do %>
-                <div class={["alert alert-sm", if(elem(@caddy_bin_status, 0) == :ok, do: "alert-success", else: "alert-error")]}>
-                  <.dm_mdi name={if(elem(@caddy_bin_status, 0) == :ok, do: "check-circle-outline", else: "alert-circle-outline")} class="size-4" />
+                <div class={[
+                  "alert alert-sm",
+                  if(elem(@caddy_bin_status, 0) == :ok, do: "alert-success", else: "alert-error")
+                ]}>
+                  <.dm_mdi
+                    name={
+                      if(elem(@caddy_bin_status, 0) == :ok,
+                        do: "check-circle-outline",
+                        else: "alert-circle-outline"
+                      )
+                    }
+                    class="size-4"
+                  />
                   <span class="text-sm">{elem(@caddy_bin_status, 1)}</span>
                 </div>
               <% end %>
@@ -620,18 +655,38 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
         </div>
 
         <div role="tablist" class="tabs tabs-boxed">
-          <button role="tab" class={["tab", @active_tab == "global" && "tab-active"]} phx-click="switch_tab" phx-value-tab="global">
+          <button
+            role="tab"
+            class={["tab", @active_tab == "global" && "tab-active"]}
+            phx-click="switch_tab"
+            phx-value-tab="global"
+          >
             <.dm_mdi name="cog-outline" class="size-4 mr-2" /> Global Options
           </button>
-          <button role="tab" class={["tab", @active_tab == "additionals" && "tab-active"]} phx-click="switch_tab" phx-value-tab="additionals">
+          <button
+            role="tab"
+            class={["tab", @active_tab == "additionals" && "tab-active"]}
+            phx-click="switch_tab"
+            phx-value-tab="additionals"
+          >
             <.dm_mdi name="puzzle-outline" class="size-4 mr-2" /> Additionals
             <span class="badge badge-sm ml-1">{length(@additionals)}</span>
           </button>
-          <button role="tab" class={["tab", @active_tab == "sites" && "tab-active"]} phx-click="switch_tab" phx-value-tab="sites">
+          <button
+            role="tab"
+            class={["tab", @active_tab == "sites" && "tab-active"]}
+            phx-click="switch_tab"
+            phx-value-tab="sites"
+          >
             <.dm_mdi name="earth" class="size-4 mr-2" /> Sites
             <span class="badge badge-sm ml-1">{length(@sites)}</span>
           </button>
-          <button role="tab" class={["tab", @active_tab == "preview" && "tab-active"]} phx-click="switch_tab" phx-value-tab="preview">
+          <button
+            role="tab"
+            class={["tab", @active_tab == "preview" && "tab-active"]}
+            phx-click="switch_tab"
+            phx-value-tab="preview"
+          >
             <.dm_mdi name="eye-outline" class="size-4 mr-2" /> Preview
           </button>
         </div>
@@ -668,21 +723,38 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
               </form>
             </div>
           </div>
-          <.validation_results validation_result={@validation_result} adaptation_result={@adaptation_result} />
+          <.validation_results
+            validation_result={@validation_result}
+            adaptation_result={@adaptation_result}
+          />
         </div>
 
         <div :if={@active_tab == "additionals"} class="space-y-4">
           <div class="card bg-base-100 shadow">
             <div class="card-body">
-              <h2 class="card-title"><.dm_mdi name="plus-circle-outline" class="size-5" /> Add Additional</h2>
+              <h2 class="card-title">
+                <.dm_mdi name="plus-circle-outline" class="size-5" /> Add Additional
+              </h2>
               <form phx-submit="add_additional" phx-change="update_new_additional">
                 <div class="form-control">
                   <label class="label"><span class="label-text">Name</span></label>
-                  <input type="text" name="name" value={@new_additional_name} class="input input-bordered font-mono" placeholder="common-headers" phx-debounce="300" />
+                  <input
+                    type="text"
+                    name="name"
+                    value={@new_additional_name}
+                    class="input input-bordered font-mono"
+                    placeholder="common-headers"
+                    phx-debounce="300"
+                  />
                 </div>
                 <div class="form-control mt-2">
                   <label class="label"><span class="label-text">Content</span></label>
-                  <textarea name="content" rows="4" class="textarea textarea-bordered w-full font-mono text-sm" phx-debounce="300"><%= @new_additional_content %></textarea>
+                  <textarea
+                    name="content"
+                    rows="4"
+                    class="textarea textarea-bordered w-full font-mono text-sm"
+                    phx-debounce="300"
+                  ><%= @new_additional_content %></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm mt-4">
                   <.dm_mdi name="plus" class="size-4" /> Add
@@ -693,7 +765,9 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
 
           <div class="card bg-base-100 shadow">
             <div class="card-body">
-              <h2 class="card-title"><.dm_mdi name="puzzle-outline" class="size-5" /> Configured Additionals</h2>
+              <h2 class="card-title">
+                <.dm_mdi name="puzzle-outline" class="size-5" /> Configured Additionals
+              </h2>
               <div :if={@additionals == []} class="alert alert-info">
                 <.dm_mdi name="information-outline" class="size-5" />
                 <span>No additionals configured yet.</span>
@@ -704,10 +778,23 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
                     <%= if @editing_additional && @editing_additional.name == additional.name do %>
                       <form phx-submit="save_additional" class="space-y-3">
                         <div class="font-mono font-semibold text-primary">{additional.name}</div>
-                        <textarea name="content" rows="4" class="textarea textarea-bordered w-full font-mono text-sm" phx-debounce="300"><%= @editing_additional.content %></textarea>
+                        <textarea
+                          name="content"
+                          rows="4"
+                          class="textarea textarea-bordered w-full font-mono text-sm"
+                          phx-debounce="300"
+                        ><%= @editing_additional.content %></textarea>
                         <div class="flex gap-2">
-                          <button type="submit" class="btn btn-primary btn-sm"><.dm_mdi name="check" class="size-4" /> Save</button>
-                          <button type="button" phx-click="cancel_edit_additional" class="btn btn-ghost btn-sm">Cancel</button>
+                          <button type="submit" class="btn btn-primary btn-sm">
+                            <.dm_mdi name="check" class="size-4" /> Save
+                          </button>
+                          <button
+                            type="button"
+                            phx-click="cancel_edit_additional"
+                            class="btn btn-ghost btn-sm"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </form>
                     <% else %>
@@ -717,10 +804,19 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
                           <pre class="text-xs font-mono text-base-content/70 mt-2 bg-base-200 p-2 rounded overflow-x-auto">{additional.content}</pre>
                         </div>
                         <div class="flex gap-1 ml-4">
-                          <button phx-click="edit_additional" phx-value-name={additional.name} class="btn btn-ghost btn-xs">
+                          <button
+                            phx-click="edit_additional"
+                            phx-value-name={additional.name}
+                            class="btn btn-ghost btn-xs"
+                          >
                             <.dm_mdi name="pencil-outline" class="size-4" />
                           </button>
-                          <button phx-click="remove_additional" phx-value-name={additional.name} class="btn btn-ghost btn-xs text-error" data-confirm={"Remove #{additional.name}?"}>
+                          <button
+                            phx-click="remove_additional"
+                            phx-value-name={additional.name}
+                            class="btn btn-ghost btn-xs text-error"
+                            data-confirm={"Remove #{additional.name}?"}
+                          >
                             <.dm_mdi name="trash-can-outline" class="size-4" />
                           </button>
                         </div>
@@ -731,21 +827,39 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
               </div>
             </div>
           </div>
-          <.validation_results validation_result={@validation_result} adaptation_result={@adaptation_result} />
+          <.validation_results
+            validation_result={@validation_result}
+            adaptation_result={@adaptation_result}
+          />
         </div>
 
         <div :if={@active_tab == "sites"} class="space-y-4">
           <div class="card bg-base-100 shadow">
             <div class="card-body">
-              <h2 class="card-title"><.dm_mdi name="plus-circle-outline" class="size-5" /> Add Site</h2>
+              <h2 class="card-title">
+                <.dm_mdi name="plus-circle-outline" class="size-5" /> Add Site
+              </h2>
               <form phx-submit="add_site" phx-change="update_new_site">
                 <div class="form-control">
                   <label class="label"><span class="label-text">Site Address</span></label>
-                  <input type="text" name="address" value={@new_site_address} class="input input-bordered font-mono" placeholder="example.com" phx-debounce="300" />
+                  <input
+                    type="text"
+                    name="address"
+                    value={@new_site_address}
+                    class="input input-bordered font-mono"
+                    placeholder="example.com"
+                    phx-debounce="300"
+                  />
                 </div>
                 <div class="form-control mt-2">
                   <label class="label"><span class="label-text">Site Config</span></label>
-                  <textarea name="config" rows="4" class="textarea textarea-bordered w-full font-mono text-sm" placeholder="reverse_proxy localhost:3000" phx-debounce="300"><%= @new_site_config %></textarea>
+                  <textarea
+                    name="config"
+                    rows="4"
+                    class="textarea textarea-bordered w-full font-mono text-sm"
+                    placeholder="reverse_proxy localhost:3000"
+                    phx-debounce="300"
+                  ><%= @new_site_config %></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm mt-4">
                   <.dm_mdi name="plus" class="size-4" /> Add Site
@@ -767,10 +881,23 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
                     <%= if @editing_site && @editing_site.address == site.address do %>
                       <form phx-submit="save_site" class="space-y-3">
                         <div class="font-mono font-semibold text-primary">{site.address}</div>
-                        <textarea name="config" rows="4" class="textarea textarea-bordered w-full font-mono text-sm" phx-debounce="300"><%= @editing_site.config %></textarea>
+                        <textarea
+                          name="config"
+                          rows="4"
+                          class="textarea textarea-bordered w-full font-mono text-sm"
+                          phx-debounce="300"
+                        ><%= @editing_site.config %></textarea>
                         <div class="flex gap-2">
-                          <button type="submit" class="btn btn-primary btn-sm"><.dm_mdi name="check" class="size-4" /> Save</button>
-                          <button type="button" phx-click="cancel_edit_site" class="btn btn-ghost btn-sm">Cancel</button>
+                          <button type="submit" class="btn btn-primary btn-sm">
+                            <.dm_mdi name="check" class="size-4" /> Save
+                          </button>
+                          <button
+                            type="button"
+                            phx-click="cancel_edit_site"
+                            class="btn btn-ghost btn-sm"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </form>
                     <% else %>
@@ -780,10 +907,19 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
                           <pre class="text-xs font-mono text-base-content/70 mt-2 bg-base-200 p-2 rounded overflow-x-auto">{site.config}</pre>
                         </div>
                         <div class="flex gap-1 ml-4">
-                          <button phx-click="edit_site" phx-value-address={site.address} class="btn btn-ghost btn-xs">
+                          <button
+                            phx-click="edit_site"
+                            phx-value-address={site.address}
+                            class="btn btn-ghost btn-xs"
+                          >
                             <.dm_mdi name="pencil-outline" class="size-4" />
                           </button>
-                          <button phx-click="remove_site" phx-value-address={site.address} class="btn btn-ghost btn-xs text-error" data-confirm={"Remove #{site.address}?"}>
+                          <button
+                            phx-click="remove_site"
+                            phx-value-address={site.address}
+                            class="btn btn-ghost btn-xs text-error"
+                            data-confirm={"Remove #{site.address}?"}
+                          >
                             <.dm_mdi name="trash-can-outline" class="size-4" />
                           </button>
                         </div>
@@ -794,17 +930,26 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
               </div>
             </div>
           </div>
-          <.validation_results validation_result={@validation_result} adaptation_result={@adaptation_result} />
+          <.validation_results
+            validation_result={@validation_result}
+            adaptation_result={@adaptation_result}
+          />
         </div>
 
         <div :if={@active_tab == "preview"} class="space-y-4">
           <div class="card bg-base-100 shadow">
             <div class="card-body">
               <div class="flex items-center justify-between">
-                <h2 class="card-title"><.dm_mdi name="eye-outline" class="size-5" /> Caddyfile Preview</h2>
+                <h2 class="card-title">
+                  <.dm_mdi name="eye-outline" class="size-5" /> Caddyfile Preview
+                </h2>
                 <div class="flex gap-2">
-                  <button phx-click="validate" class="btn btn-secondary btn-sm"><.dm_mdi name="clipboard-check-outline" class="size-4" /> Validate</button>
-                  <button phx-click="sync" class="btn btn-info btn-sm"><.dm_mdi name="refresh" class="size-4" /> Sync</button>
+                  <button phx-click="validate" class="btn btn-secondary btn-sm">
+                    <.dm_mdi name="clipboard-check-outline" class="size-4" /> Validate
+                  </button>
+                  <button phx-click="sync" class="btn btn-info btn-sm">
+                    <.dm_mdi name="refresh" class="size-4" /> Sync
+                  </button>
                 </div>
               </div>
               <div class="bg-base-200 rounded-lg p-4 overflow-auto max-h-[600px] mt-4">
@@ -817,7 +962,10 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
               </div>
             </div>
           </div>
-          <.validation_results validation_result={@validation_result} adaptation_result={@adaptation_result} />
+          <.validation_results
+            validation_result={@validation_result}
+            adaptation_result={@adaptation_result}
+          />
         </div>
       </div>
     </Layouts.caddy>

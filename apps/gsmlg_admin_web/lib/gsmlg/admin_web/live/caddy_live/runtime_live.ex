@@ -43,7 +43,9 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
   @impl true
   def handle_event("navigate", %{"path" => path}, socket) do
     {config, error} = fetch_config(path)
-    {:noreply, assign(socket, current_path: path, config: config, error: error, apply_result: nil)}
+
+    {:noreply,
+     assign(socket, current_path: path, config: config, error: error, apply_result: nil)}
   end
 
   @impl true
@@ -192,7 +194,9 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
                   class="input input-bordered flex-1 font-mono text-sm"
                 />
                 <button type="submit" class="btn btn-primary btn-sm">Browse</button>
-                <button type="button" phx-click="browse_root" class="btn btn-ghost btn-sm">Root</button>
+                <button type="button" phx-click="browse_root" class="btn btn-ghost btn-sm">
+                  Root
+                </button>
               </form>
               <div :if={@current_path != ""} class="flex items-center gap-1 text-sm mt-2">
                 <button phx-click="browse_root" class="link link-primary">/</button>
@@ -227,7 +231,9 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
               <h3 class="card-title text-sm">Apply JSON Config</h3>
               <p class="text-xs text-base-content/60">
                 Apply JSON directly to the running Caddy instance
-                <span :if={@current_path != ""}>at path <code class="font-mono text-primary">/{@current_path}</code></span>
+                <span :if={@current_path != ""}>
+                  at path <code class="font-mono text-primary">/{@current_path}</code>
+                </span>
               </p>
               <form phx-submit="apply_json">
                 <textarea
@@ -240,11 +246,14 @@ defmodule GSMLG.AdminWeb.CaddyLive.RuntimeLive do
                   <.dm_mdi name="lightning-bolt" class="size-4" /> Apply to Caddy
                 </button>
               </form>
-              <div :if={@apply_result} class={[
-                "alert mt-2",
-                @apply_result == :ok && "alert-success",
-                @apply_result != :ok && "alert-error"
-              ]}>
+              <div
+                :if={@apply_result}
+                class={[
+                  "alert mt-2",
+                  @apply_result == :ok && "alert-success",
+                  @apply_result != :ok && "alert-error"
+                ]}
+              >
                 <span>{inspect(@apply_result)}</span>
               </div>
             </div>

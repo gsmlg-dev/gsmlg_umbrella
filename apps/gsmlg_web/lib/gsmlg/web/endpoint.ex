@@ -22,6 +22,7 @@ defmodule GSMLG.Web.Endpoint do
   ]
 
   socket "/socket", GSMLG.Web.UserSocket, websocket: @websocket_options
+
   socket "/live", Phoenix.LiveView.Socket,
     websocket: @websocket_options,
     longpoll: @websocket_options
