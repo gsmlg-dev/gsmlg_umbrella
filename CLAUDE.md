@@ -72,7 +72,9 @@ Uses [devenv](https://devenv.sh/) (Nix-based). `devenv shell` automatically:
 
 ## CI
 
-GitHub Actions runs on every push: `compile --warnings-as-errors`, `format --check-formatted`, `credo --strict`, and `dialyzer` (non-blocking). Tests run on pushes to main/develop and PRs to main. CI uses Elixir 1.18 + OTP 28, PostgreSQL 16. Test workflow also requires Redis 7.
+GitHub Actions runs on every push: `compile --warnings-as-errors`, `format --check-formatted`, `credo --strict`, and `dialyzer` (non-blocking). Tests run on pushes to main/develop and PRs to main. CI uses Elixir 1.18 + OTP 28, PostgreSQL 16.
+
+Releases are triggered manually via the `release` workflow dispatch (inputs: `release-version`, `revision`). It builds the Docker image and Elixir tarballs in parallel, then creates a GitHub release with auto-generated notes.
 
 ## Project Architecture
 
@@ -165,6 +167,11 @@ This project uses two Duskmoon packages for all UI:
 - Image: `ghcr.io/gsmlg-dev/gsmlg-umbrella:latest`
 - The Nexus mirror (`nexus.gsmlg.net`) frequently times out — use official Hex/npm registries for local builds
 - `GSMLG_CONFIG_PATH` must be set in docker-compose to point to the TOML config file
+- `Dockerfile` base image (`ghcr.io/gsmlg-dev/phoenix`) must be pinned to a specific version tag (e.g. `1.8.5`), not `:latest` — GHCR CDN inconsistency after a rebuild causes the `latest` manifest SHA to resolve but its content to 404
+
+### Bun / JS Package Management
+- `bun.lock` is **git-ignored**. CI regenerates it on every run via `bun install --frozen-lockfile` — this uses the committed `package.json` files, not a lockfile
+- If a JS file directly imports a package (e.g. `@duskmoon-dev/elements/register`), that package **must be listed as a direct dependency** in the app's `package.json` (`apps/gsmlg_web`, `apps/gsmlg_admin_web`). Bun 1.3.x's bundler does not walk up past a workspace's own `node_modules/` to find transitive-only deps when the workspace directory has its own `node_modules/`
 
 ### Telemetry File Backend
 - The file backend JSON-encodes all telemetry events. Phoenix events include `%Plug.Conn{}` in metadata, which has no `Jason.Encoder` implementation.

@@ -1,89 +1,65 @@
-# GSMLG.Umbrella
+# GSMLG Umbrella
 
-My app service, that create by elixir.
+Personal service platform built with Elixir/Phoenix. Runs two web apps (public + admin), a command platform, and various utility services under a single OTP umbrella.
 
-Automate build and release.
-
-Publish compiled code to github release.
+Docker image: [ghcr.io/gsmlg-dev/gsmlg-umbrella](https://github.com/gsmlg-dev/gsmlg_umbrella/pkgs/container/gsmlg-umbrella)
 
 ## Applications
 
-- gsmlg
+| App | Port | Purpose |
+|-----|------|---------|
+| `gsmlg_web` | 4110 | Public-facing Phoenix app (LiveView + React) |
+| `gsmlg_admin_web` | 4111 | Admin dashboard (Mnesia browser, AWS, Commander) |
+| `gsmlg_commander` | — | Dual-mode command system (WebSocket agent or session server) |
 
-- gsmlg_web
+## Quick Start
 
-- gsmlg_admin_web
+Requires [devenv](https://devenv.sh/) (Nix-based):
 
-- gsmlg_commander
+```shell
+devenv shell        # starts PostgreSQL, sets DATABASE_URL
+mix setup           # install deps, create DB, run migrations
+mix phx.server      # http://localhost:4110 and http://localhost:4111
+```
 
 ## Database
 
-Server requires PostgreSQL as a database service.
-
-### Development Setup
-
 ```shell
-# Create the database
-mix ecto.create
-
-# Run migrations
-mix ecto.migrate
-
-# Rollback (if needed)
-mix ecto.rollback
+mix ecto.create && mix ecto.migrate
+mix ecto.gen.migration <name> -r GSMLG.Repo
 ```
 
-### Production / Release Migrations
+## Deployment
 
-When running the compiled release, use the built-in release commands:
-
-```shell
-# Run all pending migrations
-./bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
-
-# Rollback to a specific version
-./bin/gsmlg_umbrella eval "GSMLG.Release.rollback(GSMLG.Repo, 20231001000000)"
-```
-
-For Docker deployments:
+### Docker
 
 ```shell
+docker pull ghcr.io/gsmlg-dev/gsmlg-umbrella:latest
+
 docker exec <container> /app/bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
-```
-
-### List Users
-
-```shell
-./bin/gsmlg_umbrella eval "GSMLG.Release.list_users()"
-
-# Docker
 docker exec <container> /app/bin/gsmlg_umbrella eval "GSMLG.Release.list_users()"
+docker exec <container> /app/bin/gsmlg_umbrella eval 'GSMLG.Release.reset_password("admin@example.com", "newpassword")'
 ```
 
-### Reset Admin Password
+Requires `GSMLG_CONFIG_PATH` env var pointing to a TOML config file (see `apps/gsmlg_config/priv/gsmlg.toml` for defaults).
 
-Reset a user's password by username or email:
+### Elixir Release
 
 ```shell
-# Standard release
-./bin/gsmlg_umbrella eval 'GSMLG.Release.reset_password("admin@example.com", "new_password")'
-
-# Docker
-docker exec <container> /app/bin/gsmlg_umbrella eval 'GSMLG.Release.reset_password("admin", "new_password")'
+MIX_ENV=prod mix release gsmlg_umbrella
+./bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
 ```
 
-Password must be at least 8 characters.
-
-# Build
-
-I'm using nix develop shell to build package.
-
-## Build standalone binary
+### Standalone Binary (Burrito)
 
 ```shell
 MIX_ENV=prod BURRITO_TARGET=linux_amd64 mix release gsmlg_umbrella_standalone
 ```
 
-# Docker Image
+## Releases
 
-[Repo in github](https://github.com/gsmlg-dev/gsmlg_umbrella/pkgs/container/gsmlg-umbrella)
+Releases are automated via GitHub Actions (`release` workflow). Trigger manually with a version number — it builds the Docker image and Elixir tarballs in parallel, then publishes a GitHub release.
+
+```shell
+scripts/update_version.sh 1.2.3   # bump version in all mix.exs files
+```
