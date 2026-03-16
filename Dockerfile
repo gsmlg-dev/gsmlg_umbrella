@@ -1,4 +1,4 @@
-FROM ghcr.io/gsmlg-dev/phoenix:latest AS builder
+FROM ghcr.io/gsmlg-dev/phoenix:1.8.5 AS builder
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg_umbrella
