@@ -1,87 +1,78 @@
 defmodule GSMLG.SVG2React do
-  use HTTPoison.Base
+  @moduledoc """
+  Convert SVG to React components using @svgr/core via Denox (embedded V8 runtime).
+
+  Loads `@svgr/core` from esm.sh on first start and caches it locally under
+  `priv/denox_cache/` so subsequent boots work offline.
+  """
+
+  use GenServer
   require Logger
 
-  defmacro process_result(result) do
-    quote do
-      case unquote(result) do
-        {:ok,
-         %HTTPoison.Response{
-           body: data,
-           status_code: status_code,
-           request: %HTTPoison.Request{url: request_url}
-         }}
-        when status_code >= 200 and status_code < 300 ->
-          Logger.info("#{__MODULE__} API Access Success",
-            status_code: status_code,
-            request_url: request_url
-          )
+  # --- Public API ---
 
-          {:ok, data}
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
 
-        {:ok,
-         %HTTPoison.Response{
-           body: data,
-           status_code: 401,
-           request: %HTTPoison.Request{url: request_url}
-         }} ->
-          Logger.info("#{__MODULE__} API Access Unauthorized Error",
-            status_code: 401,
-            request_url: request_url
-          )
+  @doc """
+  Convert SVG code to a React component string.
 
-          {:error, data}
+  Accepts a map with a `"code"` key (the SVG) and an optional `"options"` key
+  (forwarded directly to `@svgr/core` `transform/2`).
 
-        {:ok,
-         %HTTPoison.Response{
-           body: body,
-           status_code: status_code,
-           request: %HTTPoison.Request{url: request_url}
-         }}
-        when status_code >= 400 and status_code < 500 ->
-          Logger.info("#{__MODULE__} API Access Client Error",
-            status_code: status_code,
-            request_url: request_url,
-            body: body
-          )
+  Returns `{:ok, component_code}` or `{:error, reason}`.
+  """
+  @spec convert(map()) :: {:ok, String.t()} | {:error, term()}
+  def convert(%{"code" => _} = data) do
+    GenServer.call(__MODULE__, {:convert, data}, 30_000)
+  end
 
-          {:error, body}
+  # --- GenServer callbacks ---
 
-        {:ok,
-         %HTTPoison.Response{
-           body: body,
-           status_code: status_code,
-           request: %HTTPoison.Request{url: request_url}
-         }}
-        when status_code >= 500 ->
-          Logger.info("#{__MODULE__} API Access Server Error",
-            status_code: status_code,
-            request_url: request_url,
-            body: body
-          )
+  @impl true
+  def init(_opts) do
+    {:ok, :not_initialized, {:continue, :init_runtime}}
+  end
 
-          {:error, body}
+  @setup_code """
+  globalThis.convertSvg = async function(code, options) {
+    const { transform } = await import("https://esm.sh/@svgr/core@8");
+    return await transform(code, options || {});
+  };
+  """
 
-        {:error, %HTTPoison.Error{reason: reason} = error} ->
-          Logger.info("#{__MODULE__} API HTTPoison.Error", reason: reason)
-          {:error, reason}
+  @impl true
+  def handle_continue(:init_runtime, _state) do
+    cache_dir = Application.app_dir(:gsmlg, "priv/denox_cache")
+    File.mkdir_p!(cache_dir)
+
+    with {:ok, rt} <- Denox.runtime(cache_dir: cache_dir),
+         :ok <- Denox.exec(rt, @setup_code) do
+      Logger.info("#{__MODULE__} ready")
+      {:noreply, rt}
+    else
+      {:error, reason} ->
+        Logger.error("#{__MODULE__} failed to initialize: #{inspect(reason)}")
+        {:noreply, :not_initialized}
+    end
+  end
+
+  @impl true
+  def handle_call(_msg, _from, :not_initialized) do
+    {:reply, {:error, :runtime_not_available}, :not_initialized}
+  end
+
+  def handle_call({:convert, data}, _from, rt) do
+    svg_code = Map.get(data, "code", "")
+    options = Map.get(data, "options", %{})
+
+    result =
+      with {:ok, json} <- Denox.call(rt, "convertSvg", [svg_code, options]),
+           {:ok, component} <- JSON.decode(json) do
+        {:ok, component}
       end
-    end
-  end
 
-  def process_request_url(url) do
-    "https://api.react-svgr.com" <> url
-  end
-
-  def process_response_body(body) do
-    case Jason.decode(body, [{:keys, :atoms}]) do
-      {:ok, resp} -> resp
-      {:error, _} -> body
-    end
-  end
-
-  def convert(data) do
-    postData = Jason.encode!(data)
-    post("/api/svgr", postData, [{"content-type", "application/json"}]) |> process_result()
+    {:reply, result, rt}
   end
 end

@@ -33,7 +33,9 @@ defmodule GSMLG.Application do
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
       # Caddy reverse proxy management (no-op when caddy.start = false in config)
-      GSMLG.Caddy
+      GSMLG.Caddy,
+      GSMLG.SVG2React,
+      GSMLG.SVG_Autocrop
       # Telemetry system starts automatically as an OTP application
     ]
 

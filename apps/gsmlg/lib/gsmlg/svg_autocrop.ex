@@ -1,89 +1,78 @@
 defmodule GSMLG.SVG_Autocrop do
-  use HTTPoison.Base
+  @moduledoc """
+  Auto-crop SVG files using svg-autocrop JS library via Denox (embedded V8 runtime).
+
+  Loads `svg-autocrop` from esm.sh on first start and caches it locally under
+  `priv/denox_cache/` so subsequent boots work offline.
+  """
+
+  use GenServer
   require Logger
 
-  defmacro process_result(result) do
-    quote do
-      case unquote(result) do
-        {:ok,
-         %HTTPoison.Response{
-           body: data,
-           status_code: status_code,
-           request: %HTTPoison.Request{url: request_url}
-         }}
-        when status_code >= 200 and status_code < 300 ->
-          Logger.info("#{__MODULE__} API Access Success",
-            status_code: status_code,
-            request_url: request_url
-          )
+  # --- Public API ---
 
-          {:ok, data}
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
 
-        {:ok,
-         %HTTPoison.Response{
-           body: data,
-           status_code: 401,
-           request: %HTTPoison.Request{url: request_url}
-         }} ->
-          Logger.info("#{__MODULE__} API Access Unauthorized Error",
-            status_code: 401,
-            request_url: request_url
-          )
+  @doc """
+  Auto-crop an SVG string.
 
-          {:error, data}
+  Accepts a map with a `"code"` key (the SVG) and an optional `"options"` key
+  forwarded to the JS autocrop function.
 
-        {:ok,
-         %HTTPoison.Response{
-           body: body,
-           status_code: status_code,
-           request: %HTTPoison.Request{url: request_url}
-         }}
-        when status_code >= 400 and status_code < 500 ->
-          Logger.info("#{__MODULE__} API Access Client Error",
-            status_code: status_code,
-            request_url: request_url,
-            body: body
-          )
+  Returns `{:ok, result}` or `{:error, reason}`.
+  """
+  @spec convert(map()) :: {:ok, term()} | {:error, term()}
+  def convert(%{"code" => _} = data) do
+    GenServer.call(__MODULE__, {:convert, data}, 30_000)
+  end
 
-          {:error, body}
+  # --- GenServer callbacks ---
 
-        {:ok,
-         %HTTPoison.Response{
-           body: body,
-           status_code: status_code,
-           request: %HTTPoison.Request{url: request_url}
-         }}
-        when status_code >= 500 ->
-          Logger.info("#{__MODULE__} API Access Server Error",
-            status_code: status_code,
-            request_url: request_url,
-            body: body
-          )
+  @impl true
+  def init(_opts) do
+    {:ok, :not_initialized, {:continue, :init_runtime}}
+  end
 
-          {:error, body}
+  @setup_code """
+  globalThis.autocropSvg = async function(code, options) {
+    const { default: autocrop } = await import("https://esm.sh/svg-autocrop");
+    return await autocrop(code, options || {});
+  };
+  """
 
-        {:error, %HTTPoison.Error{reason: reason} = error} ->
-          Logger.info("#{__MODULE__} API HTTPoison.Error", reason: reason)
-          {:error, reason}
+  @impl true
+  def handle_continue(:init_runtime, _state) do
+    cache_dir = Application.app_dir(:gsmlg, "priv/denox_cache")
+    File.mkdir_p!(cache_dir)
+
+    with {:ok, rt} <- Denox.runtime(cache_dir: cache_dir),
+         :ok <- Denox.exec(rt, @setup_code) do
+      Logger.info("#{__MODULE__} ready")
+      {:noreply, rt}
+    else
+      {:error, reason} ->
+        Logger.error("#{__MODULE__} failed to initialize: #{inspect(reason)}")
+        {:noreply, :not_initialized}
+    end
+  end
+
+  @impl true
+  def handle_call(_msg, _from, :not_initialized) do
+    {:reply, {:error, :runtime_not_available}, :not_initialized}
+  end
+
+  def handle_call({:convert, data}, _from, rt) do
+    svg_code = Map.get(data, "code", "")
+    options = Map.get(data, "options", %{})
+
+    result =
+      with {:ok, json} <- Denox.call(rt, "autocropSvg", [svg_code, options]),
+           {:ok, cropped} <- JSON.decode(json) do
+        {:ok, cropped}
       end
-    end
-  end
 
-  def process_request_url(url) do
-    "https://svg-autocrop.gsmlg.net" <> url
-  end
-
-  def process_response_body(body) do
-    case Jason.decode(body, [{:keys, :atoms}]) do
-      {:ok, resp} -> resp
-      {:error, _} -> body
-    end
-  end
-
-  def convert(data) do
-    postData = Jason.encode!(data)
-
-    post("/api/svg-autocrop", postData, [{"content-type", "application/json"}])
-    |> process_result()
+    {:reply, result, rt}
   end
 end
