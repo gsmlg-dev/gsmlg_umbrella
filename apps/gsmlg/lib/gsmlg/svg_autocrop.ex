@@ -44,16 +44,22 @@ defmodule GSMLG.SVG_Autocrop do
 
   @impl true
   def handle_continue(:init_runtime, _state) do
-    cache_dir = Application.app_dir(:gsmlg, "priv/denox_cache")
-    File.mkdir_p!(cache_dir)
+    try do
+      cache_dir = Application.app_dir(:gsmlg, "priv/denox_cache")
+      File.mkdir_p!(cache_dir)
 
-    with {:ok, rt} <- Denox.runtime(cache_dir: cache_dir),
-         :ok <- Denox.exec(rt, @setup_code) do
-      Logger.info("#{__MODULE__} ready")
-      {:noreply, rt}
-    else
-      {:error, reason} ->
-        Logger.error("#{__MODULE__} failed to initialize: #{inspect(reason)}")
+      with {:ok, rt} <- Denox.runtime(cache_dir: cache_dir),
+           :ok <- Denox.exec(rt, @setup_code) do
+        Logger.info("#{__MODULE__} ready")
+        {:noreply, rt}
+      else
+        {:error, reason} ->
+          Logger.error("#{__MODULE__} failed to initialize: #{inspect(reason)}")
+          {:noreply, :not_initialized}
+      end
+    rescue
+      e ->
+        Logger.error("#{__MODULE__} init raised: #{Exception.message(e)}")
         {:noreply, :not_initialized}
     end
   end
