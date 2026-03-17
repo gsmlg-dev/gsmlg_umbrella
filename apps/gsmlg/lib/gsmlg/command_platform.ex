@@ -250,14 +250,19 @@ defmodule GSMLG.CommandPlatform do
 
   defp ensure_mnesia_started() do
     GSMLG.Telemetry.span([:command_platform, :mnesia_start], %{node: node()}, fn ->
-      GSMLG.Mnesia.stop()
-      GSMLG.Mnesia.Schema.create([node()])
-
       result =
-        case GSMLG.Mnesia.start() do
-          :ok -> :ok
-          {:error, {:already_started, _}} -> :ok
-          {:error, _} = error -> error
+        if :mnesia.system_info(:is_running) == :yes do
+          # Already running — schema exists, skip the stop/create/start cycle.
+          # Stopping Mnesia while the memory alarm is active causes a VM crash.
+          :ok
+        else
+          GSMLG.Mnesia.Schema.create([node()])
+
+          case GSMLG.Mnesia.start() do
+            :ok -> :ok
+            {:error, {:already_started, _}} -> :ok
+            {:error, _} = error -> error
+          end
         end
 
       {result, %{node: node()}}
