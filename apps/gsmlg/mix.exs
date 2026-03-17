@@ -36,7 +36,6 @@ defmodule GSMLG.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:jason, "~> 1.2"},
       {:caddy, "~> 2.3"},
-      {:denox, "~> 0.1"},
       {:swoosh, "~> 1.3"},
       {:tesla, "~> 1.11"},
       {:finch, "~> 0.19"},

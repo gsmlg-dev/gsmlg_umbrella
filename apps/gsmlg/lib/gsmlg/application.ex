@@ -32,7 +32,6 @@ defmodule GSMLG.Application do
       GSMLG.WebPush.Subscriptions,
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor},
-      GSMLG.SVG2React,
       GSMLG.SVG_Autocrop
       # Telemetry system starts automatically as an OTP application
     ]

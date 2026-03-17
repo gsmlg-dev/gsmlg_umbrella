@@ -18,10 +18,15 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@svgr/core": "^8.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
-  "workspaces": ["apps/gsmlg_admin_web", "apps/gsmlg_web", "apps/gsmlg_component"],
+  "workspaces": [
+    "apps/gsmlg_admin_web",
+    "apps/gsmlg_web",
+    "apps/gsmlg_component"
+  ],
   "overrides": {
     "character-entities": "^2.0.0",
     "mdast-util-to-string": "^4.0.0"
