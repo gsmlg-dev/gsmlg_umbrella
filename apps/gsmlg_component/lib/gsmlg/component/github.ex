@@ -7,7 +7,7 @@ defmodule GSMLG.Component.Github do
   use PhoenixDuskmoon.Component
 
   # alias Phoenix.LiveView.JS
-  use Gettext, backend: GSMLG.Web.Gettext
+  use Gettext, backend: GSMLG.Component.Gettext
 
   @doc """
   Renders a github repo card.
