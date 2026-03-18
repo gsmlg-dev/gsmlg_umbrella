@@ -54,7 +54,7 @@ cp -r _build/prod/rel/gsmlg_umbrella /app
 EOF
 
 
-FROM ubuntu:24.04
+FROM ubuntu:25.04
 
 ARG RELEASE_VERSION=1.0.0
 
