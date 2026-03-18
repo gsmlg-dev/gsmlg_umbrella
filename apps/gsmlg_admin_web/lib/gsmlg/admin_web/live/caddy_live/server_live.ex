@@ -154,15 +154,6 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
     assign(socket, :server_info, server_info)
   end
 
-  defp format_command_error({:command_failed, exit_code, output}) do
-    msg = String.trim(output)
-    if msg == "", do: "Command failed (exit #{exit_code})", else: "Exit #{exit_code}: #{msg}"
-  end
-
-  defp format_command_error({:command_not_configured, cmd}) do
-    "Command not configured: #{cmd}. Set it in Dashboard Settings."
-  end
-
   defp reload_caddy_modules do
     for mod <- [Caddy.Admin.Request, Caddy.Server.External] do
       :code.soft_purge(mod)
@@ -179,6 +170,15 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
       restart: Keyword.get(cmds, :restart, ""),
       health_check: Keyword.get(cmds, :health_check, "")
     }
+  end
+
+  defp format_command_error({:command_failed, exit_code, output}) do
+    msg = String.trim(output)
+    if msg == "", do: "Command failed (exit #{exit_code})", else: "Exit #{exit_code}: #{msg}"
+  end
+
+  defp format_command_error({:command_not_configured, cmd}) do
+    "Command not configured: #{cmd}. Set it in Dashboard Settings."
   end
 
   defp format_command_error({:command_error, reason}), do: "Command error: #{inspect(reason)}"
