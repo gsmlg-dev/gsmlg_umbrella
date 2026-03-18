@@ -1,4 +1,4 @@
-FROM ghcr.io/gsmlg-dev/phoenix:1.8.5 AS builder
+FROM elixir:1.18 AS builder
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg_umbrella
@@ -10,13 +10,28 @@ ARG https_proxy
 ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm/
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
-ARG MIX_TAILWIND_PATH=/usr/bin/tailwind
-ARG MIX_BUN_PATH=/usr/bin/bun
-
+ARG BUN_VERSION=1.3.4
 ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-x64
 ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-arm64
 
 ARG TARGETARCH
+
+# Install bun and tailwind
+RUN apt-get update && apt-get install -y --no-install-recommends unzip curl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip -o /tmp/bun.zip \
+    && unzip /tmp/bun.zip -d /tmp/ \
+    && mv /tmp/bun-linux-x64/bun /usr/local/bin/bun \
+    && rm -rf /tmp/bun.zip /tmp/bun-linux-x64
+
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      curl -fsSL ${TAILWIND_URL_ARM64} -o /usr/local/bin/tailwind; \
+    else \
+      curl -fsSL ${TAILWIND_URL_AMD64} -o /usr/local/bin/tailwind; \
+    fi && chmod +x /usr/local/bin/tailwind
+
+ARG MIX_TAILWIND_PATH=/usr/local/bin/tailwind
+ARG MIX_BUN_PATH=/usr/local/bin/bun
 
 COPY . /build
 
@@ -39,7 +54,7 @@ cp -r _build/prod/rel/gsmlg_umbrella /app
 EOF
 
 
-FROM debian:latest
+FROM debian:12
 
 ARG RELEASE_VERSION=1.0.0
 
@@ -63,7 +78,7 @@ ENV ELIXIR_ERL_OPTIONS="+fnu"
 COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg_umbrella.toml
 
 COPY --from=builder /app /app
-COPY --from=builder /usr/bin/bun /usr/bin/bun
+COPY --from=builder /usr/local/bin/bun /usr/bin/bun
 
 RUN <<EOF
 apt-get update
