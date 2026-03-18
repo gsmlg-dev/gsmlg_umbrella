@@ -14,9 +14,11 @@
           <textarea id="svg-input" class="textarea textarea-primary w-full" rows={20}>
         </textarea>
         </div>
-        <div class="divider md:divider-horizontal">
-          <.dm_mdi name="transfer-right" class="w-16 max-md:hidden" />
-          <.dm_mdi name="transfer-down" class="w-16 md:hidden" />
+        <div class="divider md:hidden">
+          <.dm_mdi name="transfer-down" class="w-16" />
+        </div>
+        <div class="divider divider-vertical hidden md:flex">
+          <.dm_mdi name="transfer-right" class="w-16" />
         </div>
         <div class="w-full flex flex-col justify-center items-center">
           <label>{dgettext("toolbox", "Optimized SVG")}</label>
