@@ -127,16 +127,6 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
     {:noreply, assign(socket, :caddy_bin_status, status)}
   end
 
-  defp safe_get_bin do
-    try do
-      Caddy.ConfigProvider.get(:bin) || System.find_executable("caddy") || ""
-    rescue
-      _ -> System.find_executable("caddy") || ""
-    catch
-      :exit, _ -> System.find_executable("caddy") || ""
-    end
-  end
-
   @impl true
   def handle_event("update_global", %{"global" => global}, socket) do
     {:noreply, assign(socket, :global, global)}
@@ -447,6 +437,16 @@ defmodule GSMLG.AdminWeb.CaddyLive.ConfigLive do
       end
 
     {:noreply, socket}
+  end
+
+  defp safe_get_bin do
+    try do
+      Caddy.ConfigProvider.get(:bin) || System.find_executable("caddy") || ""
+    rescue
+      _ -> System.find_executable("caddy") || ""
+    catch
+      :exit, _ -> System.find_executable("caddy") || ""
+    end
   end
 
   defp format_error(reason) when is_binary(reason), do: reason
