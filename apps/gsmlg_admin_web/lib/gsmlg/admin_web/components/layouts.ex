@@ -408,11 +408,70 @@ defmodule GSMLG.AdminWeb.Layouts do
   end
 
   @doc """
-  Renders your user layout.
+  Renders your storage management layout.
 
-  This function is typically invoked from every template,
-  and it often contains your application menu, sidebar,
-  or similar.
+  ## Examples
+
+      <Layouts.storage flash={@flash}>
+        <h1>Content</h1>
+      </Layouts.storage>
+
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_scope, :map,
+    default: nil,
+    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+
+  attr :page_title, :string, default: nil
+  attr :active_menu, :string, default: nil
+
+  slot :inner_block, required: true
+
+  def storage(assigns) do
+    ~H"""
+    <.local_app_bar page_title={@page_title} />
+
+    <.dm_flash_group flash={@flash} />
+
+    <main class="flex flex-1 w-full">
+      <div class="relative">
+        <.dm_left_menu class="sticky top-0">
+          <:menu>
+            <h1 class="menu-title text-primary">Storage</h1>
+          </:menu>
+          <:menu>
+            <h2 class="menu-title">Files</h2>
+            <ul>
+              <li>
+                <.link
+                  class={if("storage_files" == @active_menu, do: "active")}
+                  navigate={~p"/storage"}
+                >
+                  File Browser
+                </.link>
+              </li>
+              <li>
+                <.link
+                  class={if("storage_upload" == @active_menu, do: "active")}
+                  navigate={~p"/storage/upload"}
+                >
+                  Upload
+                </.link>
+              </li>
+            </ul>
+          </:menu>
+        </.dm_left_menu>
+      </div>
+      <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">
+        {render_slot(@inner_block)}
+      </div>
+    </main>
+    """
+  end
+
+  @doc """
+  Renders your user layout.
 
   ## Examples
 

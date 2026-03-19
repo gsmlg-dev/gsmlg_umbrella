@@ -1,0 +1,396 @@
+defmodule GSMLG.Storage do
+  @moduledoc """
+  Centralized file storage API backed by S3.
+
+  Provides upload, retrieval, streaming, and deletion of files
+  with automatic content-type detection, SHA-256 checksums,
+  and configurable variant generation for images.
+  """
+
+  alias GSMLG.Repo
+  alias GSMLG.Storage.{StorageFile, S3Client, ContentType}
+
+  import Ecto.Query
+
+  @doc """
+  Uploads a file to S3 and creates a DB record.
+
+  Accepts:
+  - `%Plug.Upload{}` struct
+  - File path (string)
+  - Raw binary
+  - `{filename, binary}` tuple
+
+  ## Options
+  - `:uploaded_by` - identifier for uploader
+  - `:metadata` - arbitrary map of metadata
+
+  Returns `{:ok, %StorageFile{}}` or `{:error, reason}`.
+  """
+  def upload(input, tenant, type, opts \\ []) do
+    with {:ok, filename, data} <- normalize_input(input),
+         {:ok, content_type} <- ContentType.detect(data),
+         :ok <- validate_content_type(content_type, type),
+         :ok <- validate_size(data, type),
+         checksum <- compute_checksum(data),
+         s3_key <- generate_s3_key(tenant, type, filename, content_type),
+         bucket <- bucket(),
+         :ok <- S3Client.put_object(bucket, s3_key, data, content_type) do
+      attrs = %{
+        tenant: tenant,
+        type: type,
+        filename: filename,
+        s3_key: s3_key,
+        content_type: content_type,
+        size: byte_size(data),
+        checksum: checksum,
+        metadata: opts[:metadata] || %{},
+        variants: %{},
+        status: "active",
+        uploaded_by: opts[:uploaded_by]
+      }
+
+      case %StorageFile{} |> StorageFile.changeset(attrs) |> Repo.insert() do
+        {:ok, file} ->
+          maybe_generate_variants(file)
+          {:ok, file}
+
+        {:error, changeset} ->
+          # Attempt S3 cleanup on DB failure
+          S3Client.delete_object(bucket, s3_key)
+          {:error, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Gets a storage file by ID. Returns nil if not found or not active.
+  """
+  def get(id) do
+    Repo.get(StorageFile, id)
+  end
+
+  @doc """
+  Gets an active storage file by ID. Returns nil for deleted/processing files.
+  """
+  def get_active(id) do
+    StorageFile
+    |> where([f], f.id == ^id and f.status == "active")
+    |> Repo.one()
+  end
+
+  @doc """
+  Streams a file's content from S3.
+
+  Returns `{:ok, binary}` or `{:error, reason}`.
+  """
+  def stream(file_or_id) do
+    with {:ok, file} <- resolve_file(file_or_id) do
+      S3Client.get_object(bucket(), file.s3_key)
+    end
+  end
+
+  @doc """
+  Streams a specific variant of a file from S3.
+
+  Returns `{:ok, binary}` or `{:error, reason}`.
+  """
+  def stream_variant(%StorageFile{variants: variants}, variant_name) do
+    case Map.get(variants || %{}, variant_name) do
+      %{"s3_key" => s3_key} -> S3Client.get_object(bucket(), s3_key)
+      _ -> {:error, :variant_not_found}
+    end
+  end
+
+  @doc """
+  Soft-deletes a file by setting status to "deleted".
+  Does not immediately remove from S3.
+  """
+  def delete(file_or_id) do
+    with {:ok, file} <- resolve_file(file_or_id) do
+      file
+      |> StorageFile.status_changeset(%{status: "deleted"})
+      |> Repo.update()
+    end
+  end
+
+  @doc """
+  Permanently purges a soft-deleted file and all its variants from S3.
+  Only works on files with status "deleted".
+  """
+  def purge(%StorageFile{status: "deleted"} = file) do
+    bucket = bucket()
+
+    # Delete all variant S3 objects
+    for {_name, %{"s3_key" => variant_key}} <- file.variants || %{} do
+      S3Client.delete_object(bucket, variant_key)
+    end
+
+    # Delete original S3 object
+    S3Client.delete_object(bucket, file.s3_key)
+
+    # Remove DB record
+    Repo.delete(file)
+  end
+
+  def purge(_file), do: {:error, :not_deleted}
+
+  @doc """
+  Lists files with filtering and pagination.
+
+  ## Options
+  - `:tenant` - filter by tenant
+  - `:type` - filter by type
+  - `:status` - filter by status (default: "active")
+  - `:search` - search by filename
+  - `:page` - page number (default: 1)
+  - `:page_size` - items per page (default: 20)
+  """
+  def list(opts \\ []) do
+    page = opts[:page] || 1
+    page_size = opts[:page_size] || 20
+    offset = (page - 1) * page_size
+
+    query =
+      StorageFile
+      |> filter_by_tenant(opts[:tenant])
+      |> filter_by_type(opts[:type])
+      |> filter_by_status(opts[:status] || "active")
+      |> filter_by_search(opts[:search])
+      |> order_by([f], desc: f.inserted_at)
+
+    total = Repo.aggregate(query, :count)
+    files = query |> limit(^page_size) |> offset(^offset) |> Repo.all()
+
+    %{
+      files: files,
+      total: total,
+      page: page,
+      page_size: page_size,
+      total_pages: ceil(total / page_size)
+    }
+  end
+
+  @doc """
+  Returns summary statistics for stored files.
+  """
+  def stats(tenant \\ nil) do
+    query =
+      StorageFile
+      |> where([f], f.status == "active")
+      |> filter_by_tenant(tenant)
+
+    total_files = Repo.aggregate(query, :count)
+    total_size = Repo.aggregate(query, :sum, :size) || 0
+
+    type_breakdown =
+      query
+      |> group_by([f], f.type)
+      |> select([f], {f.type, count(f.id), sum(f.size)})
+      |> Repo.all()
+      |> Enum.map(fn {type, count, size} ->
+        %{type: type, count: count, size: size || 0}
+      end)
+
+    %{
+      total_files: total_files,
+      total_size: total_size,
+      by_type: type_breakdown
+    }
+  end
+
+  @doc """
+  Regenerates variants for a file.
+  """
+  def regenerate_variants(%StorageFile{} = file) do
+    if ContentType.image?(file.content_type) do
+      Task.Supervisor.start_child(GSMLG.TaskSupervisor, fn ->
+        do_generate_variants(file)
+      end)
+
+      :ok
+    else
+      {:error, :not_an_image}
+    end
+  end
+
+  # --- Private ---
+
+  defp normalize_input(%{__struct__: Plug.Upload} = upload) do
+    case File.read(upload.path) do
+      {:ok, data} -> {:ok, upload.filename, data}
+      {:error, reason} -> {:error, {:file_read_error, reason}}
+    end
+  end
+
+  defp normalize_input({filename, data}) when is_binary(filename) and is_binary(data) do
+    {:ok, filename, data}
+  end
+
+  defp normalize_input(path) when is_binary(path) do
+    if File.exists?(path) do
+      case File.read(path) do
+        {:ok, data} -> {:ok, Path.basename(path), data}
+        {:error, reason} -> {:error, {:file_read_error, reason}}
+      end
+    else
+      # Treat as raw binary with a generated filename
+      {:ok, "upload_#{System.unique_integer([:positive])}", path}
+    end
+  end
+
+  defp normalize_input(_), do: {:error, :invalid_input}
+
+  defp validate_content_type(content_type, type) do
+    allowed = allowed_types(type)
+
+    if allowed == :any or content_type in allowed do
+      :ok
+    else
+      {:error, {:content_type_not_allowed, content_type, type}}
+    end
+  end
+
+  defp validate_size(data, _type) do
+    max_size = max_file_size()
+
+    if byte_size(data) <= max_size do
+      :ok
+    else
+      {:error, {:file_too_large, byte_size(data), max_size}}
+    end
+  end
+
+  defp compute_checksum(data) do
+    :crypto.hash(:sha256, data) |> Base.encode16(case: :lower)
+  end
+
+  defp generate_s3_key(tenant, type, filename, content_type) do
+    now = DateTime.utc_now()
+    uuid = Ecto.UUID.generate()
+    ext = extension_from_content_type(content_type, filename)
+    yyyy = now.year |> Integer.to_string() |> String.pad_leading(4, "0")
+    mm = now.month |> Integer.to_string() |> String.pad_leading(2, "0")
+
+    "#{tenant}/#{type}/#{yyyy}/#{mm}/#{uuid}.#{ext}"
+  end
+
+  defp extension_from_content_type(content_type, filename) do
+    # Try to get extension from content type first, fall back to filename
+    case content_type do
+      "image/jpeg" -> "jpg"
+      "image/png" -> "png"
+      "image/gif" -> "gif"
+      "image/webp" -> "webp"
+      "image/svg+xml" -> "svg"
+      "application/pdf" -> "pdf"
+      "text/plain" -> "txt"
+      "text/html" -> "html"
+      "application/json" -> "json"
+      _ -> Path.extname(filename) |> String.trim_leading(".")
+    end
+  end
+
+  defp maybe_generate_variants(%StorageFile{content_type: ct} = file) do
+    if ContentType.image?(ct) do
+      Task.Supervisor.start_child(GSMLG.TaskSupervisor, fn ->
+        do_generate_variants(file)
+      end)
+    end
+  end
+
+  defp do_generate_variants(%StorageFile{} = file) do
+    variant_defs = variant_definitions(file.type)
+
+    case S3Client.get_object(bucket(), file.s3_key) do
+      {:ok, original_data} ->
+        variants =
+          Enum.reduce(variant_defs, %{}, fn {name, opts}, acc ->
+            case GSMLG.Storage.ImageProcessor.process(original_data, opts) do
+              {:ok, processed_data} ->
+                variant_ext =
+                  opts[:format] || extension_from_content_type(file.content_type, file.filename)
+
+                variant_key = String.replace(file.s3_key, ~r/\.[^.]+$/, "_#{name}.#{variant_ext}")
+                variant_ct = if opts[:format] == "webp", do: "image/webp", else: file.content_type
+
+                case S3Client.put_object(bucket(), variant_key, processed_data, variant_ct) do
+                  :ok ->
+                    Map.put(acc, to_string(name), %{
+                      "s3_key" => variant_key,
+                      "size" => byte_size(processed_data),
+                      "content_type" => variant_ct
+                    })
+
+                  _ ->
+                    acc
+                end
+
+              _ ->
+                acc
+            end
+          end)
+
+        if map_size(variants) > 0 do
+          file
+          |> StorageFile.variants_changeset(%{
+            variants: Map.merge(file.variants || %{}, variants)
+          })
+          |> Repo.update()
+        end
+
+      _ ->
+        :error
+    end
+  end
+
+  defp resolve_file(%StorageFile{} = file), do: {:ok, file}
+
+  defp resolve_file(id) when is_binary(id) do
+    case Repo.get(StorageFile, id) do
+      nil -> {:error, :not_found}
+      file -> {:ok, file}
+    end
+  end
+
+  defp filter_by_tenant(query, nil), do: query
+  defp filter_by_tenant(query, tenant), do: where(query, [f], f.tenant == ^tenant)
+
+  defp filter_by_type(query, nil), do: query
+  defp filter_by_type(query, type), do: where(query, [f], f.type == ^type)
+
+  defp filter_by_status(query, nil), do: query
+  defp filter_by_status(query, status), do: where(query, [f], f.status == ^status)
+
+  defp filter_by_search(query, nil), do: query
+  defp filter_by_search(query, ""), do: query
+
+  defp filter_by_search(query, search) do
+    search = "%#{search}%"
+    where(query, [f], ilike(f.filename, ^search))
+  end
+
+  # --- Configuration ---
+
+  defp bucket do
+    Application.get_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
+  end
+
+  defp max_file_size do
+    Application.get_env(:gsmlg_storage, :max_file_size, 5 * 1024 * 1024 * 1024)
+  end
+
+  defp allowed_types(type) do
+    config = Application.get_env(:gsmlg_storage, :allowed_types, %{})
+    Map.get(config, type, :any)
+  end
+
+  defp variant_definitions(type) do
+    config = Application.get_env(:gsmlg_storage, :variant_definitions, %{})
+
+    Map.get(config, type, %{
+      "thumb" => [width: 150, height: 150, crop: :center],
+      "medium" => [width: 800, height: 600]
+    })
+  end
+end

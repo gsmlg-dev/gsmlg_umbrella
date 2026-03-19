@@ -112,6 +112,11 @@ defmodule GSMLG.AdminWeb.Router do
 
     live("/aws/s3/buckets", S3Live.Index, :list_buckets)
 
+    # Storage Management
+    live("/storage", StorageLive.Index, :index)
+    live("/storage/upload", StorageLive.Upload, :upload)
+    live("/storage/:id", StorageLive.Show, :show)
+
     live("/bumblebee/stt", Bumblebee.SttLive.Index, :index)
 
     # PKI Management Routes

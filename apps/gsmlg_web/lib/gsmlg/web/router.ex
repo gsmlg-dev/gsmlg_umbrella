@@ -58,6 +58,14 @@ defmodule GSMLG.Web.Router do
     get "/confirm", MagicLinkController, :confirm
   end
 
+  # Public file serving - no auth required
+  scope "/files", GSMLG.Web do
+    pipe_through(:browser)
+
+    get("/:id", FileController, :show)
+    get("/:id/v/:variant", FileController, :variant)
+  end
+
   scope "/", GSMLG.Web do
     pipe_through([:browser, :maybe_browser_auth])
 

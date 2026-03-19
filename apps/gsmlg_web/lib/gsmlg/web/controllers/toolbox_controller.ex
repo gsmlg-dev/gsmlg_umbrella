@@ -82,7 +82,6 @@ defmodule GSMLG.Web.ToolboxController do
     render(conn, :svg_autocrop, title: dgettext("toolbox", "SVG Autocrop"))
   end
 
-
   def mac_manufacturer(conn, _params) do
     render(conn, :mac_manufacturer, title: dgettext("toolbox", "MAC Manufacturer"))
   end

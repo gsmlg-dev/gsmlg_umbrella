@@ -1,0 +1,106 @@
+<Layouts.storage flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+  <div class="flex flex-col gap-4 p-6 w-full max-w-3xl">
+    <div class="flex items-center gap-3">
+      <.dm_mdi name="upload" class="w-5 h-5 text-primary" />
+      <h1 class="font-semibold text-base-content">Upload Files</h1>
+    </div>
+
+    <div class="flex gap-2">
+      <.link navigate={~p"/storage"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="arrow-left" class="w-4 h-4" /> File Browser
+        </.dm_btn>
+      </.link>
+    </div>
+
+    <form id="upload-form" phx-submit="upload" phx-change="validate" class="flex flex-col gap-4">
+      <%!-- Config --%>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-mono text-xs uppercase">Tenant</span>
+          </label>
+          <input type="text" name="tenant" value={@tenant} class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-mono text-xs uppercase">Type</span>
+          </label>
+          <select name="type" class="select select-bordered select-sm">
+            <option value="attachment" selected={@type == "attachment"}>Attachment</option>
+            <option value="avatar" selected={@type == "avatar"}>Avatar</option>
+            <option value="document" selected={@type == "document"}>Document</option>
+          </select>
+        </div>
+      </div>
+
+      <%!-- Drop Zone --%>
+      <div
+        class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center hover:border-primary transition-colors"
+        phx-drop-target={@uploads.files.ref}
+      >
+        <.dm_mdi name="cloud-upload-outline" class="w-12 h-12 mx-auto text-base-content/30 mb-3" />
+        <p class="text-sm text-base-content/60 mb-2">
+          Drag and drop files here or click to browse
+        </p>
+        <.live_file_input
+          upload={@uploads.files}
+          class="file-input file-input-bordered file-input-sm"
+        />
+      </div>
+
+      <%!-- Selected Files --%>
+      <div :if={length(@uploads.files.entries) > 0} class="flex flex-col gap-2">
+        <div class="font-mono text-xs text-base-content/45 uppercase tracking-wide">
+          Selected Files
+        </div>
+        <%= for entry <- @uploads.files.entries do %>
+          <div class="flex items-center gap-3 p-2 bg-base-200/50 rounded">
+            <.dm_mdi name="file-outline" class="w-4 h-4 text-base-content/50" />
+            <div class="flex-1">
+              <div class="text-sm font-medium">{entry.client_name}</div>
+              <div class="text-xs text-base-content/50">{format_size(entry.client_size)}</div>
+            </div>
+            <progress
+              :if={entry.progress > 0}
+              value={entry.progress}
+              max="100"
+              class="progress progress-primary w-24"
+            />
+            <button
+              type="button"
+              phx-click="cancel-upload"
+              phx-value-ref={entry.ref}
+              class="btn btn-ghost btn-xs"
+            >
+              <.dm_mdi name="close" class="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <%= for err <- upload_errors(@uploads.files, entry) do %>
+            <p class="text-error text-xs">{error_to_string(err)}</p>
+          <% end %>
+        <% end %>
+      </div>
+
+      <.dm_btn type="submit" variant="primary" disabled={length(@uploads.files.entries) == 0}>
+        <.dm_mdi name="upload" class="w-4 h-4" /> Upload {length(@uploads.files.entries)} File(s)
+      </.dm_btn>
+    </form>
+
+    <%!-- Recently Uploaded --%>
+    <div :if={length(@uploaded_files) > 0} class="flex flex-col gap-2">
+      <div class="font-mono text-xs text-base-content/45 uppercase tracking-wide">
+        Recently Uploaded
+      </div>
+      <%= for file <- @uploaded_files do %>
+        <div class="flex items-center gap-3 p-2 bg-success/10 rounded">
+          <.dm_mdi name="check-circle-outline" class="w-4 h-4 text-success" />
+          <.link navigate={~p"/storage/#{file.id}"} class="text-sm hover:text-primary">
+            {file.filename}
+          </.link>
+          <span class="text-xs text-base-content/50">{format_size(file.size)}</span>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</Layouts.storage>
