@@ -26,29 +26,4 @@ defmodule GSMLG.Storage.Config do
   }
 
   def defaults, do: @default_config
-
-  @doc """
-  Applies storage configuration from TOML config map to Application env.
-  """
-  def setup(config) when is_map(config) do
-    storage = Map.get(config, "storage", %{})
-
-    if map_size(storage) > 0 do
-      if bucket = storage["s3_bucket"],
-        do: Application.put_env(:gsmlg_storage, :s3_bucket, bucket)
-
-      if max_size = storage["max_file_size"],
-        do: Application.put_env(:gsmlg_storage, :max_file_size, max_size)
-
-      if interval = storage["cleanup_interval"],
-        do: Application.put_env(:gsmlg_storage, :cleanup_interval, interval)
-
-      if retention = storage["retention_window"],
-        do: Application.put_env(:gsmlg_storage, :retention_window, retention)
-    end
-
-    :ok
-  end
-
-  def setup(_), do: :ok
 end

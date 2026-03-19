@@ -11,7 +11,8 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
      socket
      |> assign(active_menu: "storage_files")
      |> assign(tenant_filter: nil, type_filter: nil, search: nil, page: 1)
-     |> assign(stats: nil)}
+     |> assign(stats: nil, files_result: nil)
+     |> stream(:files, [])}
   end
 
   @impl true

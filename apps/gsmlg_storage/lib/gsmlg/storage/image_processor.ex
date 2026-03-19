@@ -5,6 +5,8 @@ defmodule GSMLG.Storage.ImageProcessor do
   Falls back gracefully if Vix is not available — variants simply won't be generated.
   """
 
+  @compile {:no_warn_undefined, [Vix.Vips.Image, Vix.Vips.Operation]}
+
   require Logger
 
   @doc """
@@ -35,8 +37,6 @@ defmodule GSMLG.Storage.ImageProcessor do
     quality = opts[:quality] || 80
 
     try do
-      {:ok, image} = Vix.Vips.Image.new_from_buffer(data)
-
       image =
         cond do
           width && height && crop == :center ->
@@ -52,7 +52,8 @@ defmodule GSMLG.Storage.ImageProcessor do
             Vix.Vips.Operation.thumbnail_buffer!(data, width)
 
           true ->
-            image
+            {:ok, img} = Vix.Vips.Image.new_from_buffer(data)
+            img
         end
 
       case format do
