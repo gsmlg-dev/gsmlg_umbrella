@@ -60,7 +60,7 @@ defmodule GSMLG.AdminWeb.AuthController do
     changeset = Auth.sign_up_changeset(%Auth{}, %{})
 
     conn
-    |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
+    |> render(:sign_up, changeset: changeset, page_title: "SIGN UP")
   end
 
   def sign_up(conn, %{"auth" => params}) do
@@ -84,7 +84,7 @@ defmodule GSMLG.AdminWeb.AuthController do
           {:error, %Ecto.Changeset{} = changeset} ->
             conn
             |> put_flash(:error, "invalid")
-            |> render("sign_up.html", changeset: changeset, page_title: "SIGN UP")
+            |> render(:sign_up, changeset: changeset, page_title: "SIGN UP")
         end
     end
   end
