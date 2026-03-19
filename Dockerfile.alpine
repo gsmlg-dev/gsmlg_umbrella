@@ -1,4 +1,4 @@
-FROM ghcr.io/gsmlg-dev/phoenix:alpine AS builder
+FROM elixir:1.18-alpine AS builder
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg_umbrella
@@ -10,15 +10,27 @@ ARG https_proxy
 ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm/
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
-ARG MIX_TAILWIND_PATH=/usr/bin/tailwind
-ARG MIX_BUN_PATH=/usr/bin/bun
-
+ARG BUN_VERSION=1.3.4
 ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-x64-musl
 ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-arm64-musl
 
 ARG XLA_BUILD=true
 
 ARG TARGETARCH
+
+# Install build tools + bun (musl build for Alpine)
+RUN apk add --no-cache curl unzip bash
+
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-aarch64-musl.zip -o /tmp/bun.zip \
+      && unzip /tmp/bun.zip -d /tmp/ && mv /tmp/bun-linux-aarch64-musl/bun /usr/local/bin/bun; \
+    else \
+      curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64-musl.zip -o /tmp/bun.zip \
+      && unzip /tmp/bun.zip -d /tmp/ && mv /tmp/bun-linux-x64-musl/bun /usr/local/bin/bun; \
+    fi && rm -rf /tmp/bun.zip /tmp/bun-linux-*
+
+ARG MIX_TAILWIND_PATH=/tmp/tailwindcss
+ARG MIX_BUN_PATH=/usr/local/bin/bun
 
 COPY . /build
 
@@ -28,7 +40,6 @@ RUN <<EOF
 set -evx
 cd /build
 
-# Select correct Tailwind binary based on architecture
 if [ "$TARGETARCH" = "arm64" ]; then
   TAILWIND_URL="${TAILWIND_URL_ARM64}"
   TAILWIND_ARCH="arm64"
@@ -37,8 +48,7 @@ else
   TAILWIND_ARCH="x64"
 fi
 
-# Download architecture-specific Tailwind binary
-wget -O /tmp/tailwindcss "${TAILWIND_URL}"
+curl -fsSL "${TAILWIND_URL}" -o /tmp/tailwindcss
 chmod +x /tmp/tailwindcss
 
 mix deps.get
@@ -54,7 +64,7 @@ cp -r _build/prod/rel/gsmlg_umbrella /app
 EOF
 
 
-FROM ghcr.io/gsmlg-dev/alpine:latest
+FROM alpine:3.21
 
 ARG RELEASE_VERSION=1.0.0
 
@@ -71,18 +81,15 @@ ENV ERL_EPMD_PORT=4369
 ENV ERLCOOKIE=erlang_cookie
 ENV BUN_BIN=/usr/bin/bun
 ENV BUN_SERVER_JS=/app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
-ENV GSMLG_CONFIG_PATH=/etc/gsmlg.toml
+ENV GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml
 
-COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg.toml
+COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg_umbrella.toml
 
 COPY --from=builder /app /app
-COPY --from=builder /usr/bin/bun /usr/bin/bun
+COPY --from=builder /usr/local/bin/bun /usr/bin/bun
 
-RUN <<EOF
-apk update
-apk add --no-cache openssl bash libstdc++ ca-certificates procps
-mkdir -p /var/lib/mnesia
-EOF
+RUN apk add --no-cache openssl bash libstdc++ ca-certificates procps \
+    && mkdir -p /var/lib/mnesia
 
 VOLUME ["/var/lib/mnesia"]
 
@@ -91,4 +98,3 @@ ENV PATH="/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 EXPOSE 80 1080 4369
 
 CMD ["/app/bin/gsmlg_umbrella", "start"]
-
