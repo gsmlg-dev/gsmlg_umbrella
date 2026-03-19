@@ -1,249 +1,378 @@
 <Layouts.app flash={@flash}>
-  <div class="flex flex-col gap-8 p-6 w-full">
-    <%!-- ── Content Overview ─────────────────────────────────────── --%>
-    <section class="flex flex-col gap-4">
-      <div class="flex items-center gap-2">
-        <.dm_mdi name="view-dashboard-outline" class="w-5 h-5 text-primary" />
-        <h2 class="font-semibold text-base-content">Content Overview</h2>
-      </div>
-      <div class="flex flex-wrap gap-4">
-        <.link navigate={~p"/users"}>
-          <.dm_stat
-            title="Users"
-            value={to_string(@data.user_count)}
-            class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4"
-          >
-            <:icon><.dm_mdi name="account-group-outline" class="w-8 h-8 text-primary" /></:icon>
-          </.dm_stat>
-        </.link>
-        <.link navigate={~p"/user_tokens"}>
-          <.dm_stat
-            title="Active Sessions"
-            value={to_string(@data.token_count)}
-            class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4"
-          >
-            <:icon><.dm_mdi name="key-outline" class="w-8 h-8 text-secondary" /></:icon>
-          </.dm_stat>
-        </.link>
-        <.link navigate={~p"/blogs"}>
-          <.dm_stat
-            title="Blog Posts"
-            value={to_string(@data.blog_count)}
-            class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4"
-          >
-            <:icon><.dm_mdi name="post-outline" class="w-8 h-8 text-accent" /></:icon>
-          </.dm_stat>
-        </.link>
-        <.link navigate={~p"/github"}>
-          <.dm_stat
-            title="GitHub"
-            value="Repos"
-            class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4"
-          >
-            <:icon><.dm_mdi name="github" class="w-8 h-8 text-base-content/60" /></:icon>
-          </.dm_stat>
-        </.link>
-        <.link navigate={~p"/bumblebee/stt"}>
-          <.dm_stat
-            title="Bumblebee"
-            value="STT"
-            class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4"
-          >
-            <:icon><.dm_mdi name="microphone-outline" class="w-8 h-8 text-info" /></:icon>
-          </.dm_stat>
-        </.link>
-      </div>
-    </section>
+  <div class="w-full min-h-screen bg-base-100 relative overflow-x-hidden">
+    <%!-- ── Background grid (mirrors auth page) ──────────────────────── --%>
+    <div
+      class="auth-grid-bg pointer-events-none fixed inset-0 opacity-20 z-0"
+      aria-hidden="true"
+    >
+    </div>
 
-    <%!-- ── Cluster Overview ─────────────────────────────────────── --%>
-    <section class="flex flex-col gap-4">
-      <div class="flex items-center gap-2">
-        <.dm_mdi name="server-network" class="w-5 h-5 text-primary" />
-        <h2 class="font-semibold text-base-content">Cluster Overview</h2>
-      </div>
-      <div class="flex flex-wrap gap-4">
-        <.link navigate={~p"/node_management"}>
-          <.dm_stat
-            title="Nodes"
-            value={Node.list() |> length() |> to_string()}
-            class="cursor-pointer hover:bg-base-200 transition-colors rounded-box p-4"
-          >
-            <:icon><.dm_mdi name="server-outline" class="w-8 h-8 text-success" /></:icon>
-          </.dm_stat>
-        </.link>
-      </div>
-    </section>
+    <%!-- ── System status bar ───────────────────────────────────────── --%>
+    <div class="relative z-10 border-b border-base-300 bg-base-100/80 backdrop-blur-sm px-8 py-6">
+      <div class="max-w-screen-2xl mx-auto">
+        <%!-- Header row --%>
+        <div class="flex items-start justify-between mb-8">
+          <div>
+            <p class="font-mono text-[10px] tracking-[0.5em] uppercase text-primary/50 mb-1">
+              ⬡ GSMLG · BITW
+            </p>
+            <h1
+              class="font-mono text-3xl font-bold text-base-content tracking-tight"
+              style="text-shadow: 0 0 30px color-mix(in oklch, var(--color-primary) 15%, transparent);"
+            >
+              CONTROL<br /><span class="text-primary">CENTRE</span>
+            </h1>
+          </div>
+          <div class="text-right">
+            <div class="flex items-center justify-end gap-2 mb-1">
+              <div class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></div>
+              <span class="font-mono text-[10px] tracking-[0.3em] uppercase text-base-content/30">
+                All Systems Nominal
+              </span>
+            </div>
+            <p class="font-mono text-[10px] text-base-content/20 tracking-widest">
+              V9 · SECURED
+            </p>
+          </div>
+        </div>
 
-    <%!-- ── Command Platform ─────────────────────────────────────── --%>
-    <section class="flex flex-col gap-4">
-      <div class="flex items-center gap-2">
-        <.dm_mdi name="console-line" class="w-5 h-5 text-primary" />
-        <h2 class="font-semibold text-base-content">Command Platform</h2>
-      </div>
-      <div class="flex flex-wrap gap-3">
-        <.link navigate={~p"/command_platform"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="console" class="w-5 h-5 text-primary" />
-              <span class="text-sm font-medium">Commander</span>
+        <%!-- Key metrics --%>
+        <div class="grid grid-cols-3 gap-4 max-w-lg">
+          <.link navigate={~p"/users"} class="group">
+            <div
+              class="border border-base-300 group-hover:border-primary transition-all duration-200 rounded p-4 bg-base-100/60"
+              style="box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-primary) 0%, transparent); transition: box-shadow 0.2s, border-color 0.2s;"
+            >
+              <p class="font-mono text-[9px] tracking-[0.4em] uppercase text-base-content/40 mb-2">
+                Users
+              </p>
+              <p
+                class="font-mono text-4xl font-bold text-primary leading-none"
+                style="text-shadow: 0 0 20px color-mix(in oklch, var(--color-primary) 30%, transparent);"
+              >
+                {to_string(@data.user_count)}
+              </p>
+              <p class="font-mono text-[9px] text-base-content/25 mt-1 tracking-wider">
+                registered
+              </p>
             </div>
-          </.dm_card>
-        </.link>
-        <.link navigate={~p"/mnesia"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="database-outline" class="w-5 h-5 text-secondary" />
-              <span class="text-sm font-medium">Mnesia</span>
-            </div>
-          </.dm_card>
-        </.link>
-      </div>
-    </section>
+          </.link>
 
-    <%!-- ── AWS ────────────────────────────────────────────────────── --%>
-    <section class="flex flex-col gap-4">
-      <div class="flex items-center gap-2">
-        <.dm_mdi name="aws" class="w-5 h-5 text-primary" />
-        <h2 class="font-semibold text-base-content">AWS</h2>
-      </div>
-      <div class="flex flex-wrap gap-3">
-        <.link navigate={~p"/aws/dynamo_db"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="table-large" class="w-5 h-5 text-warning" />
-              <span class="text-sm font-medium">DynamoDB</span>
+          <.link navigate={~p"/user_tokens"} class="group">
+            <div class="border border-base-300 group-hover:border-secondary transition-all duration-200 rounded p-4 bg-base-100/60">
+              <p class="font-mono text-[9px] tracking-[0.4em] uppercase text-base-content/40 mb-2">
+                Sessions
+              </p>
+              <p class="font-mono text-4xl font-bold text-secondary leading-none">
+                {to_string(@data.token_count)}
+              </p>
+              <p class="font-mono text-[9px] text-base-content/25 mt-1 tracking-wider">
+                active tokens
+              </p>
             </div>
-          </.dm_card>
-        </.link>
-        <.link navigate={~p"/aws/route53/hosted_zones"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="dns-outline" class="w-5 h-5 text-info" />
-              <span class="text-sm font-medium">Route 53</span>
-            </div>
-          </.dm_card>
-        </.link>
-        <.link navigate={~p"/aws/s3/buckets"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="bucket-outline" class="w-5 h-5 text-success" />
-              <span class="text-sm font-medium">S3</span>
-            </div>
-          </.dm_card>
-        </.link>
-      </div>
-    </section>
+          </.link>
 
-    <%!-- ── Caddy ────────────────────────────────────────────────────── --%>
-    <section class="flex flex-col gap-4">
-      <div class="flex items-center gap-2">
-        <.dm_mdi name="shield-check-outline" class="w-5 h-5 text-primary" />
-        <h2 class="font-semibold text-base-content">Caddy</h2>
+          <.link navigate={~p"/blogs"} class="group">
+            <div class="border border-base-300 group-hover:border-accent transition-all duration-200 rounded p-4 bg-base-100/60">
+              <p class="font-mono text-[9px] tracking-[0.4em] uppercase text-base-content/40 mb-2">
+                Posts
+              </p>
+              <p class="font-mono text-4xl font-bold text-accent leading-none">
+                {to_string(@data.blog_count)}
+              </p>
+              <p class="font-mono text-[9px] text-base-content/25 mt-1 tracking-wider">
+                blog entries
+              </p>
+            </div>
+          </.link>
+        </div>
       </div>
-      <div class="flex flex-wrap gap-3">
-        <.link navigate={~p"/caddy"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="view-dashboard-outline" class="w-5 h-5 text-primary" />
-              <span class="text-sm font-medium">Dashboard</span>
-            </div>
-          </.dm_card>
-        </.link>
-        <.link navigate={~p"/caddy/config"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="text-box-outline" class="w-5 h-5 text-secondary" />
-              <span class="text-sm font-medium">Configuration</span>
-            </div>
-          </.dm_card>
-        </.link>
-        <.link navigate={~p"/caddy/server"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="cog-outline" class="w-5 h-5 text-warning" />
-              <span class="text-sm font-medium">Server Control</span>
-            </div>
-          </.dm_card>
-        </.link>
-        <.link navigate={~p"/caddy/metrics"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="chart-bar" class="w-5 h-5 text-success" />
-              <span class="text-sm font-medium">Metrics</span>
-            </div>
-          </.dm_card>
-        </.link>
-        <.link navigate={~p"/caddy/logs"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="file-search-outline" class="w-5 h-5 text-info" />
-              <span class="text-sm font-medium">Logs</span>
-            </div>
-          </.dm_card>
-        </.link>
-      </div>
-    </section>
+    </div>
 
-    <%!-- ── Dashboard ─────────────────────────────────────────────── --%>
-    <section class="flex flex-col gap-4">
-      <div class="flex items-center gap-2">
-        <.dm_mdi name="chart-line" class="w-5 h-5 text-primary" />
-        <h2 class="font-semibold text-base-content">Dashboard</h2>
-      </div>
-      <div class="flex flex-wrap gap-3">
-        <.link navigate={~p"/live_dashboard"}>
-          <.dm_card
-            variant="bordered"
-            body_class=""
-            class="cursor-pointer hover:border-primary transition-colors w-48"
-          >
-            <div class="flex items-center gap-3 py-1">
-              <.dm_mdi name="monitor-dashboard" class="w-5 h-5 text-primary" />
-              <span class="text-sm font-medium">Live Dashboard</span>
+    <%!-- ── Service modules grid ───────────────────────────────────── --%>
+    <div class="relative z-10 max-w-screen-2xl mx-auto px-8 py-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <%!-- ── PKI ─────────────────────────────────────────── --%>
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 pb-1 border-b border-base-300">
+          <div class="w-0.5 h-5 rounded-full bg-primary"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-primary/70 font-bold">
+            PKI
+          </p>
+          <div class="flex-1 h-px bg-base-300"></div>
+          <.dm_mdi name="certificate-outline" class="w-4 h-4 text-base-content/20" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <.link navigate={~p"/pki/ca"} class="group">
+            <div class="border border-base-300 group-hover:border-primary group-hover:bg-primary/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="shield-key-outline" class="w-4 h-4 text-primary mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Cert Authorities
+              </p>
             </div>
-          </.dm_card>
-        </.link>
+          </.link>
+          <.link navigate={~p"/pki/certificates"} class="group">
+            <div class="border border-base-300 group-hover:border-primary group-hover:bg-primary/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="certificate" class="w-4 h-4 text-primary mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Certificates
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/pki/csr"} class="group">
+            <div class="border border-base-300 group-hover:border-primary group-hover:bg-primary/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="file-sign" class="w-4 h-4 text-primary mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                CSR
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/pki/search"} class="group">
+            <div class="border border-base-300 group-hover:border-primary group-hover:bg-primary/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="magnify" class="w-4 h-4 text-primary mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Search
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/pki/analytics"} class="group col-span-2">
+            <div class="border border-base-300 group-hover:border-primary group-hover:bg-primary/5 transition-all duration-150 rounded p-3 flex items-center gap-3">
+              <.dm_mdi name="chart-pie" class="w-4 h-4 text-primary opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content">
+                Analytics
+              </p>
+            </div>
+          </.link>
+        </div>
       </div>
-    </section>
+
+      <%!-- ── Caddy ─────────────────────────────────────────── --%>
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 pb-1 border-b border-base-300">
+          <div class="w-0.5 h-5 rounded-full bg-success"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-success/70 font-bold">
+            Caddy
+          </p>
+          <div class="flex-1 h-px bg-base-300"></div>
+          <.dm_mdi name="shield-check-outline" class="w-4 h-4 text-base-content/20" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <.link navigate={~p"/caddy"} class="group">
+            <div class="border border-base-300 group-hover:border-success group-hover:bg-success/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="view-dashboard-outline" class="w-4 h-4 text-success mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Dashboard
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/caddy/config"} class="group">
+            <div class="border border-base-300 group-hover:border-success group-hover:bg-success/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="text-box-outline" class="w-4 h-4 text-success mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Configuration
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/caddy/server"} class="group">
+            <div class="border border-base-300 group-hover:border-success group-hover:bg-success/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="cog-outline" class="w-4 h-4 text-success mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Server Control
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/caddy/metrics"} class="group">
+            <div class="border border-base-300 group-hover:border-success group-hover:bg-success/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="chart-bar" class="w-4 h-4 text-success mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Metrics
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/caddy/runtime"} class="group">
+            <div class="border border-base-300 group-hover:border-success group-hover:bg-success/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="play-circle-outline" class="w-4 h-4 text-success mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Runtime Config
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/caddy/logs"} class="group">
+            <div class="border border-base-300 group-hover:border-success group-hover:bg-success/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="file-search-outline" class="w-4 h-4 text-success mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Logs
+              </p>
+            </div>
+          </.link>
+        </div>
+      </div>
+
+      <%!-- ── AWS ─────────────────────────────────────────────── --%>
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 pb-1 border-b border-base-300">
+          <div class="w-0.5 h-5 rounded-full bg-warning"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-warning/70 font-bold">
+            AWS
+          </p>
+          <div class="flex-1 h-px bg-base-300"></div>
+          <.dm_mdi name="aws" class="w-4 h-4 text-base-content/20" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <.link navigate={~p"/aws/dynamo_db"} class="group">
+            <div class="border border-base-300 group-hover:border-warning group-hover:bg-warning/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="table-large" class="w-4 h-4 text-warning mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                DynamoDB
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/aws/route53/hosted_zones"} class="group">
+            <div class="border border-base-300 group-hover:border-warning group-hover:bg-warning/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="dns-outline" class="w-4 h-4 text-warning mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Route 53
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/aws/s3/buckets"} class="group col-span-2">
+            <div class="border border-base-300 group-hover:border-warning group-hover:bg-warning/5 transition-all duration-150 rounded p-3 flex items-center gap-3">
+              <.dm_mdi name="bucket-outline" class="w-4 h-4 text-warning opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content">
+                S3 Buckets
+              </p>
+            </div>
+          </.link>
+        </div>
+      </div>
+
+      <%!-- ── Storage ───────────────────────────────────────── --%>
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 pb-1 border-b border-base-300">
+          <div class="w-0.5 h-5 rounded-full bg-secondary"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-secondary/70 font-bold">
+            Storage
+          </p>
+          <div class="flex-1 h-px bg-base-300"></div>
+          <.dm_mdi name="folder-outline" class="w-4 h-4 text-base-content/20" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <.link navigate={~p"/storage"} class="group">
+            <div class="border border-base-300 group-hover:border-secondary group-hover:bg-secondary/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="folder-open-outline" class="w-4 h-4 text-secondary mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                File Browser
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/storage/upload"} class="group">
+            <div class="border border-base-300 group-hover:border-secondary group-hover:bg-secondary/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="cloud-upload-outline" class="w-4 h-4 text-secondary mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Upload
+              </p>
+            </div>
+          </.link>
+        </div>
+      </div>
+
+      <%!-- ── Cluster & Command ─────────────────────────────── --%>
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 pb-1 border-b border-base-300">
+          <div class="w-0.5 h-5 rounded-full bg-info"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-info/70 font-bold">
+            Cluster & Command
+          </p>
+          <div class="flex-1 h-px bg-base-300"></div>
+          <.dm_mdi name="server-network" class="w-4 h-4 text-base-content/20" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <.link navigate={~p"/node_management"} class="group">
+            <div class="border border-base-300 group-hover:border-info group-hover:bg-info/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="server-outline" class="w-4 h-4 text-info mb-1 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Nodes
+              </p>
+              <p class="font-mono text-[10px] text-info/70 mt-0.5">
+                {Node.list() |> length() |> to_string()} connected
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/command_platform"} class="group">
+            <div class="border border-base-300 group-hover:border-info group-hover:bg-info/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="console" class="w-4 h-4 text-info mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Commander
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/mnesia"} class="group">
+            <div class="border border-base-300 group-hover:border-info group-hover:bg-info/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="database-outline" class="w-4 h-4 text-info mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Mnesia
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/live_dashboard"} class="group">
+            <div class="border border-base-300 group-hover:border-info group-hover:bg-info/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="monitor-dashboard" class="w-4 h-4 text-info mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Live Dashboard
+              </p>
+            </div>
+          </.link>
+        </div>
+      </div>
+
+      <%!-- ── Content & Tools ─────────────────────────────────── --%>
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 pb-1 border-b border-base-300">
+          <div class="w-0.5 h-5 rounded-full bg-accent"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-accent/70 font-bold">
+            Content & Tools
+          </p>
+          <div class="flex-1 h-px bg-base-300"></div>
+          <.dm_mdi name="tools" class="w-4 h-4 text-base-content/20" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <.link navigate={~p"/blogs"} class="group">
+            <div class="border border-base-300 group-hover:border-accent group-hover:bg-accent/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="post-outline" class="w-4 h-4 text-accent mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                Blog Posts
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/github"} class="group">
+            <div class="border border-base-300 group-hover:border-accent group-hover:bg-accent/5 transition-all duration-150 rounded p-3">
+              <.dm_mdi name="github" class="w-4 h-4 text-accent mb-2 opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
+                GitHub
+              </p>
+            </div>
+          </.link>
+          <.link navigate={~p"/bumblebee/stt"} class="group col-span-2">
+            <div class="border border-base-300 group-hover:border-accent group-hover:bg-accent/5 transition-all duration-150 rounded p-3 flex items-center gap-3">
+              <.dm_mdi name="microphone-outline" class="w-4 h-4 text-accent opacity-70 group-hover:opacity-100" />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content">
+                Bumblebee STT
+              </p>
+            </div>
+          </.link>
+        </div>
+      </div>
+    </div>
+
+    <%!-- ── Footer bar ──────────────────────────────────────────────── --%>
+    <div class="relative z-10 border-t border-base-300 px-8 py-4 mt-4">
+      <div class="max-w-screen-2xl mx-auto flex items-center justify-between">
+        <p class="font-mono text-[9px] tracking-[0.4em] uppercase text-base-content/20">
+          GSMLG Admin Terminal
+        </p>
+        <p class="font-mono text-[9px] tracking-[0.4em] uppercase text-base-content/20">
+          V9 · SECURED · GSMLG
+        </p>
+      </div>
+    </div>
   </div>
 </Layouts.app>
