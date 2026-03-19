@@ -78,7 +78,6 @@ defmodule GSMLG.Web.Router do
     get("/toolbox/svg2react", ToolboxController, :svg2react)
     post("/toolbox/svg2react", ToolboxController, :svg2react_convert)
     get("/toolbox/svg_autocrop", ToolboxController, :svg_autocrop)
-    post("/toolbox/svg_autocrop", ToolboxController, :svg_autocrop_convert)
     get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer)
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap)
     get("/toolbox/screensaver", ToolboxController, :screensaver)

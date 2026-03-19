@@ -82,15 +82,6 @@ defmodule GSMLG.Web.ToolboxController do
     render(conn, :svg_autocrop, title: dgettext("toolbox", "SVG Autocrop"))
   end
 
-  def svg_autocrop_convert(conn, %{"code" => code} = _params) do
-    case GSMLG.SVG_Autocrop.convert(%{"code" => code}) do
-      {:ok, result} ->
-        conn |> json(%{data: result})
-
-      {:error, error} ->
-        conn |> put_status(422) |> json(%{error: error})
-    end
-  end
 
   def mac_manufacturer(conn, _params) do
     render(conn, :mac_manufacturer, title: dgettext("toolbox", "MAC Manufacturer"))
