@@ -6,7 +6,7 @@ defmodule GSMLG.Storage.ContentType do
 
   @doc """
   Detects content type from binary data using magic byte signatures.
-  Returns `{:ok, mime_type}` or `{:error, :unknown_type}`.
+  Returns `{:ok, mime_type}`. Falls back to `"application/octet-stream"` for unknown types.
   """
   def detect(<<0xFF, 0xD8, 0xFF, _::binary>>), do: {:ok, "image/jpeg"}
 

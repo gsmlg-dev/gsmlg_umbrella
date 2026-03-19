@@ -12,9 +12,8 @@ defmodule GSMLG.Storage.S3Client do
   """
   def put_object(bucket, key, data, content_type) do
     case GSMLG.AWS.S3.put_object(bucket, key, data, content_type) do
-      :ok -> :ok
+      {:ok, _} -> :ok
       {:error, _} = error -> error
-      _ -> :ok
     end
   end
 

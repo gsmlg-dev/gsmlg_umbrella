@@ -18,7 +18,6 @@ defmodule GSMLG.Storage do
   Accepts:
   - `%Plug.Upload{}` struct
   - File path (string)
-  - Raw binary
   - `{filename, binary}` tuple
 
   ## Options
@@ -228,14 +227,9 @@ defmodule GSMLG.Storage do
   end
 
   defp normalize_input(path) when is_binary(path) do
-    if File.exists?(path) do
-      case File.read(path) do
-        {:ok, data} -> {:ok, Path.basename(path), data}
-        {:error, reason} -> {:error, {:file_read_error, reason}}
-      end
-    else
-      # Treat as raw binary with a generated filename
-      {:ok, "upload_#{System.unique_integer([:positive])}", path}
+    case File.read(path) do
+      {:ok, data} -> {:ok, Path.basename(path), data}
+      {:error, reason} -> {:error, {:file_read_error, reason}}
     end
   end
 
@@ -291,6 +285,12 @@ defmodule GSMLG.Storage do
     end
   end
 
+  defp content_type_for_format("webp", _original), do: "image/webp"
+  defp content_type_for_format("png", _original), do: "image/png"
+  defp content_type_for_format("jpeg", _original), do: "image/jpeg"
+  defp content_type_for_format("jpg", _original), do: "image/jpeg"
+  defp content_type_for_format(_no_conversion, original), do: original
+
   defp maybe_generate_variants(%StorageFile{content_type: ct} = file) do
     if ContentType.image?(ct) do
       Task.Supervisor.start_child(GSMLG.TaskSupervisor, fn ->
@@ -312,7 +312,7 @@ defmodule GSMLG.Storage do
                   opts[:format] || extension_from_content_type(file.content_type, file.filename)
 
                 variant_key = String.replace(file.s3_key, ~r/\.[^.]+$/, "_#{name}.#{variant_ext}")
-                variant_ct = if opts[:format] == "webp", do: "image/webp", else: file.content_type
+                variant_ct = content_type_for_format(opts[:format], file.content_type)
 
                 case S3Client.put_object(bucket(), variant_key, processed_data, variant_ct) do
                   :ok ->
@@ -366,8 +366,14 @@ defmodule GSMLG.Storage do
   defp filter_by_search(query, ""), do: query
 
   defp filter_by_search(query, search) do
-    search = "%#{search}%"
-    where(query, [f], ilike(f.filename, ^search))
+    escaped =
+      search
+      |> String.replace("\\", "\\\\")
+      |> String.replace("%", "\\%")
+      |> String.replace("_", "\\_")
+
+    pattern = "%#{escaped}%"
+    where(query, [f], ilike(f.filename, ^pattern))
   end
 
   # --- Configuration ---
