@@ -41,6 +41,10 @@ defmodule GSMLG.Web.Router do
     plug(:accepts, ["json"])
   end
 
+  pipeline :static_file do
+    plug(:put_secure_browser_headers)
+  end
+
   scope "/auth", GSMLG.Web do
     pipe_through :browser
 
@@ -56,6 +60,14 @@ defmodule GSMLG.Web.Router do
     post "/", MagicLinkController, :create
     get "/sent", MagicLinkController, :sent
     get "/confirm", MagicLinkController, :confirm
+  end
+
+  # Public file serving - minimal pipeline, no auth/session/CSRF needed
+  scope "/files", GSMLG.Web do
+    pipe_through(:static_file)
+
+    get("/:id", FileController, :show)
+    get("/:id/v/:variant", FileController, :variant)
   end
 
   scope "/", GSMLG.Web do

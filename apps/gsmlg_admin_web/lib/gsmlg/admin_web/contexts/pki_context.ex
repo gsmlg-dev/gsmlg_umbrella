@@ -267,13 +267,17 @@ defmodule GSMLG.AdminWeb.PKIContext do
 
   # Helper to parse private key DER
   defp parse_private_key(der) do
-    Enum.find_value([:RSAPrivateKey, :DSAPrivateKey, :ECPrivateKey], {:error, :invalid_key}, fn type ->
-      try do
-        {:ok, :public_key.der_decode(type, der)}
-      rescue
-        _ -> nil
+    Enum.find_value(
+      [:RSAPrivateKey, :DSAPrivateKey, :ECPrivateKey],
+      {:error, :invalid_key},
+      fn type ->
+        try do
+          {:ok, :public_key.der_decode(type, der)}
+        rescue
+          _ -> nil
+        end
       end
-    end)
+    )
   end
 
   # Convert hex serial string to integer

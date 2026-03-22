@@ -1,0 +1,148 @@
+<Layouts.storage flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+  <div class="p-6 max-w-2xl mx-auto flex flex-col gap-6">
+    <%!-- ── Header ─────────────────────────────────────────────────── --%>
+    <div>
+      <p class="font-mono text-[9px] tracking-[0.5em] uppercase text-secondary/50">
+        Storage · S3
+      </p>
+      <h1 class="font-mono text-xl font-bold text-base-content tracking-tight">
+        Configuration
+      </h1>
+    </div>
+
+    <.form
+      for={@form}
+      phx-change="validate"
+      phx-submit="save"
+      class="flex flex-col gap-6"
+    >
+      <%!-- ── S3 Connection ─────────────────────────────────────────── --%>
+      <section class="border border-base-300 rounded-lg overflow-hidden">
+        <div class="flex items-center gap-3 px-5 py-3 border-b border-base-300 bg-base-200/40">
+          <div class="w-0.5 h-4 rounded-full bg-warning"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-warning/70 font-bold">
+            S3 Connection
+          </p>
+          <.dm_mdi name="bucket-outline" class="w-4 h-4 text-base-content/20 ml-auto" />
+        </div>
+        <div class="divide-y divide-base-300 px-5">
+          <div class="py-4 flex flex-col gap-1">
+            <label class="font-mono text-[10px] tracking-widest uppercase text-base-content/50">
+              Bucket Name
+            </label>
+            <.dm_input field={@form[:s3_bucket]} placeholder="gsmlg-storage" class="w-full" />
+          </div>
+          <div class="py-4 flex flex-col gap-1">
+            <label class="font-mono text-[10px] tracking-widest uppercase text-base-content/50">
+              Endpoint
+              <span class="normal-case tracking-normal text-base-content/30 ml-1">
+                (optional — leave blank for AWS)
+              </span>
+            </label>
+            <.dm_input
+              field={@form[:s3_endpoint]}
+              placeholder="https://s3.example.com"
+              class="w-full"
+            />
+          </div>
+          <div class="py-4 flex flex-col gap-1">
+            <label class="font-mono text-[10px] tracking-widest uppercase text-base-content/50">
+              Region
+            </label>
+            <.dm_input field={@form[:s3_region]} placeholder="us-east-1" class="w-full" />
+          </div>
+        </div>
+      </section>
+
+      <%!-- ── AWS Credentials ──────────────────────────────────────────── --%>
+      <section class="border border-base-300 rounded-lg overflow-hidden">
+        <div class="flex items-center gap-3 px-5 py-3 border-b border-base-300 bg-base-200/40">
+          <div class="w-0.5 h-4 rounded-full bg-primary"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-primary/70 font-bold">
+            Credentials
+          </p>
+          <.dm_mdi name="key-outline" class="w-4 h-4 text-base-content/20 ml-auto" />
+        </div>
+        <div class="divide-y divide-base-300 px-5">
+          <div class="py-4 flex flex-col gap-1">
+            <label class="font-mono text-[10px] tracking-widest uppercase text-base-content/50">
+              Access Key ID
+            </label>
+            <.dm_input
+              field={@form[:s3_access_key_id]}
+              placeholder="AKIAIOSFODNN7EXAMPLE"
+              class="w-full"
+            />
+          </div>
+          <div class="py-4 flex flex-col gap-1">
+            <label class="font-mono text-[10px] tracking-widest uppercase text-base-content/50">
+              Secret Access Key
+            </label>
+            <.dm_input
+              field={@form[:s3_secret_access_key]}
+              type="password"
+              placeholder="••••••••••••••••••••••••••••••••••••••••"
+              class="w-full"
+            />
+          </div>
+        </div>
+      </section>
+
+      <%!-- ── Limits & Retention ─────────────────────────────────────── --%>
+      <section class="border border-base-300 rounded-lg overflow-hidden">
+        <div class="flex items-center gap-3 px-5 py-3 border-b border-base-300 bg-base-200/40">
+          <div class="w-0.5 h-4 rounded-full bg-secondary"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-secondary/70 font-bold">
+            Limits & Retention
+          </p>
+          <.dm_mdi name="tune" class="w-4 h-4 text-base-content/20 ml-auto" />
+        </div>
+        <div class="divide-y divide-base-300 px-5">
+          <div class="py-4 flex flex-col gap-1">
+            <label class="font-mono text-[10px] tracking-widest uppercase text-base-content/50">
+              Max File Size
+              <span class="normal-case tracking-normal text-base-content/30 ml-1">(bytes)</span>
+            </label>
+            <.dm_input
+              field={@form[:max_file_size]}
+              type="number"
+              placeholder="5368709120"
+              class="w-full"
+            />
+          </div>
+          <div class="py-4 flex flex-col gap-1">
+            <label class="font-mono text-[10px] tracking-widest uppercase text-base-content/50">
+              Cleanup Interval
+              <span class="normal-case tracking-normal text-base-content/30 ml-1">(ms)</span>
+            </label>
+            <.dm_input
+              field={@form[:cleanup_interval]}
+              type="number"
+              placeholder="3600000"
+              class="w-full"
+            />
+          </div>
+          <div class="py-4 flex flex-col gap-1">
+            <label class="font-mono text-[10px] tracking-widest uppercase text-base-content/50">
+              Retention Window
+              <span class="normal-case tracking-normal text-base-content/30 ml-1">(seconds)</span>
+            </label>
+            <.dm_input
+              field={@form[:retention_window]}
+              type="number"
+              placeholder="2592000"
+              class="w-full"
+            />
+          </div>
+        </div>
+      </section>
+
+      <%!-- ── Actions ───────────────────────────────────────────────── --%>
+      <div class="flex justify-end">
+        <.dm_btn type="submit" variant="primary">
+          <.dm_mdi name="content-save-outline" class="w-4 h-4" /> Save Configuration
+        </.dm_btn>
+      </div>
+    </.form>
+  </div>
+</Layouts.storage>
