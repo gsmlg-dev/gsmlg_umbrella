@@ -170,7 +170,7 @@ defmodule GSMLG.Storage do
       total: total,
       page: page,
       page_size: page_size,
-      total_pages: ceil(total / page_size)
+      total_pages: max(1, ceil(total / page_size))
     }
   end
 
@@ -274,7 +274,13 @@ defmodule GSMLG.Storage do
   - `delete_folder(tenant, type, year, month)` — soft-deletes only those files (no
     folder record removed since year/month nodes are file-derived).
   """
-  def delete_folder(tenant, type \\ nil, year \\ nil, month \\ nil) do
+  def delete_folder(tenant, type \\ nil, year \\ nil, month \\ nil)
+
+  def delete_folder(_tenant, _type, nil, month) when not is_nil(month) do
+    {:error, :month_requires_year}
+  end
+
+  def delete_folder(tenant, type, year, month) do
     Repo.transaction(fn ->
       # Soft-delete matching files
       query =
@@ -582,6 +588,7 @@ defmodule GSMLG.Storage do
 
   defp apply_config(config) do
     if config.s3_bucket, do: Application.put_env(:gsmlg_storage, :s3_bucket, config.s3_bucket)
+    if config.s3_endpoint, do: Application.put_env(:gsmlg_storage, :s3_endpoint, config.s3_endpoint)
     if config.s3_region, do: System.put_env("AWS_REGION", config.s3_region)
 
     if config.s3_access_key_id,

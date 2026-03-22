@@ -10,7 +10,12 @@ defmodule GSMLG.AdminWeb.StorageLive.Config do
      socket
      |> assign(page_title: "Storage — S3 Configuration")
      |> assign(active_menu: "storage_config")
-     |> assign_form()}
+     |> assign(config: nil, form: nil)}
+  end
+
+  @impl true
+  def handle_params(_params, _uri, socket) do
+    {:noreply, assign_form(socket)}
   end
 
   @impl true

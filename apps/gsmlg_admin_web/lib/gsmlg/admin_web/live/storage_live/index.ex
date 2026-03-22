@@ -25,22 +25,12 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
 
   @impl true
   def handle_params(params, _url, socket) do
-    page = String.to_integer(params["page"] || "1")
+    page = parse_int(params["page"], 1)
     tenant = params["tenant"]
     type = params["type"]
     search = params["search"]
-
-    year =
-      case params["year"] do
-        nil -> nil
-        y -> String.to_integer(y)
-      end
-
-    month =
-      case params["month"] do
-        nil -> nil
-        m -> String.to_integer(m)
-      end
+    year = parse_int(params["year"], nil)
+    month = parse_int(params["month"], nil)
 
     socket =
       socket
@@ -152,8 +142,8 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
         socket
       ) do
     type = params["type"]
-    year = params["year"] && String.to_integer(params["year"])
-    month = params["month"] && String.to_integer(params["month"])
+    year = parse_int(params["year"], nil)
+    month = parse_int(params["month"], nil)
 
     case Storage.delete_folder(tenant, type, year, month) do
       {:ok, _} ->
@@ -183,6 +173,19 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
       month: Keyword.get(overrides, :month, assigns.month_filter),
       page: Keyword.get(overrides, :page, assigns.page)
     }
-    |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" or v == 1 end)
+    |> Enum.reject(fn
+      {:page, 1} -> true
+      {_k, v} -> is_nil(v) or v == ""
+    end)
+  end
+
+  defp parse_int(nil, default), do: default
+  defp parse_int("", default), do: default
+
+  defp parse_int(str, default) do
+    case Integer.parse(str) do
+      {n, ""} -> n
+      _ -> default
+    end
   end
 end

@@ -5,9 +5,10 @@ defmodule GSMLG.Storage.Application do
 
   @impl true
   def start(_type, _args) do
-    # Load S3 config from DB into Application env at startup.
-    # gsmlg (and thus Repo) starts before gsmlg_storage so this is safe.
-    Task.start(fn -> GSMLG.Storage.load_config_from_db() end)
+    # Load S3 config from DB into Application env synchronously before
+    # starting children so CleanupWorker sees the correct credentials/intervals.
+    # gsmlg (and thus Repo) starts before gsmlg_storage, so Repo is ready.
+    GSMLG.Storage.load_config_from_db()
 
     children = [
       GSMLG.Storage.CleanupWorker

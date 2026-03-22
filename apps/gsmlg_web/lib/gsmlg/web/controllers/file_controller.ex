@@ -58,7 +58,7 @@ defmodule GSMLG.Web.FileController do
           conn
           |> put_resp_header("content-type", content_type)
           |> put_resp_header("content-length", to_string(byte_size(data)))
-          |> put_resp_header("content-disposition", "inline")
+          |> put_resp_header("content-disposition", content_disposition(content_type))
           |> put_resp_header("cache-control", @cache_control)
           |> then(fn c -> if etag, do: put_resp_header(c, "etag", etag), else: c end)
           |> send_resp(200, data)
@@ -68,6 +68,14 @@ defmodule GSMLG.Web.FileController do
       end
     end
   end
+
+  # SVG and HTML can execute scripts when served inline — force download.
+  @unsafe_inline_types ~w(image/svg+xml text/html application/xhtml+xml)
+
+  defp content_disposition(content_type) when content_type in @unsafe_inline_types,
+    do: "attachment"
+
+  defp content_disposition(_), do: "inline"
 
   defp match_etag?(conn, etag) do
     case get_req_header(conn, "if-none-match") do
