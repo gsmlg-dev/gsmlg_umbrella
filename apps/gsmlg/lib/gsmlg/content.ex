@@ -174,11 +174,13 @@ defmodule GSMLG.Content do
       {:ok, count}
     end)
     |> Ecto.Multi.run(:jobs, fn _repo, %{blog: updated_blog} ->
-      # Re-enqueue jobs for outdated (non-manually_edited) translations
+      # Re-enqueue jobs for outdated (non-manually_edited) translations,
+      # excluding any translation whose locale matches the new source_locale.
       outdated_translations =
         from(t in BlogTranslation,
           where: t.blog_id == ^updated_blog.id and t.status == "outdated",
-          where: t.manually_edited == false
+          where: t.manually_edited == false,
+          where: t.locale != ^updated_blog.source_locale
         )
         |> Repo.all()
 

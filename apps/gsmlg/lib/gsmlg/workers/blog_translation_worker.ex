@@ -59,13 +59,15 @@ defmodule GSMLG.Workers.BlogTranslationWorker do
 
     case provider.translate(blog.title, blog.content, source_locale, locale) do
       {:ok, %{title: translated_title, content: translated_content}} ->
-        {:ok, _} = Content.complete_translation(translation, translated_title, translated_content)
+        {:ok, completed} = Content.complete_translation(translation, translated_title, translated_content)
 
-        Phoenix.PubSub.broadcast(
-          GSMLG.PubSub,
-          "blog_translations:#{blog.id}",
-          {:translation_updated, blog.id, locale, "completed"}
-        )
+        if completed.status == "completed" do
+          Phoenix.PubSub.broadcast(
+            GSMLG.PubSub,
+            "blog_translations:#{blog.id}",
+            {:translation_updated, blog.id, locale, "completed"}
+          )
+        end
 
         {:ok, :translated}
 

@@ -45,7 +45,7 @@ defmodule GSMLG.Content.BlogImport do
     case Repo.transaction(fn ->
            Enum.each(Jason.decode!(data), fn blog ->
              case %Blog{}
-                  |> Blog.changeset(blog)
+                  |> Blog.import_changeset(blog)
                   |> Repo.insert(on_conflict: :replace_all, conflict_target: :id) do
                {:ok, _} -> :ok
                {:error, err} -> Repo.rollback(err)
