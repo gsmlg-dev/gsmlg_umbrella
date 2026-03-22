@@ -135,19 +135,30 @@ Hybrid rendering: Phoenix LiveView for most pages, React components via `phoenix
 
 ### UI Framework: Duskmoon
 
-This project uses two Duskmoon packages for all UI:
+This project uses the DuskMoon UI system for all UI.
 
-- **`@duskmoon-dev/core`** (npm) — Tailwind CSS plugin providing design tokens, utility classes, and component styles.
-- **`phoenix_duskmoon`** (hex, `~> 9.0`) — Phoenix function components with the `.dm_` prefix (`dm_form`, `dm_input`, `dm_btn`, `dm_table`, `dm_modal`, etc.). Used in `gsmlg_web` and `gsmlg_admin_web`.
+## UI Library
 
-**Upstream repositories:**
-- CSS: [duskmoon-dev/duskmoonui](https://github.com/duskmoon-dev/duskmoonui)
-- Elements: [duskmoon-dev/duskmoon-elements](https://github.com/duskmoon-dev/duskmoon-elements)
-- Components: [duskmoon-dev/phoenix-duskmoon-ui](https://github.com/duskmoon-dev/phoenix-duskmoon-ui)
+This project uses the DuskMoon UI system:
 
-**`phoenix_duskmoon` wraps `@duskmoon-dev/elements`** — the Elixir components render the custom elements from the elements package. Bugs or missing features may originate in any layer (CSS, elements, or Phoenix components).
+- **`phoenix_duskmoon`** — Phoenix LiveView UI component library (primary web UI)
+- **`@duskmoon-dev/core`** — Core Tailwind CSS plugin and utilities
+- **`@duskmoon-dev/css-art`** — CSS art utilities
+- **`@duskmoon-dev/elements`** — Base web components
+- **`@duskmoon-dev/art-elements`** — Art/decorative web components
 
-**When any Duskmoon package has a bug or lacks a feature we need:** file an issue on the appropriate repo above (CSS issues → duskmoonui, element issues → duskmoon-elements, component issues → phoenix-duskmoon-ui) with the label `internal request`. Do NOT work around missing functionality locally without first filing the upstream issue.
+Do NOT use DaisyUI or other CSS component libraries. Do NOT use `core_components.ex` — use `phoenix_duskmoon` components instead.
+Use `@duskmoon-dev/core/plugin` as the Tailwind CSS plugin.
+
+### Reporting issues or feature requests
+
+If you encounter missing features, bugs, or need functionality not yet available in any DuskMoon package, open a GitHub issue in the appropriate repository with the label `internal request`:
+
+- **`phoenix_duskmoon`** — https://github.com/gsmlg-dev/phoenix_duskmoon/issues
+- **`@duskmoon-dev/core`** — https://github.com/gsmlg-dev/duskmoon-dev/issues
+- **`@duskmoon-dev/css-art`** — https://github.com/gsmlg-dev/duskmoon-dev/issues
+- **`@duskmoon-dev/elements`** — https://github.com/gsmlg-dev/duskmoon-dev/issues
+- **`@duskmoon-dev/art-elements`** — https://github.com/gsmlg-dev/duskmoon-dev/issues
 
 ## Critical Gotchas
 

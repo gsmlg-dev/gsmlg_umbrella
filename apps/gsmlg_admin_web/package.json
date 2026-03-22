@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
+    "@duskmoon-dev/core": "1.13.0",
+    "@duskmoon-dev/css-art": "1.13.0",
     "@duskmoon-dev/el-markdown-input": "^0.11.0",
     "@duskmoon-dev/elements": "0.7.1",
     "@uiw/react-markdown-preview": "^5.1.4",

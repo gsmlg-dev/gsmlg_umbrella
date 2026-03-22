@@ -42,6 +42,10 @@ defmodule GSMLG.Config.Setup do
       setup_caddy(config[:caddy])
     end
 
+    if config[:storage] != nil do
+      setup_storage(config[:storage])
+    end
+
     if config[:i18n] != nil do
       setup_i18n(config[:i18n])
     end
@@ -203,6 +207,24 @@ defmodule GSMLG.Config.Setup do
     Application.put_env(:caddy, :mode, String.to_atom(config[:mode] || "external"))
     Application.put_env(:caddy, :admin_url, config[:admin_url])
     Application.put_env(:caddy, :health_interval, config[:health_interval])
+  end
+
+  def setup_storage(config) do
+    if config[:s3_bucket] != nil do
+      Application.put_env(:gsmlg_storage, :s3_bucket, config[:s3_bucket])
+    end
+
+    if config[:max_file_size] != nil do
+      Application.put_env(:gsmlg_storage, :max_file_size, config[:max_file_size])
+    end
+
+    if config[:cleanup_interval] != nil do
+      Application.put_env(:gsmlg_storage, :cleanup_interval, config[:cleanup_interval])
+    end
+
+    if config[:retention_window] != nil do
+      Application.put_env(:gsmlg_storage, :retention_window, config[:retention_window])
+    end
   end
 
   def update_env(app, key, new_value) do

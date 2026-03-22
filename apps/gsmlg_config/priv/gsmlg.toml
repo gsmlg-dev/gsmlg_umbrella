@@ -43,6 +43,12 @@ mode = "external"
 admin_url = "http://127.0.0.1:2019"
 health_interval = 15000
 
+[storage]
+s3_bucket = "gsmlg-storage"
+max_file_size = 5368709120
+cleanup_interval = 3600000
+retention_window = 2592000
+
 [i18n]
 default_locale = "zh-Hans"
 

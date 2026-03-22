@@ -1,55 +1,76 @@
 <Layouts.auth flash={@flash}>
-  <div class="flex flex-col gap-6">
+  <div class="flex flex-col gap-8 si-panel">
     <%!-- Header --%>
-    <div class="space-y-1">
-      <p class="font-mono text-[10px] tracking-[0.35em] uppercase text-primary opacity-60">
-        AUTHENTICATE
-      </p>
-      <h2 class="font-mono text-2xl font-bold text-base-content">
-        Sign in
+    <div class="si-header">
+      <p class="si-eyebrow">⬡ SYSTEM AUTHENTICATION</p>
+      <h2 class="si-title">
+        Sign in<span class="si-cursor" aria-hidden="true"></span>
       </h2>
-      <p class="text-sm text-base-content opacity-40">
-        Enter your credentials to continue.
-      </p>
+      <p class="si-subtitle">Credentials required to proceed.</p>
     </div>
 
     <%!-- Form --%>
-    <.dm_form
+    <.form
       :let={f}
       for={@changeset}
-      id="user-form"
       action={~p"/sign_in"}
-      class="flex flex-col gap-4 w-full"
+      class="flex flex-col gap-5"
     >
-      <.dm_input
-        field={f[:username]}
-        type="text"
-        label="Username"
-        variant="bordered"
-        class="w-full"
-      />
-      <.dm_input
-        field={f[:password]}
-        type="password"
-        label="Password"
-        variant="bordered"
-        class="w-full"
-      />
-      <:actions>
-        <.dm_btn type="submit" variant="primary" class="w-full mt-1">
-          Sign in →
-        </.dm_btn>
-      </:actions>
-    </.dm_form>
+      <%!-- Username --%>
+      <div class="si-field">
+        <label for={f[:username].id} class="si-label">USERNAME</label>
+        <div class="si-input-wrap">
+          <span class="si-prompt" aria-hidden="true">›</span>
+          <input
+            id={f[:username].id}
+            type="text"
+            name={f[:username].name}
+            value={f[:username].value || ""}
+            class="si-input"
+            autocomplete="username"
+            autofocus
+          />
+        </div>
+        <%= for {msg, _} <- f[:username].errors do %>
+          <p class="si-err">{msg}</p>
+        <% end %>
+      </div>
 
-    <%!-- Divider + sign-up link --%>
-    <.dm_divider>OR</.dm_divider>
+      <%!-- Password --%>
+      <div class="si-field">
+        <label for={f[:password].id} class="si-label">PASSWORD</label>
+        <div class="si-input-wrap">
+          <span class="si-prompt" aria-hidden="true">›</span>
+          <input
+            id={f[:password].id}
+            type="password"
+            name={f[:password].name}
+            class="si-input"
+            autocomplete="current-password"
+          />
+        </div>
+        <%= for {msg, _} <- f[:password].errors do %>
+          <p class="si-err">{msg}</p>
+        <% end %>
+      </div>
 
-    <.link
-      class="btn btn-ghost w-full border border-base-300 font-mono text-xs tracking-wider"
-      navigate={~p"/sign_up"}
-    >
+      <%!-- Submit --%>
+      <button type="submit" class="si-btn">
+        <span class="si-btn-label">AUTHENTICATE</span>
+        <span class="si-btn-arrow" aria-hidden="true">→</span>
+        <span class="si-btn-shimmer" aria-hidden="true"></span>
+      </button>
+    </.form>
+
+    <%!-- Divider --%>
+    <div class="si-divider">
+      <div class="si-divider-line"></div>
+      <span class="si-divider-text">OR</span>
+      <div class="si-divider-line"></div>
+    </div>
+
+    <a href={~p"/sign_up"} class="si-alt-btn">
       Create an account
-    </.link>
+    </a>
   </div>
 </Layouts.auth>

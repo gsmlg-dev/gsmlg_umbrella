@@ -7,3 +7,8 @@ jsxFactory = "h"
 jsxFragment = "Fragment"
 jsxImportSource = "react"
 
+[install]
+optional = true
+
+[workspaces]
+packages = ["apps/*"]
