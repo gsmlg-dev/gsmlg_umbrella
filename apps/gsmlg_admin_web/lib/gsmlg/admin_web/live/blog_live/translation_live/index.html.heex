@@ -8,15 +8,30 @@
       <div>
         <.link navigate={~p"/blogs/#{@blog.id}"}>
           <.dm_btn size="sm" variant="ghost">
-            &larr; Back to <%= @blog.title %>
+            &larr; Back to {@blog.title}
           </.dm_btn>
         </.link>
       </div>
     </div>
 
-    <p class="text-sm text-base-content/60">
-      Source locale: <strong><%= @blog.source_locale %></strong>
-    </p>
+    <div class="flex flex-col gap-2">
+      <form
+        id="correct-source-locale-form"
+        phx-submit="correct_source_locale"
+        class="flex items-center gap-3"
+      >
+        <label class="text-sm text-base-content/60">Source locale:</label>
+        <select name="locale" id="source-locale-select" class="select select-sm select-bordered">
+          <%= for locale <- GSMLG.Locale.supported() do %>
+            <option value={locale} selected={locale == @blog.source_locale}>{locale}</option>
+          <% end %>
+        </select>
+        <.dm_btn type="submit" size="sm" variant="outline">Save</.dm_btn>
+      </form>
+      <p class="text-xs text-warning">
+        Changing source locale will mark all auto-generated translations as outdated
+      </p>
+    </div>
 
     <.dm_table
       id="translation-table"
@@ -24,19 +39,19 @@
       data={Enum.map(@locales, fn locale -> {locale, Map.get(@translations, locale)} end)}
     >
       <:col :let={{locale, _t}} label="Locale">
-        <span class="font-mono text-sm"><%= locale %></span>
+        <span class="font-mono text-sm">{locale}</span>
       </:col>
       <:col :let={{_locale, t}} label="Title">
-        <%= if t && t.status == "completed", do: t.title, else: "—" %>
+        {if t && t.status == "completed", do: t.title, else: "—"}
       </:col>
       <:col :let={{_locale, t}} label="Status">
         <.dm_badge :if={t} class={status_class(t.status)}>
-          <%= t.status %>
+          {t.status}
         </.dm_badge>
         <.dm_badge :if={!t}>not started</.dm_badge>
       </:col>
       <:col :let={{_locale, t}} label="Manually Edited">
-        <%= if t && t.manually_edited, do: "Yes", else: "No" %>
+        {if t && t.manually_edited, do: "Yes", else: "No"}
       </:col>
       <:col :let={{locale, t}} label="Actions">
         <div class="flex gap-2">
@@ -82,8 +97,12 @@
     <%!-- Inline edit form — shown below the table when editing --%>
     <%= for {_locale, t} <- @translations, t != nil, @editing_translation_id == t.id do %>
       <div class="border rounded p-4 bg-base-200">
-        <h3 class="font-semibold mb-3">Edit Translation (<%= t.locale %>)</h3>
-        <form id={"translation-edit-form-#{t.id}"} phx-submit="save_translation" class="flex flex-col gap-4">
+        <h3 class="font-semibold mb-3">Edit Translation ({t.locale})</h3>
+        <form
+          id={"translation-edit-form-#{t.id}"}
+          phx-submit="save_translation"
+          class="flex flex-col gap-4"
+        >
           <div>
             <label class="label">Title</label>
             <input type="text" name="title" value={t.title} class="input input-bordered w-full" />
@@ -94,7 +113,9 @@
           </div>
           <div class="flex gap-2">
             <.dm_btn type="submit" size="sm" variant="primary">Save</.dm_btn>
-            <.dm_btn type="button" phx-click="cancel_edit" size="sm" variant="outline">Cancel</.dm_btn>
+            <.dm_btn type="button" phx-click="cancel_edit" size="sm" variant="outline">
+              Cancel
+            </.dm_btn>
           </div>
         </form>
       </div>

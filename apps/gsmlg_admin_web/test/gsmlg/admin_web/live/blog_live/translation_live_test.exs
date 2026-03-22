@@ -73,6 +73,31 @@ defmodule GSMLG.AdminWeb.BlogLive.TranslationLiveTest do
     end
   end
 
+  describe "correct_source_locale event" do
+    setup do
+      blog = blog_fixture(%{source_locale: "zh-Hans"})
+      %{blog: blog}
+    end
+
+    test "renders the source locale correction select element", %{conn: conn, blog: blog} do
+      {:ok, _view, html} = live(conn, ~p"/blogs/#{blog.id}/translations")
+
+      assert html =~ "source-locale-select"
+      assert html =~ "correct-source-locale-form"
+    end
+
+    test "correct_source_locale event updates blog source_locale", %{conn: conn, blog: blog} do
+      {:ok, view, _html} = live(conn, ~p"/blogs/#{blog.id}/translations")
+
+      view
+      |> form("#correct-source-locale-form")
+      |> render_submit(%{locale: "en"})
+
+      updated = GSMLG.Content.get_blog!(blog.id)
+      assert updated.source_locale == "en"
+    end
+  end
+
   describe "admin_edit event" do
     setup do
       blog = blog_fixture(%{source_locale: "zh-Hans"})

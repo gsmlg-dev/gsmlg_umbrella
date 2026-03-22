@@ -2,13 +2,25 @@ defmodule GSMLG.Translation.ClaudeProvider do
   @moduledoc """
   Claude AI translation provider implementing the `GSMLG.Translation.Provider` behaviour.
 
-  This provider calls the configured AI API to translate blog content.
-  Configure the API endpoint via Application config:
+  This provider calls the Anthropic Messages API to translate blog content.
+  Configure via Application config:
 
       config :gsmlg, :claude_api_key, "your-api-key"
+      config :gsmlg, :claude_translation_model, "claude-haiku-4-5-20251001"  # optional
   """
 
   @behaviour GSMLG.Translation.Provider
+
+  @locale_names %{
+    "zh-Hans" => "Simplified Chinese",
+    "zh-Hant" => "Traditional Chinese",
+    "en" => "English",
+    "fr" => "French",
+    "es" => "Spanish",
+    "de" => "German",
+    "it" => "Italian",
+    "ja" => "Japanese"
+  }
 
   @impl true
   def translate(title, content, source_locale, target_locale) do
@@ -21,10 +33,75 @@ defmodule GSMLG.Translation.ClaudeProvider do
     end
   end
 
-  defp do_translate(title, content, source_locale, target_locale, _api_key) do
-    # TODO: Implement actual Claude API call
-    # For now, return a not-implemented error so jobs can be observed
-    _ = {title, content, source_locale, target_locale}
-    {:error, :not_implemented}
+  defp do_translate(title, content, source_locale, target_locale, api_key) do
+    client = build_client(api_key)
+    model = Application.get_env(:gsmlg, :claude_translation_model, "claude-haiku-4-5-20251001")
+
+    body = %{
+      model: model,
+      max_tokens: 4096,
+      system: system_prompt(source_locale, target_locale),
+      messages: [
+        %{role: "user", content: "Title: #{title}\n\nContent:\n#{content}"}
+      ]
+    }
+
+    case Tesla.post(client, "/v1/messages", body) do
+      {:ok, %Tesla.Env{status: 200, body: %{"content" => [%{"text" => text} | _]}}} ->
+        parse_translation(text)
+
+      {:ok, %Tesla.Env{status: 429}} ->
+        {:error, :rate_limited}
+
+      {:ok, %Tesla.Env{status: status}} when status >= 400 ->
+        {:error, {:api_error, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp build_client(api_key) do
+    adapter =
+      Application.get_env(
+        :gsmlg,
+        :claude_tesla_adapter,
+        {Tesla.Adapter.Finch, name: GSMLG.Finch, receive_timeout: 30_000}
+      )
+
+    Tesla.client(
+      [
+        {Tesla.Middleware.BaseUrl, "https://api.anthropic.com"},
+        Tesla.Middleware.JSON,
+        {Tesla.Middleware.Headers,
+         [
+           {"x-api-key", api_key},
+           {"anthropic-version", "2023-06-01"}
+         ]}
+      ],
+      adapter
+    )
+  end
+
+  defp system_prompt(source_locale, target_locale) do
+    source_name = Map.get(@locale_names, source_locale, source_locale)
+    target_name = Map.get(@locale_names, target_locale, target_locale)
+
+    """
+    You are a professional translator. Translate the following blog post from #{source_name} to #{target_name}.
+    Preserve all Markdown formatting exactly as-is.
+    Return ONLY a JSON object with exactly two keys: "title" and "content".
+    Do not include any explanation or text outside the JSON object.
+    """
+  end
+
+  defp parse_translation(text) do
+    case Jason.decode(text) do
+      {:ok, %{"title" => t, "content" => c}} when is_binary(t) and is_binary(c) ->
+        {:ok, %{title: t, content: c}}
+
+      _ ->
+        {:error, :json_parse_error}
+    end
   end
 end

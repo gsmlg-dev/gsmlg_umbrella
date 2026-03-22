@@ -111,8 +111,8 @@ defmodule GSMLG.Web.BlogControllerTest do
     end
 
     test "shows 'translation in progress' when translation is pending" do
-      # Rate-limit the mock so Oban inline reverts the translation back to "pending" status
-      Mox.expect(GSMLG.Translation.MockProvider, :translate, fn _title, _content, _src, _tgt ->
+      # Stub (not expect) so all Oban inline jobs use rate_limited — keeps translations pending
+      Mox.stub(GSMLG.Translation.MockProvider, :translate, fn _title, _content, _src, _tgt ->
         {:error, :rate_limited}
       end)
 
@@ -186,8 +186,8 @@ defmodule GSMLG.Web.BlogControllerTest do
     end
 
     test "renders source content when translation is not completed (pending/in_progress)" do
-      # Rate-limit mock so Oban inline reverts "en" translation back to "pending"
-      Mox.expect(GSMLG.Translation.MockProvider, :translate, fn _title, _content, _src, _tgt ->
+      # Stub (not expect) so all Oban inline jobs use rate_limited — keeps translations pending
+      Mox.stub(GSMLG.Translation.MockProvider, :translate, fn _title, _content, _src, _tgt ->
         {:error, :rate_limited}
       end)
 

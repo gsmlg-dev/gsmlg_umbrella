@@ -73,7 +73,9 @@ defmodule GSMLG.AdminWeb.BlogLive.TranslationLive.Index do
 
     if translation do
       translations = Map.put(socket.assigns.translations, locale, translation)
-      {:noreply, assign(socket, translations: translations, editing_translation_id: translation.id)}
+
+      {:noreply,
+       assign(socket, translations: translations, editing_translation_id: translation.id)}
     else
       {:noreply, socket}
     end
@@ -146,5 +148,4 @@ defmodule GSMLG.AdminWeb.BlogLive.TranslationLive.Index do
   defp status_class("in_progress"), do: "badge-warning"
   defp status_class("outdated"), do: "badge-warning"
   defp status_class(_), do: "badge-ghost"
-
 end

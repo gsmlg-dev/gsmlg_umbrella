@@ -36,7 +36,10 @@ defmodule GSMLG.Web.ConnCase do
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
 
     if Code.ensure_loaded?(GSMLG.Translation.MockProvider) do
-      Mox.stub(GSMLG.Translation.MockProvider, :translate, fn _title, _content, _source, _target ->
+      Mox.stub(GSMLG.Translation.MockProvider, :translate, fn _title,
+                                                              _content,
+                                                              _source,
+                                                              _target ->
         {:ok, %{title: "stub translated title", content: "stub translated content"}}
       end)
     end

@@ -59,6 +59,9 @@ config :gsmlg, Oban, testing: :inline
 
 config :gsmlg, :translation_provider, GSMLG.Translation.MockProvider
 
+# Use Tesla.Mock as the HTTP adapter for ClaudeProvider in tests
+config :gsmlg, :claude_tesla_adapter, Tesla.Mock
+
 config :phoenix, :plug_init_mode, :runtime
 config :phoenix, :sort_verified_routes_query_params, true
 

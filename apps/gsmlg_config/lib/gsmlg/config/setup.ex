@@ -195,9 +195,7 @@ defmodule GSMLG.Config.Setup do
   end
 
   def setup_i18n(config) do
-    Application.put_env(:gsmlg, :i18n,
-      default_locale: config[:default_locale]
-    )
+    Application.put_env(:gsmlg, :i18n, default_locale: config[:default_locale])
   end
 
   def setup_caddy(config) do

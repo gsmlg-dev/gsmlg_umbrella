@@ -33,7 +33,7 @@
         <.link href={~p"/blogs/#{blog.slug}"} class="flex items-start justify-between gap-6">
           <div class="flex-1 min-w-0">
             <h2 class="text-lg font-semibold text-base-content group-hover:text-primary transition-colors duration-150 leading-snug">
-              <%= if t = Map.get(@translations, blog.id), do: t.title, else: blog.title %>
+              {if t = Map.get(@translations, blog.id), do: t.title, else: blog.title}
             </h2>
             <p class="mt-1 font-mono text-sm text-base-content/45">{blog.author}</p>
           </div>

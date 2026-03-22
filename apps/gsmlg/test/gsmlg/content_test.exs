@@ -121,8 +121,8 @@ defmodule GSMLG.ContentTest do
       blog = blog_fixture(%{source_locale: "zh-Hans"})
       _translation = blog_translation_fixture(%{blog: blog, locale: "en"})
 
-      # Override stub for the re-translation call
-      Mox.expect(GSMLG.Translation.MockProvider, :translate, fn _title, _content, _src, _tgt ->
+      # Stub (not expect) — update_blog triggers N inline jobs; we want all to use this return
+      Mox.stub(GSMLG.Translation.MockProvider, :translate, fn _title, _content, _src, _tgt ->
         {:ok, %{title: "Re-translated Title", content: "Re-translated Content"}}
       end)
 
