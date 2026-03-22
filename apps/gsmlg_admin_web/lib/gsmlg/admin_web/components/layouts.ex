@@ -451,14 +451,6 @@ defmodule GSMLG.AdminWeb.Layouts do
                   File Browser
                 </.link>
               </li>
-              <li>
-                <.link
-                  class={if("storage_upload" == @active_menu, do: "active")}
-                  navigate={~p"/storage/upload"}
-                >
-                  Upload
-                </.link>
-              </li>
             </ul>
           </:menu>
           <:menu>

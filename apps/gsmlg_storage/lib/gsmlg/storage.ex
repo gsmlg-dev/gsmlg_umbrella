@@ -8,7 +8,7 @@ defmodule GSMLG.Storage do
   """
 
   alias GSMLG.Repo
-  alias GSMLG.Storage.{StorageFile, StorageConfig, S3Client, ContentType}
+  alias GSMLG.Storage.{StorageFile, StorageFolder, StorageConfig, S3Client, ContentType}
 
   import Ecto.Query
 
@@ -179,46 +179,146 @@ defmodule GSMLG.Storage do
   Used to populate the file browser sidebar.
   """
   def folder_tree do
-    StorageFile
-    |> where([f], f.status == "active")
-    |> group_by([f], [
-      f.tenant,
-      f.type,
-      fragment("date_part('year', ?)", f.inserted_at),
-      fragment("date_part('month', ?)", f.inserted_at)
-    ])
-    |> select([f], {
-      f.tenant,
-      f.type,
-      fragment("date_part('year', ?)", f.inserted_at),
-      fragment("date_part('month', ?)", f.inserted_at),
-      count(f.id)
-    })
-    |> order_by([f], [
-      f.tenant,
-      f.type,
-      desc: fragment("date_part('year', ?)", f.inserted_at),
-      desc: fragment("date_part('month', ?)", f.inserted_at)
-    ])
-    |> Repo.all()
-    |> Enum.group_by(fn {tenant, _type, _year, _month, _count} -> tenant end)
-    |> Enum.map(fn {tenant, tenant_rows} ->
+    # File-derived groups: {tenant, type, year, month, count}
+    file_groups =
+      StorageFile
+      |> where([f], f.status == "active")
+      |> group_by([f], [
+        f.tenant,
+        f.type,
+        fragment("date_part('year', ?)", f.inserted_at),
+        fragment("date_part('month', ?)", f.inserted_at)
+      ])
+      |> select([f], {
+        f.tenant,
+        f.type,
+        fragment("date_part('year', ?)", f.inserted_at),
+        fragment("date_part('month', ?)", f.inserted_at),
+        count(f.id)
+      })
+      |> order_by([f], [
+        f.tenant,
+        f.type,
+        desc: fragment("date_part('year', ?)", f.inserted_at),
+        desc: fragment("date_part('month', ?)", f.inserted_at)
+      ])
+      |> Repo.all()
+
+    # Explicit folder records (may be empty of files)
+    explicit_folders = Repo.all(StorageFolder)
+
+    # Union of all {tenant, type} pairs from both sources
+    file_pairs =
+      file_groups
+      |> Enum.map(fn {t, ty, _, _, _} -> {t, ty} end)
+      |> Enum.uniq()
+
+    folder_pairs =
+      explicit_folders
+      |> Enum.reject(fn f -> is_nil(f.type) end)
+      |> Enum.map(fn f -> {f.tenant, f.type} end)
+
+    explicit_tenants =
+      explicit_folders
+      |> Enum.map(& &1.tenant)
+      |> Enum.uniq()
+
+    all_tenants =
+      (Enum.map(file_pairs, fn {t, _} -> t end) ++ explicit_tenants)
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    Enum.map(all_tenants, fn tenant ->
+      file_types = file_pairs |> Enum.filter(fn {t, _} -> t == tenant end) |> Enum.map(fn {_, ty} -> ty end)
+      folder_types = folder_pairs |> Enum.filter(fn {t, _} -> t == tenant end) |> Enum.map(fn {_, ty} -> ty end)
+
+      tenant_types =
+        (file_types ++ folder_types)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
+        |> Enum.sort()
+
       types =
-        tenant_rows
-        |> Enum.group_by(fn {_tenant, type, _year, _month, _count} -> type end)
-        |> Enum.map(fn {type, type_rows} ->
+        Enum.map(tenant_types, fn type ->
           months =
-            Enum.map(type_rows, fn {_, _, year, month, count} ->
+            file_groups
+            |> Enum.filter(fn {t, ty, _, _, _} -> t == tenant and ty == type end)
+            |> Enum.map(fn {_, _, year, month, count} ->
               %{year: trunc(year), month: trunc(month), count: count}
             end)
 
           %{type: type, months: months}
         end)
-        |> Enum.sort_by(& &1.type)
 
       %{tenant: tenant, types: types}
     end)
-    |> Enum.sort_by(& &1.tenant)
+  end
+
+  @doc """
+  Creates an explicit storage folder record (tenant + optional type).
+  The folder will appear in the file browser tree even before any files are uploaded.
+  """
+  def create_folder(tenant, type \\ nil) do
+    %StorageFolder{}
+    |> StorageFolder.changeset(%{tenant: tenant, type: type})
+    |> Repo.insert()
+  end
+
+  @doc """
+  Deletes a folder and all files within it.
+
+  - `delete_folder(tenant)` — soft-deletes all files for that tenant and removes all
+    folder records under that tenant.
+  - `delete_folder(tenant, type)` — soft-deletes all files for tenant+type and removes
+    that folder record.
+  - `delete_folder(tenant, type, year, month)` — soft-deletes only those files (no
+    folder record removed since year/month nodes are file-derived).
+  """
+  def delete_folder(tenant, type \\ nil, year \\ nil, month \\ nil) do
+    Repo.transaction(fn ->
+      # Soft-delete matching files
+      query =
+        StorageFile
+        |> where([f], f.tenant == ^tenant and f.status == "active")
+        |> maybe_filter_type(type)
+        |> maybe_filter_year(year)
+        |> maybe_filter_month(month)
+
+      Repo.update_all(query, set: [status: "deleted"])
+
+      # Remove explicit folder records
+      cond do
+        not is_nil(year) ->
+          # Year/month nodes are file-derived — no folder record to remove
+          :ok
+
+        not is_nil(type) ->
+          Repo.delete_all(
+            from(f in StorageFolder, where: f.tenant == ^tenant and f.type == ^type)
+          )
+
+        true ->
+          # Tenant-level delete: remove all folder records for this tenant
+          Repo.delete_all(from(f in StorageFolder, where: f.tenant == ^tenant))
+      end
+
+      :ok
+    end)
+  end
+
+  defp maybe_filter_type(query, nil), do: query
+  defp maybe_filter_type(query, type), do: where(query, [f], f.type == ^type)
+
+  defp maybe_filter_year(query, nil), do: query
+
+  defp maybe_filter_year(query, year) when is_integer(year) do
+    where(query, [f], fragment("date_part('year', ?)", f.inserted_at) == ^year)
+  end
+
+  defp maybe_filter_month(query, nil), do: query
+
+  defp maybe_filter_month(query, month) when is_integer(month) do
+    where(query, [f], fragment("date_part('month', ?)", f.inserted_at) == ^month)
   end
 
   @doc """
