@@ -8,7 +8,7 @@ defmodule GSMLG.Storage do
   """
 
   alias GSMLG.Repo
-  alias GSMLG.Storage.{StorageFile, S3Client, ContentType}
+  alias GSMLG.Storage.{StorageFile, StorageConfig, S3Client, ContentType}
 
   import Ecto.Query
 
@@ -142,6 +142,8 @@ defmodule GSMLG.Storage do
   - `:type` - filter by type
   - `:status` - filter by status (default: "active")
   - `:search` - search by filename
+  - `:year` - filter by upload year (integer)
+  - `:month` - filter by upload month (integer)
   - `:page` - page number (default: 1)
   - `:page_size` - items per page (default: 20)
   """
@@ -156,6 +158,8 @@ defmodule GSMLG.Storage do
       |> filter_by_type(opts[:type])
       |> filter_by_status(opts[:status] || "active")
       |> filter_by_search(opts[:search])
+      |> filter_by_year(opts[:year])
+      |> filter_by_month(opts[:month])
       |> order_by([f], desc: f.inserted_at)
 
     total = Repo.aggregate(query, :count)
@@ -168,6 +172,53 @@ defmodule GSMLG.Storage do
       page_size: page_size,
       total_pages: ceil(total / page_size)
     }
+  end
+
+  @doc """
+  Returns a tree of tenants → types → year/month nodes with file counts.
+  Used to populate the file browser sidebar.
+  """
+  def folder_tree do
+    StorageFile
+    |> where([f], f.status == "active")
+    |> group_by([f], [
+      f.tenant,
+      f.type,
+      fragment("date_part('year', ?)", f.inserted_at),
+      fragment("date_part('month', ?)", f.inserted_at)
+    ])
+    |> select([f], {
+      f.tenant,
+      f.type,
+      fragment("date_part('year', ?)", f.inserted_at),
+      fragment("date_part('month', ?)", f.inserted_at),
+      count(f.id)
+    })
+    |> order_by([f], [
+      f.tenant,
+      f.type,
+      desc: fragment("date_part('year', ?)", f.inserted_at),
+      desc: fragment("date_part('month', ?)", f.inserted_at)
+    ])
+    |> Repo.all()
+    |> Enum.group_by(fn {tenant, _type, _year, _month, _count} -> tenant end)
+    |> Enum.map(fn {tenant, tenant_rows} ->
+      types =
+        tenant_rows
+        |> Enum.group_by(fn {_tenant, type, _year, _month, _count} -> type end)
+        |> Enum.map(fn {type, type_rows} ->
+          months =
+            Enum.map(type_rows, fn {_, _, year, month, count} ->
+              %{year: trunc(year), month: trunc(month), count: count}
+            end)
+
+          %{type: type, months: months}
+        end)
+        |> Enum.sort_by(& &1.type)
+
+      %{tenant: tenant, types: types}
+    end)
+    |> Enum.sort_by(& &1.tenant)
   end
 
   @doc """
@@ -362,6 +413,18 @@ defmodule GSMLG.Storage do
   defp filter_by_status(query, nil), do: query
   defp filter_by_status(query, status), do: where(query, [f], f.status == ^status)
 
+  defp filter_by_year(query, nil), do: query
+
+  defp filter_by_year(query, year) when is_integer(year) do
+    where(query, [f], fragment("date_part('year', ?)", f.inserted_at) == ^year)
+  end
+
+  defp filter_by_month(query, nil), do: query
+
+  defp filter_by_month(query, month) when is_integer(month) do
+    where(query, [f], fragment("date_part('month', ?)", f.inserted_at) == ^month)
+  end
+
   defp filter_by_search(query, nil), do: query
   defp filter_by_search(query, ""), do: query
 
@@ -374,6 +437,69 @@ defmodule GSMLG.Storage do
 
     pattern = "%#{escaped}%"
     where(query, [f], ilike(f.filename, ^pattern))
+  end
+
+  # --- Public config API ---
+
+  @doc """
+  Returns the current storage configuration from the database.
+  Falls back to an empty struct if not yet configured.
+  """
+  def get_config do
+    Repo.get(StorageConfig, 1) || %StorageConfig{}
+  end
+
+  @doc """
+  Saves storage configuration to the database and applies it to
+  the runtime Application env so changes take effect immediately.
+  """
+  def update_config(attrs) do
+    config = Repo.get(StorageConfig, 1) || %StorageConfig{id: 1}
+
+    config
+    |> StorageConfig.changeset(attrs)
+    |> Repo.insert_or_update()
+    |> case do
+      {:ok, saved} ->
+        apply_config(saved)
+        {:ok, saved}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Loads config from DB and applies to Application env.
+  Called on application startup.
+  """
+  def load_config_from_db do
+    case Repo.get(StorageConfig, 1) do
+      nil -> :ok
+      config -> apply_config(config)
+    end
+  end
+
+  defp apply_config(config) do
+    if config.s3_bucket, do: Application.put_env(:gsmlg_storage, :s3_bucket, config.s3_bucket)
+    if config.s3_region, do: System.put_env("AWS_REGION", config.s3_region)
+
+    if config.s3_access_key_id,
+      do: System.put_env("AWS_ACCESS_KEY_ID", config.s3_access_key_id)
+
+    if config.s3_secret_access_key,
+      do: System.put_env("AWS_SECRET_ACCESS_KEY", config.s3_secret_access_key)
+
+    if config.max_file_size,
+      do: Application.put_env(:gsmlg_storage, :max_file_size, config.max_file_size)
+
+    if config.cleanup_interval,
+      do: Application.put_env(:gsmlg_storage, :cleanup_interval, config.cleanup_interval)
+
+    if config.retention_window,
+      do: Application.put_env(:gsmlg_storage, :retention_window, config.retention_window)
+
+    :ok
   end
 
   # --- Configuration ---
