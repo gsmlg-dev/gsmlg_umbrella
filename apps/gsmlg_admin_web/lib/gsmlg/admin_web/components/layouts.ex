@@ -461,6 +461,19 @@ defmodule GSMLG.AdminWeb.Layouts do
               </li>
             </ul>
           </:menu>
+          <:menu>
+            <h2 class="menu-title">Settings</h2>
+            <ul>
+              <li>
+                <.link
+                  class={if("storage_config" == @active_menu, do: "active")}
+                  navigate={~p"/storage/config"}
+                >
+                  S3 Configuration
+                </.link>
+              </li>
+            </ul>
+          </:menu>
         </.dm_left_menu>
       </div>
       <div class="flex flex-col flex-auto mx-auto max-w-screen-2xl">

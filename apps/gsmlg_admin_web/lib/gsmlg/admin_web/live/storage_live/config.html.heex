@@ -1,18 +1,13 @@
-<Layouts.app flash={@flash}>
+<Layouts.storage flash={@flash} page_title={@page_title} active_menu={@active_menu}>
   <div class="p-6 max-w-3xl mx-auto flex flex-col gap-6">
     <%!-- ── Header ─────────────────────────────────────────────────── --%>
-    <div class="flex items-center gap-3">
-      <.link navigate={~p"/storage"} class="text-base-content/40 hover:text-base-content transition-colors">
-        <.dm_mdi name="arrow-left" class="w-5 h-5" />
-      </.link>
-      <div>
-        <p class="font-mono text-[9px] tracking-[0.5em] uppercase text-secondary/50">
-          Storage · S3
-        </p>
-        <h1 class="font-mono text-xl font-bold text-base-content tracking-tight">
-          Configuration
-        </h1>
-      </div>
+    <div>
+      <p class="font-mono text-[9px] tracking-[0.5em] uppercase text-secondary/50">
+        Storage · S3
+      </p>
+      <h1 class="font-mono text-xl font-bold text-base-content tracking-tight">
+        Configuration
+      </h1>
     </div>
 
     <%!-- ── S3 Bucket ───────────────────────────────────────────────── --%>
@@ -137,4 +132,4 @@
       </div>
     </section>
   </div>
-</Layouts.app>
+</Layouts.storage>
