@@ -1,0 +1,103 @@
+<Layouts.user flash={@flash} page_title={@page_title} active_menu="blog_list">
+  <div class="flex flex-col gap-4 p-6 w-full">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <.dm_mdi name="translate" class="w-5 h-5 text-primary" />
+        <h1 class="font-semibold text-base-content">Translations</h1>
+      </div>
+      <div>
+        <.link navigate={~p"/blogs/#{@blog.id}"}>
+          <.dm_btn size="sm" variant="ghost">
+            &larr; Back to <%= @blog.title %>
+          </.dm_btn>
+        </.link>
+      </div>
+    </div>
+
+    <p class="text-sm text-base-content/60">
+      Source locale: <strong><%= @blog.source_locale %></strong>
+    </p>
+
+    <.dm_table
+      id="translation-table"
+      class="table-bordered [&_thead]:bg-primary [&_thead]:text-primary-content"
+      data={Enum.map(@locales, fn locale -> {locale, Map.get(@translations, locale)} end)}
+    >
+      <:col :let={{locale, _t}} label="Locale">
+        <span class="font-mono text-sm"><%= locale %></span>
+      </:col>
+      <:col :let={{_locale, t}} label="Title">
+        <%= if t && t.status == "completed", do: t.title, else: "—" %>
+      </:col>
+      <:col :let={{_locale, t}} label="Status">
+        <.dm_badge :if={t} class={status_class(t.status)}>
+          <%= t.status %>
+        </.dm_badge>
+        <.dm_badge :if={!t}>not started</.dm_badge>
+      </:col>
+      <:col :let={{_locale, t}} label="Manually Edited">
+        <%= if t && t.manually_edited, do: "Yes", else: "No" %>
+      </:col>
+      <:col :let={{locale, t}} label="Actions">
+        <div class="flex gap-2">
+          <%= if t do %>
+            <.dm_btn
+              phx-click="retranslate"
+              phx-value-id={t.id}
+              size="sm"
+              variant="outline"
+            >
+              Re-translate
+            </.dm_btn>
+            <.dm_btn
+              phx-click="edit_translation"
+              phx-value-id={t.id}
+              size="sm"
+              variant="outline"
+            >
+              Edit
+            </.dm_btn>
+          <% else %>
+            <.dm_btn
+              phx-click="translate"
+              phx-value-locale={locale}
+              size="sm"
+              variant="outline"
+            >
+              Translate
+            </.dm_btn>
+            <.dm_btn
+              phx-click="edit_new_translation"
+              phx-value-locale={locale}
+              size="sm"
+              variant="outline"
+            >
+              Edit
+            </.dm_btn>
+          <% end %>
+        </div>
+      </:col>
+    </.dm_table>
+
+    <%!-- Inline edit form — shown below the table when editing --%>
+    <%= for {_locale, t} <- @translations, t != nil, @editing_translation_id == t.id do %>
+      <div class="border rounded p-4 bg-base-200">
+        <h3 class="font-semibold mb-3">Edit Translation (<%= t.locale %>)</h3>
+        <form id={"translation-edit-form-#{t.id}"} phx-submit="save_translation" class="flex flex-col gap-4">
+          <div>
+            <label class="label">Title</label>
+            <input type="text" name="title" value={t.title} class="input input-bordered w-full" />
+          </div>
+          <div>
+            <label class="label">Content</label>
+            <textarea name="content" rows="8" class="textarea textarea-bordered w-full"><%= t.content %></textarea>
+          </div>
+          <div class="flex gap-2">
+            <.dm_btn type="submit" size="sm" variant="primary">Save</.dm_btn>
+            <.dm_btn type="button" phx-click="cancel_edit" size="sm" variant="outline">Cancel</.dm_btn>
+          </div>
+        </form>
+      </div>
+    <% end %>
+  </div>
+</Layouts.user>
