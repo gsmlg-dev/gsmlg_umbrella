@@ -1,0 +1,140 @@
+<Layouts.app flash={@flash}>
+  <div class="p-6 max-w-3xl mx-auto flex flex-col gap-6">
+    <%!-- ── Header ─────────────────────────────────────────────────── --%>
+    <div class="flex items-center gap-3">
+      <.link navigate={~p"/storage"} class="text-base-content/40 hover:text-base-content transition-colors">
+        <.dm_mdi name="arrow-left" class="w-5 h-5" />
+      </.link>
+      <div>
+        <p class="font-mono text-[9px] tracking-[0.5em] uppercase text-secondary/50">
+          Storage · S3
+        </p>
+        <h1 class="font-mono text-xl font-bold text-base-content tracking-tight">
+          Configuration
+        </h1>
+      </div>
+    </div>
+
+    <%!-- ── S3 Bucket ───────────────────────────────────────────────── --%>
+    <section class="border border-base-300 rounded-lg overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-3 border-b border-base-300 bg-base-200/40">
+        <div class="w-0.5 h-4 rounded-full bg-secondary"></div>
+        <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-secondary/70 font-bold">
+          S3 Bucket
+        </p>
+        <.dm_mdi name="bucket-outline" class="w-4 h-4 text-base-content/20 ml-auto" />
+      </div>
+      <div class="divide-y divide-base-300">
+        <div class="flex items-center justify-between px-5 py-3">
+          <span class="font-mono text-xs text-base-content/50 uppercase tracking-wider">
+            Bucket Name
+          </span>
+          <span class="font-mono text-sm font-medium text-base-content">
+            {if @config.s3_bucket, do: @config.s3_bucket, else: "not set"}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <%!-- ── AWS Credentials ──────────────────────────────────────────── --%>
+    <section class="border border-base-300 rounded-lg overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-3 border-b border-base-300 bg-base-200/40">
+        <div class="w-0.5 h-4 rounded-full bg-warning"></div>
+        <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-warning/70 font-bold">
+          AWS Credentials
+        </p>
+        <div class="ml-auto flex items-center gap-2">
+          <%= if @config.aws_credentials_set do %>
+            <div class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></div>
+            <span class="font-mono text-[9px] tracking-wider uppercase text-success/70">
+              Configured
+            </span>
+          <% else %>
+            <div class="w-1.5 h-1.5 rounded-full bg-error"></div>
+            <span class="font-mono text-[9px] tracking-wider uppercase text-error/70">
+              Missing
+            </span>
+          <% end %>
+        </div>
+      </div>
+      <div class="divide-y divide-base-300">
+        <div class="flex items-center justify-between px-5 py-3">
+          <span class="font-mono text-xs text-base-content/50 uppercase tracking-wider">
+            Region
+          </span>
+          <span class="font-mono text-sm font-medium text-base-content">
+            {if @config.aws_region, do: @config.aws_region, else: "not set"}
+          </span>
+        </div>
+        <div class="flex items-center justify-between px-5 py-3">
+          <span class="font-mono text-xs text-base-content/50 uppercase tracking-wider">
+            Access Key ID
+          </span>
+          <span class="font-mono text-sm font-medium text-base-content">
+            {if @config.aws_access_key_id, do: @config.aws_access_key_id, else: "not set"}
+          </span>
+        </div>
+        <div class="flex items-center justify-between px-5 py-3">
+          <span class="font-mono text-xs text-base-content/50 uppercase tracking-wider">
+            Secret Access Key
+          </span>
+          <span class="font-mono text-sm font-medium text-base-content/40 italic text-xs">
+            {if @config.aws_credentials_set, do: "••••••••••••••••", else: "not set"}
+          </span>
+        </div>
+        <div class="px-5 py-3 bg-base-200/30">
+          <p class="font-mono text-[10px] text-base-content/30 leading-relaxed">
+            Set <span class="text-base-content/50">AWS_ACCESS_KEY_ID</span>,
+            <span class="text-base-content/50">AWS_SECRET_ACCESS_KEY</span>, and
+            <span class="text-base-content/50">AWS_REGION</span>
+            environment variables, or configure via
+            <span class="text-base-content/50">AWS_DEFAULT_REGION</span>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <%!-- ── Storage Limits ────────────────────────────────────────────── --%>
+    <section class="border border-base-300 rounded-lg overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-3 border-b border-base-300 bg-base-200/40">
+        <div class="w-0.5 h-4 rounded-full bg-primary"></div>
+        <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-primary/70 font-bold">
+          Limits & Retention
+        </p>
+        <.dm_mdi name="tune" class="w-4 h-4 text-base-content/20 ml-auto" />
+      </div>
+      <div class="divide-y divide-base-300">
+        <div class="flex items-center justify-between px-5 py-3">
+          <span class="font-mono text-xs text-base-content/50 uppercase tracking-wider">
+            Max File Size
+          </span>
+          <span class="font-mono text-sm font-medium text-base-content">
+            {format_bytes(@config.max_file_size)}
+          </span>
+        </div>
+        <div class="flex items-center justify-between px-5 py-3">
+          <span class="font-mono text-xs text-base-content/50 uppercase tracking-wider">
+            Cleanup Interval
+          </span>
+          <span class="font-mono text-sm font-medium text-base-content">
+            {format_duration(@config.cleanup_interval)}
+          </span>
+        </div>
+        <div class="flex items-center justify-between px-5 py-3">
+          <span class="font-mono text-xs text-base-content/50 uppercase tracking-wider">
+            Retention Window
+          </span>
+          <span class="font-mono text-sm font-medium text-base-content">
+            {format_duration(@config.retention_window)}
+          </span>
+        </div>
+        <div class="px-5 py-3 bg-base-200/30">
+          <p class="font-mono text-[10px] text-base-content/30 leading-relaxed">
+            Configure via <span class="text-base-content/50">[storage]</span> section in
+            <span class="text-base-content/50">gsmlg.toml</span>.
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+</Layouts.app>
