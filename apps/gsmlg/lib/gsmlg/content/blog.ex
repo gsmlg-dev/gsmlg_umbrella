@@ -10,6 +10,7 @@ defmodule GSMLG.Content.Blog do
     field(:date, :date)
     field(:slug, :string)
     field(:title, :string)
+    field(:source_locale, :string, default: "zh-Hans")
 
     timestamps()
   end
@@ -17,7 +18,7 @@ defmodule GSMLG.Content.Blog do
   @doc false
   def changeset(blog, attrs) do
     blog
-    |> cast(attrs, [:slug, :title, :date, :author, :content, :id])
+    |> cast(attrs, [:slug, :title, :date, :author, :content, :source_locale, :id])
     |> validate_required([:slug, :title, :date, :author, :content])
   end
 

@@ -217,6 +217,14 @@ defmodule GSMLG.Config.Schema do
     ]
   ]
 
+  @i18n_schema [
+    default_locale: [
+      type: :string,
+      default: "zh-Hans",
+      doc: "Fallback locale when none can be resolved"
+    ]
+  ]
+
   @caddy_schema [
     start: [
       type: :boolean,
@@ -255,7 +263,8 @@ defmodule GSMLG.Config.Schema do
       commander: @commander_schema,
       oauth: %{github: @github_oauth_schema},
       web_push: @web_push_schema,
-      caddy: @caddy_schema
+      caddy: @caddy_schema,
+      i18n: @i18n_schema
     }
   end
 
@@ -340,6 +349,7 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:oauth), do: %{github: @github_oauth_schema}
   defp get_section_schema(:web_push), do: @web_push_schema
   defp get_section_schema(:caddy), do: @caddy_schema
+  defp get_section_schema(:i18n), do: @i18n_schema
   defp get_section_schema(_), do: nil
 
   defp validate_nested(config, schema) when is_map(schema) do

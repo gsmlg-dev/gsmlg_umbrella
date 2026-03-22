@@ -7,17 +7,30 @@
         "flex justify-center items-center",
         "whitespace-auto"
       ]}>
-        {@blog.title}
+        <%= if @translation && @translation.status == "completed", do: @translation.title, else: @blog.title %>
       </h1>
       <author class="text-2xl text-accent my-4">
         {@blog.author}
       </author>
       <time class="text-xl text-accent">{@blog.date}</time>
+
+      <%!-- Translation indicators --%>
+      <div :if={@translation && @translation.status == "completed" && @current_locale != @blog.source_locale}
+           class="mt-2 flex items-center gap-1 text-sm opacity-70">
+        <.dm_mdi name="translate" class="w-4 h-4" />
+        <span>{gettext("AI translated")}</span>
+      </div>
+
+      <div :if={@translation && @translation.status in ["pending", "in_progress"]}
+           class="mt-2 flex items-center gap-1 text-sm opacity-70">
+        <.dm_mdi name="loading" class="w-4 h-4 animate-spin" />
+        <span>{gettext("translation in progress")}</span>
+      </div>
     </div>
   </:header_slot>
   <div class="container flex flex-col my-8">
     <div class="flex flex-col">
-      <.react_markdown data={@blog.content} />
+      <.react_markdown data={if @translation && @translation.status == "completed", do: @translation.content, else: @blog.content} />
     </div>
   </div>
 </Layouts.app>

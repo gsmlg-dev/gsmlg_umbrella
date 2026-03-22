@@ -6,6 +6,13 @@ config :gsmlg,
 
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Local
 
+config :gsmlg, Oban,
+  repo: GSMLG.Repo,
+  queues: [translations: 5],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7}
+  ]
+
 # Setup guardian
 config :gsmlg_web, GSMLG.Web.Guardian,
   issuer: "gsmlg",

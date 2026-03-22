@@ -38,6 +38,9 @@ platform_key = "test_platform_key"
 client_id = ""
 client_secret = ""
 
+[i18n]
+default_locale = "zh-Hans"
+
 [web_push]
 subject = "mailto:test@gsmlg.com"
 public_key = "test_public_key"

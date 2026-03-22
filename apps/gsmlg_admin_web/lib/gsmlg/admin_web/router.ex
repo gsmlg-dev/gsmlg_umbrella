@@ -74,6 +74,7 @@ defmodule GSMLG.AdminWeb.Router do
     live("/blogs/new", BlogLive.Index, :new)
     live("/blogs/:id", BlogLive.Index, :show)
     live("/blogs/:id/edit", BlogLive.Index, :edit)
+    live("/blogs/:id/translations", BlogLive.TranslationLive.Index, :index)
 
     live("/users", UserLive.Index, :index)
     live("/users/new", UserLive.Index, :new)

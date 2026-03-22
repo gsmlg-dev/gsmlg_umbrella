@@ -34,6 +34,7 @@ defmodule GSMLG.Web.Router do
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
     plug(:put_sw_header)
+    plug(GSMLG.Web.Plugs.Locale)
     plug(GSMLG.Web.Plugs.FetchCurrentScope)
   end
 

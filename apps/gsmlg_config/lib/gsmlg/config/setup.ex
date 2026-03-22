@@ -41,6 +41,10 @@ defmodule GSMLG.Config.Setup do
     if config[:caddy] != nil do
       setup_caddy(config[:caddy])
     end
+
+    if config[:i18n] != nil do
+      setup_i18n(config[:i18n])
+    end
   end
 
   def setup_gsmlg(config) do
@@ -187,6 +191,12 @@ defmodule GSMLG.Config.Setup do
       subject: config[:subject],
       public_key: config[:public_key],
       private_key: config[:private_key]
+    )
+  end
+
+  def setup_i18n(config) do
+    Application.put_env(:gsmlg, :i18n,
+      default_locale: config[:default_locale]
     )
   end
 

@@ -177,3 +177,12 @@ This project uses two Duskmoon packages for all UI:
 - The file backend JSON-encodes all telemetry events. Phoenix events include `%Plug.Conn{}` in metadata, which has no `Jason.Encoder` implementation.
 - `sanitize_for_json/1` in `file.ex` handles this by converting non-encodable terms (structs, PIDs, functions) to inspected strings before encoding.
 - Use `GSMLG.Telemetry.info/2`, `error/2`, `span/3` instead of `Logger` directly for structured JSON logging in production.
+
+## Active Technologies
+- Elixir 1.18 / OTP 28 (001-blog-multilang)
+- PostgreSQL via `GSMLG.Repo`. Two schema changes: new `source_locale` column on `blogs`; new `blog_translations` table. (001-blog-multilang)
+- Elixir 1.18 / OTP 28 + Ecto, Oban 2.18, Tesla + Finch (HTTP), Phoenix.PubSub, phoenix_duskmoon, Mox (test) (001-blog-multilang)
+- PostgreSQL (Ecto). Oban uses same Repo. No Mnesia or CouchDB required for this feature. (001-blog-multilang)
+
+## Recent Changes
+- 001-blog-multilang: Added Elixir 1.18 / OTP 28

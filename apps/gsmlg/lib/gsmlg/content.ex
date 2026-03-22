@@ -7,6 +7,9 @@ defmodule GSMLG.Content do
   alias GSMLG.Repo
 
   alias GSMLG.Content.Blog
+  alias GSMLG.Content.BlogTranslation
+
+  defp supported_locales, do: GSMLG.Locale.supported()
 
   @doc """
   Returns the count of blogs.
@@ -113,9 +116,32 @@ defmodule GSMLG.Content do
 
   """
   def create_blog(attrs \\ %{}) do
-    %Blog{}
-    |> Blog.changeset(attrs)
-    |> Repo.insert()
+    changeset = Blog.changeset(%Blog{}, attrs)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(:blog, changeset)
+    |> Ecto.Multi.run(:jobs, fn _repo, %{blog: blog} ->
+      supported = supported_locales()
+      locales = Enum.reject(supported, &(&1 == blog.source_locale))
+
+      jobs =
+        Enum.map(locales, fn locale ->
+          GSMLG.Workers.BlogTranslationWorker.new(%{
+            "blog_id" => blog.id,
+            "locale" => locale,
+            "source_locale" => blog.source_locale
+          })
+        end)
+
+      result = Oban.insert_all(jobs)
+      count = if is_list(result), do: length(result), else: elem(result, 0)
+      {:ok, count}
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{blog: blog}} -> {:ok, blog}
+      {:error, :blog, changeset, _} -> {:error, changeset}
+    end
   end
 
   @doc """
@@ -131,9 +157,50 @@ defmodule GSMLG.Content do
 
   """
   def update_blog(%Blog{} = blog, attrs) do
-    blog
-    |> Blog.changeset(attrs)
-    |> Repo.update()
+    changeset = Blog.changeset(blog, attrs)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.update(:blog, changeset)
+    |> Ecto.Multi.run(:outdated, fn _repo, %{blog: updated_blog} ->
+      # Mark non-manually_edited translations as outdated
+      {count, _} =
+        from(t in BlogTranslation,
+          where: t.blog_id == ^updated_blog.id and t.manually_edited == false,
+          where: t.status in ["pending", "in_progress", "completed"]
+        )
+        |> Repo.update_all(set: [status: "outdated"])
+
+      {:ok, count}
+    end)
+    |> Ecto.Multi.run(:jobs, fn _repo, %{blog: updated_blog} ->
+      # Re-enqueue jobs for outdated (non-manually_edited) translations
+      outdated_translations =
+        from(t in BlogTranslation,
+          where: t.blog_id == ^updated_blog.id and t.status == "outdated",
+          where: t.manually_edited == false
+        )
+        |> Repo.all()
+
+      jobs =
+        Enum.map(outdated_translations, fn t ->
+          GSMLG.Workers.BlogTranslationWorker.new(%{
+            "blog_id" => updated_blog.id,
+            "locale" => t.locale,
+            "source_locale" => updated_blog.source_locale
+          })
+        end)
+
+      if jobs != [] do
+        Oban.insert_all(jobs)
+      end
+
+      {:ok, length(jobs)}
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{blog: blog}} -> {:ok, blog}
+      {:error, :blog, changeset, _} -> {:error, changeset}
+    end
   end
 
   @doc """
@@ -163,5 +230,103 @@ defmodule GSMLG.Content do
   """
   def change_blog(%Blog{} = blog, attrs \\ %{}) do
     Blog.changeset(blog, attrs)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Translation functions
+  # ---------------------------------------------------------------------------
+
+  def get_translation(blog_id, locale) do
+    Repo.get_by(BlogTranslation, blog_id: blog_id, locale: locale)
+  end
+
+  def get_translation!(blog_id, locale) do
+    Repo.get_by!(BlogTranslation, blog_id: blog_id, locale: locale)
+  end
+
+  def list_translations(blog_id) do
+    Repo.all(from t in BlogTranslation, where: t.blog_id == ^blog_id, order_by: t.locale)
+  end
+
+  def create_pending_translations(blog, locales) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    records =
+      locales
+      |> Enum.reject(fn locale -> locale == blog.source_locale end)
+      |> Enum.map(fn locale ->
+        %{
+          blog_id: blog.id,
+          locale: locale,
+          status: "pending",
+          manually_edited: false,
+          inserted_at: now,
+          updated_at: now
+        }
+      end)
+
+    Repo.insert_all(BlogTranslation, records, on_conflict: :nothing)
+    {:ok, records}
+  end
+
+  def mark_translation_in_progress(%BlogTranslation{} = translation) do
+    translation
+    |> BlogTranslation.progress_changeset()
+    |> Repo.update()
+  end
+
+  def complete_translation(%BlogTranslation{} = translation, title, content) do
+    translation
+    |> BlogTranslation.complete_changeset(title, content)
+    |> Repo.update()
+  end
+
+  def mark_translation_failed(%BlogTranslation{} = translation) do
+    translation
+    |> BlogTranslation.fail_changeset()
+    |> Repo.update()
+  end
+
+  def admin_edit_translation(%BlogTranslation{} = translation, title, content) do
+    translation
+    |> BlogTranslation.admin_edit_changeset(title, content)
+    |> Repo.update()
+  end
+
+  def retranslate(%BlogTranslation{} = translation) do
+    translation
+    |> change(status: "pending", manually_edited: false, title: nil, content: nil)
+    |> Repo.update()
+  end
+
+  defp change(struct, attrs) do
+    Ecto.Changeset.change(struct, attrs)
+  end
+
+  def batch_pending_translations do
+    supported_locales = GSMLG.Locale.supported()
+
+    existing_needing_work =
+      from(t in BlogTranslation,
+        where: t.status in ["pending", "failed", "outdated"],
+        select: {t.blog_id, t.locale}
+      )
+      |> Repo.all()
+
+    all_existing_pairs =
+      from(t in BlogTranslation, select: {t.blog_id, t.locale})
+      |> Repo.all()
+      |> MapSet.new()
+
+    blogs = Repo.all(from b in Blog, select: {b.id, b.source_locale})
+
+    missing =
+      for {blog_id, source_locale} <- blogs,
+          locale <- supported_locales,
+          locale != source_locale,
+          not MapSet.member?(all_existing_pairs, {blog_id, locale}),
+          do: {blog_id, locale}
+
+    (existing_needing_work ++ missing) |> Enum.uniq()
   end
 end

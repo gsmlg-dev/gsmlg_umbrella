@@ -32,6 +32,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
     socket
     |> assign(:page_title, page_title(socket.assigns.live_action))
     |> assign(:changeset, changeset)
+    |> assign(:form, to_form(changeset))
     |> assign(:blog, %Blog{})
   end
 
@@ -42,6 +43,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
     socket
     |> assign(:page_title, page_title(socket.assigns.live_action))
     |> assign(:changeset, changeset)
+    |> assign(:form, to_form(changeset))
     |> assign(:blog, blog)
   end
 
@@ -66,7 +68,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
       |> Content.change_blog(blog_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign(socket, changeset: changeset, form: to_form(changeset))}
   end
 
   def handle_event("form:init", _params, socket) do

@@ -55,6 +55,10 @@ config :mnesia,
 
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test
 
+config :gsmlg, Oban, testing: :inline
+
+config :gsmlg, :translation_provider, GSMLG.Translation.MockProvider
+
 config :phoenix, :plug_init_mode, :runtime
 config :phoenix, :sort_verified_routes_query_params, true
 
