@@ -82,6 +82,8 @@ defmodule GSMLG.Workers.BlogTranslationWorker do
             "blog_translations:#{blog.id}",
             {:translation_updated, blog.id, locale, "failed"}
           )
+        else
+          {:ok, _} = revert_to_pending(translation)
         end
 
         {:error, reason}

@@ -35,7 +35,7 @@ defmodule GSMLG.Content do
 
   def last_updated_at() do
     blog = GSMLG.Repo.one(from GSMLG.Content.Blog, limit: 1, order_by: [desc: :updated_at])
-    blog.updated_at
+    blog && blog.updated_at
   end
 
   @doc """
@@ -135,7 +135,7 @@ defmodule GSMLG.Content do
         end)
 
       result = Oban.insert_all(jobs)
-      count = if is_list(result), do: length(result), else: elem(result, 0)
+      count = result |> List.wrap() |> length()
       {:ok, count}
     end)
     |> Repo.transaction()
@@ -277,9 +277,21 @@ defmodule GSMLG.Content do
   end
 
   def complete_translation(%BlogTranslation{} = translation, title, content) do
-    translation
-    |> BlogTranslation.complete_changeset(title, content)
-    |> Repo.update()
+    # Only complete if still in_progress — guards against a blog update marking
+    # this translation outdated while the worker was running.
+    {count, _} =
+      from(t in BlogTranslation,
+        where: t.id == ^translation.id and t.status == "in_progress"
+      )
+      |> Repo.update_all(
+        set: [title: title, content: content, status: "completed", updated_at: DateTime.utc_now()]
+      )
+
+    if count > 0 do
+      {:ok, %{translation | title: title, content: content, status: "completed"}}
+    else
+      {:ok, translation}
+    end
   end
 
   def mark_translation_failed(%BlogTranslation{} = translation) do
@@ -296,12 +308,8 @@ defmodule GSMLG.Content do
 
   def retranslate(%BlogTranslation{} = translation) do
     translation
-    |> change(status: "pending", manually_edited: false, title: nil, content: nil)
+    |> Ecto.Changeset.change(status: "pending", manually_edited: false, title: nil, content: nil)
     |> Repo.update()
-  end
-
-  defp change(struct, attrs) do
-    Ecto.Changeset.change(struct, attrs)
   end
 
   # ── Translation Provider Settings ────────────────────────────────────────

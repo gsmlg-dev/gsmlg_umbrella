@@ -18,8 +18,9 @@ defmodule GSMLG.Content.Blog do
   @doc false
   def changeset(blog, attrs) do
     blog
-    |> cast(attrs, [:slug, :title, :date, :author, :content, :source_locale, :id])
+    |> cast(attrs, [:slug, :title, :date, :author, :content, :source_locale])
     |> validate_required([:slug, :title, :date, :author, :content])
+    |> validate_inclusion(:source_locale, GSMLG.Locale.supported())
   end
 
   def count() do

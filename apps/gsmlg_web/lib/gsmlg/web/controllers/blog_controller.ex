@@ -28,14 +28,17 @@ defmodule GSMLG.Web.BlogController do
   end
 
   def show(conn, %{"slug" => slug}) do
-    blog = Content.get_blog_by_slug(slug)
-    locale = conn.assigns[:current_locale]
+    with %{} = blog <- Content.get_blog_by_slug(slug) do
+      locale = conn.assigns[:current_locale]
 
-    translation =
-      if locale do
-        Content.get_translation(blog.id, locale)
-      end
+      translation =
+        if locale do
+          Content.get_translation(blog.id, locale)
+        end
 
-    render(conn, :show, blog: blog, translation: translation)
+      render(conn, :show, blog: blog, translation: translation)
+    else
+      nil -> {:error, :not_found}
+    end
   end
 end

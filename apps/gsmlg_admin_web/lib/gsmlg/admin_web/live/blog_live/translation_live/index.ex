@@ -116,10 +116,11 @@ defmodule GSMLG.AdminWeb.BlogLive.TranslationLive.Index do
     {:ok, updated_blog} = Content.update_blog(socket.assigns.blog, %{source_locale: new_locale})
     translations = Content.list_translations(updated_blog.id)
     translation_map = Map.new(translations, fn t -> {t.locale, t} end)
+    all_locales = Enum.reject(GSMLG.Locale.supported(), &(&1 == updated_blog.source_locale))
 
     {:noreply,
      socket
-     |> assign(blog: updated_blog, translations: translation_map)}
+     |> assign(blog: updated_blog, translations: translation_map, locales: all_locales)}
   end
 
   @impl true

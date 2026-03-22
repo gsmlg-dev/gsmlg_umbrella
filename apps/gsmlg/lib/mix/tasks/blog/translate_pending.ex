@@ -19,6 +19,8 @@ defmodule Mix.Tasks.Blog.TranslatePending do
 
   use Mix.Task
 
+  import Ecto.Query, only: [from: 2]
+
   @shortdoc "Enqueue translation jobs for all pending blog translations"
 
   @impl Mix.Task
@@ -43,11 +45,11 @@ defmodule Mix.Tasks.Blog.TranslatePending do
       blog_ids = pending |> Enum.map(fn {blog_id, _} -> blog_id end) |> Enum.uniq()
 
       source_locale_map =
-        blog_ids
-        |> Enum.map(fn id ->
-          blog = GSMLG.Content.get_blog!(id)
-          {id, blog.source_locale}
-        end)
+        GSMLG.Repo.all(
+          from b in GSMLG.Content.Blog,
+            where: b.id in ^blog_ids,
+            select: {b.id, b.source_locale}
+        )
         |> Map.new()
 
       jobs =
