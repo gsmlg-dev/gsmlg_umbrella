@@ -3,7 +3,6 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
 
   alias GSMLG.Content
   alias GSMLG.Content.Blog
-  alias GSMLG.Content.TranslationProviderSetting
 
   @impl true
   def mount(_params, _session, socket) do

@@ -1,5 +1,5 @@
 defmodule GSMLG.Translation.ClaudeProviderTest do
-  use ExUnit.Case, async: true
+  use GSMLG.DataCase, async: true
 
   alias GSMLG.Translation.ClaudeProvider
 
