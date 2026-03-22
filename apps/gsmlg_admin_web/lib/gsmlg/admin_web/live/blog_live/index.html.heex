@@ -12,6 +12,11 @@
             <.dm_mdi name="database-import-outline" class="w-4 h-4" /> Import
           </.dm_btn>
         </.link>
+        <.link navigate={~p"/blogs/settings"}>
+          <.dm_btn size="sm" variant="ghost" title="Translation Provider Settings">
+            <.dm_mdi name="cog-outline" class="w-4 h-4" /> Translate Settings
+          </.dm_btn>
+        </.link>
         <.link patch={~p"/blogs/new"}>
           <.dm_btn variant="primary" size="sm">
             <.dm_mdi name="pencil-plus-outline" class="w-4 h-4" /> Compose
@@ -183,5 +188,66 @@
         <.react_markdown data={Map.get(@blog, :content)} />
       </div>
     </div>
+  </div>
+  <%!-- ── TRANSLATION PROVIDER SETTINGS ──────────────────────── --%>
+  <div :if={@live_action == :settings} class="flex flex-col gap-4 p-6 w-full max-w-2xl">
+    <div class="flex items-center gap-3">
+      <.dm_mdi name="cog-outline" class="w-5 h-5 text-primary" />
+      <h1 class="font-semibold text-base-content">Translation Provider Settings</h1>
+    </div>
+
+    <div class="flex gap-2">
+      <.link navigate={~p"/blogs"}>
+        <.dm_btn size="sm" variant="ghost">
+          <.dm_mdi name="arrow-left" class="w-4 h-4" /> All Blogs
+        </.dm_btn>
+      </.link>
+    </div>
+
+    <.dm_form
+      for={@settings_form}
+      phx-submit="save_settings"
+      phx-change="validate_settings"
+      class="flex flex-col gap-4"
+    >
+      <.dm_select
+        field={@settings_form[:provider]}
+        label="LLM Provider"
+        options={[{"claude", "Anthropic Claude"}]}
+      />
+      <.dm_input
+        field={@settings_form[:api_key]}
+        label="API Key"
+        type="password"
+        placeholder="sk-ant-..."
+      />
+      <.dm_input
+        field={@settings_form[:model]}
+        label="Model"
+        placeholder="claude-haiku-4-5-20251001"
+      />
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium text-base-content">
+          System Prompt
+        </label>
+        <p class="text-xs text-base-content/50">
+          Use <code>{source}</code> and <code>{target}</code> as placeholders for locale names.
+          Leave blank to use the default prompt.
+        </p>
+        <textarea
+          id="settings-system-prompt"
+          name={@settings_form[:system_prompt].name}
+          rows="8"
+          class="textarea textarea-bordered w-full font-mono text-sm"
+          placeholder={GSMLG.Content.TranslationProviderSetting.default_system_prompt()}
+        ><%= Phoenix.HTML.Form.normalize_value("textarea", @settings_form[:system_prompt].value) %></textarea>
+      </div>
+      <:actions>
+        <.dm_btn variant="primary" type="submit">Save Settings</.dm_btn>
+        <.link navigate={~p"/blogs"}>
+          <.dm_btn variant="ghost" type="button">Cancel</.dm_btn>
+        </.link>
+      </:actions>
+    </.dm_form>
   </div>
 </Layouts.user>

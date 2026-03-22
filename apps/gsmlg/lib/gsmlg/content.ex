@@ -8,6 +8,7 @@ defmodule GSMLG.Content do
 
   alias GSMLG.Content.Blog
   alias GSMLG.Content.BlogTranslation
+  alias GSMLG.Content.TranslationProviderSetting
 
   defp supported_locales, do: GSMLG.Locale.supported()
 
@@ -301,6 +302,30 @@ defmodule GSMLG.Content do
 
   defp change(struct, attrs) do
     Ecto.Changeset.change(struct, attrs)
+  end
+
+  # ── Translation Provider Settings ────────────────────────────────────────
+
+  @doc "Returns the current translation provider setting, or a default struct if none saved."
+  def get_translation_provider_setting do
+    case Repo.one(from s in TranslationProviderSetting, limit: 1, order_by: [asc: :id]) do
+      nil -> %TranslationProviderSetting{}
+      setting -> setting
+    end
+  end
+
+  @doc "Upserts the translation provider setting (singleton row)."
+  def upsert_translation_provider_setting(attrs) do
+    setting = get_translation_provider_setting()
+
+    setting
+    |> TranslationProviderSetting.changeset(attrs)
+    |> Repo.insert_or_update()
+  end
+
+  @doc "Returns a changeset for the translation provider setting form."
+  def change_translation_provider_setting(%TranslationProviderSetting{} = setting, attrs \\ %{}) do
+    TranslationProviderSetting.changeset(setting, attrs)
   end
 
   def batch_pending_translations do
