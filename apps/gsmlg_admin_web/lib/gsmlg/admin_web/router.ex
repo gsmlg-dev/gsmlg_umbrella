@@ -88,6 +88,11 @@ defmodule GSMLG.AdminWeb.Router do
     live("/user_tokens/:id/edit", UserTokenLive.Index, :edit)
     live("/user_tokens/:id", UserTokenLive.Index, :show)
 
+    live("/api_providers", ApiProviderLive.Index, :index)
+    live("/api_providers/new", ApiProviderLive.Index, :new)
+    live("/api_providers/:id/edit", ApiProviderLive.Index, :edit)
+    live("/api_providers/:id", ApiProviderLive.Index, :show)
+
     live("/web_push", WebPushLive.Index, :index)
 
     live("/command_platform", CommandPlatformLive.Index, :index)

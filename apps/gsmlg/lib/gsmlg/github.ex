@@ -1,8 +1,12 @@
 defmodule GSMLG.GitHub do
   require Logger
 
-  def client() do
-    token = System.get_env("GITHUB_TOKEN")
+  def client(name \\ "default") do
+    token =
+      case GSMLG.ApiProvider.Vault.get_token("github", name) do
+        {:ok, t} -> t
+        _ -> nil
+      end
 
     Tesla.client(
       [

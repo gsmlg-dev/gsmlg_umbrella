@@ -1,25 +1,36 @@
 defmodule GSMLG.AWS.Client do
   require Logger
 
-  def get_client() do
-    access_key_id = System.get_env("AWS_ACCESS_KEY_ID")
-    secret_access_key = System.get_env("AWS_SECRET_ACCESS_KEY")
-    region = System.get_env("AWS_REGION")
+  @doc """
+  Creates an AWS client for the named credential set.
 
-    # Validate credentials
-    case validate_credentials(access_key_id, secret_access_key, region) do
-      :ok ->
-        client =
-          AWS.Client.create(access_key_id, secret_access_key, region)
-          |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []})
-          |> Map.put(:proto_version, "2.0")
-          |> Map.put(:content_type, "application/x-amz-json-1.0")
+  Credentials are loaded from Application env key `:aws_credentials`, which is
+  populated by `GSMLG.ApiProvider.Vault` when it unseals. The map is keyed by
+  provider name (default: `"default"`):
 
-        client
+      Application.get_env(:gsmlg_aws, :aws_credentials)
+      #=> %{"default" => %{access_key_id: "AKIA...", secret_access_key: "...", region: "..."}}
+  """
+  def get_client(name \\ "default") do
+    credentials = Application.get_env(:gsmlg_aws, :aws_credentials, %{})
 
-      {:error, reason} ->
-        Logger.error("Invalid AWS credentials: #{reason}")
-        raise ArgumentError, "Cannot create AWS client: #{reason}"
+    case Map.get(credentials, name) do
+      %{access_key_id: access_key_id, secret_access_key: secret_access_key, region: region} ->
+        case validate_credentials(access_key_id, secret_access_key, region) do
+          :ok ->
+            AWS.Client.create(access_key_id, secret_access_key, region)
+            |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []})
+            |> Map.put(:proto_version, "2.0")
+            |> Map.put(:content_type, "application/x-amz-json-1.0")
+
+          {:error, reason} ->
+            Logger.error("Invalid AWS credentials for provider #{inspect(name)}: #{reason}")
+            raise ArgumentError, "Cannot create AWS client: #{reason}"
+        end
+
+      _ ->
+        Logger.error("AWS provider #{inspect(name)} not configured in :gsmlg_aws :aws_credentials")
+        raise ArgumentError, "Cannot create AWS client: provider #{inspect(name)} not configured"
     end
   end
 

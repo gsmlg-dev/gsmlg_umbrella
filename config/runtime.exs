@@ -63,6 +63,10 @@ else
   end
 end
 
+if key = System.get_env("GSMLG_API_PROVIDER_KEY") do
+  config :gsmlg, :api_provider_encryption_key, key
+end
+
 if System.get_env("MIX_BUN_PATH") do
   config :bun, path: System.get_env("MIX_BUN_PATH")
 end

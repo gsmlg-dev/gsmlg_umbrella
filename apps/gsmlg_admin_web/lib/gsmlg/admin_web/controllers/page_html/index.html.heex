@@ -384,6 +384,45 @@
         </div>
       </div>
 
+      <%!-- ── API Providers ─────────────────────────────────── --%>
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 pb-1 border-b border-base-300">
+          <div class="w-0.5 h-5 rounded-full bg-primary"></div>
+          <p class="font-mono text-[10px] tracking-[0.4em] uppercase text-primary/70 font-bold">
+            API Providers
+          </p>
+          <div class="flex-1 h-px bg-base-300"></div>
+          <.dm_mdi name="key-outline" class="w-4 h-4 text-base-content/20" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <.link navigate={~p"/api_providers"} class="group col-span-2">
+            <div class="border border-base-300 group-hover:border-primary group-hover:bg-primary/5 transition-all duration-150 rounded p-3 flex items-center gap-3">
+              <.dm_mdi
+                name="key-chain"
+                class="w-4 h-4 text-primary opacity-70 group-hover:opacity-100"
+              />
+              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content">
+                Credential Vault
+              </p>
+              <span class="ml-auto font-mono text-[9px] text-base-content/30">
+                {if GSMLG.ApiProvider.Vault.sealed?(), do: "SEALED", else: "UNSEALED"}
+              </span>
+            </div>
+          </.link>
+          <.link navigate={~p"/api_providers/new"} class="group col-span-2">
+            <div class="border border-dashed border-base-300 group-hover:border-primary group-hover:bg-primary/5 transition-all duration-150 rounded p-3 flex items-center gap-3">
+              <.dm_mdi
+                name="plus-circle-outline"
+                class="w-4 h-4 text-primary opacity-50 group-hover:opacity-100"
+              />
+              <p class="font-mono text-xs font-medium text-base-content/50 group-hover:text-base-content">
+                Add Provider
+              </p>
+            </div>
+          </.link>
+        </div>
+      </div>
+
       <%!-- ── Content & Tools ─────────────────────────────────── --%>
       <div class="flex flex-col gap-3">
         <div class="flex items-center gap-3 pb-1 border-b border-base-300">

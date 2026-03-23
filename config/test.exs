@@ -59,6 +59,8 @@ config :gsmlg, Oban, testing: :inline
 
 config :gsmlg, :translation_provider, GSMLG.Translation.MockProvider
 
+config :gsmlg, :api_provider_encryption_key, "test_only_api_provider_key_do_not_use_in_prod!"
+
 # Use Tesla.Mock as the HTTP adapter for ClaudeProvider in tests
 config :gsmlg, :claude_tesla_adapter, Tesla.Mock
 

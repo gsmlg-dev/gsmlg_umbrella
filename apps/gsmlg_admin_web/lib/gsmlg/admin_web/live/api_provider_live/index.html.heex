@@ -1,0 +1,216 @@
+<Layouts.user flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+  <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
+    <div class="mx-4 my-2 flex flex-row justify-between items-center">
+      <h2 class="text-2xl text-primary">API Providers</h2>
+      <.link class="btn btn-primary" patch={~p"/api_providers/new"}>
+        New Provider
+      </.link>
+    </div>
+
+    <.dm_table
+      class="table-bordered [&_thead]:bg-primary [&_thead]:text-primary-content"
+      data={@providers}
+    >
+      <:col :let={p} label="Provider">{p.provider}</:col>
+      <:col :let={p} label="Name">{p.name}</:col>
+      <:col :let={p} label="Auth Type">{p.auth_type}</:col>
+      <:col :let={p} label="Active">
+        <span class={if p.active, do: "text-success", else: "text-error"}>
+          {if p.active, do: "Yes", else: "No"}
+        </span>
+      </:col>
+      <:col :let={p} label="Updated">
+        {p.updated_at |> NaiveDateTime.to_string() |> String.slice(0, 19)}
+      </:col>
+      <:col :let={p} label="">
+        <div class="flex gap-2">
+          <.link class="btn btn-info btn-sm" patch={~p"/api_providers/#{p.id}"}>
+            Show
+          </.link>
+          <.link class="btn btn-warning btn-sm" patch={~p"/api_providers/#{p.id}/edit"}>
+            Edit
+          </.link>
+          <.dm_btn
+            id={"del-#{p.id}"}
+            confirm={"Delete provider #{p.provider}/#{p.name}?"}
+            class="btn-error btn-sm"
+            confirm_class="btn-error btn-sm"
+            cancel_class="btn-ghost btn-sm"
+            confirm_title="Confirm Delete"
+          >
+            Delete
+            <:confirm_action>
+              <form method="dialog">
+                <.dm_btn
+                  phx-click={JS.push("delete", value: %{id: p.id})}
+                  class="btn-error btn-sm"
+                >
+                  Delete
+                </.dm_btn>
+              </form>
+            </:confirm_action>
+          </.dm_btn>
+        </div>
+      </:col>
+    </.dm_table>
+  </div>
+
+  <div
+    :if={@live_action == :new || @live_action == :edit}
+    class="container flex flex-col gap-2 mt-4 w-full"
+  >
+    <div class="mx-4 my-2 flex gap-2">
+      <.link class="btn btn-ghost btn-sm" patch={~p"/api_providers"}>
+        &larr; Back to list
+      </.link>
+    </div>
+
+    <div class="mx-4 my-2">
+      <.dm_form
+        :let={f}
+        for={@changeset}
+        id="api-provider-form"
+        class="flex flex-col gap-4 max-w-2xl"
+        phx-change="validate"
+        phx-submit="save"
+      >
+        <.dm_input field={f[:provider]} type="text" label="Provider" class="w-full"
+          placeholder="openai, github, aws, cloudflare, deepseek …" />
+        <.dm_input field={f[:name]} type="text" label="Name" class="w-full"
+          placeholder="default, prod, staging …" />
+
+        <div class="form-control w-full">
+          <label class="label">
+            <span class="label-text">Auth Type</span>
+          </label>
+          <select name={f[:auth_type].name} class="select select-bordered w-full">
+            <option
+              :for={opt <- ["token", "oauth"]}
+              value={opt}
+              selected={Ecto.Changeset.get_field(@changeset, :auth_type) == opt}
+            >
+              {opt}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-control w-full">
+          <label class="label">
+            <span class="label-text">Credentials (JSON)</span>
+          </label>
+          <textarea
+            name="api_provider[credentials_json]"
+            class="textarea textarea-bordered font-mono text-sm h-40 w-full"
+            placeholder={"{\n  \"api_key\": \"sk-...\"\n}"}
+          ><%= @credentials_json %></textarea>
+          <label class="label">
+            <span class="label-text-alt text-base-content/50">
+              Stored encrypted. Examples: <code>{"api_key"}</code> for OpenAI/DeepSeek,
+              <code>{"token"}</code> for GitHub, <code>{"access_key_id"}</code> +
+              <code>{"secret_access_key"}</code> for AWS.
+            </span>
+          </label>
+        </div>
+
+        <div class="form-control w-full">
+          <label class="label">
+            <span class="label-text">Metadata (JSON, optional)</span>
+          </label>
+          <textarea
+            name="api_provider[metadata_json]"
+            class="textarea textarea-bordered font-mono text-sm h-24 w-full"
+            placeholder={"{\n  \"region\": \"us-east-1\"\n}"}
+          ><%= @metadata_json %></textarea>
+        </div>
+
+        <div class="form-control">
+          <label class="label cursor-pointer gap-4 justify-start">
+            <input
+              type="checkbox"
+              name={f[:active].name}
+              value="true"
+              checked={Ecto.Changeset.get_field(@changeset, :active) != false}
+              class="checkbox checkbox-primary"
+            />
+            <span class="label-text">Active</span>
+          </label>
+        </div>
+
+        <:actions>
+          <.dm_btn class="btn-primary w-full max-w-xs" phx-disable-with="Saving...">
+            Save Provider
+          </.dm_btn>
+        </:actions>
+      </.dm_form>
+    </div>
+  </div>
+
+  <div :if={@live_action == :show} class="container flex flex-col gap-2 mt-4 w-full">
+    <div class="mx-4 my-2 flex gap-2">
+      <.link class="btn btn-ghost btn-sm" patch={~p"/api_providers"}>
+        &larr; Back to list
+      </.link>
+      <.link class="btn btn-warning btn-sm" patch={~p"/api_providers/#{@provider.id}/edit"}>
+        Edit
+      </.link>
+    </div>
+
+    <div class="mx-4 my-2 flex flex-col gap-3 max-w-2xl">
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Provider</div>
+        <div>{@provider.provider}</div>
+      </div>
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Name</div>
+        <div>{@provider.name}</div>
+      </div>
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Auth Type</div>
+        <div>{@provider.auth_type}</div>
+      </div>
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Active</div>
+        <div>
+          <span class={if @provider.active, do: "badge badge-success", else: "badge badge-error"}>
+            {if @provider.active, do: "Active", else: "Inactive"}
+          </span>
+        </div>
+      </div>
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Vault Status</div>
+        <div>
+          <%= case GSMLG.ApiProvider.Vault.get(@provider.provider, @provider.name) do %>
+            <% {:ok, _} -> %>
+              <span class="badge badge-success">Loaded in Vault</span>
+            <% {:error, :sealed} -> %>
+              <span class="badge badge-warning">Vault Sealed</span>
+            <% :error -> %>
+              <span class="badge badge-ghost">Not in Vault</span>
+          <% end %>
+        </div>
+      </div>
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Metadata</div>
+        <div class="font-mono text-sm">
+          <json-viewer indent="2">
+            {Jason.encode!(@provider.metadata || %{})}
+          </json-viewer>
+        </div>
+      </div>
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Credentials</div>
+        <div class="font-mono text-sm text-base-content/50 italic">
+          (encrypted — not shown)
+        </div>
+      </div>
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Created</div>
+        <div>{@provider.inserted_at |> NaiveDateTime.to_string() |> String.slice(0, 19)}</div>
+      </div>
+      <div class="flex flex-row py-2 border-b border-base-300">
+        <div class="w-40 font-semibold text-primary">Updated</div>
+        <div>{@provider.updated_at |> NaiveDateTime.to_string() |> String.slice(0, 19)}</div>
+      </div>
+    </div>
+  </div>
+</Layouts.user>

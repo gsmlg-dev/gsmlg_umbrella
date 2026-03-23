@@ -121,3 +121,5 @@ config :gsmlg_telemetry,
     ]
   ],
   report_interval: 30_000
+
+config :gsmlg, :api_provider_encryption_key, "gsmlg-umbrella-dev"

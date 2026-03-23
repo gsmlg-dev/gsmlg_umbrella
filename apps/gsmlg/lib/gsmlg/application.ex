@@ -27,6 +27,8 @@ defmodule GSMLG.Application do
       {Oban, Application.fetch_env!(:gsmlg, Oban)},
       # Start the PubSub system
       {Phoenix.PubSub, name: GSMLG.PubSub, adapter: Phoenix.PubSub.PG2},
+      # API provider vault — auto-unseals if GSMLG_API_PROVIDER_KEY is configured
+      GSMLG.ApiProvider.Vault,
       {GSMLG.CommandPlatform.Supervisor, name: GSMLG.CommandPlatform.Supervisor},
       # Start distribute Node
       {Finch, name: GSMLG.Finch},
