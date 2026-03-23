@@ -33,6 +33,20 @@ defmodule GSMLG.Web.ToolboxController do
     end
   end
 
+  def rdap_json(conn, %{"look_for" => look_for} = params) do
+    type =
+      case Map.get(params, "type", "domain") do
+        "ip" -> :ip
+        "asn" -> :asn
+        _ -> :domain
+      end
+
+    case GSMLG.Whois.rdap_lookup(look_for, type: type) do
+      {:ok, data} -> conn |> json(%{data: data})
+      {:error, reason} -> conn |> put_status(422) |> json(%{error: inspect(reason)})
+    end
+  end
+
   def svg2react(conn, _params) do
     render(conn, :svg2react, title: dgettext("toolbox", "SVG to React"))
   end

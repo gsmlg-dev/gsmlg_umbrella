@@ -107,6 +107,7 @@ defmodule GSMLG.Web.Router do
 
     get("/toolbox/ip_geo", ToolboxController, :ip_geo_json)
     get("/toolbox/whois", ToolboxController, :whois_json)
+    get("/toolbox/whois/rdap", ToolboxController, :rdap_json)
     get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer_json)
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap_post)
   end
