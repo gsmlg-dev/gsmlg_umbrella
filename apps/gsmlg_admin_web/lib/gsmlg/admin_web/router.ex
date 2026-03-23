@@ -116,7 +116,6 @@ defmodule GSMLG.AdminWeb.Router do
 
     # Storage Management
     live("/storage", StorageLive.Index, :index)
-    live("/storage/upload", StorageLive.Upload, :upload)
     live("/storage/config", StorageLive.Config, :index)
     live("/storage/:id", StorageLive.Show, :show)
 

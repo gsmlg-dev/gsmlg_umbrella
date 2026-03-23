@@ -11,7 +11,7 @@ defmodule GSMLG.Content.TranslationProviderSetting do
 
   schema "translation_provider_settings" do
     field :provider, :string, default: "claude"
-    field :api_key, :string, default: ""
+    field :api_key, GSMLG.Content.EncryptedString, default: ""
     field :model, :string, default: "claude-haiku-4-5-20251001"
     field :system_prompt, :string
 

@@ -6,6 +6,12 @@ config :gsmlg,
 
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Local
 
+# Encryption key for TranslationProviderSetting.api_key (AES-256-GCM via EncryptedString type).
+# Override with GSMLG_TRANSLATION_KEY env var in production.
+config :gsmlg,
+       :translation_encryption_key,
+       System.get_env("GSMLG_TRANSLATION_KEY", "dev_only_key_do_not_use_in_prod_!")
+
 config :gsmlg, Oban,
   repo: GSMLG.Repo,
   queues: [translations: 5],

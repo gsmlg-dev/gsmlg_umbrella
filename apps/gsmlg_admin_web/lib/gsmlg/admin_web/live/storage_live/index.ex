@@ -132,7 +132,9 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
       {:error, changeset} ->
         errors = changeset.errors
         error_msg = Enum.map_join(errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
-        {:noreply, assign(socket, folder_form: %{tenant: tenant, type: type || "", error: error_msg})}
+
+        {:noreply,
+         assign(socket, folder_form: %{tenant: tenant, type: type || "", error: error_msg})}
     end
   end
 

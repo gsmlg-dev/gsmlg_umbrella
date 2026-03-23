@@ -134,9 +134,8 @@ defmodule GSMLG.Content do
           })
         end)
 
-      result = Oban.insert_all(jobs)
-      count = result |> List.wrap() |> length()
-      {:ok, count}
+      inserted = Oban.insert_all(jobs)
+      {:ok, length(inserted)}
     end)
     |> Repo.transaction()
     |> case do
@@ -173,6 +172,16 @@ defmodule GSMLG.Content do
 
       {:ok, count}
     end)
+    |> Ecto.Multi.run(:cleanup_source_locale_translation, fn _repo, %{blog: updated_blog} ->
+      # If source_locale was corrected, delete any translation record whose locale now
+      # matches the new source_locale — it is the source content, not a translation.
+      from(t in BlogTranslation,
+        where: t.blog_id == ^updated_blog.id and t.locale == ^updated_blog.source_locale
+      )
+      |> Repo.delete_all()
+
+      {:ok, :done}
+    end)
     |> Ecto.Multi.run(:jobs, fn _repo, %{blog: updated_blog} ->
       # Re-enqueue jobs for outdated (non-manually_edited) translations,
       # excluding any translation whose locale matches the new source_locale.
@@ -193,10 +202,7 @@ defmodule GSMLG.Content do
           })
         end)
 
-      if jobs != [] do
-        Oban.insert_all(jobs)
-      end
-
+      if jobs != [], do: Oban.insert_all(jobs)
       {:ok, length(jobs)}
     end)
     |> Repo.transaction()
@@ -343,7 +349,7 @@ defmodule GSMLG.Content do
 
     existing_needing_work =
       from(t in BlogTranslation,
-        where: t.status in ["pending", "failed", "outdated"],
+        where: t.status in ["failed", "outdated"],
         select: {t.blog_id, t.locale}
       )
       |> Repo.all()
