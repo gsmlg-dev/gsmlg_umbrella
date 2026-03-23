@@ -1,249 +1,104 @@
 defmodule GSMLG.Whois.Cache do
   @moduledoc """
-  ETS-based caching layer for WHOIS lookups.
+  Cache behaviour for GSMLG.Whois lookups.
 
-  Caches WHOIS responses to reduce network overhead and improve response times.
-  Automatically expires entries based on configurable TTL values.
+  Implement this behaviour to provide a custom cache backend:
 
-  ## Configuration
-
-      config :gsmlg_whois,
-        cache_enabled: true,
-        cache_ttl: [
-          domain: 86_400_000,  # 24 hours
-          ip: 3_600_000,       # 1 hour
-          asn: 3_600_000       # 1 hour
-        ]
-
-  ## Usage
-
-      # Get cached entry
-      case GSMLG.Whois.Cache.get("example.com") do
-        {:ok, result} -> result
-        :miss -> perform_lookup()
+      defmodule MyApp.WhoisCache do
+        @behaviour GSMLG.Whois.Cache
+        # implement get/1, put/4, delete/1, clear/0
       end
 
-      # Store in cache
-      GSMLG.Whois.Cache.put("example.com", result, :domain)
+  Configure the backend via application config:
 
-      # Clear all cache
-      GSMLG.Whois.Cache.clear()
+      config :gsmlg_whois, cache: MyApp.WhoisCache
 
-      # Get cache statistics
-      GSMLG.Whois.Cache.stats()
+  To disable caching entirely:
+
+      config :gsmlg_whois, cache: nil
+
+  Built-in backends:
+
+  - `GSMLG.Whois.Cache.ETS` (default) — requires `start_link/0` in your supervision tree
+  - `GSMLG.Whois.Cache.Mnesia` — requires Mnesia table `:gsmlg_whois_cache` to exist
+  - `GSMLG.Whois.Cache.Postgres` — requires a Postgrex connection pool
+  - `GSMLG.Whois.Cache.Concord` — requires Concord to be started
+
+  TTL configuration (milliseconds):
+
+      config :gsmlg_whois, cache_ttl: [
+        domain: 86_400_000,   # 24 hours (default)
+        ip: 3_600_000,        # 1 hour (default)
+        asn: 3_600_000,       # 1 hour (default)
+        rdap: 86_400_000      # 24 hours (default)
+      ]
   """
 
-  use GenServer
-  require Logger
+  @type key :: String.t()
+  @type value :: term()
+  @type lookup_type :: :domain | :ip | :asn | :rdap | atom()
 
-  @table_name :gsmlg_whois_cache
+  @callback get(key()) :: {:ok, value()} | :miss
+  @callback put(key(), value(), lookup_type(), ttl_ms :: non_neg_integer()) :: :ok
+  @callback delete(key()) :: :ok
+  @callback clear() :: :ok
+
   @default_ttl %{
     domain: 86_400_000,
     ip: 3_600_000,
-    asn: 3_600_000
+    asn: 3_600_000,
+    rdap: 86_400_000
   }
 
-  # Client API
-  # ----------
-
-  @doc """
-  Starts the cache GenServer.
-  """
-  def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  @doc "Returns the configured cache backend module, or `nil` if caching is disabled."
+  @spec impl() :: module() | nil
+  def impl do
+    case Application.get_env(:gsmlg_whois, :cache, GSMLG.Whois.Cache.ETS) do
+      false -> nil
+      mod -> mod
+    end
   end
 
-  @doc """
-  Retrieves a cached WHOIS result.
+  @doc "Returns the TTL in milliseconds for the given lookup type."
+  @spec ttl(lookup_type()) :: non_neg_integer()
+  def ttl(type) do
+    config_ttl = Application.get_env(:gsmlg_whois, :cache_ttl, %{})
+    Map.get(config_ttl, type) || Map.get(@default_ttl, type, 3_600_000)
+  end
 
-  Returns `{:ok, result}` if found and not expired, `:miss` otherwise.
-
-  ## Examples
-
-      iex> GSMLG.Whois.Cache.get("example.com")
-      {:ok, "Domain Name: EXAMPLE.COM\\n..."}
-
-      iex> GSMLG.Whois.Cache.get("nonexistent.com")
-      :miss
-  """
-  @spec get(String.t()) :: {:ok, String.t()} | :miss
+  @doc "Retrieves a value. Returns `:miss` if caching is disabled or key absent."
+  @spec get(key()) :: {:ok, value()} | :miss
   def get(key) do
-    if cache_enabled?() do
-      case :ets.lookup(@table_name, key) do
-        [{^key, value, expires_at}] ->
-          now = System.monotonic_time(:millisecond)
-
-          if now < expires_at do
-            {:ok, value}
-          else
-            # Entry expired, delete it
-            :ets.delete(@table_name, key)
-            :miss
-          end
-
-        [] ->
-          :miss
-      end
-    else
-      :miss
+    case impl() do
+      nil -> :miss
+      mod -> mod.get(key)
     end
   end
 
-  @doc """
-  Stores a WHOIS result in the cache.
-
-  ## Parameters
-
-    - `key` - The lookup key (domain, IP, or ASN)
-    - `value` - The WHOIS response string
-    - `type` - One of `:domain`, `:ip`, or `:asn` (determines TTL)
-
-  ## Examples
-
-      iex> GSMLG.Whois.Cache.put("example.com", whois_result, :domain)
-      :ok
-  """
-  @spec put(String.t(), String.t(), :domain | :ip | :asn) :: :ok
-  def put(key, value, type) when type in [:domain, :ip, :asn] do
-    if cache_enabled?() do
-      ttl = get_ttl(type)
-      expires_at = System.monotonic_time(:millisecond) + ttl
-      :ets.insert(@table_name, {key, value, expires_at})
-      :ok
-    else
-      :ok
+  @doc "Stores a value. No-op if caching is disabled."
+  @spec put(key(), value(), lookup_type()) :: :ok
+  def put(key, value, type) do
+    case impl() do
+      nil -> :ok
+      mod -> mod.put(key, value, type, ttl(type))
     end
   end
 
-  @doc """
-  Clears all entries from the cache.
+  @doc "Deletes a single entry. No-op if caching is disabled."
+  @spec delete(key()) :: :ok
+  def delete(key) do
+    case impl() do
+      nil -> :ok
+      mod -> mod.delete(key)
+    end
+  end
 
-  ## Examples
-
-      iex> GSMLG.Whois.Cache.clear()
-      :ok
-  """
+  @doc "Clears all entries. No-op if caching is disabled."
   @spec clear() :: :ok
   def clear do
-    if cache_enabled?() do
-      :ets.delete_all_objects(@table_name)
-      :ok
-    else
-      :ok
-    end
-  end
-
-  @doc """
-  Returns cache statistics.
-
-  ## Examples
-
-      iex> GSMLG.Whois.Cache.stats()
-      %{
-        size: 42,
-        memory_bytes: 12345,
-        enabled: true
-      }
-  """
-  @spec stats() :: map()
-  def stats do
-    if cache_enabled?() do
-      info = :ets.info(@table_name)
-
-      %{
-        size: info[:size] || 0,
-        memory_bytes: (info[:memory] || 0) * :erlang.system_info(:wordsize),
-        enabled: true
-      }
-    else
-      %{size: 0, memory_bytes: 0, enabled: false}
-    end
-  end
-
-  @doc """
-  Checks if a key exists in the cache (regardless of expiration).
-
-  Useful for testing and debugging.
-  """
-  @spec has_key?(String.t()) :: boolean()
-  def has_key?(key) do
-    if cache_enabled?() do
-      case :ets.lookup(@table_name, key) do
-        [] -> false
-        _ -> true
-      end
-    else
-      false
-    end
-  end
-
-  # Server Callbacks
-  # ----------------
-
-  @impl true
-  def init(_opts) do
-    if cache_enabled?() do
-      :ets.new(@table_name, [:named_table, :set, :public, read_concurrency: true])
-      Logger.info("GSMLG.Whois.Cache started with table #{@table_name}")
-
-      # Schedule periodic cleanup
-      schedule_cleanup()
-    end
-
-    {:ok, %{}}
-  end
-
-  @impl true
-  def handle_info(:cleanup, state) do
-    if cache_enabled?() do
-      cleanup_expired()
-      schedule_cleanup()
-    end
-
-    {:noreply, state}
-  end
-
-  # Private Helpers
-  # ---------------
-
-  defp cache_enabled? do
-    Application.get_env(:gsmlg_whois, :cache_enabled, true)
-  end
-
-  defp get_ttl(type) do
-    config_ttl = Application.get_env(:gsmlg_whois, :cache_ttl, %{})
-    Map.get(config_ttl, type) || Map.get(@default_ttl, type)
-  end
-
-  defp schedule_cleanup do
-    # Run cleanup every 5 minutes
-    Process.send_after(self(), :cleanup, 300_000)
-  end
-
-  defp cleanup_expired do
-    now = System.monotonic_time(:millisecond)
-
-    # Find all expired entries
-    expired_keys =
-      :ets.foldl(
-        fn {key, _value, expires_at}, acc ->
-          if now >= expires_at do
-            [key | acc]
-          else
-            acc
-          end
-        end,
-        [],
-        @table_name
-      )
-
-    # Delete expired entries
-    Enum.each(expired_keys, fn key ->
-      :ets.delete(@table_name, key)
-    end)
-
-    if length(expired_keys) > 0 do
-      Logger.debug("GSMLG.Whois.Cache: Cleaned up #{length(expired_keys)} expired entries")
+    case impl() do
+      nil -> :ok
+      mod -> mod.clear()
     end
   end
 end

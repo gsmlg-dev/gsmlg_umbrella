@@ -1,191 +1,168 @@
 defmodule GSMLG.Whois do
   @moduledoc """
-  Documentation for `GSMLG.Whois`.
+  WHOIS and RDAP lookup facade.
 
-  # Lookup Raw Whois
+  Supports two protocols:
 
-  ```
-  GSMLG.Whois.lookup_raw("gsmlg.app")
-  ```
+  - **WHOIS** (`lookup_raw/2`) — raw TCP lookups (RFC 3912), returns unstructured text
+  - **RDAP** (`rdap_lookup/2`) — HTTPS lookups (RFC 9082/9083), returns structured JSON
 
-  # TODO:
+  Both functions support optional caching via the configured `GSMLG.Whois.Cache` backend.
 
-  Add parsed whois infomation.
+  ## WHOIS
 
-  """
-  require Logger
-  alias GSMLG.Whois.Server, as: WhoisServer
+      {:ok, [{server, raw_text}, ...]} = GSMLG.Whois.lookup_raw("example.com")
 
-  @type restData :: binary()
-  @type reason :: :timeout | :closed | {:timeout, restData} | :inet.posix()
-  @type opts :: [server: WhoisServer.t()]
+  ## RDAP
 
-  @doc """
-  Lookup Whois information of Domain / IP address / AS Number.
+      {:ok, %{"objectClassName" => "domain", ...}} = GSMLG.Whois.rdap_lookup("example.com")
+      {:ok, data} = GSMLG.Whois.rdap_lookup("8.8.8.8", type: :ip)
+      {:ok, data} = GSMLG.Whois.rdap_lookup("64496", type: :asn)
 
-  Return a list of whois information.
+  ## Options (both functions)
 
-  format: [{server, raw_whois}, ...]
+    - `:cache` — enable/disable caching for this request (default: `true`)
+    - `:type`  — lookup type for cache TTL: `:domain`, `:ip`, `:asn` (default: `:domain`)
 
-  ## Options
+  ## Additional WHOIS options
 
-    - `:server` - Specify a custom WHOIS server
-    - `:cache` - Enable/disable caching for this request (default: true)
-    - `:type` - Specify lookup type for cache TTL: `:domain`, `:ip`, or `:asn` (default: `:domain`)
+    - `:server` — override the initial WHOIS server (binary hostname or `%GSMLG.Whois.Server{}`)
 
-  ## Examples
+  ## Telemetry
 
-      # Basic lookup with caching
-      {:ok, result} = GSMLG.Whois.lookup_raw("example.com")
+  WHOIS events:
 
-      # Bypass cache for this lookup
-      {:ok, result} = GSMLG.Whois.lookup_raw("example.com", cache: false)
-
-      # Specify IP lookup type for appropriate TTL
-      {:ok, result} = GSMLG.Whois.lookup_raw("8.8.8.8", type: :ip)
-
-  Emits telemetry events:
   - `[:gsmlg, :whois, :lookup, :start]`
   - `[:gsmlg, :whois, :lookup, :stop]`
   - `[:gsmlg, :whois, :lookup, :exception]`
+
+  RDAP events:
+
+  - `[:gsmlg, :whois, :rdap, :lookup, :start]`
+  - `[:gsmlg, :whois, :rdap, :lookup, :stop]`
+  - `[:gsmlg, :whois, :rdap, :lookup, :exception]`
+
+  Cache events (both protocols):
+
   - `[:gsmlg, :whois, :cache, :hit]`
   - `[:gsmlg, :whois, :cache, :miss]`
-
   """
-  @spec lookup_raw(binary(), opts()) :: {:ok, [{binary(), binary()}]} | {:error, reason()}
-  def lookup_raw(qs, opts \\ []) do
+
+  require Logger
+
+  alias GSMLG.Whois.{Cache, RDAPProtocol, Server, WhoisProtocol}
+
+  @type lookup_type :: :domain | :ip | :asn
+  @type whois_opts :: [
+          server: binary() | Server.t(),
+          cache: boolean(),
+          type: lookup_type()
+        ]
+  @type rdap_opts :: [
+          cache: boolean(),
+          type: lookup_type() | :rdap
+        ]
+
+  # ---------------------------------------------------------------------------
+  # WHOIS
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Looks up raw WHOIS information for a domain, IP address, or ASN.
+
+  Returns a list of `{server, raw_text}` pairs, one per WHOIS server contacted.
+  The root server (e.g. `whois.iana.org`) is listed first; referral servers follow.
+  """
+  @spec lookup_raw(binary(), whois_opts()) ::
+          {:ok, [{binary(), binary()}]} | {:error, term()}
+  def lookup_raw(query, opts \\ []) do
     cache_enabled = Keyword.get(opts, :cache, true)
     lookup_type = Keyword.get(opts, :type, :domain)
+    cache_key = "whois:#{query}"
 
-    # Try to get from cache first
-    case cache_enabled && GSMLG.Whois.Cache.get(qs) do
-      {:ok, cached_result} ->
-        emit_telemetry([:gsmlg, :whois, :cache, :hit], %{}, %{query: qs, type: lookup_type})
-        {:ok, cached_result}
+    case cache_enabled && Cache.get(cache_key) do
+      {:ok, cached} ->
+        emit_cache_event(:hit, query, lookup_type)
+        {:ok, cached}
 
-      :miss ->
-        if cache_enabled do
-          emit_telemetry([:gsmlg, :whois, :cache, :miss], %{}, %{query: qs, type: lookup_type})
-        end
+      _ ->
+        if cache_enabled, do: emit_cache_event(:miss, query, lookup_type)
 
-        # Perform actual lookup with telemetry
         GSMLG.Telemetry.span(
           [:gsmlg, :whois, :lookup],
-          %{query: qs, type: lookup_type, cached: false},
+          %{query: query, type: lookup_type},
           fn ->
-            result = do_lookup_raw(qs, opts)
+            server = resolve_server(opts)
+            result = WhoisProtocol.lookup(query, server)
 
-            # Cache successful results
-            case result do
-              {:ok, lookup_result} when cache_enabled ->
-                GSMLG.Whois.Cache.put(qs, lookup_result, lookup_type)
-
-              _ ->
-                :ok
-            end
+            if cache_enabled, do: cache_on_ok(result, cache_key, lookup_type)
 
             result
           end
         )
+    end
+  end
 
-      false ->
-        # Cache disabled for this request
+  # ---------------------------------------------------------------------------
+  # RDAP
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Looks up RDAP registration data for a domain, IP address, or ASN.
+
+  Returns the parsed JSON map from the authoritative RDAP server.
+  The response structure follows RFC 9083.
+  """
+  @spec rdap_lookup(binary(), rdap_opts()) :: {:ok, map()} | {:error, term()}
+  def rdap_lookup(query, opts \\ []) do
+    cache_enabled = Keyword.get(opts, :cache, true)
+    lookup_type = Keyword.get(opts, :type, :domain)
+    cache_key = "rdap:#{query}"
+
+    case cache_enabled && Cache.get(cache_key) do
+      {:ok, cached} ->
+        emit_cache_event(:hit, query, lookup_type)
+        {:ok, cached}
+
+      _ ->
+        if cache_enabled, do: emit_cache_event(:miss, query, lookup_type)
+
         GSMLG.Telemetry.span(
-          [:gsmlg, :whois, :lookup],
-          %{query: qs, type: lookup_type, cached: false},
+          [:gsmlg, :whois, :rdap, :lookup],
+          %{query: query, type: lookup_type},
           fn ->
-            do_lookup_raw(qs, opts)
+            rdap_type = normalize_rdap_type(lookup_type)
+            result = RDAPProtocol.lookup(query, rdap_type)
+
+            if cache_enabled, do: cache_on_ok(result, cache_key, :rdap)
+
+            result
           end
         )
     end
   end
 
-  defp do_lookup_raw(qs, opts) do
-    server =
-      case Keyword.fetch(opts, :server) do
-        {:ok, host} when is_binary(host) -> %WhoisServer{host: host}
-        {:ok, %WhoisServer{} = server} -> server
-        :error -> WhoisServer.root()
-      end
+  # ---------------------------------------------------------------------------
+  # Private helpers
+  # ---------------------------------------------------------------------------
 
-    host = server.host
-    Logger.debug("Lookup #{qs} on #{host}...")
-
-    with {:ok, socket} <-
-           :gen_tcp.connect(
-             String.to_charlist(host),
-             43,
-             [{:active, false}, {:mode, :binary}, {:packet, :line}],
-             30_000
-           ),
-         :ok <- :gen_tcp.send(socket, [qs, "\r\n"]),
-         raw when is_binary(raw) <- recv_all(socket) do
-      case next_server(raw) do
-        nil ->
-          {:ok, [{host, raw}]}
-
-        ^host ->
-          {:ok, [{host, raw}]}
-
-        "^http://" <> host ->
-          {:ok, [{host, raw}]}
-
-        "^https://" <> host ->
-          {:ok, [{host, raw}]}
-
-        "" ->
-          {:ok, [{host, raw}]}
-
-        next_server ->
-          opts = opts |> Keyword.put(:server, next_server)
-
-          case lookup_raw(qs, opts) do
-            {:ok, list} ->
-              {:ok, [{host, raw} | list]}
-
-            {:error, _} ->
-              {:ok, [{host, raw}]}
-          end
-      end
-    else
-      {:error, reason} ->
-        Logger.debug("Lookup #{qs} on #{host} failed: #{inspect(reason)}")
-
-        {:error, reason}
+  defp resolve_server(opts) do
+    case Keyword.fetch(opts, :server) do
+      {:ok, host} when is_binary(host) -> %Server{host: host}
+      {:ok, %Server{} = s} -> s
+      :error -> Server.root()
     end
   end
 
-  defp next_server(raw) do
-    raw
-    |> String.split("\n")
-    |> Enum.find_value(fn line ->
-      line
-      |> String.trim()
-      |> String.downcase()
-      |> case do
-        "whois:" <> host -> String.trim(host)
-        "whois server:" <> host -> String.trim(host)
-        "registrar whois server:" <> host -> String.trim(host)
-        _ -> nil
-      end
-    end)
-  end
+  defp normalize_rdap_type(:asn), do: :asn
+  defp normalize_rdap_type(:ip), do: :ip
+  defp normalize_rdap_type(_), do: :domain
 
-  defp recv_all(socket, acc \\ "") do
-    case :gen_tcp.recv(socket, 0) do
-      {:ok, data} ->
-        recv_all(socket, acc <> data)
+  defp cache_on_ok({:ok, value}, key, type), do: Cache.put(key, value, type)
+  defp cache_on_ok(_, _key, _type), do: :ok
 
-      {:error, :closed} ->
-        acc
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp emit_telemetry(event_name, measurements, metadata) do
-    :telemetry.execute(event_name, measurements, metadata)
+  defp emit_cache_event(event, query, type) do
+    :telemetry.execute([:gsmlg, :whois, :cache, event], %{}, %{query: query, type: type})
   rescue
     _ -> :ok
   end

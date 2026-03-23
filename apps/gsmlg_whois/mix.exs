@@ -23,8 +23,7 @@ defmodule GSMLG.Whois.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {GSMLG.Whois.Application, []},
-      extra_applications: [:logger]
+      extra_applications: [:logger, :mnesia]
     ]
   end
 
@@ -35,6 +34,9 @@ defmodule GSMLG.Whois.MixProject do
   defp deps do
     [
       {:gsmlg_telemetry, in_umbrella: true},
+      {:http_fetch, "~> 0.8"},
+      {:postgrex, "~> 0.21", optional: true},
+      {:concord, "~> 1.1", optional: true},
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

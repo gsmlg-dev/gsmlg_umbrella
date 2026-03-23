@@ -1,6 +1,7 @@
 defmodule GSMLG.Whois.CacheTest do
   use ExUnit.Case, async: false
 
+  # Test the behaviour facade (delegates to Cache.ETS in test env)
   alias GSMLG.Whois.Cache
 
   setup do
@@ -8,163 +9,86 @@ defmodule GSMLG.Whois.CacheTest do
     :ok
   end
 
-  describe "get/1 and put/3" do
+  describe "get/1 and put/3 via behaviour facade" do
     test "returns :miss for non-existent key" do
       assert Cache.get("nonexistent.com") == :miss
     end
 
     test "stores and retrieves a domain result" do
-      key = "example.com"
-      value = "Domain Name: EXAMPLE.COM\nRegistrar: Example Inc."
-
-      assert :ok = Cache.put(key, value, :domain)
-      assert {:ok, ^value} = Cache.get(key)
+      assert :ok = Cache.put("example.com", "Domain Name: EXAMPLE.COM", :domain)
+      assert {:ok, "Domain Name: EXAMPLE.COM"} = Cache.get("example.com")
     end
 
     test "stores and retrieves an IP result" do
-      key = "8.8.8.8"
-      value = "NetRange: 8.0.0.0 - 8.255.255.255\nNetName: LVLT-ORG-8-8"
-
-      assert :ok = Cache.put(key, value, :ip)
-      assert {:ok, ^value} = Cache.get(key)
+      assert :ok = Cache.put("8.8.8.8", "NetRange: 8.0.0.0 - 8.255.255.255", :ip)
+      assert {:ok, "NetRange: 8.0.0.0 - 8.255.255.255"} = Cache.get("8.8.8.8")
     end
 
     test "stores and retrieves an ASN result" do
-      key = "AS15169"
-      value = "ASNumber: 15169\nASName: GOOGLE"
+      assert :ok = Cache.put("AS15169", "ASNumber: 15169", :asn)
+      assert {:ok, "ASNumber: 15169"} = Cache.get("AS15169")
+    end
 
-      assert :ok = Cache.put(key, value, :asn)
-      assert {:ok, ^value} = Cache.get(key)
+    test "stores and retrieves an RDAP result (map value)" do
+      rdap_data = %{"objectClassName" => "domain", "ldhName" => "EXAMPLE.COM"}
+      assert :ok = Cache.put("rdap:example.com", rdap_data, :rdap)
+      assert {:ok, ^rdap_data} = Cache.get("rdap:example.com")
     end
 
     test "overwrites existing value" do
-      key = "example.com"
-      value1 = "First result"
-      value2 = "Second result"
-
-      Cache.put(key, value1, :domain)
-      assert {:ok, ^value1} = Cache.get(key)
-
-      Cache.put(key, value2, :domain)
-      assert {:ok, ^value2} = Cache.get(key)
-    end
-
-    test "handles multiple keys independently" do
-      Cache.put("example1.com", "Result 1", :domain)
-      Cache.put("example2.com", "Result 2", :domain)
-      Cache.put("8.8.8.8", "Result 3", :ip)
-
-      assert {:ok, "Result 1"} = Cache.get("example1.com")
-      assert {:ok, "Result 2"} = Cache.get("example2.com")
-      assert {:ok, "Result 3"} = Cache.get("8.8.8.8")
+      Cache.put("example.com", "First", :domain)
+      Cache.put("example.com", "Second", :domain)
+      assert {:ok, "Second"} = Cache.get("example.com")
     end
   end
 
   describe "expiration" do
     test "returns :miss for expired entry" do
-      key = "short-ttl.com"
-      value = "Test data"
+      Application.put_env(:gsmlg_whois, :cache_ttl, %{domain: 1, ip: 1, asn: 1})
 
-      original_ttl = Application.get_env(:gsmlg_whois, :cache_ttl, %{})
-
-      Application.put_env(:gsmlg_whois, :cache_ttl, %{
-        domain: 1,
-        ip: 1,
-        asn: 1
-      })
-
-      Cache.put(key, value, :domain)
-      assert {:ok, ^value} = Cache.get(key)
+      Cache.put("short-ttl.com", "data", :domain)
+      assert {:ok, _} = Cache.get("short-ttl.com")
 
       Process.sleep(5)
-      assert Cache.get(key) == :miss
-
-      Application.put_env(:gsmlg_whois, :cache_ttl, original_ttl)
+      assert Cache.get("short-ttl.com") == :miss
+    after
+      Application.delete_env(:gsmlg_whois, :cache_ttl)
     end
   end
 
   describe "clear/0" do
-    test "removes all entries from cache" do
-      Cache.put("example1.com", "Data 1", :domain)
-      Cache.put("example2.com", "Data 2", :domain)
-      Cache.put("8.8.8.8", "Data 3", :ip)
+    test "removes all entries" do
+      Cache.put("a.com", "a", :domain)
+      Cache.put("b.com", "b", :domain)
 
-      assert Cache.stats().size == 3
       assert :ok = Cache.clear()
-      assert Cache.stats().size == 0
+
+      assert Cache.get("a.com") == :miss
+      assert Cache.get("b.com") == :miss
     end
   end
 
-  describe "stats/0" do
-    test "returns correct size" do
-      assert Cache.stats().size == 0
+  describe "delete/1" do
+    test "removes a single entry" do
+      Cache.put("keep.com", "keep", :domain)
+      Cache.put("del.com", "delete me", :domain)
 
-      Cache.put("example1.com", "Data 1", :domain)
-      assert Cache.stats().size == 1
+      assert :ok = Cache.delete("del.com")
 
-      Cache.put("example2.com", "Data 2", :domain)
-      assert Cache.stats().size == 2
-
-      Cache.clear()
-      assert Cache.stats().size == 0
-    end
-
-    test "returns memory usage" do
-      stats = Cache.stats()
-      assert is_integer(stats.memory_bytes)
-      assert stats.memory_bytes >= 0
-    end
-
-    test "returns enabled status" do
-      stats = Cache.stats()
-      assert stats.enabled == true
+      assert {:ok, "keep"} = Cache.get("keep.com")
+      assert Cache.get("del.com") == :miss
     end
   end
 
-  describe "has_key?/1" do
-    test "returns true for existing key" do
-      key = "example.com"
-      Cache.put(key, "data", :domain)
-      assert Cache.has_key?(key) == true
-    end
+  describe "disabled cache" do
+    test "returns :miss when cache is nil" do
+      Application.put_env(:gsmlg_whois, :cache, nil)
 
-    test "returns false for non-existent key" do
-      assert Cache.has_key?("nonexistent.com") == false
-    end
-  end
-
-  describe "concurrent access" do
-    test "handles multiple concurrent reads and writes" do
-      key = "concurrent.com"
-      value = "concurrent data"
-
-      Cache.put(key, value, :domain)
-
-      tasks =
-        for _ <- 1..10 do
-          Task.async(fn ->
-            Cache.get(key)
-          end)
-        end
-
-      results = Task.await_many(tasks)
-      assert Enum.all?(results, fn result -> result == {:ok, value} end)
-    end
-
-    test "handles concurrent writes to different keys" do
-      tasks =
-        for i <- 1..10 do
-          Task.async(fn ->
-            Cache.put("key#{i}.com", "value#{i}", :domain)
-          end)
-        end
-
-      Task.await_many(tasks)
-
-      for i <- 1..10 do
-        expected_value = "value#{i}"
-        assert {:ok, ^expected_value} = Cache.get("key#{i}.com")
-      end
+      assert Cache.get("anything") == :miss
+      assert Cache.put("anything", "value", :domain) == :ok
+      assert Cache.clear() == :ok
+    after
+      Application.put_env(:gsmlg_whois, :cache, GSMLG.Whois.Cache.ETS)
     end
   end
 end

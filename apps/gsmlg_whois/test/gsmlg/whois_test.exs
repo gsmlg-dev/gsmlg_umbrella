@@ -9,39 +9,58 @@ defmodule GSMLG.WhoisTest do
     :ok
   end
 
-  describe "cache integration" do
+  describe "lookup_raw/2 cache integration" do
     test "returns cached result when available" do
       query = "cached.example.com"
       cached_data = [{"test.server", "Cached WHOIS data"}]
 
-      Cache.put(query, cached_data, :domain)
+      # lookup_raw uses "whois:<query>" as the cache key
+      Cache.put("whois:#{query}", cached_data, :domain)
 
-      {:ok, result} = Whois.lookup_raw(query)
-      assert result == cached_data
+      assert {:ok, ^cached_data} = Whois.lookup_raw(query)
     end
 
     test "respects cache: false option" do
       query = "nocache.example.com"
+      cached_data = [{"server", "data"}]
 
-      Cache.put(query, [{"server", "data"}], :domain)
-      assert {:ok, _} = Cache.get(query)
+      Cache.put("whois:#{query}", cached_data, :domain)
 
-      # With cache: false, should not use cached data
-      # (will fail network lookup for fake domain, but that's ok)
+      # With cache: false, bypasses cached data (will attempt live lookup)
       _result = Whois.lookup_raw(query, cache: false)
     end
   end
 
-  describe "telemetry events" do
-    test "emits cache hit event" do
-      query = "telemetry.example.com"
-      cached_data = [{"test.server", "Cached data"}]
+  describe "rdap_lookup/2 cache integration" do
+    test "returns cached RDAP result when available" do
+      query = "cached.example.com"
+      cached_data = %{"objectClassName" => "domain", "ldhName" => "CACHED.EXAMPLE.COM"}
 
-      handler_id = :test_cache_hit_handler
+      # rdap_lookup uses "rdap:<query>" as the cache key
+      Cache.put("rdap:#{query}", cached_data, :rdap)
+
+      assert {:ok, ^cached_data} = Whois.rdap_lookup(query)
+    end
+
+    test "respects cache: false option for RDAP" do
+      query = "nocache-rdap.example.com"
+      cached_data = %{"objectClassName" => "domain"}
+
+      Cache.put("rdap:#{query}", cached_data, :rdap)
+
+      # With cache: false, bypasses cached data
+      _result = Whois.rdap_lookup(query, cache: false)
+    end
+  end
+
+  describe "telemetry events" do
+    test "emits cache hit event on lookup_raw" do
+      query = "tel-hit.example.com"
+      cached_data = [{"test.server", "Cached data"}]
       self_pid = self()
 
       :telemetry.attach(
-        handler_id,
+        :test_whois_cache_hit,
         [:gsmlg, :whois, :cache, :hit],
         fn event, measurements, metadata, _config ->
           send(self_pid, {:telemetry_event, event, measurements, metadata})
@@ -49,24 +68,22 @@ defmodule GSMLG.WhoisTest do
         nil
       )
 
-      Cache.put(query, cached_data, :domain)
-      {:ok, _result} = Whois.lookup_raw(query)
+      Cache.put("whois:#{query}", cached_data, :domain)
+      {:ok, _} = Whois.lookup_raw(query)
 
       assert_receive {:telemetry_event, [:gsmlg, :whois, :cache, :hit], %{},
                       %{query: ^query, type: :domain}},
-                     1000
+                     1_000
 
-      :telemetry.detach(handler_id)
+      :telemetry.detach(:test_whois_cache_hit)
     end
 
-    test "emits cache miss event" do
-      query = "miss.example.com"
-
-      handler_id = :test_cache_miss_handler
+    test "emits cache miss event on lookup_raw" do
+      query = "tel-miss.example.com"
       self_pid = self()
 
       :telemetry.attach(
-        handler_id,
+        :test_whois_cache_miss,
         [:gsmlg, :whois, :cache, :miss],
         fn event, measurements, metadata, _config ->
           send(self_pid, {:telemetry_event, event, measurements, metadata})
@@ -74,14 +91,37 @@ defmodule GSMLG.WhoisTest do
         nil
       )
 
-      Cache.clear()
       _result = Whois.lookup_raw(query)
 
       assert_receive {:telemetry_event, [:gsmlg, :whois, :cache, :miss], %{},
                       %{query: ^query, type: :domain}},
-                     1000
+                     1_000
 
-      :telemetry.detach(handler_id)
+      :telemetry.detach(:test_whois_cache_miss)
+    end
+
+    test "emits cache hit event on rdap_lookup" do
+      query = "tel-rdap-hit.example.com"
+      cached_data = %{"objectClassName" => "domain"}
+      self_pid = self()
+
+      :telemetry.attach(
+        :test_rdap_cache_hit,
+        [:gsmlg, :whois, :cache, :hit],
+        fn event, measurements, metadata, _config ->
+          send(self_pid, {:telemetry_event, event, measurements, metadata})
+        end,
+        nil
+      )
+
+      Cache.put("rdap:#{query}", cached_data, :rdap)
+      {:ok, _} = Whois.rdap_lookup(query)
+
+      assert_receive {:telemetry_event, [:gsmlg, :whois, :cache, :hit], %{},
+                      %{query: ^query, type: :domain}},
+                     1_000
+
+      :telemetry.detach(:test_rdap_cache_hit)
     end
   end
 end
