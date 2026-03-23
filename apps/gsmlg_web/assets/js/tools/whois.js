@@ -3,6 +3,105 @@ const input = document.getElementById('whois-input');
 const btn = document.getElementById('whois-submit');
 const result = document.getElementById('whois-result');
 
+// ─── Skeleton shimmer ─────────────────────────────────────────────────────────
+
+(function injectSkeletonStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes whois-shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    .whois-skel {
+      border-radius: 0.375rem;
+      background: linear-gradient(
+        90deg,
+        var(--color-base-300, oklch(90% 0.01 255)) 25%,
+        var(--color-base-200, oklch(95% 0.008 255)) 50%,
+        var(--color-base-300, oklch(90% 0.01 255)) 75%
+      );
+      background-size: 200% 100%;
+      animation: whois-shimmer 1.4s ease-in-out infinite;
+    }
+    .whois-skel-card {
+      border: 1px solid var(--color-base-300, oklch(90% 0.01 255));
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      width: 100%;
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
+function skelBar(w, h = '0.875rem') {
+  return `<div class="whois-skel" style="width:${w};height:${h}"></div>`;
+}
+
+function renderWhoisSkeleton() {
+  return `
+    <div class="whois-skel-card">
+      ${skelBar('40%', '1.5rem')}
+      ${skelBar('100%')}
+      ${skelBar('100%')}
+      ${skelBar('80%')}
+      ${skelBar('100%')}
+      ${skelBar('60%')}
+    </div>
+  `;
+}
+
+function renderRdapSkeleton() {
+  const box4 = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem">
+      ${[1,2,3,4].map(() => `
+        <div style="padding:0.75rem;border-radius:0.5rem;display:flex;flex-direction:column;gap:0.5rem;background:var(--color-base-200,oklch(95% 0.008 255))">
+          ${skelBar('55%', '0.65rem')}
+          ${skelBar('80%', '0.875rem')}
+        </div>
+      `).join('')}
+    </div>
+  `;
+  const grid2 = (a, b) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div class="whois-skel-card">${a}</div>
+      <div class="whois-skel-card">${b}</div>
+    </div>
+  `;
+  return `
+    <div style="width:100%;display:flex;flex-direction:column;gap:1rem">
+      <div class="whois-skel-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          ${skelBar('45%', '2rem')}
+          ${skelBar('4.5rem', '1.5rem')}
+        </div>
+        ${skelBar('30%', '0.65rem')}
+        <div style="display:flex;gap:0.5rem">
+          ${skelBar('7rem', '1.25rem')}
+          ${skelBar('8rem', '1.25rem')}
+          ${skelBar('6rem', '1.25rem')}
+        </div>
+      </div>
+      <div class="whois-skel-card">
+        ${skelBar('5rem', '1rem')}
+        ${box4}
+      </div>
+      ${grid2(
+        `${skelBar('6rem', '1rem')}
+         ${skelBar('90%')} ${skelBar('70%')}`,
+        `${skelBar('5rem', '1rem')}
+         ${skelBar('100%', '0.65rem')} ${skelBar('100%', '0.65rem')}`
+      )}
+      <div class="whois-skel-card">
+        ${skelBar('5rem', '1rem')}
+        ${skelBar('50%', '1.25rem')}
+      </div>
+    </div>
+  `;
+}
+
 function selectedProtocol() {
   const radio = form.querySelector('input[name="protocol"]:checked');
   return radio ? radio.value : 'whois';
@@ -218,9 +317,9 @@ async function lookup() {
   if (!lookFor) return;
 
   btn.disabled = true;
-  result.innerHTML = '';
 
   const protocol = selectedProtocol();
+  result.innerHTML = protocol === 'rdap' ? renderRdapSkeleton() : renderWhoisSkeleton();
 
   try {
     let resp, json;
