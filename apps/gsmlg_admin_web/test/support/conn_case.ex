@@ -34,6 +34,16 @@ defmodule GSMLG.AdminWeb.ConnCase do
   setup tags do
     pid = Ecto.Adapters.SQL.Sandbox.start_owner!(GSMLG.Repo, shared: not tags[:async])
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+
+    if Code.ensure_loaded?(GSMLG.Translation.MockProvider) do
+      Mox.stub(GSMLG.Translation.MockProvider, :translate, fn _title,
+                                                              _content,
+                                                              _source,
+                                                              _target ->
+        {:ok, %{title: "stub translated title", content: "stub translated content"}}
+      end)
+    end
+
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 end

@@ -24,6 +24,7 @@ defmodule GSMLG.Application do
       {Task.Supervisor, name: GSMLG.TaskSupervisor},
       # Start the Ecto repository
       GSMLG.Repo,
+      {Oban, Application.fetch_env!(:gsmlg, Oban)},
       # Start the PubSub system
       {Phoenix.PubSub, name: GSMLG.PubSub, adapter: Phoenix.PubSub.PG2},
       {GSMLG.CommandPlatform.Supervisor, name: GSMLG.CommandPlatform.Supervisor},

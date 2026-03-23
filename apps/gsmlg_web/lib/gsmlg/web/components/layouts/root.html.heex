@@ -41,6 +41,13 @@
       "bg-gradient-to-tl from-secondary to-accent",
       "text-neutral"
     ]}>
+      <:section title={gettext("Language")}>
+        <.language_switcher
+          locale={assigns[:current_locale] || "zh-Hans"}
+          supported_locales={GSMLG.Locale.supported()}
+        />
+      </:section>
+
       <:section title="Site Map">
         <.dm_link href={~p"/"}>{dgettext("menu", "Home")}</.dm_link>
         <.dm_link href={~p"/blogs"}>{dgettext("menu", "Blog")}</.dm_link>

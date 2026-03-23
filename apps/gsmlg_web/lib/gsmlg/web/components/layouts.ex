@@ -1,5 +1,6 @@
 defmodule GSMLG.Web.Layouts do
   use GSMLG.Web, :html
+  import GSMLG.Web.Components.LanguageSwitcher
 
   # Phoenix 1.8: The file name becomes the function name
   # root.html.heex -> root/1 function

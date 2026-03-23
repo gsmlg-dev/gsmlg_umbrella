@@ -3,18 +3,42 @@ defmodule GSMLG.Web.BlogController do
   use Phoenix.Component
 
   alias GSMLG.Content
-  # alias GSMLG.Content.Blog
 
   action_fallback(GSMLG.Web.FallbackController)
 
   def index(conn, _params) do
     blogs = Content.list_blogs()
-    render(conn, :index, blogs: blogs)
+    locale = conn.assigns[:current_locale]
+
+    translations =
+      if locale do
+        blogs
+        |> Enum.map(fn blog ->
+          case Content.get_translation(blog.id, locale) do
+            %{status: "completed"} = t -> {blog.id, t}
+            _ -> {blog.id, nil}
+          end
+        end)
+        |> Map.new()
+      else
+        %{}
+      end
+
+    render(conn, :index, blogs: blogs, translations: translations)
   end
 
   def show(conn, %{"slug" => slug}) do
-    blog = Content.get_blog_by_slug(slug)
+    with %{} = blog <- Content.get_blog_by_slug(slug) do
+      locale = conn.assigns[:current_locale]
 
-    render(conn, :show, blog: blog)
+      translation =
+        if locale do
+          Content.get_translation(blog.id, locale)
+        end
+
+      render(conn, :show, blog: blog, translation: translation)
+    else
+      nil -> {:error, :not_found}
+    end
   end
 end

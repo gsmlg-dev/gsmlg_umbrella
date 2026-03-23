@@ -5,6 +5,7 @@ import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitch
 
 // Register duskmoon custom elements
 import "@duskmoon-dev/elements/register";
+import "@duskmoon-dev/el-markdown-input/register";
 
 // Workaround: upstream ThemeSwitcher doesn't apply data-theme to <html>
 // See: https://github.com/duskmoon-dev/phoenix-duskmoon-ui/issues/15

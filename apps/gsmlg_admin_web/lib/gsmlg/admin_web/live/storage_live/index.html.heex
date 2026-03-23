@@ -76,9 +76,7 @@
                 <%!-- Type row --%>
                 <div class="flex items-center gap-1 group">
                   <.link
-                    patch={
-                      ~p"/storage?#{%{tenant: tenant_node.tenant, type: type_node.type}}"
-                    }
+                    patch={~p"/storage?#{%{tenant: tenant_node.tenant, type: type_node.type}}"}
                     class={[
                       "flex-1 flex items-center gap-2 px-2 py-1 rounded text-sm hover:bg-base-200 transition-colors",
                       if(
@@ -173,7 +171,9 @@
             <div class="text-xs font-mono text-base-content/50 uppercase tracking-wide">
               Total Size
             </div>
-            <div class="text-2xl font-bold text-primary mt-1">{format_size(@stats.total_size)}</div>
+            <div class="text-2xl font-bold text-primary mt-1">
+              {format_size(@stats.total_size)}
+            </div>
           </div>
         </.dm_card>
         <.dm_card variant="bordered">

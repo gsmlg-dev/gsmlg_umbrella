@@ -26,12 +26,23 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
     |> start_async(:get_blogs, fn -> Content.list_blogs() end)
   end
 
+  defp apply_action(socket, :settings, _params) do
+    setting = Content.get_translation_provider_setting()
+    changeset = Content.change_translation_provider_setting(setting)
+
+    socket
+    |> assign(:page_title, "Translation Provider Settings")
+    |> assign(:setting, setting)
+    |> assign(:settings_form, to_form(changeset))
+  end
+
   defp apply_action(socket, :new, _params) do
     changeset = Content.change_blog(%Blog{date: Date.utc_today()})
 
     socket
     |> assign(:page_title, page_title(socket.assigns.live_action))
     |> assign(:changeset, changeset)
+    |> assign(:form, to_form(changeset))
     |> assign(:blog, %Blog{})
   end
 
@@ -42,6 +53,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
     socket
     |> assign(:page_title, page_title(socket.assigns.live_action))
     |> assign(:changeset, changeset)
+    |> assign(:form, to_form(changeset))
     |> assign(:blog, blog)
   end
 
@@ -66,7 +78,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
       |> Content.change_blog(blog_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign(socket, changeset: changeset, form: to_form(changeset))}
   end
 
   def handle_event("form:init", _params, socket) do
@@ -79,6 +91,28 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
 
   def handle_event("save", %{"blog" => blog_params}, socket) do
     save_blog(socket, socket.assigns.live_action, blog_params)
+  end
+
+  def handle_event("save_settings", %{"translation_provider_setting" => params}, socket) do
+    case Content.upsert_translation_provider_setting(params) do
+      {:ok, _setting} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Translation provider settings saved")
+         |> push_navigate(to: ~p"/blogs")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, :settings_form, to_form(changeset))}
+    end
+  end
+
+  def handle_event("validate_settings", %{"translation_provider_setting" => params}, socket) do
+    changeset =
+      socket.assigns.setting
+      |> Content.change_translation_provider_setting(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :settings_form, to_form(changeset))}
   end
 
   defp save_blog(socket, :edit, blog_params) do
@@ -126,4 +160,5 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
   defp page_title(:new), do: "New Blog"
   defp page_title(:edit), do: "Edit Blog"
   defp page_title(:show), do: "Show Blog"
+  defp page_title(:settings), do: "Translation Provider Settings"
 end

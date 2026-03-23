@@ -10,6 +10,7 @@ defmodule GSMLG.Content.Blog do
     field(:date, :date)
     field(:slug, :string)
     field(:title, :string)
+    field(:source_locale, :string, default: "zh-Hans")
 
     timestamps()
   end
@@ -17,8 +18,20 @@ defmodule GSMLG.Content.Blog do
   @doc false
   def changeset(blog, attrs) do
     blog
-    |> cast(attrs, [:slug, :title, :date, :author, :content, :id])
+    |> cast(attrs, [:slug, :title, :date, :author, :content, :source_locale])
     |> validate_required([:slug, :title, :date, :author, :content])
+    |> validate_inclusion(:source_locale, GSMLG.Locale.supported())
+  end
+
+  @doc """
+  Changeset for trusted bulk import operations that need to preserve the source `:id`.
+  Not for use with user-supplied data.
+  """
+  def import_changeset(blog, attrs) do
+    blog
+    |> cast(attrs, [:id, :slug, :title, :date, :author, :content, :source_locale])
+    |> validate_required([:slug, :title, :date, :author, :content])
+    |> validate_inclusion(:source_locale, GSMLG.Locale.supported())
   end
 
   def count() do
