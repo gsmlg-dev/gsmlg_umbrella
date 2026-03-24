@@ -28,7 +28,7 @@ defmodule GSMLG.Nx.MixProject do
     [
       {:bumblebee, "~> 0.6.2"},
       # {:exla, ">= 0.0.0"},
-      {:nx, "~> 0.9.0 or ~> 0.10.0"},
+      {:nx, "~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

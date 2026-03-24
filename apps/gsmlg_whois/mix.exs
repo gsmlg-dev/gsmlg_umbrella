@@ -37,7 +37,7 @@ defmodule GSMLG.Whois.MixProject do
       {:http_fetch, "~> 0.8"},
       {:postgrex, "~> 0.21", optional: true},
       {:concord, "~> 1.1", optional: true},
-      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:ex_doc, ">= 0.0.0", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
