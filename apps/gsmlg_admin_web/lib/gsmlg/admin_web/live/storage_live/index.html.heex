@@ -220,7 +220,7 @@
         <% end %>
       </div>
 
-      <%!-- Header with search --%>
+      <%!-- Header with search and upload button --%>
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <h1 class="font-semibold text-base-content">Files</h1>
@@ -228,17 +228,108 @@
             {@files_result.total}
           </span>
         </div>
-        <form phx-submit="search" class="flex gap-2">
-          <input
-            type="text"
-            name="search"
-            value={@search}
-            placeholder="Search files..."
-            class="input input-sm input-bordered"
-          />
-          <.dm_btn type="submit" size="sm" variant="ghost">
-            <.dm_mdi name="magnify" class="w-4 h-4" />
+        <div class="flex items-center gap-2">
+          <form phx-submit="search" class="flex gap-2">
+            <input
+              type="text"
+              name="search"
+              value={@search}
+              placeholder="Search files..."
+              class="input input-sm input-bordered"
+            />
+            <.dm_btn type="submit" size="sm" variant="ghost">
+              <.dm_mdi name="magnify" class="w-4 h-4" />
+            </.dm_btn>
+          </form>
+          <.dm_btn size="sm" variant="primary" phx-click="toggle_upload">
+            <.dm_mdi name="upload" class="w-4 h-4" />
+            <span>Upload</span>
           </.dm_btn>
+        </div>
+      </div>
+
+      <%!-- Upload Panel --%>
+      <div :if={@show_upload} class="border border-primary/30 rounded-lg p-4 bg-base-200/50">
+        <form phx-submit="save_upload" phx-change="validate_upload" class="flex flex-col gap-3">
+          <div class="flex gap-3">
+            <div class="flex flex-col gap-1 flex-1">
+              <label class="label text-xs font-medium">Tenant</label>
+              <input
+                type="text"
+                name="tenant"
+                value={@upload_tenant}
+                placeholder="e.g. my-project"
+                class="input input-sm input-bordered"
+                required
+              />
+            </div>
+            <div class="flex flex-col gap-1 flex-1">
+              <label class="label text-xs font-medium">Type</label>
+              <select name="type" class="select select-sm select-bordered">
+                <option value="attachment" selected={@upload_type == "attachment"}>
+                  attachment
+                </option>
+                <option value="avatar" selected={@upload_type == "avatar"}>avatar</option>
+                <option value="document" selected={@upload_type == "document"}>document</option>
+                <option value="image" selected={@upload_type == "image"}>image</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            class="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center hover:border-primary/60 transition-colors"
+            phx-drop-target={@uploads.files.ref}
+          >
+            <.dm_mdi name="cloud-upload-outline" class="w-10 h-10 mx-auto text-primary/50 mb-2" />
+            <p class="text-sm text-base-content/60 mb-2">
+              Drag & drop files here, or click to browse
+            </p>
+            <.live_file_input upload={@uploads.files} class="file-input file-input-sm file-input-bordered" />
+          </div>
+
+          <%!-- Upload entries with progress --%>
+          <%= for entry <- @uploads.files.entries do %>
+            <div class="flex items-center gap-3 text-sm">
+              <.dm_mdi name="file-outline" class="w-4 h-4 flex-none text-base-content/50" />
+              <span class="flex-1 truncate font-mono text-xs">{entry.client_name}</span>
+              <span class="text-xs text-base-content/50 tabular-nums">
+                {format_size(entry.client_size)}
+              </span>
+              <progress class="progress progress-primary w-24 h-1.5" value={entry.progress} max="100">
+              </progress>
+              <span class="text-xs tabular-nums w-8 text-right">{entry.progress}%</span>
+              <button
+                type="button"
+                phx-click="cancel_upload"
+                phx-value-ref={entry.ref}
+                class="btn btn-ghost btn-xs text-error"
+              >
+                <.dm_mdi name="close" class="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <%= for err <- upload_errors(@uploads.files, entry) do %>
+              <p class="text-error text-xs ml-8">{error_to_string(err)}</p>
+            <% end %>
+          <% end %>
+
+          <%= for err <- upload_errors(@uploads.files) do %>
+            <p class="text-error text-xs">{error_to_string(err)}</p>
+          <% end %>
+
+          <div class="flex justify-end gap-2">
+            <.dm_btn type="button" variant="ghost" size="sm" phx-click="toggle_upload">
+              Cancel
+            </.dm_btn>
+            <.dm_btn
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={@uploads.files.entries == []}
+            >
+              Upload {length(@uploads.files.entries)} file(s)
+            </.dm_btn>
+          </div>
         </form>
       </div>
 

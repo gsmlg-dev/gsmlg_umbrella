@@ -5,6 +5,9 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
 
   alias GSMLG.Storage
 
+  @max_upload_entries 10
+  @max_upload_size 5 * 1024 * 1024 * 1024
+
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
@@ -20,6 +23,13 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
      )
      |> assign(stats: nil, files_result: nil, tree: nil)
      |> assign(folder_modal: nil, folder_form: nil)
+     |> assign(show_upload: false, upload_tenant: "", upload_type: "attachment")
+     |> allow_upload(:files,
+       accept: :any,
+       max_entries: @max_upload_entries,
+       max_file_size: @max_upload_size,
+       auto_upload: false
+     )
      |> stream(:files, [])}
   end
 
@@ -100,6 +110,62 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to delete file")}
+    end
+  end
+
+  # --- Upload events ---
+
+  def handle_event("toggle_upload", _params, socket) do
+    tenant = socket.assigns.tenant_filter || socket.assigns.upload_tenant
+    type = socket.assigns.type_filter || socket.assigns.upload_type
+
+    {:noreply,
+     assign(socket,
+       show_upload: !socket.assigns.show_upload,
+       upload_tenant: tenant || "",
+       upload_type: type || "attachment"
+     )}
+  end
+
+  def handle_event("validate_upload", %{"tenant" => tenant, "type" => type}, socket) do
+    {:noreply, assign(socket, upload_tenant: tenant, upload_type: type)}
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :files, ref)}
+  end
+
+  def handle_event("save_upload", %{"tenant" => tenant, "type" => type}, socket) do
+    tenant = String.trim(tenant)
+    type = String.trim(type)
+
+    if tenant == "" do
+      {:noreply, put_flash(socket, :error, "Tenant is required")}
+    else
+      uploaded_files =
+        consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
+          case Storage.upload(path, tenant, type,
+                 uploaded_by: "admin",
+                 metadata: %{original_name: entry.client_name}
+               ) do
+            {:ok, file} -> {:ok, file}
+            {:error, reason} -> {:postpone, reason}
+          end
+        end)
+
+      success_count = Enum.count(uploaded_files, fn f -> match?(%{id: _}, f) end)
+
+      socket =
+        if success_count > 0 do
+          socket
+          |> put_flash(:info, "#{success_count} file(s) uploaded")
+          |> assign(show_upload: false)
+          |> push_patch(to: ~p"/storage?#{build_filter_params(socket.assigns, [])}")
+        else
+          put_flash(socket, :error, "Upload failed")
+        end
+
+      {:noreply, socket}
     end
   end
 
