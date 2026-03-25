@@ -35,6 +35,14 @@ platform_key = "o5xg8yDgSOFVrcrH4seZJ7+w"
 client_id = ""
 client_secret = ""
 
+[storage]
+s3_bucket = "gsmlg-storage"
+s3_endpoint = "http://localhost:9000"
+s3_region = "us-east-1"
+max_file_size = 5368709120
+cleanup_interval = 3600000
+retention_window = 2592000
+
 [web_push]
 subject = "mailto:administrator@gsmlg.com"
 public_key = "BIiu8m_dqtrKSvdquIqUJxsrkwswa0Zgep4myzmHlUcHjEtRdxdK4bZAEAd4dhFTARNGrbIkOJIcjdn13Z-yC4w"

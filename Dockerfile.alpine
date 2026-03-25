@@ -19,7 +19,7 @@ ARG XLA_BUILD=true
 ARG TARGETARCH
 
 # Install build tools + bun (musl build for Alpine)
-RUN apk add --no-cache curl unzip bash
+RUN apk add --no-cache curl unzip bash vips-dev
 
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
       curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-aarch64-musl.zip -o /tmp/bun.zip \
@@ -88,7 +88,7 @@ COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg_umbrella.toml
 COPY --from=builder /app /app
 COPY --from=builder /usr/local/bin/bun /usr/bin/bun
 
-RUN apk add --no-cache openssl bash libstdc++ ca-certificates procps \
+RUN apk add --no-cache openssl bash libstdc++ ca-certificates procps vips \
     && mkdir -p /var/lib/mnesia
 
 VOLUME ["/var/lib/mnesia"]

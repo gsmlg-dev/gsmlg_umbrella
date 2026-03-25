@@ -17,6 +17,8 @@ in
     watchman
     tailwindcss_4
     beam28Packages.elixir-ls
+    vips          # libvips for image processing (gsmlg_storage)
+    pkg-config    # needed by Vix NIF to find libvips
   ] ++ lib.optionals stdenv.isLinux [
     inotify-tools
   ];
@@ -28,6 +30,17 @@ in
   languages.javascript.pnpm.enable = true;
   languages.javascript.bun.enable = true;
   languages.javascript.bun.package = pkgs-stable.bun;
+
+  # Minio S3-compatible storage for local development
+  services.minio = {
+    enable = true;
+    buckets = ["gsmlg-storage"];
+  };
+
+  env.AWS_ACCESS_KEY_ID = "minioadmin";
+  env.AWS_SECRET_ACCESS_KEY = "minioadmin";
+  env.AWS_ENDPOINT_URL = "http://localhost:9000";
+  env.AWS_REGION = "us-east-1";
 
   # PostgreSQL database service
   services.postgres = {

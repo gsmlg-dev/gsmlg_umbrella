@@ -25,11 +25,28 @@ jobs:
         ports:
           - 5432:5432
 
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        options: >-
+          --health-cmd "mc ready local || curl -f http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 9000:9000
+
     env:
       POSTGRES_HOST: localhost
       POSTGRES_USER: gsmlg_test
       POSTGRES_PASSWORD: gsmlg_test
       POSTGRES_DB: gsmlg_test
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_ENDPOINT_URL: http://localhost:9000
+      AWS_REGION: us-east-1
 
     steps:
       - name: Checkout code
@@ -38,7 +55,13 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y inotify-tools
+          sudo apt-get install -y inotify-tools libvips-dev
+
+      - name: Create Minio storage bucket
+        run: |
+          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && chmod +x /usr/local/bin/mc
+          mc alias set local http://localhost:9000 minioadmin minioadmin
+          mc mb local/gsmlg-storage --ignore-existing
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2

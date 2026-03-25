@@ -225,6 +225,39 @@ defmodule GSMLG.Config.Schema do
     ]
   ]
 
+  @storage_schema [
+    s3_bucket: [
+      type: :string,
+      default: "gsmlg-storage",
+      doc: "S3 bucket name for file storage"
+    ],
+    s3_endpoint: [
+      type: :string,
+      default: "",
+      doc: "S3-compatible endpoint URL (empty for AWS S3, set for Minio/LocalStack)"
+    ],
+    s3_region: [
+      type: :string,
+      default: "us-east-1",
+      doc: "S3 region"
+    ],
+    max_file_size: [
+      type: :non_neg_integer,
+      default: 5_368_709_120,
+      doc: "Maximum file size in bytes (default 5GB)"
+    ],
+    cleanup_interval: [
+      type: :pos_integer,
+      default: 3_600_000,
+      doc: "Cleanup worker interval in milliseconds (default 1 hour)"
+    ],
+    retention_window: [
+      type: :pos_integer,
+      default: 2_592_000,
+      doc: "Soft-delete retention window in seconds (default 30 days)"
+    ]
+  ]
+
   @caddy_schema [
     start: [
       type: :boolean,
@@ -264,6 +297,7 @@ defmodule GSMLG.Config.Schema do
       oauth: %{github: @github_oauth_schema},
       web_push: @web_push_schema,
       caddy: @caddy_schema,
+      storage: @storage_schema,
       i18n: @i18n_schema
     }
   end
@@ -349,6 +383,7 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:oauth), do: %{github: @github_oauth_schema}
   defp get_section_schema(:web_push), do: @web_push_schema
   defp get_section_schema(:caddy), do: @caddy_schema
+  defp get_section_schema(:storage), do: @storage_schema
   defp get_section_schema(:i18n), do: @i18n_schema
   defp get_section_schema(_), do: nil
 

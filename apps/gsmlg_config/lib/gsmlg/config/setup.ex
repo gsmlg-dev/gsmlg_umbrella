@@ -214,6 +214,14 @@ defmodule GSMLG.Config.Setup do
       Application.put_env(:gsmlg_storage, :s3_bucket, config[:s3_bucket])
     end
 
+    if config[:s3_endpoint] not in [nil, ""] do
+      Application.put_env(:gsmlg_storage, :s3_endpoint, config[:s3_endpoint])
+    end
+
+    if config[:s3_region] not in [nil, ""] do
+      Application.put_env(:gsmlg_storage, :s3_region, config[:s3_region])
+    end
+
     if config[:max_file_size] != nil do
       Application.put_env(:gsmlg_storage, :max_file_size, config[:max_file_size])
     end

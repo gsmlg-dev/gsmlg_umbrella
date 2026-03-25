@@ -45,6 +45,8 @@ health_interval = 15000
 
 [storage]
 s3_bucket = "gsmlg-storage"
+s3_endpoint = ""
+s3_region = "us-east-1"
 max_file_size = 5368709120
 cleanup_interval = 3600000
 retention_window = 2592000

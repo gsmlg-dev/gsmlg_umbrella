@@ -4,9 +4,9 @@ defmodule GSMLG.Storage.ImageProcessorTest do
   alias GSMLG.Storage.ImageProcessor
 
   describe "process/2" do
-    test "returns error when Vix is not available" do
-      # Vix is not included as a dependency in test, so this tests the fallback
-      assert {:error, :vix_not_available} = ImageProcessor.process("fake image data", width: 100)
+    test "returns error for invalid image data" do
+      assert {:error, {:processing_failed, _}} =
+               ImageProcessor.process("fake image data", width: 100)
     end
 
     test "requires binary data" do
