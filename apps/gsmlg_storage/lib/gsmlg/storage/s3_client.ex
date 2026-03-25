@@ -61,14 +61,20 @@ defmodule GSMLG.Storage.S3Client do
   end
 
   defp build_custom_client(endpoint_url, region) do
-    # For S3-compatible services, read credentials from env vars or storage config
     access_key_id =
       System.get_env("AWS_ACCESS_KEY_ID") ||
-        Application.get_env(:gsmlg_storage, :s3_access_key_id, "minioadmin")
+        Application.get_env(:gsmlg_storage, :s3_access_key_id)
 
     secret_access_key =
       System.get_env("AWS_SECRET_ACCESS_KEY") ||
-        Application.get_env(:gsmlg_storage, :s3_secret_access_key, "minioadmin")
+        Application.get_env(:gsmlg_storage, :s3_secret_access_key)
+
+    if is_nil(access_key_id) or is_nil(secret_access_key) do
+      Logger.error(
+        "S3 custom endpoint configured (#{endpoint_url}) but credentials are missing. " <>
+          "Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars or configure via admin UI."
+      )
+    end
 
     # Parse endpoint URL to extract host:port for AWS client
     uri = URI.parse(endpoint_url)

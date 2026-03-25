@@ -61,7 +61,7 @@ defmodule GSMLG.Web.Layouts do
       {render_slot(@header_slot)}
     </.dm_page_header>
     <div class="absolute top-84 overflow-x-clip w-full h-screen z-0">
-      <.dm_art_snow id="snow-bg" count={365} use_unicode={true} />
+      <.dm_art_snow id="snow-bg" unicode={true} />
     </div>
     <main class="flex flex-col items-center z-1">
       <.dm_flash_group flash={@flash} />

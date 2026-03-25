@@ -3,7 +3,7 @@ defmodule GSMLG.StorageTest do
 
   alias GSMLG.Repo
   alias GSMLG.Storage
-  alias GSMLG.Storage.{StorageFile, StorageFolder}
+  alias GSMLG.Storage.StorageFile
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(GSMLG.Repo)

@@ -20,9 +20,14 @@ defmodule GSMLG.Storage.ContentType do
   def detect(<<0x50, 0x4B, 0x03, 0x04, _::binary>>), do: {:ok, "application/zip"}
   def detect(<<0x1F, 0x8B, _::binary>>), do: {:ok, "application/gzip"}
 
-  # SVG detection (XML-based)
+  # SVG and text-based detection — only inspect the first 4KB to avoid
+  # scanning large binaries and to prevent deep-embedded <svg> from
+  # being misclassified (SVG can contain JavaScript = XSS vector).
+  @detect_head_size 4096
+
   def detect(data) when is_binary(data) do
-    trimmed = String.trim_leading(data)
+    head = binary_part(data, 0, min(byte_size(data), @detect_head_size))
+    trimmed = String.trim_leading(head)
 
     cond do
       String.starts_with?(trimmed, "<?xml") and String.contains?(trimmed, "<svg") ->

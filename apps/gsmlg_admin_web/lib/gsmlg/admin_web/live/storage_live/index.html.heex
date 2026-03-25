@@ -284,7 +284,10 @@
             <p class="text-sm text-base-content/60 mb-2">
               Drag & drop files here, or click to browse
             </p>
-            <.live_file_input upload={@uploads.files} class="file-input file-input-sm file-input-bordered" />
+            <.live_file_input
+              upload={@uploads.files}
+              class="file-input file-input-sm file-input-bordered"
+            />
           </div>
 
           <%!-- Upload entries with progress --%>
@@ -295,7 +298,11 @@
               <span class="text-xs text-base-content/50 tabular-nums">
                 {format_size(entry.client_size)}
               </span>
-              <progress class="progress progress-primary w-24 h-1.5" value={entry.progress} max="100">
+              <progress
+                class="progress progress-primary w-24 h-1.5"
+                value={entry.progress}
+                max="100"
+              >
               </progress>
               <span class="text-xs tabular-nums w-8 text-right">{entry.progress}%</span>
               <button

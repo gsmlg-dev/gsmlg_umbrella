@@ -30,10 +30,14 @@ defmodule GSMLG.Storage.StorageFile do
   @required_fields ~w(tenant type filename s3_key content_type size)a
   @optional_fields ~w(checksum metadata variants status uploaded_by)a
 
+  @safe_path_segment ~r/^[a-z0-9_\-]+$/i
+
   def changeset(file, attrs) do
     file
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
+    |> validate_format(:tenant, @safe_path_segment, message: "only letters, numbers, - and _")
+    |> validate_format(:type, @safe_path_segment, message: "only letters, numbers, - and _")
     |> validate_inclusion(:status, ~w(active processing deleted))
     |> validate_number(:size, greater_than: 0)
     |> unique_constraint(:s3_key)

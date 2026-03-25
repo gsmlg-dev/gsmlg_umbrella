@@ -7,6 +7,8 @@ defmodule GSMLG.Storage do
   and configurable variant generation for images.
   """
 
+  require Logger
+
   alias GSMLG.Repo
   alias GSMLG.Storage.{StorageFile, StorageFolder, StorageConfig, S3Client, ContentType}
 
@@ -55,8 +57,16 @@ defmodule GSMLG.Storage do
           {:ok, file}
 
         {:error, changeset} ->
-          # Attempt S3 cleanup on DB failure
-          S3Client.delete_object(bucket, s3_key)
+          case S3Client.delete_object(bucket, s3_key) do
+            :ok ->
+              :ok
+
+            {:error, reason} ->
+              Logger.warning(
+                "Orphaned S3 object: #{bucket}/#{s3_key} — DB insert failed and S3 cleanup also failed: #{inspect(reason)}"
+              )
+          end
+
           {:error, changeset}
       end
     end
@@ -229,8 +239,13 @@ defmodule GSMLG.Storage do
       |> Enum.sort()
 
     Enum.map(all_tenants, fn tenant ->
-      file_types = file_pairs |> Enum.filter(fn {t, _} -> t == tenant end) |> Enum.map(fn {_, ty} -> ty end)
-      folder_types = folder_pairs |> Enum.filter(fn {t, _} -> t == tenant end) |> Enum.map(fn {_, ty} -> ty end)
+      file_types =
+        file_pairs |> Enum.filter(fn {t, _} -> t == tenant end) |> Enum.map(fn {_, ty} -> ty end)
+
+      folder_types =
+        folder_pairs
+        |> Enum.filter(fn {t, _} -> t == tenant end)
+        |> Enum.map(fn {_, ty} -> ty end)
 
       tenant_types =
         (file_types ++ folder_types)
@@ -479,11 +494,19 @@ defmodule GSMLG.Storage do
                       "content_type" => variant_ct
                     })
 
-                  _ ->
+                  {:error, reason} ->
+                    Logger.warning(
+                      "Variant #{name} S3 upload failed for file #{file.id}: #{inspect(reason)}"
+                    )
+
                     acc
                 end
 
-              _ ->
+              {:error, reason} ->
+                Logger.warning(
+                  "Variant #{name} processing failed for file #{file.id}: #{inspect(reason)}"
+                )
+
                 acc
             end
           end)
@@ -496,7 +519,11 @@ defmodule GSMLG.Storage do
           |> Repo.update()
         end
 
-      _ ->
+      {:error, reason} ->
+        Logger.warning(
+          "Failed to fetch original for variant generation, file #{file.id}: #{inspect(reason)}"
+        )
+
         :error
     end
   end
@@ -588,7 +615,10 @@ defmodule GSMLG.Storage do
 
   defp apply_config(config) do
     if config.s3_bucket, do: Application.put_env(:gsmlg_storage, :s3_bucket, config.s3_bucket)
-    if config.s3_endpoint, do: Application.put_env(:gsmlg_storage, :s3_endpoint, config.s3_endpoint)
+
+    if config.s3_endpoint,
+      do: Application.put_env(:gsmlg_storage, :s3_endpoint, config.s3_endpoint)
+
     if config.s3_region, do: System.put_env("AWS_REGION", config.s3_region)
 
     if config.s3_access_key_id,
