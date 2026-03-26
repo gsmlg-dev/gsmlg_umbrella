@@ -74,10 +74,20 @@
         phx-change="validate"
         phx-submit="save"
       >
-        <.dm_input field={f[:provider]} type="text" label="Provider" class="w-full"
-          placeholder="openai, github, aws, cloudflare, deepseek …" />
-        <.dm_input field={f[:name]} type="text" label="Name" class="w-full"
-          placeholder="default, prod, staging …" />
+        <.dm_input
+          field={f[:provider]}
+          type="text"
+          label="Provider"
+          class="w-full"
+          placeholder="openai, github, aws, cloudflare, deepseek …"
+        />
+        <.dm_input
+          field={f[:name]}
+          type="text"
+          label="Name"
+          class="w-full"
+          placeholder="default, prod, staging …"
+        />
 
         <div class="form-control w-full">
           <label class="label">
@@ -105,9 +115,11 @@
           ><%= @credentials_json %></textarea>
           <label class="label">
             <span class="label-text-alt text-base-content/50">
-              Stored encrypted. Examples: <code>{"api_key"}</code> for OpenAI/DeepSeek,
-              <code>{"token"}</code> for GitHub, <code>{"access_key_id"}</code> +
-              <code>{"secret_access_key"}</code> for AWS.
+              Stored encrypted. Examples: <code>{"api_key"}</code>
+              for OpenAI/DeepSeek, <code>{"token"}</code>
+              for GitHub, <code>{"access_key_id"}</code>
+              + <code>{"secret_access_key"}</code>
+              for AWS.
             </span>
           </label>
         </div>

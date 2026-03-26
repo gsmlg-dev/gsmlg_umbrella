@@ -42,11 +42,21 @@ defmodule GSMLG.Whois.WhoisProtocol do
          :ok <- :gen_tcp.send(socket, [query, "\r\n"]),
          raw when is_binary(raw) <- recv_all(socket) do
       case next_server(raw) do
-        nil -> {:ok, [{host, raw}]}
-        ^host -> {:ok, [{host, raw}]}
-        "" -> {:ok, [{host, raw}]}
-        "^http://" <> _ -> {:ok, [{host, raw}]}
-        "^https://" <> _ -> {:ok, [{host, raw}]}
+        nil ->
+          {:ok, [{host, raw}]}
+
+        ^host ->
+          {:ok, [{host, raw}]}
+
+        "" ->
+          {:ok, [{host, raw}]}
+
+        "^http://" <> _ ->
+          {:ok, [{host, raw}]}
+
+        "^https://" <> _ ->
+          {:ok, [{host, raw}]}
+
         next_host ->
           case lookup(query, %Server{host: next_host}) do
             {:ok, rest} -> {:ok, [{host, raw} | rest]}

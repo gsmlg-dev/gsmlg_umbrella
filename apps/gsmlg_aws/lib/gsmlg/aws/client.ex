@@ -29,7 +29,10 @@ defmodule GSMLG.AWS.Client do
         end
 
       _ ->
-        Logger.error("AWS provider #{inspect(name)} not configured in :gsmlg_aws :aws_credentials")
+        Logger.error(
+          "AWS provider #{inspect(name)} not configured in :gsmlg_aws :aws_credentials"
+        )
+
         raise ArgumentError, "Cannot create AWS client: provider #{inspect(name)} not configured"
     end
   end

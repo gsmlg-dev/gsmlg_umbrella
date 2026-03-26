@@ -16,7 +16,13 @@ defmodule GSMLG.ApiProvidersTest do
   describe "list_api_providers/1" do
     test "returns only providers of the given type" do
       _openai = api_provider_fixture(%{provider: "openai", name: "openai-1"})
-      _github = api_provider_fixture(%{provider: "github", name: "github-1", credentials: %{token: "ghp_test"}})
+
+      _github =
+        api_provider_fixture(%{
+          provider: "github",
+          name: "github-1",
+          credentials: %{token: "ghp_test"}
+        })
 
       openai_providers = ApiProviders.list_api_providers("openai")
       assert Enum.all?(openai_providers, &(&1.provider == "openai"))
@@ -61,7 +67,13 @@ defmodule GSMLG.ApiProvidersTest do
     end
 
     test "rejects invalid auth_type" do
-      attrs = %{provider: "github", name: "bad-auth", credentials: %{token: "t"}, auth_type: "magic"}
+      attrs = %{
+        provider: "github",
+        name: "bad-auth",
+        credentials: %{token: "t"},
+        auth_type: "magic"
+      }
+
       assert {:error, changeset} = ApiProviders.create_api_provider(attrs)
       assert changeset.errors[:auth_type]
     end
@@ -77,7 +89,10 @@ defmodule GSMLG.ApiProvidersTest do
     test "updated credentials decrypt correctly" do
       provider = api_provider_fixture()
       new_creds = %{api_key: "sk-new-key"}
-      assert {:ok, updated} = ApiProviders.update_api_provider(provider, %{credentials: new_creds})
+
+      assert {:ok, updated} =
+               ApiProviders.update_api_provider(provider, %{credentials: new_creds})
+
       assert updated.credentials == new_creds
     end
   end
