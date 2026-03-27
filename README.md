@@ -56,6 +56,61 @@ MIX_ENV=prod mix release gsmlg_umbrella
 MIX_ENV=prod BURRITO_TARGET=linux_amd64 mix release gsmlg_umbrella_standalone
 ```
 
+## Supported Languages
+
+### Blog Content
+
+Blog content supports multilingual translations via AI (Claude) or manual editing.
+
+| Locale | Language |
+|--------|----------|
+| `en` | English |
+| `zh-Hans` | Chinese (Simplified) |
+| `zh-Hant` | Chinese (Traditional) |
+| `fr` | French |
+| `es` | Spanish |
+| `de` | German |
+| `it` | Italian |
+| `ja` | Japanese |
+
+Default locale is `zh-Hans` (configurable via `i18n.default_locale` in the TOML config).
+
+### UI Translations (Gettext)
+
+UI strings in `apps/gsmlg_component` and `apps/gsmlg_web` are translated via [Gettext](https://hexdocs.pm/gettext/).
+
+**`apps/gsmlg_component`** — backend: `GSMLG.Component.Gettext`
+
+| Domain | Description |
+|--------|-------------|
+| `github` | GitHub-related UI strings |
+
+**`apps/gsmlg_web`** — backend: `GSMLG.Web.Gettext`
+
+| Domain | Description |
+|--------|-------------|
+| `default` | General UI strings |
+| `errors` | Error messages |
+| `github` | GitHub-related UI strings |
+| `homepage` | Homepage content |
+| `menu` | Navigation menu |
+| `toolbox` | Toolbox feature |
+| `user` | User account UI |
+
+Currently translated locale: `en` (English). To add a new locale:
+
+```shell
+# Extract new strings into .pot template files
+mix gettext.extract --merge --app gsmlg_web
+mix gettext.extract --merge --app gsmlg_component
+
+# Add a new locale (e.g. zh-Hans)
+mix gettext.merge apps/gsmlg_web/priv/gettext --locale zh-Hans
+mix gettext.merge apps/gsmlg_component/priv/gettext --locale zh-Hans
+```
+
+Then edit the generated `.po` files under `priv/gettext/<locale>/LC_MESSAGES/`.
+
 ## Releases
 
 Releases are automated via GitHub Actions (`release` workflow). Trigger manually with a version number — it builds the Docker image and Elixir tarballs in parallel, then publishes a GitHub release.
