@@ -94,17 +94,28 @@ msgid "must be equal to %{number}"
 msgstr ""
 
 ## From controllers (flash messages)
+#: lib/gsmlg/web/controllers/sign_controller.ex:34
+#: lib/gsmlg/web/controllers/sign_controller.ex:34
+#, elixir-autogen
 msgid "Invalid credentials"
 msgstr ""
 
+#: lib/gsmlg/web/controllers/auth_controller.ex:10
+#, elixir-autogen
 msgid "Failed to authenticate"
 msgstr ""
 
+#: lib/gsmlg/web/controllers/page_controller.ex:64
+#, elixir-autogen
 msgid "404 Page Not Found"
 msgstr ""
 
+#: lib/gsmlg/web/controllers/magic_link_controller.ex:23
+#, elixir-autogen
 msgid "Failed to send magic link"
 msgstr ""
 
+#: lib/gsmlg/web/controllers/magic_link_controller.ex:44
+#, elixir-autogen
 msgid "Invalid or expired magic link. Please request a new one."
 msgstr ""

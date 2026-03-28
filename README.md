@@ -97,16 +97,32 @@ UI strings in `apps/gsmlg_component` and `apps/gsmlg_web` are translated via [Ge
 | `toolbox` | Toolbox feature |
 | `user` | User account UI |
 
-Currently translated locale: `en` (English). To add a new locale:
+Supported locales:
+
+| Locale | Language |
+|--------|----------|
+| `en` | English |
+| `zh-Hans` | Chinese (Simplified) |
+| `zh-Hant` | Chinese (Traditional) |
+| `fr` | French |
+| `es` | Spanish |
+| `de` | German |
+| `it` | Italian |
+| `ja` | Japanese |
+
+> **Note:** `zh-Hans` / `zh-Hant` use BCP 47 script subtags. `GSMLG.Component.Gettext.Plural`
+> maps them to the `zh` plural rules (1 form) so both `gettext` and `ngettext` work correctly.
+
+To add a new locale or sync strings after source changes:
 
 ```shell
 # Extract new strings into .pot template files
 mix gettext.extract --merge --app gsmlg_web
 mix gettext.extract --merge --app gsmlg_component
 
-# Add a new locale (e.g. zh-Hans)
-mix gettext.merge apps/gsmlg_web/priv/gettext --locale zh-Hans
-mix gettext.merge apps/gsmlg_component/priv/gettext --locale zh-Hans
+# Add a new locale (e.g. ko)
+mix gettext.merge apps/gsmlg_web/priv/gettext --locale ko
+mix gettext.merge apps/gsmlg_component/priv/gettext --locale ko
 ```
 
 Then edit the generated `.po` files under `priv/gettext/<locale>/LC_MESSAGES/`.

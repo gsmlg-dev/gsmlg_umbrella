@@ -1,0 +1,174 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:43
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:43
+#, elixir-autogen, elixir-format
+msgid "2FA"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:199
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:199
+#, elixir-autogen, elixir-format
+msgid "2FA Enabled"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:35
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:35
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:198
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:198
+#, elixir-autogen, elixir-format
+msgid "Active"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:17
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:17
+#, elixir-autogen, elixir-format
+msgid "Add User"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:111
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:111
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:176
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:176
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:228
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:228
+#, elixir-autogen, elixir-format
+msgid "All Users"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:254
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:254
+#, elixir-autogen, elixir-format
+msgid "Confirm Password"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:200
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:200
+#, elixir-autogen, elixir-format
+msgid "Created"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:85
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:85
+#, elixir-autogen, elixir-format
+msgid "Delete"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:70
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:70
+#, elixir-autogen, elixir-format
+msgid "Do you want to remove this user?"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:181
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:181
+#, elixir-autogen, elixir-format
+msgid "Edit"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:26
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:26
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:131
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:131
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:195
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:195
+#, elixir-autogen, elixir-format
+msgid "Email"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:153
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:153
+#, elixir-autogen, elixir-format
+msgid "Enable 2FA"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:194
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:194
+#, elixir-autogen, elixir-format
+msgid "ID"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:32
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:32
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:140
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:140
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:197
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:197
+#, elixir-autogen, elixir-format
+msgid "Name"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:245
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:245
+#, elixir-autogen, elixir-format
+msgid "New Password"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:144
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:144
+#, elixir-autogen, elixir-format
+msgid "Portrait URL"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:186
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:186
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:221
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:221
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:259
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:259
+#, elixir-autogen, elixir-format
+msgid "Reset Password"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:156
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:156
+#, elixir-autogen, elixir-format
+msgid "Save"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:150
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:150
+#, elixir-autogen, elixir-format
+msgid "TOTP Token"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:201
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:201
+#, elixir-autogen, elixir-format
+msgid "Updated"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:29
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:29
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:137
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:137
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:196
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:196
+#, elixir-autogen, elixir-format
+msgid "Username"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:8
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:8
+#, elixir-autogen, elixir-format
+msgid "Users"
+msgstr ""
+
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:116
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:116
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:233
+#: lib/gsmlg/admin_web/live/user_live/index.html.heex:233
+#, elixir-autogen, elixir-format
+msgid "View User"
+msgstr ""

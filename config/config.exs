@@ -1,5 +1,8 @@
 import Config
 
+# Custom plural forms to support BCP 47 script-subtag locales (e.g. zh-Hans, zh-Hant)
+config :gettext, plural_forms: GSMLG.Component.Gettext.Plural
+
 config :gsmlg,
   namespace: GSMLG,
   ecto_repos: [GSMLG.Repo]

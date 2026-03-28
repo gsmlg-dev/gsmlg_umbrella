@@ -1,87 +1,87 @@
-## This file is a PO Template file.
-##
-## "msgid"s here are often extracted from source code.
-## Add new messages manually only if they're dynamic
-## messages that can't be statically extracted.
-##
-## Run "mix gettext.extract" to bring this file up to
-## date. Leave "msgstr"s empty as changing them here has no
-## effect: edit them in PO (.po) files instead.
-#
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
 msgid ""
 msgstr ""
+"Language: de\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: lib/gsmlg/web/components/layouts.ex:50
 #: lib/gsmlg/web/components/layouts/root.html.heex:53
 #, elixir-autogen, elixir-format
 msgid "Blog"
-msgstr ""
+msgstr "Blog"
 
 #: lib/gsmlg/web/components/layouts.ex:47
 #: lib/gsmlg/web/components/layouts/root.html.heex:52
 #, elixir-autogen, elixir-format
 msgid "Home"
-msgstr ""
+msgstr "Startseite"
 
 #: lib/gsmlg/web/components/layouts.ex:53
 #: lib/gsmlg/web/components/layouts/root.html.heex:54
 #, elixir-autogen, elixir-format
 msgid "Toolbox"
-msgstr ""
+msgstr "Werkzeugkasten"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:61
 #, elixir-autogen, elixir-format
 msgid "Domain/IP/ASN Whois"
-msgstr ""
+msgstr "Domain/IP/ASN Whois"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:60
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:28
 #, elixir-autogen, elixir-format
 msgid "IP Geo Database"
-msgstr ""
+msgstr "IP-Geo-Datenbank"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:38
 #, elixir-autogen, elixir-format
 msgid "IP to Geo Map"
-msgstr ""
+msgstr "IP-Geokarte"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:65
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:32
 #, elixir-autogen, elixir-format
 msgid "Lookup MAC Manufacturer"
-msgstr ""
+msgstr "MAC-Hersteller nachschlagen"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:63
 #, elixir-autogen, elixir-format
 msgid "SVG AutoCrop"
-msgstr ""
+msgstr "SVG AutoCrop"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:36
 #, elixir-autogen, elixir-format
 msgid "SVG Autocrop, Optimize SVG"
-msgstr ""
+msgstr "SVG Autocrop, SVG optimieren"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:62
 #, elixir-autogen, elixir-format
 msgid "SVG to React"
-msgstr ""
+msgstr "SVG to React"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:34
 #, elixir-autogen, elixir-format
 msgid "SVG to React Component"
-msgstr ""
+msgstr "SVG zu React-Komponente"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "Whois Domain / IP / ASN"
-msgstr ""
+msgstr "Whois Domain / IP / ASN"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:56
 #, elixir-autogen
 msgid "Sign In"
-msgstr ""
+msgstr "Anmelden"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:41
 #, elixir-autogen, elixir-format
 msgid "Screen Saver"
-msgstr ""
+msgstr "Bildschirmschoner"

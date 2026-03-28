@@ -1,128 +1,128 @@
-## This file is a PO Template file.
-##
-## "msgid"s here are often extracted from source code.
-## Add new messages manually only if they're dynamic
-## messages that can't be statically extracted.
-##
-## Run "mix gettext.extract" to bring this file up to
-## date. Leave "msgstr"s empty as changing them here has no
-## effect: edit them in PO (.po) files instead.
-#
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
 msgid ""
 msgstr ""
+"Language: fr\n"
+"Plural-Forms: nplurals=2; plural=(n>1);\n"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:70
 #, elixir-autogen, elixir-format
 msgid "Copyright© Jonathan Gao. All rights reserved"
-msgstr ""
+msgstr "Copyright© Jonathan Gao. Tous droits réservés"
 
 #: lib/gsmlg/web/controllers/page_controller.ex:46
 #, elixir-autogen, elixir-format
 msgid "Home"
-msgstr ""
+msgstr "Accueil"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:64
 #, elixir-autogen, elixir-format
 msgid "Open"
-msgstr ""
+msgstr "Ouvrir"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:17
 #, elixir-autogen, elixir-format
 msgid "default page title"
-msgstr ""
+msgstr "GSMLG"
 
 #: lib/gsmlg/web/controllers/blog_html/show.html.heex:28
 #, elixir-autogen, elixir-format
 msgid "AI translated"
-msgstr ""
+msgstr "Traduit par IA"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:42
 #, elixir-autogen, elixir-format
 msgid "Ambient screensaver for display or presentation mode"
-msgstr ""
+msgstr "Économiseur d'écran ambiant pour l'affichage ou la présentation"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:70
 #, elixir-autogen, elixir-format
 msgid "Back"
-msgstr ""
+msgstr "Retour"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:35
 #, elixir-autogen, elixir-format
 msgid "Convert SVG markup into clean React functional components"
-msgstr ""
+msgstr "Convertir le balisage SVG en composants fonctionnels React propres"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "Identify device vendors from MAC address OUI prefixes"
-msgstr ""
+msgstr "Identifier les fabricants d'appareils à partir des préfixes OUI des adresses MAC"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "Language"
-msgstr ""
+msgstr "Langue"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:39
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:48
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:58
 #, elixir-autogen, elixir-format
 msgid "Login with %{provider}"
-msgstr ""
+msgstr "Se connecter avec %{provider}"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:31
 #, elixir-autogen, elixir-format
 msgid "Look up registration info for domains, IPs and ASNs"
-msgstr ""
+msgstr "Rechercher les informations d'enregistrement des domaines, IP et ASN"
 
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:76
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:31
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:64
 #, elixir-autogen, elixir-format
 msgid "OR"
-msgstr ""
+msgstr "OU"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:22
 #, elixir-autogen, elixir-format
 msgid "Password"
-msgstr ""
+msgstr "Mot de passe"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:29
 #, elixir-autogen, elixir-format
 msgid "Query IP geolocation using MaxMind IP Geo databases"
-msgstr ""
+msgstr "Interroger la géolocalisation IP à l'aide des bases de données MaxMind IP Geo"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:37
 #, elixir-autogen, elixir-format
 msgid "Remove excess whitespace and optimize SVG file size"
-msgstr ""
+msgstr "Supprimer les espaces excessifs et optimiser la taille des fichiers SVG"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:3
 #, elixir-autogen, elixir-format
 msgid "Sign in"
-msgstr ""
+msgstr "Se connecter"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_up.html.heex:3
 #, elixir-autogen, elixir-format
 msgid "Sign up"
-msgstr ""
+msgstr "S'inscrire"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:15
 #, elixir-autogen, elixir-format
 msgid "Username"
-msgstr ""
+msgstr "Nom d'utilisateur"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:40
 #, elixir-autogen, elixir-format
 msgid "Visualize IP addresses on an interactive world map"
-msgstr ""
+msgstr "Visualiser les adresses IP sur une carte du monde interactive"
 
 #: lib/gsmlg/web/controllers/blog_html/index.html.heex:16
 #, elixir-autogen, elixir-format
 msgid "post"
 msgid_plural "posts"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "article"
+msgstr[1] "articles"
 
 #: lib/gsmlg/web/controllers/blog_html/show.html.heex:36
 #, elixir-autogen, elixir-format
 msgid "translation in progress"
-msgstr ""
+msgstr "traduction en cours"

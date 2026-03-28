@@ -1,0 +1,113 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: es\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "can't be blank"
+msgstr "no puede estar en blanco"
+
+msgid "has already been taken"
+msgstr "ya está en uso"
+
+msgid "is invalid"
+msgstr "no es válido"
+
+msgid "must be accepted"
+msgstr "debe ser aceptado"
+
+msgid "has invalid format"
+msgstr "tiene un formato no válido"
+
+msgid "has an invalid entry"
+msgstr "tiene una entrada no válida"
+
+msgid "is reserved"
+msgstr "está reservado"
+
+msgid "does not match confirmation"
+msgstr "no coincide con la confirmación"
+
+msgid "is still associated with this entry"
+msgstr "todavía está asociado con esta entrada"
+
+msgid "are still associated with this entry"
+msgstr "todavía están asociados con esta entrada"
+
+msgid "should be %{count} character(s)"
+msgid_plural "should be %{count} character(s)"
+msgstr[0] "debe tener %{count} carácter"
+msgstr[1] "debe tener %{count} caracteres"
+
+msgid "should have %{count} item(s)"
+msgid_plural "should have %{count} item(s)"
+msgstr[0] "debe tener %{count} elemento"
+msgstr[1] "debe tener %{count} elementos"
+
+msgid "should be at least %{count} character(s)"
+msgid_plural "should be at least %{count} character(s)"
+msgstr[0] "debe tener al menos %{count} carácter"
+msgstr[1] "debe tener al menos %{count} caracteres"
+
+msgid "should have at least %{count} item(s)"
+msgid_plural "should have at least %{count} item(s)"
+msgstr[0] "debe tener al menos %{count} elemento"
+msgstr[1] "debe tener al menos %{count} elementos"
+
+msgid "should be at most %{count} character(s)"
+msgid_plural "should be at most %{count} character(s)"
+msgstr[0] "debe tener como máximo %{count} carácter"
+msgstr[1] "debe tener como máximo %{count} caracteres"
+
+msgid "should have at most %{count} item(s)"
+msgid_plural "should have at most %{count} item(s)"
+msgstr[0] "debe tener como máximo %{count} elemento"
+msgstr[1] "debe tener como máximo %{count} elementos"
+
+msgid "must be less than %{number}"
+msgstr "debe ser menor que %{number}"
+
+msgid "must be greater than %{number}"
+msgstr "debe ser mayor que %{number}"
+
+msgid "must be less than or equal to %{number}"
+msgstr "debe ser menor o igual que %{number}"
+
+msgid "must be greater than or equal to %{number}"
+msgstr "debe ser mayor o igual que %{number}"
+
+msgid "must be equal to %{number}"
+msgstr "debe ser igual a %{number}"
+
+#: lib/gsmlg/web/controllers/sign_controller.ex:34
+#: lib/gsmlg/web/controllers/sign_controller.ex:34
+#, elixir-autogen
+msgid "Invalid credentials"
+msgstr "Credenciales inválidas"
+
+#: lib/gsmlg/web/controllers/auth_controller.ex:10
+#, elixir-autogen
+msgid "Failed to authenticate"
+msgstr "Error al autenticar"
+
+#: lib/gsmlg/web/controllers/page_controller.ex:64
+#, elixir-autogen
+msgid "404 Page Not Found"
+msgstr "404 Página no encontrada"
+
+#: lib/gsmlg/web/controllers/magic_link_controller.ex:23
+#, elixir-autogen
+msgid "Failed to send magic link"
+msgstr "Error al enviar el enlace mágico"
+
+#: lib/gsmlg/web/controllers/magic_link_controller.ex:44
+#, elixir-autogen
+msgid "Invalid or expired magic link. Please request a new one."
+msgstr "Enlace mágico inválido o expirado. Por favor, solicite uno nuevo."

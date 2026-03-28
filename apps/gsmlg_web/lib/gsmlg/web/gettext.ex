@@ -20,5 +20,5 @@ defmodule GSMLG.Web.Gettext do
 
   See the [Gettext Docs](https://hexdocs.pm/gettext) for detailed usage.
   """
-  use Gettext.Backend, otp_app: :gsmlg_web
+  use Gettext.Backend, otp_app: :gsmlg_web, plural_forms: GSMLG.Component.Gettext.Plural
 end
