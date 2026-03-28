@@ -1,0 +1,9 @@
+msgid ""
+msgstr ""
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: lib/gsmlg/component/github.ex:65
+#, elixir-autogen, elixir-format
+msgid "GH Page"
+msgstr "GH Page"

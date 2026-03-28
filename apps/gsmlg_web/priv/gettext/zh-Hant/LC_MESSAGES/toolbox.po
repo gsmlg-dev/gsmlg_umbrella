@@ -8,23 +8,23 @@
 ### to merge POT files into PO files.
 msgid ""
 msgstr ""
-"Language: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: zh-Hant\n"
+"Plural-Forms: nplurals=1\n"
 
 #: lib/gsmlg/web/controllers/toolbox_html/svg2react.html.heex:29
 #, elixir-autogen, elixir-format
 msgid "Convert"
-msgstr "Convert"
+msgstr "轉換"
 
 #: lib/gsmlg/web/controllers/toolbox_html/ip_to_geomap.html.heex:22
 #, elixir-autogen, elixir-format
 msgid "Display IP location on the map"
-msgstr "Display IP location on the map"
+msgstr "在地圖上顯示 IP 位置"
 
 #: lib/gsmlg/web/controllers/toolbox_html/whois.html.heex:36
 #, elixir-autogen, elixir-format
 msgid "Domain / IP / ASN"
-msgstr "Domain / IP / ASN"
+msgstr "網域 / IP / ASN"
 
 #: lib/gsmlg/web/controllers/toolbox_html/ip_geo.html.heex:21
 #, elixir-autogen, elixir-format
@@ -36,33 +36,32 @@ msgstr "IP"
 #: lib/gsmlg/web/controllers/toolbox_html/whois.html.heex:39
 #, elixir-autogen, elixir-format
 msgid "Lookup"
-msgstr "Lookup"
+msgstr "查詢"
 
 #: lib/gsmlg/web/controllers/toolbox_html/svg_autocrop.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "Optimize"
-msgstr "Optimize"
+msgstr "最佳化"
 
 #: lib/gsmlg/web/controllers/toolbox_html/svg_autocrop.html.heex:24
 #, elixir-autogen, elixir-format
 msgid "Optimized SVG"
-msgstr "Optimized SVG"
+msgstr "最佳化後的 SVG"
 
 #: lib/gsmlg/web/controllers/toolbox_html/svg_autocrop.html.heex:13
 #, elixir-autogen, elixir-format
 msgid "Origin SVG"
-msgstr "Origin SVG"
+msgstr "原始 SVG"
 
-## Page titles from toolbox_controller.ex
 #: lib/gsmlg/web/controllers/toolbox_controller.ex:7
 #, elixir-autogen
 msgid "Toolbox"
-msgstr "Toolbox"
+msgstr "工具箱"
 
 #: lib/gsmlg/web/controllers/toolbox_controller.ex:11
 #, elixir-autogen
 msgid "IP Geo"
-msgstr "IP Geo"
+msgstr "IP 地理"
 
 #: lib/gsmlg/web/controllers/toolbox_controller.ex:22
 #, elixir-autogen
@@ -72,30 +71,30 @@ msgstr "Whois"
 #: lib/gsmlg/web/controllers/toolbox_controller.ex:51
 #, elixir-autogen
 msgid "SVG to React"
-msgstr "SVG to React"
+msgstr "SVG 轉 React"
 
 #: lib/gsmlg/web/controllers/toolbox_controller.ex:96
 #, elixir-autogen
 msgid "SVG Autocrop"
-msgstr "SVG Autocrop"
+msgstr "SVG 自動裁切"
 
 #: lib/gsmlg/web/controllers/toolbox_controller.ex:100
 #, elixir-autogen
 msgid "MAC Manufacturer"
-msgstr "MAC Manufacturer"
+msgstr "MAC 廠商"
 
 #: lib/gsmlg/web/controllers/toolbox_controller.ex:111
 #, elixir-autogen
 msgid "IP to GeoMap"
-msgstr "IP to GeoMap"
+msgstr "IP 到 GeoMap"
 
 #: lib/gsmlg/web/controllers/toolbox_controller.ex:125
 #, elixir-autogen
 msgid "Screen Saver"
-msgstr "Screen Saver"
+msgstr "螢幕保護程式"
 
 msgid "Unknown"
-msgstr "Unknown"
+msgstr "未知"
 
 #: lib/gsmlg/web/controllers/toolbox_html/whois.html.heex:28
 #, elixir-autogen, elixir-format
@@ -110,4 +109,4 @@ msgstr "WHOIS"
 #: lib/gsmlg/web/controllers/toolbox_html/screensaver.html.heex:16
 #, elixir-autogen, elixir-format
 msgid "start-fullscreen"
-msgstr "Start Fullscreen"
+msgstr "開始全螢幕"

@@ -11,7 +11,7 @@ msgstr ""
 "Language: en\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: lib/gsmlg/web/controllers/page_html/index.html.heex:27
+#: lib/gsmlg/component/github.ex:225
 #, elixir-autogen, elixir-format
-msgid "Github Repos"
-msgstr "Github Repos"
+msgid "No description"
+msgstr "No description"

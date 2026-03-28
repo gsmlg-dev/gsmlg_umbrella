@@ -8,13 +8,13 @@
 ### to merge POT files into PO files.
 msgid ""
 msgstr ""
-"Language: en\n"
+"Language: it\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:70
 #, elixir-autogen, elixir-format
 msgid "Copyright© Jonathan Gao. All rights reserved"
-msgstr "Copyright© Jonathan Gao. All rights reserved"
+msgstr "Copyright© Jonathan Gao. Tutti i diritti riservati"
 
 #: lib/gsmlg/web/controllers/page_controller.ex:46
 #, elixir-autogen, elixir-format
@@ -24,7 +24,7 @@ msgstr "Home"
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:64
 #, elixir-autogen, elixir-format
 msgid "Open"
-msgstr "Open"
+msgstr "Apri"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:17
 #, elixir-autogen, elixir-format
@@ -34,51 +34,51 @@ msgstr "GSMLG"
 #: lib/gsmlg/web/controllers/blog_html/show.html.heex:28
 #, elixir-autogen, elixir-format
 msgid "AI translated"
-msgstr "AI translated"
+msgstr "Tradotto con IA"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:42
 #, elixir-autogen, elixir-format
 msgid "Ambient screensaver for display or presentation mode"
-msgstr "Ambient screensaver for display or presentation mode"
+msgstr "Salvaschermo ambientale per modalita display o presentazione"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:70
 #, elixir-autogen, elixir-format
 msgid "Back"
-msgstr "Back"
+msgstr "Indietro"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:35
 #, elixir-autogen, elixir-format
 msgid "Convert SVG markup into clean React functional components"
-msgstr "Convert SVG markup into clean React functional components"
+msgstr "Converti il markup SVG in componenti funzionali React puliti"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "Identify device vendors from MAC address OUI prefixes"
-msgstr "Identify device vendors from MAC address OUI prefixes"
+msgstr "Identifica i produttori dei dispositivi dai prefissi OUI degli indirizzi MAC"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "Language"
-msgstr "Language"
+msgstr "Lingua"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:39
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:48
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:58
 #, elixir-autogen, elixir-format
 msgid "Login with %{provider}"
-msgstr "Login with %{provider}"
+msgstr "Accedi con %{provider}"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:31
 #, elixir-autogen, elixir-format
 msgid "Look up registration info for domains, IPs and ASNs"
-msgstr "Look up registration info for domains, IPs and ASNs"
+msgstr "Cerca le informazioni di registrazione per domini, IP e ASN"
 
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:76
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:31
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:64
 #, elixir-autogen, elixir-format
 msgid "OR"
-msgstr "OR"
+msgstr "O"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:22
 #, elixir-autogen, elixir-format
@@ -88,41 +88,41 @@ msgstr "Password"
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:29
 #, elixir-autogen, elixir-format
 msgid "Query IP geolocation using MaxMind IP Geo databases"
-msgstr "Query IP geolocation using MaxMind IP Geo databases"
+msgstr "Interroga la geolocalizzazione IP usando i database MaxMind IP Geo"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:37
 #, elixir-autogen, elixir-format
 msgid "Remove excess whitespace and optimize SVG file size"
-msgstr "Remove excess whitespace and optimize SVG file size"
+msgstr "Rimuovi gli spazi superflui e ottimizza la dimensione del file SVG"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:3
 #, elixir-autogen, elixir-format
 msgid "Sign in"
-msgstr "Sign in"
+msgstr "Accedi"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_up.html.heex:3
 #, elixir-autogen, elixir-format
 msgid "Sign up"
-msgstr "Sign up"
+msgstr "Registrati"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:15
 #, elixir-autogen, elixir-format
 msgid "Username"
-msgstr "Username"
+msgstr "Nome utente"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:40
 #, elixir-autogen, elixir-format
 msgid "Visualize IP addresses on an interactive world map"
-msgstr "Visualize IP addresses on an interactive world map"
+msgstr "Visualizza gli indirizzi IP su una mappa mondiale interattiva"
 
 #: lib/gsmlg/web/controllers/blog_html/index.html.heex:16
 #, elixir-autogen, elixir-format
 msgid "post"
 msgid_plural "posts"
-msgstr[0] "post"
-msgstr[1] "posts"
+msgstr[0] "articolo"
+msgstr[1] "articoli"
 
 #: lib/gsmlg/web/controllers/blog_html/show.html.heex:36
 #, elixir-autogen, elixir-format
 msgid "translation in progress"
-msgstr "translation in progress"
+msgstr "traduzione in corso"

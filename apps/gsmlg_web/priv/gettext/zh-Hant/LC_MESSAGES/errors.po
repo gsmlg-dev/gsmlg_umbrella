@@ -1,0 +1,107 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: zh-Hant\n"
+"Plural-Forms: nplurals=1\n"
+
+msgid "can't be blank"
+msgstr "不能為空"
+
+msgid "has already been taken"
+msgstr "已被使用"
+
+msgid "is invalid"
+msgstr "無效"
+
+msgid "must be accepted"
+msgstr "必須接受"
+
+msgid "has invalid format"
+msgstr "格式無效"
+
+msgid "has an invalid entry"
+msgstr "包含無效項目"
+
+msgid "is reserved"
+msgstr "是保留項"
+
+msgid "does not match confirmation"
+msgstr "與確認內容不符"
+
+msgid "is still associated with this entry"
+msgstr "仍與此項目相關聯"
+
+msgid "are still associated with this entry"
+msgstr "仍與此項目相關聯"
+
+msgid "should be %{count} character(s)"
+msgid_plural "should be %{count} character(s)"
+msgstr[0] "應為 %{count} 個字元"
+
+msgid "should have %{count} item(s)"
+msgid_plural "should have %{count} item(s)"
+msgstr[0] "應有 %{count} 個項目"
+
+msgid "should be at least %{count} character(s)"
+msgid_plural "should be at least %{count} character(s)"
+msgstr[0] "至少應為 %{count} 個字元"
+
+msgid "should have at least %{count} item(s)"
+msgid_plural "should have at least %{count} item(s)"
+msgstr[0] "至少應有 %{count} 個項目"
+
+msgid "should be at most %{count} character(s)"
+msgid_plural "should be at most %{count} character(s)"
+msgstr[0] "最多應為 %{count} 個字元"
+
+msgid "should have at most %{count} item(s)"
+msgid_plural "should have at most %{count} item(s)"
+msgstr[0] "最多應有 %{count} 個項目"
+
+msgid "must be less than %{number}"
+msgstr "必須小於 %{number}"
+
+msgid "must be greater than %{number}"
+msgstr "必須大於 %{number}"
+
+msgid "must be less than or equal to %{number}"
+msgstr "必須小於或等於 %{number}"
+
+msgid "must be greater than or equal to %{number}"
+msgstr "必須大於或等於 %{number}"
+
+msgid "must be equal to %{number}"
+msgstr "必須等於 %{number}"
+
+#: lib/gsmlg/web/controllers/sign_controller.ex:34
+#: lib/gsmlg/web/controllers/sign_controller.ex:34
+#, elixir-autogen
+msgid "Invalid credentials"
+msgstr "憑證無效"
+
+#: lib/gsmlg/web/controllers/auth_controller.ex:10
+#, elixir-autogen
+msgid "Failed to authenticate"
+msgstr "驗證失敗"
+
+#: lib/gsmlg/web/controllers/page_controller.ex:64
+#, elixir-autogen
+msgid "404 Page Not Found"
+msgstr "404 找不到頁面"
+
+#: lib/gsmlg/web/controllers/magic_link_controller.ex:23
+#, elixir-autogen
+msgid "Failed to send magic link"
+msgstr "傳送魔法連結失敗"
+
+#: lib/gsmlg/web/controllers/magic_link_controller.ex:44
+#, elixir-autogen
+msgid "Invalid or expired magic link. Please request a new one."
+msgstr "魔法連結無效或已過期，請重新申請。"

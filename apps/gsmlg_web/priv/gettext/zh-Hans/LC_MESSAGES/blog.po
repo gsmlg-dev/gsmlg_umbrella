@@ -8,15 +8,20 @@
 ### to merge POT files into PO files.
 msgid ""
 msgstr ""
-"Language: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: zh-Hans\n"
+"Plural-Forms: nplurals=1\n"
 
-#: lib/gsmlg/web/controllers/page_html/index.html.heex:5
+#: lib/gsmlg/web/controllers/blog_html/index.html.heex:11
 #, elixir-autogen, elixir-format
-msgid "slogan-1"
-msgstr "Let justice be done"
+msgid "Blog"
+msgstr "博客"
 
-#: lib/gsmlg/web/controllers/page_html/index.html.heex:8
+#: lib/gsmlg/web/controllers/blog_html/index.html.heex:27
 #, elixir-autogen, elixir-format
-msgid "slogan-2"
-msgstr "Though the heavens fall"
+msgid "No posts yet"
+msgstr "还没有文章"
+
+#: lib/gsmlg/web/controllers/blog_html/index.html.heex:7
+#, elixir-autogen, elixir-format
+msgid "Writing & Notes"
+msgstr "写作与笔记"

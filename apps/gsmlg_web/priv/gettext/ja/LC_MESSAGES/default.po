@@ -8,8 +8,8 @@
 ### to merge POT files into PO files.
 msgid ""
 msgstr ""
-"Language: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: ja\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:70
 #, elixir-autogen, elixir-format
@@ -19,12 +19,12 @@ msgstr "Copyright© Jonathan Gao. All rights reserved"
 #: lib/gsmlg/web/controllers/page_controller.ex:46
 #, elixir-autogen, elixir-format
 msgid "Home"
-msgstr "Home"
+msgstr "ホーム"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:64
 #, elixir-autogen, elixir-format
 msgid "Open"
-msgstr "Open"
+msgstr "開く"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:17
 #, elixir-autogen, elixir-format
@@ -34,95 +34,94 @@ msgstr "GSMLG"
 #: lib/gsmlg/web/controllers/blog_html/show.html.heex:28
 #, elixir-autogen, elixir-format
 msgid "AI translated"
-msgstr "AI translated"
+msgstr "AI翻訳"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:42
 #, elixir-autogen, elixir-format
 msgid "Ambient screensaver for display or presentation mode"
-msgstr "Ambient screensaver for display or presentation mode"
+msgstr "表示やプレゼン用のアンビエントスクリーンセーバー"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:70
 #, elixir-autogen, elixir-format
 msgid "Back"
-msgstr "Back"
+msgstr "戻る"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:35
 #, elixir-autogen, elixir-format
 msgid "Convert SVG markup into clean React functional components"
-msgstr "Convert SVG markup into clean React functional components"
+msgstr "SVGマークアップをきれいなReact関数コンポーネントに変換"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "Identify device vendors from MAC address OUI prefixes"
-msgstr "Identify device vendors from MAC address OUI prefixes"
+msgstr "MACアドレスのOUIプレフィックスからデバイスベンダーを特定"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "Language"
-msgstr "Language"
+msgstr "言語"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:39
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:48
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:58
 #, elixir-autogen, elixir-format
 msgid "Login with %{provider}"
-msgstr "Login with %{provider}"
+msgstr "%{provider}でログイン"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:31
 #, elixir-autogen, elixir-format
 msgid "Look up registration info for domains, IPs and ASNs"
-msgstr "Look up registration info for domains, IPs and ASNs"
+msgstr "ドメイン、IP、ASNの登録情報を検索"
 
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:76
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:31
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:64
 #, elixir-autogen, elixir-format
 msgid "OR"
-msgstr "OR"
+msgstr "または"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:22
 #, elixir-autogen, elixir-format
 msgid "Password"
-msgstr "Password"
+msgstr "パスワード"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:29
 #, elixir-autogen, elixir-format
 msgid "Query IP geolocation using MaxMind IP Geo databases"
-msgstr "Query IP geolocation using MaxMind IP Geo databases"
+msgstr "MaxMind IP Geoデータベースを使ってIPジオロケーションを照会"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:37
 #, elixir-autogen, elixir-format
 msgid "Remove excess whitespace and optimize SVG file size"
-msgstr "Remove excess whitespace and optimize SVG file size"
+msgstr "余分な空白を削除してSVGファイルサイズを最適化"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:3
 #, elixir-autogen, elixir-format
 msgid "Sign in"
-msgstr "Sign in"
+msgstr "サインイン"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_up.html.heex:3
 #, elixir-autogen, elixir-format
 msgid "Sign up"
-msgstr "Sign up"
+msgstr "サインアップ"
 
 #: lib/gsmlg/web/controllers/sign_html/sign_in.html.heex:15
 #, elixir-autogen, elixir-format
 msgid "Username"
-msgstr "Username"
+msgstr "ユーザー名"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:40
 #, elixir-autogen, elixir-format
 msgid "Visualize IP addresses on an interactive world map"
-msgstr "Visualize IP addresses on an interactive world map"
+msgstr "インタラクティブな世界地図でIPアドレスを可視化"
 
 #: lib/gsmlg/web/controllers/blog_html/index.html.heex:16
 #, elixir-autogen, elixir-format
 msgid "post"
 msgid_plural "posts"
-msgstr[0] "post"
-msgstr[1] "posts"
+msgstr[0] "投稿"
 
 #: lib/gsmlg/web/controllers/blog_html/show.html.heex:36
 #, elixir-autogen, elixir-format
 msgid "translation in progress"
-msgstr "translation in progress"
+msgstr "翻訳中"

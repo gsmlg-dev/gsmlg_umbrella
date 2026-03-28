@@ -8,14 +8,14 @@
 ### to merge POT files into PO files.
 msgid ""
 msgstr ""
-"Language: en\n"
+"Language: it\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: lib/gsmlg/web/controllers/sign_controller.ex:11
 #: lib/gsmlg/web/controllers/sign_controller.ex:11
 #, elixir-autogen
 msgid "Already signed in."
-msgstr "Already signed in."
+msgstr "Hai gia effettuato l accesso."
 
 #: lib/gsmlg/web/controllers/sign_controller.ex:18
 #: lib/gsmlg/web/controllers/sign_controller.ex:18
@@ -23,38 +23,38 @@ msgstr "Already signed in."
 #: lib/gsmlg/web/controllers/sign_controller.ex:35
 #, elixir-autogen
 msgid "Sign In"
-msgstr "Sign In"
+msgstr "Accedi"
 
 #: lib/gsmlg/web/controllers/sign_controller.ex:28
 #: lib/gsmlg/web/controllers/sign_controller.ex:28
 #, elixir-autogen
 msgid "Sign in successfully."
-msgstr "Sign in successfully."
+msgstr "Accesso effettuato con successo."
 
 #: lib/gsmlg/web/controllers/magic_link_controller.ex:19
 #, elixir-autogen
 msgid "Magic link sent! Check your email."
-msgstr "Magic link sent! Check your email."
+msgstr "Link magico inviato. Controlla la tua email."
 
 #: lib/gsmlg/web/controllers/magic_link_controller.ex:37
 #, elixir-autogen
 msgid "Welcome back!"
-msgstr "Welcome back!"
+msgstr "Bentornato!"
 
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:4
 #, elixir-autogen
 msgid "Magic Link Login"
-msgstr "Magic Link Login"
+msgstr "Accesso con link magico"
 
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:6
 #, elixir-autogen
 msgid "Enter your email address and we'll send you a magic link to sign in instantly. No passwords required!"
-msgstr "Enter your email address and we'll send you a magic link to sign in instantly. No passwords required!"
+msgstr "Inserisci il tuo indirizzo email e ti invieremo un link magico per accedere subito. Nessuna password richiesta!"
 
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:27
 #, elixir-autogen
 msgid "Your link will expire in 24 hours and can only be used once."
-msgstr "Your link will expire in 24 hours and can only be used once."
+msgstr "Il tuo link scadra tra 24 ore e potra essere usato una sola volta."
 
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:57
 #, elixir-autogen
@@ -64,29 +64,29 @@ msgstr "Email"
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:72
 #, elixir-autogen
 msgid "Send Magic Link"
-msgstr "Send Magic Link"
+msgstr "Invia link magico"
 
 #: lib/gsmlg/web/controllers/magic_link_html/new.html.heex:87
 #, elixir-autogen
 msgid "Continue with GitHub"
-msgstr "Continue with GitHub"
+msgstr "Continua con GitHub"
 
 #: lib/gsmlg/web/controllers/magic_link_html/sent.html.heex:10
 #, elixir-autogen
 msgid "Check your email"
-msgstr "Check your email"
+msgstr "Controlla la tua email"
 
 #: lib/gsmlg/web/controllers/magic_link_html/sent.html.heex:14
 #, elixir-autogen
 msgid "We've sent a magic link to your email address. Click the link in the email to sign in instantly."
-msgstr "We've sent a magic link to your email address. Click the link in the email to sign in instantly."
+msgstr "Abbiamo inviato un link magico al tuo indirizzo email. Fai clic sul link nell email per accedere subito."
 
 #: lib/gsmlg/web/controllers/magic_link_html/sent.html.heex:21
 #, elixir-autogen
 msgid "The link will expire in 24 hours and can only be used once."
-msgstr "The link will expire in 24 hours and can only be used once."
+msgstr "Il link scadra tra 24 ore e potra essere usato una sola volta."
 
 #: lib/gsmlg/web/controllers/magic_link_html/sent.html.heex:29
 #, elixir-autogen
 msgid "Didn't receive the email? Send another link"
-msgstr "Didn't receive the email? Send another link"
+msgstr "Non hai ricevuto l email? Invia un altro link"

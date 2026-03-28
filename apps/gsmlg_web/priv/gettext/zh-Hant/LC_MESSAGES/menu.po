@@ -8,80 +8,80 @@
 ### to merge POT files into PO files.
 msgid ""
 msgstr ""
-"Language: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: zh-Hant\n"
+"Plural-Forms: nplurals=1\n"
 
 #: lib/gsmlg/web/components/layouts.ex:50
 #: lib/gsmlg/web/components/layouts/root.html.heex:53
 #, elixir-autogen, elixir-format
 msgid "Blog"
-msgstr "Blog"
+msgstr "部落格"
 
 #: lib/gsmlg/web/components/layouts.ex:47
 #: lib/gsmlg/web/components/layouts/root.html.heex:52
 #, elixir-autogen, elixir-format
 msgid "Home"
-msgstr "Home"
+msgstr "首頁"
 
 #: lib/gsmlg/web/components/layouts.ex:53
 #: lib/gsmlg/web/components/layouts/root.html.heex:54
 #, elixir-autogen, elixir-format
 msgid "Toolbox"
-msgstr "Toolbox"
+msgstr "工具箱"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:61
 #, elixir-autogen, elixir-format
 msgid "Domain/IP/ASN Whois"
-msgstr "Domain/IP/ASN Whois"
+msgstr "網域/IP/ASN Whois"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:60
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:28
 #, elixir-autogen, elixir-format
 msgid "IP Geo Database"
-msgstr "IP Geo Database"
+msgstr "IP 地理資料庫"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:38
 #, elixir-autogen, elixir-format
 msgid "IP to Geo Map"
-msgstr "IP to Geo Map"
+msgstr "IP 到地理地圖"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:65
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:32
 #, elixir-autogen, elixir-format
 msgid "Lookup MAC Manufacturer"
-msgstr "Lookup MAC Manufacturer"
+msgstr "查詢 MAC 廠商"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:63
 #, elixir-autogen, elixir-format
 msgid "SVG AutoCrop"
-msgstr "SVG AutoCrop"
+msgstr "SVG 自動裁切"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:36
 #, elixir-autogen, elixir-format
 msgid "SVG Autocrop, Optimize SVG"
-msgstr "SVG Autocrop, Optimize SVG"
+msgstr "SVG 自動裁切，最佳化 SVG"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:62
 #, elixir-autogen, elixir-format
 msgid "SVG to React"
-msgstr "SVG to React"
+msgstr "SVG 轉 React"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:34
 #, elixir-autogen, elixir-format
 msgid "SVG to React Component"
-msgstr "SVG to React Component"
+msgstr "SVG 轉 React 元件"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "Whois Domain / IP / ASN"
-msgstr "Whois Domain / IP / ASN"
+msgstr "Whois 網域 / IP / ASN"
 
 #: lib/gsmlg/web/components/layouts/root.html.heex:56
 #, elixir-autogen
 msgid "Sign In"
-msgstr "Sign In"
+msgstr "登入"
 
 #: lib/gsmlg/web/controllers/toolbox_html/index.html.heex:41
 #, elixir-autogen, elixir-format
 msgid "Screen Saver"
-msgstr "Screen Saver"
+msgstr "螢幕保護程式"

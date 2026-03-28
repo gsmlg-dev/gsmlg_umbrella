@@ -8,10 +8,10 @@
 ### to merge POT files into PO files.
 msgid ""
 msgstr ""
-"Language: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: it\n"
+"Plural-Forms: nplurals=2\n"
 
-#: lib/gsmlg/web/controllers/page_html/index.html.heex:27
+#: lib/gsmlg/component/github.ex:65
 #, elixir-autogen, elixir-format
-msgid "Github Repos"
-msgstr "Github Repos"
+msgid "GH Page"
+msgstr "Pagina GH"
