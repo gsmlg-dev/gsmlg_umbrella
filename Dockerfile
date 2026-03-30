@@ -17,7 +17,7 @@ ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/down
 ARG TARGETARCH
 
 # Install bun and tailwind
-RUN apt-get update && apt-get install -y --no-install-recommends unzip curl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends unzip curl ca-certificates python3 && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip -o /tmp/bun.zip \
     && unzip /tmp/bun.zip -d /tmp/ \
@@ -42,10 +42,31 @@ set -evx
 cd /build
 
 mix deps.get
-bun install
+bun install --frozen-lockfile --linker hoisted --backend copyfile
 install -m 755 -D $MIX_TAILWIND_PATH /build/_build/tailwind-linux-x64
 install -m 755 -D $MIX_BUN_PATH /build/_build/bun
+python3 - <<'PY'
+from pathlib import Path
 
+for path in [
+    Path("/build/node_modules/@duskmoon-dev/el-code-block/dist/esm/index.js"),
+    Path("/build/node_modules/@duskmoon-dev/el-code-block/dist/esm/register.js"),
+    Path("/build/node_modules/@duskmoon-dev/el-code-block/dist/cjs/index.js"),
+    Path("/build/node_modules/@duskmoon-dev/el-code-block/dist/cjs/register.js"),
+]:
+    source = path.read_text()
+    source = source.replace(
+        'import { css as codeBlockCSS } from "@duskmoon-dev/core/components/code-block";\n'
+        'var coreStyles = codeBlockCSS.replace(/@layer\\s+components\\s*\\{/, "").replace(/\\}\\s*$/, "");',
+        'var coreStyles = "";',
+    )
+    source = source.replace(
+        'var import_code_block = require("@duskmoon-dev/core/components/code-block");\n'
+        'var coreStyles = import_code_block.css.replace(/@layer\\s+components\\s*\\{/, "").replace(/\\}\\s*$/, "");',
+        'var coreStyles = "";',
+    )
+    path.write_text(source)
+PY
 bash scripts/update_version.sh $RELEASE_VERSION
 
 mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite
