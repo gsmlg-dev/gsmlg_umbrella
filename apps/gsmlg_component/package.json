@@ -4,8 +4,6 @@
   "type": "module",
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
-    "@uiw/react-markdown-preview": "^5.1.5",
-    "@uiw/react-md-editor": "^4.0.11",
     "github-markdown-css": "^5.9.0",
     "highlight.js": "^11.11.1",
     "phoenix_duskmoon": "file:../../deps/phoenix_duskmoon",
@@ -17,6 +15,6 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
-    "@duskmoon-dev/core": ">=1.15.0"
+    "@duskmoon-dev/core": ">=1.16.0"
   }
 }
