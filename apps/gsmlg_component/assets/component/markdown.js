@@ -33,15 +33,4 @@ export const Component = ({ data }) => {
       </Markdown>
     </div>
   );
-  return (
-    <MarkdownPreview 
-      source={data} 
-      style={{ 
-        color: 'var(--color-base-content)',
-        backgroundColor: 'var(--color-base-200)',
-        whiteSpace: 'pre-wrap',
-        padding: '1rem',
-      }}
-    />
-  );
 }

@@ -8,8 +8,5 @@
 @import "./utility.css";
 @import "./variant.css";
 
-@import "@uiw/react-md-editor/markdown-editor.css";
-@import "@uiw/react-markdown-preview/markdown.css";
-
 @import "./github-markdown.css";
 @import "highlight.js/styles/github.css";
