@@ -42,6 +42,10 @@ in
   env.AWS_ENDPOINT_URL = "http://localhost:9000";
   env.AWS_REGION = "us-east-1";
 
+  processes.gsmlg-umbrella = {
+    exec = "mix phx.server";
+  };
+
   # PostgreSQL database service
   services.postgres = {
     enable = true;
