@@ -31,19 +31,14 @@ in
   languages.javascript.bun.enable = true;
   languages.javascript.bun.package = pkgs-stable.bun;
 
-  # Minio S3-compatible storage for local development
-  services.minio = {
-    enable = true;
-    buckets = ["gsmlg-storage"];
-  };
-
   env.AWS_ACCESS_KEY_ID = "minioadmin";
   env.AWS_SECRET_ACCESS_KEY = "minioadmin";
   env.AWS_ENDPOINT_URL = "http://localhost:9000";
   env.AWS_REGION = "us-east-1";
 
   processes.gsmlg-umbrella = {
-    exec = "mix phx.server";
+    exec = "dev-server";
+    after = [ "devenv:processes:postgres" ];
   };
 
   # PostgreSQL database service
@@ -51,6 +46,7 @@ in
     enable = true;
     package = pkgs-stable.postgresql_16;
     listen_addresses = "";  # Empty string = Unix socket only
+    port = 5433;
     initialScript = ''
       CREATE USER gsmlg_dev WITH PASSWORD 'gsmlg_dev' CREATEDB;
       CREATE DATABASE gsmlg_dev OWNER gsmlg_dev;
@@ -58,9 +54,9 @@ in
     '';
   };
 
-  # DATABASE_URL for Ecto (socket_dir is handled separately via PGHOST)
+  # DATABASE_URL for Ecto. services.postgres exports PGHOST/PGPORT for its
+  # runtime socket; dev config falls back to this URL when that socket is absent.
   env.DATABASE_URL = "postgres://gsmlg_dev:gsmlg_dev@localhost/gsmlg_dev";
-  env.PGHOST = "${config.env.DEVENV_ROOT}/.devenv/run/postgres";
 
   scripts.hello.exec = ''
     figlet -w 120 $GREET | lolcat
@@ -73,9 +69,16 @@ in
     echo "Database setup complete!"
   '';
 
+  scripts.dev-server.exec = ''
+    set -euo pipefail
+    mix ecto.create --quiet
+    mix ecto.migrate
+    exec mix phx.server
+  '';
+
   enterShell = ''
     hello
-    echo "PostgreSQL socket: $PGHOST"
+    echo "PostgreSQL socket: $PGHOST:$PGPORT"
   '';
 
 }

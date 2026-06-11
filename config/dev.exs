@@ -1,8 +1,15 @@
 import Config
 
 # Configure your database
-# devenv exports DATABASE_URL + PGHOST (Unix socket path) to avoid port conflicts
-# Fallback to localhost TCP for non-devenv setups
+pg_socket_ready? = fn socket_dir, port ->
+  File.exists?(Path.join(socket_dir, ".s.PGSQL.#{port}"))
+end
+
+db_port = String.to_integer(System.get_env("PGPORT") || System.get_env("POSTGRES_PORT", "5432"))
+
+# devenv exports DATABASE_URL + PGHOST, but PGHOST should only be used while
+# the devenv Postgres service is actually running. Otherwise DATABASE_URL falls
+# back to TCP host Postgres.
 db_config =
   if url = System.get_env("DATABASE_URL") do
     [url: url]
@@ -16,11 +23,20 @@ db_config =
     ]
   end
 
-# PGHOST set to a path means Unix socket (devenv sets this automatically)
+# PGHOST set to an active socket path means Unix socket (devenv sets this automatically)
 db_config =
   case System.get_env("PGHOST") do
-    "/" <> _ = pghost -> Keyword.put(db_config, :socket_dir, pghost)
-    _ -> db_config
+    "/" <> _ = pghost ->
+      if pg_socket_ready?.(pghost, db_port) do
+        db_config
+        |> Keyword.put(:socket_dir, pghost)
+        |> Keyword.put(:port, db_port)
+      else
+        db_config
+      end
+
+    _ ->
+      db_config
   end
 
 db_config = db_config ++ [show_sensitive_data_on_connection_error: true, pool_size: 10]

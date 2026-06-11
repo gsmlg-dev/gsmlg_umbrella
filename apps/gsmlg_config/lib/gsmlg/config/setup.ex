@@ -82,6 +82,8 @@ defmodule GSMLG.Config.Setup do
   def setup_database(config) do
     # DATABASE_URL from env takes priority (set by devenv or deployment)
     if url = System.get_env("DATABASE_URL") do
+      port = database_url_port(url, config[:port] || 5432)
+
       db_config = [
         url: url,
         pool_size: config[:pool_size] || 10,
@@ -89,11 +91,21 @@ defmodule GSMLG.Config.Setup do
           config[:show_sensitive_data_on_connection_error] || get_env() == :dev
       ]
 
-      # PGHOST as a path means Unix socket (devenv sets this)
+      # devenv exports PGHOST even when its Postgres service is stopped. Only
+      # use the Unix socket when Postgres has created the socket file.
       db_config =
         case System.get_env("PGHOST") do
-          "/" <> _ = pghost -> Keyword.put(db_config, :socket_dir, pghost)
-          _ -> db_config
+          "/" <> _ = pghost ->
+            if postgres_socket_ready?(pghost, port) do
+              db_config
+              |> Keyword.put(:socket_dir, pghost)
+              |> Keyword.put(:port, port)
+            else
+              db_config
+            end
+
+          _ ->
+            db_config
         end
 
       update_env(:gsmlg, GSMLG.Repo, db_config)
@@ -260,6 +272,26 @@ defmodule GSMLG.Config.Setup do
   defp parse_check_origin(nil), do: false
   defp parse_check_origin(value) when is_boolean(value), do: value
   defp parse_check_origin(value) when is_list(value), do: value
+
+  defp database_url_port(url, fallback) do
+    case URI.parse(url) do
+      %URI{port: port} when is_integer(port) -> port
+      _ -> env_database_port(fallback)
+    end
+  end
+
+  defp env_database_port(fallback) do
+    port = System.get_env("PGPORT") || System.get_env("POSTGRES_PORT") || to_string(fallback)
+
+    case Integer.parse(port) do
+      {parsed, ""} -> parsed
+      _ -> fallback
+    end
+  end
+
+  defp postgres_socket_ready?(socket_dir, port) do
+    File.exists?(Path.join(socket_dir, ".s.PGSQL.#{port}"))
+  end
 
   # Get the current environment, works both in Mix and release
   defp get_env do

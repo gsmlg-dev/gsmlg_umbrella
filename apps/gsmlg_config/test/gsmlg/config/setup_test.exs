@@ -5,8 +5,20 @@ defmodule GSMLG.Config.SetupTest do
   alias GSMLG.Config.Setup
 
   setup do
+    database_env =
+      Map.new(~w(DATABASE_URL PGHOST PGPORT POSTGRES_PORT), fn name ->
+        {name, System.get_env(name)}
+      end)
+
+    Enum.each(Map.keys(database_env), &System.delete_env/1)
+
     # Clean up application environment after each test
     on_exit(fn ->
+      Enum.each(database_env, fn
+        {name, nil} -> System.delete_env(name)
+        {name, value} -> System.put_env(name, value)
+      end)
+
       # Reset some common application env values
       Application.delete_env(:mnesia, :dir)
       Application.delete_env(:tailwind, :path)
@@ -47,8 +59,8 @@ defmodule GSMLG.Config.SetupTest do
         web_push: %{subject: "test", public_key: "test", private_key: "test"}
       }
 
-      # Should not crash and should return :ok
-      assert :ok = Setup.setup(config)
+      # Should not crash
+      assert Setup.setup(config) == nil
     end
   end
 
@@ -158,6 +170,30 @@ defmodule GSMLG.Config.SetupTest do
       repo_config = Application.get_env(:gsmlg, GSMLG.Repo)
       assert repo_config[:existing_key] == "existing_value"
       assert repo_config[:username] == "new_user"
+    end
+
+    @tag :tmp_dir
+    test "uses devenv PGHOST socket only when the postgres socket exists", %{tmp_dir: tmp_dir} do
+      System.put_env("DATABASE_URL", "postgres://gsmlg_dev:gsmlg_dev@localhost/gsmlg_dev")
+      System.put_env("PGHOST", tmp_dir)
+      System.put_env("PGPORT", "5433")
+
+      config = %{pool_size: 5, port: 5432}
+
+      Setup.setup_database(config)
+
+      repo_config = Application.get_env(:gsmlg, GSMLG.Repo)
+      assert repo_config[:url] == "postgres://gsmlg_dev:gsmlg_dev@localhost/gsmlg_dev"
+      refute Keyword.has_key?(repo_config, :socket_dir)
+      refute Keyword.has_key?(repo_config, :port)
+
+      File.touch!(Path.join(tmp_dir, ".s.PGSQL.5433"))
+
+      Setup.setup_database(config)
+
+      repo_config = Application.get_env(:gsmlg, GSMLG.Repo)
+      assert repo_config[:socket_dir] == tmp_dir
+      assert repo_config[:port] == 5433
     end
   end
 
