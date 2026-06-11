@@ -104,40 +104,42 @@ defmodule GSMLG.AdminWeb.PTYTerminalLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="h-screen flex flex-col">
-      <div class="bg-base-200 p-4 flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-bold">Terminal Session</h1>
-          <p class="text-sm text-base-content/70">
-            Agent: {@agent_id} | Command: {@command}
-          </p>
+    <Layouts.app flash={@flash} page_title={@page_title} active_menu="command_platform_legacy">
+      <div class="h-screen flex flex-col">
+        <div class="bg-base-200 p-4 flex items-center justify-between">
+          <div>
+            <h1 class="text-xl font-bold">Terminal Session</h1>
+            <p class="text-sm text-base-content/70">
+              Agent: {@agent_id} | Command: {@command}
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <button
+              :if={@session_state == :running}
+              phx-click="close_session"
+              class="btn btn-error btn-sm"
+            >
+              Close Session
+            </button>
+            <.link navigate="/command_platform" class="btn btn-ghost btn-sm">
+              Back to Platform
+            </.link>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <button
-            :if={@session_state == :running}
-            phx-click="close_session"
-            class="btn btn-error btn-sm"
-          >
-            Close Session
-          </button>
-          <.link navigate="/command_platform" class="btn btn-ghost btn-sm">
-            Back to Platform
-          </.link>
-        </div>
-      </div>
 
-      <div class="flex-1 p-4 bg-base-100">
-        <div
-          id="terminal-container"
-          phx-hook="Terminal"
-          data-session-id={@session_id}
-          data-agent-id={@agent_id}
-          class="w-full h-full rounded-lg overflow-hidden shadow-xl"
-          style="background-color: #1e1e1e;"
-        >
+        <div class="flex-1 p-4 bg-base-100">
+          <div
+            id="terminal-container"
+            phx-hook="Terminal"
+            data-session-id={@session_id}
+            data-agent-id={@agent_id}
+            class="w-full h-full rounded-lg overflow-hidden shadow-xl"
+            style="background-color: #1e1e1e;"
+          >
+          </div>
         </div>
       </div>
-    </div>
+    </Layouts.app>
     """
   end
 end

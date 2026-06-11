@@ -1,4 +1,4 @@
-<Layouts.aws flash={@flash}>
+<Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
   <.dm_async_card
     :let={tables}
     :if={@live_action == :index}
@@ -164,4 +164,4 @@
       </li>
     </ul>
   </.dm_async_card>
-</Layouts.aws>
+</Layouts.app>

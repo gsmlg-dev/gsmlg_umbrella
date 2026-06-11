@@ -57,10 +57,6 @@ defmodule GSMLG.Component.Admin do
                {"Web Push", "/web_push"},
                {"Github", "/github"}
              ]},
-            {"Bumblebee",
-             [
-               {"Speech to Text", "/bumblebee/stt"}
-             ]},
             {"Cluster",
              [
                {"Node Management", "/node_management"}

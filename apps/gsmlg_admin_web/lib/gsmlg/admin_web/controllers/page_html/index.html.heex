@@ -1,4 +1,4 @@
-<Layouts.app flash={@flash}>
+<Layouts.app flash={@flash} page_title={@page_title} active_menu="admin_home">
   <div class="w-full min-h-screen bg-base-100 relative overflow-x-hidden">
     <%!-- ── Background grid (mirrors auth page) ──────────────────────── --%>
     <div
@@ -453,17 +453,6 @@
               />
               <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content leading-tight">
                 GitHub
-              </p>
-            </div>
-          </.link>
-          <.link navigate={~p"/bumblebee/stt"} class="group col-span-2">
-            <div class="border border-base-300 group-hover:border-accent group-hover:bg-accent/5 transition-all duration-150 rounded p-3 flex items-center gap-3">
-              <.dm_mdi
-                name="microphone-outline"
-                class="w-4 h-4 text-accent opacity-70 group-hover:opacity-100"
-              />
-              <p class="font-mono text-xs font-medium text-base-content/80 group-hover:text-base-content">
-                Bumblebee STT
               </p>
             </div>
           </.link>

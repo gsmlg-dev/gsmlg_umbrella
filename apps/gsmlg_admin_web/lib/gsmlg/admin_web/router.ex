@@ -124,8 +124,6 @@ defmodule GSMLG.AdminWeb.Router do
     live("/storage/config", StorageLive.Config, :index)
     live("/storage/:id", StorageLive.Show, :show)
 
-    live("/bumblebee/stt", Bumblebee.SttLive.Index, :index)
-
     # PKI Management Routes
     live("/pki/ca", PKILive.CALive.Index, :index)
     live("/pki/ca/new", PKILive.CALive.Index, :new)

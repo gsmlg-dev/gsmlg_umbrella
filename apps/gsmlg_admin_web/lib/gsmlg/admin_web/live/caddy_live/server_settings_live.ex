@@ -45,7 +45,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerSettingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.caddy flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+    <Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
       <div class="p-6 space-y-6">
         <div class="flex items-center gap-3">
           <.link navigate={~p"/caddy/server"} class="btn btn-ghost btn-sm">
@@ -136,7 +136,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerSettingsLive do
           </div>
         </div>
       </div>
-    </Layouts.caddy>
+    </Layouts.app>
     """
   end
 end

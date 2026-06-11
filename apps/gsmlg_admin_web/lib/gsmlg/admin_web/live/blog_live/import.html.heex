@@ -1,4 +1,4 @@
-<Layouts.user flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+<Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
   <div :if={@live_action == :import} class="flex flex-col gap-6 p-6 w-full max-w-3xl">
     <%!-- ── Header ─────────────────────────────────────────────── --%>
     <div class="flex items-center gap-3">
@@ -70,4 +70,4 @@
       </:actions>
     </.dm_form>
   </div>
-</Layouts.user>
+</Layouts.app>

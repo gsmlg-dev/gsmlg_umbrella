@@ -41,6 +41,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Index do
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Certificate Authorities")
+    |> assign(:active_menu, "pki_ca_list")
   end
 
   defp apply_action(socket, :new, _params) do
@@ -60,6 +61,7 @@ defmodule GSMLG.AdminWeb.PKILive.CALive.Index do
 
     socket
     |> assign(:page_title, "Initialize New CA")
+    |> assign(:active_menu, "pki_ca_new")
     |> assign(:form, to_form(changeset))
     |> assign(:changeset, changeset)
     |> assign(:key_type, "rsa")

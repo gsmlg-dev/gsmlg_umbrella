@@ -33,6 +33,7 @@ defmodule GSMLG.AdminWeb.PKILive.CertificateLive.Index do
 
     socket
     |> assign(:page_title, "Certificates")
+    |> assign(:active_menu, "pki_certificates")
     |> assign(:filter, filter)
     |> load_certificates()
   end
@@ -42,6 +43,7 @@ defmodule GSMLG.AdminWeb.PKILive.CertificateLive.Index do
 
     socket
     |> assign(:page_title, "Issue Certificate")
+    |> assign(:active_menu, "pki_certificates_issue")
     |> assign(:issue_form, %{
       "ca_id" => ca_id,
       "csr_pem" => "",

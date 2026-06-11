@@ -22,6 +22,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Listing Blogs")
+    |> assign(:active_menu, "blog_list")
     |> stream(:blogs, [])
     |> start_async(:get_blogs, fn -> Content.list_blogs() end)
   end
@@ -32,6 +33,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
 
     socket
     |> assign(:page_title, "Translation Provider Settings")
+    |> assign(:active_menu, "blog_settings")
     |> assign(:setting, setting)
     |> assign(:settings_form, to_form(changeset))
   end
@@ -41,6 +43,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
 
     socket
     |> assign(:page_title, page_title(socket.assigns.live_action))
+    |> assign(:active_menu, "blog_new")
     |> assign(:changeset, changeset)
     |> assign(:form, to_form(changeset))
     |> assign(:blog, %Blog{})
@@ -52,6 +55,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
 
     socket
     |> assign(:page_title, page_title(socket.assigns.live_action))
+    |> assign(:active_menu, "blog_list")
     |> assign(:changeset, changeset)
     |> assign(:form, to_form(changeset))
     |> assign(:blog, blog)
@@ -60,6 +64,7 @@ defmodule GSMLG.AdminWeb.BlogLive.Index do
   defp apply_action(socket, :show, %{"id" => id} = _params) do
     socket
     |> assign(:page_title, page_title(socket.assigns.live_action))
+    |> assign(:active_menu, "blog_list")
     |> assign(:blog, Content.get_blog!(id))
   end
 

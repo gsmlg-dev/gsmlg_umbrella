@@ -49,281 +49,292 @@ defmodule GSMLG.AdminWeb.CommanderLive.TokensLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6">
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Agent Tokens</h1>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">
-          Agent tokens allow commander agents to authenticate with the server.
-          Generate a token, then configure your agent with the token value.
-        </p>
-      </div>
+    <Layouts.app flash={@flash} page_title={@page_title} active_menu="commander_tokens">
+      <div class="p-6">
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Agent Tokens</h1>
+          <p class="mt-2 text-gray-600 dark:text-gray-400">
+            Agent tokens allow commander agents to authenticate with the server.
+            Generate a token, then configure your agent with the token value.
+          </p>
+        </div>
 
-      <div class="mb-4">
-        <.link
-          patch={~p"/commander/tokens/new"}
-          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Generate New Token
-        </.link>
-      </div>
+        <div class="mb-4">
+          <.link
+            patch={~p"/commander/tokens/new"}
+            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Generate New Token
+          </.link>
+        </div>
 
-      <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead class="bg-gray-50 dark:bg-gray-700">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Name
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Created
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Last Used
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Status
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            <%= for token <- @tokens do %>
-              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex items-center">
-                    <div>
-                      <div class="text-sm font-medium text-gray-900 dark:text-white">
-                        {token.name}
-                      </div>
-                      <div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                        {token.token_prefix}...
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Name
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Created
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Last Used
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Status
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <%= for token <- @tokens do %>
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                      <div>
+                        <div class="text-sm font-medium text-gray-900 dark:text-white">
+                          {token.name}
+                        </div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400 font-mono">
+                          {token.token_prefix}...
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {format_date(token.created_at)}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {format_last_used(token.last_used_at)}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <.status_badge status={Token.status(token)} />
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  <div class="flex space-x-2">
-                    <button
-                      phx-click="view_token"
-                      phx-value-id={token.id}
-                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
-                      View
-                    </button>
-                    <%= unless token.revoked do %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {format_date(token.created_at)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {format_last_used(token.last_used_at)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <.status_badge status={Token.status(token)} />
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <div class="flex space-x-2">
                       <button
-                        phx-click="regenerate_token"
+                        phx-click="view_token"
                         phx-value-id={token.id}
-                        class="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300"
-                        data-confirm="Are you sure you want to regenerate this token? The old token value will be invalidated."
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                       >
-                        Regenerate
+                        View
                       </button>
-                      <button
-                        phx-click="revoke_token"
-                        phx-value-id={token.id}
-                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                        data-confirm="Are you sure you want to revoke this token? Connected agents will be disconnected."
-                      >
-                        Revoke
-                      </button>
-                    <% else %>
-                      <button
-                        phx-click="delete_token"
-                        phx-value-id={token.id}
-                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                        data-confirm="Are you sure you want to permanently delete this token?"
-                      >
-                        Delete
-                      </button>
-                    <% end %>
-                  </div>
-                </td>
-              </tr>
-            <% end %>
-            <%= if Enum.empty?(@tokens) do %>
-              <tr>
-                <td colspan="5" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                  No tokens found. Generate a new token to get started.
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
+                      <%= unless token.revoked do %>
+                        <button
+                          phx-click="regenerate_token"
+                          phx-value-id={token.id}
+                          class="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300"
+                          data-confirm="Are you sure you want to regenerate this token? The old token value will be invalidated."
+                        >
+                          Regenerate
+                        </button>
+                        <button
+                          phx-click="revoke_token"
+                          phx-value-id={token.id}
+                          class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                          data-confirm="Are you sure you want to revoke this token? Connected agents will be disconnected."
+                        >
+                          Revoke
+                        </button>
+                      <% else %>
+                        <button
+                          phx-click="delete_token"
+                          phx-value-id={token.id}
+                          class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                          data-confirm="Are you sure you want to permanently delete this token?"
+                        >
+                          Delete
+                        </button>
+                      <% end %>
+                    </div>
+                  </td>
+                </tr>
+              <% end %>
+              <%= if Enum.empty?(@tokens) do %>
+                <tr>
+                  <td colspan="5" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    No tokens found. Generate a new token to get started.
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
 
-      <%= if @show_modal == :new do %>
-        <.modal id="new-token-modal" show on_cancel={JS.patch(~p"/commander/tokens")}>
-          <:title>Generate New Token</:title>
-          <.form for={@form} phx-submit="generate_token" phx-change="validate_token" class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Token Name *
-              </label>
-              <input
-                type="text"
-                name="token[name]"
-                value={@form[:name].value}
-                required
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="production-web-servers"
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Description (optional)
-              </label>
-              <textarea
-                name="token[description]"
-                rows="2"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Token for production web tier servers"
-              ><%= @form[:description].value %></textarea>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Expiration
-              </label>
-              <select
-                name="token[expires_in]"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">Never expires</option>
-                <option value="2592000">30 days</option>
-                <option value="5184000">60 days</option>
-                <option value="7776000">90 days</option>
-                <option value="31536000">1 year</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Allowed Capabilities
-              </label>
-              <div class="space-y-2">
-                <%= for cap <- Token.all_capabilities() do %>
-                  <label class="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="token[capabilities][]"
-                      value={cap}
-                      checked={cap in (@form[:capabilities].value || Token.all_capabilities())}
-                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                      {capability_label(cap)}
-                    </span>
-                  </label>
-                <% end %>
+        <%= if @show_modal == :new do %>
+          <.modal id="new-token-modal" show on_cancel={JS.patch(~p"/commander/tokens")}>
+            <:title>Generate New Token</:title>
+            <.form
+              for={@form}
+              phx-submit="generate_token"
+              phx-change="validate_token"
+              class="space-y-4"
+            >
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Token Name *
+                </label>
+                <input
+                  type="text"
+                  name="token[name]"
+                  value={@form[:name].value}
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="production-web-servers"
+                />
               </div>
-            </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Auto-assign Tags (comma separated)
-              </label>
-              <input
-                type="text"
-                name="token[auto_tags]"
-                value={@form[:auto_tags].value}
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="production, web-tier"
-              />
-            </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description (optional)
+                </label>
+                <textarea
+                  name="token[description]"
+                  rows="2"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Token for production web tier servers"
+                ><%= @form[:description].value %></textarea>
+              </div>
 
-            <div class="flex justify-end space-x-3 pt-4">
-              <.link
-                patch={~p"/commander/tokens"}
-                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </.link>
-              <button
-                type="submit"
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Generate Token
-              </button>
-            </div>
-          </.form>
-        </.modal>
-      <% end %>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Expiration
+                </label>
+                <select
+                  name="token[expires_in]"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Never expires</option>
+                  <option value="2592000">30 days</option>
+                  <option value="5184000">60 days</option>
+                  <option value="7776000">90 days</option>
+                  <option value="31536000">1 year</option>
+                </select>
+              </div>
 
-      <%= if @show_modal == :generated do %>
-        <.modal id="generated-token-modal" show on_cancel={JS.push("close_modal")}>
-          <:title>Token Generated Successfully</:title>
-          <div class="space-y-4">
-            <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-400 p-4">
-              <div class="flex">
-                <div class="flex-shrink-0">
-                  <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Allowed Capabilities
+                </label>
+                <div class="space-y-2">
+                  <%= for cap <- Token.all_capabilities() do %>
+                    <label class="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="token[capabilities][]"
+                        value={cap}
+                        checked={cap in (@form[:capabilities].value || Token.all_capabilities())}
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        {capability_label(cap)}
+                      </span>
+                    </label>
+                  <% end %>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Auto-assign Tags (comma separated)
+                </label>
+                <input
+                  type="text"
+                  name="token[auto_tags]"
+                  value={@form[:auto_tags].value}
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="production, web-tier"
+                />
+              </div>
+
+              <div class="flex justify-end space-x-3 pt-4">
+                <.link
+                  patch={~p"/commander/tokens"}
+                  class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </.link>
+                <button
+                  type="submit"
+                  class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Generate Token
+                </button>
+              </div>
+            </.form>
+          </.modal>
+        <% end %>
+
+        <%= if @show_modal == :generated do %>
+          <.modal id="generated-token-modal" show on_cancel={JS.push("close_modal")}>
+            <:title>Token Generated Successfully</:title>
+            <div class="space-y-4">
+              <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-400 p-4">
+                <div class="flex">
+                  <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path
+                        fill-rule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div class="ml-3">
+                    <p class="text-sm text-yellow-700 dark:text-yellow-200">
+                      Copy this token now. You won't be able to see it again!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="relative">
+                <input
+                  type="text"
+                  id="generated-token"
+                  value={@generated_token}
+                  readonly
+                  class="w-full px-3 py-2 pr-12 font-mono text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md"
+                />
+                <button
+                  type="button"
+                  phx-hook="Clipboard"
+                  id="copy-token-btn"
+                  data-clipboard-target="#generated-token"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                >
+                  <svg
+                    class="w-5 h-5 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path
-                      fill-rule="evenodd"
-                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                      clip-rule="evenodd"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
                     />
                   </svg>
-                </div>
-                <div class="ml-3">
-                  <p class="text-sm text-yellow-700 dark:text-yellow-200">
-                    Copy this token now. You won't be able to see it again!
-                  </p>
-                </div>
+                </button>
               </div>
-            </div>
 
-            <div class="relative">
-              <input
-                type="text"
-                id="generated-token"
-                value={@generated_token}
-                readonly
-                class="w-full px-3 py-2 pr-12 font-mono text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md"
-              />
-              <button
-                type="button"
-                phx-hook="Clipboard"
-                id="copy-token-btn"
-                data-clipboard-target="#generated-token"
-                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-              >
-                <svg
-                  class="w-5 h-5 text-gray-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div class="mt-4">
-              <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Agent Configuration Example (config.toml):
-              </h4>
-              <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md text-sm overflow-x-auto"><code class="text-gray-800 dark:text-gray-200"># Commander Agent Configuration
+              <div class="mt-4">
+                <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Agent Configuration Example (config.toml):
+                </h4>
+                <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md text-sm overflow-x-auto"><code class="text-gray-800 dark:text-gray-200"># Commander Agent Configuration
     [server]
     url = "wss://commander.example.com/agent/connect"
     token = "<%= @generated_token %>"
@@ -337,134 +348,135 @@ defmodule GSMLG.AdminWeb.CommanderLive.TokensLive do
     files = true
     processes = true
     system_info = true</code></pre>
-            </div>
+              </div>
 
-            <div class="flex justify-end pt-4">
-              <button
-                type="button"
-                phx-click="close_modal"
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Done
-              </button>
+              <div class="flex justify-end pt-4">
+                <button
+                  type="button"
+                  phx-click="close_modal"
+                  class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Done
+                </button>
+              </div>
             </div>
-          </div>
-        </.modal>
-      <% end %>
+          </.modal>
+        <% end %>
 
-      <%= if @show_modal == :details && @selected_token do %>
-        <.modal id="token-details-modal" show on_cancel={JS.push("close_modal")}>
-          <:title>Token Details</:title>
-          <div class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Name</label>
-                <p class="text-gray-900 dark:text-white">{@selected_token.name}</p>
-              </div>
-              <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Status</label>
-                <p><.status_badge status={Token.status(@selected_token)} /></p>
-              </div>
-              <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Token Prefix
-                </label>
-                <p class="font-mono text-gray-900 dark:text-white">
-                  {@selected_token.token_prefix}...
-                </p>
-              </div>
-              <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Use Count</label>
-                <p class="text-gray-900 dark:text-white">{@selected_token.use_count}</p>
-              </div>
-              <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Created</label>
-                <p class="text-gray-900 dark:text-white">
-                  {format_datetime(@selected_token.created_at)}
-                </p>
-              </div>
-              <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Last Used</label>
-                <p class="text-gray-900 dark:text-white">
-                  {format_last_used(@selected_token.last_used_at)}
-                </p>
-              </div>
-              <%= if @selected_token.expires_at do %>
+        <%= if @show_modal == :details && @selected_token do %>
+          <.modal id="token-details-modal" show on_cancel={JS.push("close_modal")}>
+            <:title>Token Details</:title>
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Expires</label>
-                  <p class="text-gray-900 dark:text-white">
-                    {format_datetime(@selected_token.expires_at)}
+                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Name</label>
+                  <p class="text-gray-900 dark:text-white">{@selected_token.name}</p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Status</label>
+                  <p><.status_badge status={Token.status(@selected_token)} /></p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Token Prefix
+                  </label>
+                  <p class="font-mono text-gray-900 dark:text-white">
+                    {@selected_token.token_prefix}...
                   </p>
                 </div>
-              <% end %>
-            </div>
-
-            <%= if @selected_token.description do %>
-              <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Description
-                </label>
-                <p class="text-gray-900 dark:text-white">{@selected_token.description}</p>
-              </div>
-            <% end %>
-
-            <div>
-              <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Capabilities</label>
-              <div class="flex flex-wrap gap-2 mt-1">
-                <%= for cap <- @selected_token.capabilities do %>
-                  <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded">
-                    {capability_label(cap)}
-                  </span>
+                <div>
+                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Use Count</label>
+                  <p class="text-gray-900 dark:text-white">{@selected_token.use_count}</p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Created</label>
+                  <p class="text-gray-900 dark:text-white">
+                    {format_datetime(@selected_token.created_at)}
+                  </p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Last Used</label>
+                  <p class="text-gray-900 dark:text-white">
+                    {format_last_used(@selected_token.last_used_at)}
+                  </p>
+                </div>
+                <%= if @selected_token.expires_at do %>
+                  <div>
+                    <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Expires</label>
+                    <p class="text-gray-900 dark:text-white">
+                      {format_datetime(@selected_token.expires_at)}
+                    </p>
+                  </div>
                 <% end %>
               </div>
-            </div>
 
-            <%= if @selected_token.auto_tags != [] do %>
+              <%= if @selected_token.description do %>
+                <div>
+                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Description
+                  </label>
+                  <p class="text-gray-900 dark:text-white">{@selected_token.description}</p>
+                </div>
+              <% end %>
+
               <div>
-                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Auto Tags</label>
+                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Capabilities</label>
                 <div class="flex flex-wrap gap-2 mt-1">
-                  <%= for tag <- @selected_token.auto_tags do %>
-                    <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs rounded">
-                      {tag}
+                  <%= for cap <- @selected_token.capabilities do %>
+                    <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded">
+                      {capability_label(cap)}
                     </span>
                   <% end %>
                 </div>
               </div>
-            <% end %>
 
-            <div class="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                phx-click="close_modal"
-                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Close
-              </button>
-              <%= unless @selected_token.revoked do %>
-                <button
-                  type="button"
-                  phx-click="regenerate_token"
-                  phx-value-id={@selected_token.id}
-                  data-confirm="Are you sure you want to regenerate this token?"
-                  class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700"
-                >
-                  Regenerate
-                </button>
-                <button
-                  type="button"
-                  phx-click="revoke_token"
-                  phx-value-id={@selected_token.id}
-                  data-confirm="Are you sure you want to revoke this token?"
-                  class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                >
-                  Revoke
-                </button>
+              <%= if @selected_token.auto_tags != [] do %>
+                <div>
+                  <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Auto Tags</label>
+                  <div class="flex flex-wrap gap-2 mt-1">
+                    <%= for tag <- @selected_token.auto_tags do %>
+                      <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs rounded">
+                        {tag}
+                      </span>
+                    <% end %>
+                  </div>
+                </div>
               <% end %>
+
+              <div class="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  phx-click="close_modal"
+                  class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Close
+                </button>
+                <%= unless @selected_token.revoked do %>
+                  <button
+                    type="button"
+                    phx-click="regenerate_token"
+                    phx-value-id={@selected_token.id}
+                    data-confirm="Are you sure you want to regenerate this token?"
+                    class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700"
+                  >
+                    Regenerate
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="revoke_token"
+                    phx-value-id={@selected_token.id}
+                    data-confirm="Are you sure you want to revoke this token?"
+                    class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  >
+                    Revoke
+                  </button>
+                <% end %>
+              </div>
             </div>
-          </div>
-        </.modal>
-      <% end %>
-    </div>
+          </.modal>
+        <% end %>
+      </div>
+    </Layouts.app>
     """
   end
 

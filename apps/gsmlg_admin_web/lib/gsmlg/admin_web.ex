@@ -74,14 +74,6 @@ defmodule GSMLG.AdminWeb do
     end
   end
 
-  def bumblebee_live_view do
-    quote do
-      use Phoenix.LiveView
-
-      unquote(html_helpers())
-    end
-  end
-
   def live_component do
     quote do
       use Phoenix.LiveComponent

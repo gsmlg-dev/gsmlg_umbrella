@@ -1,4 +1,4 @@
-<Layouts.app flash={@flash}>
+<Layouts.app flash={@flash} page_title={@page_title} active_menu="github">
   <div :if={@live_action == :index} class="flex flex-col gap-6 p-6 w-full">
     <%!-- ── Personal repos ───────────────────────────────────────── --%>
     <.dm_async_card :let={repos} assign={@repos} skeleton_class="min-h-48">

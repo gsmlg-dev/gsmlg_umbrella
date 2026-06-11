@@ -18,10 +18,12 @@ defmodule GSMLG.AdminWeb.PKILive.CSRLive.Index do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  defp apply_action(socket, :index, _params), do: socket
+  defp apply_action(socket, :index, _params), do: assign(socket, :active_menu, "pki_csr")
 
   defp apply_action(socket, :upload, _params) do
-    assign(socket, :upload_form, %{
+    socket
+    |> assign(:active_menu, "pki_csr_upload")
+    |> assign(:upload_form, %{
       "ca_id" => "",
       "csr_pem" => "",
       "template" => "server",

@@ -194,7 +194,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.caddy flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+    <Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
       <div class="p-6 space-y-6">
         <div class="flex items-center justify-between">
           <h1 class="text-3xl font-bold">Server Control</h1>
@@ -334,7 +334,7 @@ defmodule GSMLG.AdminWeb.CaddyLive.ServerLive do
           </div>
         </div>
       </div>
-    </Layouts.caddy>
+    </Layouts.app>
     """
   end
 end

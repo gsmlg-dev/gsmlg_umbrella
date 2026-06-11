@@ -1,4 +1,4 @@
-<Layouts.storage flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+<Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
   <div class="flex w-full h-full overflow-hidden">
     <%!-- Tree Panel --%>
     <div class="w-56 flex-none border-r border-base-300 overflow-y-auto py-2">
@@ -302,8 +302,7 @@
                 class="progress progress-primary w-24 h-1.5"
                 value={entry.progress}
                 max="100"
-              >
-              </progress>
+              ></progress>
               <span class="text-xs tabular-nums w-8 text-right">{entry.progress}%</span>
               <button
                 type="button"
@@ -497,4 +496,4 @@
     </div>
     <label class="modal-backdrop" phx-click="close_folder_modal"></label>
   </div>
-</Layouts.storage>
+</Layouts.app>

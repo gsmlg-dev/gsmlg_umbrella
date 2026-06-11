@@ -1,4 +1,4 @@
-<Layouts.user flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+<Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
   <div :if={@live_action == :index} class="container flex flex-col gap-2 mt-4 w-full">
     <div class="mx-4 my-2 flex flex-row justify-end"></div>
     <.dm_table
@@ -159,4 +159,4 @@
       </div>
     </div>
   </div>
-</Layouts.user>
+</Layouts.app>

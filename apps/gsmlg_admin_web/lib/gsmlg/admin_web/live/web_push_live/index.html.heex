@@ -1,4 +1,4 @@
-<Layouts.user flash={@flash} page_title={@page_title} active_menu={@active_menu}>
+<Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
   <div :if={@live_action == :index} class="flex flex-col gap-4 p-6 w-full">
     <%!-- ── Header ─────────────────────────────────────────────── --%>
     <div class="flex items-center justify-between">
@@ -143,4 +143,4 @@
       </:col>
     </.dm_table>
   </div>
-</Layouts.user>
+</Layouts.app>

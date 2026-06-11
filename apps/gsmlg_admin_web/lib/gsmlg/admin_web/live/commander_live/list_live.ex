@@ -55,282 +55,284 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-6">
-      <div class="mb-6 flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Commanders</h1>
-          <p class="mt-1 text-gray-600 dark:text-gray-400">
-            {@total} commander(s) connected
-          </p>
-        </div>
-        <.link
-          navigate={~p"/commander"}
-          class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-        >
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            />
-          </svg>
-          Back to Dashboard
-        </.link>
-      </div>
-      
-    <!-- Search and Filters -->
-      <div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
-        <div class="flex flex-wrap gap-4">
-          <div class="flex-1 min-w-64">
-            <form phx-change="search" phx-submit="search">
-              <div class="relative">
-                <svg
-                  class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  name="query"
-                  value={@search}
-                  placeholder="Search commanders..."
-                  class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-                  phx-debounce="300"
-                />
-              </div>
-            </form>
-          </div>
-
+    <Layouts.app flash={@flash} page_title={@page_title} active_menu="commander_list">
+      <div class="p-6">
+        <div class="mb-6 flex items-center justify-between">
           <div>
-            <select
-              phx-change="filter_status"
-              name="status"
-              class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Status</option>
-              <option value="running" selected={@filters.status == "running"}>Active</option>
-              <option value="attached" selected={@filters.status == "attached"}>Attached</option>
-              <option value="detached" selected={@filters.status == "detached"}>Detached</option>
-              <option value="initializing" selected={@filters.status == "initializing"}>
-                Pending
-              </option>
-            </select>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Commanders</h1>
+            <p class="mt-1 text-gray-600 dark:text-gray-400">
+              {@total} commander(s) connected
+            </p>
           </div>
-
-          <button
-            phx-click="refresh"
-            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+          <.link
+            navigate={~p"/commander"}
+            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
               />
             </svg>
-          </button>
+            Back to Dashboard
+          </.link>
         </div>
-      </div>
-      
-    <!-- Commanders Table -->
-      <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead class="bg-gray-50 dark:bg-gray-700">
-            <tr>
-              <th class="w-8 px-4 py-3">
-                <input
-                  type="checkbox"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  phx-click="toggle_all"
-                  checked={all_selected?(@commanders, @selected)}
+
+        <!-- Search and Filters -->
+        <div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+          <div class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-64">
+              <form phx-change="search" phx-submit="search">
+                <div class="relative">
+                  <svg
+                    class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    name="query"
+                    value={@search}
+                    placeholder="Search commanders..."
+                    class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    phx-debounce="300"
+                  />
+                </div>
+              </form>
+            </div>
+
+            <div>
+              <select
+                phx-change="filter_status"
+                name="status"
+                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Status</option>
+                <option value="running" selected={@filters.status == "running"}>Active</option>
+                <option value="attached" selected={@filters.status == "attached"}>Attached</option>
+                <option value="detached" selected={@filters.status == "detached"}>Detached</option>
+                <option value="initializing" selected={@filters.status == "initializing"}>
+                  Pending
+                </option>
+              </select>
+            </div>
+
+            <button
+              phx-click="refresh"
+              class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
-              </th>
-              <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                phx-click="sort"
-                phx-value-field="status"
-              >
-                Status
-                <%= if elem(@sort, 0) == :status do %>
-                  <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
-                <% end %>
-              </th>
-              <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                phx-click="sort"
-                phx-value-field="hostname"
-              >
-                Hostname
-                <%= if elem(@sort, 0) == :hostname do %>
-                  <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
-                <% end %>
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Capabilities
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Tags
-              </th>
-              <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                phx-click="sort"
-                phx-value-field="connected_at"
-              >
-                Connected
-                <%= if elem(@sort, 0) == :connected_at do %>
-                  <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
-                <% end %>
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            <%= for commander <- @commanders do %>
-              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td class="px-4 py-4">
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Commanders Table -->
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th class="w-8 px-4 py-3">
                   <input
                     type="checkbox"
                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    phx-click="toggle_select"
-                    phx-value-id={commander.id}
-                    checked={MapSet.member?(@selected, commander.id)}
+                    phx-click="toggle_all"
+                    checked={all_selected?(@commanders, @selected)}
                   />
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <.status_badge status={commander.status} />
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <.link
-                    navigate={~p"/commander/#{commander.id}"}
-                    class="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                  >
-                    {commander.hostname}
-                  </.link>
-                  <%= if commander.metadata[:ip_address] do %>
-                    <span class="text-xs text-gray-500 dark:text-gray-400 block">
-                      {commander.metadata[:ip_address]}
-                    </span>
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  phx-click="sort"
+                  phx-value-field="status"
+                >
+                  Status
+                  <%= if elem(@sort, 0) == :status do %>
+                    <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
                   <% end %>
-                </td>
-                <td class="px-6 py-4">
-                  <div class="flex flex-wrap gap-1">
-                    <%= for cap <- commander.capabilities |> Enum.take(4) do %>
-                      <.capability_badge capability={cap} />
-                    <% end %>
-                    <%= if length(commander.capabilities) > 4 do %>
-                      <span class="text-xs text-gray-500">
-                        +{length(commander.capabilities) - 4}
-                      </span>
-                    <% end %>
-                  </div>
-                </td>
-                <td class="px-6 py-4">
-                  <div class="flex flex-wrap gap-1">
-                    <%= for tag <- commander.tags |> Enum.take(3) do %>
-                      <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded">
-                        {tag}
-                      </span>
-                    <% end %>
-                    <%= if length(commander.tags) > 3 do %>
-                      <span class="text-xs text-gray-500">
-                        +{length(commander.tags) - 3}
-                      </span>
-                    <% end %>
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {format_connected_at(commander.connected_at)}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex space-x-2">
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  phx-click="sort"
+                  phx-value-field="hostname"
+                >
+                  Hostname
+                  <%= if elem(@sort, 0) == :hostname do %>
+                    <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
+                  <% end %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Capabilities
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Tags
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  phx-click="sort"
+                  phx-value-field="connected_at"
+                >
+                  Connected
+                  <%= if elem(@sort, 0) == :connected_at do %>
+                    <span class="ml-1">{sort_indicator(elem(@sort, 1))}</span>
+                  <% end %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <%= for commander <- @commanders do %>
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td class="px-4 py-4">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      phx-click="toggle_select"
+                      phx-value-id={commander.id}
+                      checked={MapSet.member?(@selected, commander.id)}
+                    />
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <.status_badge status={commander.status} />
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
                     <.link
                       navigate={~p"/commander/#{commander.id}"}
-                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
+                      class="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
-                      View
+                      {commander.hostname}
                     </.link>
-                    <%= if :shell in commander.capabilities do %>
-                      <.link
-                        navigate={~p"/commander/#{commander.id}/shell"}
-                        class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 text-sm"
-                      >
-                        Shell
-                      </.link>
+                    <%= if commander.metadata[:ip_address] do %>
+                      <span class="text-xs text-gray-500 dark:text-gray-400 block">
+                        {commander.metadata[:ip_address]}
+                      </span>
                     <% end %>
-                  </div>
-                </td>
-              </tr>
-            <% end %>
-            <%= if Enum.empty?(@commanders) do %>
-              <tr>
-                <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                  <%= if @search != "" || @filters.status do %>
-                    No commanders found matching your filters.
-                  <% else %>
-                    No commanders connected. Generate a token and configure an agent to get started.
-                  <% end %>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-        
-    <!-- Pagination -->
-        <%= if @total > @per_page do %>
-          <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div class="text-sm text-gray-500 dark:text-gray-400">
-              Showing {(@page - 1) * @per_page + 1} to {min(@page * @per_page, @total)} of {@total} commanders
-            </div>
-            <div class="flex space-x-2">
-              <%= if @page > 1 do %>
-                <.link
-                  patch={build_url(@search, @filters, @page - 1)}
-                  class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Previous
-                </.link>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex flex-wrap gap-1">
+                      <%= for cap <- commander.capabilities |> Enum.take(4) do %>
+                        <.capability_badge capability={cap} />
+                      <% end %>
+                      <%= if length(commander.capabilities) > 4 do %>
+                        <span class="text-xs text-gray-500">
+                          +{length(commander.capabilities) - 4}
+                        </span>
+                      <% end %>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex flex-wrap gap-1">
+                      <%= for tag <- commander.tags |> Enum.take(3) do %>
+                        <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded">
+                          {tag}
+                        </span>
+                      <% end %>
+                      <%= if length(commander.tags) > 3 do %>
+                        <span class="text-xs text-gray-500">
+                          +{length(commander.tags) - 3}
+                        </span>
+                      <% end %>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {format_connected_at(commander.connected_at)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex space-x-2">
+                      <.link
+                        navigate={~p"/commander/#{commander.id}"}
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
+                      >
+                        View
+                      </.link>
+                      <%= if :shell in commander.capabilities do %>
+                        <.link
+                          navigate={~p"/commander/#{commander.id}/shell"}
+                          class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 text-sm"
+                        >
+                          Shell
+                        </.link>
+                      <% end %>
+                    </div>
+                  </td>
+                </tr>
               <% end %>
-              <%= if @page * @per_page < @total do %>
-                <.link
-                  patch={build_url(@search, @filters, @page + 1)}
-                  class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Next
-                </.link>
+              <%= if Enum.empty?(@commanders) do %>
+                <tr>
+                  <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    <%= if @search != "" || @filters.status do %>
+                      No commanders found matching your filters.
+                    <% else %>
+                      No commanders connected. Generate a token and configure an agent to get started.
+                    <% end %>
+                  </td>
+                </tr>
               <% end %>
+            </tbody>
+          </table>
+
+          <!-- Pagination -->
+          <%= if @total > @per_page do %>
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div class="text-sm text-gray-500 dark:text-gray-400">
+                Showing {(@page - 1) * @per_page + 1} to {min(@page * @per_page, @total)} of {@total} commanders
+              </div>
+              <div class="flex space-x-2">
+                <%= if @page > 1 do %>
+                  <.link
+                    patch={build_url(@search, @filters, @page - 1)}
+                    class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Previous
+                  </.link>
+                <% end %>
+                <%= if @page * @per_page < @total do %>
+                  <.link
+                    patch={build_url(@search, @filters, @page + 1)}
+                    class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Next
+                  </.link>
+                <% end %>
+              </div>
             </div>
+          <% end %>
+        </div>
+
+        <!-- Bulk Actions -->
+        <%= if MapSet.size(@selected) > 0 do %>
+          <div class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-4">
+            <span>{MapSet.size(@selected)} selected</span>
+            <button
+              phx-click="clear_selection"
+              class="text-gray-400 hover:text-white text-sm"
+            >
+              Clear
+            </button>
+            <button class="px-3 py-1 bg-red-600 rounded hover:bg-red-700 text-sm">
+              Disconnect Selected
+            </button>
           </div>
         <% end %>
       </div>
-      
-    <!-- Bulk Actions -->
-      <%= if MapSet.size(@selected) > 0 do %>
-        <div class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-4">
-          <span>{MapSet.size(@selected)} selected</span>
-          <button
-            phx-click="clear_selection"
-            class="text-gray-400 hover:text-white text-sm"
-          >
-            Clear
-          </button>
-          <button class="px-3 py-1 bg-red-600 rounded hover:bg-red-700 text-sm">
-            Disconnect Selected
-          </button>
-        </div>
-      <% end %>
-    </div>
+    </Layouts.app>
     """
   end
 
