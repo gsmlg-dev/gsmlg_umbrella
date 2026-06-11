@@ -5,26 +5,52 @@ import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitch
 // Register duskmoon custom elements
 import "@duskmoon-dev/elements/register";
 
-// Workaround: upstream ThemeSwitcher doesn't apply data-theme to <html>
-// See: https://github.com/duskmoon-dev/phoenix-duskmoon-ui/issues/15
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+function resolveTheme(theme) {
+  return (!theme || theme === "default") ? (darkQuery.matches ? "moonlight" : "sunshine") : theme;
+}
+
 function applyTheme(theme) {
-  if (theme && theme !== "default") {
-    document.documentElement.setAttribute("data-theme", theme);
-  } else {
-    document.documentElement.removeAttribute("data-theme");
-  }
+  document.documentElement.setAttribute("data-theme", resolveTheme(theme));
 }
 
 const ThemeSwitcher = {
   mounted() {
     UpstreamThemeSwitcher.mounted.call(this);
-    applyTheme(localStorage.getItem("theme"));
+
+    applyTheme(this.el.dataset.theme || localStorage.getItem("theme") || "default");
+
+    this._gsmlgMediaListener = () => {
+      const theme = localStorage.getItem("theme") || "default";
+      if (theme === "default") applyTheme(theme);
+    };
+    darkQuery.addEventListener("change", this._gsmlgMediaListener);
+
+    this._gsmlgChangeListeners = [];
     this.el.querySelectorAll(".theme-controller-item").forEach(input => {
-      input.addEventListener("change", (e) => applyTheme(e.target.value));
+      const listener = (event) => requestAnimationFrame(() => applyTheme(event.target.value));
+      input.addEventListener("change", listener);
+      this._gsmlgChangeListeners.push({ element: input, listener });
     });
   },
-  updated() { UpstreamThemeSwitcher.updated?.call(this); },
-  destroyed() { UpstreamThemeSwitcher.destroyed?.call(this); },
+  updated() {
+    UpstreamThemeSwitcher.updated?.call(this);
+    applyTheme(this.el.dataset.theme || localStorage.getItem("theme") || "default");
+  },
+  destroyed() {
+    this._gsmlgChangeListeners?.forEach(({ element, listener }) => {
+      element.removeEventListener("change", listener);
+    });
+    this._gsmlgChangeListeners = null;
+
+    if (this._gsmlgMediaListener) {
+      darkQuery.removeEventListener("change", this._gsmlgMediaListener);
+      this._gsmlgMediaListener = null;
+    }
+
+    UpstreamThemeSwitcher.destroyed?.call(this);
+  },
 };
 
 const hooks = { WebComponentHook, FormElementHook, ThemeSwitcher, PageHeader, Spotlight };

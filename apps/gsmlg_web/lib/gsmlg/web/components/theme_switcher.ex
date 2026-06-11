@@ -104,7 +104,6 @@ defmodule GSMLG.Web.Components.ThemeSwitcher do
       "light",
       "dark",
       "cupcake",
-      "bumblebee",
       "emerald",
       "corporate",
       "synthwave",
@@ -141,7 +140,6 @@ defmodule GSMLG.Web.Components.ThemeSwitcher do
       "light" -> "#ffffff"
       "dark" -> "#1f2937"
       "cupcake" -> "#fbbf24"
-      "bumblebee" -> "#f59e0b"
       "emerald" -> "#10b981"
       "corporate" -> "#3b82f6"
       "synthwave" -> "#ec4899"

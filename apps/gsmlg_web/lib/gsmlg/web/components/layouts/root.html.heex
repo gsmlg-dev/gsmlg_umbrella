@@ -1,8 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="sunshine">
   <head>
     <script>
-      (function(){var t=localStorage.getItem("theme");if(t&&t!=="default")document.documentElement.setAttribute("data-theme",t)})();
+      (function(){
+        var t = localStorage.getItem("theme");
+        if (!t || t === "default") {
+          t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "moonlight" : "sunshine";
+        }
+        document.documentElement.setAttribute("data-theme", t);
+      })();
     </script>
     <meta charset="utf-8" />
     <meta
@@ -33,7 +39,7 @@
   </head>
   <body class={[
     "flex flex-col",
-    "text-base-content bg-base-200",
+    "text-on-surface bg-surface",
     "overflow-x-hidden antialiased"
   ]}>
     {@inner_content}

@@ -12,6 +12,11 @@ defmodule GSMLG.AdminWeb.AuthControllerTest do
       conn = get(conn, ~p"/sign_in")
       assert html_response(conn, 200) =~ "SIGN IN"
     end
+
+    test "includes a DuskMoon theme on the html root", %{conn: conn} do
+      conn = get(conn, ~p"/sign_in")
+      assert html_response(conn, 200) =~ ~s(<html lang="en" data-theme="sunshine">)
+    end
   end
 
   describe "new auth" do
