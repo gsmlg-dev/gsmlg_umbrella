@@ -41,9 +41,21 @@ defmodule GSMLG.Web.PageController do
         end
       end)
 
+    group_repos = org_r ++ user_r
+
+    active_repo_group =
+      case group_repos do
+        [{group, _repos} | _] -> group
+        [] -> nil
+      end
+
     # Phoenix 1.8: Use existing root layout template with embedded templates
     conn
-    |> render(:index, page_title: gettext("Home"), group_repos: org_r ++ user_r)
+    |> render(:index,
+      page_title: gettext("Home"),
+      group_repos: group_repos,
+      active_repo_group: active_repo_group
+    )
   end
 
   def not_found(conn, _params) do

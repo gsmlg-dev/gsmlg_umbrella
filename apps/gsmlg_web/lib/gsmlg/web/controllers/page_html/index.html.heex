@@ -17,20 +17,76 @@
     </section>
   </:header_slot>
 
-  <section :for={{group, repos} <- @group_repos} class="w-full max-w-screen-xl px-6 mx-auto my-20">
-    <div class="flex items-center gap-5 mb-8">
-      <div class="flex-1 h-px bg-base-300"></div>
-      <h3 class="flex items-center gap-2 shrink-0">
-        <.dm_mdi name="github" class="w-5 h-5 text-primary" />
-        <span class="font-mono font-bold text-lg text-primary">{group}</span>
-        <span class="text-base-content/40 text-sm font-normal">
-          {dgettext("github", "Github Repos")}
+  <section class="w-full max-w-screen-xl px-6 mx-auto my-20">
+    <div class="flex flex-col gap-4 mb-8 md:flex-row md:items-end md:justify-between">
+      <div class="space-y-2">
+        <div class="inline-flex items-center gap-2 text-primary">
+          <.dm_mdi name="github" class="w-5 h-5" />
+          <span class="font-mono text-xs font-semibold uppercase tracking-[0.18em]">
+            {dgettext("github", "Github Repos")}
+          </span>
+        </div>
+        <h3 class="text-3xl font-black tracking-tight text-on-surface">
+          GitHub
+        </h3>
+      </div>
+
+      <div class="flex items-center gap-3 font-mono text-sm text-on-surface-variant">
+        <span>{length(@group_repos)} groups</span>
+        <span class="h-px w-10 bg-outline-variant"></span>
+        <span>
+          {@group_repos |> Enum.map(fn {_group, repos} -> length(repos) end) |> Enum.sum()} repos
         </span>
-      </h3>
-      <div class="flex-1 h-px bg-base-300"></div>
+      </div>
     </div>
-    <div class="grid grid-cols-auto-fill-96 gap-4">
-      <.github_repo_card :for={repo <- repos} repo={repo} />
-    </div>
+
+    <el-dm-tabs
+      :if={@group_repos != []}
+      id="home-github-repo-tabs"
+      value={@active_repo_group}
+      variant="underline"
+      aria-label={dgettext("github", "Github Repos")}
+      class="block"
+    >
+      <el-dm-tab
+        :for={{{group, repos}, index} <- Enum.with_index(@group_repos)}
+        tab-id={group}
+        active={index == 0}
+      >
+        <span class="inline-flex items-center gap-2">
+          <span class="font-mono font-bold">{group}</span>
+          <span class="rounded-full bg-surface-container-high px-2 py-0.5 font-mono text-[11px] text-on-surface-variant">
+            {length(repos)}
+          </span>
+        </span>
+      </el-dm-tab>
+
+      <el-dm-tab-panel
+        :for={{{group, repos}, index} <- Enum.with_index(@group_repos)}
+        panel-for={group}
+        active={index == 0}
+      >
+        <div class="mb-5 flex flex-col gap-3 border-b border-outline-variant pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0">
+            <h4 class="truncate font-mono text-xl font-black text-primary">{group}</h4>
+            <p class="text-sm text-on-surface-variant">
+              {dgettext("github", "Github Repos")}
+            </p>
+          </div>
+
+          <.dm_badge variant="primary" size="sm">
+            {length(repos)}
+          </.dm_badge>
+        </div>
+
+        <div :if={repos == []} class="py-16 text-center text-sm text-on-surface-variant">
+          {dgettext("github", "No repositories")}
+        </div>
+
+        <div :if={repos != []} class="grid grid-cols-auto-fill-96 gap-4">
+          <.github_repo_card :for={repo <- repos} repo={repo} />
+        </div>
+      </el-dm-tab-panel>
+    </el-dm-tabs>
   </section>
 </Layouts.app>
