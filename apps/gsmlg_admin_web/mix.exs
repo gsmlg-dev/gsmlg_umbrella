@@ -49,7 +49,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:phoenix_live_dashboard, "~> 0.7"},
       {:ecto_psql_extras, "~> 0.7"},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
-      {:bun, "~> 1.4", runtime: Mix.env() == :dev},
+      {:bun, "~> 2.0", runtime: Mix.env() == :dev},
       {:cachex, "~> 4.0"},
       {:earmark, "~> 1.4.37"},
       {:telemetry_metrics, "~> 1.0"},

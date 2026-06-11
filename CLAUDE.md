@@ -91,7 +91,7 @@ Releases are triggered manually via the `release` workflow dispatch (inputs: `re
 | `gsmlg_telemetry` | Structured logging, metrics collection, file/console/CloudWatch backends |
 | `gsmlg_mnesia` | Wrapper around Erlang Mnesia with query DSL, transactions, schema management |
 
-Other utility apps: `gsmlg_aws`, `gsmlg_couchdb`, `gsmlg_pki`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`, `gsmlg_nx`.
+Other utility apps: `gsmlg_aws`, `gsmlg_couchdb`, `gsmlg_pki`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
 
 ### Configuration System
 

@@ -36,7 +36,7 @@ defmodule GSMLG.Whois.MixProject do
       {:gsmlg_telemetry, in_umbrella: true},
       {:http_fetch, "~> 0.8"},
       {:postgrex, "~> 0.21", optional: true},
-      {:concord, "~> 1.1", optional: true},
+      {:concord, "~> 2.0", optional: true},
       {:ex_doc, ">= 0.0.0", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

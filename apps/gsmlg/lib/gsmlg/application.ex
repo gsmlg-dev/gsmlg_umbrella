@@ -13,7 +13,6 @@ defmodule GSMLG.Application do
     children = [
       {GSMLG.SimpleCache, []},
       {GSMLG.AWS, []},
-      # {GSMLG.Nx, []},
       {Phoenix.SessionProcess.Supervisor,
        [
          session_process: GSMLG.SessionProcess,
