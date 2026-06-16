@@ -80,10 +80,10 @@ defmodule GSMLG.AdminWeb.MixProject do
       # For local development, run `mix ecto.create && mix ecto.migrate` first
       test: ["test"],
       "assets.deploy": [
-        "phx.digest.clean",
+        "phx.digest.clean --no-compile",
         "tailwind gsmlg_admin_web --minify",
         "bun gsmlg_admin_web --minify",
-        "phx.digest"
+        "phx.digest --no-compile"
       ],
       lint: ["credo --strict", "dialyzer"]
     ]

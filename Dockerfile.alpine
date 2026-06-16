@@ -19,7 +19,7 @@ ARG XLA_BUILD=true
 ARG TARGETARCH
 
 # Install build tools + bun (musl build for Alpine)
-RUN apk add --no-cache curl unzip bash vips-dev
+RUN apk add --no-cache curl unzip bash vips-dev build-base
 
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
       curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-aarch64-musl.zip -o /tmp/bun.zip \
@@ -53,7 +53,7 @@ chmod +x /tmp/tailwindcss
 
 mix deps.get
 bun install
-install -m 755 -D /tmp/tailwindcss /build/_build/tailwind-linux-${TAILWIND_ARCH}
+install -m 755 -D /tmp/tailwindcss /build/_build/tailwind-linux-${TAILWIND_ARCH}-musl
 install -m 755 -D $MIX_BUN_PATH /build/_build/bun
 
 bash scripts/update_version.sh $RELEASE_VERSION
