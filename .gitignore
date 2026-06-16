@@ -99,3 +99,6 @@ apps/gsmlg_admin_web/priv/static/cache_manifest.json
 
 # MMDB database files (downloaded separately)
 *.mmdb
+
+/*@*
+.superpowers/
