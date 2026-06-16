@@ -1,10 +1,12 @@
 import { blogFormHook } from "./hooks/blog_form";
 import TerminalHook from "./hooks/terminal_hook";
 import ClipboardHook from "./hooks/clipboard_hook";
+import { GaoNoteTagsMultiSelect } from "./hooks/gao_note_tags_multi_select";
 import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight } from "phoenix_duskmoon/hooks";
 
 // Register duskmoon custom elements
 import "@duskmoon-dev/elements/register";
+import "@duskmoon-dev/el-markdown/register";
 import "@duskmoon-dev/el-markdown-input/register";
 
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -59,6 +61,7 @@ export const hooks = {
   ...blogFormHook,
   Terminal: TerminalHook,
   Clipboard: ClipboardHook,
+  GaoNoteTagsMultiSelect,
   WebComponentHook,
   FormElementHook,
   ThemeSwitcher,

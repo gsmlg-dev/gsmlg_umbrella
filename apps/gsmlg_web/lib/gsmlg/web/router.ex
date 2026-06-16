@@ -42,6 +42,11 @@ defmodule GSMLG.Web.Router do
     plug(:accepts, ["json"])
   end
 
+  pipeline :mcp_public_api do
+    plug(:accepts, ["json"])
+    plug(GSMLG.Web.Plugs.VerifyMCPOrigin)
+  end
+
   pipeline :static_file do
     plug(:put_secure_browser_headers)
   end
@@ -110,6 +115,12 @@ defmodule GSMLG.Web.Router do
     get("/toolbox/whois/rdap", ToolboxController, :rdap_json)
     get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer_json)
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap_post)
+  end
+
+  scope "/mcp" do
+    pipe_through(:mcp_public_api)
+
+    forward("/gao_note", GSMLG.GaoNote.MCP.ReadOnlyPlug)
   end
 
   scope "/api", GSMLG do

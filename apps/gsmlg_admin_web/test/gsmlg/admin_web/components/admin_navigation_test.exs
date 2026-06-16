@@ -25,6 +25,28 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
       assert html =~ ~s(aria-disabled="true")
       refute html =~ ~s(href="/aws/lightsail")
     end
+
+    test "renders GaoNote in the content navigation group" do
+      html = render_component(&AdminNavigation.left_menu/1, active_menu: "gao_note_list")
+
+      assert html =~ "Content"
+      assert html =~ "GaoNote"
+      assert html =~ "Note List"
+      refute html =~ "New Note"
+      assert html =~ "Tags"
+      assert html =~ "Note References"
+      assert html =~ "Note Assets"
+      assert html =~ "Log"
+      assert html =~ "MCP"
+      assert html =~ ~s(href="/gao_notes/notes")
+      refute html =~ ~s(href="/gao_notes/notes/new")
+      assert html =~ ~s(href="/gao_notes/tags")
+      assert html =~ ~s(href="/gao_notes/references")
+      assert html =~ ~s(href="/gao_notes/assets")
+      assert html =~ ~s(href="/gao_notes/logs")
+      assert html =~ ~s(href="/gao_notes/mcp")
+      assert html =~ ~r/<details(?=[^>]*data-menu-group="gao_notes")(?=[^>]*open)/
+    end
   end
 
   describe "Layouts.app/1" do

@@ -8,6 +8,27 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       assert ["Dashboard", "Content", "Cloud", "Service"] =
                AdminMenu.sections() |> Enum.map(& &1.title)
     end
+
+    test "includes GaoNote under the content section" do
+      content = Enum.find(AdminMenu.sections(), &(&1.id == "content"))
+
+      assert %{id: "gao_notes", title: "GaoNote"} =
+               gao_notes =
+               Enum.find(content.groups, &(&1.id == "gao_notes"))
+
+      assert [
+               %{id: "gao_note_list", label: "Note List", path: "/gao_notes/notes"},
+               %{id: "gao_note_tags", label: "Tags", path: "/gao_notes/tags"},
+               %{
+                 id: "gao_note_references",
+                 label: "Note References",
+                 path: "/gao_notes/references"
+               },
+               %{id: "gao_note_assets", label: "Note Assets", path: "/gao_notes/assets"},
+               %{id: "gao_note_logs", label: "Log", path: "/gao_notes/logs"},
+               %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"}
+             ] = gao_notes.items
+    end
   end
 
   describe "disabled placeholders" do
@@ -26,6 +47,17 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
     test "prefers explicit active menu and falls back to path matching" do
       assert AdminMenu.active_id(nil, "/aws/dynamo_db") == "dynamo_db"
       assert AdminMenu.active_id("pki_ca_list", "/aws/dynamo_db") == "pki_ca_list"
+    end
+
+    test "matches GaoNote routes to their content menu items" do
+      assert AdminMenu.active_id(nil, "/gao_notes/notes") == "gao_note_list"
+      assert AdminMenu.active_id(nil, "/gao_notes/notes/new") == "gao_note_list"
+      assert AdminMenu.active_id(nil, "/gao_notes/tags") == "gao_note_tags"
+      assert AdminMenu.active_id(nil, "/gao_notes/references") == "gao_note_references"
+      assert AdminMenu.active_id(nil, "/gao_notes/assets") == "gao_note_assets"
+      assert AdminMenu.active_id(nil, "/gao_notes/logs") == "gao_note_logs"
+      assert AdminMenu.active_id(nil, "/gao_notes/mcp") == "gao_note_mcp"
+      assert AdminMenu.group_open?(AdminMenu.find_group!("gao_notes"), "gao_note_list")
     end
   end
 end

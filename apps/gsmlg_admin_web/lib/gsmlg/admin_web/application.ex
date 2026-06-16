@@ -12,6 +12,7 @@ defmodule GSMLG.AdminWeb.Application do
       GSMLG.AdminWeb.Telemetry,
       # Bridge Caddy telemetry events to PubSub for LiveView consumption
       GSMLG.AdminWeb.CaddyTelemetryCollector,
+      {GSMLG.GaoNote.MCP.AdminServer, transport: {:streamable_http, start: true}},
       # Start the Endpoint (http/https)
       GSMLG.AdminWeb.Endpoint,
       {Guardian.DB.Sweeper, []}

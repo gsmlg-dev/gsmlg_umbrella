@@ -44,6 +44,18 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           ]
         },
         %{
+          id: "gao_notes",
+          title: "GaoNote",
+          items: [
+            %{id: "gao_note_list", label: "Note List", path: "/gao_notes/notes"},
+            %{id: "gao_note_tags", label: "Tags", path: "/gao_notes/tags"},
+            %{id: "gao_note_references", label: "Note References", path: "/gao_notes/references"},
+            %{id: "gao_note_assets", label: "Note Assets", path: "/gao_notes/assets"},
+            %{id: "gao_note_logs", label: "Log", path: "/gao_notes/logs"},
+            %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"}
+          ]
+        },
+        %{
           id: "integrations",
           title: "Integrations",
           items: [

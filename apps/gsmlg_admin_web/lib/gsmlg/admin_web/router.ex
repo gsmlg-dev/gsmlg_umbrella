@@ -41,6 +41,12 @@ defmodule GSMLG.AdminWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  pipeline :mcp_admin_api do
+    plug(:accepts, ["json"])
+    plug(GSMLG.AdminWeb.Plugs.GaoNoteMCPAuth)
+    plug(GSMLG.AdminWeb.Plugs.VerifyMCPOrigin)
+  end
+
   # oauth2 authentication, not set yet
   # scope "/auth", GSMLG.AdminWeb do
   #   pipe_through :browser
@@ -76,6 +82,20 @@ defmodule GSMLG.AdminWeb.Router do
     live("/blogs/:id", BlogLive.Index, :show)
     live("/blogs/:id/edit", BlogLive.Index, :edit)
     live("/blogs/:id/translations", BlogLive.TranslationLive.Index, :index)
+
+    get("/gao_notes", GaoNoteRedirectController, :notes)
+    get("/gao_notes/new", GaoNoteRedirectController, :new_note)
+    live("/gao_notes/notes", GaoNoteLive.Index, :index)
+    live("/gao_notes/notes/new", GaoNoteLive.Index, :new)
+    live("/gao_notes/notes/:id", GaoNoteLive.Index, :show)
+    live("/gao_notes/notes/:id/edit", GaoNoteLive.Index, :edit)
+    live("/gao_notes/notes/:id/references", GaoNoteLive.ReferenceLive.Index, :index)
+    live("/gao_notes/notes/:id/assets", GaoNoteLive.AssetLive.Index, :index)
+    live("/gao_notes/references", GaoNoteLive.ReferenceLive.Index, :all)
+    live("/gao_notes/assets", GaoNoteLive.AssetLive.Index, :all)
+    live("/gao_notes/tags", GaoNoteLive.TagLive.Index, :index)
+    live("/gao_notes/logs", GaoNoteLive.LogLive.Index, :index)
+    live("/gao_notes/mcp", GaoNoteLive.MCPLive.Index, :index)
 
     live("/users", UserLive.Index, :index)
     live("/users/new", UserLive.Index, :new)
@@ -169,6 +189,12 @@ defmodule GSMLG.AdminWeb.Router do
 
     get("/blogs", BlogController, :index)
     get("/blogs/:id", BlogController, :show)
+  end
+
+  scope "/mcp" do
+    pipe_through(:mcp_admin_api)
+
+    forward("/gao_note", GSMLG.GaoNote.MCP.AdminPlug)
   end
 
   scope "/api", GSMLG.AdminWeb do

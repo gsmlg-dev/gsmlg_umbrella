@@ -1,0 +1,17 @@
+defmodule GSMLG.GaoNote.MCP.AdminPlug do
+  @moduledoc false
+
+  @behaviour Plug
+
+  alias Anubis.Server.Transport.StreamableHTTP
+
+  @impl Plug
+  def init(opts) do
+    opts
+    |> Keyword.put(:server, GSMLG.GaoNote.MCP.AdminServer)
+    |> StreamableHTTP.Plug.init()
+  end
+
+  @impl Plug
+  def call(conn, opts), do: StreamableHTTP.Plug.call(conn, opts)
+end

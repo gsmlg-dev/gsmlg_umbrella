@@ -62,6 +62,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:gsmlg_component, in_umbrella: true},
       {:gsmlg_web_push, in_umbrella: true},
       {:gsmlg_storage, in_umbrella: true},
+      {:gsmlg_gao_note, in_umbrella: true},
       {:swoosh, "~> 1.3"},
       {:jason, "~> 1.2"},
       {:guardian, "~> 2.0"},

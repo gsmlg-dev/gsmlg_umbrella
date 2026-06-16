@@ -54,6 +54,7 @@ defmodule GSMLG.Component.Admin do
                {"Users", "/users"},
                {"User Tokens", "/user_tokens"},
                {"Blogs", "/blogs"},
+               {"GaoNote", "/gao_notes/notes"},
                {"Web Push", "/web_push"},
                {"Github", "/github"}
              ]},
