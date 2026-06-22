@@ -43,14 +43,41 @@ defmodule GSMLG.GaoNote.Tag do
   def normalize_display_name(name), do: name
 
   def slugify(value) when is_binary(value) do
-    value
-    |> String.downcase()
-    |> String.normalize(:nfd)
-    |> String.replace(~r/[^a-z0-9]+/u, "-")
-    |> String.trim("-")
+    value = String.trim(value)
+
+    folded =
+      value
+      |> String.downcase()
+      |> String.normalize(:nfd)
+      |> String.replace(~r/\p{M}/u, "")
+
+    stem =
+      folded
+      |> String.replace(~r/[^a-z0-9]+/u, "-")
+      |> String.trim("-")
+
+    cond do
+      stem == "" and contains_non_ascii?(folded) ->
+        "tag-#{slug_hash(value)}"
+
+      stem != "" and contains_non_ascii?(folded) ->
+        "#{stem}-#{slug_hash(value)}"
+
+      true ->
+        stem
+    end
   end
 
   def slugify(_value), do: ""
+
+  defp contains_non_ascii?(value), do: String.match?(value, ~r/[^\x00-\x7F]/u)
+
+  defp slug_hash(value) do
+    :sha256
+    |> :crypto.hash(value)
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 10)
+  end
 
   defp normalize_name(changeset) do
     case get_change(changeset, :name) do

@@ -220,6 +220,29 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert tag["color"] == "#1f6feb"
     end
 
+    test "create accepts non-ASCII tag names" do
+      frame = admin_frame(actor())
+
+      assert %{"structuredContent" => %{"note" => created}} =
+               call_tool(
+                 GSMLG.GaoNote.MCP.AdminServer,
+                 "gao_note.create",
+                 %{
+                   "title" => "SpaceX 股价评价（X 搜索） - 2026-06-18",
+                   "content" => "# SpaceX 股价评价（X 搜索） - 2026-06-18\n\n测试内容",
+                   "creator" => "Aoi",
+                   "tags" => ["投资观察", "X搜索", "SpaceX"]
+                 },
+                 frame
+               )
+
+      tags_by_name = Map.new(created["tags"], &{&1["name"], &1["slug"]})
+
+      assert tags_by_name["SpaceX"] == "spacex"
+      assert tags_by_name["投资观察"] =~ ~r/^tag-[a-z0-9]+$/
+      assert tags_by_name["X搜索"] =~ ~r/^x-[a-z0-9]+$/
+    end
+
     test "set_tags returns a tool error when tags is not an array" do
       frame = admin_frame(actor())
       note = note_fixture(%{title: "Invalid tags target"})
