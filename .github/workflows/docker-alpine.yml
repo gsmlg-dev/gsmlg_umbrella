@@ -81,6 +81,8 @@ jobs:
           build-args: |
             RELEASE_VERSION=${{ inputs.release_version }}
             MIX_ENV=prod
+            HEX_MIRROR=https://repo.hex.pm
+            NPM_CONFIG_REGISTRY=https://registry.npmjs.org
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
