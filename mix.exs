@@ -41,13 +41,6 @@ defmodule GSMLG.Umbrella.MixProject do
             gsmlg: :permanent,
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
-          ],
-          config_providers: [
-            {Toml.Provider,
-             [
-               path: {:system, "GSMLG_CONFIG_PATH", ""},
-               transforms: []
-             ]}
           ]
         ],
         gsmlg_umbrella_standalone: [
