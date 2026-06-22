@@ -41,6 +41,22 @@ if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? and not skip_config_
         # Store the loaded configuration for the application to access
         config :gsmlg_config, :loaded_config, gsmlg_config
 
+        if caddy_config = gsmlg_config[:caddy] do
+          caddy_mode =
+            case caddy_config[:mode] do
+              "embedded" -> :embedded
+              "external" -> :external
+              mode when mode in [:embedded, :external] -> mode
+              _ -> :external
+            end
+
+          config :caddy,
+            start: caddy_config[:start] == true,
+            mode: caddy_mode,
+            admin_url: caddy_config[:admin_url],
+            health_interval: caddy_config[:health_interval]
+        end
+
         # Apply configuration via Setup module
         if Code.ensure_loaded?(GSMLG.Config.Setup) do
           GSMLG.Config.Setup.setup(gsmlg_config)
