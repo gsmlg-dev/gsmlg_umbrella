@@ -229,7 +229,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     |> Enum.map(&to_string/1)
     |> Enum.map(&Tag.normalize_display_name/1)
     |> Enum.reject(&blank?/1)
-    |> Enum.uniq_by(&Tag.slugify/1)
+    |> Enum.uniq_by(&Tag.normalized_key/1)
   end
 
   defp selected_tag_options(selected_tags) do

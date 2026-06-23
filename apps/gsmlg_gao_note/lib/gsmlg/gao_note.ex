@@ -69,7 +69,7 @@ defmodule GSMLG.GaoNote do
     limit = Keyword.get(opts, :limit)
 
     Tag
-    |> order_by([t], asc: t.slug)
+    |> order_by([t], asc: fragment("lower(?)", t.name))
     |> maybe_limit(limit)
     |> Repo.all()
   end
@@ -471,11 +471,15 @@ defmodule GSMLG.GaoNote do
   defp filter_by_tag(query, ""), do: query
 
   defp filter_by_tag(query, tag) do
-    slug = Tag.slugify(tag)
+    tag_key = Tag.normalized_key(tag)
 
-    query
-    |> join(:inner, [n], t in assoc(n, :tags), as: :filter_tags)
-    |> where([filter_tags: t], t.slug == ^slug)
+    if blank?(tag_key) do
+      query
+    else
+      query
+      |> join(:inner, [n], t in assoc(n, :tags), as: :filter_tags)
+      |> where([filter_tags: t], fragment("lower(?)", t.name) == ^tag_key)
+    end
   end
 
   defp filter_log_action(query, nil), do: query
@@ -568,7 +572,7 @@ defmodule GSMLG.GaoNote do
         tag_names
         |> Enum.map(&Tag.normalize_display_name/1)
         |> Enum.reject(&blank?/1)
-        |> Enum.uniq_by(&Tag.slugify/1)
+        |> Enum.uniq_by(&Tag.normalized_key/1)
 
       {:ok, tag_names}
     else
@@ -587,30 +591,36 @@ defmodule GSMLG.GaoNote do
       end
     end)
     |> case do
-      {:ok, tags} -> {:ok, Enum.sort_by(tags, & &1.slug)}
+      {:ok, tags} -> {:ok, Enum.sort_by(tags, &Tag.normalized_key(&1.name))}
       {:error, reason} -> {:error, reason}
     end
   end
 
   defp get_or_insert_tag(name) do
-    slug = Tag.slugify(name)
+    tag_key = Tag.normalized_key(name)
 
-    case Repo.get_by(Tag, slug: slug) do
+    case tag_by_normalized_name(tag_key) do
       %Tag{} = tag ->
         {:ok, tag}
 
       nil ->
-        insert_tag(name, slug)
+        insert_tag(name)
     end
   end
 
-  defp insert_tag(name, slug) do
+  defp tag_by_normalized_name(tag_key) do
+    Tag
+    |> where([t], fragment("lower(?)", t.name) == ^tag_key)
+    |> Repo.one()
+  end
+
+  defp insert_tag(name) do
     now = DateTime.utc_now()
 
     %Tag{}
-    |> Tag.changeset(%{name: name, slug: slug})
+    |> Tag.changeset(%{name: name})
     |> Repo.insert(
-      conflict_target: :slug,
+      conflict_target: {:unsafe_fragment, "(lower(name))"},
       on_conflict: [set: [updated_at: now]],
       returning: true
     )

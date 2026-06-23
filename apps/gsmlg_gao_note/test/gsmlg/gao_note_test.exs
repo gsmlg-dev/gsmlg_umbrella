@@ -244,10 +244,11 @@ defmodule GSMLG.GaoNoteTest do
 
   describe "tags" do
     test "create, read, update, and delete tag lifecycle" do
-      assert {:ok, %Tag{name: "Research", slug: "research"} = tag} =
+      assert {:ok, %Tag{name: "Research"} = tag} =
                GaoNote.create_tag(%{name: "  Research  ", color: "#1f6feb"})
 
       tag_id = tag.id
+      refute Map.has_key?(tag, :slug)
 
       assert %Tag{id: ^tag_id, name: "Research"} = GaoNote.get_tag(tag_id)
       assert %Tag{id: ^tag_id, name: "Research"} = GaoNote.get_tag!(tag_id)
@@ -271,14 +272,13 @@ defmodule GSMLG.GaoNoteTest do
       assert {:ok, %Note{} = tagged_note} =
                GaoNote.replace_tags(note, ["  Elixir  ", "elixir", "MCP Tools"], actor())
 
-      tag_slugs = tagged_note.tags |> Enum.map(& &1.slug) |> Enum.sort()
-      assert tag_slugs == ["elixir", "mcp-tools"]
+      tag_names = tagged_note.tags |> Enum.map(& &1.name) |> Enum.sort()
+      assert tag_names == ["Elixir", "MCP Tools"]
 
       assert [%Note{id: id}] = GaoNote.list_notes(tag: "elixir")
       assert id == note.id
 
-      assert [%Tag{name: "Elixir", slug: "elixir"}, %Tag{name: "MCP Tools", slug: "mcp-tools"}] =
-               GaoNote.list_tags()
+      assert [%Tag{name: "Elixir"}, %Tag{name: "MCP Tools"}] = GaoNote.list_tags()
     end
   end
 

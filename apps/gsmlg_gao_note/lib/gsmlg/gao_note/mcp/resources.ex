@@ -11,8 +11,8 @@ defmodule GSMLG.GaoNote.MCP.Resources do
       %URI{scheme: "gaonote", host: "notes", path: "/" <> note_path} ->
         read_note(uri, note_path, frame)
 
-      %URI{scheme: "gaonote", host: "tags", path: "/" <> slug} ->
-        read_tag(uri, slug, frame)
+      %URI{scheme: "gaonote", host: "tags", path: "/" <> tag_id} ->
+        read_tag(uri, tag_id, frame)
 
       %URI{scheme: "gaonote", host: "assets", path: "/" <> asset_id} ->
         read_asset(uri, asset_id, frame)
@@ -58,8 +58,8 @@ defmodule GSMLG.GaoNote.MCP.Resources do
     end
   end
 
-  defp read_tag(uri, slug, frame) do
-    case Enum.find(GaoNote.list_tags(), &(&1.slug == slug)) do
+  defp read_tag(uri, tag_id, frame) do
+    case GaoNote.get_tag(tag_id) do
       nil -> {:error, Error.resource(:not_found, %{uri: uri}), frame}
       tag -> {:reply, Response.resource() |> Response.json(%{"tag" => Presenter.tag(tag)}), frame}
     end
@@ -141,7 +141,7 @@ defmodule GSMLG.GaoNote.MCP.Resources.Tag do
 
   use Anubis.Server.Component,
     type: :resource,
-    uri_template: "gaonote://tags/{slug}",
+    uri_template: "gaonote://tags/{id}",
     name: "gao_note.tag",
     mime_type: "application/json"
 

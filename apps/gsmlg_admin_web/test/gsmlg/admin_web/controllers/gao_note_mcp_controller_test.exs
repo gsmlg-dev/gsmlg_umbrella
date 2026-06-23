@@ -112,7 +112,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
              json_response(conn, 200)
 
     assert tag["name"] == "agent-memory"
-    assert tag["slug"] == "agent-memory"
+    refute Map.has_key?(tag, "slug")
   end
 
   test "admin MCP tools/call set_tags accepts existing and new tag names", %{conn: conn} do
@@ -133,8 +133,8 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     assert %{"result" => %{"structuredContent" => %{"note" => tagged}}} =
              json_response(conn, 200)
 
-    assert Enum.map(tagged["tags"], & &1["slug"]) == ["agent-memory", "github-trending"]
-    assert Enum.map(GaoNote.list_tags(), & &1.slug) == ["agent-memory", "github-trending"]
+    assert Enum.map(tagged["tags"], & &1["name"]) == ["agent-memory", "github-trending"]
+    assert Enum.map(GaoNote.list_tags(), & &1.name) == ["agent-memory", "github-trending"]
   end
 
   test "admin MCP tools/call update accepts tags only", %{conn: conn} do
@@ -154,7 +154,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
              json_response(conn, 200)
 
     assert tagged["title"] == "Update tags target"
-    assert Enum.map(tagged["tags"], & &1["slug"]) == ["agent-memory"]
+    assert Enum.map(tagged["tags"], & &1["name"]) == ["agent-memory"]
   end
 
   defp authenticated_conn(conn) do

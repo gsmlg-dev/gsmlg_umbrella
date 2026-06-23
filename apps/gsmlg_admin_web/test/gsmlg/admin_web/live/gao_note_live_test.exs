@@ -131,7 +131,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
            ] =
              GaoNote.list_notes(search: "Created From LiveView")
 
-    assert Enum.map(note.tags, & &1.slug) |> Enum.sort() == ["existing-tag", "new-live-tag"]
+    assert Enum.map(note.tags, & &1.name) |> Enum.sort() == ["Existing Tag", "New Live Tag"]
     assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
   end
 
@@ -286,6 +286,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
     assert html =~ "Existing Managed Tag"
     assert html =~ ~s(id="gao-note-tags-table")
+    refute html =~ "Slug"
     refute html =~ "Save"
     refute html =~ ~s(id="gao-note-tags-loading")
 
@@ -295,7 +296,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     })
     |> render_submit()
 
-    assert [%Tag{name: "Existing Managed Tag"}, %Tag{name: "Research", slug: "research"} = tag] =
+    assert [%Tag{name: "Existing Managed Tag"}, %Tag{name: "Research"} = tag] =
              GaoNote.list_tags()
 
     assert render_async(view) =~ "Research"

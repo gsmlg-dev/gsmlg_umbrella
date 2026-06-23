@@ -141,7 +141,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.TagLive.Index do
           :if={async_loading?(@tags)}
           id="gao-note-tags-loading"
           rows={4}
-          columns={5}
+          columns={4}
           animation="wave"
           loading_label="Loading GaoNote tags"
         />
@@ -167,9 +167,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.TagLive.Index do
               />
               <span class="font-mono text-xs">{tag.color || "-"}</span>
             </div>
-          </:col>
-          <:col :let={tag} label="Slug">
-            <span class="font-mono text-xs break-all">{tag.slug}</span>
           </:col>
           <:col :let={tag} label="Updated">
             <span class="font-mono text-xs tabular-nums">{format_dt(tag.updated_at)}</span>

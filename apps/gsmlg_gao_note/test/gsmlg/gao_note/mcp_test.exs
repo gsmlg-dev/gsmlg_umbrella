@@ -167,7 +167,7 @@ defmodule GSMLG.GaoNote.MCPTest do
                  frame
                )
 
-      assert Enum.map(tagged["tags"], & &1["slug"]) == ["admin", "mcp"]
+      assert Enum.map(tagged["tags"], & &1["name"]) == ["Admin", "MCP"]
 
       assert %{"structuredContent" => %{"reference" => reference}} =
                call_tool(
@@ -216,7 +216,7 @@ defmodule GSMLG.GaoNote.MCPTest do
                )
 
       assert tag["name"] == "agent-memory"
-      assert tag["slug"] == "agent-memory"
+      refute Map.has_key?(tag, "slug")
       assert tag["color"] == "#1f6feb"
     end
 
@@ -236,11 +236,10 @@ defmodule GSMLG.GaoNote.MCPTest do
                  frame
                )
 
-      tags_by_name = Map.new(created["tags"], &{&1["name"], &1["slug"]})
+      tag_names = created["tags"] |> Enum.map(& &1["name"]) |> Enum.sort()
 
-      assert tags_by_name["SpaceX"] == "spacex"
-      assert tags_by_name["投资观察"] =~ ~r/^tag-[a-z0-9]+$/
-      assert tags_by_name["X搜索"] =~ ~r/^x-[a-z0-9]+$/
+      assert tag_names == ["SpaceX", "X搜索", "投资观察"]
+      refute Enum.any?(created["tags"], &Map.has_key?(&1, "slug"))
     end
 
     test "set_tags returns a tool error when tags is not an array" do

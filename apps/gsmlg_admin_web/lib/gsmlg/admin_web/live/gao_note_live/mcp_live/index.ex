@@ -162,7 +162,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
         uri: "gaonote://notes/{id}/assets",
         mime_type: "application/json"
       },
-      %{name: "gao_note.tag", uri: "gaonote://tags/{slug}", mime_type: "application/json"},
+      %{name: "gao_note.tag", uri: "gaonote://tags/{id}", mime_type: "application/json"},
       %{name: "gao_note.asset", uri: "gaonote://assets/{asset_id}", mime_type: "application/json"}
     ]
   end

@@ -157,7 +157,6 @@ Fields:
 ```text
 id          binary_id primary key
 name        string, required
-slug        string, required, unique
 color       string
 metadata    map, default %{}
 inserted_at
@@ -167,7 +166,6 @@ updated_at
 Indexes:
 
 ```text
-unique index on slug
 unique index on lower(name)
 ```
 
@@ -175,7 +173,7 @@ Tag rules:
 
 ```text
 name: display label
-slug: normalized stable identifier
+dedupe by case-insensitive normalized name
 ```
 
 ### 4.4 `gao_note_taggings`
@@ -361,8 +359,6 @@ Validation:
 
 ```text
 name required
-slug required
-slug format: lowercase letters, numbers, hyphen
 ```
 
 Tag normalization:
@@ -370,8 +366,7 @@ Tag normalization:
 ```text
 trim name
 collapse spaces
-lowercase slug
-dedupe by slug
+dedupe by case-insensitive normalized name
 ```
 
 ### 6.3 Reference changeset
@@ -707,7 +702,7 @@ gaonote://notes/{id}
 gaonote://notes/{id}/metadata
 gaonote://notes/{id}/references
 gaonote://notes/{id}/assets
-gaonote://tags/{slug}
+gaonote://tags/{id}
 gaonote://assets/{asset_id}
 ```
 

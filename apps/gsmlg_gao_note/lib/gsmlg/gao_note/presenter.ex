@@ -10,7 +10,7 @@ defmodule GSMLG.GaoNote.Presenter do
     tags =
       note
       |> loaded_list(:tags)
-      |> Enum.sort_by(& &1.slug)
+      |> Enum.sort_by(&Tag.normalized_key(&1.name))
       |> Enum.map(&tag/1)
 
     %{
@@ -33,7 +33,6 @@ defmodule GSMLG.GaoNote.Presenter do
     %{
       "id" => tag.id,
       "name" => tag.name,
-      "slug" => tag.slug,
       "color" => tag.color,
       "metadata" => tag.metadata || %{}
     }
