@@ -72,7 +72,8 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
         "params" => %{}
       })
 
-    names = conn |> json_response(200) |> get_in(["result", "tools"]) |> Enum.map(& &1["name"])
+    tools = conn |> json_response(200) |> get_in(["result", "tools"])
+    names = Enum.map(tools, & &1["name"])
 
     assert "gao_note.create" in names
     assert "gao_note.create_tag" in names
@@ -80,6 +81,18 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     assert "gao_note.assets.upload_base64" in names
     refute "gao_note.publish" in names
     refute "gao_note.archive" in names
+
+    create = Enum.find(tools, &(&1["name"] == "gao_note.create"))
+
+    assert create |> get_in(["inputSchema", "properties"]) |> Map.keys() |> Enum.sort() == [
+             "content",
+             "creator",
+             "description",
+             "tags",
+             "title"
+           ]
+
+    assert Enum.sort(get_in(create, ["inputSchema", "required"])) == ["content", "title"]
   end
 
   test "admin MCP tools/list accepts the GaoNote MCP API key", %{conn: conn} do

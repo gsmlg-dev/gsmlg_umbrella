@@ -91,6 +91,25 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert creator_schema["description"] =~ "agent writing the note"
     end
 
+    test "create tool exposes only create-note parameters" do
+      tool = tool(GSMLG.GaoNote.MCP.AdminServer, "gao_note.create")
+
+      assert tool_property_names(tool) == [
+               "content",
+               "creator",
+               "description",
+               "tags",
+               "title"
+             ]
+
+      assert Enum.sort(tool.input_schema["required"]) == ["content", "title"]
+
+      refute "color" in tool_property_names(tool)
+      refute "asset_id" in tool_property_names(tool)
+      refute "limit" in tool_property_names(tool)
+      refute "url" in tool_property_names(tool)
+    end
+
     test "requires an actor for mutating tools" do
       assert %{"isError" => true} =
                call_tool(
@@ -266,6 +285,13 @@ defmodule GSMLG.GaoNote.MCPTest do
   defp tool(server, name) do
     server.__components__(:tool)
     |> Enum.find(&(&1.name == name))
+  end
+
+  defp tool_property_names(tool) do
+    tool.input_schema
+    |> Map.fetch!("properties")
+    |> Map.keys()
+    |> Enum.sort()
   end
 
   defp call_tool(server, name, args, frame \\ readonly_frame()) do

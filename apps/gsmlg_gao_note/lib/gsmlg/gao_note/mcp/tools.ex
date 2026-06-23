@@ -31,9 +31,115 @@ defmodule GSMLG.GaoNote.MCP.Tools do
                  )
 
   @max_base64_bytes 5 * 1024 * 1024
+  @creator_description "Creator display name. For MCP-created notes, fill this with the name of the agent writing the note. Omit to keep Creator empty."
+
+  @input_fields %{
+    "gao_note.search" => [
+      {:query, :string,
+       [description: "Search text matched against note title, description, and markdown content."]},
+      {:tag, :string, [description: "Optional tag display name filter."]},
+      {:creator, :string,
+       [description: "Optional creator display name filter for admin searches."]},
+      {:limit, :integer, [description: "Maximum notes to return."]},
+      {:offset, :integer, [description: "Number of notes to skip."]}
+    ],
+    "gao_note.get" => [
+      {:id, :string, [required: true, description: "GaoNote id."]}
+    ],
+    "gao_note.list_tags" => [],
+    "gao_note.list_references" => [
+      {:id, :string, [required: true, description: "GaoNote id."]}
+    ],
+    "gao_note.list_assets" => [
+      {:id, :string, [required: true, description: "GaoNote id."]}
+    ],
+    "gao_note.create" => [
+      {:title, :string, [required: true, description: "Note title."]},
+      {:description, :string, [description: "Optional short note description."]},
+      {:creator, :string, [description: @creator_description]},
+      {:content, :string, [required: true, description: "Markdown note content."]},
+      {:tags, {:list, :string},
+       [description: "Optional tag display names. Missing tags are created."]}
+    ],
+    "gao_note.create_tag" => [
+      {:name, :string, [required: true, description: "Tag display name."]},
+      {:color, :string, [description: "Optional tag color, for example #1f6feb."]}
+    ],
+    "gao_note.update" => [
+      {:id, :string, [required: true, description: "GaoNote id."]},
+      {:title, :string, [description: "Updated note title."]},
+      {:description, :string, [description: "Updated short note description."]},
+      {:creator, :string, [description: @creator_description]},
+      {:content, :string, [description: "Updated markdown note content."]},
+      {:tags, {:list, :string},
+       [description: "Replacement tag display names. Missing tags are created."]}
+    ],
+    "gao_note.delete" => [
+      {:id, :string, [required: true, description: "GaoNote id."]}
+    ],
+    "gao_note.set_tags" => [
+      {:id, :string, [required: true, description: "GaoNote id."]},
+      {:tags, {:list, :string},
+       [required: true, description: "Replacement tag display names. Missing tags are created."]}
+    ],
+    "gao_note.references.add" => [
+      {:id, :string, [required: true, description: "GaoNote id."]},
+      {:url, :string, [required: true, description: "HTTP or HTTPS reference URL."]},
+      {:title, :string, [description: "Optional reference title."]},
+      {:description, :string, [description: "Optional reference description."]},
+      {:canonical_url, :string, [description: "Optional canonical URL override."]},
+      {:site_name, :string, [description: "Optional source site name."]},
+      {:favicon_url, :string, [description: "Optional favicon URL."]},
+      {:position, :integer, [description: "Optional sort position."]}
+    ],
+    "gao_note.references.update" => [
+      {:reference_id, :string, [required: true, description: "GaoNote reference id."]},
+      {:url, :string, [description: "Updated HTTP or HTTPS reference URL."]},
+      {:title, :string, [description: "Updated reference title."]},
+      {:description, :string, [description: "Updated reference description."]},
+      {:canonical_url, :string, [description: "Updated canonical URL override."]},
+      {:site_name, :string, [description: "Updated source site name."]},
+      {:favicon_url, :string, [description: "Updated favicon URL."]},
+      {:position, :integer, [description: "Updated sort position."]}
+    ],
+    "gao_note.references.remove" => [
+      {:reference_id, :string, [required: true, description: "GaoNote reference id."]}
+    ],
+    "gao_note.assets.attach_existing" => [
+      {:id, :string, [required: true, description: "GaoNote id."]},
+      {:storage_file_id, :string, [required: true, description: "Existing storage file id."]},
+      {:role, :string, [description: "Asset role: attachment, cover, inline, or source."]},
+      {:caption, :string, [description: "Optional asset caption."]},
+      {:alt_text, :string, [description: "Optional asset alt text."]},
+      {:position, :integer, [description: "Optional sort position."]}
+    ],
+    "gao_note.assets.upload_base64" => [
+      {:id, :string, [required: true, description: "GaoNote id."]},
+      {:base64, :string,
+       [required: true, description: "Standard Base64 file content, up to 5 MB."]},
+      {:filename, :string, [description: "Optional uploaded filename."]},
+      {:role, :string, [description: "Asset role: attachment, cover, inline, or source."]},
+      {:caption, :string, [description: "Optional asset caption."]},
+      {:alt_text, :string, [description: "Optional asset alt text."]},
+      {:position, :integer, [description: "Optional sort position."]}
+    ],
+    "gao_note.assets.update" => [
+      {:asset_id, :string, [required: true, description: "GaoNote asset id."]},
+      {:role, :string,
+       [description: "Updated asset role: attachment, cover, inline, or source."]},
+      {:caption, :string, [description: "Updated asset caption."]},
+      {:alt_text, :string, [description: "Updated asset alt text."]},
+      {:position, :integer, [description: "Updated sort position."]}
+    ],
+    "gao_note.assets.detach" => [
+      {:asset_id, :string, [required: true, description: "GaoNote asset id."]}
+    ]
+  }
 
   def readonly_tools, do: @readonly_tools
   def admin_tools, do: @admin_tools
+
+  def input_fields(name), do: Map.fetch!(@input_fields, name)
 
   def execute(name, params, frame) do
     response =
@@ -428,44 +534,14 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
   defmacro __using__(opts) do
     name = Keyword.fetch!(opts, :name)
     description = GSMLG.GaoNote.MCP.Tools.description(name)
+    schema_block = schema_block(name)
 
     quote do
       @moduledoc unquote(description)
 
       use Anubis.Server.Component, type: :tool
 
-      schema do
-        field(:id, :string)
-        field(:query, :string)
-        field(:search, :string)
-        field(:tag, :string)
-        field(:name, :string)
-        field(:limit, :integer)
-        field(:offset, :integer)
-
-        field(:creator, :string,
-          description:
-            "Creator display name. For MCP-created notes, fill this with the name of the agent writing the note. Omit to keep Creator empty."
-        )
-
-        field(:title, :string)
-        field(:description, :string)
-        field(:content, :string)
-        field(:color, :string)
-        field(:source_url, :string)
-        field(:source_title, :string)
-        field(:tags, {:list, :string})
-        field(:url, :string)
-        field(:label, :string)
-        field(:reference_id, :string)
-        field(:storage_file_id, :string)
-        field(:asset_id, :string)
-        field(:base64, :string)
-        field(:filename, :string)
-        field(:caption, :string)
-        field(:alt_text, :string)
-        field(:position, :integer)
-      end
+      unquote(schema_block)
 
       @impl true
       def annotations, do: GSMLG.GaoNote.MCP.Tools.annotations(unquote(name))
@@ -473,6 +549,31 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
       @impl true
       def execute(params, frame),
         do: GSMLG.GaoNote.MCP.Tools.execute(unquote(name), params, frame)
+    end
+  end
+
+  defp schema_block(name) do
+    case GSMLG.GaoNote.MCP.Tools.input_fields(name) do
+      [] ->
+        quote do
+          schema do
+            %{}
+          end
+        end
+
+      fields ->
+        field_asts =
+          Enum.map(fields, fn {field_name, type, opts} ->
+            quote do
+              field(unquote(field_name), unquote(Macro.escape(type)), unquote(Macro.escape(opts)))
+            end
+          end)
+
+        quote do
+          schema do
+            (unquote_splicing(field_asts))
+          end
+        end
     end
   end
 end
