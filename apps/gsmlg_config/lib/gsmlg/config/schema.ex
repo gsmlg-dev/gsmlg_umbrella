@@ -186,6 +186,64 @@ defmodule GSMLG.Config.Schema do
     ]
   ]
 
+  @cluster_schema [
+    enabled: [
+      type: :boolean,
+      default: false,
+      doc: "Enable libcluster supervision"
+    ],
+    strategy: [
+      type: {:in, ["epmd", "gossip", "local_epmd", "erlang_hosts"]},
+      default: "epmd",
+      doc: "libcluster strategy"
+    ],
+    topology_name: [
+      type: :string,
+      default: "gsmlg",
+      doc: "Topology name used by libcluster"
+    ],
+    hosts: [
+      type: {:list, :string},
+      default: [],
+      doc: "Static EPMD node names"
+    ],
+    connect_interval: [
+      type: :pos_integer,
+      default: 30_000,
+      doc: "Reconnect interval in milliseconds for polling strategies"
+    ],
+    gossip_port: [
+      type: :pos_integer,
+      default: 45_892,
+      doc: "Gossip UDP port"
+    ],
+    gossip_if_addr: [
+      type: :string,
+      default: "0.0.0.0",
+      doc: "Gossip bind interface address"
+    ],
+    gossip_multicast_addr: [
+      type: :string,
+      default: "233.252.1.32",
+      doc: "Gossip multicast or broadcast address"
+    ],
+    gossip_multicast_ttl: [
+      type: :pos_integer,
+      default: 1,
+      doc: "Gossip multicast TTL"
+    ],
+    gossip_secret: [
+      type: :string,
+      default: "",
+      doc: "Optional gossip encryption secret"
+    ],
+    gossip_broadcast_only: [
+      type: :boolean,
+      default: false,
+      doc: "Use broadcast instead of multicast for gossip"
+    ]
+  ]
+
   @github_oauth_schema [
     client_id: [
       type: :string,
@@ -294,6 +352,7 @@ defmodule GSMLG.Config.Schema do
       admin_web: @admin_web_schema,
       couchdb: @couchdb_schema,
       commander: @commander_schema,
+      cluster: @cluster_schema,
       oauth: %{github: @github_oauth_schema},
       web_push: @web_push_schema,
       caddy: @caddy_schema,
@@ -380,6 +439,7 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:admin_web), do: @admin_web_schema
   defp get_section_schema(:couchdb), do: @couchdb_schema
   defp get_section_schema(:commander), do: @commander_schema
+  defp get_section_schema(:cluster), do: @cluster_schema
   defp get_section_schema(:oauth), do: %{github: @github_oauth_schema}
   defp get_section_schema(:web_push), do: @web_push_schema
   defp get_section_schema(:caddy), do: @caddy_schema

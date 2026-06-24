@@ -30,6 +30,10 @@ defmodule GSMLG.Config.Setup do
       setup_commander(config[:commander])
     end
 
+    if config[:cluster] != nil do
+      setup_cluster(config[:cluster])
+    end
+
     if config[:oauth] != nil do
       setup_oauth(config[:oauth])
     end
@@ -191,6 +195,14 @@ defmodule GSMLG.Config.Setup do
       platform_url: config[:platform_url],
       platform_key: config[:platform_key]
     )
+  end
+
+  def setup_cluster(config) do
+    config = GSMLG.Config.Cluster.normalize(config)
+    topologies = GSMLG.Config.Cluster.topologies(config)
+
+    Application.put_env(:gsmlg, :cluster, config)
+    Application.put_env(:libcluster, :topologies, topologies)
   end
 
   def setup_oauth(config) do

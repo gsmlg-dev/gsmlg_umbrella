@@ -22,3 +22,16 @@ host = "localhost"
 port = 4110
 secret_key_base = "test_secret_key_base_for_testing_only_minimum_64_characters_long_required"
 url_scheme = "http"
+
+[cluster]
+enabled = false
+strategy = "epmd"
+topology_name = "gsmlg"
+hosts = []
+connect_interval = 30000
+gossip_port = 45892
+gossip_if_addr = "0.0.0.0"
+gossip_multicast_addr = "233.252.1.32"
+gossip_multicast_ttl = 1
+gossip_secret = ""
+gossip_broadcast_only = false

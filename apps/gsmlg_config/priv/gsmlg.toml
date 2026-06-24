@@ -33,6 +33,19 @@ name = "commander"
 platform_url = "ws://localhost:4111/commander-socket/websocket"
 platform_key = "o5xg8yDgSOFVrcrH4seZJ7+w"
 
+[cluster]
+enabled = false
+strategy = "epmd"
+topology_name = "gsmlg"
+hosts = []
+connect_interval = 30000
+gossip_port = 45892
+gossip_if_addr = "0.0.0.0"
+gossip_multicast_addr = "233.252.1.32"
+gossip_multicast_ttl = 1
+gossip_secret = ""
+gossip_broadcast_only = false
+
 [oauth.github]
 client_id = ""
 client_secret = ""

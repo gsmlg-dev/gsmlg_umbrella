@@ -39,6 +39,7 @@ defmodule GSMLG.MixProject do
       {:swoosh, "~> 1.3"},
       {:tesla, "~> 1.11"},
       {:finch, "~> 0.19"},
+      {:libcluster, "~> 3.5"},
       {:cachex, "~> 4.0"},
       {:gsmlg_config, in_umbrella: true},
       {:gsmlg_aws, in_umbrella: true},

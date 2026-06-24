@@ -33,6 +33,19 @@ name = "production_commander"
 platform_url = "wss://admin.gsmlg.org/commander-socket/websocket"
 platform_key = "CHANGE_ME_IN_PRODUCTION"
 
+[cluster]
+enabled = false
+strategy = "epmd"
+topology_name = "gsmlg"
+hosts = []
+connect_interval = 30000
+gossip_port = 45892
+gossip_if_addr = "0.0.0.0"
+gossip_multicast_addr = "233.252.1.32"
+gossip_multicast_ttl = 1
+gossip_secret = ""
+gossip_broadcast_only = false
+
 [oauth.github]
 client_id = "CHANGE_ME"
 client_secret = "CHANGE_ME"

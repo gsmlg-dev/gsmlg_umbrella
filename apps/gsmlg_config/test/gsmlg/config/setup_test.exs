@@ -30,6 +30,8 @@ defmodule GSMLG.Config.SetupTest do
       Application.delete_env(:gsmlg_commander, GSMLG.Commander)
       Application.delete_env(:ueberauth, Ueberauth.Strategy.Github.OAuth)
       Application.delete_env(:gsmlg_web_push, :vapid_details)
+      Application.delete_env(:gsmlg, :cluster)
+      Application.delete_env(:libcluster, :topologies)
     end)
 
     :ok
@@ -297,6 +299,37 @@ defmodule GSMLG.Config.SetupTest do
       assert commander_config[:name] == "test_commander"
       assert commander_config[:platform_url] == "ws://localhost:4111/socket"
       assert commander_config[:platform_key] == "test_key"
+    end
+  end
+
+  describe "setup_cluster/1" do
+    test "stores disabled cluster config without configuring libcluster topologies" do
+      Setup.setup_cluster(%{enabled: false, strategy: "epmd", hosts: ["gsmlg@127.0.0.1"]})
+
+      assert Application.get_env(:gsmlg, :cluster)[:enabled] == false
+      assert Application.get_env(:libcluster, :topologies) == []
+    end
+
+    test "configures libcluster topologies when cluster is enabled" do
+      Setup.setup_cluster(%{
+        enabled: true,
+        strategy: "epmd",
+        topology_name: "production",
+        hosts: ["gsmlg@10.100.10.10", "gsmlg@10.100.10.11"],
+        connect_interval: 30_000
+      })
+
+      assert Application.get_env(:gsmlg, :cluster)[:enabled] == true
+
+      assert [
+               production: [
+                 strategy: Cluster.Strategy.Epmd,
+                 config: [
+                   hosts: [:"gsmlg@10.100.10.10", :"gsmlg@10.100.10.11"],
+                   timeout: 30_000
+                 ]
+               ]
+             ] = Application.get_env(:libcluster, :topologies)
     end
   end
 
