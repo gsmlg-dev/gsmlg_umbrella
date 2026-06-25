@@ -95,14 +95,6 @@ defmodule GSMLG.Component.Admin do
                {"Metrics", "/caddy/metrics"},
                {"Logs", "/caddy/logs"}
              ]},
-            {"PKI",
-             [
-               {"Certificate Authorities", "/pki/ca"},
-               {"Certificates", "/pki/certificates"},
-               {"CSR Requests", "/pki/csr"},
-               {"Search", "/pki/search"},
-               {"Analytics", "/pki/analytics"}
-             ]},
             {"Dashboard",
              [
                {"Live Dashboard", "/live_dashboard"}

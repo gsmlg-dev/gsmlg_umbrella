@@ -7,15 +7,27 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
 
   describe "left_menu/1" do
     test "renders the active branch and current page state" do
-      html = render_component(&AdminNavigation.left_menu/1, active_menu: "pki_ca_list")
+      html = render_component(&AdminNavigation.left_menu/1, active_menu: "caddy_dashboard")
 
       assert html =~ ~s(aria-label="Admin navigation")
-      assert html =~ "PKI"
-      assert html =~ "CA List"
-      assert html =~ ~s(data-menu-group="pki")
-      assert html =~ ~r/<details(?=[^>]*data-menu-group="pki")(?=[^>]*open)/
+      assert html =~ "Caddy"
+      assert html =~ "Dashboard"
+      assert html =~ ~s(data-menu-group="caddy")
+      assert html =~ ~r/<details(?=[^>]*data-menu-group="caddy")(?=[^>]*open)/
       refute html =~ ~r/<details(?=[^>]*data-menu-group="aws")(?=[^>]*open)/
       assert html =~ ~s(aria-current="page")
+    end
+
+    test "does not render the removed PKI module" do
+      html = render_component(&AdminNavigation.left_menu/1, active_menu: nil)
+
+      refute html =~ "PKI"
+      refute html =~ ~s(data-menu-group="pki")
+      refute html =~ ~s(href="/pki/ca")
+      refute html =~ ~s(href="/pki/certificates")
+      refute html =~ ~s(href="/pki/csr")
+      refute html =~ ~s(href="/pki/search")
+      refute html =~ ~s(href="/pki/analytics")
     end
 
     test "renders disabled placeholders without navigation targets" do

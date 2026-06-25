@@ -9,6 +9,15 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
                AdminMenu.sections() |> Enum.map(& &1.title)
     end
 
+    test "does not expose the removed PKI module" do
+      refute Enum.any?(AdminMenu.sections(), fn section ->
+               Enum.any?(section.groups, &(&1.id == "pki"))
+             end)
+
+      assert_raise ArgumentError, fn -> AdminMenu.find_group!("pki") end
+      assert AdminMenu.active_id(nil, "/pki/ca") == nil
+    end
+
     test "includes GaoNote under the content section" do
       content = Enum.find(AdminMenu.sections(), &(&1.id == "content"))
 
@@ -40,13 +49,13 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
 
   describe "active branch matching" do
     test "opens only the group containing the active item" do
-      assert AdminMenu.group_open?(AdminMenu.find_group!("pki"), "pki_ca_list")
-      refute AdminMenu.group_open?(AdminMenu.find_group!("aws"), "pki_ca_list")
+      assert AdminMenu.group_open?(AdminMenu.find_group!("caddy"), "caddy_dashboard")
+      refute AdminMenu.group_open?(AdminMenu.find_group!("aws"), "caddy_dashboard")
     end
 
     test "prefers explicit active menu and falls back to path matching" do
       assert AdminMenu.active_id(nil, "/aws/dynamo_db") == "dynamo_db"
-      assert AdminMenu.active_id("pki_ca_list", "/aws/dynamo_db") == "pki_ca_list"
+      assert AdminMenu.active_id("caddy_dashboard", "/aws/dynamo_db") == "caddy_dashboard"
     end
 
     test "matches GaoNote routes to their content menu items" do
@@ -58,6 +67,14 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       assert AdminMenu.active_id(nil, "/gao_notes/logs") == "gao_note_logs"
       assert AdminMenu.active_id(nil, "/gao_notes/mcp") == "gao_note_mcp"
       assert AdminMenu.group_open?(AdminMenu.find_group!("gao_notes"), "gao_note_list")
+    end
+  end
+
+  describe "router" do
+    test "does not expose PKI routes" do
+      paths = GSMLG.AdminWeb.Router |> Phoenix.Router.routes() |> Enum.map(& &1.path)
+
+      refute Enum.any?(paths, &String.starts_with?(&1, "/pki"))
     end
   end
 end

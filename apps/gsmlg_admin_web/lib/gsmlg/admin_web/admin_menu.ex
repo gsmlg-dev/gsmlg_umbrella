@@ -126,24 +126,6 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           ]
         },
         %{
-          id: "pki",
-          title: "PKI",
-          items: [
-            %{id: "pki_ca_list", label: "CA List", path: "/pki/ca"},
-            %{id: "pki_ca_new", label: "New CA", path: "/pki/ca/new"},
-            %{id: "pki_certificates", label: "Certificate List", path: "/pki/certificates"},
-            %{
-              id: "pki_certificates_issue",
-              label: "Issue Certificate",
-              path: "/pki/certificates/issue"
-            },
-            %{id: "pki_csr", label: "CSR Management", path: "/pki/csr"},
-            %{id: "pki_csr_upload", label: "Upload CSR", path: "/pki/csr/upload"},
-            %{id: "pki_search", label: "Search", path: "/pki/search"},
-            %{id: "pki_analytics", label: "Analytics", path: "/pki/analytics"}
-          ]
-        },
-        %{
           id: "storage",
           title: "Storage",
           items: [
