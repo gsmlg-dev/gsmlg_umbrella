@@ -10,6 +10,8 @@ defmodule GSMLG.Config.SetupTest do
         {name, System.get_env(name)}
       end)
 
+    scout_settings = Application.fetch_env(:gsmlg_scout, :settings)
+
     Enum.each(Map.keys(database_env), &System.delete_env/1)
 
     # Clean up application environment after each test
@@ -30,6 +32,12 @@ defmodule GSMLG.Config.SetupTest do
       Application.delete_env(:gsmlg_commander, GSMLG.Commander)
       Application.delete_env(:ueberauth, Ueberauth.Strategy.Github.OAuth)
       Application.delete_env(:gsmlg_web_push, :vapid_details)
+
+      case scout_settings do
+        {:ok, settings} -> Application.put_env(:gsmlg_scout, :settings, settings)
+        :error -> Application.delete_env(:gsmlg_scout, :settings)
+      end
+
       Application.delete_env(:gsmlg, :cluster)
       Application.delete_env(:libcluster, :topologies)
     end)
@@ -63,6 +71,14 @@ defmodule GSMLG.Config.SetupTest do
 
       # Should not crash
       assert Setup.setup(config) == nil
+    end
+
+    test "configures scout settings when scout config is present" do
+      config = %{agent: %{enabled: false, region: "local"}}
+
+      Setup.setup(%{scout: config})
+
+      assert Application.get_env(:gsmlg_scout, :settings) == config
     end
   end
 
@@ -176,6 +192,16 @@ defmodule GSMLG.Config.SetupTest do
 
     @tag :tmp_dir
     test "uses devenv PGHOST socket only when the postgres socket exists", %{tmp_dir: tmp_dir} do
+      # Simulate leftover repo config from another test, then clear it so this
+      # test only observes the database setup path under test.
+      Application.put_env(:gsmlg, GSMLG.Repo,
+        url: "postgres://stale",
+        socket_dir: "/stale/postgres",
+        port: 5433
+      )
+
+      Application.delete_env(:gsmlg, GSMLG.Repo)
+
       System.put_env("DATABASE_URL", "postgres://gsmlg_dev:gsmlg_dev@localhost/gsmlg_dev")
       System.put_env("PGHOST", tmp_dir)
       System.put_env("PGPORT", "5433")
@@ -371,6 +397,55 @@ defmodule GSMLG.Config.SetupTest do
       assert vapid_config[:subject] == "mailto:test@example.com"
       assert vapid_config[:public_key] == "public_key_test"
       assert vapid_config[:private_key] == "private_key_test"
+    end
+  end
+
+  describe "setup_scout/1" do
+    test "configures scout settings" do
+      config = %{
+        general: %{
+          instance_name: "GSMLG Scout",
+          default_region: "local",
+          request_timeout_ms: 30_000
+        },
+        rabbitmq: %{
+          enabled: false,
+          url: "amqp://guest:guest@localhost:5672",
+          queues: %{
+            jobs: "scout.fetch.jobs",
+            results: "scout.fetch.results",
+            failed: "scout.fetch.failed",
+            heartbeat: "scout.agent.heartbeat"
+          },
+          regional_queues: %{eu: "scout.fetch.jobs.eu"}
+        },
+        fetch: %{
+          default_timeout_ms: 30_000,
+          max_timeout_ms: 60_000,
+          max_page_size_bytes: 5_000_000,
+          browser: %{wait_until: "network_idle", wait_for: "", javascript: true},
+          retry: %{max_attempts: 3, base_backoff_ms: 500, max_backoff_ms: 5_000, jitter: true}
+        },
+        agent: %{
+          enabled: false,
+          id: "",
+          region: "local",
+          heartbeat_interval_ms: 10_000,
+          capacity: 16,
+          browser_instances: 2,
+          page_concurrency: 16,
+          lightpanda_path: "lightpanda"
+        },
+        security: %{
+          allowed_schemes: ["http", "https"],
+          redirect_limit: 5,
+          blocked_cidrs: ["127.0.0.0/8"]
+        }
+      }
+
+      Setup.setup_scout(config)
+
+      assert Application.get_env(:gsmlg_scout, :settings) == config
     end
   end
 
