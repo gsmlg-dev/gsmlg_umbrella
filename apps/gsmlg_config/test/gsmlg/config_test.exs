@@ -9,12 +9,19 @@ defmodule GSMLG.ConfigTest do
   setup do
     # Store original config to restore after test
     original_config = Application.get_env(:gsmlg_config, :loaded_config)
+    original_config_path = System.get_env("GSMLG_CONFIG_PATH")
 
     on_exit(fn ->
       if original_config do
         Application.put_env(:gsmlg_config, :loaded_config, original_config)
       else
         Application.delete_env(:gsmlg_config, :loaded_config)
+      end
+
+      if original_config_path do
+        System.put_env("GSMLG_CONFIG_PATH", original_config_path)
+      else
+        System.delete_env("GSMLG_CONFIG_PATH")
       end
     end)
 
@@ -24,8 +31,7 @@ defmodule GSMLG.ConfigTest do
   describe "config/0" do
     test "returns the entire config map when loaded" do
       # Load config from test environment
-      config_dir = Path.expand("../../config", __DIR__)
-      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: test_config_dir())
       Application.put_env(:gsmlg_config, :loaded_config, config)
 
       result = GSMLG.Config.config()
@@ -50,8 +56,7 @@ defmodule GSMLG.ConfigTest do
 
   describe "get/1 with atom key" do
     setup do
-      config_dir = Path.expand("../../config", __DIR__)
-      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: test_config_dir())
       Application.put_env(:gsmlg_config, :loaded_config, config)
       :ok
     end
@@ -70,8 +75,7 @@ defmodule GSMLG.ConfigTest do
 
   describe "get/1 with binary key" do
     setup do
-      config_dir = Path.expand("../../config", __DIR__)
-      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: test_config_dir())
       Application.put_env(:gsmlg_config, :loaded_config, config)
       :ok
     end
@@ -89,8 +93,7 @@ defmodule GSMLG.ConfigTest do
 
   describe "get/1 with path list" do
     setup do
-      config_dir = Path.expand("../../config", __DIR__)
-      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: test_config_dir())
       Application.put_env(:gsmlg_config, :loaded_config, config)
       :ok
     end
@@ -108,8 +111,7 @@ defmodule GSMLG.ConfigTest do
 
   describe "get/2 with default" do
     setup do
-      config_dir = Path.expand("../../config", __DIR__)
-      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: test_config_dir())
       Application.put_env(:gsmlg_config, :loaded_config, config)
       :ok
     end
@@ -139,6 +141,8 @@ defmodule GSMLG.ConfigTest do
 
   describe "reload/0" do
     test "reloads configuration from files" do
+      put_test_config_path()
+
       {:ok, config} = GSMLG.Config.reload()
       assert is_map(config)
       assert Map.has_key?(config, :logger)
@@ -146,6 +150,8 @@ defmodule GSMLG.ConfigTest do
     end
 
     test "updates Application environment" do
+      put_test_config_path()
+
       {:ok, _config} = GSMLG.Config.reload()
       app_config = Application.get_env(:gsmlg_config, :loaded_config)
       assert is_map(app_config)
@@ -154,6 +160,8 @@ defmodule GSMLG.ConfigTest do
 
   describe "reload!/0" do
     test "reloads configuration and returns it" do
+      put_test_config_path()
+
       config = GSMLG.Config.reload!()
       assert is_map(config)
       assert Map.has_key?(config, :logger)
@@ -179,10 +187,8 @@ defmodule GSMLG.ConfigTest do
 
   describe "validate/0" do
     setup do
-      config_dir = Path.expand("../../config", __DIR__)
-
       {:ok, config} =
-        GSMLG.Config.Loader.load(env: :test, config_dir: config_dir, validate: false)
+        GSMLG.Config.Loader.load(env: :test, config_dir: test_config_dir(), validate: false)
 
       Application.put_env(:gsmlg_config, :loaded_config, config)
       :ok
@@ -200,8 +206,7 @@ defmodule GSMLG.ConfigTest do
 
   describe "validate!/0" do
     setup do
-      config_dir = Path.expand("../../config", __DIR__)
-      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: config_dir)
+      {:ok, config} = GSMLG.Config.Loader.load(env: :test, config_dir: test_config_dir())
       Application.put_env(:gsmlg_config, :loaded_config, config)
       :ok
     end
@@ -210,5 +215,133 @@ defmodule GSMLG.ConfigTest do
       config = GSMLG.Config.validate!()
       assert is_map(config)
     end
+  end
+
+  describe "schema validation" do
+    test "defaults scout blocked cidrs from the planned TOML list" do
+      expected_blocked_cidrs = planned_scout_blocked_cidrs()
+
+      assert {:ok, %{scout: %{security: %{blocked_cidrs: ^expected_blocked_cidrs}}}} =
+               GSMLG.Config.Schema.validate(%{scout: %{security: %{}}})
+    end
+
+    test "accepts scout redirect limit for external config compatibility" do
+      assert {:ok, %{scout: %{security: %{redirect_limit: 7}}}} =
+               GSMLG.Config.Schema.validate(%{scout: %{security: %{redirect_limit: 7}}})
+    end
+
+    test "returns errors for invalid scout nested shapes" do
+      top_level_result =
+        try do
+          GSMLG.Config.Schema.validate(%{scout: "bad"})
+        rescue
+          error -> {:raised, error}
+        end
+
+      subsection_result =
+        try do
+          GSMLG.Config.Schema.validate(%{scout: %{security: "bad"}})
+        rescue
+          error -> {:raised, error}
+        end
+
+      assert {:error, top_level_reason} = top_level_result
+      assert top_level_reason =~ "scout"
+
+      assert {:error, subsection_reason} = subsection_result
+      assert subsection_reason =~ "security"
+    end
+
+    test "returns errors for invalid oauth nested shapes" do
+      assert {:error, reason} = GSMLG.Config.Schema.validate(%{oauth: %{github: "bad"}})
+      assert reason =~ "github"
+    end
+  end
+
+  describe "source toml scout config" do
+    test "loads planned scout values from checked-in source toml files" do
+      {:ok, base_config} =
+        GSMLG.Config.Loader.load(config_path: Path.join(test_config_dir(), "gsmlg.toml"))
+
+      {:ok, dev_config} = GSMLG.Config.Loader.load(env: :dev, config_dir: test_config_dir())
+      {:ok, prod_config} = GSMLG.Config.Loader.load(env: :prod, config_dir: test_config_dir())
+
+      assert_planned_scout_values(base_config)
+      assert_planned_scout_values(dev_config)
+      assert_planned_scout_values(prod_config)
+    end
+  end
+
+  describe "test config fixtures" do
+    test "loads source toml files instead of build artifacts" do
+      assert test_config_dir() == Path.expand("../../priv", __DIR__)
+      refute test_config_dir() =~ "/_build/"
+    end
+  end
+
+  defp test_config_dir do
+    Path.expand("../../priv", __DIR__)
+  end
+
+  defp put_test_config_path do
+    System.put_env("GSMLG_CONFIG_PATH", Path.join(test_config_dir(), "gsmlg.test.toml"))
+  end
+
+  defp assert_planned_scout_values(config) do
+    assert config.scout.agent.id == ""
+    assert config.scout.fetch.browser.wait_for == ""
+    assert config.scout.security.redirect_limit == 5
+    assert config.scout.security.blocked_cidrs == planned_scout_blocked_cidrs()
+  end
+
+  defp planned_scout_blocked_cidrs do
+    [
+      "0.0.0.0/8",
+      "127.0.0.0/8",
+      "10.0.0.0/8",
+      "100.64.0.0/10",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+      "192.0.0.0/24",
+      "192.0.2.0/24",
+      "192.31.196.0/24",
+      "192.52.193.0/24",
+      "192.88.99.0/24",
+      "192.175.48.0/24",
+      "198.18.0.0/15",
+      "198.51.100.0/24",
+      "203.0.113.0/24",
+      "169.254.0.0/16",
+      "224.0.0.0/4",
+      "240.0.0.0/4",
+      "255.255.255.255/32",
+      "::/128",
+      "::/96",
+      "::1/128",
+      "::ffff:0:0/96",
+      "64:ff9b::/96",
+      "64:ff9b:1::/48",
+      "100::/64",
+      "100:0:0:1::/64",
+      "fe80::/10",
+      "fc00::/7",
+      "ff00::/8",
+      "2001::/23",
+      "2001::/32",
+      "2001:1::1/128",
+      "2001:1::2/128",
+      "2001:1::3/128",
+      "2001:2::/48",
+      "2001:3::/32",
+      "2001:4:112::/48",
+      "2001:10::/28",
+      "2001:20::/28",
+      "2001:30::/28",
+      "2001:db8::/32",
+      "2002::/16",
+      "2620:4f:8000::/48",
+      "3fff::/20",
+      "5f00::/16"
+    ]
   end
 end

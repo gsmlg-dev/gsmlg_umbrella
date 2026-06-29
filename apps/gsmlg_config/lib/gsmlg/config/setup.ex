@@ -42,6 +42,10 @@ defmodule GSMLG.Config.Setup do
       setup_web_push(config[:web_push])
     end
 
+    if config[:scout] != nil do
+      setup_scout(config[:scout])
+    end
+
     if config[:caddy] != nil do
       setup_caddy(config[:caddy])
     end
@@ -220,6 +224,10 @@ defmodule GSMLG.Config.Setup do
       public_key: config[:public_key],
       private_key: config[:private_key]
     )
+  end
+
+  def setup_scout(config) do
+    Application.put_env(:gsmlg_scout, :settings, config || %{})
   end
 
   def setup_i18n(config) do

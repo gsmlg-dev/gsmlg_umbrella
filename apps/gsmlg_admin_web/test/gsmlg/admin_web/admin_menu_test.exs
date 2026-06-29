@@ -38,6 +38,18 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
                %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"}
              ] = gao_notes.items
     end
+
+    test "includes Scout under the service section" do
+      service = Enum.find(AdminMenu.sections(), &(&1.id == "service"))
+
+      assert %{id: "scout", title: "Scout"} =
+               scout =
+               Enum.find(service.groups, &(&1.id == "scout"))
+
+      assert [
+               %{id: "scout_dashboard", label: "Scout Dashboard", path: "/scout"}
+             ] = scout.items
+    end
   end
 
   describe "disabled placeholders" do
@@ -67,6 +79,12 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       assert AdminMenu.active_id(nil, "/gao_notes/logs") == "gao_note_logs"
       assert AdminMenu.active_id(nil, "/gao_notes/mcp") == "gao_note_mcp"
       assert AdminMenu.group_open?(AdminMenu.find_group!("gao_notes"), "gao_note_list")
+    end
+
+    test "matches Scout routes to the service menu item" do
+      assert AdminMenu.active_id(nil, "/scout") == "scout_dashboard"
+      assert AdminMenu.active_id(nil, "/scout/jobs") == "scout_dashboard"
+      assert AdminMenu.group_open?(AdminMenu.find_group!("scout"), "scout_dashboard")
     end
   end
 

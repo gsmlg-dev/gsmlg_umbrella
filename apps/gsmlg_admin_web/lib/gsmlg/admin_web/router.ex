@@ -41,6 +41,10 @@ defmodule GSMLG.AdminWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  pipeline :admin_bearer_auth do
+    plug(GSMLG.AdminWeb.Plugs.AdminBearerAuth)
+  end
+
   pipeline :mcp_admin_api do
     plug(:accepts, ["json"])
     plug(GSMLG.AdminWeb.Plugs.GaoNoteMCPAuth)
@@ -127,6 +131,8 @@ defmodule GSMLG.AdminWeb.Router do
     live("/commander/:id/shell", CommanderLive.ShowLive, :shell)
     live("/commander/:id/:tab", CommanderLive.ShowLive, :show)
 
+    live("/scout", ScoutLive.DashboardLive, :index)
+
     live("/mnesia", MnesiaLive.Index, :index)
 
     live("/github", GithubLive.Index, :index)
@@ -170,6 +176,14 @@ defmodule GSMLG.AdminWeb.Router do
 
     get("/blogs", BlogController, :index)
     get("/blogs/:id", BlogController, :show)
+  end
+
+  scope "/api/scout", GSMLG.AdminWeb do
+    pipe_through([:api, :admin_bearer_auth])
+
+    post("/fetch", ScoutFetchController, :create)
+    post("/fetch/sync", ScoutFetchController, :sync)
+    get("/fetch/:job_id", ScoutFetchController, :show)
   end
 
   scope "/mcp" do

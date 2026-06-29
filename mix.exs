@@ -39,6 +39,7 @@ defmodule GSMLG.Umbrella.MixProject do
           steps: [&build_assets/1, :assemble, :tar],
           applications: [
             gsmlg: :permanent,
+            gsmlg_scout_server: :permanent,
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ]
@@ -46,6 +47,7 @@ defmodule GSMLG.Umbrella.MixProject do
         gsmlg_umbrella_standalone: [
           applications: [
             gsmlg: :permanent,
+            gsmlg_scout_server: :permanent,
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ],
@@ -59,6 +61,14 @@ defmodule GSMLG.Umbrella.MixProject do
                   "https://github.com/Gao-OS/otp-release/releases/download/main/OTP-27.1.2-linux-amd64.tar.gz"
               ]
             ]
+          ]
+        ],
+        gsmlg_scout_agent: [
+          include_executables_for: [:unix],
+          steps: [:assemble, :tar],
+          applications: [
+            gsmlg_scout: :permanent,
+            gsmlg_scout_agent: :permanent
           ]
         ]
       ]

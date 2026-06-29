@@ -114,6 +114,13 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           ]
         },
         %{
+          id: "scout",
+          title: "Scout",
+          items: [
+            %{id: "scout_dashboard", label: "Scout Dashboard", path: "/scout"}
+          ]
+        },
+        %{
           id: "caddy",
           title: "Caddy",
           items: [

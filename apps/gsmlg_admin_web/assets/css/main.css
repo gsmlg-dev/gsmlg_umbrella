@@ -294,3 +294,143 @@ body > .phx-connected {
     padding-bottom: 0;
   }
 }
+
+@layer components {
+  .scout-page {
+    @apply flex flex-col gap-4 p-4 md:p-6;
+  }
+
+  .scout-header {
+    @apply flex flex-col gap-3 border-b border-base-300 pb-4 lg:flex-row lg:items-center lg:justify-between;
+  }
+
+  .scout-header h1 {
+    @apply text-lg font-semibold text-base-content;
+  }
+
+  .scout-summary {
+    @apply grid grid-cols-2 gap-2 sm:grid-cols-4;
+  }
+
+  .scout-stat {
+    @apply min-w-24 border border-base-300 bg-base-100 px-3 py-2 text-right;
+    border-radius: 4px;
+  }
+
+  .scout-stat strong {
+    @apply block font-mono text-lg leading-tight text-base-content;
+  }
+
+  .scout-stat span {
+    @apply text-xs text-base-content/60;
+  }
+
+  .scout-fetch {
+    @apply border border-base-300 bg-base-100 p-3;
+    border-radius: 4px;
+  }
+
+  .scout-fetch-form {
+    @apply grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-start;
+  }
+
+  .scout-grid {
+    @apply grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem];
+  }
+
+  .scout-panel {
+    @apply min-w-0 border border-base-300 bg-base-100;
+    border-radius: 4px;
+  }
+
+  .scout-panel-heading {
+    @apply flex items-center justify-between gap-3 border-b border-base-300 px-3 py-2;
+  }
+
+  .scout-panel-heading h2 {
+    @apply text-sm font-semibold text-base-content;
+  }
+
+  .scout-panel-heading span {
+    @apply text-xs text-base-content/60;
+  }
+
+  .scout-job-list,
+  .scout-agent-list {
+    @apply divide-y divide-base-300;
+  }
+
+  .scout-empty {
+    @apply px-3 py-6 text-center text-sm text-base-content/50;
+  }
+
+  .scout-job-row,
+  .scout-agent-row {
+    @apply px-3 py-3;
+  }
+
+  .scout-job-main {
+    @apply flex min-w-0 flex-wrap items-center gap-2;
+  }
+
+  .scout-agent-head {
+    @apply mb-2 flex min-w-0 items-center justify-between gap-2;
+  }
+
+  .scout-url {
+    @apply min-w-0 flex-1 truncate text-sm text-primary hover:underline;
+  }
+
+  .scout-status {
+    @apply inline-flex shrink-0 items-center border px-2 py-0.5 font-mono text-[0.68rem] uppercase leading-none;
+    border-radius: 999px;
+  }
+
+  .scout-status-ok {
+    @apply border-success/30 bg-success/10 text-success;
+  }
+
+  .scout-status-running {
+    @apply border-info/30 bg-info/10 text-info;
+  }
+
+  .scout-status-queued {
+    @apply border-warning/30 bg-warning/10 text-warning;
+  }
+
+  .scout-status-error {
+    @apply border-error/30 bg-error/10 text-error;
+  }
+
+  .scout-meta {
+    @apply mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-base-content/60;
+  }
+
+  .scout-error {
+    @apply mt-2 text-sm text-error;
+  }
+
+  .scout-muted {
+    @apply truncate text-xs text-base-content/50;
+  }
+
+  .scout-job-markdown-fullscreen {
+    @apply max-h-[70vh] overflow-auto;
+  }
+
+  .scout-modal-title {
+    @apply flex min-w-0 items-center gap-2 pr-8;
+  }
+
+  .scout-modal-title span:last-child {
+    @apply truncate;
+  }
+
+  .scout-modal-body {
+    @apply min-w-0;
+  }
+
+  .scout-modal-footer {
+    @apply flex justify-end;
+  }
+}
