@@ -108,6 +108,28 @@ defmodule GSMLG.Scout.Server.JobManagerTest do
     assert_received {:published_attempt, 2}
   end
 
+  test "synchronous fetch waits for the normalized job timeout" do
+    Application.put_env(:gsmlg_scout_server, :job_publisher, __MODULE__.NoResultPublisher)
+
+    Application.put_env(:gsmlg_scout, :settings, %{
+      "general" => %{"request_timeout_ms" => 10},
+      "fetch" => %{
+        "default_timeout_ms" => 1_050,
+        "max_timeout_ms" => 1_100
+      }
+    })
+
+    started_at = System.monotonic_time(:millisecond)
+
+    assert {:error, %{type: "timeout", message: "fetch timed out", retryable: true}} =
+             GSMLG.Scout.Server.fetch_sync(%{
+               "url" => "https://example.com/slow",
+               "timeout_ms" => 1_050
+             })
+
+    assert System.monotonic_time(:millisecond) - started_at >= 1_000
+  end
+
   test "wraps publisher exceptions as structured dispatch failures" do
     Application.put_env(:gsmlg_scout_server, :job_publisher, __MODULE__.RaisingPublisher)
 
@@ -129,6 +151,42 @@ defmodule GSMLG.Scout.Server.JobManagerTest do
     })
 
     assert [%{agent_id: "agent-1", status: "healthy"}] = GSMLG.Scout.Server.list_agents()
+  end
+
+  test "prunes stale agent heartbeats by server receipt time" do
+    Phoenix.PubSub.subscribe(GSMLG.PubSub, "gsmlg_scout:agents")
+
+    stale_agent_timestamp =
+      DateTime.utc_now()
+      |> DateTime.add(-60, :second)
+      |> DateTime.to_iso8601()
+
+    stale_server_timestamp =
+      DateTime.utc_now()
+      |> DateTime.add(-60, :second)
+      |> DateTime.to_iso8601()
+
+    GSMLG.Scout.Server.AgentRegistry.update_heartbeat(%{
+      "agent_id" => "agent-stale",
+      "region" => "test",
+      "status" => "healthy",
+      "running_jobs" => 0,
+      "capacity" => 12,
+      "version" => "0.1.0",
+      "timestamp" => stale_agent_timestamp
+    })
+
+    assert_receive {:agent_updated, %{agent_id: "agent-stale"}}
+
+    assert [%{agent_id: "agent-stale", timestamp: ^stale_agent_timestamp}] =
+             GSMLG.Scout.Server.list_agents()
+
+    :sys.replace_state(GSMLG.Scout.Server.AgentRegistry, fn state ->
+      update_in(state["agent-stale"].last_seen_at, fn _last_seen_at -> stale_server_timestamp end)
+    end)
+
+    assert [] = GSMLG.Scout.Server.list_agents()
+    assert_receive {:agent_removed, %{agent_id: "agent-stale", capacity: 12}}
   end
 
   defp assert_job_status(job_id, expected) do
@@ -173,6 +231,10 @@ defmodule GSMLG.Scout.Server.JobManagerTest do
 
       :ok
     end
+  end
+
+  defmodule NoResultPublisher do
+    def publish_job(_job), do: :ok
   end
 
   defmodule RetryThenFailPublisher do

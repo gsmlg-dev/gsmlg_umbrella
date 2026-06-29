@@ -26,10 +26,8 @@ defmodule GSMLG.AdminWeb.ScoutFetchController do
   def sync(conn, params) do
     case Server.fetch_sync(params) do
       {:ok, %Result{} = result} ->
-        status = if result.ok, do: :ok, else: :unprocessable_entity
-
         conn
-        |> put_status(status)
+        |> put_status(result_status(result))
         |> json(Result.to_map(result))
 
       {:error, error} ->
@@ -43,9 +41,15 @@ defmodule GSMLG.AdminWeb.ScoutFetchController do
     |> json(%{error: error})
   end
 
+  defp result_status(%Result{ok: true}), do: :ok
+  defp result_status(%Result{error: %{type: "timeout"}}), do: :gateway_timeout
+  defp result_status(%Result{error: %{"type" => "timeout"}}), do: :gateway_timeout
+  defp result_status(%Result{}), do: :unprocessable_entity
+
   defp status_for(%{type: "not_found"}), do: :not_found
   defp status_for(%{type: "invalid_url"}), do: :unprocessable_entity
   defp status_for(%{type: "unsupported_protocol"}), do: :unprocessable_entity
   defp status_for(%{type: "blocked_target"}), do: :unprocessable_entity
+  defp status_for(%{type: "timeout"}), do: :gateway_timeout
   defp status_for(_error), do: :internal_server_error
 end

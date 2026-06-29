@@ -20,7 +20,7 @@ defmodule GSMLG.ScoutAgent.MixProject do
   def application do
     [
       mod: {GSMLG.Scout.Agent.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:inets, :logger, :runtime_tools, :ssl]
     ]
   end
 

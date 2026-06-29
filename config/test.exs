@@ -66,7 +66,8 @@ config :gsmlg, :claude_tesla_adapter, Tesla.Mock
 
 config :gsmlg_scout_agent,
   force_enabled: true,
-  lightpanda_adapter: GSMLG.Scout.Test.FakeLightpanda
+  lightpanda_adapter: GSMLG.Scout.Test.FakeLightpanda,
+  redirect_guard: GSMLG.Scout.Test.AllowRedirectGuard
 
 config :phoenix, :plug_init_mode, :runtime
 config :phoenix, :sort_verified_routes_query_params, true

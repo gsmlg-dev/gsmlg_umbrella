@@ -3,6 +3,8 @@ defmodule GSMLG.Scout.Settings do
   Pure settings access for Scout core.
   """
 
+  @default_allowed_schemes ["http", "https"]
+
   @default_settings %{
     "general" => %{
       "instance_name" => "Scout",
@@ -50,7 +52,7 @@ defmodule GSMLG.Scout.Settings do
       "lightpanda_path" => "lightpanda"
     },
     "security" => %{
-      "allowed_schemes" => ["http", "https"],
+      "allowed_schemes" => @default_allowed_schemes,
       "redirect_limit" => 5,
       "blocked_cidrs" => [
         "0.0.0.0/8",
@@ -103,6 +105,8 @@ defmodule GSMLG.Scout.Settings do
     }
   }
 
+  @default_blocked_cidrs Map.fetch!(Map.fetch!(@default_settings, "security"), "blocked_cidrs")
+
   def get do
     :gsmlg_scout
     |> Application.get_env(:settings, %{})
@@ -115,6 +119,8 @@ defmodule GSMLG.Scout.Settings do
     raw
     |> deep_stringify_keys()
     |> then(&deep_merge(@default_settings, &1))
+    |> enforce_allowed_schemes()
+    |> enforce_blocked_cidrs()
     |> normalize_agent_id()
   end
 
@@ -127,6 +133,32 @@ defmodule GSMLG.Scout.Settings do
         "#{settings["agent"]["region"]}-agent-#{System.get_env("HOSTNAME") || "local"}"
 
     put_in(settings, ["agent", "id"], id)
+  end
+
+  defp enforce_allowed_schemes(settings) do
+    configured =
+      settings
+      |> get_in(["security", "allowed_schemes"])
+      |> List.wrap()
+      |> Enum.map(&to_string/1)
+      |> Enum.map(&String.downcase/1)
+      |> Enum.filter(&(&1 in @default_allowed_schemes))
+
+    put_in(settings, ["security", "allowed_schemes"], configured)
+  end
+
+  defp enforce_blocked_cidrs(settings) do
+    configured =
+      settings
+      |> get_in(["security", "blocked_cidrs"])
+      |> List.wrap()
+      |> Enum.map(&to_string/1)
+
+    put_in(
+      settings,
+      ["security", "blocked_cidrs"],
+      Enum.uniq(@default_blocked_cidrs ++ configured)
+    )
   end
 
   defp blank_to_nil(value) when is_binary(value) do

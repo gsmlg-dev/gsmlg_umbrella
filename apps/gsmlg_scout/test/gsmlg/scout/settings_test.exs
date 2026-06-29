@@ -1,6 +1,7 @@
 defmodule GSMLG.Scout.SettingsTest do
   use ExUnit.Case, async: false
 
+  alias GSMLG.Scout.Fetch.Job
   alias GSMLG.Scout.Settings
 
   setup do
@@ -32,6 +33,41 @@ defmodule GSMLG.Scout.SettingsTest do
     assert settings["fetch"]["retry"]["max_attempts"] == 2
     assert settings["agent"]["id"] == "test-agent-1"
     assert settings["rabbitmq"]["queues"]["jobs"] == "scout.fetch.jobs"
+  end
+
+  test "configured blocked CIDRs cannot narrow the built-in SSRF denylist" do
+    Application.put_env(:gsmlg_scout, :settings, %{
+      security: %{blocked_cidrs: ["127.0.0.0/8", "203.0.113.0/24"]}
+    })
+
+    blocked_cidrs = Settings.get()["security"]["blocked_cidrs"]
+
+    assert "0.0.0.0/8" in blocked_cidrs
+    assert "::/128" in blocked_cidrs
+    assert "203.0.113.0/24" in blocked_cidrs
+    assert Enum.count(blocked_cidrs, &(&1 == "127.0.0.0/8")) == 1
+  end
+
+  test "configured URL schemes cannot widen the HTTP boundary" do
+    Application.put_env(:gsmlg_scout, :settings, %{
+      security: %{allowed_schemes: ["HTTP", "https", "file", "ftp"]}
+    })
+
+    assert Settings.get()["security"]["allowed_schemes"] == ["http", "https"]
+  end
+
+  test "short configured CIDR list still blocks unspecified targets" do
+    Application.put_env(:gsmlg_scout, :settings, %{
+      security: %{blocked_cidrs: ["127.0.0.0/8"]}
+    })
+
+    settings = Settings.get()
+
+    assert {:error, %{type: "blocked_target"}} =
+             Job.new(%{"url" => "http://0.0.0.0:4000"}, settings)
+
+    assert {:error, %{type: "blocked_target"}} =
+             Job.new(%{"url" => "http://[::]/"}, settings)
   end
 
   test "falls back to environment agent id when configured id is blank" do

@@ -30,8 +30,9 @@ defmodule GSMLG.Scout.Server.JobManager do
   end
 
   def fetch_sync(params) do
-    timeout_ms = Settings.get()["general"]["request_timeout_ms"]
-    GenServer.call(__MODULE__, {:fetch_sync, params}, timeout_ms + 1_000)
+    with {:ok, job} <- Job.new(params) do
+      GenServer.call(__MODULE__, {:fetch_sync, job}, job.timeout_ms + 1_000)
+    end
   end
 
   @impl true
@@ -55,27 +56,21 @@ defmodule GSMLG.Scout.Server.JobManager do
     end
   end
 
-  def handle_call({:fetch_sync, params}, from, state) do
-    case Job.new(params) do
-      {:ok, job} ->
-        entry = new_entry(job, "queued")
-        state = state |> put_entry(entry) |> put_waiter(job.job_id, from)
-        broadcast(entry)
+  def handle_call({:fetch_sync, %Job{} = job}, from, state) do
+    entry = new_entry(job, "queued")
+    state = state |> put_entry(entry) |> put_waiter(job.job_id, from)
+    broadcast(entry)
 
-        case safe_dispatch(job) do
-          :ok ->
-            Process.send_after(self(), {:sync_timeout, job.job_id}, job.timeout_ms)
-            {:noreply, state}
+    case safe_dispatch(job) do
+      :ok ->
+        Process.send_after(self(), {:sync_timeout, job.job_id}, job.timeout_ms)
+        {:noreply, state}
 
-          {:error, reason} ->
-            failed = fail_entry(entry, dispatch_error(reason))
-            GenServer.reply(from, {:error, failed.error})
-            state = state |> put_entry_and_broadcast(failed) |> delete_waiter(job.job_id)
-            {:noreply, state}
-        end
-
-      {:error, error} ->
-        {:reply, {:error, error}, state}
+      {:error, reason} ->
+        failed = fail_entry(entry, dispatch_error(reason))
+        GenServer.reply(from, {:error, failed.error})
+        state = state |> put_entry_and_broadcast(failed) |> delete_waiter(job.job_id)
+        {:noreply, state}
     end
   end
 

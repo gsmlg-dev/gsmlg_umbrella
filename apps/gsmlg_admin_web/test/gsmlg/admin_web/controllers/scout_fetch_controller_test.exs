@@ -11,6 +11,7 @@ defmodule GSMLG.AdminWeb.ScoutFetchControllerTest do
     previous_publisher = Application.get_env(:gsmlg_scout_server, :job_publisher)
     previous_test_pid = Application.get_env(:gsmlg_scout_server, :test_pid)
     previous_dns_resolver = Application.get_env(:gsmlg_scout, :dns_resolver)
+    previous_settings = Application.get_env(:gsmlg_scout, :settings)
 
     Application.put_env(:gsmlg_scout_server, :job_publisher, __MODULE__.Publisher)
     Application.put_env(:gsmlg_scout_server, :test_pid, self())
@@ -22,6 +23,7 @@ defmodule GSMLG.AdminWeb.ScoutFetchControllerTest do
       restore_env(:gsmlg_scout_server, :job_publisher, previous_publisher)
       restore_env(:gsmlg_scout_server, :test_pid, previous_test_pid)
       restore_env(:gsmlg_scout, :dns_resolver, previous_dns_resolver)
+      restore_env(:gsmlg_scout, :settings, previous_settings)
       reset_scout_state()
     end)
 
@@ -75,6 +77,40 @@ defmodule GSMLG.AdminWeb.ScoutFetchControllerTest do
              "ok" => false,
              "error" => %{"type" => "fetch_failed", "message" => "upstream failed"}
            } = json_response(conn, 422)
+  end
+
+  test "sync returns 504 for expected fetch timeouts", %{conn: conn} do
+    Application.put_env(:gsmlg_scout_server, :job_publisher, __MODULE__.NoResultPublisher)
+
+    Application.put_env(:gsmlg_scout, :settings, %{
+      "general" => %{"request_timeout_ms" => 10},
+      "fetch" => %{"default_timeout_ms" => 20, "max_timeout_ms" => 50}
+    })
+
+    conn =
+      conn
+      |> authenticated_conn()
+      |> post(~p"/api/scout/fetch/sync", %{
+        url: "https://example.com/timeout",
+        timeout_ms: 20
+      })
+
+    assert %{"error" => %{"type" => "timeout", "message" => "fetch timed out"}} =
+             json_response(conn, 504)
+  end
+
+  test "sync returns 504 for completed timeout results", %{conn: conn} do
+    Application.put_env(:gsmlg_scout_server, :job_publisher, __MODULE__.TimeoutPublisher)
+
+    conn =
+      conn
+      |> authenticated_conn()
+      |> post(~p"/api/scout/fetch/sync", %{url: "https://example.com/agent-timeout"})
+
+    assert %{
+             "ok" => false,
+             "error" => %{"type" => "timeout", "message" => "agent fetch timed out"}
+           } = json_response(conn, 504)
   end
 
   test "show returns not found for an unknown fetch job", %{conn: conn} do
@@ -158,6 +194,26 @@ defmodule GSMLG.AdminWeb.ScoutFetchControllerTest do
             type: "fetch_failed",
             message: "upstream failed",
             retryable: false
+          })
+        )
+      end)
+
+      :ok
+    end
+  end
+
+  defmodule NoResultPublisher do
+    def publish_job(_job), do: :ok
+  end
+
+  defmodule TimeoutPublisher do
+    def publish_job(job) do
+      Task.start(fn ->
+        ResultHandler.handle_result(
+          Result.failure(job, %{
+            type: "timeout",
+            message: "agent fetch timed out",
+            retryable: true
           })
         )
       end)

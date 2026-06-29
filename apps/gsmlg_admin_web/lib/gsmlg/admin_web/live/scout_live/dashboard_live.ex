@@ -73,6 +73,15 @@ defmodule GSMLG.AdminWeb.ScoutLive.DashboardLive do
      |> stream_insert(:agents, agent)}
   end
 
+  def handle_info({:agent_removed, agent}, socket) do
+    agents = Server.list_agents()
+
+    {:noreply,
+     socket
+     |> assign_agent_stats(agents)
+     |> stream_delete(:agents, agent)}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
