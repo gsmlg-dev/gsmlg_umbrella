@@ -39,7 +39,7 @@ defmodule GSMLG.Web.Router do
   end
 
   pipeline :api do
-    plug(:accepts, ["json"])
+    plug(:put_format, :json)
   end
 
   pipeline :mcp_public_api do
@@ -150,6 +150,12 @@ defmodule GSMLG.Web.Router do
     post("/blogs", BlogController, :create)
     put("/blogs/:id", BlogController, :update)
     delete("/blogs/:id", BlogController, :delete)
+  end
+
+  scope "/api", GSMLG.Web do
+    pipe_through(:api)
+
+    match(:*, "/*request_path", ApiErrorController, :not_found)
   end
 
   # fallback not_found
