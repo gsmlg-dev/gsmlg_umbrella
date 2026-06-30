@@ -89,8 +89,29 @@ defmodule GSMLG.Umbrella.MixProject do
     [
       # run `mix setup` in all child apps
       setup: ["cmd mix setup"],
-      prerelease: [&build_assets/1]
+      prerelease: [&build_assets/1],
+      "service.run": ["phx.server"],
+      "commander.run": ["app.config", &run_commander/1],
+      "scout_agent.run": ["app.config", &run_scout_agent/1]
     ]
+  end
+
+  defp run_commander(_args), do: run_apps([:gsmlg_commander])
+
+  defp run_scout_agent(_args) do
+    Application.put_env(:gsmlg_scout_agent, :force_enabled, true)
+    run_apps([:gsmlg_scout, :gsmlg_scout_agent])
+  end
+
+  defp run_apps(apps) do
+    Enum.each(apps, fn app ->
+      case Application.ensure_all_started(app) do
+        {:ok, _started} -> :ok
+        {:error, reason} -> Mix.raise("failed to start #{app}: #{inspect(reason)}")
+      end
+    end)
+
+    Process.sleep(:infinity)
   end
 
   defp build_assets(release) do

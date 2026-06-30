@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec docker run --pull=never --rm --network host lightpanda/browser:nightly lightpanda "$@"

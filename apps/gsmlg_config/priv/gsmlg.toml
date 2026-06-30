@@ -78,7 +78,7 @@ default_region = "local"
 request_timeout_ms = 30000
 
 [scout.rabbitmq]
-enabled = false
+enabled = true
 url = "amqp://guest:guest@localhost:5672"
 
 [scout.rabbitmq.queues]
@@ -116,7 +116,7 @@ heartbeat_interval_ms = 10000
 capacity = 16
 browser_instances = 2
 page_concurrency = 16
-lightpanda_path = "lightpanda"
+lightpanda_path = "scripts/lightpanda-docker"
 
 [scout.security]
 allowed_schemes = ["http", "https"]

@@ -193,6 +193,26 @@ defmodule GSMLG.Scout.AgentTest do
              })
   end
 
+  test "Lightpanda CLI accepts relative executable paths" do
+    Application.put_env(:gsmlg_scout_agent, :redirect_guard, __MODULE__.StaticPageRedirectGuard)
+
+    script_dir =
+      Path.join(System.tmp_dir!(), "scout-agent-#{System.unique_integer([:positive])}")
+
+    script_path = Path.join(script_dir, "relative-lightpanda")
+    File.mkdir_p!(script_dir)
+    File.write!(script_path, "#!/usr/bin/env sh\nprintf '# Relative Lightpanda\\n'\n")
+    File.chmod!(script_path, 0o755)
+
+    on_exit(fn -> File.rm_rf(script_dir) end)
+
+    assert {:ok, %{markdown: "# Relative Lightpanda\n", title: "Relative Lightpanda"}} =
+             GSMLG.Scout.Agent.Lightpanda.CLI.fetch("https://example.com", %{
+               "lightpanda_path" => Path.relative_to_cwd(script_path),
+               "timeout_ms" => 1_000
+             })
+  end
+
   test "Lightpanda pool uses configured browser_instances for pool pressure" do
     previous_adapter = Application.get_env(:gsmlg_scout_agent, :lightpanda_adapter)
 
@@ -336,6 +356,21 @@ defmodule GSMLG.Scout.AgentTest do
          message:
            "redirect target failed Scout security validation: private network targets are blocked",
          retryable: false
+       }}
+    end
+  end
+
+  defmodule StaticPageRedirectGuard do
+    @behaviour GSMLG.Scout.Agent.RedirectGuard
+
+    @impl true
+    def fetch(url, _settings, _timeout_ms) do
+      {:ok,
+       %{
+         body: "<html><body><h1>Relative Lightpanda</h1></body></html>",
+         content_type: "text/html; charset=utf-8",
+         final_url: url,
+         status_code: 200
        }}
     end
   end

@@ -51,6 +51,9 @@ defmodule GSMLG.Scout.Agent.Lightpanda.CLI do
       Path.type(executable) == :absolute and File.exists?(executable) ->
         {:ok, executable}
 
+      path = relative_executable_path(executable) ->
+        {:ok, path}
+
       path = System.find_executable(executable) ->
         {:ok, path}
 
@@ -61,6 +64,13 @@ defmodule GSMLG.Scout.Agent.Lightpanda.CLI do
            message: "Lightpanda executable was not found: #{executable}",
            retryable: true
          }}
+    end
+  end
+
+  defp relative_executable_path(executable) do
+    if Path.type(executable) == :relative and executable != Path.basename(executable) do
+      path = Path.expand(executable)
+      if File.exists?(path), do: path
     end
   end
 
