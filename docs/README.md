@@ -1,5 +1,9 @@
 # GSMLG Umbrella — Documentation
 
+## Deployment
+
+- [Deployment Guide](deploy.md)
+
 ## Categories
 
 ### [Commander](commander/)
