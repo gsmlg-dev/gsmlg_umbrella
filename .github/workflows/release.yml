@@ -135,10 +135,13 @@ jobs:
           mix prerelease
           mix release gsmlg_umbrella
           mix release gsmlg_commander
+          mix release gsmlg_scout_agent
           cp -r _build/prod/rel/gsmlg_umbrella gsmlg
           tar zcf gsmlg.tar.gz gsmlg
           cp -r _build/prod/rel/gsmlg_commander commander
           tar zcf commander.tar.gz commander
+          cp -r _build/prod/rel/gsmlg_scout_agent gsmlg_scout_agent
+          tar zcf gsmlg_scout_agent.tar.gz gsmlg_scout_agent
 
       - name: Upload release tarballs
         uses: actions/upload-artifact@v7
