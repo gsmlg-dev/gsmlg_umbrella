@@ -73,7 +73,7 @@ in
     set -euo pipefail
     mix ecto.create --quiet
     mix ecto.migrate
-    exec mix phx.server
+    exec mix service.run
   '';
 
   enterShell = ''
