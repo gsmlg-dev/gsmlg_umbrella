@@ -109,6 +109,11 @@ defmodule GSMLG.Web.Router do
 
     get("/blogs", BlogController, :index)
     get("/blogs/:id", BlogController, :show)
+    get("/gao_notes", GaoNoteController, :index)
+    get("/gao_notes/tags", GaoNoteController, :tags)
+    get("/gao_notes/:id", GaoNoteController, :show)
+    get("/gao_notes/:id/references", GaoNoteController, :references)
+    get("/gao_notes/:id/assets", GaoNoteController, :assets)
 
     get("/toolbox/ip_geo", ToolboxController, :ip_geo_json)
     get("/toolbox/whois", ToolboxController, :whois_json)

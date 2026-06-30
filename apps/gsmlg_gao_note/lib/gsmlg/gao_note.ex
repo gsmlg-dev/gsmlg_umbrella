@@ -19,23 +19,23 @@ defmodule GSMLG.GaoNote do
   end
 
   def list_notes(opts \\ []) do
-    opts = normalize_opts(opts)
+    list_notes_from(Note, opts)
+  end
 
-    Note
-    |> filter_by_creator(opts[:creator])
-    |> filter_by_search(opts[:search])
-    |> filter_by_tag(opts[:tag])
-    |> apply_order(opts[:order_by])
-    |> limit(^limit_value(opts[:limit]))
-    |> offset(^offset_value(opts[:offset]))
-    |> preload([:tags])
-    |> Repo.all()
+  def list_public_notes(opts \\ []) do
+    list_notes_from(public_note_query(), opts)
   end
 
   def search_notes(query, opts \\ []) do
     opts
     |> Keyword.put(:search, query)
     |> list_notes()
+  end
+
+  def search_public_notes(query, opts \\ []) do
+    opts
+    |> Keyword.put(:search, query)
+    |> list_public_notes()
   end
 
   def get_note(id) do
@@ -453,6 +453,20 @@ defmodule GSMLG.GaoNote do
   defp filter_by_creator(query, nil), do: query
   defp filter_by_creator(query, ""), do: query
   defp filter_by_creator(query, creator), do: where(query, [n], n.creator == ^creator)
+
+  defp list_notes_from(queryable, opts) do
+    opts = normalize_opts(opts)
+
+    queryable
+    |> filter_by_creator(opts[:creator])
+    |> filter_by_search(opts[:search])
+    |> filter_by_tag(opts[:tag])
+    |> apply_order(opts[:order_by])
+    |> limit(^limit_value(opts[:limit]))
+    |> offset(^offset_value(opts[:offset]))
+    |> preload([:tags])
+    |> Repo.all()
+  end
 
   defp filter_by_search(query, nil), do: query
   defp filter_by_search(query, ""), do: query
