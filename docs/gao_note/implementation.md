@@ -85,7 +85,7 @@ Add dependencies:
 # apps/gsmlg_gao_note/mix.exs
 {:gsmlg, in_umbrella: true},
 {:gsmlg_storage, in_umbrella: true},
-{:anubis_mcp, "~> 1.6"}
+{:backplane_mcp_protocol, "~> 1.6"}
 ```
 
 Then add GaoNote to both web apps:
@@ -98,7 +98,7 @@ Then add GaoNote to both web apps:
 {:gsmlg_gao_note, in_umbrella: true}
 ```
 
-Preferred dependency boundary: expose thin GaoNote-owned plugs that delegate to `Anubis.Server.Transport.StreamableHTTP.Plug`, so the web apps depend only on `gsmlg_gao_note`. Only add `{:anubis_mcp, "~> 1.6"}` to a web app if its router references Anubis modules directly.
+Preferred dependency boundary: expose thin GaoNote-owned plugs that delegate to `Backplane.McpProtocol.Server.Transport.StreamableHTTP.Plug`, so the web apps depend only on `gsmlg_gao_note`. Only add `{:backplane_mcp_protocol, "~> 1.6"}` to a web app if its router references Backplane MCP modules directly.
 
 Do not put GaoNote directly in `GSMLG.Content` because `gsmlg_storage` already depends on `gsmlg`, and GaoNote needs to depend on storage. A separate app avoids a dependency cycle. 
 
@@ -595,15 +595,15 @@ GET /notes/:id
 
 ## 10. MCP implementation
 
-Use [`anubis_mcp`][4] as the MCP protocol and transport implementation. Anubis provides the protocol-level server implementation, Streamable HTTP transport, Phoenix/Plug integration, tool/resource dispatch, schemas, and MCP response framing. GaoNote code should implement only the application layer: note tools, resource loaders, authorization policy, presentation, auditing, and domain calls.
+Use [`backplane_mcp_protocol`][4] as the MCP protocol and transport implementation. Backplane MCP Protocol provides the protocol-level server implementation, Streamable HTTP transport, Phoenix/Plug integration, tool/resource dispatch, schemas, and MCP response framing. GaoNote code should implement only the application layer: note tools, resource loaders, authorization policy, presentation, auditing, and domain calls.
 
-Do **not** hand-roll JSON-RPC parsing, `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, Streamable HTTP session behavior, or MCP response envelopes. Those belong to Anubis.
+Do **not** hand-roll JSON-RPC parsing, `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, Streamable HTTP session behavior, or MCP response envelopes. Those belong to Backplane MCP Protocol.
 
-Follow the Anubis application pattern: define GaoNote servers with `use Anubis.Server`, define tools/resources as Anubis components, and mount them through the Anubis Streamable HTTP Plug, either directly or through GaoNote-owned wrapper plugs. ([Anubis MCP][5])
+Follow the Backplane MCP Protocol application pattern: define GaoNote servers with `use Backplane.McpProtocol.Server`, define tools/resources as Backplane MCP components, and mount them through the Backplane Streamable HTTP Plug, either directly or through GaoNote-owned wrapper plugs. ([Backplane MCP Protocol][5])
 
 ### 10.1 Target transport
 
-Use Anubis Streamable HTTP for both web apps.
+Use Backplane Streamable HTTP for both web apps.
 
 MCP uses JSON-RPC messages and defines stdio plus Streamable HTTP as standard transports. Streamable HTTP requires a single endpoint path that supports POST and GET. ([Model Context Protocol][1])
 
@@ -621,7 +621,7 @@ gsmlg_admin_web:
 
 ### 10.2 Shared MCP modules
 
-Use two Anubis servers with shared application components:
+Use two Backplane MCP servers with shared application components:
 
 ```text
 GSMLG.GaoNote.MCP.ReadOnlyServer
@@ -673,7 +673,7 @@ GSMLG.Web.Application starts GSMLG.GaoNote.MCP.ReadOnlyServer before the public 
 GSMLG.AdminWeb.Application starts GSMLG.GaoNote.MCP.AdminServer before the admin Endpoint
 ```
 
-The server modules and tool/resource components still live in `gsmlg_gao_note`; the web apps supervise the concrete Anubis server process they expose so each endpoint owns its MCP runtime.
+The server modules and tool/resource components still live in `gsmlg_gao_note`; the web apps supervise the concrete Backplane MCP server process they expose so each endpoint owns its MCP runtime.
 
 Routing should forward to GaoNote-owned plugs:
 
@@ -681,13 +681,13 @@ Routing should forward to GaoNote-owned plugs:
 forward("/mcp/gao_note", GSMLG.GaoNote.MCP.ReadOnlyPlug)
 ```
 
-Those plugs should delegate to `Anubis.Server.Transport.StreamableHTTP.Plug` with the appropriate server module. Admin Web forwards the same path to `GSMLG.GaoNote.MCP.AdminPlug` inside the dedicated authenticated MCP pipeline.
+Those plugs should delegate to `Backplane.McpProtocol.Server.Transport.StreamableHTTP.Plug` with the appropriate server module. Admin Web forwards the same path to `GSMLG.GaoNote.MCP.AdminPlug` inside the dedicated authenticated MCP pipeline.
 
-### 10.3 Anubis-owned protocol methods
+### 10.3 Backplane-owned protocol methods
 
-Anubis must handle MCP protocol methods, including `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/read`.
+Backplane MCP Protocol must handle MCP protocol methods, including `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/read`.
 
-GaoNote modules register Anubis components for tools and resources. They should define input schemas, execute domain calls, and return Anubis responses. They should not match directly on JSON-RPC method names.
+GaoNote modules register Backplane MCP components for tools and resources. They should define input schemas, execute domain calls, and return Backplane MCP responses. They should not match directly on JSON-RPC method names.
 
 MCP resources are URI-identified data exposed by servers, and clients use `resources/list` and `resources/read` to discover and retrieve them. ([Model Context Protocol][2])
 
@@ -767,7 +767,7 @@ Suggested initial cap:
 
 ### 10.7 MCP output shape
 
-Every Anubis tool should return both human-readable text and structured content through Anubis response helpers.
+Every Backplane MCP tool should return both human-readable text and structured content through Backplane response helpers.
 
 Example shape:
 
@@ -791,7 +791,7 @@ Example shape:
 }
 ```
 
-The MCP tools spec supports structured content and recommends pairing it with serialized text for backward compatibility. ([Model Context Protocol][3]) Use Anubis response helpers rather than building this map manually.
+The MCP tools spec supports structured content and recommends pairing it with serialized text for backward compatibility. ([Model Context Protocol][3]) Use Backplane response helpers rather than building this map manually.
 
 ---
 
@@ -832,7 +832,7 @@ pipeline :mcp_admin_api do
 end
 ```
 
-The authenticated actor must be passed into Anubis execution context/frame metadata so admin tool components can enforce actor presence and write audit logs.
+The authenticated actor must be passed into Backplane MCP execution context/frame metadata so admin tool components can enforce actor presence and write audit logs.
 
 MCP Streamable HTTP servers must validate `Origin`, should implement proper authentication, and should bind local servers to localhost when running locally. ([Model Context Protocol][1])
 
@@ -849,7 +849,7 @@ sanitize returned content
 return structured errors
 ```
 
-The MCP tools spec also requires tool input validation, access controls, rate limiting, and output sanitization on servers. ([Model Context Protocol][3]) Prefer Anubis component schemas for input validation; keep GaoNote authorization checks in `GSMLG.GaoNote.MCP.Authorization`.
+The MCP tools spec also requires tool input validation, access controls, rate limiting, and output sanitization on servers. ([Model Context Protocol][3]) Prefer Backplane component schemas for input validation; keep GaoNote authorization checks in `GSMLG.GaoNote.MCP.Authorization`.
 
 ---
 
@@ -956,13 +956,13 @@ non-authenticated user cannot access /gao_notes/notes
 
 ### 13.3 MCP tests
 
-Do not unit-test Anubis protocol internals. Test GaoNote Anubis server/component registration, authorization policy, domain behavior, and router integration through the Streamable HTTP endpoint.
+Do not unit-test Backplane protocol internals. Test GaoNote Backplane server/component registration, authorization policy, domain behavior, and router integration through the Streamable HTTP endpoint.
 
 Public MCP:
 
 ```text
-Anubis read-only server registers only read-only tools/resources
-POST /mcp/gao_note handles initialize through Anubis
+Backplane read-only server registers only read-only tools/resources
+POST /mcp/gao_note handles initialize through Backplane
 tools/list contains read-only tools only
 tools/call gao_note.search returns notes without publishing metadata
 tools/call gao_note.get reads by id
@@ -974,7 +974,7 @@ Admin MCP:
 
 ```text
 requires Authorization bearer token
-Anubis admin server registers CRUD tools/resources
+Backplane admin server registers CRUD tools/resources
 tools/list contains CRUD tools
 create/update/delete work
 create_tag works
@@ -982,7 +982,7 @@ set_tags works
 HTTP tools/call accepts set_tags with existing and new tag names
 add/remove reference works
 attach/detach asset works
-invalid input returns Anubis validation failure or tool isError
+invalid input returns Backplane validation failure or tool isError
 ```
 
 ### 13.4 Storage safety tests
@@ -1062,15 +1062,15 @@ Deliver:
 ```text
 GSMLG.GaoNote.MCP.ReadOnlyServer
 GSMLG.GaoNote.MCP.ReadOnlyPlug
-read-only Anubis tool components
-read-only Anubis resource components
+read-only Backplane tool components
+read-only Backplane resource components
 gsmlg_web route mount
 ```
 
 Exit criteria:
 
 ```text
-public Anubis MCP endpoint can search/read notes
+public Backplane MCP endpoint can search/read notes
 public MCP cannot mutate data
 ```
 
@@ -1092,7 +1092,7 @@ audit logs
 Exit criteria:
 
 ```text
-admin Anubis MCP endpoint supports full GaoNote CRUD
+admin Backplane MCP endpoint supports full GaoNote CRUD
 admin MCP requires bearer auth
 mutating calls are audited
 ```
@@ -1128,12 +1128,12 @@ GaoNote is complete when:
 3. Assets are S3-backed through GSMLG.Storage.
 4. Admin note UI is available at /gao_notes/notes; tag, reference, and asset index UIs are available at /gao_notes/tags, /gao_notes/references, and /gao_notes/assets.
 5. GaoNote appears under Admin Web → Content only.
-6. gsmlg_web exposes read-only MCP only through an Anubis Streamable HTTP endpoint.
-7. gsmlg_admin_web exposes authenticated full CRUD MCP through an Anubis Streamable HTTP endpoint.
+6. gsmlg_web exposes read-only MCP only through a Backplane Streamable HTTP endpoint.
+7. gsmlg_admin_web exposes authenticated full CRUD MCP through a Backplane Streamable HTTP endpoint.
 8. Read-only MCP cannot mutate notes.
 9. Admin MCP cannot be used without bearer-token auth.
 10. Tests cover domain, admin UI, MCP, and storage visibility behavior.
-11. GaoNote does not implement a custom MCP protocol dispatcher; protocol and transport are delegated to `anubis_mcp`.
+11. GaoNote does not implement a custom MCP protocol dispatcher; protocol and transport are delegated to `backplane_mcp_protocol`.
 ```
 
 ---
@@ -1145,7 +1145,7 @@ feat(gao_note): add domain app and schemas
 feat(gao_note): add notes context CRUD
 feat(gao_note): add tags and references
 feat(gao_note): add storage-backed assets
-feat(gao_note): add Anubis MCP servers and components
+feat(gao_note): add Backplane MCP servers and components
 feat(admin): add GaoNote LiveView management
 feat(admin): add GaoNote to Content menu
 feat(web): mount read-only GaoNote MCP endpoint
@@ -1153,10 +1153,10 @@ feat(admin): mount authenticated GaoNote MCP endpoint
 test(gao_note): cover domain and MCP behavior
 ```
 
-Final architectural decision: keep GaoNote as a separate umbrella app with `GSMLG.GaoNote` as the context boundary, and use `anubis_mcp` for MCP protocol and transport. This keeps the storage dependency clean, keeps web adapters thin, and lets both MCP surfaces share one Anubis-based application implementation with different authorization modes.
+Final architectural decision: keep GaoNote as a separate umbrella app with `GSMLG.GaoNote` as the context boundary, and use `backplane_mcp_protocol` for MCP protocol and transport. This keeps the storage dependency clean, keeps web adapters thin, and lets both MCP surfaces share one Backplane-based application implementation with different authorization modes.
 
 [1]: https://modelcontextprotocol.io/specification/2025-06-18/basic/transports "Transports - Model Context Protocol"
 [2]: https://modelcontextprotocol.io/specification/2025-06-18/server/resources "Resources - Model Context Protocol"
 [3]: https://modelcontextprotocol.io/specification/2025-06-18/server/tools "Tools - Model Context Protocol"
-[4]: https://hex.pm/packages/anubis_mcp "anubis_mcp on Hex"
-[5]: https://github.com/zoedsoupe/anubis-mcp "Anubis MCP on GitHub"
+[4]: https://hex.pm/packages/backplane_mcp_protocol "backplane_mcp_protocol on Hex"
+[5]: https://github.com/gsmlg-opt/backplane "Backplane MCP Protocol on GitHub"

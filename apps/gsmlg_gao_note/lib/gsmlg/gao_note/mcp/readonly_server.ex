@@ -1,14 +1,14 @@
 defmodule GSMLG.GaoNote.MCP.ReadOnlyServer do
   @moduledoc """
-  Read-only GaoNote MCP server backed by Anubis.
+  Read-only GaoNote MCP server backed by Backplane MCP Protocol.
   """
 
-  use Anubis.Server,
+  use Backplane.McpProtocol.Server,
     name: "gsmlg-gao-note-readonly",
     version: "0.1.0",
     capabilities: [:tools, :resources]
 
-  alias Anubis.Server.Frame
+  alias Backplane.McpProtocol.Server.Frame
   alias GSMLG.GaoNote.MCP.{Resources, Tools}
 
   component(Tools.Search, name: "gao_note.search")

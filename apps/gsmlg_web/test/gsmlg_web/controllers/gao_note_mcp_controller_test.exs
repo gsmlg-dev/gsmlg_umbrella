@@ -17,7 +17,7 @@ defmodule GSMLG.Web.GaoNoteMCPControllerTest do
     :ok
   end
 
-  test "public MCP initialize is handled by Anubis Streamable HTTP", %{conn: conn} do
+  test "public MCP initialize is handled by Backplane Streamable HTTP", %{conn: conn} do
     conn =
       conn
       |> put_req_header("accept", "application/json")

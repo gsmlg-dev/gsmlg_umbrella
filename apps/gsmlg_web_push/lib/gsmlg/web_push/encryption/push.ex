@@ -29,7 +29,7 @@ defmodule GSMLG.WebPush.Encryption.Push do
 
   ## Return value
 
-  Returns the result of `HTTPoison.post`
+  Returns `{:ok, %HTTP.Response{}}` or `{:error, reason}` from `HTTP.fetch/2`.
   """
   @spec send_web_push(
           message :: binary,
@@ -37,7 +37,7 @@ defmodule GSMLG.WebPush.Encryption.Push do
           auth_token :: binary | nil,
           ttl :: integer
         ) ::
-          {:ok, any} | {:error, atom}
+          {:ok, HTTP.Response.t()} | {:error, term()}
   def send_web_push(message, subscription, auth_token \\ nil, ttl \\ 0)
 
   def send_web_push(_message, _subscription, _auth_token, ttl)
@@ -74,7 +74,9 @@ defmodule GSMLG.WebPush.Encryption.Push do
       ]
     ]
 
-    http_client().post(endpoint, payload.ciphertext, headers, options)
+    endpoint
+    |> fetch(method: :post, body: payload.ciphertext, headers: headers, ssl: options[:ssl])
+    |> await_http_response()
   end
 
   def send_web_push(_message, _subscription, _auth_token, _ttl) do
@@ -105,6 +107,34 @@ defmodule GSMLG.WebPush.Encryption.Push do
   end
 
   defp http_client() do
-    Application.get_env(:gsmlg_web_push, :http_client, HTTPoison)
+    Application.get_env(:gsmlg_web_push, :http_client, HTTP)
   end
+
+  defp fetch(endpoint, options) do
+    client = http_client()
+
+    case ensure_http_client_started(client) do
+      :ok -> client.fetch(endpoint, options)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp ensure_http_client_started(HTTP) do
+    case Application.ensure_all_started(:http_fetch) do
+      {:ok, _apps} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp ensure_http_client_started(_client), do: :ok
+
+  defp await_http_response(%HTTP.Promise{} = promise) do
+    case HTTP.Promise.await(promise) do
+      %HTTP.Response{} = response -> {:ok, response}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp await_http_response({:ok, %HTTP.Response{}} = result), do: result
+  defp await_http_response({:error, _reason} = error), do: error
 end

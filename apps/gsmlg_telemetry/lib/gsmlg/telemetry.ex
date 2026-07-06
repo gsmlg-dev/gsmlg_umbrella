@@ -29,8 +29,7 @@ defmodule GSMLG.Telemetry do
   # Check if the telemetry application is started
   # This prevents warnings during early startup (e.g., runtime.exs config loading)
   defp telemetry_available? do
-    # Check if telemetry ETS table exists (created when telemetry app starts)
-    :ets.whereis(:telemetry_handler_table) != :undefined
+    Code.ensure_loaded?(:telemetry) and function_exported?(:telemetry, :execute, 3)
   end
 
   defp safe_telemetry_execute(event_name, measurements, metadata) do

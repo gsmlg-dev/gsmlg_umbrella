@@ -34,7 +34,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     assert json_response(conn, 401)["message"] =~ "no_resource"
   end
 
-  test "admin MCP initialize is handled by Anubis Streamable HTTP", %{conn: conn} do
+  test "admin MCP initialize is handled by Backplane Streamable HTTP", %{conn: conn} do
     conn =
       conn
       |> authenticated_conn()

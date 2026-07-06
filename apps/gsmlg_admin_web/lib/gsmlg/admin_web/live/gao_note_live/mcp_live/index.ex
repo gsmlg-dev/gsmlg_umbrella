@@ -1,7 +1,7 @@
 defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
-  alias Anubis.Server.Response
+  alias Backplane.McpProtocol.Server.Response
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.MCP.Tools
   alias Phoenix.LiveView.AsyncResult

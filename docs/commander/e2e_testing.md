@@ -1138,7 +1138,7 @@ Create the standalone E2E testing application structure:
    cd apps && mix new gsmlg_commander_test --sup
    
 2. Configure mix.exs:
-   - deps: {:gsmlg_commander, in_umbrella: true}, {:gsmlg_toml, in_umbrella: true}, {:websockex, "~> 0.4"}
+   - deps: {:gsmlg_commander, in_umbrella: true}, {:gsmlg_toml, in_umbrella: true}, {:http_web_socket, "~> 0.11.0"}
    - Add escript configuration for CLI
 
 3. Create lib/gsmlg_commander_test.ex:

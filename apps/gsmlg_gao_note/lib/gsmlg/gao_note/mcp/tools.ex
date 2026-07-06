@@ -1,7 +1,7 @@
 defmodule GSMLG.GaoNote.MCP.Tools do
   @moduledoc false
 
-  alias Anubis.Server.Response
+  alias Backplane.McpProtocol.Server.Response
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.MCP.Authorization
   alias GSMLG.GaoNote.Presenter
@@ -539,7 +539,7 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
     quote do
       @moduledoc unquote(description)
 
-      use Anubis.Server.Component, type: :tool
+      use Backplane.McpProtocol.Server.Component, type: :tool
 
       unquote(schema_block)
 

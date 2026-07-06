@@ -30,19 +30,22 @@ defmodule Fixtures do
   end
 end
 
-defmodule HTTPoisonSandbox do
+defmodule HTTPFetchSandbox do
   def start_link(_) do
     Agent.start_link(fn -> [] end, name: __MODULE__)
   end
 
-  def request(method, url, body \\ "", headers \\ [], options \\ []) do
-    req = %{method: method, url: url, body: body, headers: headers, options: options}
-    Agent.update(__MODULE__, &[req | &1])
-    {:ok, %HTTPoison.Response{status_code: 201, body: ""}}
-  end
+  def fetch(url, options \\ []) do
+    req = %{
+      method: Keyword.fetch!(options, :method),
+      url: url,
+      body: Keyword.get(options, :body, ""),
+      headers: Keyword.get(options, :headers, %{}),
+      options: options
+    }
 
-  def post(url, body, headers, options \\ []) do
-    request(:post, url, body, headers, options)
+    Agent.update(__MODULE__, &[req | &1])
+    {:ok, HTTP.Response.new(status: 201, body: "")}
   end
 
   def requests() do

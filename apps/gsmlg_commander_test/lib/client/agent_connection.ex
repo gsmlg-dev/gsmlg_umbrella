@@ -2,7 +2,7 @@ defmodule GSMLG.CommanderTest.Client.AgentConnection do
   @moduledoc """
   WebSocket connection handler for test agents.
 
-  Uses WebSockex to maintain a WebSocket connection to the Commander server.
+  Uses HTTP.WebSocket to maintain a WebSocket connection to the Commander server.
   Handles:
   - Connection establishment
   - Frame sending/receiving
@@ -11,11 +11,24 @@ defmodule GSMLG.CommanderTest.Client.AgentConnection do
 
   """
 
-  use WebSockex
+  use GenServer
+
+  alias HTTP.WebSocket
+  alias HTTP.WebSocket.Event.{Close, Error, Message, Open}
 
   require Logger
 
-  defstruct [:url, :token, :parent, :connected]
+  defstruct [
+    :url,
+    :token,
+    :parent,
+    :socket,
+    :web_socket_client,
+    web_socket_options: [],
+    connected: false
+  ]
+
+  @capabilities [:shell, :files, :processes, :system_info]
 
   @doc """
   Connect to the Commander server.
@@ -28,24 +41,18 @@ defmodule GSMLG.CommanderTest.Client.AgentConnection do
 
   """
   @spec connect(String.t(), String.t(), pid()) :: {:ok, pid()} | {:error, term()}
-  def connect(url, token, parent) do
+  @spec connect(String.t(), String.t(), pid(), keyword()) :: {:ok, pid()} | {:error, term()}
+  def connect(url, token, parent, opts \\ []) do
     state = %__MODULE__{
-      url: url,
+      url: url_with_token(url, token),
       token: token,
       parent: parent,
+      web_socket_client: Keyword.get(opts, :web_socket_client, WebSocket),
+      web_socket_options: Keyword.get(opts, :web_socket_options, []),
       connected: false
     }
 
-    # Add token to URL as query parameter
-    url_with_token = "#{url}?token=#{URI.encode_www_form(token)}"
-
-    case WebSockex.start_link(url_with_token, __MODULE__, state) do
-      {:ok, pid} ->
-        {:ok, pid}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+    GenServer.start_link(__MODULE__, state)
   end
 
   @doc """
@@ -53,7 +60,7 @@ defmodule GSMLG.CommanderTest.Client.AgentConnection do
   """
   @spec disconnect(pid()) :: :ok
   def disconnect(pid) do
-    WebSockex.cast(pid, :disconnect)
+    GenServer.cast(pid, :disconnect)
   end
 
   @doc """
@@ -84,72 +91,138 @@ defmodule GSMLG.CommanderTest.Client.AgentConnection do
   """
   @spec send_frame(pid(), map()) :: :ok
   def send_frame(pid, message) do
-    WebSockex.cast(pid, {:send_frame, message})
+    GenServer.cast(pid, {:send_frame, message})
   end
 
-  # WebSockex callbacks
+  # GenServer callbacks
 
   @impl true
-  def handle_connect(_conn, state) do
-    # Send authentication message
-    auth_message = %{
-      type: "auth",
-      token: state.token,
-      capabilities: [:shell, :files, :processes, :system_info],
-      hostname: hostname()
-    }
+  def init(state) do
+    options = Keyword.put(state.web_socket_options, :owner, self())
 
-    frame = {:text, Jason.encode!(auth_message)}
-    {:reply, frame, %{state | connected: true}}
-  end
-
-  @impl true
-  def handle_frame({:text, msg}, state) do
-    case Jason.decode(msg) do
-      {:ok, message} ->
-        send(state.parent, {:ws_message, message})
-        {:ok, state}
-
-      {:error, _reason} ->
-        Logger.warning("Failed to decode WebSocket message: #{msg}")
-        {:ok, state}
+    case state.web_socket_client.new(state.url, [], options) do
+      {:error, reason} -> {:stop, reason}
+      socket -> {:ok, %{state | socket: socket}}
     end
   end
 
   @impl true
-  def handle_frame({:binary, _data}, state) do
-    # Handle binary frames if needed
-    {:ok, state}
+  def handle_info({WebSocket, _socket, %Open{}}, state) do
+    :ok = send_json(state, auth_message(state))
+    {:noreply, %{state | connected: true}}
+  end
+
+  def handle_info({WebSocket, _socket, %Message{data: msg}}, state) when is_binary(msg) do
+    case Jason.decode(msg) do
+      {:ok, message} ->
+        send(state.parent, {:ws_message, message})
+        {:noreply, state}
+
+      {:error, _reason} ->
+        Logger.warning("Failed to decode WebSocket message: #{msg}")
+        {:noreply, state}
+    end
+  end
+
+  def handle_info({WebSocket, _socket, %Message{}}, state) do
+    {:noreply, state}
+  end
+
+  def handle_info({WebSocket, _socket, %Error{reason: reason}}, state) do
+    Logger.warning("WebSocket error: #{inspect(reason)}")
+    {:noreply, state}
+  end
+
+  def handle_info({WebSocket, _socket, %Close{} = event}, state) do
+    send(state.parent, {:ws_disconnected, disconnect_reason(event)})
+    {:noreply, %{state | connected: false, socket: nil}}
+  end
+
+  def handle_info(_msg, state) do
+    {:noreply, state}
   end
 
   @impl true
   def handle_cast({:send_frame, message}, state) do
-    frame = {:text, Jason.encode!(message)}
-    {:reply, frame, state}
+    :ok = send_json(state, message)
+    {:noreply, state}
   end
 
-  @impl true
   def handle_cast(:disconnect, state) do
-    {:close, state}
+    :ok = close_socket(state)
+    {:stop, :normal, %{state | connected: false, socket: nil}}
   end
 
   @impl true
-  def handle_disconnect(%{reason: reason}, state) do
-    send(state.parent, {:ws_disconnected, reason})
-    {:ok, state}
-  end
+  def terminate(_reason, state) do
+    if state.connected do
+      :ok = close_socket(state)
+    end
 
-  @impl true
-  def handle_info(_msg, state) do
-    {:ok, state}
-  end
-
-  @impl true
-  def terminate(_reason, _state) do
     :ok
   end
 
   # Private helpers
+
+  defp auth_message(state) do
+    %{
+      type: "auth",
+      token: state.token,
+      capabilities: @capabilities,
+      hostname: hostname()
+    }
+  end
+
+  defp send_json(%{socket: nil}, _message), do: :ok
+
+  defp send_json(state, message) do
+    case state.web_socket_client.send(state.socket, Jason.encode!(message)) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to send WebSocket message: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp close_socket(%{socket: nil}), do: :ok
+
+  defp close_socket(state) do
+    case state.web_socket_client.close(state.socket) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to close WebSocket connection: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp disconnect_reason(%Close{reason: reason}) when is_binary(reason) and reason != "" do
+    reason
+  end
+
+  defp disconnect_reason(%Close{code: code}) do
+    code
+  end
+
+  defp url_with_token(url, token) do
+    uri = URI.parse(url)
+
+    query =
+      uri.query
+      |> decode_query()
+      |> Map.put("token", token)
+      |> URI.encode_query()
+
+    uri
+    |> Map.put(:query, query)
+    |> URI.to_string()
+  end
+
+  defp decode_query(nil), do: %{}
+  defp decode_query(query), do: URI.decode_query(query)
 
   defp hostname do
     {:ok, hostname} = :inet.gethostname()

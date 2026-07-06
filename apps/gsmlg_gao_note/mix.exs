@@ -30,7 +30,7 @@ defmodule GSMLG.GaoNote.MixProject do
     [
       {:gsmlg, in_umbrella: true},
       {:gsmlg_storage, in_umbrella: true},
-      {:anubis_mcp, "~> 1.6"},
+      {:backplane_mcp_protocol, "~> 1.6"},
       {:jason, "~> 1.2"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

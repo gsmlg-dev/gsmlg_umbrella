@@ -1,7 +1,7 @@
 defmodule GSMLG.GaoNote.MCPTest do
   use GSMLG.GaoNote.DataCase, async: false
 
-  alias Anubis.Server.{Frame, Response}
+  alias Backplane.McpProtocol.Server.{Frame, Response}
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Asset, Log, MCPSetting, Note, Reference, Tag, Tagging}
   alias GSMLG.Accounts.User
@@ -20,7 +20,7 @@ defmodule GSMLG.GaoNote.MCPTest do
   end
 
   describe "readonly mode" do
-    test "read-only Anubis server registers read-only tools only" do
+    test "read-only Backplane server registers read-only tools only" do
       names = tool_names(GSMLG.GaoNote.MCP.ReadOnlyServer)
 
       assert "gao_note.search" in names
@@ -72,7 +72,7 @@ defmodule GSMLG.GaoNote.MCPTest do
   end
 
   describe "admin mode" do
-    test "admin Anubis server registers CRUD tools" do
+    test "admin Backplane server registers CRUD tools" do
       names = tool_names(GSMLG.GaoNote.MCP.AdminServer)
 
       assert "gao_note.create" in names

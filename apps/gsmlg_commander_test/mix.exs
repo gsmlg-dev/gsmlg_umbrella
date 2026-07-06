@@ -39,7 +39,7 @@ defmodule GSMLG.CommanderTest.MixProject do
       {:gsmlg_config, in_umbrella: true},
 
       # WebSocket client for test agents
-      {:websockex, "~> 0.4"},
+      {:http_web_socket, "~> 0.11.0"},
 
       # JSON encoding/decoding
       {:jason, "~> 1.4"},

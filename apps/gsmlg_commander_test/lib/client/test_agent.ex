@@ -18,7 +18,7 @@ defmodule GSMLG.CommanderTest.Client.TestAgent do
       │                                                             │
       │  ┌─────────────────┐       ┌─────────────────────────────┐ │
       │  │  AgentConnection │◄─────►│  WebSocket to Server        │ │
-      │  │  (WebSockex)     │       │  ws://localhost:14000/agent │ │
+      │  │  (HTTP.WebSocket)│       │  ws://localhost:14000/agent │ │
       │  └─────────────────┘       └─────────────────────────────┘ │
       │          │                                                  │
       │          ▼                                                  │

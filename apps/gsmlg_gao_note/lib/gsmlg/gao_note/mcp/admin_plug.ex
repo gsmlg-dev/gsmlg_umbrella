@@ -3,7 +3,7 @@ defmodule GSMLG.GaoNote.MCP.AdminPlug do
 
   @behaviour Plug
 
-  alias Anubis.Server.Transport.StreamableHTTP
+  alias Backplane.McpProtocol.Server.Transport.StreamableHTTP
 
   @impl Plug
   def init(opts) do

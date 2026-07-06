@@ -1,14 +1,14 @@
 defmodule GSMLG.GaoNote.MCP.AdminServer do
   @moduledoc """
-  Authenticated administrative GaoNote MCP server backed by Anubis.
+  Authenticated administrative GaoNote MCP server backed by Backplane MCP Protocol.
   """
 
-  use Anubis.Server,
+  use Backplane.McpProtocol.Server,
     name: "gsmlg-gao-note-admin",
     version: "0.1.0",
     capabilities: [:tools, :resources]
 
-  alias Anubis.Server.Frame
+  alias Backplane.McpProtocol.Server.Frame
   alias GSMLG.GaoNote.MCP.{Resources, Tools}
 
   component(Tools.Search, name: "gao_note.search")

@@ -1,8 +1,8 @@
 defmodule GSMLG.GaoNote.MCP.Resources do
   @moduledoc false
 
-  alias Anubis.MCP.Error
-  alias Anubis.Server.Response
+  alias Backplane.McpProtocol.MCP.Error
+  alias Backplane.McpProtocol.Server.Response
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.Presenter
 
@@ -87,7 +87,7 @@ end
 defmodule GSMLG.GaoNote.MCP.Resources.Note do
   @moduledoc "Read GaoNote content."
 
-  use Anubis.Server.Component,
+  use Backplane.McpProtocol.Server.Component,
     type: :resource,
     uri_template: "gaonote://notes/{id}",
     name: "gao_note.note",
@@ -100,7 +100,7 @@ end
 defmodule GSMLG.GaoNote.MCP.Resources.NoteMetadata do
   @moduledoc "Read GaoNote metadata."
 
-  use Anubis.Server.Component,
+  use Backplane.McpProtocol.Server.Component,
     type: :resource,
     uri_template: "gaonote://notes/{id}/metadata",
     name: "gao_note.note.metadata",
@@ -113,7 +113,7 @@ end
 defmodule GSMLG.GaoNote.MCP.Resources.NoteReferences do
   @moduledoc "Read GaoNote web references."
 
-  use Anubis.Server.Component,
+  use Backplane.McpProtocol.Server.Component,
     type: :resource,
     uri_template: "gaonote://notes/{id}/references",
     name: "gao_note.note.references",
@@ -126,7 +126,7 @@ end
 defmodule GSMLG.GaoNote.MCP.Resources.NoteAssets do
   @moduledoc "Read GaoNote asset metadata."
 
-  use Anubis.Server.Component,
+  use Backplane.McpProtocol.Server.Component,
     type: :resource,
     uri_template: "gaonote://notes/{id}/assets",
     name: "gao_note.note.assets",
@@ -139,7 +139,7 @@ end
 defmodule GSMLG.GaoNote.MCP.Resources.Tag do
   @moduledoc "Read a GaoNote tag."
 
-  use Anubis.Server.Component,
+  use Backplane.McpProtocol.Server.Component,
     type: :resource,
     uri_template: "gaonote://tags/{id}",
     name: "gao_note.tag",
@@ -152,7 +152,7 @@ end
 defmodule GSMLG.GaoNote.MCP.Resources.Asset do
   @moduledoc "Read GaoNote asset metadata."
 
-  use Anubis.Server.Component,
+  use Backplane.McpProtocol.Server.Component,
     type: :resource,
     uri_template: "gaonote://assets/{asset_id}",
     name: "gao_note.asset",

@@ -25,7 +25,7 @@ defmodule GSMLG.WebPush.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:httpoison, "~> 2.0"},
+      {:http_fetch, "~> 0.10"},
       {:jose, "~> 1.11"},
       {:jason, "~> 1.2"},
       {:phoenix, "~> 1.8"},

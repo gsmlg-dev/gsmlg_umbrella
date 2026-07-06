@@ -33,7 +33,7 @@ defmodule GSMLG.IpGeo.MixProject do
   defp deps do
     [
       {:mmdb2_decoder, "~> 3.0"},
-      {:http_fetch, "~> 0.8", runtime: false},
+      {:http_fetch, "~> 0.10", runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
