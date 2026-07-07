@@ -326,6 +326,43 @@ defmodule GSMLG.Config.SetupTest do
       assert commander_config[:platform_url] == "ws://localhost:4111/socket"
       assert commander_config[:platform_key] == "test_key"
     end
+
+    test "derives platform URL from umbrella server URL and configures features" do
+      config = %{
+        start: true,
+        server: false,
+        name: "test_commander",
+        umbrella_server_url: "https://admin.gsmlg.org",
+        platform_key: "test_key",
+        features: ["pty"]
+      }
+
+      Setup.setup_commander(config)
+
+      commander_config = Application.get_env(:gsmlg_commander, GSMLG.Commander)
+      assert commander_config[:start] == true
+      assert commander_config[:server] == false
+      assert commander_config[:name] == "test_commander"
+      assert commander_config[:platform_url] == "wss://admin.gsmlg.org/commander-socket/websocket"
+      assert commander_config[:platform_key] == "test_key"
+      assert commander_config[:features] == [:pty]
+    end
+
+    test "preserves explicit platform URL over umbrella server URL" do
+      config = %{
+        start: true,
+        name: "test_commander",
+        umbrella_server_url: "https://admin.gsmlg.org",
+        platform_url: "wss://admin.gsmlg.net/custom/socket",
+        platform_key: "test_key",
+        features: ["pty"]
+      }
+
+      Setup.setup_commander(config)
+
+      commander_config = Application.get_env(:gsmlg_commander, GSMLG.Commander)
+      assert commander_config[:platform_url] == "wss://admin.gsmlg.net/custom/socket"
+    end
   end
 
   describe "setup_cluster/1" do

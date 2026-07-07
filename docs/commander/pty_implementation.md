@@ -202,14 +202,16 @@ GSMLG.CommandPlatform.Supervisor
 
 ## Configuration
 
-### Agent Configuration (commander.toml)
+### Agent Configuration (`~/.config/gsmlg/commander/config.toml`)
 
 ```toml
 [commander]
 start = true
+server = false
 name = "Agent Name"
-platform_url = "ws://localhost:4111/commander-socket/websocket"
+umbrella_server_url = "http://localhost:4111"
 platform_key = "your-hmac-key"
+features = ["pty"]
 ```
 
 ### Environment Variables

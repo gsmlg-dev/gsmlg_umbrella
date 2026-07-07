@@ -6,7 +6,7 @@ defmodule GSMLG.Commander.Agent.Config do
   1. Path provided explicitly
   2. `/etc/commander/agent.toml`
   3. `~/.config/commander/agent.toml`
-  4. `./commander.toml`
+  4. `./agent.toml`
 
   ## Configuration Schema
 
@@ -46,7 +46,7 @@ defmodule GSMLG.Commander.Agent.Config do
   @config_paths [
     "/etc/commander/agent.toml",
     "~/.config/commander/agent.toml",
-    "./commander.toml"
+    "./agent.toml"
   ]
 
   @default_config %{

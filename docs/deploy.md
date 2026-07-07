@@ -5,7 +5,7 @@ This guide covers deployment for the three release targets in this umbrella:
 | Release | Purpose | Artifact |
 | --- | --- | --- |
 | `gsmlg_umbrella` | Main service: public web, admin web, database-backed domain services, Scout server, Commander platform | `gsmlg.tar.gz` or Docker image |
-| `gsmlg_commander` | Remote Commander worker that connects back to the admin platform over WebSocket | `commander.tar.gz` |
+| `gsmlg_commander` | Remote Commander worker that connects back to the admin platform over WebSocket | `commander-<os>-<arch>.tar.gz` |
 | `gsmlg_scout_agent` | Remote Scout fetch worker that consumes RabbitMQ jobs and runs Lightpanda | `gsmlg_scout_agent.tar.gz` |
 
 The GitHub `release` workflow builds all three tarballs and the umbrella Docker image. Nix flakes also expose all three packages.
@@ -41,7 +41,12 @@ gh workflow run release.yml \
 The workflow publishes:
 
 - `gsmlg.tar.gz`
-- `commander.tar.gz`
+- `commander-linux-amd64.tar.gz`
+- `commander-linux-arm64.tar.gz`
+- `commander-macos-amd64.tar.gz`
+- `commander-macos-arm64.tar.gz`
+- `commander-windows-amd64.tar.gz`
+- `commander-freebsd-amd64.tar.gz`
 - `gsmlg_scout_agent.tar.gz`
 - `ghcr.io/gsmlg-dev/gsmlg-umbrella:v<version>`
 - `ghcr.io/gsmlg-dev/gsmlg-umbrella:latest`
@@ -83,12 +88,15 @@ All releases load TOML configuration through `GSMLG_CONFIG_PATH`.
 export GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml
 ```
 
-If `GSMLG_CONFIG_PATH` is unset, the release falls back to the embedded files from `apps/gsmlg_config/priv/`.
+If `GSMLG_CONFIG_PATH` is unset, the `gsmlg_commander` release uses
+`$HOME/.config/gsmlg/commander/config.toml` by default and creates that file when
+it does not exist. Other releases fall back to the embedded files from
+`apps/gsmlg_config/priv/`.
 
 Use separate config files per host when the roles differ:
 
 - `/etc/gsmlg_umbrella.toml` for the main service.
-- `/etc/gsmlg_commander.toml` for Commander workers.
+- `$HOME/.config/gsmlg/commander/config.toml` for Commander workers.
 - `/etc/gsmlg_scout_agent.toml` for Scout agents.
 
 ### Main Service Config
@@ -141,9 +149,11 @@ Commander workers connect outbound to the admin platform:
 ```toml
 [commander]
 start = true
+server = false
 name = "commander-edge-01"
-platform_url = "wss://admin.gsmlg.example.com/commander-socket/websocket"
+umbrella_server_url = "https://admin.gsmlg.example.com"
 platform_key = "CHANGE_ME_SHARED_COMMANDER_KEY"
+features = ["pty"]
 ```
 
 `platform_key` must match the key configured for the admin platform. The worker does not need inbound ports opened.
@@ -247,19 +257,20 @@ docker run --rm \
 
 ```bash
 VERSION=5.6.0
-sudo mkdir -p /opt/gsmlg /etc/gsmlg
-curl -L -o /tmp/commander.tar.gz \
-  "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/commander.tar.gz"
-sudo tar -xzf /tmp/commander.tar.gz -C /opt/gsmlg
-sudo install -m 600 /path/to/gsmlg_commander.toml /etc/gsmlg/gsmlg_commander.toml
+TARGET=linux-amd64
+sudo mkdir -p /opt/gsmlg
+curl -L -o "/tmp/commander-${TARGET}.tar.gz" \
+  "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/commander-${TARGET}.tar.gz"
+sudo tar -xzf "/tmp/commander-${TARGET}.tar.gz" -C /opt/gsmlg
+mkdir -p ~/.config/gsmlg/commander
+install -m 600 /path/to/config.toml ~/.config/gsmlg/commander/config.toml
 
-sudo GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_commander.toml \
-  /opt/gsmlg/commander/bin/gsmlg_commander start
+/opt/gsmlg/commander/bin/gsmlg_commander start
 ```
 
 Expected result:
 
-- The worker opens an outbound WebSocket to `platform_url`.
+- The worker opens an outbound WebSocket derived from `umbrella_server_url`.
 - The admin UI can show the Commander under `/commander`.
 - No inbound firewall rule is required for the Commander worker.
 
@@ -323,7 +334,6 @@ Wants=network-online.target
 [Service]
 User=gsmlg
 WorkingDirectory=/opt/gsmlg/commander
-Environment=GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_commander.toml
 ExecStart=/opt/gsmlg/commander/bin/gsmlg_commander start
 ExecStop=/opt/gsmlg/commander/bin/gsmlg_commander stop
 Restart=on-failure

@@ -68,4 +68,14 @@ defmodule GSMLG.Commander.Test do
       assert GSMLG.Commander.server_mode?()
     end
   end
+
+  describe "configured_features/1" do
+    test "defaults to pty feature" do
+      assert GSMLG.Commander.configured_features([]) == [:pty]
+    end
+
+    test "normalizes supported feature strings" do
+      assert GSMLG.Commander.configured_features(features: ["pty", :pty, "unknown"]) == [:pty]
+    end
+  end
 end

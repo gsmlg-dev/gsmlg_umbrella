@@ -59,6 +59,7 @@ defmodule GSMLG.Commander do
   config :gsmlg_commander, GSMLG.Commander,
     start: false,           # Enable agent mode
     server: true,           # Enable server mode
+    features: [:pty],
     platform_url: "wss://...",
     platform_key: "..."
 
@@ -86,6 +87,8 @@ defmodule GSMLG.Commander do
   use Application
 
   require GSMLG.Telemetry
+
+  @supported_features [:pty]
 
   @impl true
   def start(_type, _args) do
@@ -155,6 +158,24 @@ defmodule GSMLG.Commander do
     Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
   end
 
+  @doc """
+  Returns the Commander features enabled by configuration.
+  """
+  @spec configured_features(keyword()) :: [atom()]
+  def configured_features(config \\ config()) do
+    config
+    |> Keyword.get(:features, @supported_features)
+    |> normalize_features()
+  end
+
+  @doc """
+  Returns true when a Commander feature is enabled.
+  """
+  @spec feature_enabled?(atom(), keyword()) :: boolean()
+  def feature_enabled?(feature, config \\ config()) do
+    feature in configured_features(config)
+  end
+
   # ============================================================================
   # Private Functions
   # ============================================================================
@@ -183,25 +204,43 @@ defmodule GSMLG.Commander do
     # Agent-side children (agent mode)
     agent_children =
       if start_agent do
+        features = configured_features(config)
+
         [
           # Registry for PTY session lookup (local agent)
           {Registry, keys: :unique, name: GSMLG.Commander.LocalSessionRegistry},
-          # Session manager for PTY sessions
-          {GSMLG.Commander.SessionManager, []},
           # WebSocket connection
-          {Phoenix.SocketClient, socket_opts() ++ [name: GSMLG.Commander.Socket]},
-          # Legacy channels (backward compatibility)
-          {GSMLG.Commander.GreatHall, []},
-          {GSMLG.Commander.Office, []},
-          # New PTY terminal channel
-          {GSMLG.Commander.Terminal, [socket: GSMLG.Commander.Socket, name: config[:name]]},
-          # Legacy resource manager (kept for compatibility)
-          {GSMLG.Commander.Resource, []}
+          {Phoenix.SocketClient, socket_opts() ++ [name: GSMLG.Commander.Socket]}
         ]
+        |> Kernel.++(feature_children(features, config))
       else
         []
       end
 
     common_children ++ server_children ++ agent_children
   end
+
+  defp feature_children(features, config) do
+    if :pty in features do
+      [
+        {GSMLG.Commander.SessionManager, []},
+        {GSMLG.Commander.Terminal, [socket: GSMLG.Commander.Socket, name: config[:name]]}
+      ]
+    else
+      []
+    end
+  end
+
+  defp normalize_features(nil), do: @supported_features
+
+  defp normalize_features(features) when is_list(features) do
+    features
+    |> Enum.map(&normalize_feature/1)
+    |> Enum.filter(&(&1 in @supported_features))
+    |> Enum.uniq()
+  end
+
+  defp normalize_feature(feature) when is_atom(feature), do: feature
+  defp normalize_feature("pty"), do: :pty
+  defp normalize_feature(_feature), do: nil
 end

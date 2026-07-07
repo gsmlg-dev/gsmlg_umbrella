@@ -23,14 +23,17 @@ Distributed command execution client for the GSMLG platform. Connects to `gsmlg_
 
 ## Configuration
 
-Configure via `commander.toml` or environment variables:
+Configure via `config.toml` or environment variables. The standalone release uses
+`~/.config/gsmlg/commander/config.toml` by default when `GSMLG_CONFIG_PATH` is not
+set, and creates it automatically when it does not exist.
 
 ```toml
 [commander]
 start = true
 name = "my-commander"
-platform_url = "ws://localhost:4111/commander-socket/websocket"
+umbrella_server_url = "http://localhost:4111"
 platform_key = "your-secret-key"
+features = ["pty"]
 ```
 
 ## Planned: Jido Agent Integration

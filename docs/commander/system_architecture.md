@@ -162,68 +162,22 @@ How operators interact with commanders:
 
 ### Agent Configuration
 
-The Commander agent uses TOML configuration files, parsed by `gsmlg_toml`:
+The standalone Commander release uses GSMLG TOML configuration at
+`~/.config/gsmlg/commander/config.toml` by default. The release creates this file
+automatically when it does not exist:
 
 ```toml
-# /etc/commander/agent.toml (or ~/.config/commander/agent.toml)
-
-[server]
-url = "wss://control.example.com/agent/connect"
-token = "cmdr_tk_your_token_here"
-
-[agent]
-# Optional: defaults to system hostname
-hostname = "web-prod-01"
-# Optional: auto-generated if not specified
-id = "unique-agent-identifier"
-
-[connection]
-heartbeat_interval = 30          # seconds
-reconnect_initial_delay = 1      # seconds
-reconnect_max_delay = 60         # seconds
-reconnect_backoff_multiplier = 2.0
-
-[pty]
-default_shell = "/bin/bash"      # defaults to $SHELL
-default_term = "xterm-256color"
-max_sessions = 10
-idle_timeout = 3600              # seconds (1 hour)
-
-[security]
-allowed_shells = ["/bin/bash", "/bin/zsh", "/bin/sh"]
-command_blocklist = ["rm -rf /", "mkfs", "dd if="]
-
-[limits]
-max_output_rate = 1048576        # bytes/sec
+[commander]
+start = true
+server = false
+name = "commander"
+umbrella_server_url = "https://admin.gsmlg.example.com"
+platform_key = "CHANGE_ME_SHARED_COMMANDER_KEY"
+features = ["pty"]
 ```
 
-Agent loads configuration via:
-
-```elixir
-# lib/gsmlg_commander_agent/config.ex
-defmodule GSMLG.CommanderAgent.Config do
-  @moduledoc "Load agent configuration from TOML file"
-  
-  @config_paths [
-    "/etc/commander/agent.toml",
-    "~/.config/commander/agent.toml",
-    "./commander.toml"
-  ]
-  
-  def load(path \\ nil) do
-    config_path = path || find_config()
-    
-    case GSMLG.TOML.parse_file(config_path) do
-      {:ok, config} -> {:ok, normalize(config)}
-      {:error, reason} -> {:error, {:config_error, reason}}
-    end
-  end
-  
-  defp find_config do
-    Enum.find(@config_paths, &File.exists?(Path.expand(&1)))
-  end
-end
-```
+The `umbrella_server_url` is converted to the Commander WebSocket URL. The only
+supported feature today is `pty`, which enables remote shell sessions.
 
 ---
 

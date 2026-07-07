@@ -21,7 +21,7 @@ defmodule GSMLG.Umbrella.MixProject do
       listeners: [Phoenix.CodeReloader],
       releases: [
         gsmlg_commander: [
-          include_executables_for: [:unix],
+          include_executables_for: [:unix, :windows],
           steps: [:assemble, :tar],
           applications: [
             gsmlg_commander: :permanent

@@ -171,10 +171,18 @@ defmodule GSMLG.Config.Schema do
       default: false,
       doc: "Start the commander service"
     ],
+    server: [
+      type: :boolean,
+      doc: "Start Commander in server mode"
+    ],
     name: [
       type: :string,
       default: "commander",
       doc: "Commander instance name"
+    ],
+    umbrella_server_url: [
+      type: :string,
+      doc: "Umbrella admin server URL used to derive the Commander WebSocket URL"
     ],
     platform_url: [
       type: :string,
@@ -183,6 +191,11 @@ defmodule GSMLG.Config.Schema do
     platform_key: [
       type: :string,
       doc: "Platform authentication key"
+    ],
+    features: [
+      type: {:list, :string},
+      default: ["pty"],
+      doc: "Commander features enabled on this agent"
     ]
   ]
 

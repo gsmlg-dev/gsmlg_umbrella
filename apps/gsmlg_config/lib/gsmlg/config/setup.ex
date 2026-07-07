@@ -193,13 +193,78 @@ defmodule GSMLG.Config.Setup do
   end
 
   def setup_commander(config) do
-    update_env(:gsmlg_commander, GSMLG.Commander,
+    commander_config = [
       start: config[:start] == true,
       name: config[:name],
-      platform_url: config[:platform_url],
-      platform_key: config[:platform_key]
-    )
+      platform_url: commander_platform_url(config),
+      platform_key: config[:platform_key],
+      features: normalize_commander_features(config[:features])
+    ]
+
+    commander_config =
+      if Map.has_key?(config, :server) do
+        Keyword.put(commander_config, :server, config[:server] == true)
+      else
+        commander_config
+      end
+
+    update_env(:gsmlg_commander, GSMLG.Commander, commander_config)
   end
+
+  defp commander_platform_url(%{platform_url: platform_url})
+       when is_binary(platform_url) and platform_url != "" do
+    platform_url
+  end
+
+  defp commander_platform_url(%{umbrella_server_url: umbrella_server_url}) do
+    umbrella_server_url_to_platform_url(umbrella_server_url)
+  end
+
+  defp commander_platform_url(_config), do: nil
+
+  defp umbrella_server_url_to_platform_url(url) when is_binary(url) do
+    url = String.trim(url)
+
+    uri =
+      if URI.parse(url).scheme do
+        URI.parse(url)
+      else
+        URI.parse("http://#{url}")
+      end
+
+    scheme =
+      case uri.scheme do
+        "https" -> "wss"
+        "http" -> "ws"
+        scheme -> scheme
+      end
+
+    path =
+      case uri.path do
+        nil -> "/commander-socket/websocket"
+        "" -> "/commander-socket/websocket"
+        "/" -> "/commander-socket/websocket"
+        path -> path
+      end
+
+    %URI{uri | scheme: scheme, path: path, query: nil, fragment: nil}
+    |> URI.to_string()
+  end
+
+  defp umbrella_server_url_to_platform_url(_url), do: nil
+
+  defp normalize_commander_features(nil), do: [:pty]
+
+  defp normalize_commander_features(features) when is_list(features) do
+    features
+    |> Enum.map(&normalize_commander_feature/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp normalize_commander_feature(feature) when is_atom(feature), do: feature
+  defp normalize_commander_feature("pty"), do: :pty
+  defp normalize_commander_feature(_feature), do: nil
 
   def setup_cluster(config) do
     config = GSMLG.Config.Cluster.normalize(config)
@@ -274,9 +339,13 @@ defmodule GSMLG.Config.Setup do
   end
 
   def deep_merge(old, new) when is_list(old) and is_list(new) do
-    Keyword.merge(old, new, fn _key, val1, val2 ->
-      deep_merge(val1, val2)
-    end)
+    if Keyword.keyword?(old) and Keyword.keyword?(new) do
+      Keyword.merge(old, new, fn _key, val1, val2 ->
+        deep_merge(val1, val2)
+      end)
+    else
+      new
+    end
   end
 
   def deep_merge(%{} = old, %{} = new) do
