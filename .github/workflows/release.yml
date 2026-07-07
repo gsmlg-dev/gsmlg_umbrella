@@ -210,8 +210,7 @@ jobs:
             mix compile
           )
           mix release gsmlg_commander --overwrite --no-compile
-          cp -r _build/prod/rel/gsmlg_commander commander
-          tar zcf "commander-${{ matrix.target }}.tar.gz" commander
+          cp "_build/prod/gsmlg_commander-${RELEASE_VERSION}.tar.gz" "commander-${{ matrix.target }}.tar.gz"
 
       - name: Build Commander release on FreeBSD
         if: ${{ matrix.freebsd == true }}
@@ -242,8 +241,7 @@ jobs:
               mix compile
             )
             mix release gsmlg_commander --overwrite --no-compile
-            cp -r _build/prod/rel/gsmlg_commander commander
-            tar zcf commander-freebsd-amd64.tar.gz commander
+            cp "_build/prod/gsmlg_commander-${RELEASE_VERSION}.tar.gz" commander-freebsd-amd64.tar.gz
 
       - name: Upload Commander release
         uses: actions/upload-artifact@v7
