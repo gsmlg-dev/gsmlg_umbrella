@@ -100,7 +100,7 @@ defmodule GSMLG.Commander.PTYSession do
   end
 
   defp via_tuple(session_id) do
-    {:via, Registry, {GSMLG.Commander.SessionRegistry, session_id}}
+    {:via, Registry, {GSMLG.Commander.LocalSessionRegistry, session_id}}
   end
 
   # Server Callbacks
@@ -401,7 +401,7 @@ defmodule GSMLG.Commander.PTYSession do
       :stdout,
       :stderr,
       :pty,
-      {:pty_echo, true},
+      :pty_echo,
       :monitor,
       {:env, env_list(state.env_vars)},
       {:winsz, {state.dimensions.rows, state.dimensions.cols}}
@@ -415,8 +415,8 @@ defmodule GSMLG.Commander.PTYSession do
       end
 
     case :exec.run(state.command, exec_opts) do
-      {:ok, _exec_pids, os_pid} ->
-        {:ok, self(), os_pid}
+      {:ok, exec_pid, os_pid} ->
+        {:ok, exec_pid, os_pid}
 
       {:error, reason} ->
         {:error, reason}

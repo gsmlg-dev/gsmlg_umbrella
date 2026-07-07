@@ -30,7 +30,7 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
           dimensions: %{rows: integer(), cols: integer()},
           created_at: integer(),
           last_activity: integer(),
-          state: :running | :attached | :detached | :closing | :closed,
+          state: :initializing | :running | :attached | :detached | :closing | :closed,
           exit_code: integer() | nil,
           controller_pid: pid() | nil,
           metadata: map()

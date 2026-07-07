@@ -3,6 +3,8 @@ defmodule GSMLG.Commander.Office do
 
   use SocketClient.Channel
 
+  @join_retry_after 1_000
+
   @doc """
   push event to server
   """
@@ -50,68 +52,27 @@ defmodule GSMLG.Commander.Office do
       }
     )
 
-    {:ok, %{}, {:continue, :join}}
+    {:ok, %{channel: nil}, {:continue, :join}}
   end
 
   @impl true
   def handle_continue(:join, state) do
-    channel_name = office_name()
-
-    GSMLG.Telemetry.info("Office attempting to join channel",
-      metadata: %{
-        module: __MODULE__,
-        operation: "join_channel",
-        channel_name: channel_name
-      }
-    )
-
-    case Phoenix.SocketClient.Channel.join(GSMLG.Commander.Socket, channel_name) do
-      {:ok, response, _channel} ->
-        GSMLG.Telemetry.info("Office successfully joined channel",
-          metadata: %{
-            module: __MODULE__,
-            operation: "join_success",
-            channel_name: channel_name,
-            response: response
-          }
-        )
-
-        Process.send_after(__MODULE__, :ping, 60_000)
-        {:noreply, state}
-
-      {:error, reason} ->
-        GSMLG.Telemetry.error("Office failed to join channel",
-          metadata: %{
-            module: __MODULE__,
-            operation: "join_failed",
-            channel_name: channel_name,
-            error: reason,
-            will_retry: true
-          }
-        )
-
-        GSMLG.Telemetry.debug("Office will rejoin after 15 seconds",
-          metadata: %{
-            module: __MODULE__,
-            operation: "retry_join",
-            channel_name: channel_name,
-            retry_delay: 15_000
-          }
-        )
-
-        Process.sleep(15_000)
-        {:noreply, state, {:continue, :join}}
-    end
+    join_office(state)
   end
 
   @impl true
-  def handle_info(:ping, state) do
-    Process.send_after(__MODULE__, :ping, 60_000)
+  def handle_info(:join, state) do
+    join_office(state)
+  end
+
+  @impl true
+  def handle_info(:ping, %{channel: channel} = state) when is_pid(channel) do
+    Process.send_after(self(), :ping, 60_000)
 
     ping_time = System.system_time(:second)
 
     reply =
-      Phoenix.SocketClient.Channel.push(__MODULE__, "ping", %{
+      Phoenix.SocketClient.Channel.push(channel, "ping", %{
         "message" => "ping",
         "time" => ping_time
       })
@@ -126,6 +87,74 @@ defmodule GSMLG.Commander.Office do
       }
     )
 
+    {:noreply, state}
+  end
+
+  def handle_info(:ping, state), do: join_office(state)
+
+  defp join_office(state) do
+    channel_name = office_name()
+
+    GSMLG.Telemetry.info("Office attempting to join channel",
+      metadata: %{
+        module: __MODULE__,
+        operation: "join_channel",
+        channel_name: channel_name
+      }
+    )
+
+    case Phoenix.SocketClient.Channel.join(GSMLG.Commander.Socket, channel_name) do
+      {:ok, response, channel} ->
+        GSMLG.Telemetry.info("Office successfully joined channel",
+          metadata: %{
+            module: __MODULE__,
+            operation: "join_success",
+            channel_name: channel_name,
+            response: response
+          }
+        )
+
+        Process.send_after(self(), :ping, 60_000)
+        {:noreply, %{state | channel: channel}}
+
+      {:error, {:already_joined, channel}} ->
+        Process.send_after(self(), :ping, 60_000)
+        {:noreply, %{state | channel: channel}}
+
+      {:error, reason} ->
+        schedule_join_retry(reason, channel_name, state)
+    end
+  end
+
+  defp schedule_join_retry(reason, channel_name, state)
+       when reason in [:socket_not_connected, :socket_not_started] do
+    GSMLG.Telemetry.debug("Office waiting for socket before joining channel",
+      metadata: %{
+        module: __MODULE__,
+        operation: "join_waiting_for_socket",
+        channel_name: channel_name,
+        reason: reason,
+        retry_delay: @join_retry_after
+      }
+    )
+
+    Process.send_after(self(), :join, @join_retry_after)
+    {:noreply, state}
+  end
+
+  defp schedule_join_retry(reason, channel_name, state) do
+    GSMLG.Telemetry.error("Office failed to join channel",
+      metadata: %{
+        module: __MODULE__,
+        operation: "join_failed",
+        channel_name: channel_name,
+        error: reason,
+        will_retry: true,
+        retry_delay: @join_retry_after
+      }
+    )
+
+    Process.send_after(self(), :join, @join_retry_after)
     {:noreply, state}
   end
 

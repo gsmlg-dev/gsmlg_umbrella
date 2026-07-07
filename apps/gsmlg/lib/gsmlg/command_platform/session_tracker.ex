@@ -22,7 +22,30 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
   Registers a new PTY session.
   """
   def register_session(agent_id, session_id, session_info) do
-    GenServer.cast(__MODULE__, {:register, agent_id, session_id, session_info})
+    GenServer.call(__MODULE__, {:register, agent_id, session_id, session_info})
+  end
+
+  @doc """
+  Registers a PTY session without blocking the caller.
+  """
+  def register_session_async(agent_id, session_id, session_info) do
+    start_session_task(fn ->
+      case write_session(agent_id, session_id, session_info) do
+        :ok ->
+          :ok
+
+        {:error, reason} ->
+          GSMLG.Telemetry.warn("Async session registration failed",
+            metadata: %{
+              session_id: session_id,
+              agent_id: agent_id,
+              reason: inspect(reason)
+            }
+          )
+      end
+    end)
+
+    :ok
   end
 
   @doc """
@@ -142,39 +165,8 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
   end
 
   @impl true
-  def handle_cast({:register, agent_id, session_id, session_info}, state) do
-    session = %{
-      session_id: session_id,
-      agent_id: agent_id,
-      command: session_info[:command] || session_info.command,
-      dimensions: session_info[:dimensions] || session_info.dimensions || %{rows: 24, cols: 80},
-      created_at: session_info[:created_at] || System.system_time(:millisecond),
-      last_activity: System.system_time(:millisecond),
-      state: session_info[:state] || :running,
-      exit_code: nil,
-      controller_pid: nil,
-      metadata: session_info[:metadata] || %{}
-    }
-
-    case PTYSessionRecord.write(session) do
-      :ok ->
-        GSMLG.Telemetry.info("Session registered",
-          metadata: %{
-            session_id: session_id,
-            agent_id: agent_id
-          }
-        )
-
-      {:error, reason} ->
-        GSMLG.Telemetry.error("Failed to register session",
-          metadata: %{
-            session_id: session_id,
-            reason: inspect(reason)
-          }
-        )
-    end
-
-    {:noreply, state}
+  def handle_call({:register, agent_id, session_id, session_info}, _from, state) do
+    {:reply, write_session(agent_id, session_id, session_info), state}
   end
 
   @impl true
@@ -235,7 +227,7 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
 
       {:error, :not_found} ->
         # New session, register it
-        register_session(agent_id, session_id, session_info)
+        write_session(agent_id, session_id, session_info)
     end
 
     {:noreply, state}
@@ -310,5 +302,54 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
 
   defp schedule_cleanup do
     Process.send_after(self(), :cleanup, @cleanup_interval)
+  end
+
+  defp start_session_task(fun) do
+    if Process.whereis(GSMLG.TaskSupervisor) do
+      Task.Supervisor.start_child(GSMLG.TaskSupervisor, fun)
+    else
+      Task.start(fun)
+    end
+  end
+
+  defp write_session(agent_id, session_id, session_info) do
+    session = %{
+      session_id: session_id,
+      agent_id: agent_id,
+      command: get_value(session_info, :command) || "unknown",
+      dimensions: get_value(session_info, :dimensions) || %{rows: 24, cols: 80},
+      created_at: get_value(session_info, :created_at) || System.system_time(:millisecond),
+      last_activity: System.system_time(:millisecond),
+      state: get_value(session_info, :state) || :running,
+      exit_code: get_value(session_info, :exit_code),
+      controller_pid: get_value(session_info, :controller_pid),
+      metadata: get_value(session_info, :metadata) || %{}
+    }
+
+    case PTYSessionRecord.write(session) do
+      :ok ->
+        GSMLG.Telemetry.info("Session registered",
+          metadata: %{
+            session_id: session_id,
+            agent_id: agent_id
+          }
+        )
+
+        :ok
+
+      {:error, reason} = error ->
+        GSMLG.Telemetry.error("Failed to register session",
+          metadata: %{
+            session_id: session_id,
+            reason: inspect(reason)
+          }
+        )
+
+        error
+    end
+  end
+
+  defp get_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
 end

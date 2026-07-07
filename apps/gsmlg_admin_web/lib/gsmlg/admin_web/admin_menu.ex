@@ -106,7 +106,6 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           id: "command_platform",
           title: "Command Platform",
           items: [
-            %{id: "commander_dashboard", label: "Commander Dashboard", path: "/commander"},
             %{id: "commander_list", label: "Commanders", path: "/commander/list"},
             %{id: "commander_tokens", label: "Agent Tokens", path: "/commander/tokens"},
             %{id: "command_platform_legacy", label: "Legacy Platform", path: "/command_platform"},

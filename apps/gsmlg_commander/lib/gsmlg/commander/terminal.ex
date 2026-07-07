@@ -9,9 +9,10 @@ defmodule GSMLG.Commander.Terminal do
   use GenServer
   require Logger
   alias GSMLG.Commander.{SessionManager, Protocol}
+  alias Phoenix.SocketClient.Message
 
   @heartbeat_interval 60_000
-  @reconnect_after 15_000
+  @reconnect_after 1_000
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -34,14 +35,16 @@ defmodule GSMLG.Commander.Terminal do
       topic: topic,
       name: name,
       socket: socket,
+      channel: nil,
       sessions: %{},
-      heartbeat_timer: nil
+      heartbeat_timer: nil,
+      join_fun: Keyword.get(opts, :join_fun, &Phoenix.SocketClient.Channel.join/2),
+      push_fun: Keyword.get(opts, :push_fun, &Phoenix.SocketClient.Channel.push_async/3),
+      heartbeat_interval: Keyword.get(opts, :heartbeat_interval, @heartbeat_interval),
+      reconnect_after: Keyword.get(opts, :reconnect_after, @reconnect_after)
     }
 
-    # Join the channel
-    Phoenix.SocketClient.Channel.join(socket, topic)
-
-    {:ok, state}
+    {:ok, join_terminal(state)}
   end
 
   @impl true
@@ -56,9 +59,7 @@ defmodule GSMLG.Commander.Terminal do
     # Send registration message with current sessions
     send_register_message(state)
 
-    # Schedule heartbeat
-    timer = Process.send_after(self(), :heartbeat, @heartbeat_interval)
-    {:noreply, %{state | heartbeat_timer: timer}}
+    {:noreply, schedule_heartbeat(state)}
   end
 
   @impl true
@@ -70,32 +71,23 @@ defmodule GSMLG.Commander.Terminal do
       }
     )
 
-    schedule_reconnect()
+    schedule_reconnect(state)
     {:noreply, state}
   end
 
   @impl true
   def handle_info({:phoenix_channel_message, "message", payload}, state) do
-    GSMLG.Telemetry.debug("Received message on Terminal channel",
-      metadata: %{
-        payload: inspect(payload)
-      }
-    )
+    handle_channel_payload(payload, state)
+  end
 
-    case Protocol.parse_message(payload) do
-      {:ok, message_type, data} ->
-        handle_protocol_message(message_type, data, state)
+  @impl true
+  def handle_info(%Message{event: "message", payload: payload}, state) do
+    handle_channel_payload(payload, state)
+  end
 
-      {:error, reason} ->
-        GSMLG.Telemetry.warn("Failed to parse message",
-          metadata: %{
-            reason: inspect(reason),
-            payload: inspect(payload)
-          }
-        )
-
-        {:noreply, state}
-    end
+  @impl true
+  def handle_info(%{"type" => _type} = payload, state) do
+    handle_channel_payload(payload, state)
   end
 
   @impl true
@@ -111,7 +103,7 @@ defmodule GSMLG.Commander.Terminal do
       Process.cancel_timer(state.heartbeat_timer)
     end
 
-    schedule_reconnect()
+    schedule_reconnect(state)
     {:noreply, state}
   end
 
@@ -213,8 +205,7 @@ defmodule GSMLG.Commander.Terminal do
     )
 
     # Rejoin the channel
-    Phoenix.SocketClient.Channel.join(state.socket, state.topic)
-    {:noreply, state}
+    {:noreply, join_terminal(state)}
   end
 
   @impl true
@@ -418,6 +409,90 @@ defmodule GSMLG.Commander.Terminal do
 
   # Helper Functions
 
+  defp join_terminal(state) do
+    case state.join_fun.(state.socket, state.topic) do
+      {:ok, response, channel} ->
+        handle_joined(response, channel, state)
+
+      {:error, {:already_joined, channel}} ->
+        GSMLG.Telemetry.info("Terminal channel already joined",
+          metadata: %{
+            topic: state.topic
+          }
+        )
+
+        %{state | channel: channel}
+
+      {:error, reason} ->
+        schedule_join_retry(reason, state)
+    end
+  end
+
+  defp schedule_join_retry(reason, state)
+       when reason in [:socket_not_connected, :socket_not_started] do
+    GSMLG.Telemetry.debug("Terminal waiting for socket before joining channel",
+      metadata: %{
+        topic: state.topic,
+        reason: inspect(reason),
+        retry_delay: state.reconnect_after
+      }
+    )
+
+    schedule_reconnect(state)
+    state
+  end
+
+  defp schedule_join_retry(reason, state) do
+    GSMLG.Telemetry.error("Failed to join Terminal channel",
+      metadata: %{
+        topic: state.topic,
+        reason: inspect(reason),
+        will_retry: true,
+        retry_delay: state.reconnect_after
+      }
+    )
+
+    schedule_reconnect(state)
+    state
+  end
+
+  defp handle_joined(response, channel, state) do
+    GSMLG.Telemetry.info("Terminal channel joined successfully",
+      metadata: %{
+        topic: state.topic,
+        response: inspect(response)
+      }
+    )
+
+    state = %{state | channel: channel}
+
+    send_register_message(state)
+    schedule_heartbeat(state)
+  end
+
+  defp handle_channel_payload(payload, state) do
+    GSMLG.Telemetry.debug("Received message on Terminal channel",
+      metadata: %{
+        payload: inspect(payload)
+      }
+    )
+
+    case Protocol.parse_message(payload) do
+      {:ok, message_type, data} ->
+        handle_protocol_message(message_type, data, state)
+
+      {:error, reason} ->
+        GSMLG.Telemetry.warn("Failed to parse message",
+          metadata: %{
+            reason: inspect(reason),
+            payload: inspect(payload)
+          }
+        )
+
+        {:noreply, state}
+    end
+  end
+
   defp send_register_message(state) do
     hostname = :inet.gethostname() |> elem(1) |> to_string()
     sessions = SessionManager.list_sessions()
@@ -437,11 +512,31 @@ defmodule GSMLG.Commander.Terminal do
   end
 
   defp send_message(message, state) do
-    Phoenix.SocketClient.Channel.push(state.socket, state.topic, "message", message)
+    if state.channel do
+      state.push_fun.(state.channel, "message", message)
+    else
+      GSMLG.Telemetry.warn("Terminal channel is not joined; dropping message",
+        metadata: %{
+          topic: state.topic,
+          message_type: message[:type] || message["type"]
+        }
+      )
+
+      {:error, :not_joined}
+    end
   end
 
-  defp schedule_reconnect do
-    Process.send_after(self(), :reconnect, @reconnect_after)
+  defp schedule_reconnect(state) do
+    Process.send_after(self(), :reconnect, state.reconnect_after)
+  end
+
+  defp schedule_heartbeat(state) do
+    if state.heartbeat_timer do
+      Process.cancel_timer(state.heartbeat_timer)
+    end
+
+    timer = Process.send_after(self(), :heartbeat, state.heartbeat_interval)
+    %{state | heartbeat_timer: timer}
   end
 
   defp normalize_dimensions(%{"rows" => rows, "cols" => cols}) do

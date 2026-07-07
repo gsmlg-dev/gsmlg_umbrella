@@ -11,57 +11,50 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   - Metrics (system metrics)
   """
 
-  # Suppress undefined module warnings for Commander modules (loaded at runtime)
-  @compile {:no_warn_undefined, [GSMLG.Commander.SessionManager]}
-
   use GSMLG.AdminWeb, :live_view
 
-  alias GSMLG.Commander.SessionManager
+  alias GSMLG.CommandPlatform.{AgentRegistry, CommandDispatcher}
+  alias Phoenix.LiveView.AsyncResult
 
   @impl true
-  def mount(%{"id" => commander_id}, _session, socket) do
+  def mount(%{"name" => commander_name}, _session, socket) do
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(GSMLG.PubSub, "commanders:events")
-      Phoenix.PubSub.subscribe(GSMLG.PubSub, "terminal:#{commander_id}")
+      Phoenix.PubSub.subscribe(GSMLG.PubSub, "commander_updates")
     end
 
     socket =
       socket
-      |> assign(:commander_id, commander_id)
-      |> assign(:commander, nil)
+      |> assign(:page_title, "Commander")
+      |> assign(:commander_id, commander_name)
+      |> assign(:commander_name, commander_name)
+      |> assign(:commander, AsyncResult.loading())
       |> assign(:tab, :overview)
       |> assign(:terminals, [])
       |> assign(:active_terminal, nil)
-      |> assign(:loading, true)
-      |> fetch_commander()
 
     {:ok, socket}
   end
 
   @impl true
-  def handle_params(%{"tab" => tab}, _url, socket) do
-    tab_atom = String.to_existing_atom(tab)
-    {:noreply, assign(socket, :tab, tab_atom)}
-  rescue
-    _ -> {:noreply, socket}
-  end
-
-  @impl true
-  def handle_params(_params, _url, socket) do
-    {:noreply, socket}
+  def handle_params(params, _url, socket) do
+    {:noreply,
+     socket
+     |> assign(:tab, tab_from_params(params, socket.assigns.live_action))
+     |> fetch_commander()}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} page_title={@page_title} active_menu="commander_list">
+      <% commander = loaded_commander(@commander) %>
       <div class="p-6">
-        <%= if @loading do %>
+        <%= if async_loading?(@commander) do %>
           <div class="flex items-center justify-center h-64">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
           </div>
         <% else %>
-          <%= if @commander do %>
+          <%= if commander do %>
             <!-- Header -->
             <div class="mb-6 flex items-center justify-between">
               <div class="flex items-center space-x-4">
@@ -80,15 +73,15 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
                 </.link>
                 <div>
                   <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    {@commander.hostname}
+                    {commander.hostname}
                   </h1>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {@commander.id}
+                    {commander.id}
                   </p>
                 </div>
               </div>
               <div class="flex items-center space-x-3">
-                <.status_badge status={@commander.status} />
+                <.status_badge status={commander.status} />
                 <button
                   phx-click="refresh"
                   class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md"
@@ -111,7 +104,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
                 <.tab_link tab={:overview} current={@tab} commander_id={@commander_id}>
                   Overview
                 </.tab_link>
-                <%= if :shell in @commander.capabilities do %>
+                <%= if :shell in commander.capabilities do %>
                   <.tab_link tab={:shell} current={@tab} commander_id={@commander_id}>
                     Shell
                   </.tab_link>
@@ -123,26 +116,6 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
                     Shell
                   </span>
                 <% end %>
-                <%= if :files in @commander.capabilities do %>
-                  <.tab_link tab={:files} current={@tab} commander_id={@commander_id}>
-                    Files
-                  </.tab_link>
-                <% end %>
-                <%= if :processes in @commander.capabilities do %>
-                  <.tab_link tab={:processes} current={@tab} commander_id={@commander_id}>
-                    Processes
-                  </.tab_link>
-                <% end %>
-                <%= if :logs in @commander.capabilities do %>
-                  <.tab_link tab={:logs} current={@tab} commander_id={@commander_id}>
-                    Logs
-                  </.tab_link>
-                <% end %>
-                <%= if :metrics in @commander.capabilities do %>
-                  <.tab_link tab={:metrics} current={@tab} commander_id={@commander_id}>
-                    Metrics
-                  </.tab_link>
-                <% end %>
               </nav>
             </div>
 
@@ -150,21 +123,13 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md">
               <%= case @tab do %>
                 <% :overview -> %>
-                  <.overview_tab commander={@commander} />
+                  <.overview_tab commander={commander} />
                 <% :shell -> %>
                   <.shell_tab
-                    commander={@commander}
+                    commander={commander}
                     terminals={@terminals}
                     active_terminal={@active_terminal}
                   />
-                <% :files -> %>
-                  <.files_tab commander={@commander} />
-                <% :processes -> %>
-                  <.processes_tab commander={@commander} />
-                <% :logs -> %>
-                  <.logs_tab commander={@commander} />
-                <% :metrics -> %>
-                  <.metrics_tab commander={@commander} />
                 <% _ -> %>
                   <div class="p-6 text-center text-gray-500">Tab not available</div>
               <% end %>
@@ -212,20 +177,34 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
 
   @impl true
   def handle_event("new_terminal", _params, socket) do
-    terminal_id = generate_terminal_id()
+    case CommandDispatcher.create_pty(socket.assigns.commander_id,
+           command: "/bin/bash",
+           dimensions: %{rows: 24, cols: 80}
+         ) do
+      {:ok, terminal_id} ->
+        if connected?(socket) do
+          Phoenix.PubSub.subscribe(GSMLG.PubSub, "pty_session:#{terminal_id}")
+        end
 
-    terminal = %{
-      id: terminal_id,
-      title: "bash ##{length(socket.assigns.terminals) + 1}",
-      created_at: DateTime.utc_now()
-    }
+        terminal = %{
+          id: terminal_id,
+          title: "bash ##{length(socket.assigns.terminals) + 1}",
+          command: "/bin/bash",
+          dimensions: %{rows: 24, cols: 80},
+          state: :initializing,
+          created_at: DateTime.utc_now()
+        }
 
-    terminals = socket.assigns.terminals ++ [terminal]
+        terminals = socket.assigns.terminals ++ [terminal]
 
-    {:noreply,
-     socket
-     |> assign(:terminals, terminals)
-     |> assign(:active_terminal, terminal_id)}
+        {:noreply,
+         socket
+         |> assign(:terminals, terminals)
+         |> assign(:active_terminal, terminal_id)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to start terminal: #{inspect(reason)}")}
+    end
   end
 
   @impl true
@@ -235,6 +214,8 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
 
   @impl true
   def handle_event("close_terminal", %{"id" => id}, socket) do
+    CommandDispatcher.close_pty(id, false, agent_id: socket.assigns.commander_id)
+
     terminals = Enum.reject(socket.assigns.terminals, &(&1.id == id))
 
     active_terminal =
@@ -265,14 +246,88 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   end
 
   @impl true
+  def handle_info(:commander_updates, socket) do
+    {:noreply, fetch_commander(socket)}
+  end
+
+  @impl true
+  def handle_info(
+        {:agent_registered, commander_id, _info},
+        %{assigns: %{commander_id: commander_id}} = socket
+      ) do
+    {:noreply, fetch_commander(socket)}
+  end
+
+  @impl true
+  def handle_info(
+        {:agent_disconnected, commander_id},
+        %{assigns: %{commander_id: commander_id}} = socket
+      ) do
+    {:noreply, fetch_commander(socket)}
+  end
+
+  @impl true
+  def handle_info({:pty_created, session_id, _session_info}, socket) do
+    terminals =
+      Enum.map(socket.assigns.terminals, fn
+        %{id: ^session_id} = terminal -> %{terminal | state: :running}
+        terminal -> terminal
+      end)
+
+    {:noreply, assign(socket, :terminals, terminals)}
+  end
+
+  @impl true
   def handle_info({:pty_output, %{data: data}}, socket) do
     # Forward to terminal via JS hook
     {:noreply, push_event(socket, "terminal_output", %{data: data})}
   end
 
   @impl true
+  def handle_info({:pty_output, session_id, data}, socket) do
+    terminals =
+      Enum.map(socket.assigns.terminals, fn
+        %{id: ^session_id} = terminal -> %{terminal | state: :running}
+        terminal -> terminal
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:terminals, terminals)
+     |> push_event("terminal_output", %{data: data})}
+  end
+
+  @impl true
   def handle_info({:pty_closed, %{exit_code: exit_code}}, socket) do
     {:noreply, push_event(socket, "terminal_closed", %{exit_code: exit_code})}
+  end
+
+  @impl true
+  def handle_info({:pty_closed, session_id, exit_code, _reason}, socket) do
+    terminals =
+      Enum.map(socket.assigns.terminals, fn
+        %{id: ^session_id} = terminal -> %{terminal | state: :closed}
+        terminal -> terminal
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:terminals, terminals)
+     |> push_event("terminal_closed", %{exit_code: exit_code})}
+  end
+
+  @impl true
+  def handle_info({:pty_error, session_id, _error_code, message}, socket) do
+    terminals =
+      Enum.map(socket.assigns.terminals, fn
+        %{id: ^session_id} = terminal -> %{terminal | state: :error}
+        terminal -> terminal
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:terminals, terminals)
+     |> push_event("terminal_error", %{message: message})}
   end
 
   @impl true
@@ -285,44 +340,85 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   defp fetch_commander(socket) do
     commander_id = socket.assigns.commander_id
 
-    case SessionManager.get_session_info(commander_id) do
-      {:error, _} ->
-        socket
-        |> assign(:commander, nil)
-        |> assign(:loading, false)
-
-      info when is_map(info) ->
-        commander = format_commander(info)
-
-        socket
-        |> assign(:commander, commander)
-        |> assign(:page_title, commander.hostname)
-        |> assign(:loading, false)
-    end
-  rescue
-    _ ->
-      socket
-      |> assign(:commander, nil)
-      |> assign(:loading, false)
+    assign_async(
+      socket,
+      :commander,
+      fn -> {:ok, %{commander: load_commander(commander_id)}} end,
+      reset: true
+    )
   end
 
-  defp format_commander(session) do
+  defp load_commander(commander_id) do
+    case AgentRegistry.find_agent(commander_id) do
+      {:error, _} -> nil
+      {:ok, agent} -> format_commander(agent)
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp loaded_commander(%AsyncResult{ok?: true, result: commander}), do: commander
+  defp loaded_commander(_), do: nil
+
+  defp async_loading?(%AsyncResult{loading: loading}), do: loading not in [nil, false]
+  defp async_loading?(_), do: false
+
+  defp format_commander(agent) do
+    info = Map.get(agent, :info, %{})
+    metadata = Map.drop(info, [:capabilities, :hostname, :sessions])
+
     %{
-      id: session[:session_id],
-      hostname: session[:hostname] || session[:session_id],
-      status: session[:state],
-      capabilities: Map.get(session, :capabilities, [:shell, :files, :processes, :system_info]),
-      tags: Map.get(session, :tags, []),
-      connected_at: session[:created_at],
-      last_activity: session[:last_activity],
-      uptime: session[:uptime],
-      dimensions: session[:dimensions] || %{rows: 24, cols: 80},
-      metadata: Map.get(session, :metadata, %{})
+      id: agent.agent_id,
+      hostname: value(info, :hostname) || agent.agent_id,
+      status: agent.status,
+      capabilities: normalize_capabilities(value(info, :capabilities)),
+      tags: value(info, :tags) || [],
+      connected_at: agent.connected_at,
+      last_activity: agent.last_heartbeat,
+      uptime: agent.last_heartbeat - agent.connected_at,
+      dimensions: %{rows: 24, cols: 80},
+      metadata: metadata
     }
   end
 
-  defp generate_terminal_id do
-    :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
+  defp tab_from_params(%{"tab" => tab}, _live_action), do: tab_from_string(tab)
+  defp tab_from_params(_params, :overview), do: :overview
+  defp tab_from_params(_params, :shell), do: :shell
+  defp tab_from_params(_params, _live_action), do: :overview
+
+  defp tab_from_string("shell"), do: :shell
+  defp tab_from_string("files"), do: :files
+  defp tab_from_string("processes"), do: :processes
+  defp tab_from_string("logs"), do: :logs
+  defp tab_from_string("metrics"), do: :metrics
+  defp tab_from_string(_), do: :overview
+
+  defp commander_tab_path(commander_id, :shell), do: ~p"/commander/#{commander_id}/shell"
+  defp commander_tab_path(commander_id, _tab), do: ~p"/commander/#{commander_id}/overview"
+
+  defp normalize_capabilities(nil), do: [:shell]
+
+  defp normalize_capabilities(capabilities) do
+    capabilities
+    |> Enum.map(fn
+      capability when is_atom(capability) -> capability
+      capability when is_binary(capability) -> capability_from_string(capability)
+    end)
+    |> Enum.uniq()
+  end
+
+  defp capability_from_string("pty"), do: :shell
+  defp capability_from_string("shell"), do: :shell
+  defp capability_from_string("resize"), do: :resize
+  defp capability_from_string("files"), do: :files
+  defp capability_from_string("processes"), do: :processes
+  defp capability_from_string("logs"), do: :logs
+  defp capability_from_string("metrics"), do: :metrics
+  defp capability_from_string("system_info"), do: :system_info
+  defp capability_from_string(_), do: :unknown
+
+  defp value(map, key) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
 
   # Components
@@ -378,7 +474,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
 
     ~H"""
     <.link
-      patch={~p"/commander/#{@commander_id}/#{@tab}"}
+      patch={commander_tab_path(@commander_id, @tab)}
       class={"whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm #{@class}"}
     >
       {render_slot(@inner_block)}
@@ -562,10 +658,12 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
 
       <!-- Terminal Container -->
       <%= if @active_terminal do %>
+        <% terminal = Enum.find(@terminals, &(&1.id == @active_terminal)) %>
         <div
           id={"terminal-#{@active_terminal}"}
           phx-hook="Terminal"
-          data-session-id={@commander.id}
+          phx-update="ignore"
+          data-session-id={terminal.id}
           data-agent-id={@commander.id}
           class="h-96 bg-gray-900 rounded-md overflow-hidden"
         >
@@ -576,8 +674,9 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
             <span>Ctrl+D</span>
           </div>
           <div class="flex space-x-4">
-            <span>{@commander.dimensions.cols}x{@commander.dimensions.rows}</span>
-            <span>bash</span>
+            <span>{terminal.dimensions.cols}x{terminal.dimensions.rows}</span>
+            <span>{terminal.command}</span>
+            <span>{terminal.state}</span>
             <span>UTF-8</span>
           </div>
         </div>
@@ -603,94 +702,6 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
           </div>
         </div>
       <% end %>
-    </div>
-    """
-  end
-
-  defp files_tab(assigns) do
-    ~H"""
-    <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-      <svg
-        class="mx-auto h-12 w-12 text-gray-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-        />
-      </svg>
-      <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">File Browser</h3>
-      <p class="mt-1">File browser functionality coming soon.</p>
-    </div>
-    """
-  end
-
-  defp processes_tab(assigns) do
-    ~H"""
-    <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-      <svg
-        class="mx-auto h-12 w-12 text-gray-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-        />
-      </svg>
-      <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">Process Manager</h3>
-      <p class="mt-1">Process manager functionality coming soon.</p>
-    </div>
-    """
-  end
-
-  defp logs_tab(assigns) do
-    ~H"""
-    <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-      <svg
-        class="mx-auto h-12 w-12 text-gray-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
-      <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">Log Viewer</h3>
-      <p class="mt-1">Log viewer functionality coming soon.</p>
-    </div>
-    """
-  end
-
-  defp metrics_tab(assigns) do
-    ~H"""
-    <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-      <svg
-        class="mx-auto h-12 w-12 text-gray-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-        />
-      </svg>
-      <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">System Metrics</h3>
-      <p class="mt-1">Metrics visualization coming soon.</p>
     </div>
     """
   end

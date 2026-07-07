@@ -36,7 +36,7 @@ defmodule GSMLG.Commander.SessionManager do
 
       case DynamicSupervisor.start_child(__MODULE__, {PTYSession, session_opts}) do
         {:ok, _pid} ->
-          GSMLG.Telemetry.info("PTY session created", %{session_id: session_id})
+          GSMLG.Telemetry.info("PTY session created", metadata: %{session_id: session_id})
           {:ok, session_id}
 
         {:error, reason} ->
@@ -70,7 +70,7 @@ defmodule GSMLG.Commander.SessionManager do
   Finds a session by ID and returns its pid.
   """
   def find_session(session_id) do
-    case Registry.lookup(GSMLG.Commander.SessionRegistry, session_id) do
+    case Registry.lookup(GSMLG.Commander.LocalSessionRegistry, session_id) do
       [{pid, _}] -> {:ok, pid}
       [] -> {:error, :not_found}
     end
@@ -80,7 +80,7 @@ defmodule GSMLG.Commander.SessionManager do
   Lists all active sessions with their metadata.
   """
   def list_sessions do
-    Registry.select(GSMLG.Commander.SessionRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$1"]}])
+    Registry.select(GSMLG.Commander.LocalSessionRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$1"]}])
     |> Enum.map(fn session_id ->
       case PTYSession.get_info(session_id) do
         info when is_map(info) -> info

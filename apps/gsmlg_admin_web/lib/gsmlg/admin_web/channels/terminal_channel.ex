@@ -245,7 +245,7 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
 
     # Track sessions
     Enum.each(agent_info.sessions, fn session_id ->
-      GSMLG.CommandPlatform.SessionTracker.register_session(
+      GSMLG.CommandPlatform.SessionTracker.register_session_async(
         commander_name,
         session_id,
         %{reconnected: true}
@@ -302,13 +302,19 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
     )
 
     # Register session in tracker
-    GSMLG.CommandPlatform.SessionTracker.register_session(
+    GSMLG.CommandPlatform.SessionTracker.register_session_async(
       commander_name,
       session_id,
       session_info
     )
 
     # Broadcast to admin UI
+    Phoenix.PubSub.broadcast(
+      GSMLG.PubSub,
+      "pty_session:#{session_id}",
+      {:pty_created, session_id, session_info}
+    )
+
     Phoenix.PubSub.broadcast(
       GSMLG.PubSub,
       "pty_sessions",

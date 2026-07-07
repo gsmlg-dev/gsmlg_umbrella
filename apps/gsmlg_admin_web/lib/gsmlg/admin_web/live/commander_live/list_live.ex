@@ -6,33 +6,29 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
   connected commander agents with real-time status updates.
   """
 
-  # Suppress undefined module warnings for Commander modules (loaded at runtime)
-  @compile {:no_warn_undefined, [GSMLG.Commander.SessionManager]}
-
   use GSMLG.AdminWeb, :live_view
 
-  alias GSMLG.Commander.SessionManager
+  alias GSMLG.CommandPlatform.AgentRegistry
+  alias Phoenix.LiveView.AsyncResult
 
   @per_page 25
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(GSMLG.PubSub, "commanders:events")
+      Phoenix.PubSub.subscribe(GSMLG.PubSub, "commander_updates")
     end
 
     {:ok,
      socket
      |> assign(:page_title, "Commanders")
-     |> assign(:commanders, [])
      |> assign(:page, 1)
      |> assign(:per_page, @per_page)
-     |> assign(:total, 0)
      |> assign(:search, "")
      |> assign(:filters, %{status: nil, tags: []})
      |> assign(:sort, {:connected_at, :desc})
      |> assign(:selected, MapSet.new())
-     |> fetch_commanders()}
+     |> assign(:commander_page, AsyncResult.loading())}
   end
 
   @impl true
@@ -56,35 +52,23 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} page_title={@page_title} active_menu="commander_list">
+      <% commanders = loaded_commanders(@commander_page) %>
+      <% total = loaded_total(@commander_page) %>
       <div class="p-6">
         <div class="mb-6 flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Commanders</h1>
             <p class="mt-1 text-gray-600 dark:text-gray-400">
-              {@total} commander(s) connected
+              {total} commander(s) connected
             </p>
           </div>
-          <.link
-            navigate={~p"/commander"}
-            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
-            Back to Dashboard
-          </.link>
         </div>
 
         <!-- Search and Filters -->
         <div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
           <div class="flex flex-wrap gap-4">
             <div class="flex-1 min-w-64">
-              <form phx-change="search" phx-submit="search">
+              <form id="commander-search-form" phx-change="search" phx-submit="search">
                 <div class="relative">
                   <svg
                     class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -153,7 +137,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                     type="checkbox"
                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     phx-click="toggle_all"
-                    checked={all_selected?(@commanders, @selected)}
+                    checked={all_selected?(commanders, @selected)}
                   />
                 </th>
                 <th
@@ -198,7 +182,21 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
               </tr>
             </thead>
             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              <%= for commander <- @commanders do %>
+              <%= if async_loading?(@commander_page) do %>
+                <tr>
+                  <td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    Loading commanders...
+                  </td>
+                </tr>
+              <% end %>
+              <%= if async_failed?(@commander_page) do %>
+                <tr>
+                  <td colspan="7" class="px-6 py-8 text-center text-red-600 dark:text-red-400">
+                    Failed to load commanders.
+                  </td>
+                </tr>
+              <% end %>
+              <%= for commander <- commanders do %>
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td class="px-4 py-4">
                     <input
@@ -214,7 +212,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <.link
-                      navigate={~p"/commander/#{commander.id}"}
+                      navigate={~p"/commander/#{commander.id}/overview"}
                       class="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
                       {commander.hostname}
@@ -257,7 +255,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex space-x-2">
                       <.link
-                        navigate={~p"/commander/#{commander.id}"}
+                        navigate={~p"/commander/#{commander.id}/overview"}
                         class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
                       >
                         View
@@ -274,7 +272,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                   </td>
                 </tr>
               <% end %>
-              <%= if Enum.empty?(@commanders) do %>
+              <%= if !async_loading?(@commander_page) && !async_failed?(@commander_page) && Enum.empty?(commanders) do %>
                 <tr>
                   <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     <%= if @search != "" || @filters.status do %>
@@ -289,10 +287,10 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
           </table>
 
           <!-- Pagination -->
-          <%= if @total > @per_page do %>
+          <%= if total > @per_page do %>
             <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div class="text-sm text-gray-500 dark:text-gray-400">
-                Showing {(@page - 1) * @per_page + 1} to {min(@page * @per_page, @total)} of {@total} commanders
+                Showing {(@page - 1) * @per_page + 1} to {min(@page * @per_page, total)} of {total} commanders
               </div>
               <div class="flex space-x-2">
                 <%= if @page > 1 do %>
@@ -303,7 +301,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
                     Previous
                   </.link>
                 <% end %>
-                <%= if @page * @per_page < @total do %>
+                <%= if @page * @per_page < total do %>
                   <.link
                     patch={build_url(@search, @filters, @page + 1)}
                     class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -383,11 +381,13 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
 
   @impl true
   def handle_event("toggle_all", _params, socket) do
+    commanders = loaded_commanders(socket.assigns.commander_page)
+
     selected =
-      if all_selected?(socket.assigns.commanders, socket.assigns.selected) do
+      if all_selected?(commanders, socket.assigns.selected) do
         MapSet.new()
       else
-        socket.assigns.commanders
+        commanders
         |> Enum.map(& &1.id)
         |> MapSet.new()
       end
@@ -411,6 +411,21 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
   end
 
   @impl true
+  def handle_info(:commander_updates, socket) do
+    {:noreply, fetch_commanders(socket)}
+  end
+
+  @impl true
+  def handle_info({:agent_registered, _commander_id, _info}, socket) do
+    {:noreply, fetch_commanders(socket)}
+  end
+
+  @impl true
+  def handle_info({:agent_disconnected, _commander_id}, socket) do
+    {:noreply, fetch_commanders(socket)}
+  end
+
+  @impl true
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
@@ -418,44 +433,95 @@ defmodule GSMLG.AdminWeb.CommanderLive.ListLive do
   # Private Functions
 
   defp fetch_commanders(socket) do
-    sessions = SessionManager.list_sessions()
-
-    commanders =
-      sessions
-      |> Enum.map(&format_commander/1)
-      |> filter_commanders(socket.assigns.search, socket.assigns.filters)
-      |> sort_commanders(socket.assigns.sort)
-
-    total = length(commanders)
     page = socket.assigns.page
     per_page = socket.assigns.per_page
+    search = socket.assigns.search
+    filters = socket.assigns.filters
+    sort = socket.assigns.sort
+
+    assign_async(
+      socket,
+      :commander_page,
+      fn ->
+        {:ok, %{commander_page: load_commander_page(search, filters, sort, page, per_page)}}
+      end,
+      reset: true
+    )
+  end
+
+  defp load_commander_page(search, filters, sort, page, per_page) do
+    commanders =
+      AgentRegistry.list_agents()
+      |> Enum.map(&format_commander/1)
+      |> filter_commanders(search, filters)
+      |> sort_commanders(sort)
+
+    total = length(commanders)
 
     paginated =
       commanders
       |> Enum.drop((page - 1) * per_page)
       |> Enum.take(per_page)
 
-    socket
-    |> assign(:commanders, paginated)
-    |> assign(:total, total)
+    %{commanders: paginated, total: total}
   rescue
     _ ->
-      socket
-      |> assign(:commanders, [])
-      |> assign(:total, 0)
+      %{commanders: [], total: 0}
   end
 
-  defp format_commander(session) do
+  defp loaded_commanders(%AsyncResult{ok?: true, result: %{commanders: commanders}}),
+    do: commanders
+
+  defp loaded_commanders(_), do: []
+
+  defp loaded_total(%AsyncResult{ok?: true, result: %{total: total}}), do: total
+  defp loaded_total(_), do: 0
+
+  defp async_loading?(%AsyncResult{loading: loading}), do: loading not in [nil, false]
+  defp async_loading?(_), do: false
+
+  defp async_failed?(%AsyncResult{failed: failed}), do: not is_nil(failed)
+  defp async_failed?(_), do: false
+
+  defp format_commander(agent) do
+    info = Map.get(agent, :info, %{})
+    metadata = Map.drop(info, [:capabilities, :hostname, :sessions])
+
     %{
-      id: session[:session_id],
-      hostname: session[:hostname] || session[:session_id],
-      status: session[:state],
-      capabilities: Map.get(session, :capabilities, []),
-      tags: Map.get(session, :tags, []),
-      connected_at: session[:created_at],
-      last_activity: session[:last_activity],
-      metadata: Map.get(session, :metadata, %{})
+      id: agent.agent_id,
+      hostname: value(info, :hostname) || agent.agent_id,
+      status: agent.status,
+      capabilities: normalize_capabilities(value(info, :capabilities)),
+      tags: value(info, :tags) || [],
+      connected_at: agent.connected_at,
+      last_activity: agent.last_heartbeat,
+      metadata: metadata
     }
+  end
+
+  defp normalize_capabilities(nil), do: [:shell]
+
+  defp normalize_capabilities(capabilities) do
+    capabilities
+    |> Enum.map(fn
+      capability when is_atom(capability) -> capability
+      capability when is_binary(capability) -> capability_from_string(capability)
+    end)
+    |> Enum.uniq()
+  end
+
+  defp capability_from_string("pty"), do: :shell
+  defp capability_from_string("shell"), do: :shell
+  defp capability_from_string("resize"), do: :resize
+  defp capability_from_string("files"), do: :files
+  defp capability_from_string("processes"), do: :processes
+  defp capability_from_string("logs"), do: :logs
+  defp capability_from_string("metrics"), do: :metrics
+  defp capability_from_string("system_info"), do: :system_info
+  defp capability_from_string(_), do: :unknown
+
+  defp value(map, key) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
 
   defp filter_commanders(commanders, search, filters) do

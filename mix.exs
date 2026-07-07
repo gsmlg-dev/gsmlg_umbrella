@@ -96,7 +96,24 @@ defmodule GSMLG.Umbrella.MixProject do
     ]
   end
 
-  defp run_commander(_args), do: run_apps([:gsmlg_commander])
+  defp run_commander(_args) do
+    prepare_commander_run(Mix.env())
+    run_apps([:gsmlg_commander])
+  end
+
+  def prepare_commander_run(:dev) do
+    config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
+
+    Application.put_env(
+      :gsmlg_commander,
+      GSMLG.Commander,
+      Keyword.merge(config, start: true, server: false)
+    )
+
+    :ok
+  end
+
+  def prepare_commander_run(_env), do: :ok
 
   defp run_scout_agent(_args) do
     Application.put_env(:gsmlg_scout_agent, :force_enabled, true)

@@ -123,13 +123,12 @@ defmodule GSMLG.AdminWeb.Router do
     live("/pty_terminal/:agent_id", PTYTerminalLive, :show)
 
     # Commander Management Routes
-    live("/commander", CommanderLive.DashboardLive, :index)
+    get("/commander", GaoNoteRedirectController, :commander_list)
     live("/commander/list", CommanderLive.ListLive, :index)
     live("/commander/tokens", CommanderLive.TokensLive, :index)
     live("/commander/tokens/new", CommanderLive.TokensLive, :new)
-    live("/commander/:id", CommanderLive.ShowLive, :show)
-    live("/commander/:id/shell", CommanderLive.ShowLive, :shell)
-    live("/commander/:id/:tab", CommanderLive.ShowLive, :show)
+    live("/commander/:name/overview", CommanderLive.ShowLive, :overview)
+    live("/commander/:name/shell", CommanderLive.ShowLive, :shell)
 
     live("/scout", ScoutLive.DashboardLive, :index)
 

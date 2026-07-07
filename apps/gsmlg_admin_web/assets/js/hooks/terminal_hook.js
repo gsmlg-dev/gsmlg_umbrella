@@ -8,6 +8,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Socket } from 'phoenix';
 
 export const TerminalHook = {
   mounted() {
@@ -138,17 +139,14 @@ export const TerminalHook = {
   },
 
   connectChannel(sessionId, agentId, csrfToken) {
-    // Import Phoenix Socket (assumes it's available globally or via import)
-    const socket = new window.Phoenix.Socket('/socket', {
+    const socket = new Socket('/socket', {
       params: { _csrf_token: csrfToken }
     });
 
     socket.connect();
 
-    // Join operator terminal channel for the commander
-    // Uses the commander/session ID as the topic
-    const commanderId = agentId || sessionId;
-    this.channel = socket.channel(`operator:terminal:${commanderId}`, {});
+    // Join operator terminal channel for the PTY session.
+    this.channel = socket.channel(`operator:terminal:${sessionId}`, { agent_id: agentId });
 
     this.channel
       .join()
