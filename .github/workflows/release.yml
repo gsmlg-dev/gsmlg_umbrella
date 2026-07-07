@@ -202,6 +202,12 @@ jobs:
           RELEASE_VERSION: ${{ github.event.inputs.release-version }}
           DATABASE_URL: "ecto://USER:PASS@HOST/DATABASE"
         run: |
+          if [ "${{ matrix.target }}" = "windows-amd64" ]; then
+            export TARGET_ARCH=x86_64
+            export TARGET_VENDOR=pc
+            export TARGET_OS=windows
+            export TARGET_ABI=gnu
+          fi
           bash scripts/update_version.sh "${RELEASE_VERSION}"
           mix release gsmlg_commander --overwrite
           cp -r _build/prod/rel/gsmlg_commander commander
