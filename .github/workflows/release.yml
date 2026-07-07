@@ -202,13 +202,17 @@ jobs:
           RELEASE_VERSION: ${{ github.event.inputs.release-version }}
           DATABASE_URL: "ecto://USER:PASS@HOST/DATABASE"
         run: |
+          bash scripts/update_version.sh "${RELEASE_VERSION}"
           if [ "${{ matrix.target }}" = "windows-amd64" ]; then
             export TARGET_ARCH=x86_64
             export TARGET_VENDOR=pc
             export TARGET_OS=windows
             export TARGET_ABI=gnu
+            mix deps.compile duskmoon_oxc --force
+            mix deps.compile duskmoon_oxide --force
+            mix deps.compile duskmoon_vize --force
+            unset TARGET_ARCH TARGET_VENDOR TARGET_OS TARGET_ABI
           fi
-          bash scripts/update_version.sh "${RELEASE_VERSION}"
           mix release gsmlg_commander --overwrite
           cp -r _build/prod/rel/gsmlg_commander commander
           tar zcf "commander-${{ matrix.target }}.tar.gz" commander
@@ -220,14 +224,15 @@ jobs:
           MIX_ENV: prod
           RELEASE_VERSION: ${{ github.event.inputs.release-version }}
           DATABASE_URL: "ecto://USER:PASS@HOST/DATABASE"
+          VIX_COMPILATION_MODE: PLATFORM_PROVIDED_LIBVIPS
         with:
           release: "14.4"
           arch: x86_64
           usesh: true
           sync: rsync
-          envs: "MIX_ENV RELEASE_VERSION DATABASE_URL"
+          envs: "MIX_ENV RELEASE_VERSION DATABASE_URL VIX_COMPILATION_MODE"
           prepare: |
-            pkg install -y bash ca_root_nss elixir-devel erlang-runtime28 git gmake
+            pkg install -y bash ca_root_nss elixir-devel erlang-runtime28 git glib gmake pkgconf vips
           run: |
             set -eu
             export PATH="/usr/local/lib/erlang28/bin:$PATH"
