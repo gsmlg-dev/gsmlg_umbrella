@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 VER=${1:-1.0.0}
 
@@ -18,9 +19,13 @@ FILES=(
   mix.exs
 )
 
-for n in ${FILES[@]}
+for n in "${FILES[@]}"
 do
-  echo $n
-  sed -i "s;version: \"[^\"]\\+\";version: \"${VER}\";g" $n;
-  sed -i "s;@version \"[^\"]\\+\";@version \"${VER}\";g" $n;
+  echo "$n"
+  tmp="${n}.tmp.$$"
+  sed \
+    -e "s;version: \"[^\"]*\";version: \"${VER}\";g" \
+    -e "s;@version \"[^\"]*\";@version \"${VER}\";g" \
+    "$n" >"$tmp"
+  mv "$tmp" "$n"
 done
