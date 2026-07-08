@@ -22,7 +22,6 @@ defmodule GSMLG.Config.SetupTest do
       end)
 
       # Reset some common application env values
-      Application.delete_env(:mnesia, :dir)
       Application.delete_env(:tailwind, :path)
       Application.delete_env(:bun, :path)
       Application.delete_env(:gsmlg, GSMLG.Repo)
@@ -58,7 +57,7 @@ defmodule GSMLG.Config.SetupTest do
 
     test "calls setup functions for all config sections" do
       config = %{
-        gsmlg: %{mnesia_dir: "/tmp/mnesia"},
+        gsmlg: %{},
         logger: %{log_level: "info"},
         database: %{username: "test"},
         web: %{url: "http://localhost:4000", secret_key_base: "test", port: 4000},
@@ -83,14 +82,6 @@ defmodule GSMLG.Config.SetupTest do
   end
 
   describe "setup_gsmlg/1" do
-    test "sets up mnesia directory" do
-      config = %{mnesia_dir: "/tmp/test_mnesia"}
-
-      Setup.setup_gsmlg(config)
-
-      assert Application.get_env(:mnesia, :dir) == ~c"/tmp/test_mnesia"
-    end
-
     test "sets up tailwind path" do
       config = %{tailwind_path: "/usr/bin/tailwindcss"}
 

@@ -107,9 +107,7 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           title: "Command Platform",
           items: [
             %{id: "commander_list", label: "Commanders", path: "/commander/list"},
-            %{id: "commander_tokens", label: "Agent Tokens", path: "/commander/tokens"},
-            %{id: "command_platform_legacy", label: "Legacy Platform", path: "/command_platform"},
-            %{id: "mnesia", label: "Mnesia Database Info", path: "/mnesia"}
+            %{id: "commander_tokens", label: "Agent Tokens", path: "/commander/tokens"}
           ]
         },
         %{

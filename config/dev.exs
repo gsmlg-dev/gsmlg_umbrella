@@ -86,10 +86,6 @@ config :gsmlg_admin_web, dev_routes: true
 
 config :logger, level: :debug
 
-# Configure Mnesia
-config :mnesia,
-  dir: ~c"priv/mnesia/dev"
-
 config :phoenix, :plug_init_mode, :runtime
 
 config :phoenix, :stacktrace_depth, 20

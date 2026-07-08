@@ -52,7 +52,7 @@ To create a versatile, self-hosted platform that serves as a personal digital wo
 ├─────────────────────────────────────────────────────────────────┤
 │  Infrastructure Libraries                                       │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐  │
-│  │gsmlg_config│ │gsmlg_mnesia│ │ gsmlg_aws  │ │  gsmlg_pki │  │
+│  │gsmlg_config│ │  concord   │ │ gsmlg_aws  │ │gsmlg_socket│  │
 │  └────────────┘ └────────────┘ └────────────┘ └────────────┘  │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐  │
 │  │gsmlg_teleme│ │gsmlg_logger│ │gsmlg_webpus│ │gsmlg_compon│  │
@@ -61,8 +61,8 @@ To create a versatile, self-hosted platform that serves as a personal digital wo
 ├─────────────────────────────────────────────────────────────────┤
 │  Data Layer                                                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │  PostgreSQL  │  │    Mnesia    │  │   CouchDB    │          │
-│  │  Primary DB  │  │ Distributed  │  │  Documents   │          │
+│  │  PostgreSQL  │  │   Concord    │  │   CouchDB    │          │
+│  │  Primary DB  │  │ Local State  │  │  Documents   │          │
 │  └──────────────┘  └──────────────┘  └──────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -136,7 +136,7 @@ To create a versatile, self-hosted platform that serves as a personal digital wo
 
 **Technical Implementation:**
 - Phoenix Channels for real-time communication
-- Mnesia for distributed game state
+- Concord/local state for runtime session state where needed
 - React-based interactive chessboard UI
 
 #### 3.1.4 User Authentication
@@ -315,7 +315,7 @@ To create a versatile, self-hosted platform that serves as a personal digital wo
 
 **Horizontal Scaling:**
 - Stateless web application design
-- Distributed session storage via Mnesia
+- Runtime session state via Concord/local state
 - Database connection pooling
 
 **Vertical Scaling:**
@@ -375,7 +375,7 @@ To create a versatile, self-hosted platform that serves as a personal digital wo
 | Purpose | Technology |
 |---------|------------|
 | Primary Database | PostgreSQL 16 |
-| Distributed State | Mnesia |
+| Runtime State | Concord |
 | Document Store | CouchDB (optional) |
 
 **Infrastructure:**
@@ -411,10 +411,8 @@ To create a versatile, self-hosted platform that serves as a personal digital wo
                                           └──────────────┘
 ```
 
-**Mnesia Tables:**
-- `agent_registry` - Commander agent tracking
-- `game_state` - Chess game persistence
-- `session_cache` - Distributed sessions
+**Runtime State:**
+- Commander PTY session metadata is stored in Concord local state
 
 ### 5.3 API Specifications
 
@@ -462,9 +460,6 @@ Commander:
 
 **Configuration Sections:**
 ```toml
-[gsmlg]
-mnesia_dir = "/var/lib/gsmlg/mnesia"
-
 [logger]
 log_level = "info"
 
@@ -634,7 +629,7 @@ services:
 | Umbrella Application | Elixir project structure containing multiple applications |
 | LiveView | Phoenix framework for real-time server-rendered UIs |
 | Guardian | JWT authentication library for Elixir |
-| Mnesia | Distributed database built into Erlang/OTP |
+| Concord | Embedded key-value state store |
 | BEAM | Erlang virtual machine running Elixir code |
 | Burrito | Tool for creating standalone Elixir executables |
 

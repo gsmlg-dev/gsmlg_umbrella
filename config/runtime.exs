@@ -91,19 +91,6 @@ if System.get_env("MIX_TAILWIND_PATH") do
   config :tailwind, path: System.get_env("MIX_TAILWIND_PATH")
 end
 
-mnesia_dir_default =
-  Path.expand("../_build/tmp/mnesia/#{config_env()}/#{node()}", __DIR__)
-
-# Configure Mnesia directory based on environment
-mnesia_dir =
-  case System.get_env("MNESIA_DIR") do
-    nil -> mnesia_dir_default
-    "" -> mnesia_dir_default
-    dir -> dir
-  end
-
-config :mnesia, dir: String.to_charlist(mnesia_dir)
-
 if config_env() == :prod do
   config :phoenix_react_server, Phoenix.React.Runtime.Bun,
     cmd: System.get_env("MIX_BUN_PATH", System.find_executable("bun")),

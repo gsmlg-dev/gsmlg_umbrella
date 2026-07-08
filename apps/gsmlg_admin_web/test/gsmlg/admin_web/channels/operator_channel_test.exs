@@ -4,7 +4,7 @@ defmodule GSMLG.AdminWeb.OperatorChannelTest do
   alias GSMLG.CommandPlatform.{AgentRegistry, PTYSessionRecord}
 
   setup do
-    ensure_pty_table!()
+    ensure_pty_store!()
 
     agent_id = "agent-#{System.unique_integer([:positive])}"
     session_id = "#{agent_id}-pty"
@@ -98,8 +98,7 @@ defmodule GSMLG.AdminWeb.OperatorChannelTest do
     assert_receive {:send_input, ^session_id, "pwd\n"}
   end
 
-  defp ensure_pty_table! do
-    :ok = :mnesia.start()
+  defp ensure_pty_store! do
     :ok = PTYSessionRecord.create_table()
   end
 end

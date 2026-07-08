@@ -60,11 +60,6 @@ defmodule GSMLG.Config.Setup do
   end
 
   def setup_gsmlg(config) do
-    if config[:mnesia_dir] != nil do
-      mnesia_dir = config[:mnesia_dir] |> String.to_charlist()
-      Application.put_env(:mnesia, :dir, mnesia_dir)
-    end
-
     if config[:tailwind_path] != nil do
       tailwind_path = config[:tailwind_path]
       Application.put_env(:tailwind, :path, tailwind_path)

@@ -57,7 +57,6 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:gettext, "~> 0.18 or ~> 1.0"},
       {:gsmlg, in_umbrella: true},
       {:gsmlg_aws, in_umbrella: true},
-      {:gsmlg_mnesia, in_umbrella: true},
       {:gsmlg_component, in_umbrella: true},
       {:gsmlg_web_push, in_umbrella: true},
       {:gsmlg_storage, in_umbrella: true},

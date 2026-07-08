@@ -119,9 +119,6 @@ defmodule GSMLG.AdminWeb.Router do
 
     live("/web_push", WebPushLive.Index, :index)
 
-    live("/command_platform", CommandPlatformLive.Index, :index)
-    live("/pty_terminal/:agent_id", PTYTerminalLive, :show)
-
     # Commander Management Routes
     get("/commander", GaoNoteRedirectController, :commander_list)
     live("/commander/list", CommanderLive.ListLive, :index)
@@ -131,8 +128,6 @@ defmodule GSMLG.AdminWeb.Router do
     live("/commander/:name/shell", CommanderLive.ShowLive, :shell)
 
     live("/scout", ScoutLive.DashboardLive, :index)
-
-    live("/mnesia", MnesiaLive.Index, :index)
 
     live("/github", GithubLive.Index, :index)
 

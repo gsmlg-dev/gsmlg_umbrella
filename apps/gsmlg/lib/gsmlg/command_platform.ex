@@ -82,46 +82,7 @@ defmodule GSMLG.CommandPlatform do
       }
     )
 
-    {:ok, state, {:continue, :start_mnesia}}
-  end
-
-  @impl true
-  def handle_continue(:start_mnesia, state) do
-    # Run Mnesia setup in a separate task to avoid blocking this GenServer.
-    # Mnesia suspends schema transactions when disk_almost_full or
-    # system_memory_high_watermark alarms are active, which would hang
-    # handle_continue and make the process unresponsive.
-    Task.start(fn ->
-      GSMLG.Telemetry.span([:command_platform, :mnesia_setup], %{node: node()}, fn ->
-        try do
-          ensure_mnesia_started()
-          ensure_mnesia_table()
-
-          GSMLG.Telemetry.info("CommandPlatform Mnesia setup completed",
-            metadata: %{
-              module: __MODULE__,
-              operation: "mnesia_setup_complete",
-              node: node()
-            }
-          )
-
-          {:ok, nil}
-        rescue
-          e ->
-            GSMLG.Telemetry.exception(e, __STACKTRACE__,
-              metadata: %{
-                module: __MODULE__,
-                operation: "mnesia_setup_failed",
-                node: node()
-              }
-            )
-
-            {:ok, nil}
-        end
-      end)
-    end)
-
-    {:noreply, state}
+    {:ok, state}
   end
 
   @impl true
@@ -246,40 +207,6 @@ defmodule GSMLG.CommandPlatform do
     )
 
     {:noreply, state}
-  end
-
-  defp ensure_mnesia_started() do
-    GSMLG.Telemetry.span([:command_platform, :mnesia_start], %{node: node()}, fn ->
-      result =
-        if :mnesia.system_info(:is_running) == :yes do
-          # Already running — schema exists, skip the stop/create/start cycle.
-          # Stopping Mnesia while the memory alarm is active causes a VM crash.
-          :ok
-        else
-          GSMLG.Mnesia.Schema.create([node()])
-
-          case GSMLG.Mnesia.start() do
-            :ok -> :ok
-            {:error, {:already_started, _}} -> :ok
-            {:error, _} = error -> error
-          end
-        end
-
-      {result, %{node: node()}}
-    end)
-    |> case do
-      {result, _metadata} -> result
-    end
-  end
-
-  defp ensure_mnesia_table() do
-    GSMLG.Telemetry.span([:command_platform, :ensure_table], %{node: node()}, fn ->
-      result = CommandPlatform.Commander.ensure_table()
-      {result, %{node: node()}}
-    end)
-    |> case do
-      {result, _metadata} -> result
-    end
   end
 
   defp typeof(term) when is_map(term), do: :map

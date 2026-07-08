@@ -2,7 +2,6 @@
 # This file contains default settings that apply across all environments
 
 [gsmlg]
-mnesia_dir = "/tmp/mnesia_test"
 tailwind_path = "/usr/bin/tailwindcss"
 bun_path = "/usr/bin/bun"
 

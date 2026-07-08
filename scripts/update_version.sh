@@ -11,7 +11,6 @@ FILES=(
   apps/gsmlg_logger/mix.exs
   apps/gsmlg_mac/mix.exs
   apps/gsmlg/mix.exs
-  apps/gsmlg_mnesia/mix.exs
   apps/gsmlg_socket/mix.exs
   apps/gsmlg_tor/mix.exs
   apps/gsmlg_web/mix.exs

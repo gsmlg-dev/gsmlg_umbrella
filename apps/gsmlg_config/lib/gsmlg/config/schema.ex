@@ -6,11 +6,6 @@ defmodule GSMLG.Config.Schema do
   """
 
   @gsmlg_schema [
-    mnesia_dir: [
-      type: :string,
-      default: "",
-      doc: "Directory for Mnesia database files"
-    ],
     tailwind_path: [
       type: :string,
       doc: "Path to tailwindcss executable"

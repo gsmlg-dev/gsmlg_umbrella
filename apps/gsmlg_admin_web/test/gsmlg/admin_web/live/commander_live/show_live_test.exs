@@ -9,7 +9,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLiveTest do
   @secret_key_base String.duplicate("c", 64)
 
   setup %{conn: conn} do
-    ensure_pty_table!()
+    ensure_pty_store!()
 
     endpoint_config = Application.get_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint, [])
 
@@ -103,8 +103,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLiveTest do
     assert redirected_to(conn) == ~p"/commander/list"
   end
 
-  defp ensure_pty_table! do
-    :ok = :mnesia.start()
+  defp ensure_pty_store! do
     :ok = PTYSessionRecord.create_table()
   end
 

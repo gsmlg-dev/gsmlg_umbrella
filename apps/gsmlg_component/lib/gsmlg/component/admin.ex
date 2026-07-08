@@ -64,8 +64,7 @@ defmodule GSMLG.Component.Admin do
              ]},
             {"Command Platform",
              [
-               {"Commander", "/command_platform"},
-               {"Mnesia", "/mnesia"}
+               {"Commander", "/commander/list"}
              ]},
             {"AWS",
              [

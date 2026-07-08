@@ -1,6 +1,6 @@
 defmodule GSMLG.CommandPlatform.SessionTracker do
   @moduledoc """
-  Tracks PTY sessions across agents with Mnesia persistence.
+  Tracks PTY sessions across agents with Concord local state.
 
   Manages session lifecycle, handles reconnection scenarios,
   and provides session discovery and monitoring capabilities.
@@ -149,14 +149,11 @@ defmodule GSMLG.CommandPlatform.SessionTracker do
 
     schedule_cleanup()
 
-    # Defer Mnesia table creation to avoid blocking the supervisor tree.
-    # Mnesia suspends schema transactions when disk_almost_full or
-    # system_memory_high_watermark alarms are active, which would hang init/1.
-    {:ok, %{}, {:continue, :create_mnesia_table}}
+    {:ok, %{}, {:continue, :ensure_session_store}}
   end
 
   @impl true
-  def handle_continue(:create_mnesia_table, state) do
+  def handle_continue(:ensure_session_store, state) do
     Task.start(fn ->
       PTYSessionRecord.create_table()
     end)

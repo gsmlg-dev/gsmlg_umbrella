@@ -14,7 +14,7 @@ defmodule GSMLG.CommandPlatform.Supervisor do
       {GSMLG.CommandPlatform, []},
       # PTY agent registry
       {GSMLG.CommandPlatform.AgentRegistry, []},
-      # PTY session tracker with Mnesia
+      # PTY session tracker
       {GSMLG.CommandPlatform.SessionTracker, []}
     ]
 

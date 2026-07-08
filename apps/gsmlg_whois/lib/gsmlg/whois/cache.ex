@@ -20,7 +20,6 @@ defmodule GSMLG.Whois.Cache do
   Built-in backends:
 
   - `GSMLG.Whois.Cache.ETS` (default) — requires `start_link/0` in your supervision tree
-  - `GSMLG.Whois.Cache.Mnesia` — requires Mnesia table `:gsmlg_whois_cache` to exist
   - `GSMLG.Whois.Cache.Postgres` — requires a Postgrex connection pool
   - `GSMLG.Whois.Cache.Concord` — requires Concord to be started
 

@@ -1,5 +1,4 @@
 [gsmlg]
-mnesia_dir = ""
 
 [logger]
 log_level = "debug"

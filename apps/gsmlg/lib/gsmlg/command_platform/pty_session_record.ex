@@ -1,14 +1,11 @@
 defmodule GSMLG.CommandPlatform.PTYSessionRecord do
   @moduledoc """
-  Mnesia record definition for PTY sessions.
+  Concord-backed record definition for PTY sessions.
 
-  Stores PTY session metadata for persistence and tracking across
-  agent reconnections and server restarts.
+  Stores PTY session metadata for tracking across agent reconnections.
   """
 
-  require Logger
-
-  @table :pty_sessions
+  @key_prefix "command_platform:pty_sessions:"
 
   defstruct [
     :session_id,
@@ -37,44 +34,12 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
         }
 
   @doc """
-  Creates the Mnesia table for PTY sessions.
+  Ensures the local Concord store is available for PTY sessions.
+
+  Kept as `create_table/0` so older setup paths can call it while the backing
+  store is Concord instead of Mnesia.
   """
-  def create_table do
-    case :mnesia.create_table(@table,
-           attributes: [
-             :session_id,
-             :agent_id,
-             :command,
-             :dimensions,
-             :created_at,
-             :last_activity,
-             :state,
-             :exit_code,
-             :controller_pid,
-             :metadata
-           ],
-           ram_copies: [node()],
-           type: :set,
-           index: [:agent_id, :state]
-         ) do
-      {:atomic, :ok} ->
-        GSMLG.Telemetry.info("Created PTY sessions Mnesia table", metadata: %{})
-        :ok
-
-      {:aborted, {:already_exists, @table}} ->
-        GSMLG.Telemetry.debug("PTY sessions table already exists", metadata: %{})
-        :ok
-
-      {:aborted, reason} ->
-        GSMLG.Telemetry.error("Failed to create PTY sessions table",
-          metadata: %{
-            reason: inspect(reason)
-          }
-        )
-
-        {:error, reason}
-    end
-  end
+  def create_table, do: ensure_store()
 
   @doc """
   Inserts or updates a session record.
@@ -82,12 +47,18 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
   def write(session) when is_map(session) do
     record = map_to_record(session)
 
-    :mnesia.transaction(fn ->
-      :mnesia.write(@table, record, :write)
-    end)
-    |> case do
-      {:atomic, :ok} -> :ok
-      {:aborted, reason} -> {:error, reason}
+    with :ok <- validate_session_id(record.session_id),
+         :ok <- ensure_store() do
+      case Concord.Local.put(key(record.session_id), record) do
+        :ok ->
+          :ok
+
+        {:ok, _} ->
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 
@@ -95,13 +66,14 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
   Reads a session by ID.
   """
   def read(session_id) do
-    :mnesia.transaction(fn ->
-      :mnesia.read(@table, session_id)
-    end)
-    |> case do
-      {:atomic, [record]} -> {:ok, record_to_map(record)}
-      {:atomic, []} -> {:error, :not_found}
-      {:aborted, reason} -> {:error, reason}
+    with :ok <- validate_session_id(session_id),
+         :ok <- ensure_store() do
+      case Concord.Local.get(key(session_id)) do
+        {:ok, record} -> {:ok, map_to_record(record)}
+        {:error, :not_found} -> {:error, :not_found}
+        {:error, reason} -> {:error, reason}
+        nil -> {:error, :not_found}
+      end
     end
   end
 
@@ -109,12 +81,14 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
   Deletes a session record.
   """
   def delete(session_id) do
-    :mnesia.transaction(fn ->
-      :mnesia.delete(@table, session_id, :write)
-    end)
-    |> case do
-      {:atomic, :ok} -> :ok
-      {:aborted, reason} -> {:error, reason}
+    with :ok <- validate_session_id(session_id),
+         :ok <- ensure_store() do
+      case Concord.Local.delete(key(session_id)) do
+        :ok -> :ok
+        {:ok, _} -> :ok
+        {:error, :not_found} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -125,25 +99,15 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
     agent_id = Keyword.get(opts, :agent_id)
     state_filter = Keyword.get(opts, :state)
 
-    :mnesia.transaction(fn ->
-      cond do
-        agent_id ->
-          :mnesia.index_read(@table, agent_id, :agent_id)
+    case all_records() do
+      {:ok, records} ->
+        Enum.filter(records, fn record ->
+          matches_filter?(record.agent_id, agent_id) and
+            matches_filter?(record.state, state_filter)
+        end)
 
-        state_filter ->
-          :mnesia.index_read(@table, state_filter, :state)
-
-        true ->
-          :mnesia.match_object(
-            @table,
-            {:pty_sessions, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_},
-            :read
-          )
-      end
-    end)
-    |> case do
-      {:atomic, records} -> Enum.map(records, &record_to_map/1)
-      {:aborted, _reason} -> []
+      {:error, _reason} ->
+        []
     end
   end
 
@@ -161,57 +125,64 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
     now = System.system_time(:millisecond)
     cutoff = now - max_age_ms
 
-    :mnesia.transaction(fn ->
-      sessions =
-        :mnesia.match_object(
-          @table,
-          {:pty_sessions, :_, :_, :_, :_, :_, :_, :_, :closed, :_, :_, :_},
-          :read
-        )
+    list(state: :closed)
+    |> Enum.filter(&(&1.last_activity < cutoff))
+    |> Enum.each(&delete(&1.session_id))
 
-      Enum.each(sessions, fn record ->
-        session = record_to_map(record)
-
-        if session.last_activity < cutoff do
-          :mnesia.delete(@table, session.session_id, :write)
-        end
-      end)
-    end)
+    :ok
   end
 
   # Private Functions
 
+  defp ensure_store do
+    case Process.whereis(Concord.Engine.Local) do
+      nil ->
+        case Concord.Engine.Local.start_link([]) do
+          {:ok, _pid} -> :ok
+          {:error, {:already_started, _pid}} -> :ok
+          {:error, reason} -> {:error, reason}
+        end
+
+      _pid ->
+        :ok
+    end
+  end
+
+  defp all_records do
+    with :ok <- ensure_store() do
+      case Concord.Local.prefix_scan(@key_prefix) do
+        {:ok, records} -> {:ok, Enum.map(records, fn {_key, record} -> map_to_record(record) end)}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
   defp map_to_record(map) do
-    {
-      @table,
-      Map.get(map, :session_id),
-      Map.get(map, :agent_id),
-      Map.get(map, :command),
-      Map.get(map, :dimensions, %{rows: 24, cols: 80}),
-      Map.get(map, :created_at, System.system_time(:millisecond)),
-      Map.get(map, :last_activity, System.system_time(:millisecond)),
-      Map.get(map, :state, :running),
-      Map.get(map, :exit_code),
-      Map.get(map, :controller_pid),
-      Map.get(map, :metadata, %{})
+    %__MODULE__{
+      session_id: get_value(map, :session_id),
+      agent_id: get_value(map, :agent_id),
+      command: get_value(map, :command),
+      dimensions: get_value(map, :dimensions) || %{rows: 24, cols: 80},
+      created_at: get_value(map, :created_at) || System.system_time(:millisecond),
+      last_activity: get_value(map, :last_activity) || System.system_time(:millisecond),
+      state: get_value(map, :state) || :running,
+      exit_code: get_value(map, :exit_code),
+      controller_pid: get_value(map, :controller_pid),
+      metadata: get_value(map, :metadata) || %{}
     }
   end
 
-  defp record_to_map(
-         {@table, session_id, agent_id, command, dimensions, created_at, last_activity, state,
-          exit_code, controller_pid, metadata}
-       ) do
-    %__MODULE__{
-      session_id: session_id,
-      agent_id: agent_id,
-      command: command,
-      dimensions: dimensions,
-      created_at: created_at,
-      last_activity: last_activity,
-      state: state,
-      exit_code: exit_code,
-      controller_pid: controller_pid,
-      metadata: metadata
-    }
+  defp get_value(%__MODULE__{} = record, key), do: Map.get(record, key)
+
+  defp get_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
+
+  defp validate_session_id(session_id) when is_binary(session_id) and session_id != "", do: :ok
+  defp validate_session_id(_session_id), do: {:error, :missing_session_id}
+
+  defp key(session_id), do: @key_prefix <> session_id
+
+  defp matches_filter?(_value, nil), do: true
+  defp matches_filter?(value, filter), do: value == filter
 end

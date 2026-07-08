@@ -78,20 +78,19 @@ Releases are triggered manually via the `release` workflow dispatch (inputs: `re
 
 ## Project Architecture
 
-**Elixir umbrella** with 19 apps under `apps/`. The key ones:
+**Elixir umbrella** with 22 apps under `apps/`. The key ones:
 
 | App | Purpose |
 |-----|---------|
 | `gsmlg` | Core domain: Ecto schemas, Repo, PubSub, supervision tree for all business services |
 | `gsmlg_web` | Public Phoenix app (port 4110). LiveView + React via `phoenix_react_server` |
-| `gsmlg_admin_web` | Admin Phoenix app (port 4111). Mnesia browser, AWS dashboards, Commander control |
+| `gsmlg_admin_web` | Admin Phoenix app (port 4111). AWS dashboards, Commander control |
 | `gsmlg_config` | TOML-based config system. Loads config, validates via NimbleOptions, applies to Application env |
 | `gsmlg_commander` | Dual-mode command system: agent (outbound WebSocket) or server (session management) |
 | `gsmlg_component` | Shared React components rendered server-side via Bun |
 | `gsmlg_telemetry` | Structured logging, metrics collection, file/console/CloudWatch backends |
-| `gsmlg_mnesia` | Wrapper around Erlang Mnesia with query DSL, transactions, schema management |
 
-Other utility apps: `gsmlg_aws`, `gsmlg_couchdb`, `gsmlg_pki`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
+Other utility apps: `gsmlg_aws`, `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
 
 ### Configuration System
 
@@ -162,16 +161,10 @@ If you encounter missing features, bugs, or need functionality not yet available
 
 ## Critical Gotchas
 
-### Mnesia + OTP Alarms
-- Mnesia suspends ALL schema transactions when `disk_almost_full` or `system_memory_high_watermark` alarms fire
-- **Never** call `create_table` or `set_storage_type` in GenServer `init/1` — use `handle_continue` + `Task.start`
-- For ephemeral data (PTY sessions), use `ram_copies` not `disc_copies`
-- The production server has limited RAM (~957MB), so `system_memory_high_watermark` triggers frequently
-
 ### Erlang Kernel Logger
 - `config :kernel, :logger` in Elixir config files causes a build/boot crash: "Cannot configure base applications: [:kernel]"
 - The default Erlang handler is removed in `rel/vm.args.eex` with `-kernel logger [{handler,default,undefined}]`
-- Two early boot `=INFO REPORT====` messages (alarm_handler, mnesia) still appear via legacy error_logger path — this is expected
+- Early boot `=INFO REPORT====` messages can still appear via the legacy error_logger path — this is expected
 
 ### Docker / Deployment
 - Production server: `tkgsmlg`, Docker Compose at `/root/dc/docker-compose.yaml`

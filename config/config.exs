@@ -127,11 +127,9 @@ config :tailwind,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-# Notice `config :mnesia, dir:` value type is `chart_list`
-mnesia_dir =
-  Path.expand("../_build/tmp/mnesia/#{Mix.env()}/#{node()}", __DIR__)
-
-config :mnesia, dir: to_charlist(mnesia_dir)
+config :concord,
+  cluster_enabled: false,
+  clustering: false
 
 config :gsmlg_couchdb, GSMLG.CouchDB.Connection, scheme: :http
 
@@ -250,7 +248,6 @@ config :gsmlg_telemetry,
     [:gsmlg, :web, :request, :duration],
     [:gsmlg, :repo, :query, :duration],
     [:gsmlg, :commander, :command_execution],
-    [:gsmlg, :admin, :mnesia, :fetch_info],
     # Commander system metrics
     [:commander, :session, :started],
     [:commander, :session, :terminated],

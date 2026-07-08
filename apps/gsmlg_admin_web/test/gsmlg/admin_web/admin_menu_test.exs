@@ -18,6 +18,17 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       assert AdminMenu.active_id(nil, "/pki/ca") == nil
     end
 
+    test "does not expose removed legacy platform and mnesia modules" do
+      refute Enum.any?(AdminMenu.enabled_items(), &(&1.id == "command_platform_legacy"))
+      refute Enum.any?(AdminMenu.enabled_items(), &(&1.id == "mnesia"))
+
+      assert_raise ArgumentError, fn -> AdminMenu.find_item!("command_platform_legacy") end
+      assert_raise ArgumentError, fn -> AdminMenu.find_item!("mnesia") end
+
+      assert AdminMenu.active_id(nil, "/command_platform") == nil
+      assert AdminMenu.active_id(nil, "/mnesia") == nil
+    end
+
     test "includes GaoNote under the content section" do
       content = Enum.find(AdminMenu.sections(), &(&1.id == "content"))
 
@@ -93,6 +104,14 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       paths = GSMLG.AdminWeb.Router |> Phoenix.Router.routes() |> Enum.map(& &1.path)
 
       refute Enum.any?(paths, &String.starts_with?(&1, "/pki"))
+    end
+
+    test "does not expose legacy platform or mnesia routes" do
+      paths = GSMLG.AdminWeb.Router |> Phoenix.Router.routes() |> Enum.map(& &1.path)
+
+      refute "/command_platform" in paths
+      refute "/pty_terminal/:agent_id" in paths
+      refute "/mnesia" in paths
     end
   end
 end
