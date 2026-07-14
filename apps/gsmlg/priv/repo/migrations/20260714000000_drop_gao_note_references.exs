@@ -6,6 +6,7 @@ defmodule GSMLG.Repo.Migrations.DropGaoNoteReferences do
   end
 
   def down do
-    :ok
+    raise Ecto.MigrationError,
+          "cannot reverse GaoNote Reference removal: deleted Reference rows cannot be reconstructed"
   end
 end

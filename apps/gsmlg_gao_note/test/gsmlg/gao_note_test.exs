@@ -335,6 +335,8 @@ defmodule GSMLG.GaoNoteTest do
       for path <- [
             "/etc/passwd",
             "C:\\Windows\\system.ini",
+            "\\\\server\\share\\file",
+            "\\rooted\\file",
             "../secret.txt",
             "./nested/../secret.txt",
             "https://example.com/data.txt"
@@ -383,7 +385,7 @@ defmodule GSMLG.GaoNoteTest do
                )
                |> Repo.insert()
 
-      assert %{note_id: [_ | _]} = errors_on(duplicate_file_changeset)
+      assert %{storage_file_id: [_ | _]} = errors_on(duplicate_file_changeset)
 
       assert {:error, duplicate_path_changeset} =
                %Attachment{}
@@ -396,7 +398,7 @@ defmodule GSMLG.GaoNoteTest do
                )
                |> Repo.insert()
 
-      assert %{note_id: [_ | _]} = errors_on(duplicate_path_changeset)
+      assert %{path: [_ | _]} = errors_on(duplicate_path_changeset)
     end
   end
 

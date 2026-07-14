@@ -56,9 +56,13 @@ defmodule GSMLG.GaoNote.Attachment do
     |> validate_number(:position, greater_than_or_equal_to: 0)
     |> validate_note_relative_path()
     |> unique_constraint([:note_id, :storage_file_id],
-      name: :gao_note_attachments_note_id_storage_file_id_index
+      name: :gao_note_attachments_note_id_storage_file_id_index,
+      error_key: :storage_file_id
     )
-    |> unique_constraint([:note_id, :path], name: :gao_note_attachments_note_id_path_index)
+    |> unique_constraint([:note_id, :path],
+      name: :gao_note_attachments_note_id_path_index,
+      error_key: :path
+    )
   end
 
   defp put_default_description(changeset) do
@@ -111,7 +115,8 @@ defmodule GSMLG.GaoNote.Attachment do
   end
 
   defp absolute_path?(path) do
-    Path.type(path) == :absolute or Regex.match?(@windows_absolute_path, path)
+    Path.type(path) == :absolute or String.starts_with?(path, "\\") or
+      Regex.match?(@windows_absolute_path, path)
   end
 
   defp url_path?(path) do
