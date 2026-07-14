@@ -1,25 +1,24 @@
 defmodule GSMLG.GaoNote do
   @moduledoc """
-  Domain context for GaoNote notes, tags, web references, and storage-backed assets.
+  Domain context for GaoNote notes, label settings, and storage-backed attachments.
   """
 
   import Ecto.Query, warn: false
 
   alias Ecto.Multi
-  alias GSMLG.GaoNote.{Asset, Log, MCPSetting, Note, Reference, Tag}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.Repo
   alias GSMLG.Storage
 
   @default_limit 50
   @max_limit 200
+  @labels_not_provided :__gao_note_labels_not_provided__
   @mcp_setting_id "default"
 
-  def public_note_query do
-    from(n in Note)
-  end
+  def public_note_query, do: active_note_query()
 
   def list_notes(opts \\ []) do
-    list_notes_from(Note, opts)
+    list_notes_from(active_note_query(), opts)
   end
 
   def list_public_notes(opts \\ []) do
@@ -40,8 +39,8 @@ defmodule GSMLG.GaoNote do
 
   def get_note(id) do
     with {:ok, id} <- Ecto.UUID.cast(id) do
-      Note
-      |> preload([:tags])
+      active_note_query()
+      |> preload([labels: :label_setting, attachments: :storage_file])
       |> Repo.get(id)
     else
       :error -> nil
@@ -49,8 +48,8 @@ defmodule GSMLG.GaoNote do
   end
 
   def get_note!(id) do
-    Note
-    |> preload([:tags])
+    active_note_query()
+    |> preload([labels: :label_setting, attachments: :storage_file])
     |> Repo.get!(id)
   end
 
@@ -58,90 +57,98 @@ defmodule GSMLG.GaoNote do
     with {:ok, id} <- Ecto.UUID.cast(id) do
       public_note_query()
       |> where([n], n.id == ^id)
-      |> preload([:tags])
+      |> preload([labels: :label_setting, attachments: :storage_file])
       |> Repo.one()
     else
       :error -> nil
     end
   end
 
-  def list_tags(opts \\ []) do
+  def list_deleted_notes(opts \\ []) do
+    opts = normalize_opts(opts)
+
+    deleted_note_query()
+    |> filter_by_creator(opts[:creator])
+    |> filter_by_search(opts[:search])
+    |> filter_by_label(opts[:label])
+    |> order_by([n], desc: n.deleted_at, desc: n.updated_at)
+    |> limit(^limit_value(opts[:limit]))
+    |> offset(^offset_value(opts[:offset]))
+    |> preload([labels: :label_setting, attachments: :storage_file])
+    |> Repo.all()
+  end
+
+  def get_deleted_note(id) do
+    with {:ok, id} <- Ecto.UUID.cast(id) do
+      deleted_note_query()
+      |> preload([labels: :label_setting, attachments: :storage_file])
+      |> Repo.get(id)
+    else
+      :error -> nil
+    end
+  end
+
+  def list_label_settings(opts \\ []) do
     limit = Keyword.get(opts, :limit)
 
-    Tag
+    LabelSetting
     |> order_by([t], asc: fragment("lower(?)", t.name))
     |> maybe_limit(limit)
     |> Repo.all()
   end
 
-  def get_tag(id) do
+  def get_label_setting(id) do
     with {:ok, id} <- Ecto.UUID.cast(id) do
-      Repo.get(Tag, id)
+      Repo.get(LabelSetting, id)
     else
       :error -> nil
     end
   end
 
-  def get_tag!(id), do: Repo.get!(Tag, id)
+  def get_label_setting!(id), do: Repo.get!(LabelSetting, id)
 
-  def list_references(note_or_id) do
-    note_id = note_id(note_or_id)
-
-    Reference
-    |> where([r], r.note_id == ^note_id)
-    |> order_by([r], asc: r.position, asc: r.inserted_at)
-    |> Repo.all()
-  end
-
-  def list_all_references(opts \\ []) do
-    opts = normalize_opts(opts)
-
-    Reference
-    |> order_by([r], desc: r.inserted_at)
-    |> limit(^limit_value(opts[:limit]))
-    |> offset(^offset_value(opts[:offset]))
-    |> preload(:note)
-    |> Repo.all()
-  end
-
-  def get_reference(id) do
-    with {:ok, id} <- Ecto.UUID.cast(id) do
-      Repo.get(Reference, id)
+  def list_attachments(note_id) do
+    with {:ok, note_id} <- Ecto.UUID.cast(note_id) do
+      Attachment
+      |> join(:inner, [attachment], file in assoc(attachment, :storage_file))
+      |> join(:inner, [attachment, _file], note in assoc(attachment, :note))
+      |> where(
+        [attachment, file, note],
+        attachment.note_id == ^note_id and file.status == "active" and is_nil(note.deleted_at)
+      )
+      |> order_by([attachment], asc: attachment.position, asc: attachment.inserted_at)
+      |> preload([_attachment, file, _note], storage_file: file)
+      |> Repo.all()
     else
-      :error -> nil
+      :error -> []
     end
   end
 
-  def list_assets(note_or_id) do
-    note_id = note_id(note_or_id)
-
-    Asset
-    |> join(:inner, [a], f in assoc(a, :storage_file))
-    |> where([a, f], a.note_id == ^note_id and f.status == "active")
-    |> order_by([a], asc: a.position, asc: a.inserted_at)
-    |> preload([_a, f], storage_file: f)
-    |> Repo.all()
-  end
-
-  def list_all_assets(opts \\ []) do
+  def list_all_attachments(opts \\ []) do
     opts = normalize_opts(opts)
 
-    Asset
-    |> join(:inner, [a], f in assoc(a, :storage_file))
-    |> join(:inner, [a, _f], n in assoc(a, :note))
-    |> where([_a, f, _n], f.status == "active")
-    |> order_by([a], desc: a.inserted_at)
+    Attachment
+    |> join(:inner, [attachment], file in assoc(attachment, :storage_file))
+    |> join(:inner, [attachment, _file], note in assoc(attachment, :note))
+    |> where([_attachment, file, note], file.status == "active" and is_nil(note.deleted_at))
+    |> order_by([attachment], desc: attachment.inserted_at)
     |> limit(^limit_value(opts[:limit]))
     |> offset(^offset_value(opts[:offset]))
-    |> preload([_a, f, n], storage_file: f, note: n)
+    |> preload([_attachment, file, note], storage_file: file, note: note)
     |> Repo.all()
   end
 
-  def get_asset(id) do
+  def get_attachment(id) do
     with {:ok, id} <- Ecto.UUID.cast(id) do
-      Asset
-      |> preload(:storage_file)
-      |> Repo.get(id)
+      Attachment
+      |> join(:inner, [attachment], file in assoc(attachment, :storage_file))
+      |> join(:inner, [attachment, _file], note in assoc(attachment, :note))
+      |> where(
+        [attachment, file, note],
+        attachment.id == ^id and file.status == "active" and is_nil(note.deleted_at)
+      )
+      |> preload([_attachment, file, _note], storage_file: file)
+      |> Repo.one()
     else
       :error -> nil
     end
@@ -213,71 +220,73 @@ defmodule GSMLG.GaoNote do
     Note.changeset(note, attrs)
   end
 
-  def change_reference(%Reference{} = reference, attrs \\ %{}) do
-    Reference.changeset(reference, attrs)
+  def change_attachment(%Attachment{} = attachment, attrs \\ %{}) do
+    Attachment.changeset(attachment, attrs)
   end
 
-  def change_asset(%Asset{} = asset, attrs \\ %{}) do
-    Asset.changeset(asset, attrs)
+  def change_label_setting(%LabelSetting{} = label_setting, attrs \\ %{}) do
+    LabelSetting.changeset(label_setting, attrs)
   end
 
-  def change_tag(%Tag{} = tag, attrs \\ %{}) do
-    Tag.changeset(tag, attrs)
-  end
-
-  def create_tag(attrs, actor \\ nil) do
-    %Tag{}
-    |> Tag.changeset(normalize_attrs(attrs))
+  def create_label_setting(attrs, actor \\ nil) do
+    %LabelSetting{}
+    |> LabelSetting.changeset(normalize_attrs(attrs))
     |> Repo.insert()
-    |> tap_success(fn tag ->
-      log_action("create", "tag", tag.id, nil, actor, %{"name" => tag.name})
+    |> tap_success(fn label_setting ->
+      log_action("create", "label_setting", label_setting.id, nil, actor, %{"name" => label_setting.name})
     end)
   end
 
-  def update_tag(%Tag{} = tag, attrs, actor \\ nil) do
-    tag
-    |> Tag.changeset(normalize_attrs(attrs))
+  def update_label_setting(%LabelSetting{} = label_setting, attrs, actor \\ nil) do
+    old_value_type = label_setting.value_type || "text"
+
+    label_setting
+    |> LabelSetting.changeset(normalize_attrs(attrs))
     |> Repo.update()
-    |> tap_success(fn tag ->
-      log_action("update", "tag", tag.id, nil, actor, %{
-        "name" => tag.name,
+    |> tap_success(fn label_setting ->
+      log_action("update", "label_setting", label_setting.id, nil, actor, %{
+        "name" => label_setting.name,
         "fields" => changed_fields(attrs)
       })
+
+      if old_value_type != (label_setting.value_type || "text") do
+        async_revalidate_labels(label_setting)
+      end
     end)
   end
 
-  def delete_tag(%Tag{} = tag, actor \\ nil) do
-    Repo.delete(tag)
-    |> tap_success(fn tag ->
-      log_action("delete", "tag", tag.id, nil, actor, %{"name" => tag.name})
+  def delete_label_setting(%LabelSetting{} = label_setting, actor \\ nil) do
+    Repo.delete(label_setting)
+    |> tap_success(fn label_setting ->
+      log_action("delete", "label_setting", label_setting.id, nil, actor, %{"name" => label_setting.name})
     end)
   end
 
   def create_note(attrs, actor) do
     attrs = normalize_attrs(attrs)
-    {tag_names, attrs} = Map.pop(attrs, :tags, [])
-    {reference_attrs, attrs} = Map.pop(attrs, :references, [])
+    {label_source, label_values, attrs} = pop_labels_input(attrs)
 
-    Multi.new()
-    |> Multi.insert(:note, Note.create_changeset(%Note{}, attrs))
-    |> Multi.run(:tags, fn _repo, %{note: note} ->
-      replace_tags_in_repo(note, tag_names)
-    end)
-    |> Multi.run(:references, fn _repo, %{note: note} ->
-      add_references_in_repo(note, List.wrap(reference_attrs))
-    end)
-    |> Repo.transaction()
-    |> case do
-      {:ok, %{note: note}} ->
-        note = preload_note(note)
-        log_action("create", "note", note.id, note.id, actor, %{"title" => note.title})
-        {:ok, note}
+    with {:ok, labels} <- normalize_labels(label_values, label_source) do
+      labels = if labels == @labels_not_provided, do: [], else: labels
 
-      {:error, :note, changeset, _changes} ->
-        {:error, changeset}
+      Multi.new()
+      |> Multi.insert(:note, Note.create_changeset(%Note{}, attrs))
+      |> Multi.run(:labels, fn _repo, %{note: note} ->
+        set_labels_in_repo(note, labels)
+      end)
+      |> Repo.transaction()
+      |> case do
+        {:ok, %{note: note}} ->
+          note = preload_note(note)
+          log_action("create", "note", note.id, note.id, actor, %{"title" => note.title})
+          {:ok, note}
 
-      {:error, _step, reason, _changes} ->
-        {:error, reason}
+        {:error, :note, changeset, _changes} ->
+          {:error, changeset}
+
+        {:error, _step, reason, _changes} ->
+          {:error, reason}
+      end
     end
   end
 
@@ -286,169 +295,218 @@ defmodule GSMLG.GaoNote do
       attrs
       |> normalize_attrs()
 
-    {tag_names, attrs} = Map.pop(attrs, :tags, :not_provided)
+    {label_source, label_values, attrs} = pop_labels_input(attrs)
 
-    Multi.new()
-    |> Multi.update(:note, Note.changeset(note, attrs))
-    |> maybe_replace_tags(tag_names)
-    |> Repo.transaction()
-    |> case do
-      {:ok, %{note: note}} ->
-        note = preload_note(note)
+    with {:ok, labels} <- normalize_labels(label_values, label_source) do
+      Multi.new()
+      |> Multi.update(:note, Note.changeset(note, attrs))
+      |> maybe_replace_labels(labels)
+      |> Repo.transaction()
+      |> case do
+        {:ok, %{note: note}} ->
+          note = preload_note(note)
 
-        log_action("update", "note", note.id, note.id, actor, %{
-          "title" => note.title,
-          "fields" => changed_fields(attrs, tag_names)
-        })
+          log_action("update", "note", note.id, note.id, actor, %{
+            "title" => note.title,
+            "fields" => changed_fields(attrs, labels)
+          })
 
-        {:ok, note}
+          {:ok, note}
 
-      {:error, :note, changeset, _changes} ->
-        {:error, changeset}
+        {:error, :note, changeset, _changes} ->
+          {:error, changeset}
 
-      {:error, _step, reason, _changes} ->
-        {:error, reason}
+        {:error, _step, reason, _changes} ->
+          {:error, reason}
+      end
     end
   end
 
   def delete_note(%Note{} = note, actor) do
-    Repo.delete(note)
+    note
+    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now())
+    |> Repo.update()
     |> tap_success(fn deleted ->
-      log_action("delete", "note", deleted.id, deleted.id, actor, %{"title" => deleted.title})
+      log_action("delete", "note", deleted.id, deleted.id, actor, %{
+        "title" => deleted.title,
+        "deleted_at" => deleted.deleted_at
+      })
     end)
   end
 
-  def replace_tags(%Note{} = note, tag_names, actor) do
+  def restore_note(%Note{} = note, actor) do
+    note
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
+    |> tap_success(fn restored ->
+      log_action("restore", "note", restored.id, restored.id, actor, %{"title" => restored.title})
+    end)
+  end
+
+  def permanently_delete_note(%Note{} = note, actor) do
+    Repo.delete(note)
+    |> tap_success(fn deleted ->
+      log_action("purge", "note", deleted.id, deleted.id, actor, %{"title" => deleted.title})
+    end)
+  end
+
+  def set_labels(%Note{} = note, label_values, actor) do
     Multi.new()
-    |> Multi.run(:tags, fn _repo, _changes -> replace_tags_in_repo(note, tag_names) end)
+    |> Multi.run(:labels, fn _repo, _changes ->
+      with {:ok, labels} <- normalize_labels(label_values, :labels) do
+        set_labels_in_repo(note, labels)
+      end
+    end)
     |> Repo.transaction()
     |> case do
-      {:ok, %{tags: note}} ->
+      {:ok, %{labels: note}} ->
         note = preload_note(note)
 
         log_action("update", "note", note.id, note.id, actor, %{
           "title" => note.title,
-          "fields" => ["tags"]
+          "fields" => ["labels"]
         })
 
         {:ok, note}
 
-      {:error, :tags, reason, _changes} ->
+      {:error, :labels, reason, _changes} ->
         {:error, reason}
     end
   end
 
-  def add_reference(%Note{} = note, attrs, actor) do
+  def attach_existing_file(note_id, storage_file_id, attrs \\ %{}, opts \\ []) do
+    with {:ok, note} <- fetch_active_note(note_id),
+         {:ok, file} <- fetch_active_storage_file(storage_file_id) do
+      insert_attachment(note, file, attrs, attachment_actor(opts))
+    end
+  end
+
+  def upload_attachment(note_id, upload, attrs \\ %{}, opts \\ []) do
+    with {:ok, note} <- fetch_active_note(note_id) do
+      attrs = normalize_attrs(attrs)
+      actor = attachment_actor(opts)
+      metadata = Map.get(attrs, :metadata, %{}) |> Map.merge(%{"note_id" => note.id})
+
+      upload_opts = [
+        uploaded_by: attachment_option(opts, :uploaded_by) || actor_id(actor),
+        metadata: metadata
+      ]
+
+      with {:ok, file} <- Storage.upload(upload, "gao_note", "attachment", upload_opts) do
+        insert_attachment(note, file, attrs, actor)
+      end
+    end
+  end
+
+  def update_attachment(note_id, attachment_id, attrs) do
+    with {:ok, attachment} <- fetch_attachment_for_active_note(note_id, attachment_id) do
+      attachment
+      |> Attachment.changeset(normalize_attrs(attrs))
+      |> Repo.update()
+      |> case do
+        {:ok, attachment} ->
+          log_action("update", "attachment", attachment.id, attachment.note_id, nil, %{
+            "fields" => changed_fields(attrs)
+          })
+
+          {:ok, Repo.preload(attachment, :storage_file, force: true)}
+
+        {:error, changeset} ->
+          {:error, changeset}
+      end
+    end
+  end
+
+  def detach_attachment(note_id, attachment_id) do
+    with {:ok, attachment} <- fetch_attachment_for_active_note(note_id, attachment_id) do
+      Repo.delete(attachment)
+      |> tap_success(fn attachment ->
+        log_action("delete", "attachment", attachment.id, attachment.note_id, nil, %{
+          "storage_file_id" => attachment.storage_file_id,
+          "role" => attachment.role
+        })
+      end)
+    end
+  end
+
+  defp insert_attachment(note, file, attrs, actor) do
     attrs =
       attrs
       |> normalize_attrs()
       |> Map.put(:note_id, note.id)
+      |> Map.put(:storage_file_id, file.id)
 
-    %Reference{}
-    |> Reference.changeset(attrs)
+    %Attachment{}
+    |> Attachment.changeset(attrs)
     |> Repo.insert()
-    |> tap_success(fn reference ->
-      log_action("create", "reference", reference.id, note.id, actor, %{
-        "title" => reference.title,
-        "url" => reference.url
-      })
-    end)
-  end
-
-  def update_reference(%Reference{} = reference, attrs, actor) do
-    reference
-    |> Reference.changeset(normalize_attrs(attrs))
-    |> Repo.update()
-    |> tap_success(fn reference ->
-      log_action("update", "reference", reference.id, reference.note_id, actor, %{
-        "title" => reference.title,
-        "fields" => changed_fields(attrs)
-      })
-    end)
-  end
-
-  def remove_reference(%Reference{} = reference, actor) do
-    Repo.delete(reference)
-    |> tap_success(fn reference ->
-      log_action("delete", "reference", reference.id, reference.note_id, actor, %{
-        "title" => reference.title,
-        "url" => reference.url
-      })
-    end)
-  end
-
-  def attach_asset(%Note{} = note, storage_file_id, attrs, actor) do
-    case Storage.get_active(storage_file_id) do
-      nil ->
-        {:error, :storage_file_not_active}
-
-      _file ->
-        attrs =
-          attrs
-          |> normalize_attrs()
-          |> Map.put(:note_id, note.id)
-          |> Map.put(:storage_file_id, storage_file_id)
-
-        %Asset{}
-        |> Asset.changeset(attrs)
-        |> Repo.insert()
-        |> case do
-          {:ok, asset} ->
-            log_action("create", "asset", asset.id, note.id, actor, %{
-              "storage_file_id" => storage_file_id,
-              "role" => asset.role
-            })
-
-            {:ok, Repo.preload(asset, :storage_file)}
-
-          {:error, changeset} ->
-            {:error, changeset}
-        end
-    end
-  end
-
-  def upload_asset(%Note{} = note, upload_input, attrs, actor) do
-    metadata =
-      attrs
-      |> normalize_attrs()
-      |> Map.get(:metadata, %{})
-      |> Map.merge(%{"note_id" => note.id})
-
-    with {:ok, file} <-
-           Storage.upload(upload_input, "gao_note", "asset",
-             uploaded_by: actor_id(actor),
-             metadata: metadata
-           ) do
-      attach_asset(note, file.id, attrs, actor)
-    end
-  end
-
-  def update_asset(%Asset{} = asset, attrs, actor) do
-    asset
-    |> Asset.changeset(normalize_attrs(attrs))
-    |> Repo.update()
     |> case do
-      {:ok, asset} ->
-        log_action("update", "asset", asset.id, asset.note_id, actor, %{
-          "fields" => changed_fields(attrs)
+      {:ok, attachment} ->
+        log_action("create", "attachment", attachment.id, note.id, actor, %{
+          "storage_file_id" => file.id,
+          "role" => attachment.role
         })
 
-        {:ok, Repo.preload(asset, :storage_file)}
+        {:ok, Repo.preload(attachment, :storage_file)}
 
       {:error, changeset} ->
         {:error, changeset}
     end
   end
 
-  def detach_asset(%Asset{} = asset, actor) do
-    Repo.delete(asset)
-    |> tap_success(fn asset ->
-      log_action("delete", "asset", asset.id, asset.note_id, actor, %{
-        "storage_file_id" => asset.storage_file_id,
-        "role" => asset.role
-      })
-    end)
+  defp fetch_active_note(note_id) do
+    with {:ok, note_id} <- Ecto.UUID.cast(note_id),
+         %Note{} = note <- Repo.get(active_note_query(), note_id) do
+      {:ok, note}
+    else
+      _reason -> {:error, :not_found}
+    end
   end
+
+  defp fetch_active_storage_file(storage_file_id) do
+    with {:ok, storage_file_id} <- Ecto.UUID.cast(storage_file_id),
+         %{id: ^storage_file_id} = file <- Storage.get_active(storage_file_id) do
+      {:ok, file}
+    else
+      _reason -> {:error, :storage_file_not_active}
+    end
+  end
+
+  defp fetch_attachment_for_active_note(note_id, attachment_id) do
+    with {:ok, note_id} <- Ecto.UUID.cast(note_id),
+         {:ok, attachment_id} <- Ecto.UUID.cast(attachment_id),
+         %Attachment{} = attachment <-
+           Attachment
+           |> join(:inner, [attachment], note in assoc(attachment, :note))
+           |> where(
+             [attachment, note],
+             attachment.id == ^attachment_id and attachment.note_id == ^note_id and
+               is_nil(note.deleted_at)
+           )
+           |> preload(:storage_file)
+           |> Repo.one() do
+      {:ok, attachment}
+    else
+      _reason -> {:error, :not_found}
+    end
+  end
+
+  defp attachment_actor(opts) do
+    case attachment_option(opts, :actor) do
+      nil when is_map(opts) ->
+        if Map.has_key?(opts, :id) or Map.has_key?(opts, "id"), do: opts, else: nil
+
+      actor ->
+        actor
+    end
+  end
+
+  defp attachment_option(opts, key) when is_list(opts), do: Keyword.get(opts, key)
+
+  defp attachment_option(opts, key) when is_map(opts) do
+    Map.get(opts, key) || Map.get(opts, Atom.to_string(key))
+  end
+
+  defp attachment_option(_opts, _key), do: nil
 
   defp filter_by_creator(query, nil), do: query
   defp filter_by_creator(query, ""), do: query
@@ -460,11 +518,11 @@ defmodule GSMLG.GaoNote do
     queryable
     |> filter_by_creator(opts[:creator])
     |> filter_by_search(opts[:search])
-    |> filter_by_tag(opts[:tag])
+    |> filter_by_label(opts[:label])
     |> apply_order(opts[:order_by])
     |> limit(^limit_value(opts[:limit]))
     |> offset(^offset_value(opts[:offset]))
-    |> preload([:tags])
+    |> preload([labels: :label_setting, attachments: :storage_file])
     |> Repo.all()
   end
 
@@ -481,20 +539,44 @@ defmodule GSMLG.GaoNote do
     )
   end
 
-  defp filter_by_tag(query, nil), do: query
-  defp filter_by_tag(query, ""), do: query
+  defp filter_by_label(query, nil), do: query
+  defp filter_by_label(query, ""), do: query
 
-  defp filter_by_tag(query, tag) do
-    tag_key = Tag.normalized_key(tag)
+  defp filter_by_label(query, label_filter) do
+    case normalize_label_filter(label_filter) do
+      {:ok, label_key, nil} ->
+        query
+        |> join(:inner, [n], label in assoc(n, :labels), as: :filter_labels)
+        |> join(:inner, [filter_labels: label], t in assoc(label, :label_setting),
+          as: :filter_label_settings
+        )
+        |> where([filter_label_settings: t], fragment("lower(?)", t.name) == ^label_key)
 
-    if blank?(tag_key) do
-      query
-    else
-      query
-      |> join(:inner, [n], t in assoc(n, :tags), as: :filter_tags)
-      |> where([filter_tags: t], fragment("lower(?)", t.name) == ^tag_key)
+      {:ok, label_key, value} ->
+        query
+        |> join(:inner, [n], label in assoc(n, :labels), as: :filter_labels)
+        |> join(:inner, [filter_labels: label], t in assoc(label, :label_setting), as: :filter_label_settings)
+        |> where([filter_label_settings: t], fragment("lower(?)", t.name) == ^label_key)
+        |> where([filter_labels: label], label.value == ^value)
+
+      :error ->
+        query
     end
   end
+
+  defp normalize_label_filter(label_setting) when is_binary(label_setting) do
+    case String.split(label_setting, "=", parts: 2) do
+      [key, value] ->
+        key = LabelSetting.normalized_key(key)
+        if blank?(key), do: :error, else: {:ok, key, value_to_string(value)}
+
+      [key] ->
+        key = LabelSetting.normalized_key(key)
+        if blank?(key), do: :error, else: {:ok, key, nil}
+    end
+  end
+
+  defp normalize_label_filter(_label), do: :error
 
   defp filter_log_action(query, nil), do: query
   defp filter_log_action(query, ""), do: query
@@ -549,96 +631,268 @@ defmodule GSMLG.GaoNote do
 
   defp offset_value(_value), do: 0
 
-  defp maybe_replace_tags(multi, :not_provided), do: multi
+  defp maybe_replace_labels(multi, @labels_not_provided), do: multi
 
-  defp maybe_replace_tags(multi, tag_names) do
-    Multi.run(multi, :tags, fn _repo, %{note: note} ->
-      replace_tags_in_repo(note, tag_names)
+  defp maybe_replace_labels(multi, labels) do
+    Multi.run(multi, :labels, fn _repo, %{note: note} ->
+      set_labels_in_repo(note, labels)
     end)
   end
 
-  defp replace_tags_in_repo(%Note{} = note, tag_names) do
-    with {:ok, tag_names} <- normalize_tag_names(tag_names),
-         {:ok, tags} <- get_or_insert_tags(tag_names) do
-      note = Repo.preload(note, :tags)
+  defp set_labels_in_repo(%Note{} = note, labels) when is_list(labels) do
+    label_keys = Enum.map(labels, & &1.name)
 
-      note
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.put_assoc(:tags, tags)
-      |> Repo.update()
-    end
-  end
+    with {:ok, label_settings} <- get_or_insert_label_settings(label_keys) do
+      label_setting_by_key =
+        label_settings
+        |> Enum.map(&{LabelSetting.normalized_key(&1.name), &1})
+        |> Map.new()
 
-  defp add_references_in_repo(%Note{} = note, reference_attrs) do
-    Enum.reduce_while(reference_attrs, {:ok, []}, fn attrs, {:ok, references} ->
-      case add_reference(note, attrs, nil) do
-        {:ok, reference} -> {:cont, {:ok, [reference | references]}}
-        {:error, reason} -> {:halt, {:error, reason}}
+      Repo.delete_all(from(t in Label, where: t.note_id == ^note.id))
+
+      Enum.reduce_while(labels, {:ok, []}, fn label, {:ok, labels} ->
+        label_setting = Map.fetch!(label_setting_by_key, label.normalized_key)
+        {status, errors} = validate_label_value(label_setting, label.value)
+
+        attrs = %{
+          note_id: note.id,
+          label_setting_id: label_setting.id,
+          value: value_to_string(label.value),
+          status: status,
+          errors: errors
+        }
+
+        case %Label{} |> Label.changeset(attrs) |> Repo.insert() do
+          {:ok, label} -> {:cont, {:ok, [label | labels]}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+      |> case do
+        {:ok, _labels} -> {:ok, preload_note(note)}
+        {:error, reason} -> {:error, reason}
       end
-    end)
-  end
-
-  defp normalize_tag_names(nil), do: {:ok, []}
-
-  defp normalize_tag_names(tag_names) when is_list(tag_names) do
-    if Enum.all?(tag_names, &is_binary/1) do
-      tag_names =
-        tag_names
-        |> Enum.map(&Tag.normalize_display_name/1)
-        |> Enum.reject(&blank?/1)
-        |> Enum.uniq_by(&Tag.normalized_key/1)
-
-      {:ok, tag_names}
-    else
-      {:error, "tags must be an array of strings"}
     end
   end
 
-  defp normalize_tag_names(_tag_names), do: {:error, "tags must be an array of strings"}
+  defp pop_labels_input(attrs) when is_map(attrs) do
+    {labels, attrs} = Map.pop(attrs, :labels, @labels_not_provided)
 
-  defp get_or_insert_tags(tag_names) do
-    tag_names
-    |> Enum.reduce_while({:ok, []}, fn name, {:ok, tags} ->
-      case get_or_insert_tag(name) do
-        {:ok, tag} -> {:cont, {:ok, [tag | tags]}}
+    cond do
+      labels != @labels_not_provided -> {:labels, labels, attrs}
+      true -> {@labels_not_provided, @labels_not_provided, attrs}
+    end
+  end
+
+  defp normalize_labels(@labels_not_provided, @labels_not_provided),
+    do: {:ok, @labels_not_provided}
+
+  defp normalize_labels(nil, _source), do: {:ok, []}
+
+  defp normalize_labels(labels, source) when is_list(labels) do
+    labels
+    |> Enum.reduce_while({:ok, []}, fn label, {:ok, labels} ->
+      case normalize_label(label, source) do
+        {:ok, nil} -> {:cont, {:ok, labels}}
+        {:ok, label} -> {:cont, {:ok, [label | labels]}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
     |> case do
-      {:ok, tags} -> {:ok, Enum.sort_by(tags, &Tag.normalized_key(&1.name))}
+      {:ok, labels} ->
+        labels =
+          labels
+          |> Enum.reverse()
+          |> Enum.uniq_by(& &1.normalized_key)
+          |> Enum.sort_by(& &1.normalized_key)
+
+        {:ok, labels}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp normalize_labels(_labels, :labels), do: {:error, "labels must be an array"}
+  defp normalize_label(label, :labels) when is_binary(label) do
+    case String.split(label, "=", parts: 2) do
+      [key, value] -> normalize_label_pair(key, value)
+      [key] -> normalize_label_pair(key, "")
+    end
+  end
+
+  defp normalize_label(%{} = label, :labels) do
+    key =
+      Map.get(label, :key) ||
+        Map.get(label, "key") ||
+        Map.get(label, :name) ||
+        Map.get(label, "name")
+
+    value = Map.get(label, :value, Map.get(label, "value", ""))
+    normalize_label_pair(key, value)
+  end
+
+  defp normalize_label(_label, :labels),
+    do: {:error, "labels must be strings like key=value or maps with key/value"}
+
+  defp normalize_label_pair(key, value) do
+    key = normalize_label_key(key)
+
+    if blank?(key) do
+      {:ok, nil}
+    else
+      {:ok,
+       %{
+         name: key,
+         normalized_key: LabelSetting.normalized_key(key),
+         value: value_to_string(value)
+       }}
+    end
+  end
+
+  defp normalize_label_key(key) when is_binary(key), do: LabelSetting.normalize_display_name(key)
+
+  defp normalize_label_key(key) when is_atom(key),
+    do: key |> Atom.to_string() |> normalize_label_key()
+
+  defp normalize_label_key(_key), do: ""
+
+  defp get_or_insert_label_settings(label_names) do
+    label_names
+    |> Enum.reduce_while({:ok, []}, fn name, {:ok, label_settings} ->
+      case get_or_insert_label_setting(name) do
+        {:ok, label_setting} -> {:cont, {:ok, [label_setting | label_settings]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, label_settings} -> {:ok, Enum.sort_by(label_settings, &LabelSetting.normalized_key(&1.name))}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp get_or_insert_tag(name) do
-    tag_key = Tag.normalized_key(name)
+  defp get_or_insert_label_setting(name) do
+    label_key = LabelSetting.normalized_key(name)
 
-    case tag_by_normalized_name(tag_key) do
-      %Tag{} = tag ->
-        {:ok, tag}
+    case label_setting_by_normalized_name(label_key) do
+      %LabelSetting{} = label_setting ->
+        {:ok, label_setting}
 
       nil ->
-        insert_tag(name)
+        insert_label_setting(name)
     end
   end
 
-  defp tag_by_normalized_name(tag_key) do
-    Tag
-    |> where([t], fragment("lower(?)", t.name) == ^tag_key)
+  defp label_setting_by_normalized_name(label_key) do
+    LabelSetting
+    |> where([setting], fragment("lower(?)", setting.name) == ^label_key)
     |> Repo.one()
   end
 
-  defp insert_tag(name) do
+  defp insert_label_setting(name) do
     now = DateTime.utc_now()
 
-    %Tag{}
-    |> Tag.changeset(%{name: name})
+    %LabelSetting{}
+    |> LabelSetting.changeset(%{name: name})
     |> Repo.insert(
       conflict_target: {:unsafe_fragment, "(lower(name))"},
       on_conflict: [set: [updated_at: now]],
       returning: true
     )
   end
+
+  defp validate_label_value(%LabelSetting{value_type: value_type}, value) do
+    value = value_to_string(value)
+    value_type = value_type || "text"
+
+    case value_type do
+      "text" -> valid_label()
+      "number" -> validate_number_label(value)
+      "version" -> validate_version_label(value)
+      "date" -> validate_date_label(value)
+      "date-time" -> validate_datetime_label(value)
+      "time" -> validate_time_label(value)
+      "year" -> validate_regex_label(value, ~r/^\d{4}$/, "must be YYYY")
+      "year-month" -> validate_regex_label(value, ~r/^\d{4}-(0[1-9]|1[0-2])$/, "must be YYYY-MM")
+      "year-season" -> validate_regex_label(value, ~r/^\d{4}-Q[1-4]$/, "must be YYYY-Q1..YYYY-Q4")
+      _other -> invalid_label("unsupported value type #{value_type}")
+    end
+  end
+
+  defp validate_number_label(value) do
+    case Float.parse(value) do
+      {_number, ""} -> valid_label()
+      _other -> invalid_label("must be a number")
+    end
+  end
+
+  defp validate_version_label(value) do
+    if Regex.match?(~r/^v?\d+(\.\d+){0,3}([+-][0-9A-Za-z.-]+)?$/, value) do
+      valid_label()
+    else
+      invalid_label("must be a version")
+    end
+  end
+
+  defp validate_date_label(value) do
+    case Date.from_iso8601(value) do
+      {:ok, _date} -> valid_label()
+      {:error, _reason} -> invalid_label("must be YYYY-MM-DD")
+    end
+  end
+
+  defp validate_datetime_label(value) do
+    cond do
+      match?({:ok, _datetime, _offset}, DateTime.from_iso8601(value)) ->
+        valid_label()
+
+      match?({:ok, _datetime}, NaiveDateTime.from_iso8601(value)) ->
+        valid_label()
+
+      true ->
+        invalid_label("must be ISO8601 date-time")
+    end
+  end
+
+  defp validate_time_label(value) do
+    case Time.from_iso8601(value) do
+      {:ok, _time} -> valid_label()
+      {:error, _reason} -> invalid_label("must be ISO8601 time")
+    end
+  end
+
+  defp validate_regex_label(value, regex, message) do
+    if Regex.match?(regex, value), do: valid_label(), else: invalid_label(message)
+  end
+
+  defp valid_label, do: {"valid", []}
+  defp invalid_label(message), do: {"invalid", [message]}
+
+  defp async_revalidate_labels(%LabelSetting{} = label_setting) do
+    fun = fn -> revalidate_labels(label_setting.id) end
+
+    case Process.whereis(GSMLG.TaskSupervisor) do
+      nil -> Task.start(fun)
+      _pid -> Task.Supervisor.start_child(GSMLG.TaskSupervisor, fun)
+    end
+  end
+
+  defp revalidate_labels(label_setting_id) do
+    Label
+    |> where([label], label.label_setting_id == ^label_setting_id)
+    |> preload(:label_setting)
+    |> Repo.all()
+    |> Enum.each(fn %Label{label_setting: label_setting, value: value} = label ->
+      {status, errors} = validate_label_value(label_setting, value)
+
+      label
+      |> Label.changeset(%{status: status, errors: errors})
+      |> Repo.update()
+    end)
+  end
+
+  defp value_to_string(nil), do: ""
+  defp value_to_string(value) when is_binary(value), do: String.trim(value)
+  defp value_to_string(value), do: value |> to_string() |> String.trim()
 
   defp normalize_opts(opts) when is_map(opts), do: Enum.into(opts, [])
   defp normalize_opts(opts), do: opts
@@ -664,10 +918,16 @@ defmodule GSMLG.GaoNote do
     end
   end
 
-  defp note_id(%Note{id: id}), do: id
-  defp note_id(id), do: id
+  defp preload_note(%Note{} = note),
+    do: Repo.preload(note, [labels: :label_setting, attachments: :storage_file], force: true)
 
-  defp preload_note(%Note{} = note), do: Repo.preload(note, [:tags], force: true)
+  defp active_note_query do
+    from(n in Note, where: is_nil(n.deleted_at))
+  end
+
+  defp deleted_note_query do
+    from(n in Note, where: not is_nil(n.deleted_at))
+  end
 
   defp log_action(action, entity_type, entity_id, note_id, actor, details) do
     %Log{}
@@ -690,14 +950,14 @@ defmodule GSMLG.GaoNote do
 
   defp tap_success(result, _fun), do: result
 
-  defp changed_fields(attrs, tag_names \\ :not_provided) do
+  defp changed_fields(attrs, labels \\ @labels_not_provided) do
     fields =
       attrs
       |> normalize_attrs()
       |> Map.keys()
       |> Enum.map(&to_string/1)
 
-    if tag_names == :not_provided, do: fields, else: Enum.uniq(fields ++ ["tags"])
+    if labels == @labels_not_provided, do: fields, else: Enum.uniq(fields ++ ["labels"])
   end
 
   defp hash_api_key(api_key) do
