@@ -2,7 +2,7 @@ defmodule GSMLG.GaoNote.Note do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias GSMLG.GaoNote.{Asset, Reference, Tag, Tagging}
+  alias GSMLG.GaoNote.{Attachment, Label}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -13,15 +13,10 @@ defmodule GSMLG.GaoNote.Note do
     field(:description, :string)
     field(:content, :string)
     field(:creator, :string)
+    field(:deleted_at, :utc_datetime_usec)
 
-    has_many(:references, Reference, foreign_key: :note_id)
-    has_many(:assets, Asset, foreign_key: :note_id)
-
-    many_to_many(:tags, Tag,
-      join_through: Tagging,
-      join_keys: [note_id: :id, tag_id: :id],
-      on_replace: :delete
-    )
+    has_many(:attachments, Attachment, foreign_key: :note_id)
+    has_many(:labels, Label, foreign_key: :note_id)
 
     timestamps()
   end

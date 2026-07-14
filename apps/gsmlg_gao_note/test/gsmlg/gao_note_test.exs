@@ -2,17 +2,16 @@ defmodule GSMLG.GaoNoteTest do
   use GSMLG.GaoNote.DataCase, async: false
 
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Asset, Log, MCPSetting, Note, Reference, Tag, Tagging}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.Accounts.User
   alias GSMLG.Storage.StorageFile
 
   setup do
     Repo.delete_all(MCPSetting)
     Repo.delete_all(Log)
-    Repo.delete_all(Asset)
-    Repo.delete_all(Reference)
-    Repo.delete_all(Tagging)
-    Repo.delete_all(Tag)
+    Repo.delete_all(Attachment)
+    Repo.delete_all(Label)
+    Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
     Repo.delete_all(StorageFile)
     :ok
@@ -242,226 +241,162 @@ defmodule GSMLG.GaoNoteTest do
     end
   end
 
-  describe "tags" do
-    test "create, read, update, and delete tag lifecycle" do
-      assert {:ok, %Tag{name: "Research"} = tag} =
-               GaoNote.create_tag(%{name: "  Research  ", color: "#1f6feb"})
+  describe "label_settings" do
+    test "create, read, update, and delete label_setting lifecycle" do
+      assert {:ok, %LabelSetting{name: "Research"} = label_setting} =
+               GaoNote.create_label_setting(%{name: "  Research  ", color: "#1f6feb"})
 
-      tag_id = tag.id
-      refute Map.has_key?(tag, :slug)
+      label_setting_id = label_setting.id
+      refute Map.has_key?(label_setting, :slug)
 
-      assert %Tag{id: ^tag_id, name: "Research"} = GaoNote.get_tag(tag_id)
-      assert %Tag{id: ^tag_id, name: "Research"} = GaoNote.get_tag!(tag_id)
+      assert %LabelSetting{id: ^label_setting_id, name: "Research"} = GaoNote.get_label_setting(label_setting_id)
+      assert %LabelSetting{id: ^label_setting_id, name: "Research"} = GaoNote.get_label_setting!(label_setting_id)
 
-      assert [%Tag{id: tag_id}] = GaoNote.list_tags()
-      assert tag_id == tag.id
+      assert [%LabelSetting{id: label_setting_id}] = GaoNote.list_label_settings()
+      assert label_setting_id == label_setting.id
 
-      assert {:ok, %Tag{id: ^tag_id, color: "#0f172a", metadata: %{"scope" => "unit"}}} =
-               GaoNote.update_tag(tag, %{color: "#0f172a", metadata: %{"scope" => "unit"}})
+      assert {:ok, %LabelSetting{id: ^label_setting_id, color: "#0f172a", metadata: %{"scope" => "unit"}}} =
+               GaoNote.update_label_setting(label_setting, %{color: "#0f172a", metadata: %{"scope" => "unit"}})
 
-      assert %Tag{id: ^tag_id, color: "#0f172a"} = GaoNote.get_tag(tag_id)
+      assert %LabelSetting{id: ^label_setting_id, color: "#0f172a"} = GaoNote.get_label_setting(label_setting_id)
 
-      assert {:ok, %Tag{}} = GaoNote.delete_tag(GaoNote.get_tag!(tag_id))
-      assert GaoNote.get_tag(tag_id) == nil
-      assert GaoNote.list_tags() == []
+      assert {:ok, %LabelSetting{}} = GaoNote.delete_label_setting(GaoNote.get_label_setting!(label_setting_id))
+      assert GaoNote.get_label_setting(label_setting_id) == nil
+      assert GaoNote.list_label_settings() == []
     end
 
-    test "replace_tags/3 normalizes, dedupes, and filters by tag" do
+    test "replace_label_settings/3 normalizes, dedupes, and filters by label_setting" do
       note = note_fixture()
 
       assert {:ok, %Note{} = tagged_note} =
-               GaoNote.replace_tags(note, ["  Elixir  ", "elixir", "MCP Tools"], actor())
+               GaoNote.replace_label_settings(note, ["  Elixir  ", "elixir", "MCP Tools"], actor())
 
-      tag_names = tagged_note.tags |> Enum.map(& &1.name) |> Enum.sort()
+      tag_names = tagged_note.labels |> Enum.map(& &1.name) |> Enum.sort()
       assert tag_names == ["Elixir", "MCP Tools"]
 
-      assert [%Note{id: id}] = GaoNote.list_notes(tag: "elixir")
+      assert [%Note{id: id}] = GaoNote.list_notes(label_setting: "elixir")
       assert id == note.id
 
-      assert [%Tag{name: "Elixir"}, %Tag{name: "MCP Tools"}] = GaoNote.list_tags()
+      assert [%LabelSetting{name: "Elixir"}, %LabelSetting{name: "MCP Tools"}] = GaoNote.list_label_settings()
     end
   end
 
-  describe "references" do
-    test "create, read, update, and delete reference lifecycle" do
-      note = note_fixture()
-
-      assert {:ok, %Reference{} = reference} =
-               GaoNote.add_reference(
-                 note,
-                 %{
-                   url: "https://example.com/reference?utm_source=feed&a=1",
-                   title: "Original",
-                   position: 1
-                 },
-                 actor()
-               )
-
-      reference_id = reference.id
-      note_id = note.id
-
-      assert [%Reference{id: ^reference_id}] = GaoNote.list_references(note)
-
-      assert [%Reference{id: ^reference_id, note: %Note{id: ^note_id}}] =
-               GaoNote.list_all_references()
-
-      assert %Reference{id: ^reference_id, title: "Original"} =
-               GaoNote.get_reference(reference_id)
-
-      assert {:ok,
-              %Reference{
-                id: ^reference_id,
-                title: "Updated",
-                description: "Updated description",
-                position: 2,
-                metadata: %{"kind" => "doc"}
-              }} =
-               GaoNote.update_reference(
-                 reference,
-                 %{
-                   title: "Updated",
-                   description: "Updated description",
-                   position: 2,
-                   metadata: %{"kind" => "doc"}
-                 },
-                 actor()
-               )
-
-      assert %Reference{title: "Updated", position: 2} = GaoNote.get_reference(reference_id)
-
-      assert {:ok, %Reference{id: ^reference_id}} =
-               reference_id
-               |> GaoNote.get_reference()
-               |> GaoNote.remove_reference(actor())
-
-      assert GaoNote.get_reference(reference_id) == nil
-      assert GaoNote.list_references(note) == []
+  describe "attachment schema" do
+    test "uses the attachment table and exposes only final subordinate associations" do
+      assert Attachment.__schema__(:source) == "gao_note_attachments"
+      assert Attachment.__schema__(:type, :id) == :binary_id
+      assert Enum.sort(Note.__schema__(:associations)) == [:attachments, :labels]
+      assert Note.__schema__(:association, :attachments).related == Attachment
+      assert Note.__schema__(:association, :labels).related == Label
     end
 
-    test "add_reference/3 validates http URLs and dedupes by canonical URL" do
-      note = note_fixture()
+    test "keeps attachment fields and defaults description" do
+      assert Enum.sort(Attachment.__schema__(:fields)) ==
+               Enum.sort([
+                 :alt_text,
+                 :caption,
+                 :description,
+                 :id,
+                 :inserted_at,
+                 :metadata,
+                 :note_id,
+                 :path,
+                 :position,
+                 :role,
+                 :storage_file_id,
+                 :updated_at
+               ])
 
-      attrs = %{
-        url: "https://example.com/read?utm_source=newsletter&b=1",
-        title: "Example"
-      }
+      changeset =
+        %Attachment{description: nil}
+        |> Attachment.changeset(attachment_attrs())
 
-      assert {:ok, %Reference{} = reference} = GaoNote.add_reference(note, attrs, actor())
-      assert reference.url == attrs.url
-      assert reference.canonical_url == "https://example.com/read?b=1"
+      assert changeset.valid?
+      assert Ecto.Changeset.get_field(changeset, :description) == ""
+      assert Ecto.Changeset.get_field(changeset, :role) == "attachment"
+      assert Ecto.Changeset.get_field(changeset, :position) == 0
+      assert Ecto.Changeset.get_field(changeset, :metadata) == %{}
+    end
 
-      assert {:error, %Ecto.Changeset{}} =
-               GaoNote.add_reference(
-                 note,
-                 %{url: "https://example.com/read?b=1&utm_medium=email"},
-                 actor()
+    test "normalizes blank and relative attachment paths" do
+      for {path, expected} <- [
+            {"  ", nil},
+            {"./data.txt", "./data.txt"},
+            {"nested/data.txt", "./nested/data.txt"}
+          ] do
+        changeset = Attachment.changeset(%Attachment{}, attachment_attrs(%{path: path}))
+
+        assert changeset.valid?
+        assert Ecto.Changeset.get_field(changeset, :path) == expected
+      end
+    end
+
+    test "rejects absolute paths, parent traversal, URLs, and invalid normalized paths" do
+      for path <- [
+            "/etc/passwd",
+            "C:\\Windows\\system.ini",
+            "../secret.txt",
+            "./nested/../secret.txt",
+            "https://example.com/data.txt"
+          ] do
+        changeset = Attachment.changeset(%Attachment{}, attachment_attrs(%{path: path}))
+
+        refute changeset.valid?
+        assert %{path: [_ | _]} = errors_on(changeset)
+      end
+    end
+
+    test "uses final attachment index names and enforces both unique constraints" do
+      note =
+        %Note{}
+        |> Note.create_changeset(%{title: unique_title("Attachment"), content: "Content"})
+        |> Repo.insert!()
+
+      first_file = storage_file_fixture()
+      second_file = storage_file_fixture()
+
+      changeset =
+        Attachment.changeset(
+          %Attachment{},
+          attachment_attrs(%{
+            note_id: note.id,
+            storage_file_id: first_file.id,
+            path: "data.txt"
+          })
+        )
+
+      assert Enum.map(changeset.constraints, & &1.constraint) == [
+               "gao_note_attachments_note_id_storage_file_id_index",
+               "gao_note_attachments_note_id_path_index"
+             ]
+
+      assert {:ok, %Attachment{path: "./data.txt"}} = Repo.insert(changeset)
+
+      assert {:error, duplicate_file_changeset} =
+               %Attachment{}
+               |> Attachment.changeset(
+                 attachment_attrs(%{
+                   note_id: note.id,
+                   storage_file_id: first_file.id,
+                   path: "copy.txt"
+                 })
                )
+               |> Repo.insert()
 
-      assert {:error, %Ecto.Changeset{} = changeset} =
-               GaoNote.add_reference(note, %{url: "ftp://example.com/file"}, actor())
+      assert %{note_id: [_ | _]} = errors_on(duplicate_file_changeset)
 
-      assert %{url: [_ | _]} = errors_on(changeset)
-    end
-  end
-
-  describe "assets" do
-    test "create, read, update, and delete asset lifecycle" do
-      note = note_fixture()
-      active_file = storage_file_fixture()
-      deleted_file = storage_file_fixture(%{status: "deleted"})
-
-      assert {:ok, %Asset{} = asset} =
-               GaoNote.attach_asset(note, active_file.id, %{role: "cover"}, actor())
-
-      asset_id = asset.id
-
-      assert %Asset{id: ^asset_id, storage_file: %StorageFile{id: file_id}} =
-               GaoNote.get_asset(asset_id)
-
-      assert file_id == active_file.id
-
-      assert [%Asset{id: asset_id, storage_file: %StorageFile{id: file_id}}] =
-               GaoNote.list_assets(note)
-
-      assert asset_id == asset.id
-      assert file_id == active_file.id
-      note_id = note.id
-
-      assert [
-               %Asset{
-                 id: ^asset_id,
-                 note: %Note{id: ^note_id},
-                 storage_file: %StorageFile{id: ^file_id}
-               }
-             ] =
-               GaoNote.list_all_assets()
-
-      assert {:ok,
-              %Asset{
-                id: ^asset_id,
-                role: "inline",
-                caption: "Updated caption",
-                alt_text: "Updated alt",
-                position: 3,
-                metadata: %{"slot" => "body"}
-              }} =
-               GaoNote.update_asset(
-                 asset,
-                 %{
-                   role: "inline",
-                   caption: "Updated caption",
-                   alt_text: "Updated alt",
-                   position: 3,
-                   metadata: %{"slot" => "body"}
-                 },
-                 actor()
+      assert {:error, duplicate_path_changeset} =
+               %Attachment{}
+               |> Attachment.changeset(
+                 attachment_attrs(%{
+                   note_id: note.id,
+                   storage_file_id: second_file.id,
+                   path: "./data.txt"
+                 })
                )
+               |> Repo.insert()
 
-      assert %Asset{role: "inline", position: 3} = GaoNote.get_asset(asset_id)
-
-      assert {:error, :storage_file_not_active} =
-               GaoNote.attach_asset(note, deleted_file.id, %{}, actor())
-
-      assert {:ok, %Asset{id: ^asset_id}} =
-               asset_id
-               |> GaoNote.get_asset()
-               |> GaoNote.detach_asset(actor())
-
-      assert GaoNote.get_asset(asset_id) == nil
-      assert GaoNote.list_assets(note) == []
-    end
-
-    test "presenter exposes asset URLs only when storage file metadata is public" do
-      private_note = note_fixture()
-      private_file = storage_file_fixture(%{metadata: %{"visibility" => "public"}})
-
-      assert {:ok, private_asset} =
-               GaoNote.attach_asset(private_note, private_file.id, %{}, actor())
-
-      private_asset = private_asset |> Repo.preload(:storage_file)
-      private_map = GSMLG.GaoNote.Presenter.asset(private_asset, private_note)
-      assert private_map.url == "/files/#{private_file.id}"
-
-      hidden_file = storage_file_fixture(%{metadata: %{"visibility" => "private"}})
-
-      assert {:ok, hidden_asset} =
-               GaoNote.attach_asset(private_note, hidden_file.id, %{}, actor())
-
-      hidden_asset = hidden_asset |> Repo.preload(:storage_file)
-      hidden_map = GSMLG.GaoNote.Presenter.asset(hidden_asset, private_note)
-      refute Map.has_key?(hidden_map, :url)
-    end
-
-    test "list_assets/1 excludes deleted storage files" do
-      note = note_fixture()
-      file = storage_file_fixture()
-      assert {:ok, _asset} = GaoNote.attach_asset(note, file.id, %{}, actor())
-
-      file
-      |> StorageFile.status_changeset(%{status: "deleted"})
-      |> Repo.update!()
-
-      assert GaoNote.list_assets(note) == []
+      assert %{note_id: [_ | _]} = errors_on(duplicate_path_changeset)
     end
   end
 
@@ -492,9 +427,9 @@ defmodule GSMLG.GaoNoteTest do
   defp storage_file_fixture(attrs \\ %{}) do
     defaults = %{
       tenant: "gao_note",
-      type: "asset",
+      type: "attachment",
       filename: "note.txt",
-      s3_key: "gao_note/asset/#{Ecto.UUID.generate()}.txt",
+      s3_key: "gao_note/attachment/#{Ecto.UUID.generate()}.txt",
       content_type: "text/plain",
       size: 64,
       checksum: Ecto.UUID.generate(),
@@ -507,6 +442,16 @@ defmodule GSMLG.GaoNoteTest do
     %StorageFile{}
     |> StorageFile.changeset(Map.merge(defaults, attrs))
     |> Repo.insert!()
+  end
+
+  defp attachment_attrs(attrs \\ %{}) do
+    Map.merge(
+      %{
+        note_id: Ecto.UUID.generate(),
+        storage_file_id: Ecto.UUID.generate()
+      },
+      attrs
+    )
   end
 
   defp unique_title(prefix) do
