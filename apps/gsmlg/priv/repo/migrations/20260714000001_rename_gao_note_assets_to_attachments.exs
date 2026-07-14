@@ -4,11 +4,35 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
   @up_sql """
   DO $migration$
   DECLARE
+    assets_exists boolean := to_regclass('public.gao_note_assets') IS NOT NULL;
+    attachments_exists boolean := to_regclass('public.gao_note_attachments') IS NOT NULL;
+    storage_files_exists boolean := to_regclass('public.storage_files') IS NOT NULL;
     conflict_asset_id uuid;
     conflict_attachment_id uuid;
     conflict_attachment_ids uuid[];
+    projected_conflict_note_id uuid;
+    projected_conflict_path text;
+    projected_conflict_ids uuid[];
+    unrepresented_asset_id uuid;
+    constraint_pair record;
+    index_pair record;
   BEGIN
-    IF to_regclass('public.gao_note_assets') IS NOT NULL THEN
+    IF assets_exists THEN
+      EXECUTE
+        'LOCK TABLE public.gao_note_assets IN ACCESS EXCLUSIVE MODE';
+    END IF;
+
+    IF attachments_exists THEN
+      EXECUTE
+        'LOCK TABLE public.gao_note_attachments IN ACCESS EXCLUSIVE MODE';
+    END IF;
+
+    IF storage_files_exists THEN
+      EXECUTE
+        'LOCK TABLE public.storage_files IN ACCESS EXCLUSIVE MODE';
+    END IF;
+
+    IF assets_exists THEN
       IF NOT EXISTS (
         SELECT 1
         FROM information_schema.columns
@@ -44,7 +68,7 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
         ALTER COLUMN description SET NOT NULL;
     END IF;
 
-    IF to_regclass('public.gao_note_attachments') IS NOT NULL THEN
+    IF attachments_exists THEN
       IF NOT EXISTS (
         SELECT 1
         FROM information_schema.columns
@@ -80,8 +104,7 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
         ALTER COLUMN description SET NOT NULL;
     END IF;
 
-    IF to_regclass('public.gao_note_assets') IS NOT NULL
-       AND to_regclass('public.gao_note_attachments') IS NOT NULL THEN
+    IF assets_exists AND attachments_exists THEN
       SELECT asset.id, array_agg(DISTINCT attachment.id ORDER BY attachment.id)
       INTO conflict_asset_id, conflict_attachment_ids
       FROM public.gao_note_assets AS asset
@@ -160,6 +183,62 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
           conflict_attachment_id;
       END IF;
 
+      WITH projected_rows AS (
+        SELECT
+          attachment.id,
+          attachment.note_id,
+          CASE
+            WHEN attachment.path IS NULL THEN asset.path
+            ELSE attachment.path
+          END AS path
+        FROM public.gao_note_attachments AS attachment
+        LEFT JOIN public.gao_note_assets AS asset
+          ON attachment.id = asset.id
+         AND attachment.note_id IS NOT DISTINCT FROM asset.note_id
+         AND attachment.storage_file_id IS NOT DISTINCT FROM asset.storage_file_id
+
+        UNION ALL
+
+        SELECT
+          asset.id,
+          asset.note_id,
+          asset.path
+        FROM public.gao_note_assets AS asset
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM public.gao_note_attachments AS attachment
+          WHERE attachment.id = asset.id
+            AND attachment.note_id IS NOT DISTINCT FROM asset.note_id
+            AND attachment.storage_file_id IS NOT DISTINCT FROM asset.storage_file_id
+        )
+      ),
+      duplicate_paths AS (
+        SELECT
+          note_id,
+          path,
+          array_agg(id ORDER BY id) AS identity_ids
+        FROM projected_rows
+        WHERE path IS NOT NULL
+        GROUP BY note_id, path
+        HAVING count(*) > 1
+        ORDER BY note_id, path
+        LIMIT 1
+      )
+      SELECT note_id, path, identity_ids
+      INTO
+        projected_conflict_note_id,
+        projected_conflict_path,
+        projected_conflict_ids
+      FROM duplicate_paths;
+
+      IF projected_conflict_path IS NOT NULL THEN
+        RAISE EXCEPTION
+          'GaoNote attachment migration projected final path collision: note % path % is shared by identities %',
+          projected_conflict_note_id,
+          projected_conflict_path,
+          projected_conflict_ids;
+      END IF;
+
       UPDATE public.gao_note_attachments AS attachment
       SET role =
             CASE
@@ -177,15 +256,7 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
             END,
           path =
             CASE
-              WHEN attachment.path IS NULL
-                   AND asset.path IS NOT NULL
-                   AND NOT EXISTS (
-                     SELECT 1
-                     FROM public.gao_note_attachments AS other_attachment
-                     WHERE other_attachment.id <> attachment.id
-                       AND other_attachment.note_id = asset.note_id
-                       AND other_attachment.path = asset.path
-                   )
+              WHEN attachment.path IS NULL AND asset.path IS NOT NULL
                 THEN asset.path
               ELSE attachment.path
             END,
@@ -246,23 +317,35 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
         SELECT 1
         FROM public.gao_note_attachments AS attachment
         WHERE attachment.id = asset.id
-           OR (
-             attachment.note_id = asset.note_id
-             AND attachment.storage_file_id = asset.storage_file_id
-           )
-           OR (
-             asset.path IS NOT NULL
-             AND attachment.note_id = asset.note_id
-             AND attachment.path = asset.path
-           )
+          AND attachment.note_id IS NOT DISTINCT FROM asset.note_id
+          AND attachment.storage_file_id IS NOT DISTINCT FROM asset.storage_file_id
       );
 
+      SELECT asset.id
+      INTO unrepresented_asset_id
+      FROM public.gao_note_assets AS asset
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.gao_note_attachments AS attachment
+        WHERE attachment.id = asset.id
+          AND attachment.note_id IS NOT DISTINCT FROM asset.note_id
+          AND attachment.storage_file_id IS NOT DISTINCT FROM asset.storage_file_id
+      )
+      ORDER BY asset.id
+      LIMIT 1;
+
+      IF unrepresented_asset_id IS NOT NULL THEN
+        RAISE EXCEPTION
+          'GaoNote attachment migration source accounting failed: legacy asset % is not represented by an exact attachment identity',
+          unrepresented_asset_id;
+      END IF;
+
       DROP TABLE public.gao_note_assets;
-    ELSIF to_regclass('public.gao_note_assets') IS NOT NULL THEN
+    ELSIF assets_exists THEN
       ALTER TABLE public.gao_note_assets RENAME TO gao_note_attachments;
     END IF;
 
-    IF to_regclass('public.storage_files') IS NOT NULL THEN
+    IF storage_files_exists THEN
       UPDATE public.storage_files
       SET type = 'attachment'
       WHERE tenant = 'gao_note'
@@ -270,17 +353,21 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
     END IF;
 
     IF to_regclass('public.gao_note_attachments') IS NOT NULL THEN
-      IF EXISTS (
-        SELECT 1
-        FROM pg_constraint AS constraint_record
-        JOIN pg_class AS table_record
-          ON table_record.oid = constraint_record.conrelid
-        JOIN pg_namespace AS namespace_record
-          ON namespace_record.oid = table_record.relnamespace
-        WHERE namespace_record.nspname = 'public'
-          AND table_record.relname = 'gao_note_attachments'
-          AND constraint_record.conname = 'gao_note_assets_pkey'
-      ) THEN
+      FOR constraint_pair IN
+        SELECT *
+        FROM (
+          VALUES
+            ('gao_note_assets_pkey', 'gao_note_attachments_pkey'),
+            (
+              'gao_note_assets_note_id_fkey',
+              'gao_note_attachments_note_id_fkey'
+            ),
+            (
+              'gao_note_assets_storage_file_id_fkey',
+              'gao_note_attachments_storage_file_id_fkey'
+            )
+        ) AS pairs(old_name, final_name)
+      LOOP
         IF EXISTS (
           SELECT 1
           FROM pg_constraint AS constraint_record
@@ -290,121 +377,91 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
             ON namespace_record.oid = table_record.relnamespace
           WHERE namespace_record.nspname = 'public'
             AND table_record.relname = 'gao_note_attachments'
-            AND constraint_record.conname = 'gao_note_attachments_pkey'
+            AND constraint_record.conname = constraint_pair.old_name
         ) THEN
-          ALTER TABLE public.gao_note_attachments
-            DROP CONSTRAINT gao_note_assets_pkey;
-        ELSE
-          ALTER TABLE public.gao_note_attachments
-            RENAME CONSTRAINT gao_note_assets_pkey TO gao_note_attachments_pkey;
+          IF EXISTS (
+            SELECT 1
+            FROM pg_constraint AS constraint_record
+            JOIN pg_class AS table_record
+              ON table_record.oid = constraint_record.conrelid
+            JOIN pg_namespace AS namespace_record
+              ON namespace_record.oid = table_record.relnamespace
+            WHERE namespace_record.nspname = 'public'
+              AND table_record.relname = 'gao_note_attachments'
+              AND constraint_record.conname = constraint_pair.final_name
+          ) THEN
+            EXECUTE format(
+              'ALTER TABLE public.gao_note_attachments DROP CONSTRAINT %I',
+              constraint_pair.old_name
+            );
+          ELSE
+            EXECUTE format(
+              'ALTER TABLE public.gao_note_attachments RENAME CONSTRAINT %I TO %I',
+              constraint_pair.old_name,
+              constraint_pair.final_name
+            );
+          END IF;
         END IF;
-      END IF;
+      END LOOP;
 
-      IF EXISTS (
-        SELECT 1
-        FROM pg_constraint AS constraint_record
-        JOIN pg_class AS table_record
-          ON table_record.oid = constraint_record.conrelid
-        JOIN pg_namespace AS namespace_record
-          ON namespace_record.oid = table_record.relnamespace
-        WHERE namespace_record.nspname = 'public'
-          AND table_record.relname = 'gao_note_attachments'
-          AND constraint_record.conname = 'gao_note_assets_note_id_fkey'
-      ) THEN
+      FOR index_pair IN
+        SELECT *
+        FROM (
+          VALUES
+            (
+              'gao_note_assets_note_id_index',
+              'gao_note_attachments_note_id_index'
+            ),
+            (
+              'gao_note_assets_storage_file_id_index',
+              'gao_note_attachments_storage_file_id_index'
+            ),
+            (
+              'gao_note_assets_note_id_storage_file_id_index',
+              'gao_note_attachments_note_id_storage_file_id_index'
+            ),
+            (
+              'gao_note_assets_note_id_path_index',
+              'gao_note_attachments_note_id_path_index'
+            )
+        ) AS pairs(old_name, final_name)
+      LOOP
         IF EXISTS (
           SELECT 1
-          FROM pg_constraint AS constraint_record
-          JOIN pg_class AS table_record
-            ON table_record.oid = constraint_record.conrelid
+          FROM pg_class AS index_record
           JOIN pg_namespace AS namespace_record
-            ON namespace_record.oid = table_record.relnamespace
+            ON namespace_record.oid = index_record.relnamespace
+          JOIN pg_index AS index_metadata
+            ON index_metadata.indexrelid = index_record.oid
+          JOIN pg_class AS table_record
+            ON table_record.oid = index_metadata.indrelid
           WHERE namespace_record.nspname = 'public'
             AND table_record.relname = 'gao_note_attachments'
-            AND constraint_record.conname = 'gao_note_attachments_note_id_fkey'
+            AND index_record.relname = index_pair.old_name
         ) THEN
-          ALTER TABLE public.gao_note_attachments
-            DROP CONSTRAINT gao_note_assets_note_id_fkey;
-        ELSE
-          ALTER TABLE public.gao_note_attachments
-            RENAME CONSTRAINT gao_note_assets_note_id_fkey
-            TO gao_note_attachments_note_id_fkey;
+          IF to_regclass(format('public.%I', index_pair.final_name)) IS NULL THEN
+            EXECUTE format(
+              'ALTER INDEX public.%I RENAME TO %I',
+              index_pair.old_name,
+              index_pair.final_name
+            );
+          ELSE
+            EXECUTE format(
+              'DROP INDEX public.%I',
+              index_pair.old_name
+            );
+          END IF;
         END IF;
+      END LOOP;
+
+      IF to_regclass('public.gao_note_attachments_note_id_index') IS NULL THEN
+        CREATE INDEX gao_note_attachments_note_id_index
+          ON public.gao_note_attachments (note_id);
       END IF;
 
-      IF EXISTS (
-        SELECT 1
-        FROM pg_constraint AS constraint_record
-        JOIN pg_class AS table_record
-          ON table_record.oid = constraint_record.conrelid
-        JOIN pg_namespace AS namespace_record
-          ON namespace_record.oid = table_record.relnamespace
-        WHERE namespace_record.nspname = 'public'
-          AND table_record.relname = 'gao_note_attachments'
-          AND constraint_record.conname = 'gao_note_assets_storage_file_id_fkey'
-      ) THEN
-        IF EXISTS (
-          SELECT 1
-          FROM pg_constraint AS constraint_record
-          JOIN pg_class AS table_record
-            ON table_record.oid = constraint_record.conrelid
-          JOIN pg_namespace AS namespace_record
-            ON namespace_record.oid = table_record.relnamespace
-          WHERE namespace_record.nspname = 'public'
-            AND table_record.relname = 'gao_note_attachments'
-            AND constraint_record.conname = 'gao_note_attachments_storage_file_id_fkey'
-        ) THEN
-          ALTER TABLE public.gao_note_attachments
-            DROP CONSTRAINT gao_note_assets_storage_file_id_fkey;
-        ELSE
-          ALTER TABLE public.gao_note_attachments
-            RENAME CONSTRAINT gao_note_assets_storage_file_id_fkey
-            TO gao_note_attachments_storage_file_id_fkey;
-        END IF;
-      END IF;
-
-      IF EXISTS (
-        SELECT 1
-        FROM pg_class AS index_record
-        JOIN pg_namespace AS namespace_record
-          ON namespace_record.oid = index_record.relnamespace
-        JOIN pg_index AS index_metadata
-          ON index_metadata.indexrelid = index_record.oid
-        JOIN pg_class AS table_record
-          ON table_record.oid = index_metadata.indrelid
-        WHERE namespace_record.nspname = 'public'
-          AND table_record.relname = 'gao_note_attachments'
-          AND index_record.relname =
-            'gao_note_assets_note_id_storage_file_id_index'
-      ) THEN
-        IF to_regclass(
-             'public.gao_note_attachments_note_id_storage_file_id_index'
-           ) IS NULL THEN
-          ALTER INDEX public.gao_note_assets_note_id_storage_file_id_index
-            RENAME TO gao_note_attachments_note_id_storage_file_id_index;
-        ELSE
-          DROP INDEX public.gao_note_assets_note_id_storage_file_id_index;
-        END IF;
-      END IF;
-
-      IF EXISTS (
-        SELECT 1
-        FROM pg_class AS index_record
-        JOIN pg_namespace AS namespace_record
-          ON namespace_record.oid = index_record.relnamespace
-        JOIN pg_index AS index_metadata
-          ON index_metadata.indexrelid = index_record.oid
-        JOIN pg_class AS table_record
-          ON table_record.oid = index_metadata.indrelid
-        WHERE namespace_record.nspname = 'public'
-          AND table_record.relname = 'gao_note_attachments'
-          AND index_record.relname = 'gao_note_assets_note_id_path_index'
-      ) THEN
-        IF to_regclass('public.gao_note_attachments_note_id_path_index') IS NULL THEN
-          ALTER INDEX public.gao_note_assets_note_id_path_index
-            RENAME TO gao_note_attachments_note_id_path_index;
-        ELSE
-          DROP INDEX public.gao_note_assets_note_id_path_index;
-        END IF;
+      IF to_regclass('public.gao_note_attachments_storage_file_id_index') IS NULL THEN
+        CREATE INDEX gao_note_attachments_storage_file_id_index
+          ON public.gao_note_attachments (storage_file_id);
       END IF;
 
       IF to_regclass(
@@ -414,9 +471,28 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
           ON public.gao_note_attachments (note_id, storage_file_id);
       END IF;
 
+      IF to_regclass('public.gao_note_attachments_note_id_path_index') IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1
+           FROM pg_index AS index_metadata
+           WHERE index_metadata.indexrelid =
+                 to_regclass('public.gao_note_attachments_note_id_path_index')
+             AND index_metadata.indisunique
+             AND index_metadata.indpred IS NOT NULL
+             AND regexp_replace(
+                   pg_get_expr(index_metadata.indpred, index_metadata.indrelid),
+                   '[()]',
+                   '',
+                   'g'
+                 ) = 'path IS NOT NULL'
+         ) THEN
+        DROP INDEX public.gao_note_attachments_note_id_path_index;
+      END IF;
+
       IF to_regclass('public.gao_note_attachments_note_id_path_index') IS NULL THEN
         CREATE UNIQUE INDEX gao_note_attachments_note_id_path_index
-          ON public.gao_note_attachments (note_id, path);
+          ON public.gao_note_attachments (note_id, path)
+          WHERE path IS NOT NULL;
       END IF;
 
       UPDATE public.gao_note_attachments
