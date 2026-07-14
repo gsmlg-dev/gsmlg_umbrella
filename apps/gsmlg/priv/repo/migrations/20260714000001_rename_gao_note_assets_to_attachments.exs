@@ -36,16 +36,6 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
       END IF;
 
       IF to_regclass('public.gao_note_assets') IS NOT NULL
-         AND to_regclass('public.storage_files') IS NOT NULL THEN
-        UPDATE public.storage_files AS storage_file
-        SET type = 'attachment'
-        FROM public.gao_note_assets AS asset
-        WHERE storage_file.id = asset.storage_file_id
-          AND storage_file.tenant = 'gao_note'
-          AND storage_file.type = 'asset';
-      END IF;
-
-      IF to_regclass('public.gao_note_assets') IS NOT NULL
          AND to_regclass('public.gao_note_attachments') IS NOT NULL THEN
         DELETE FROM public.gao_note_attachments AS attachment
         USING public.gao_note_assets AS asset
@@ -92,6 +82,12 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
         DROP TABLE public.gao_note_assets;
       ELSIF to_regclass('public.gao_note_assets') IS NOT NULL THEN
         ALTER TABLE public.gao_note_assets RENAME TO gao_note_attachments;
+      END IF;
+
+      IF to_regclass('public.storage_files') IS NOT NULL THEN
+        UPDATE public.storage_files
+        SET type = 'attachment'
+        WHERE tenant = 'gao_note' AND type = 'asset';
       END IF;
 
       IF to_regclass('public.gao_note_attachments') IS NOT NULL THEN
@@ -244,6 +240,6 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteAssetsToAttachments do
   def down do
     raise Ecto.MigrationError,
       "irreversible migration: legacy asset rows may replace conflicting attachment rows, " <>
-        "the legacy table is dropped, and only legacy-referenced storage files are reclassified"
+        "the legacy table is dropped, and all GaoNote legacy asset storage rows are reclassified"
   end
 end
