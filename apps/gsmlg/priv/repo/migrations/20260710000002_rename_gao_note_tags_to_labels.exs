@@ -53,14 +53,6 @@ defmodule GSMLG.Repo.Migrations.RenameGaoNoteTagsToLabels do
     create_if_not_exists index(:gao_note_labels, [:label_setting_id])
     create_if_not_exists index(:gao_note_labels, [:status])
 
-    alter table(:gao_note_attachments) do
-      add_if_not_exists :description, :text, null: false, default: ""
-      add_if_not_exists :path, :text
-    end
-
-    create_if_not_exists unique_index(:gao_note_attachments, [:note_id, :path],
-                           where: "path IS NOT NULL"
-                         )
   end
 
   def down do
