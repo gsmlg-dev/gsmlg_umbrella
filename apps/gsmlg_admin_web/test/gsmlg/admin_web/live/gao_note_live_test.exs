@@ -5,7 +5,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
   import Phoenix.LiveViewTest
 
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Asset, Log, MCPSetting, Note, Reference, Tag, Tagging}
+  alias GSMLG.GaoNote.{Asset, Label, LabelSetting, Log, MCPSetting, Note, Reference}
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
 
@@ -28,8 +28,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     Repo.delete_all(Log)
     Repo.delete_all(Asset)
     Repo.delete_all(Reference)
-    Repo.delete_all(Tagging)
-    Repo.delete_all(Tag)
+    Repo.delete_all(Label)
+    Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
     Repo.delete_all(StorageFile)
 
@@ -60,7 +60,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
                  title: "Admin List Note",
                  description: "Admin description",
                  content: "Admin content",
-                 tags: ["Admin Tag", "MCP Tag"]
+                 labels: ["Admin Label", "MCP Label"]
                },
                user
              )
@@ -76,46 +76,49 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
     assert html =~ note.title
     assert html =~ "Admin User"
-    assert html =~ "Admin Tag"
-    assert html =~ "MCP Tag"
+    assert html =~ "Admin Label"
+    assert html =~ "MCP Label"
     refute html =~ ~s(id="gao-note-table-loading")
     refute html =~ "Description"
     refute html =~ "Admin description"
   end
 
   test "admin can create a note", %{conn: conn} do
-    assert {:ok, _tag} = GaoNote.create_tag(%{name: "Existing Tag"})
+    assert {:ok, _label_setting} = GaoNote.create_label_setting(%{name: "Existing Label"})
 
     {:ok, view, html} = live(conn, ~p"/gao_notes/notes/new")
 
     refute html =~ "Slug"
     refute html =~ "Status"
     refute html =~ "Visibility"
-    assert html =~ "Tags"
-    assert html =~ "Loading tags"
+    assert html =~ "Labels"
+    assert html =~ "Loading labels"
 
     html = render_async(view)
 
-    assert html =~ "Existing Tag"
+    assert html =~ "Existing Label"
     assert html =~ "<el-dm-markdown-input"
     assert html =~ ~s(name="gao_note[content]")
     refute html =~ ~s(<textarea)
-    assert html =~ ~s(id="gao-note-tags")
+    assert html =~ ~s(id="gao-note-labels")
     assert html =~ ~s(<button type="submit")
     refute html =~ ~s(<el-dm-button variant="primary" class="" style="" type="submit")
 
-    render_change(view, "tag_input_changed", %{"tag_input" => "New Live Tag"})
-    assert render_click(view, "add_tag_option", %{"name" => "New Live Tag"}) =~ "New Live Tag"
+    render_change(view, "label_input_changed", %{"label_input" => "New Live Label"})
 
-    assert render_click(view, "set_tags", %{"tags" => ["Existing Tag", "New Live Tag"]}) =~
-             "Existing Tag"
+    assert render_click(view, "add_label_option", %{"name" => "New Live Label"}) =~
+             "New Live Label"
+
+    assert render_click(view, "set_labels", %{
+             "labels" => ["Existing Label", "New Live Label"]
+           }) =~ "Existing Label"
 
     render_submit(view, "save", %{
       "gao_note" => %{
         "title" => "Created From LiveView",
         "description" => "",
         "content" => "Created content",
-        "tags" => ["Existing Tag", "New Live Tag"]
+        "labels" => ["Existing Label", "New Live Label"]
       }
     })
 
@@ -128,7 +131,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
            ] =
              GaoNote.list_notes(search: "Created From LiveView")
 
-    assert Enum.map(note.tags, & &1.name) |> Enum.sort() == ["Existing Tag", "New Live Tag"]
+    assert Enum.map(note.labels, & &1.label_setting.name) |> Enum.sort() == [
+             "Existing Label",
+             "New Live Label"
+           ]
+
     assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
   end
 
@@ -267,40 +274,41 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert_patch(view, ~p"/gao_notes/notes")
   end
 
-  test "admin can manage tags", %{conn: conn} do
-    assert {:ok, _tag} = GaoNote.create_tag(%{name: "Existing Managed Tag"})
+  test "admin can manage label settings", %{conn: conn} do
+    assert {:ok, _label_setting} =
+             GaoNote.create_label_setting(%{name: "Existing Managed Label"})
 
-    {:ok, view, html} = live(conn, ~p"/gao_notes/tags")
+    {:ok, view, html} = live(conn, ~p"/gao_notes/label_settings")
 
-    assert html =~ "GaoNote Tags"
-    assert html =~ ~s(id="gao-note-tags-loading")
-    assert html =~ ~s(aria-label="Loading GaoNote tags")
-    refute html =~ "Loading tags"
+    assert html =~ "GaoNote Labels"
+    assert html =~ ~s(id="gao-note-label-settings-loading")
+    assert html =~ ~s(aria-label="Loading GaoNote labels")
 
     html = render_async(view)
 
-    assert html =~ "Existing Managed Tag"
-    assert html =~ ~s(id="gao-note-tags-table")
+    assert html =~ "Existing Managed Label"
+    assert html =~ ~s(id="gao-note-label-settings-table")
     refute html =~ "Slug"
-    refute html =~ "Save"
-    refute html =~ ~s(id="gao-note-tags-loading")
+    refute html =~ ~s(id="gao-note-label-settings-loading")
 
     view
-    |> form("#gao-note-tag-form", %{
-      "gao_note_tag" => %{"name" => "Research", "color" => "#1f6feb"}
+    |> form("#gao-note-label_setting-form", %{
+      "gao_note_label_setting" => %{"name" => "Research", "color" => "#1f6feb"}
     })
     |> render_submit()
 
-    assert [%Tag{name: "Existing Managed Tag"}, %Tag{name: "Research"} = tag] =
-             GaoNote.list_tags()
+    assert [
+             %LabelSetting{name: "Existing Managed Label"},
+             %LabelSetting{name: "Research"} = label_setting
+           ] = GaoNote.list_label_settings()
 
     assert render_async(view) =~ "Research"
 
     view
-    |> element(~s([phx-click="delete"][phx-value-id="#{tag.id}"]))
+    |> element(~s([phx-click="delete"][phx-value-id="#{label_setting.id}"]))
     |> render_click()
 
-    assert [%Tag{name: "Existing Managed Tag"}] = GaoNote.list_tags()
+    assert [%LabelSetting{name: "Existing Managed Label"}] = GaoNote.list_label_settings()
   end
 
   test "admin can view GaoNote CRUD logs", %{conn: conn, user: user} do

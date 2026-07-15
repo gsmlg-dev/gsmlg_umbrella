@@ -3,15 +3,15 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
 
   alias GSMLG.Accounts.User
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Asset, Note, Reference, Tag, Tagging}
+  alias GSMLG.GaoNote.{Asset, Label, LabelSetting, Note, Reference}
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
 
   setup %{conn: conn} do
     Repo.delete_all(Asset)
     Repo.delete_all(Reference)
-    Repo.delete_all(Tagging)
-    Repo.delete_all(Tag)
+    Repo.delete_all(Label)
+    Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
     Repo.delete_all(StorageFile)
 
@@ -21,16 +21,22 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
   describe "index" do
     test "lists GaoNote notes through the public API", %{conn: conn} do
       _other_note = note_fixture(%{title: "Other Memory"})
-      note = note_fixture(%{title: "Public Memory", tags: ["Research", "Elixir"]})
+      note = note_fixture(%{title: "Public Memory", labels: ["Research", "Elixir"]})
 
-      conn = get(conn, ~p"/api/gao_notes", %{"search" => "Public", "tag" => "research"})
+      conn = get(conn, ~p"/api/gao_notes", %{"search" => "Public", "label" => "research"})
 
       assert %{"data" => [rendered]} = json_response(conn, 200)
       assert rendered["id"] == note.id
       assert rendered["title"] == "Public Memory"
       assert rendered["description"] == "Description"
       assert rendered["content"] == "Content"
-      assert [%{"name" => "Elixir"}, %{"name" => "Research"}] = rendered["tags"]
+
+      assert [
+               %{"key" => "Elixir", "value" => ""},
+               %{"key" => "Research", "value" => ""}
+             ] = rendered["labels"]
+
+      refute Map.has_key?(rendered, "creator")
       assert rendered["created_at"]
       assert rendered["updated_at"]
       refute Map.has_key?(rendered, "body")
@@ -58,9 +64,9 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
     end
   end
 
-  describe "tags" do
-    test "lists GaoNote tags", %{conn: conn} do
-      _note = note_fixture(%{tags: ["Research"]})
+  describe "label settings" do
+    test "lists GaoNote label settings", %{conn: conn} do
+      _note = note_fixture(%{labels: ["Research"]})
 
       conn = get(conn, ~p"/api/gao_notes/label_settings")
 

@@ -1,7 +1,7 @@
 defmodule GSMLG.GaoNote.PresenterTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.GaoNote.{Attachment, Note, Presenter}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Note, Presenter}
   alias GSMLG.Storage.StorageFile
 
   @inserted_at ~U[2026-07-15 01:02:03.000000Z]
@@ -41,6 +41,17 @@ defmodule GSMLG.GaoNote.PresenterTest do
     refute function_exported?(Presenter, :reference, 1)
     refute function_exported?(Presenter, :asset, 2)
     refute function_exported?(Presenter, :asset_json, 2)
+  end
+
+  test "label/1 presents the final key and value contract" do
+    presented =
+      Presenter.label(%Label{
+        label_setting: %LabelSetting{name: "topic", value_type: "text"},
+        value: "ecto"
+      })
+
+    assert %{"key" => "topic", "value" => "ecto"} = presented
+    refute Map.has_key?(presented, "name")
   end
 
   test "attachment/1 exposes attachment and client-safe storage-file metadata" do

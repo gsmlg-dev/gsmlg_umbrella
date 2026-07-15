@@ -150,10 +150,11 @@ defmodule GSMLG.GaoNote.CreatorRemovalMigrationTest do
 
   defp with_disposable_repo(test) do
     database = "gsmlg_gao_note_creator_#{System.unique_integer([:positive, :monotonic])}"
-    create_database!(database)
+    config = disposable_database_config(database)
+    storage_up!(config)
 
     try do
-      {:ok, repo_pid} = MigrationRepo.start_link(connection_options(database))
+      {:ok, repo_pid} = MigrationRepo.start_link(config)
 
       try do
         test.()
@@ -161,46 +162,64 @@ defmodule GSMLG.GaoNote.CreatorRemovalMigrationTest do
         GenServer.stop(repo_pid)
       end
     after
-      drop_database!(database)
+      storage_down!(config)
     end
   end
 
-  defp create_database!(database) do
-    username = GSMLG.Repo.config() |> Keyword.fetch!(:username)
-    command!("createdb", ["--owner=#{username}", database])
+  defp disposable_database_config(database) do
+    GSMLG.Repo.config()
+    |> resolve_url()
+    |> normalize_connection_target()
+    |> Keyword.put(:database, database)
+    |> Keyword.put(:pool, DBConnection.ConnectionPool)
+    |> Keyword.put(:pool_size, 2)
   end
 
-  defp drop_database!(database) do
-    command!("dropdb", ["--if-exists", database])
-  end
+  defp resolve_url(config) do
+    case Keyword.pop(config, :url) do
+      {nil, config} ->
+        config
 
-  defp connection_options(database) do
-    base = GSMLG.Repo.config()
-
-    [
-      database: database,
-      username: Keyword.fetch!(base, :username),
-      password: Keyword.get(base, :password),
-      port: Keyword.get(base, :port, 5432),
-      pool: DBConnection.ConnectionPool,
-      pool_size: 2
-    ] ++ host_options(base)
-  end
-
-  defp host_options(base) do
-    case Keyword.get(base, :socket_dir) || Keyword.get(base, :hostname, "localhost") do
-      "/" <> _ = socket_dir -> [socket_dir: socket_dir]
-      hostname -> [hostname: hostname]
+      {url, config} when is_binary(url) ->
+        config
+        |> Keyword.delete(:socket_dir)
+        |> Keyword.merge(Ecto.Repo.Supervisor.parse_url(url))
     end
   end
 
-  defp command!(command, args) do
-    case System.cmd(command, args, stderr_to_stdout: true) do
-      {_, 0} ->
+  defp normalize_connection_target(config) do
+    case Keyword.get(config, :socket_dir) do
+      socket_dir when is_binary(socket_dir) and socket_dir != "" ->
+        Keyword.delete(config, :hostname)
+
+      _ ->
+        Keyword.delete(config, :socket_dir)
+    end
+  end
+
+  defp storage_up!(config) do
+    case Ecto.Adapters.Postgres.storage_up(config) do
+      :ok ->
         :ok
 
-      {output, status} ->
-        raise "#{command} failed with status #{status}:\n#{output}"
+      {:error, :already_up} ->
+        raise "disposable database unexpectedly already exists: #{config[:database]}"
+
+      {:error, reason} ->
+        raise "failed to create disposable database #{config[:database]}: #{inspect(reason)}"
+    end
+  end
+
+  defp storage_down!(config) do
+    case Ecto.Adapters.Postgres.storage_down(config) do
+      :ok ->
+        :ok
+
+      {:error, :already_down} ->
+        raise "disposable database disappeared before cleanup: #{config[:database]}"
+
+      {:error, reason} ->
+        raise "failed to drop disposable database #{config[:database]}: #{inspect(reason)}"
     end
   end
 end

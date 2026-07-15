@@ -48,7 +48,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     note = GaoNote.get_note!(id)
-    selected_labels = Enum.map(note.labels, & &1.name)
+    selected_labels = Enum.map(note.labels, &label_input_value/1)
 
     socket
     |> assign(:page_title, "Edit GaoNote")
@@ -159,20 +159,26 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   defp filter_params(params) do
     %{
       "search" => Map.get(params, "search", ""),
-      "label_setting" => Map.get(params, "label_setting", "")
+      "label" => Map.get(params, "label", "")
     }
   end
 
   defp filter_opts(filters) do
     [
       search: blank_to_nil(filters["search"]),
-      label_setting: blank_to_nil(filters["label_setting"]),
+      label: blank_to_nil(filters["label"]),
       limit: 100
     ]
   end
 
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(value), do: value
+
+  defp label_input_value(%Label{
+         label_setting: %LabelSetting{name: name},
+         value: value
+       }),
+       do: "#{name}=#{value || ""}"
 
   defp assign_notes_async(socket, opts) do
     assign_async(
@@ -333,7 +339,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           class="grid gap-3 md:grid-cols-2"
         >
           <.dm_input name="filters[search]" value={@filters["search"]} label="Search" />
-          <.dm_input name="filters[label_setting]" value={@filters["label_setting"]} label="LabelSetting" />
+          <.dm_input name="filters[label]" value={@filters["label"]} label="Label" />
         </form>
 
         <.dm_skeleton_table

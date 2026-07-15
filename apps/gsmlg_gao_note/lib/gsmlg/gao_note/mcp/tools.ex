@@ -55,7 +55,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:description, :string, [description: "Optional short note description."]},
       {:content, :string, [required: true, description: "Markdown note content."]},
       {:labels, {:list, :string},
-       [description: "Optional labels as key=value strings. Missing label keys are created."]},
+       [description: "Optional labels as key=value strings. Missing label keys are created."]}
     ],
     "gao_note.create_label_setting" => [
       {:name, :string, [required: true, description: "Label key."]},
@@ -73,7 +73,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:description, :string, [description: "Updated short note description."]},
       {:content, :string, [description: "Updated markdown note content."]},
       {:labels, {:list, :string},
-       [description: "Replacement labels as key=value strings. Missing label keys are created."]},
+       [description: "Replacement labels as key=value strings. Missing label keys are created."]}
     ],
     "gao_note.delete" => [
       {:id, :string, [required: true, description: "GaoNote id."]}
@@ -296,8 +296,10 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   defp dispatch("gao_note.create_label_setting", args, frame, _mode) do
     with {:ok, actor} <- Authorization.actor(frame),
-         {:ok, label_setting} <- GaoNote.create_label_setting(label_setting_attrs(args), mcp_actor(actor)) do
+         {:ok, label_setting} <-
+           GaoNote.create_label_setting(label_setting_attrs(args), mcp_actor(actor)) do
       audit("gao_note.create_label_setting", actor, nil)
+
       ok("Created GaoNote label setting: #{label_setting.name}", %{
         "label_setting" => Presenter.label_setting(label_setting)
       })
@@ -457,7 +459,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   defp list_opts(args, :readonly) do
     [
-      label_setting: Map.get(args, "label_setting"),
+      label: Map.get(args, "label"),
       limit: Map.get(args, "limit"),
       offset: Map.get(args, "offset")
     ]
@@ -465,7 +467,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   defp list_opts(args, :admin) do
     [
-      label_setting: Map.get(args, "label_setting"),
+      label: Map.get(args, "label"),
       limit: Map.get(args, "limit"),
       offset: Map.get(args, "offset")
     ]

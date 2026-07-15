@@ -89,7 +89,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert tool_property_names(tool) == [
                "content",
                "description",
-               "label_settings",
+               "labels",
                "title"
              ]
 
@@ -99,6 +99,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       refute "asset_id" in tool_property_names(tool)
       refute "limit" in tool_property_names(tool)
       refute "url" in tool_property_names(tool)
+      refute "creator" in tool_property_names(tool)
     end
 
     test "requires an actor for mutating tools" do
@@ -111,7 +112,7 @@ defmodule GSMLG.GaoNote.MCPTest do
                )
     end
 
-    test "supports create, read, update, delete, label_settings, and references" do
+    test "supports create, read, update, delete, labels, and references" do
       frame = admin_frame(actor())
 
       assert %{"structuredContent" => %{"note" => created}} =
@@ -167,7 +168,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert updated["description"] == "Updated description"
       assert updated["content"] == "Updated content"
 
-      assert %{"structuredContent" => %{"note" => tagged}} =
+      assert %{"structuredContent" => %{"note" => labeled}} =
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
                  "gao_note.set_labels",
@@ -175,7 +176,10 @@ defmodule GSMLG.GaoNote.MCPTest do
                  frame
                )
 
-      assert Enum.map(tagged["labels"], & &1["name"]) == ["Admin", "MCP"]
+      assert Enum.map(labeled["labels"], &Map.take(&1, ["key", "value"])) == [
+               %{"key" => "Admin", "value" => ""},
+               %{"key" => "MCP", "value" => ""}
+             ]
 
       assert %{"structuredContent" => %{"reference" => reference}} =
                call_tool(
@@ -243,15 +247,16 @@ defmodule GSMLG.GaoNote.MCPTest do
                  frame
                )
 
-      tag_names = created["labels"] |> Enum.map(& &1["name"]) |> Enum.sort()
+      label_keys = created["labels"] |> Enum.map(& &1["key"]) |> Enum.sort()
 
-      assert tag_names == ["SpaceX", "X搜索", "投资观察"]
+      assert label_keys == ["SpaceX", "X搜索", "投资观察"]
+      assert Enum.all?(created["labels"], &(&1["value"] == ""))
       refute Enum.any?(created["labels"], &Map.has_key?(&1, "slug"))
     end
 
-    test "set_labels returns a tool error when label_settings is not an array" do
+    test "set_labels returns a tool error when labels is not an array" do
       frame = admin_frame(actor())
-      note = note_fixture(%{title: "Invalid label_settings target"})
+      note = note_fixture(%{title: "Invalid labels target"})
 
       assert %{"isError" => true, "content" => [%{"text" => message}]} =
                call_tool(
@@ -261,7 +266,7 @@ defmodule GSMLG.GaoNote.MCPTest do
                  frame
                )
 
-      assert message =~ "label_settings must be an array of strings"
+      assert message =~ "labels must be an array"
     end
   end
 

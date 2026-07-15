@@ -283,20 +283,47 @@ defmodule GSMLG.GaoNoteTest do
       label_setting_id = label_setting.id
       refute Map.has_key?(label_setting, :slug)
 
-      assert %LabelSetting{id: ^label_setting_id, name: "Research"} = GaoNote.get_label_setting(label_setting_id)
-      assert %LabelSetting{id: ^label_setting_id, name: "Research"} = GaoNote.get_label_setting!(label_setting_id)
+      assert %LabelSetting{id: ^label_setting_id, name: "Research"} =
+               GaoNote.get_label_setting(label_setting_id)
+
+      assert %LabelSetting{id: ^label_setting_id, name: "Research"} =
+               GaoNote.get_label_setting!(label_setting_id)
 
       assert [%LabelSetting{id: label_setting_id}] = GaoNote.list_label_settings()
       assert label_setting_id == label_setting.id
 
-      assert {:ok, %LabelSetting{id: ^label_setting_id, color: "#0f172a", metadata: %{"scope" => "unit"}}} =
-               GaoNote.update_label_setting(label_setting, %{color: "#0f172a", metadata: %{"scope" => "unit"}})
+      assert {:ok,
+              %LabelSetting{
+                id: ^label_setting_id,
+                color: "#0f172a",
+                metadata: %{"scope" => "unit"}
+              }} =
+               GaoNote.update_label_setting(label_setting, %{
+                 color: "#0f172a",
+                 metadata: %{"scope" => "unit"}
+               })
 
-      assert %LabelSetting{id: ^label_setting_id, color: "#0f172a"} = GaoNote.get_label_setting(label_setting_id)
+      assert %LabelSetting{id: ^label_setting_id, color: "#0f172a"} =
+               GaoNote.get_label_setting(label_setting_id)
 
-      assert {:ok, %LabelSetting{}} = GaoNote.delete_label_setting(GaoNote.get_label_setting!(label_setting_id))
+      assert {:ok, %LabelSetting{}} =
+               GaoNote.delete_label_setting(GaoNote.get_label_setting!(label_setting_id))
+
       assert GaoNote.get_label_setting(label_setting_id) == nil
       assert GaoNote.list_label_settings() == []
+    end
+
+    test "list_notes/1 returns only notes matching a label key and value" do
+      matching = note_fixture(%{title: "Matching label note"})
+      other_value = note_fixture(%{title: "Other label value"})
+      other_key = note_fixture(%{title: "Other label key"})
+
+      assert {:ok, _matching} = GaoNote.set_labels(matching, ["topic=ecto"], actor())
+      assert {:ok, _other_value} = GaoNote.set_labels(other_value, ["topic=phoenix"], actor())
+      assert {:ok, _other_key} = GaoNote.set_labels(other_key, ["status=ecto"], actor())
+
+      assert [%Note{id: matching_id}] = GaoNote.list_notes(label: "topic=ecto")
+      assert matching_id == matching.id
     end
 
     @tag :task2_context
@@ -305,10 +332,10 @@ defmodule GSMLG.GaoNoteTest do
       file = storage_file_fixture()
       attachment = attachment_fixture(note, file)
 
-      assert {:ok, %Note{} = tagged_note} =
+      assert {:ok, %Note{} = labeled_note} =
                GaoNote.set_labels(note, ["  Elixir  ", "elixir", "MCP Tools"], actor())
 
-      label_names = tagged_note.labels |> Enum.map(& &1.label_setting.name) |> Enum.sort()
+      label_names = labeled_note.labels |> Enum.map(& &1.label_setting.name) |> Enum.sort()
       assert label_names == ["Elixir", "MCP Tools"]
 
       assert [%Note{id: id, attachments: [%Attachment{id: attachment_id}]}] =
@@ -317,7 +344,8 @@ defmodule GSMLG.GaoNoteTest do
       assert id == note.id
       assert attachment_id == attachment.id
 
-      assert [%LabelSetting{name: "Elixir"}, %LabelSetting{name: "MCP Tools"}] = GaoNote.list_label_settings()
+      assert [%LabelSetting{name: "Elixir"}, %LabelSetting{name: "MCP Tools"}] =
+               GaoNote.list_label_settings()
     end
   end
 
@@ -504,6 +532,7 @@ defmodule GSMLG.GaoNoteTest do
              ] = GaoNote.list_attachments(note.id)
 
       assert {first_id, second_id, third_id} == {first.id, second.id, third.id}
+
       assert {first_file_id, second_file_id, third_file_id} ==
                {first_file.id, second_file.id, third_file.id}
 
@@ -579,6 +608,7 @@ defmodule GSMLG.GaoNoteTest do
                GaoNote.list_logs(entity_type: "attachment") |> hd()
 
       inactive_file = storage_file_fixture(%{status: "deleted"})
+
       assert {:error, :storage_file_not_active} =
                GaoNote.attach_existing_file(note.id, inactive_file.id, %{}, [])
 
@@ -590,12 +620,15 @@ defmodule GSMLG.GaoNoteTest do
 
       deleted_note = note_fixture()
       assert {:ok, _deleted_note} = GaoNote.delete_note(deleted_note, actor())
+
       assert {:error, :not_found} =
                GaoNote.attach_existing_file(deleted_note.id, file.id, %{}, [])
     end
 
     @tag :tmp_dir
-    test "uploads and returns a preloaded attachment while preserving supported options", %{tmp_dir: tmp_dir} do
+    test "uploads and returns a preloaded attachment while preserving supported options", %{
+      tmp_dir: tmp_dir
+    } do
       with_storage_test_config(fn ->
         note = note_fixture()
         contents = "real attachment upload #{System.unique_integer([:positive])}"
@@ -622,7 +655,8 @@ defmodule GSMLG.GaoNoteTest do
                    note.id,
                    upload,
                    %{metadata: metadata},
-                   actor: actor("upload-actor"), uploaded_by: "explicit-owner"
+                   actor: actor("upload-actor"),
+                   uploaded_by: "explicit-owner"
                  )
 
         assert note_id == note.id
@@ -683,11 +717,17 @@ defmodule GSMLG.GaoNoteTest do
                GaoNote.update_attachment(note.id, "not-a-uuid", %{caption: "Invalid"})
 
       assert {:ok, %Attachment{caption: "Updated", position: 4, storage_file: %StorageFile{}}} =
-               GaoNote.update_attachment(note.id, attachment.id, %{caption: "Updated", position: 4})
+               GaoNote.update_attachment(note.id, attachment.id, %{
+                 caption: "Updated",
+                 position: 4
+               })
 
       assert {:error, :not_found} = GaoNote.detach_attachment(other_note.id, attachment.id)
       assert {:error, :not_found} = GaoNote.detach_attachment(note.id, "not-a-uuid")
-      assert {:ok, %Attachment{id: detached_id}} = GaoNote.detach_attachment(note.id, attachment.id)
+
+      assert {:ok, %Attachment{id: detached_id}} =
+               GaoNote.detach_attachment(note.id, attachment.id)
+
       assert detached_id == attachment.id
       assert Repo.get(Attachment, attachment.id) == nil
       assert %StorageFile{status: "active"} = Repo.get(StorageFile, file.id)
@@ -699,7 +739,9 @@ defmodule GSMLG.GaoNoteTest do
       assert {:ok, _deleted_note} = GaoNote.delete_note(deleted_note, actor())
 
       assert {:error, :not_found} =
-               GaoNote.update_attachment(deleted_note.id, deleted_attachment.id, %{caption: "Hidden"})
+               GaoNote.update_attachment(deleted_note.id, deleted_attachment.id, %{
+                 caption: "Hidden"
+               })
 
       assert {:error, :not_found} =
                GaoNote.detach_attachment(deleted_note.id, deleted_attachment.id)
