@@ -22,14 +22,14 @@ defmodule GSMLG.GaoNote.Note do
 
   def changeset(note, attrs) do
     note
-    |> cast(attrs, [:title, :description, :content], empty_values: [])
+    |> cast(attrs, [:title, :description, :content])
     |> put_default_description()
     |> validate_required([:title, :content])
   end
 
   def create_changeset(note, attrs) do
     note
-    |> cast(attrs, [:title, :description, :content], empty_values: [])
+    |> cast(attrs, [:title, :description, :content])
     |> put_default_description()
     |> validate_required([:title, :content])
   end
