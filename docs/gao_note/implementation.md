@@ -137,15 +137,8 @@ id             binary_id primary key
 title          string, required
 description    text, optional, defaults to ""
 content        text, required, Markdown
-creator        string, optional free-form creator display name, defaults to ""
 created_at
 updated_at
-```
-
-Indexes:
-
-```text
-index on creator
 ```
 
 ### 4.3 `gao_note_tags`
@@ -291,7 +284,6 @@ Supported `list_notes/1` options:
 ```text
 :tag
 :search
-:creator
 :limit
 :offset
 :order_by
@@ -350,7 +342,6 @@ Validation:
 title required
 description optional
 content required and interpreted as Markdown
-creator optional; MCP agents should fill it with the note-writing agent name
 ```
 
 ### 6.2 Tag changeset
@@ -565,7 +556,6 @@ Default index display:
 ```text
 title
 description
-creator
 created_at
 updated_at
 actions
@@ -752,8 +742,6 @@ gao_note.assets.upload_base64
 gao_note.assets.update
 gao_note.assets.detach
 ```
-
-For `gao_note.create`, `creator` is a free-form display name. Agents writing notes through MCP should set it to their agent name; callers may omit it to leave Creator empty.
 
 `gao_note.set_tags` accepts an array of tag names. Missing tags are created automatically, and `gao_note.create_tag` is available when a client wants to create a tag explicitly before assigning it.
 
@@ -1124,7 +1112,7 @@ GaoNote is complete when:
 
 ```text
 1. A new app apps/gsmlg_gao_note exists.
-2. Notes support title, description, creator, content, tags, references, and assets.
+2. Notes support title, description, content, tags, references, and assets.
 3. Assets are S3-backed through GSMLG.Storage.
 4. Admin note UI is available at /gao_notes/notes; tag, reference, and asset index UIs are available at /gao_notes/tags, /gao_notes/references, and /gao_notes/assets.
 5. GaoNote appears under Admin Web → Content only.

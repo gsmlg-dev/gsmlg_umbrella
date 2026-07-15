@@ -2,144 +2,205 @@ defmodule GSMLG.GaoNote.CreatorRemovalMigrationTest do
   use ExUnit.Case, async: false
 
   @migration GSMLG.Repo.Migrations.DropGaoNoteCreatorFields
-  @repo_root Path.expand("../../../..", __DIR__)
-  @migration_file Path.join(
-                    @repo_root,
-                    "apps/gsmlg/priv/repo/migrations/20260715000000_drop_gao_note_creator_fields.exs"
+  @migration_path Path.expand(
+                    "../../../gsmlg/priv/repo/migrations/20260715000000_drop_gao_note_creator_fields.exs",
+                    __DIR__
                   )
+  @migration_version 20_260_715_000_000
+  @repeat_version @migration_version + 1
 
-  unless Code.ensure_loaded?(@migration) do
-    Code.compile_file(@migration_file)
+  @states [
+    {"neither legacy field", [], []},
+    {"creator only", [:creator], [:creator]},
+    {"creator_id only", [:creator_id], [:creator_id]},
+    {"both legacy fields", [:creator, :creator_id], [:creator, :creator_id]}
+  ]
+
+  defmodule MigrationRepo do
+    use Ecto.Repo,
+      otp_app: :gsmlg,
+      adapter: Ecto.Adapters.Postgres
   end
 
-  setup do
-    database =
-      "gao_note_creator_removal_#{System.unique_integer([:positive, :monotonic])}"
+  setup_all do
+    unless Code.ensure_loaded?(@migration), do: Code.compile_file(@migration_path)
+    :ok
+  end
 
-    command!("createdb", [database])
+  test "actual Ecto migration removes either, both, or neither legacy field idempotently" do
+    Enum.each(@states, fn {state_name, columns, indexes} ->
+      with_disposable_repo(fn ->
+        create_gao_notes!(columns, indexes)
 
-    on_exit(fn ->
-      case System.cmd("dropdb", ["--if-exists", database], stderr_to_stdout: true) do
-        {_output, 0} ->
-          :ok
+        assert :ok == migrate_up(@migration_version),
+               "first migration failed for #{state_name}"
 
-        {output, status} ->
-          raise "dropdb cleanup failed for #{database} with status #{status}:\n#{output}"
-      end
+        first_catalog = creator_catalog()
+        assert_creator_removed!(first_catalog, state_name)
+        assert migration_versions() == [@migration_version]
+
+        assert :ok == migrate_up(@repeat_version),
+               "repeat migration failed for #{state_name}"
+
+        assert creator_catalog() == first_catalog,
+               "repeat migration changed the final catalog for #{state_name}"
+
+        assert migration_versions() == [@migration_version, @repeat_version]
+      end)
     end)
-
-    %{database: database}
   end
 
-  test "up removes either, both, or neither legacy column and index", %{database: database} do
-    states = [
-      {[], []},
-      {["creator"], ["creator"]},
-      {["creator_id"], ["creator_id"]},
-      {["creator", "creator_id"], ["creator", "creator_id"]},
-      {["creator", "creator_id"], []}
-    ]
+  test "actual Ecto down migration is irreversible" do
+    with_disposable_repo(fn ->
+      create_gao_notes!([:creator, :creator_id], [:creator, :creator_id])
+      assert :ok == migrate_up(@migration_version)
 
-    for {columns, indexed_columns} <- states do
-      reset_schema!(database, columns, indexed_columns)
-      migrate!(database)
-      migrate!(database)
+      assert_raise Ecto.MigrationError,
+                   ~r/data was intentionally discarded/,
+                   fn ->
+                     Ecto.Migrator.down(
+                       MigrationRepo,
+                       @migration_version,
+                       @migration,
+                       log: false,
+                       log_migrations_sql: false
+                     )
+                   end
 
-      assert query(
-               database,
-               """
-               SELECT count(*)
-               FROM information_schema.columns
-               WHERE table_schema = 'public'
-                 AND table_name = 'gao_notes'
-                 AND column_name IN ('creator', 'creator_id')
-               """
-             ) == "0"
-
-      assert query(
-               database,
-               """
-               SELECT count(*)
-               FROM pg_indexes
-               WHERE schemaname = 'public'
-                 AND tablename = 'gao_notes'
-                 AND indexname IN ('gao_notes_creator_index', 'gao_notes_creator_id_index')
-               """
-             ) == "0"
-
-      assert query(database, "SELECT title FROM public.gao_notes") == "preserved"
-    end
+      assert_creator_removed!(creator_catalog(), "irreversible down")
+      assert migration_versions() == [@migration_version]
+    end)
   end
 
-  test "down is explicitly irreversible" do
-    assert_raise Ecto.MigrationError, ~r/intentionally discarded/, fn ->
-      @migration.down()
-    end
-  end
-
-  defp reset_schema!(database, columns, indexed_columns) do
-    execute_sql!(
-      database,
-      """
-      DROP TABLE IF EXISTS public.gao_notes;
-
-      CREATE TABLE public.gao_notes (
-        id uuid PRIMARY KEY,
-        title varchar(255) NOT NULL
-      );
-
-      INSERT INTO public.gao_notes (id, title)
-      VALUES ('10000000-0000-0000-0000-000000000001', 'preserved');
-      """
+  defp migrate_up(version) do
+    Ecto.Migrator.up(MigrationRepo, version, @migration,
+      log: false,
+      log_migrations_sql: false
     )
-
-    Enum.each(columns, fn column ->
-      execute_sql!(database, "ALTER TABLE public.gao_notes ADD COLUMN #{column} varchar(255)")
-    end)
-
-    Enum.each(indexed_columns, fn column ->
-      execute_sql!(
-        database,
-        "CREATE INDEX gao_notes_#{column}_index ON public.gao_notes (#{column})"
-      )
-    end)
   end
 
-  defp migrate!(database) do
-    execute_sql!(database, @migration.up_sql())
+  defp create_gao_notes!(columns, indexes) do
+    sql!("CREATE TABLE public.gao_notes (id bigint PRIMARY KEY, title text NOT NULL)")
+    sql!("INSERT INTO public.gao_notes (id, title) VALUES (1, 'preserved')")
+    Enum.each(columns, &add_column!/1)
+    Enum.each(indexes, &add_index!/1)
   end
 
-  defp query(database, sql) do
-    database
-    |> execute_sql!(sql)
-    |> String.trim()
+  defp add_column!(:creator),
+    do: sql!("ALTER TABLE public.gao_notes ADD COLUMN creator text")
+
+  defp add_column!(:creator_id),
+    do: sql!("ALTER TABLE public.gao_notes ADD COLUMN creator_id text")
+
+  defp add_index!(:creator),
+    do: sql!("CREATE INDEX gao_notes_creator_index ON public.gao_notes (creator)")
+
+  defp add_index!(:creator_id),
+    do: sql!("CREATE INDEX gao_notes_creator_id_index ON public.gao_notes (creator_id)")
+
+  defp assert_creator_removed!(catalog, state_name) do
+    assert catalog.columns == [], "legacy columns remain for #{state_name}"
+    assert catalog.indexes == [], "legacy indexes remain for #{state_name}"
+    assert catalog.title == "preserved", "unrelated note data changed for #{state_name}"
   end
 
-  defp execute_sql!(database, sql) do
-    case System.cmd(
-           "psql",
-           [
-             "-X",
-             "--set",
-             "ON_ERROR_STOP=1",
-             "--no-align",
-             "--tuples-only",
-             "--dbname",
-             database,
-             "--command",
-             sql
-           ],
-           stderr_to_stdout: true
-         ) do
-      {output, 0} -> output
-      {output, status} -> flunk("psql exited with status #{status}:\n#{output}")
+  defp creator_catalog do
+    %{
+      columns:
+        values!("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'gao_notes'
+          AND column_name IN ('creator', 'creator_id')
+        ORDER BY column_name
+        """),
+      indexes:
+        values!("""
+        SELECT indexname
+        FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND tablename = 'gao_notes'
+          AND indexname IN ('gao_notes_creator_index', 'gao_notes_creator_id_index')
+        ORDER BY indexname
+        """),
+      title: scalar!("SELECT title FROM public.gao_notes WHERE id = 1")
+    }
+  end
+
+  defp migration_versions do
+    values!("SELECT version FROM public.schema_migrations ORDER BY version")
+  end
+
+  defp values!(statement) do
+    statement
+    |> sql!()
+    |> Map.fetch!(:rows)
+    |> List.flatten()
+  end
+
+  defp scalar!(statement) do
+    %Postgrex.Result{rows: [[value]]} = sql!(statement)
+    value
+  end
+
+  defp sql!(statement) do
+    Ecto.Adapters.SQL.query!(MigrationRepo, statement, [], log: false)
+  end
+
+  defp with_disposable_repo(test) do
+    database = "gsmlg_gao_note_creator_#{System.unique_integer([:positive, :monotonic])}"
+    create_database!(database)
+
+    try do
+      {:ok, repo_pid} = MigrationRepo.start_link(connection_options(database))
+
+      try do
+        test.()
+      after
+        GenServer.stop(repo_pid)
+      end
+    after
+      drop_database!(database)
     end
   end
 
-  defp command!(command, arguments) do
-    case System.cmd(command, arguments, stderr_to_stdout: true) do
-      {_output, 0} -> :ok
-      {output, status} -> flunk("#{command} exited with status #{status}:\n#{output}")
+  defp create_database!(database) do
+    username = GSMLG.Repo.config() |> Keyword.fetch!(:username)
+    command!("createdb", ["--owner=#{username}", database])
+  end
+
+  defp drop_database!(database) do
+    command!("dropdb", ["--if-exists", database])
+  end
+
+  defp connection_options(database) do
+    base = GSMLG.Repo.config()
+
+    [
+      database: database,
+      username: Keyword.fetch!(base, :username),
+      password: Keyword.get(base, :password),
+      port: Keyword.get(base, :port, 5432),
+      pool: DBConnection.ConnectionPool,
+      pool_size: 2
+    ] ++ host_options(base)
+  end
+
+  defp host_options(base) do
+    case Keyword.get(base, :socket_dir) || Keyword.get(base, :hostname, "localhost") do
+      "/" <> _ = socket_dir -> [socket_dir: socket_dir]
+      hostname -> [hostname: hostname]
+    end
+  end
+
+  defp command!(command, args) do
+    case System.cmd(command, args, stderr_to_stdout: true) do
+      {_, 0} ->
+        :ok
+
+      {output, status} ->
+        raise "#{command} failed with status #{status}:\n#{output}"
     end
   end
 end
