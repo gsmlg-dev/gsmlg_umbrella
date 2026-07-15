@@ -14,7 +14,16 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
   end
 
   @impl true
-  def handle_params(%{"id" => id}, _url, socket) do
+  def handle_params(_params, _url, %{assigns: %{live_action: :all}} = socket) do
+    {:noreply,
+     assign(socket,
+       page_title: "GaoNote Attachments",
+       active_menu: "gao_note_attachments",
+       attachments: GaoNote.list_all_attachments()
+     )}
+  end
+
+  def handle_params(%{"id" => id}, _url, %{assigns: %{live_action: :index}} = socket) do
     note = GaoNote.get_note!(id)
 
     {:noreply,
@@ -37,15 +46,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
            },
            as: :attachment
          )
-     )}
-  end
-
-  def handle_params(_params, _url, socket) do
-    {:noreply,
-     assign(socket,
-       page_title: "GaoNote Attachments",
-       active_menu: "gao_note_attachments",
-       attachments: GaoNote.list_all_attachments()
      )}
   end
 

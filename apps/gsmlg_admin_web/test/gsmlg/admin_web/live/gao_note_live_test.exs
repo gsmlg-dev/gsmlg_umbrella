@@ -162,6 +162,25 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
   end
 
+  test "admin sees validation errors when note creation is invalid", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+
+    html =
+      render_submit(view, "save", %{
+        "gao_note" => %{
+          "title" => "",
+          "description" => "",
+          "content" => ""
+        }
+      })
+
+    assert html =~ "can&#39;t be blank"
+    assert html =~ ~s(id="gao_note_title-errors")
+    assert html =~ ~s(id="gao_note_content-errors")
+    refute html =~ ~s(id="gao_note_description-errors")
+  end
+
   test "admin can edit a note with the markdown input", %{conn: conn, user: user} do
     assert {:ok, note} =
              GaoNote.create_note(
@@ -283,6 +302,43 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert_patch(view, ~p"/gao_notes/notes")
   end
 
+  test "admin can manage label settings", %{conn: conn} do
+    assert {:ok, _label_setting} =
+             GaoNote.create_label_setting(%{name: "Existing Managed Label"})
+
+    {:ok, view, html} = live(conn, ~p"/gao_notes/label_settings")
+
+    assert html =~ "GaoNote Labels"
+    assert html =~ ~s(id="gao-note-label_settings-loading")
+    assert html =~ ~s(aria-label="Loading GaoNote labels")
+
+    html = render_async(view)
+
+    assert html =~ "Existing Managed Label"
+    assert html =~ ~s(id="gao-note-label_settings-table")
+    refute html =~ "Slug"
+    refute html =~ ~s(id="gao-note-label_settings-loading")
+
+    view
+    |> form("#gao-note-label_setting-form", %{
+      "gao_note_label_setting" => %{"name" => "Research", "color" => "#1f6feb"}
+    })
+    |> render_submit()
+
+    assert [
+             %LabelSetting{name: "Existing Managed Label"},
+             %LabelSetting{name: "Research"} = label_setting
+           ] = GaoNote.list_label_settings()
+
+    assert render_async(view) =~ "Research"
+
+    view
+    |> element(~s([phx-click="delete"][phx-value-id="#{label_setting.id}"]))
+    |> render_click()
+
+    assert [%LabelSetting{name: "Existing Managed Label"}] = GaoNote.list_label_settings()
+  end
+
   test "admin can view GaoNote CRUD logs", %{conn: conn, user: user} do
     assert {:ok, note} =
              GaoNote.create_note(
@@ -315,43 +371,94 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     refute html =~ ~s(id="gao-note-log-loading")
   end
 
-  test "admin can open the global and note Attachment pages", %{conn: conn, user: user} do
-    assert {:ok, note} =
+  test "attachment routes isolate note scope and ignore id query on the global action", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, first_note} =
              GaoNote.create_note(
-               %{title: "Attachment Menu Note", content: "Attachment menu content"},
+               %{title: "First Attachment Note", content: "First attachment content"},
                user
              )
 
-    storage_file = storage_file_fixture(%{filename: "attachment-menu.txt"})
+    assert {:ok, second_note} =
+             GaoNote.create_note(
+               %{title: "Second Attachment Note", content: "Second attachment content"},
+               user
+             )
 
-    assert {:ok, attachment} =
+    first_file = storage_file_fixture(%{filename: "first-route-attachment.txt"})
+    second_file = storage_file_fixture(%{filename: "second-route-attachment.txt"})
+
+    assert {:ok, first_attachment} =
              GaoNote.attach_existing_file(
-               note.id,
-               storage_file.id,
+               first_note.id,
+               first_file.id,
                %{
                  role: "cover",
-                 path: "attachment-menu.txt",
-                 caption: "Menu Caption",
+                 path: "first-route-attachment.txt",
+                 caption: "First Route Caption",
                  metadata: %{"visibility" => "public"}
                },
                actor: user
              )
 
+    assert {:ok, second_attachment} =
+             GaoNote.attach_existing_file(
+               second_note.id,
+               second_file.id,
+               %{
+                 role: "attachment",
+                 path: "second-route-attachment.txt",
+                 caption: "Second Route Caption",
+                 metadata: %{"visibility" => "private"}
+               },
+               actor: user
+             )
+
+    assert {:ok, _view, note_html} =
+             live(conn, ~p"/gao_notes/notes/#{first_note.id}/attachments")
+
+    assert note_html =~ "First Attachment Note Attachments"
+    assert note_html =~ "first-route-attachment.txt"
+    assert note_html =~ "First Route Caption"
+    assert note_html =~ ~s(id="gao-note-attachment-#{first_attachment.id}")
+    refute note_html =~ "second-route-attachment.txt"
+    refute note_html =~ "Second Route Caption"
+    refute note_html =~ ~s(id="gao-note-attachment-#{second_attachment.id}")
+
     {:ok, _view, html} = live(conn, ~p"/gao_notes/attachments")
 
     assert html =~ "GaoNote Attachments"
     assert html =~ ~s(id="gao-note-attachments-table")
-    assert html =~ "Attachment Menu Note"
-    assert html =~ "attachment-menu.txt"
-    assert html =~ attachment.path
+    assert html =~ "First Attachment Note"
+    assert html =~ "Second Attachment Note"
+    assert html =~ "first-route-attachment.txt"
+    assert html =~ "second-route-attachment.txt"
+    assert html =~ "First Route Caption"
+    assert html =~ "Second Route Caption"
     assert html =~ "public"
-    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")
+    assert html =~ "private"
+    assert html =~ ~s(href="/gao_notes/notes/#{first_note.id}/attachments")
+    assert html =~ ~s(href="/gao_notes/notes/#{second_note.id}/attachments")
     refute html =~ ~s(href="/gao_notes/references")
     refute html =~ ~s(href="/gao_notes/assets")
 
-    assert {:ok, _view, note_html} = live(conn, ~p"/gao_notes/notes/#{note.id}/attachments")
-    assert note_html =~ "Attachment Menu Note Attachments"
-    assert note_html =~ ~s(id="gao-note-attachment-#{attachment.id}")
+    assert {:ok, _view, query_html} =
+             live(conn, "/gao_notes/attachments?id=#{first_note.id}")
+
+    assert query_html =~ "GaoNote Attachments"
+    assert query_html =~ "First Attachment Note"
+    assert query_html =~ "Second Attachment Note"
+    assert query_html =~ "first-route-attachment.txt"
+    assert query_html =~ "second-route-attachment.txt"
+    assert query_html =~ "First Route Caption"
+    assert query_html =~ "Second Route Caption"
+    assert query_html =~ ~s(id="gao-note-attachments-table")
+    assert query_html =~ ~s(href="/gao_notes/notes/#{first_note.id}/attachments")
+    assert query_html =~ ~s(href="/gao_notes/notes/#{second_note.id}/attachments")
+    refute query_html =~ ~s(id="gao-note-note-attachments")
+    refute query_html =~ ~s(id="gao-note-attachment-upload-form")
   end
 
   test "admin can attach, update, and detach an existing file", %{conn: conn, user: user} do
@@ -479,6 +586,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
                  storage_file:
                    %StorageFile{
                      filename: stored_filename,
+                     content_type: "text/plain",
                      type: "attachment"
                    } = stored_file
                } = attachment
