@@ -38,16 +38,26 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
 
       assert [
                %{id: "gao_note_list", label: "Note List", path: "/gao_notes/notes"},
-               %{id: "gao_note_tags", label: "Tags", path: "/gao_notes/tags"},
                %{
-                 id: "gao_note_references",
-                 label: "Note References",
-                 path: "/gao_notes/references"
+                 id: "gao_note_label_settings",
+                 label: "Label Settings",
+                 path: "/gao_notes/label_settings"
                },
-               %{id: "gao_note_assets", label: "Note Assets", path: "/gao_notes/assets"},
+               %{
+                 id: "gao_note_attachments",
+                 label: "Note Attachments",
+                 path: "/gao_notes/attachments"
+               },
+               %{
+                 id: "gao_note_recycle_bin",
+                 label: "Recycle Bin",
+                 path: "/gao_notes/recycle_bin"
+               },
                %{id: "gao_note_logs", label: "Log", path: "/gao_notes/logs"},
                %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"}
              ] = gao_notes.items
+
+      refute Enum.any?(gao_notes.items, &(&1.label in ["Note References", "Note Assets"]))
     end
 
     test "includes Scout under the service section" do
@@ -84,11 +94,13 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
     test "matches GaoNote routes to their content menu items" do
       assert AdminMenu.active_id(nil, "/gao_notes/notes") == "gao_note_list"
       assert AdminMenu.active_id(nil, "/gao_notes/notes/new") == "gao_note_list"
-      assert AdminMenu.active_id(nil, "/gao_notes/tags") == "gao_note_tags"
-      assert AdminMenu.active_id(nil, "/gao_notes/references") == "gao_note_references"
-      assert AdminMenu.active_id(nil, "/gao_notes/assets") == "gao_note_assets"
+      assert AdminMenu.active_id(nil, "/gao_notes/label_settings") == "gao_note_label_settings"
+      assert AdminMenu.active_id(nil, "/gao_notes/attachments") == "gao_note_attachments"
+      assert AdminMenu.active_id(nil, "/gao_notes/recycle_bin") == "gao_note_recycle_bin"
       assert AdminMenu.active_id(nil, "/gao_notes/logs") == "gao_note_logs"
       assert AdminMenu.active_id(nil, "/gao_notes/mcp") == "gao_note_mcp"
+      assert AdminMenu.active_id(nil, "/gao_notes/references") == nil
+      assert AdminMenu.active_id(nil, "/gao_notes/assets") == nil
       assert AdminMenu.group_open?(AdminMenu.find_group!("gao_notes"), "gao_note_list")
     end
 
@@ -100,6 +112,38 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
   end
 
   describe "router" do
+    test "exposes only final GaoNote routes through the Attachment LiveView" do
+      routes = GSMLG.AdminWeb.Router |> Phoenix.Router.routes()
+      gao_note_routes = Enum.filter(routes, &String.starts_with?(&1.path, "/gao_notes"))
+
+      assert Enum.map(gao_note_routes, & &1.path) == [
+               "/gao_notes/notes",
+               "/gao_notes/notes/new",
+               "/gao_notes/notes/:id",
+               "/gao_notes/notes/:id/edit",
+               "/gao_notes/notes/:id/attachments",
+               "/gao_notes/attachments",
+               "/gao_notes/label_settings",
+               "/gao_notes/recycle_bin",
+               "/gao_notes/logs",
+               "/gao_notes/mcp"
+             ]
+
+      for {path, action} <- [
+            {"/gao_notes/notes/:id/attachments", :index},
+            {"/gao_notes/attachments", :all}
+          ] do
+        route = Enum.find(gao_note_routes, &(&1.path == path))
+        live_view = Map.fetch!(route.metadata, :phoenix_live_view) |> Tuple.to_list()
+
+        assert GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index in live_view
+        assert action in live_view
+      end
+
+      refute Enum.any?(gao_note_routes, &String.contains?(&1.path, "/references"))
+      refute Enum.any?(gao_note_routes, &String.contains?(&1.path, "/assets"))
+    end
+
     test "does not expose PKI routes" do
       paths = GSMLG.AdminWeb.Router |> Phoenix.Router.routes() |> Enum.map(& &1.path)
 

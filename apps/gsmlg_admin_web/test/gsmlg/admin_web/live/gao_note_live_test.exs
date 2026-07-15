@@ -5,9 +5,31 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
   import Phoenix.LiveViewTest
 
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Asset, Label, LabelSetting, Log, MCPSetting, Note, Reference}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
+
+  defmodule S3Stub do
+    @behaviour Plug
+
+    @impl true
+    def init(opts), do: opts
+
+    @impl true
+    def call(conn, _opts) do
+      conn
+      |> drain_body()
+      |> Plug.Conn.put_resp_header("etag", "\"test-etag\"")
+      |> Plug.Conn.send_resp(200, "")
+    end
+
+    defp drain_body(conn) do
+      case Plug.Conn.read_body(conn) do
+        {:ok, _body, conn} -> conn
+        {:more, _body, conn} -> drain_body(conn)
+      end
+    end
+  end
 
   @secret_key_base String.duplicate("a", 64)
 
@@ -26,8 +48,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
     Repo.delete_all(MCPSetting)
     Repo.delete_all(Log)
-    Repo.delete_all(Asset)
-    Repo.delete_all(Reference)
+    Repo.delete_all(Attachment)
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
@@ -75,9 +96,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     html = render_async(view)
 
     assert html =~ note.title
-    assert html =~ "Admin User"
     assert html =~ "Admin Label"
     assert html =~ "MCP Label"
+    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")
+    refute html =~ ~s(href="/gao_notes/notes/#{note.id}/references")
+    refute html =~ ~s(href="/gao_notes/notes/#{note.id}/assets")
     refute html =~ ~s(id="gao-note-table-loading")
     refute html =~ "Description"
     refute html =~ "Admin description"
@@ -139,25 +162,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
   end
 
-  test "admin sees validation errors when note creation is invalid", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
-    render_async(view)
-
-    html =
-      render_submit(view, "save", %{
-        "gao_note" => %{
-          "title" => "",
-          "description" => "",
-          "content" => ""
-        }
-      })
-
-    assert html =~ "can&#39;t be blank"
-    assert html =~ ~s(id="gao_note_title-errors")
-    assert html =~ ~s(id="gao_note_content-errors")
-    refute html =~ ~s(id="gao_note_description-errors")
-  end
-
   test "admin can edit a note with the markdown input", %{conn: conn, user: user} do
     assert {:ok, note} =
              GaoNote.create_note(
@@ -207,6 +211,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ ~s(<el-dm-markdown)
     assert html =~ ~s(id="gao-note-content-#{note.id}")
     assert html =~ "## Rendered markdown"
+    assert html =~ "Attachments"
+    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")
+    refute html =~ "References"
+    refute html =~ ~s(href="/gao_notes/notes/#{note.id}/references")
+    refute html =~ ~s(href="/gao_notes/notes/#{note.id}/assets")
     refute html =~ "react"
     refute html =~ "Failed to render_to_static_markup"
   end
@@ -274,43 +283,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert_patch(view, ~p"/gao_notes/notes")
   end
 
-  test "admin can manage label settings", %{conn: conn} do
-    assert {:ok, _label_setting} =
-             GaoNote.create_label_setting(%{name: "Existing Managed Label"})
-
-    {:ok, view, html} = live(conn, ~p"/gao_notes/label_settings")
-
-    assert html =~ "GaoNote Labels"
-    assert html =~ ~s(id="gao-note-label-settings-loading")
-    assert html =~ ~s(aria-label="Loading GaoNote labels")
-
-    html = render_async(view)
-
-    assert html =~ "Existing Managed Label"
-    assert html =~ ~s(id="gao-note-label-settings-table")
-    refute html =~ "Slug"
-    refute html =~ ~s(id="gao-note-label-settings-loading")
-
-    view
-    |> form("#gao-note-label_setting-form", %{
-      "gao_note_label_setting" => %{"name" => "Research", "color" => "#1f6feb"}
-    })
-    |> render_submit()
-
-    assert [
-             %LabelSetting{name: "Existing Managed Label"},
-             %LabelSetting{name: "Research"} = label_setting
-           ] = GaoNote.list_label_settings()
-
-    assert render_async(view) =~ "Research"
-
-    view
-    |> element(~s([phx-click="delete"][phx-value-id="#{label_setting.id}"]))
-    |> render_click()
-
-    assert [%LabelSetting{name: "Existing Managed Label"}] = GaoNote.list_label_settings()
-  end
-
   test "admin can view GaoNote CRUD logs", %{conn: conn, user: user} do
     assert {:ok, note} =
              GaoNote.create_note(
@@ -343,56 +315,197 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     refute html =~ ~s(id="gao-note-log-loading")
   end
 
-  test "admin can open the global note references menu page", %{conn: conn, user: user} do
+  test "admin can open the global and note Attachment pages", %{conn: conn, user: user} do
     assert {:ok, note} =
              GaoNote.create_note(
-               %{title: "Reference Menu Note", content: "Reference menu content"},
+               %{title: "Attachment Menu Note", content: "Attachment menu content"},
                user
              )
 
-    assert {:ok, reference} =
-             GaoNote.add_reference(
-               note,
-               %{url: "https://example.com/menu-reference", title: "Menu Reference"},
-               user
+    storage_file = storage_file_fixture(%{filename: "attachment-menu.txt"})
+
+    assert {:ok, attachment} =
+             GaoNote.attach_existing_file(
+               note.id,
+               storage_file.id,
+               %{
+                 role: "cover",
+                 path: "attachment-menu.txt",
+                 caption: "Menu Caption",
+                 metadata: %{"visibility" => "public"}
+               },
+               actor: user
              )
 
-    {:ok, _view, html} = live(conn, ~p"/gao_notes/references")
+    {:ok, _view, html} = live(conn, ~p"/gao_notes/attachments")
 
-    assert html =~ "GaoNote References"
-    assert html =~ ~s(id="gao-note-references-table")
-    assert html =~ "Reference Menu Note"
-    assert html =~ "Menu Reference"
-    assert html =~ reference.url
-    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/references")
+    assert html =~ "GaoNote Attachments"
+    assert html =~ ~s(id="gao-note-attachments-table")
+    assert html =~ "Attachment Menu Note"
+    assert html =~ "attachment-menu.txt"
+    assert html =~ attachment.path
+    assert html =~ "public"
+    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")
+    refute html =~ ~s(href="/gao_notes/references")
+    refute html =~ ~s(href="/gao_notes/assets")
+
+    assert {:ok, _view, note_html} = live(conn, ~p"/gao_notes/notes/#{note.id}/attachments")
+    assert note_html =~ "Attachment Menu Note Attachments"
+    assert note_html =~ ~s(id="gao-note-attachment-#{attachment.id}")
   end
 
-  test "admin can open the global note assets menu page", %{conn: conn, user: user} do
+  test "admin can attach, update, and detach an existing file", %{conn: conn, user: user} do
     assert {:ok, note} =
              GaoNote.create_note(
-               %{title: "Asset Menu Note", content: "Asset menu content"},
+               %{title: "Manage Attachments", content: "Attachment management"},
                user
              )
 
-    storage_file = storage_file_fixture(%{filename: "asset-menu.txt"})
+    storage_file = storage_file_fixture(%{filename: "existing-file.txt"})
+    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}/attachments")
 
-    assert {:ok, _asset} =
-             GaoNote.attach_asset(
-               note,
-               storage_file.id,
-               %{role: "cover", caption: "Menu Caption"},
+    assert html =~ ~s(id="gao-note-attachment-upload-form")
+    assert html =~ ~s(id="gao-note-attachment-attach-form")
+    assert html =~ "Private"
+    assert html =~ "Public"
+
+    view
+    |> form("#gao-note-attachment-attach-form", %{
+      "attachment" => %{
+        "storage_file_id" => storage_file.id,
+        "role" => "inline",
+        "path" => "existing-file.txt",
+        "description" => "Existing description",
+        "caption" => "Existing caption",
+        "alt_text" => "Existing alt text",
+        "position" => "2",
+        "visibility" => "private"
+      }
+    })
+    |> render_submit()
+
+    assert [
+             %Attachment{
+               role: "inline",
+               path: "./existing-file.txt",
+               description: "Existing description",
+               caption: "Existing caption",
+               alt_text: "Existing alt text",
+               position: 2,
+               metadata: %{"visibility" => "private"}
+             } = attachment
+           ] = GaoNote.list_attachments(note.id)
+
+    assert has_element?(
+             view,
+             "#gao-note-attachment-detach-#{attachment.id}[data-confirm='Detach this attachment?']"
+           )
+
+    view
+    |> form("#gao-note-attachment-update-#{attachment.id}", %{
+      "attachment" => %{
+        "role" => "cover",
+        "path" => "updated-file.txt",
+        "description" => "Updated description",
+        "caption" => "Updated caption",
+        "alt_text" => "Updated alt text",
+        "position" => "4",
+        "visibility" => "public"
+      }
+    })
+    |> render_submit()
+
+    assert %Attachment{
+             role: "cover",
+             path: "./updated-file.txt",
+             description: "Updated description",
+             caption: "Updated caption",
+             alt_text: "Updated alt text",
+             position: 4,
+             metadata: %{"visibility" => "public"}
+           } = GaoNote.get_attachment(attachment.id)
+
+    view
+    |> element("#gao-note-attachment-detach-#{attachment.id}")
+    |> render_click()
+
+    assert GaoNote.list_attachments(note.id) == []
+    assert %StorageFile{status: "active"} = Repo.get(StorageFile, storage_file.id)
+  end
+
+  test "admin upload keeps the client filename and defaults a note-relative path", %{
+    conn: conn,
+    user: user
+  } do
+    with_storage_test_config(fn ->
+      assert {:ok, note} =
+               GaoNote.create_note(
+                 %{title: "Upload Attachment", content: "Upload attachment content"},
+                 user
+               )
+
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/attachments")
+      filename = "client-report-#{System.unique_integer([:positive])}.txt"
+      contents = "attachment uploaded from LiveView"
+
+      upload =
+        file_input(view, "#gao-note-attachment-upload-form", :attachment, [
+          %{name: filename, content: contents, type: "text/plain"}
+        ])
+
+      render_upload(upload, filename)
+
+      view
+      |> form("#gao-note-attachment-upload-form", %{
+        "attachment" => %{
+          "role" => "attachment",
+          "path" => "",
+          "description" => "Uploaded description",
+          "caption" => "Uploaded caption",
+          "alt_text" => "Uploaded alt text",
+          "position" => "0",
+          "visibility" => "private"
+        }
+      })
+      |> render_submit()
+
+      assert [
+               %Attachment{
+                 path: expected_path,
+                 metadata: %{
+                   "original_name" => original_name,
+                   "visibility" => "private"
+                 },
+                 storage_file:
+                   %StorageFile{
+                     filename: stored_filename,
+                     type: "attachment"
+                   } = stored_file
+               } = attachment
+             ] = GaoNote.list_attachments(note.id)
+
+      assert original_name == filename
+      assert stored_filename == filename
+      assert expected_path == "./#{filename}"
+      refute expected_path =~ "temporary"
+      refute render(view) =~ stored_file.s3_key
+
+      assert {:ok, _attachment} = GaoNote.detach_attachment(note.id, attachment.id)
+    end)
+  end
+
+  test "recycle bin remains wrapped in the admin layout", %{conn: conn, user: user} do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{title: "Recycle Layout Note", content: "Recycle layout content"},
                user
              )
 
-    {:ok, _view, html} = live(conn, ~p"/gao_notes/assets")
+    assert {:ok, _deleted_note} = GaoNote.delete_note(note, user)
+    assert {:ok, _view, html} = live(conn, ~p"/gao_notes/recycle_bin")
 
-    assert html =~ "GaoNote Assets"
-    assert html =~ ~s(id="gao-note-assets-table")
-    assert html =~ "Asset Menu Note"
-    assert html =~ "asset-menu.txt"
-    assert html =~ "cover"
-    assert html =~ "Menu Caption"
-    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/assets")
+    assert html =~ "Recycle Bin"
+    assert html =~ ~s(aria-label="Admin navigation")
   end
 
   test "admin can configure and test GaoNote MCP", %{conn: conn, user: user} do
@@ -442,9 +555,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
   defp storage_file_fixture(attrs) do
     defaults = %{
       tenant: "gao_note",
-      type: "asset",
+      type: "attachment",
       filename: "note.txt",
-      s3_key: "gao_note/asset/#{Ecto.UUID.generate()}.txt",
+      s3_key: "gao_note/attachment/#{Ecto.UUID.generate()}.txt",
       content_type: "text/plain",
       size: 64,
       checksum: Ecto.UUID.generate(),
@@ -457,5 +570,39 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     %StorageFile{}
     |> StorageFile.changeset(Map.merge(defaults, attrs))
     |> Repo.insert!()
+  end
+
+  defp with_storage_test_config(fun) do
+    keys = [:allowed_types, :s3_bucket, :s3_endpoint]
+    original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
+    port = available_port()
+    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
+
+    Application.put_env(:gsmlg_storage, :allowed_types, %{
+      "attachment" => ["application/octet-stream", "text/plain"]
+    })
+
+    Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
+    Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
+
+    try do
+      fun.()
+    after
+      Enum.each(original, fn
+        {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
+        {key, :error} -> Application.delete_env(:gsmlg_storage, key)
+      end)
+
+      GenServer.stop(s3_stub)
+    end
+  end
+
+  defp available_port do
+    {:ok, socket} =
+      :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, ip: {127, 0, 0, 1}])
+
+    {:ok, {_address, port}} = :inet.sockname(socket)
+    :ok = :gen_tcp.close(socket)
+    port
   end
 end

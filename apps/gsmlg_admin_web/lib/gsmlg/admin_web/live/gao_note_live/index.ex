@@ -40,8 +40,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     |> assign(:page_title, "New GaoNote")
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, %Note{})
-    |> assign(:references, [])
-    |> assign(:assets, [])
     |> assign(:form, to_form(changeset, as: :gao_note))
     |> assign_label_state([])
   end
@@ -65,8 +63,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     |> assign(:page_title, note.title)
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, note)
-    |> assign(:references, GaoNote.list_references(note))
-    |> assign(:assets, GaoNote.list_assets(note))
   end
 
   @impl true
@@ -389,13 +385,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
                   <.dm_mdi name="pencil-outline" class="w-3.5 h-3.5" />
                 </.dm_btn>
               </.link>
-              <.link navigate={~p"/gao_notes/notes/#{note.id}/references"}>
-                <.dm_btn size="xs" variant="ghost" title="References">
-                  <.dm_mdi name="link-variant" class="w-3.5 h-3.5" />
-                </.dm_btn>
-              </.link>
-              <.link navigate={~p"/gao_notes/notes/#{note.id}/assets"}>
-                <.dm_btn size="xs" variant="ghost" title="Assets">
+              <.link navigate={~p"/gao_notes/notes/#{note.id}/attachments"}>
+                <.dm_btn size="xs" variant="ghost" title="Attachments">
                   <.dm_mdi name="paperclip" class="w-3.5 h-3.5" />
                 </.dm_btn>
               </.link>
@@ -570,14 +561,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
               <.dm_mdi name="pencil-outline" class="w-4 h-4" /> Edit
             </.dm_btn>
           </.link>
-          <.link navigate={~p"/gao_notes/notes/#{@note.id}/references"}>
+          <.link navigate={~p"/gao_notes/notes/#{@note.id}/attachments"}>
             <.dm_btn size="sm" variant="ghost">
-              <.dm_mdi name="link-variant" class="w-4 h-4" /> References
-            </.dm_btn>
-          </.link>
-          <.link navigate={~p"/gao_notes/notes/#{@note.id}/assets"}>
-            <.dm_btn size="sm" variant="ghost">
-              <.dm_mdi name="paperclip" class="w-4 h-4" /> Assets
+              <.dm_mdi name="paperclip" class="w-4 h-4" /> Attachments
             </.dm_btn>
           </.link>
           <.dm_modal

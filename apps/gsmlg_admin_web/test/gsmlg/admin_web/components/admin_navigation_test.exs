@@ -45,18 +45,22 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
       assert html =~ "GaoNote"
       assert html =~ "Note List"
       refute html =~ "New Note"
-      assert html =~ "Tags"
-      assert html =~ "Note References"
-      assert html =~ "Note Assets"
+      assert html =~ "Label Settings"
+      assert html =~ "Note Attachments"
+      assert html =~ "Recycle Bin"
       assert html =~ "Log"
       assert html =~ "MCP"
       assert html =~ ~s(href="/gao_notes/notes")
       refute html =~ ~s(href="/gao_notes/notes/new")
-      assert html =~ ~s(href="/gao_notes/tags")
-      assert html =~ ~s(href="/gao_notes/references")
-      assert html =~ ~s(href="/gao_notes/assets")
+      assert html =~ ~s(href="/gao_notes/label_settings")
+      assert html =~ ~s(href="/gao_notes/attachments")
+      assert html =~ ~s(href="/gao_notes/recycle_bin")
       assert html =~ ~s(href="/gao_notes/logs")
       assert html =~ ~s(href="/gao_notes/mcp")
+      refute html =~ "Note References"
+      refute html =~ "Note Assets"
+      refute html =~ ~s(href="/gao_notes/references")
+      refute html =~ ~s(href="/gao_notes/assets")
       assert html =~ ~r/<details(?=[^>]*data-menu-group="gao_notes")(?=[^>]*open)/
     end
   end
