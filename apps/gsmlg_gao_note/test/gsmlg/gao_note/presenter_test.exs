@@ -14,7 +14,6 @@ defmodule GSMLG.GaoNote.PresenterTest do
         title: "Presenter hard break",
         description: "Final note shape",
         content: "# Note",
-        creator: "Aoi",
         labels: [],
         attachments: [],
         created_at: @inserted_at,
@@ -27,7 +26,6 @@ defmodule GSMLG.GaoNote.PresenterTest do
              "title" => "Presenter hard break",
              "description" => "Final note shape",
              "content" => "# Note",
-             "creator" => "Aoi",
              "labels" => [],
              "attachments" => [],
              "created_at" => "2026-07-15T01:02:03.000000Z",
@@ -47,9 +45,7 @@ defmodule GSMLG.GaoNote.PresenterTest do
 
   test "attachment/1 exposes attachment and client-safe storage-file metadata" do
     attachment =
-      attachment_fixture(
-        storage_file_fixture("public")
-      )
+      attachment_fixture(storage_file_fixture("public"))
 
     assert Presenter.attachment(attachment) == %{
              "id" => "attachment-1",

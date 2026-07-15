@@ -9,7 +9,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   @readonly_tools ~w(
     gao_note.search
     gao_note.get
-    gao_note.list_tags
+    gao_note.list_label_settings
     gao_note.list_references
     gao_note.list_assets
   )
@@ -17,10 +17,10 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   @admin_tools @readonly_tools ++
                  ~w(
                    gao_note.create
-                   gao_note.create_tag
+                   gao_note.create_label_setting
                    gao_note.update
                    gao_note.delete
-                   gao_note.set_tags
+                   gao_note.set_labels
                    gao_note.references.add
                    gao_note.references.update
                    gao_note.references.remove
@@ -31,22 +31,19 @@ defmodule GSMLG.GaoNote.MCP.Tools do
                  )
 
   @max_base64_bytes 5 * 1024 * 1024
-  @creator_description "Creator display name. For MCP-created notes, fill this with the name of the agent writing the note. Omit to keep Creator empty."
 
   @input_fields %{
     "gao_note.search" => [
       {:query, :string,
        [description: "Search text matched against note title, description, and markdown content."]},
-      {:tag, :string, [description: "Optional tag display name filter."]},
-      {:creator, :string,
-       [description: "Optional creator display name filter for admin searches."]},
+      {:label, :string, [description: "Optional label key or key=value filter."]},
       {:limit, :integer, [description: "Maximum notes to return."]},
       {:offset, :integer, [description: "Number of notes to skip."]}
     ],
     "gao_note.get" => [
       {:id, :string, [required: true, description: "GaoNote id."]}
     ],
-    "gao_note.list_tags" => [],
+    "gao_note.list_label_settings" => [],
     "gao_note.list_references" => [
       {:id, :string, [required: true, description: "GaoNote id."]}
     ],
@@ -56,31 +53,35 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     "gao_note.create" => [
       {:title, :string, [required: true, description: "Note title."]},
       {:description, :string, [description: "Optional short note description."]},
-      {:creator, :string, [description: @creator_description]},
       {:content, :string, [required: true, description: "Markdown note content."]},
-      {:tags, {:list, :string},
-       [description: "Optional tag display names. Missing tags are created."]}
+      {:labels, {:list, :string},
+       [description: "Optional labels as key=value strings. Missing label keys are created."]},
     ],
-    "gao_note.create_tag" => [
-      {:name, :string, [required: true, description: "Tag display name."]},
-      {:color, :string, [description: "Optional tag color, for example #1f6feb."]}
+    "gao_note.create_label_setting" => [
+      {:name, :string, [required: true, description: "Label key."]},
+      {:color, :string, [description: "Optional label color, for example #1f6feb."]},
+      {:description, :string, [description: "Optional label key description."]},
+      {:value_type, :string,
+       [
+         description:
+           "Label value type: text, number, version, date, date-time, time, year, year-month, or year-season."
+       ]}
     ],
     "gao_note.update" => [
       {:id, :string, [required: true, description: "GaoNote id."]},
       {:title, :string, [description: "Updated note title."]},
       {:description, :string, [description: "Updated short note description."]},
-      {:creator, :string, [description: @creator_description]},
       {:content, :string, [description: "Updated markdown note content."]},
-      {:tags, {:list, :string},
-       [description: "Replacement tag display names. Missing tags are created."]}
+      {:labels, {:list, :string},
+       [description: "Replacement labels as key=value strings. Missing label keys are created."]},
     ],
     "gao_note.delete" => [
       {:id, :string, [required: true, description: "GaoNote id."]}
     ],
-    "gao_note.set_tags" => [
+    "gao_note.set_labels" => [
       {:id, :string, [required: true, description: "GaoNote id."]},
-      {:tags, {:list, :string},
-       [required: true, description: "Replacement tag display names. Missing tags are created."]}
+      {:labels, {:list, :string},
+       [required: true, description: "Replacement labels as key=value strings."]}
     ],
     "gao_note.references.add" => [
       {:id, :string, [required: true, description: "GaoNote id."]},
@@ -109,6 +110,12 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:id, :string, [required: true, description: "GaoNote id."]},
       {:storage_file_id, :string, [required: true, description: "Existing storage file id."]},
       {:role, :string, [description: "Asset role: attachment, cover, inline, or source."]},
+      {:path, :string,
+       [
+         description:
+           "Note-relative attachment path. Use the same path in markdown, for example ./data.txt."
+       ]},
+      {:description, :string, [description: "Optional attachment description."]},
       {:caption, :string, [description: "Optional asset caption."]},
       {:alt_text, :string, [description: "Optional asset alt text."]},
       {:position, :integer, [description: "Optional sort position."]}
@@ -119,6 +126,12 @@ defmodule GSMLG.GaoNote.MCP.Tools do
        [required: true, description: "Standard Base64 file content, up to 5 MB."]},
       {:filename, :string, [description: "Optional uploaded filename."]},
       {:role, :string, [description: "Asset role: attachment, cover, inline, or source."]},
+      {:path, :string,
+       [
+         description:
+           "Note-relative attachment path. Use the same path in markdown, for example ./data.txt."
+       ]},
+      {:description, :string, [description: "Optional attachment description."]},
       {:caption, :string, [description: "Optional asset caption."]},
       {:alt_text, :string, [description: "Optional asset alt text."]},
       {:position, :integer, [description: "Optional sort position."]}
@@ -127,6 +140,12 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:asset_id, :string, [required: true, description: "GaoNote asset id."]},
       {:role, :string,
        [description: "Updated asset role: attachment, cover, inline, or source."]},
+      {:path, :string,
+       [
+         description:
+           "Updated note-relative attachment path. Use the same path in markdown, for example ./data.txt."
+       ]},
+      {:description, :string, [description: "Updated attachment description."]},
       {:caption, :string, [description: "Updated asset caption."]},
       {:alt_text, :string, [description: "Updated asset alt text."]},
       {:position, :integer, [description: "Updated sort position."]}
@@ -162,23 +181,24 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   def description("gao_note.search"), do: "Search GaoNote notes."
   def description("gao_note.get"), do: "Get a GaoNote by id."
-  def description("gao_note.list_tags"), do: "List GaoNote tags."
+  def description("gao_note.list_label_settings"), do: "List GaoNote label settings."
   def description("gao_note.list_references"), do: "List web references for a GaoNote."
   def description("gao_note.list_assets"), do: "List active storage-backed assets for a GaoNote."
 
-  def description("gao_note.create"),
-    do:
-      "Create a GaoNote. When an agent writes the note, set creator to the agent name; otherwise omit it to leave Creator empty."
+  def description("gao_note.create"), do: "Create a GaoNote."
 
-  def description("gao_note.create_tag"),
+  def description("gao_note.create_label_setting"),
     do:
-      "Create a GaoNote tag by display name. set_tags also accepts tag names and creates missing tags automatically."
+      "Create a GaoNote label setting by key. Label keys are also created automatically when notes use new labels."
 
   def description("gao_note.update"),
-    do: "Update a GaoNote. tags, when provided, must be an array of tag names."
+    do: "Update a GaoNote. labels, when provided, must be an array of key=value strings."
 
   def description("gao_note.delete"), do: "Delete a GaoNote."
-  def description("gao_note.set_tags"), do: "Replace GaoNote tags with an array of tag names."
+
+  def description("gao_note.set_labels"),
+    do: "Replace GaoNote labels with an array of key=value strings."
+
   def description("gao_note.references.add"), do: "Add a web reference to a GaoNote."
   def description("gao_note.references.update"), do: "Update a GaoNote web reference."
   def description("gao_note.references.remove"), do: "Remove a GaoNote web reference."
@@ -232,11 +252,11 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     end
   end
 
-  defp dispatch("gao_note.list_tags", _args, _frame, _mode) do
-    tags = GaoNote.list_tags()
+  defp dispatch("gao_note.list_label_settings", _args, _frame, _mode) do
+    label_settings = GaoNote.list_label_settings()
 
-    ok("Found #{length(tags)} GaoNote tags", %{
-      "tags" => Enum.map(tags, &Presenter.tag/1)
+    ok("Found #{length(label_settings)} GaoNote label settings", %{
+      "label_settings" => Enum.map(label_settings, &Presenter.label_setting/1)
     })
   end
 
@@ -274,11 +294,13 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     end
   end
 
-  defp dispatch("gao_note.create_tag", args, frame, _mode) do
+  defp dispatch("gao_note.create_label_setting", args, frame, _mode) do
     with {:ok, actor} <- Authorization.actor(frame),
-         {:ok, tag} <- GaoNote.create_tag(tag_attrs(args), mcp_actor(actor)) do
-      audit("gao_note.create_tag", actor, nil)
-      ok("Created GaoNote tag: #{tag.name}", %{"tag" => Presenter.tag(tag)})
+         {:ok, label_setting} <- GaoNote.create_label_setting(label_setting_attrs(args), mcp_actor(actor)) do
+      audit("gao_note.create_label_setting", actor, nil)
+      ok("Created GaoNote label setting: #{label_setting.name}", %{
+        "label_setting" => Presenter.label_setting(label_setting)
+      })
     else
       {:error, reason} -> error(reason)
     end
@@ -309,12 +331,13 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     end
   end
 
-  defp dispatch("gao_note.set_tags", args, frame, _mode) do
+  defp dispatch("gao_note.set_labels", args, frame, _mode) do
     with {:ok, actor} <- Authorization.actor(frame),
          %{} = note <- GaoNote.get_note(Map.get(args, "id")),
-         {:ok, note} <- GaoNote.replace_tags(note, Map.get(args, "tags", []), mcp_actor(actor)) do
-      audit("gao_note.set_tags", actor, note.id)
-      ok("Updated GaoNote tags: #{note.title}", %{"note" => Presenter.note(note)})
+         attrs <- %{"labels" => Map.get(args, "labels", [])},
+         {:ok, note} <- GaoNote.update_note(note, attrs, mcp_actor(actor)) do
+      audit("gao_note.set_labels", actor, note.id)
+      ok("Updated GaoNote labels: #{note.title}", %{"note" => Presenter.note(note)})
     else
       nil -> error("GaoNote not found")
       {:error, reason} -> error(reason)
@@ -434,7 +457,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   defp list_opts(args, :readonly) do
     [
-      tag: Map.get(args, "tag"),
+      label_setting: Map.get(args, "label_setting"),
       limit: Map.get(args, "limit"),
       offset: Map.get(args, "offset")
     ]
@@ -442,8 +465,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   defp list_opts(args, :admin) do
     [
-      tag: Map.get(args, "tag"),
-      creator: Map.get(args, "creator"),
+      label_setting: Map.get(args, "label_setting"),
       limit: Map.get(args, "limit"),
       offset: Map.get(args, "offset")
     ]
@@ -461,10 +483,12 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   defp decode_base64(_value), do: {:error, "base64 is required"}
 
-  defp tag_attrs(args) do
+  defp label_setting_attrs(args) do
     %{
-      "name" => Map.get(args, "name", Map.get(args, "tag")),
-      "color" => Map.get(args, "color")
+      "name" => Map.get(args, "name", Map.get(args, "label_setting")),
+      "color" => Map.get(args, "color"),
+      "description" => Map.get(args, "description"),
+      "value_type" => Map.get(args, "value_type")
     }
   end
 
@@ -586,8 +610,8 @@ defmodule GSMLG.GaoNote.MCP.Tools.Get do
   use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.get"
 end
 
-defmodule GSMLG.GaoNote.MCP.Tools.ListTags do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.list_tags"
+defmodule GSMLG.GaoNote.MCP.Tools.ListLabelSettings do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.list_label_settings"
 end
 
 defmodule GSMLG.GaoNote.MCP.Tools.ListReferences do
@@ -602,8 +626,8 @@ defmodule GSMLG.GaoNote.MCP.Tools.Create do
   use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.create"
 end
 
-defmodule GSMLG.GaoNote.MCP.Tools.CreateTag do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.create_tag"
+defmodule GSMLG.GaoNote.MCP.Tools.CreateLabelSetting do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.create_label_setting"
 end
 
 defmodule GSMLG.GaoNote.MCP.Tools.Update do
@@ -614,8 +638,8 @@ defmodule GSMLG.GaoNote.MCP.Tools.Delete do
   use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.delete"
 end
 
-defmodule GSMLG.GaoNote.MCP.Tools.SetTags do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.set_tags"
+defmodule GSMLG.GaoNote.MCP.Tools.SetLabels do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.set_labels"
 end
 
 defmodule GSMLG.GaoNote.MCP.Tools.AddReference do

@@ -60,7 +60,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
                  title: "Admin List Note",
                  description: "Admin description",
                  content: "Admin content",
-                 creator: "Admin User",
                  tags: ["Admin Tag", "MCP Tag"]
                },
                user
@@ -115,7 +114,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       "gao_note" => %{
         "title" => "Created From LiveView",
         "description" => "",
-        "creator" => "LiveView Admin",
         "content" => "Created content",
         "tags" => ["Existing Tag", "New Live Tag"]
       }
@@ -125,7 +123,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
              %Note{
                title: "Created From LiveView",
                description: "",
-               creator: "LiveView Admin",
                content: "Created content"
              } = note
            ] =
@@ -175,14 +172,12 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       "gao_note" => %{
         "title" => "Edited Markdown Note",
         "description" => "",
-        "creator" => "Edited Creator",
         "content" => "## Edited content"
       }
     })
 
     assert %Note{
              title: "Edited Markdown Note",
-             creator: "Edited Creator",
              content: "## Edited content"
            } =
              GaoNote.get_note!(note.id)

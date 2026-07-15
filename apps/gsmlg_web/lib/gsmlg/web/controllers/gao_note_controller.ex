@@ -22,10 +22,10 @@ defmodule GSMLG.Web.GaoNoteController do
     end
   end
 
-  def tags(conn, params) do
-    tags = GaoNote.list_tags(limit: Map.get(params, "limit"))
+  def label_settings(conn, params) do
+    label_settings = GaoNote.list_label_settings(limit: Map.get(params, "limit"))
 
-    render(conn, :tags, tags: tags)
+    render(conn, :label_settings, label_settings: label_settings)
   end
 
   def references(conn, %{"id" => id}) do
@@ -51,8 +51,7 @@ defmodule GSMLG.Web.GaoNoteController do
   defp list_opts(params) do
     [
       search: Map.get(params, "search", Map.get(params, "query")),
-      tag: Map.get(params, "tag"),
-      creator: Map.get(params, "creator"),
+      label: Map.get(params, "label"),
       limit: Map.get(params, "limit"),
       offset: Map.get(params, "offset")
     ]

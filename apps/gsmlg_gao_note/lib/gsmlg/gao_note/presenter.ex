@@ -15,7 +15,6 @@ defmodule GSMLG.GaoNote.Presenter do
       "description" => note.description,
       "labels" => labels,
       "content" => note.content,
-      "creator" => note.creator,
       "attachments" => attachments(note),
       "created_at" => format_datetime(note.created_at),
       "updated_at" => format_datetime(note.updated_at)

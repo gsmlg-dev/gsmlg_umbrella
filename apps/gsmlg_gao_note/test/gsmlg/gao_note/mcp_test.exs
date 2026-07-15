@@ -3,7 +3,7 @@ defmodule GSMLG.GaoNote.MCPTest do
 
   alias Backplane.McpProtocol.Server.{Frame, Response}
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Asset, Log, MCPSetting, Note, Reference, Tag, Tagging}
+  alias GSMLG.GaoNote.{Asset, Log, MCPSetting, Note, Reference, LabelSetting, Label}
   alias GSMLG.Accounts.User
   alias GSMLG.Storage.StorageFile
 
@@ -12,8 +12,8 @@ defmodule GSMLG.GaoNote.MCPTest do
     Repo.delete_all(Log)
     Repo.delete_all(Asset)
     Repo.delete_all(Reference)
-    Repo.delete_all(Tagging)
-    Repo.delete_all(Tag)
+    Repo.delete_all(Label)
+    Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
     Repo.delete_all(StorageFile)
     :ok
@@ -25,7 +25,7 @@ defmodule GSMLG.GaoNote.MCPTest do
 
       assert "gao_note.search" in names
       assert "gao_note.get" in names
-      assert "gao_note.list_tags" in names
+      assert "gao_note.list_label_settings" in names
       refute "gao_note.create" in names
       refute "gao_note.delete" in names
       refute "gao_note.assets.upload_base64" in names
@@ -76,19 +76,11 @@ defmodule GSMLG.GaoNote.MCPTest do
       names = tool_names(GSMLG.GaoNote.MCP.AdminServer)
 
       assert "gao_note.create" in names
-      assert "gao_note.create_tag" in names
+      assert "gao_note.create_label_setting" in names
       assert "gao_note.delete" in names
       assert "gao_note.assets.upload_base64" in names
       refute "gao_note.publish" in names
       refute "gao_note.archive" in names
-    end
-
-    test "create tool tells agents to set creator to the writer name" do
-      tool = tool(GSMLG.GaoNote.MCP.AdminServer, "gao_note.create")
-      creator_schema = tool.input_schema["properties"]["creator"]
-
-      assert tool.description =~ "set creator to the agent name"
-      assert creator_schema["description"] =~ "agent writing the note"
     end
 
     test "create tool exposes only create-note parameters" do
@@ -96,9 +88,8 @@ defmodule GSMLG.GaoNote.MCPTest do
 
       assert tool_property_names(tool) == [
                "content",
-               "creator",
                "description",
-               "tags",
+               "label_settings",
                "title"
              ]
 
@@ -120,7 +111,7 @@ defmodule GSMLG.GaoNote.MCPTest do
                )
     end
 
-    test "supports create, read, update, delete, tags, and references" do
+    test "supports create, read, update, delete, label_settings, and references" do
       frame = admin_frame(actor())
 
       assert %{"structuredContent" => %{"note" => created}} =
@@ -130,15 +121,13 @@ defmodule GSMLG.GaoNote.MCPTest do
                  %{
                    "title" => "Admin MCP",
                    "description" => "MCP description",
-                   "content" => "MCP content",
-                   "creator" => "note-agent"
+                   "content" => "MCP content"
                  },
                  frame
                )
 
       assert created["description"] == "MCP description"
       assert created["content"] == "MCP content"
-      assert created["creator"] == "note-agent"
       assert created["created_at"]
       refute Map.has_key?(created, "body")
       refute Map.has_key?(created, "body_format")
@@ -181,12 +170,12 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert %{"structuredContent" => %{"note" => tagged}} =
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.set_tags",
-                 %{"id" => created["id"], "tags" => ["MCP", "Admin"]},
+                 "gao_note.set_labels",
+                 %{"id" => created["id"], "labels" => ["MCP", "Admin"]},
                  frame
                )
 
-      assert Enum.map(tagged["tags"], & &1["name"]) == ["Admin", "MCP"]
+      assert Enum.map(tagged["labels"], & &1["name"]) == ["Admin", "MCP"]
 
       assert %{"structuredContent" => %{"reference" => reference}} =
                call_tool(
@@ -223,23 +212,23 @@ defmodule GSMLG.GaoNote.MCPTest do
                )
     end
 
-    test "supports creating tags explicitly" do
+    test "supports creating label_settings explicitly" do
       frame = admin_frame(actor())
 
-      assert %{"structuredContent" => %{"tag" => tag}} =
+      assert %{"structuredContent" => %{"label_setting" => label_setting}} =
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.create_tag",
+                 "gao_note.create_label_setting",
                  %{"name" => "agent-memory", "color" => "#1f6feb"},
                  frame
                )
 
-      assert tag["name"] == "agent-memory"
-      refute Map.has_key?(tag, "slug")
-      assert tag["color"] == "#1f6feb"
+      assert label_setting["name"] == "agent-memory"
+      refute Map.has_key?(label_setting, "slug")
+      assert label_setting["color"] == "#1f6feb"
     end
 
-    test "create accepts non-ASCII tag names" do
+    test "create accepts non-ASCII label_setting names" do
       frame = admin_frame(actor())
 
       assert %{"structuredContent" => %{"note" => created}} =
@@ -249,31 +238,30 @@ defmodule GSMLG.GaoNote.MCPTest do
                  %{
                    "title" => "SpaceX 股价评价（X 搜索） - 2026-06-18",
                    "content" => "# SpaceX 股价评价（X 搜索） - 2026-06-18\n\n测试内容",
-                   "creator" => "Aoi",
-                   "tags" => ["投资观察", "X搜索", "SpaceX"]
+                   "labels" => ["投资观察", "X搜索", "SpaceX"]
                  },
                  frame
                )
 
-      tag_names = created["tags"] |> Enum.map(& &1["name"]) |> Enum.sort()
+      tag_names = created["labels"] |> Enum.map(& &1["name"]) |> Enum.sort()
 
       assert tag_names == ["SpaceX", "X搜索", "投资观察"]
-      refute Enum.any?(created["tags"], &Map.has_key?(&1, "slug"))
+      refute Enum.any?(created["labels"], &Map.has_key?(&1, "slug"))
     end
 
-    test "set_tags returns a tool error when tags is not an array" do
+    test "set_labels returns a tool error when label_settings is not an array" do
       frame = admin_frame(actor())
-      note = note_fixture(%{title: "Invalid tags target"})
+      note = note_fixture(%{title: "Invalid label_settings target"})
 
       assert %{"isError" => true, "content" => [%{"text" => message}]} =
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.set_tags",
-                 %{"id" => note.id, "tags" => %{"name" => "agent-memory"}},
+                 "gao_note.set_labels",
+                 %{"id" => note.id, "labels" => %{"name" => "agent-memory"}},
                  frame
                )
 
-      assert message =~ "tags must be an array of strings"
+      assert message =~ "label_settings must be an array of strings"
     end
   end
 

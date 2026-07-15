@@ -5,6 +5,8 @@ defmodule GSMLG.GaoNote do
 
   import Ecto.Query, warn: false
 
+  require Logger
+
   alias Ecto.Multi
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.Repo
@@ -68,7 +70,6 @@ defmodule GSMLG.GaoNote do
     opts = normalize_opts(opts)
 
     deleted_note_query()
-    |> filter_by_creator(opts[:creator])
     |> filter_by_search(opts[:search])
     |> filter_by_label(opts[:label])
     |> order_by([n], desc: n.deleted_at, desc: n.updated_at)
@@ -393,8 +394,29 @@ defmodule GSMLG.GaoNote do
       ]
 
       with {:ok, file} <- Storage.upload(upload, "gao_note", "attachment", upload_opts) do
-        insert_attachment(note, file, attrs, actor)
+        case insert_attachment(note, file, attrs, actor) do
+          {:ok, _attachment} = result ->
+            result
+
+          {:error, _reason} = error ->
+            cleanup_uploaded_file(file)
+            error
+        end
       end
+    end
+  end
+
+  defp cleanup_uploaded_file(file) do
+    case Storage.delete(file) do
+      {:ok, _deleted_file} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "Failed to deactivate storage file #{file.id} after attachment insertion failed: #{inspect(reason)}"
+        )
+
+        :ok
     end
   end
 
@@ -508,15 +530,10 @@ defmodule GSMLG.GaoNote do
 
   defp attachment_option(_opts, _key), do: nil
 
-  defp filter_by_creator(query, nil), do: query
-  defp filter_by_creator(query, ""), do: query
-  defp filter_by_creator(query, creator), do: where(query, [n], n.creator == ^creator)
-
   defp list_notes_from(queryable, opts) do
     opts = normalize_opts(opts)
 
     queryable
-    |> filter_by_creator(opts[:creator])
     |> filter_by_search(opts[:search])
     |> filter_by_label(opts[:label])
     |> apply_order(opts[:order_by])

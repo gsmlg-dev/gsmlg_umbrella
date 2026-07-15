@@ -84,7 +84,6 @@ defmodule GSMLG.Web.GaoNoteMCPControllerTest do
     assert note["title"] == "MCP Visible"
     assert note["description"] == "Description"
     assert note["content"] == "Content"
-    assert note["creator"] == "public-test"
     assert note["created_at"]
     refute Map.has_key?(note, "body")
     refute Map.has_key?(note, "body_format")
@@ -116,7 +115,6 @@ defmodule GSMLG.Web.GaoNoteMCPControllerTest do
         %{
           title: "Draft #{System.unique_integer([:positive])}",
           description: "Description",
-          creator: "public-test",
           content: "Content"
         },
         attrs

@@ -12,7 +12,6 @@ defmodule GSMLG.GaoNote.Note do
     field(:title, :string)
     field(:description, :string)
     field(:content, :string)
-    field(:creator, :string)
     field(:deleted_at, :utc_datetime_usec)
 
     has_many(:attachments, Attachment, foreign_key: :note_id)
@@ -23,17 +22,15 @@ defmodule GSMLG.GaoNote.Note do
 
   def changeset(note, attrs) do
     note
-    |> cast(attrs, [:title, :description, :content, :creator], empty_values: [])
+    |> cast(attrs, [:title, :description, :content], empty_values: [])
     |> put_default_description()
-    |> put_default_creator()
     |> validate_required([:title, :content])
   end
 
   def create_changeset(note, attrs) do
     note
-    |> cast(attrs, [:title, :description, :content, :creator], empty_values: [])
+    |> cast(attrs, [:title, :description, :content], empty_values: [])
     |> put_default_description()
-    |> put_default_creator()
     |> validate_required([:title, :content])
   end
 
@@ -41,13 +38,6 @@ defmodule GSMLG.GaoNote.Note do
     case get_field(changeset, :description) do
       nil -> put_change(changeset, :description, "")
       _description -> changeset
-    end
-  end
-
-  defp put_default_creator(changeset) do
-    case get_field(changeset, :creator) do
-      nil -> put_change(changeset, :creator, "")
-      _creator -> changeset
     end
   end
 end

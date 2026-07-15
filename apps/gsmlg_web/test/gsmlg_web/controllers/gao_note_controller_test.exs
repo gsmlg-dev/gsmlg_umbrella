@@ -30,7 +30,6 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
       assert rendered["title"] == "Public Memory"
       assert rendered["description"] == "Description"
       assert rendered["content"] == "Content"
-      assert rendered["creator"] == "public-api-test"
       assert [%{"name" => "Elixir"}, %{"name" => "Research"}] = rendered["tags"]
       assert rendered["created_at"]
       assert rendered["updated_at"]
@@ -63,7 +62,7 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
     test "lists GaoNote tags", %{conn: conn} do
       _note = note_fixture(%{tags: ["Research"]})
 
-      conn = get(conn, ~p"/api/gao_notes/tags")
+      conn = get(conn, ~p"/api/gao_notes/label_settings")
 
       assert %{"data" => [%{"name" => "Research", "metadata" => %{}}]} = json_response(conn, 200)
     end
@@ -131,7 +130,6 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
         %{
           title: "Public API #{System.unique_integer([:positive])}",
           description: "Description",
-          creator: "public-api-test",
           content: "Content"
         },
         attrs

@@ -2,7 +2,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Note, Tag}
+  alias GSMLG.GaoNote.{Note, LabelSetting, Label}
   alias Phoenix.LiveView.AsyncResult
 
   @impl true
@@ -12,9 +12,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        active_menu: "gao_note_list",
        notes: AsyncResult.loading(),
        filters: %{},
-       selected_tags: [],
-       tag_options: AsyncResult.loading(),
-       tag_input: ""
+       selected_labels: [],
+       label_options: AsyncResult.loading(),
+       label_input: ""
      )}
   end
 
@@ -43,19 +43,19 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     |> assign(:references, [])
     |> assign(:assets, [])
     |> assign(:form, to_form(changeset, as: :gao_note))
-    |> assign_tag_state([])
+    |> assign_label_state([])
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     note = GaoNote.get_note!(id)
-    selected_tags = Enum.map(note.tags, & &1.name)
+    selected_labels = Enum.map(note.labels, & &1.name)
 
     socket
     |> assign(:page_title, "Edit GaoNote")
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, note)
     |> assign(:form, to_form(GaoNote.change_note(note), as: :gao_note))
-    |> assign_tag_state(selected_tags)
+    |> assign_label_state(selected_labels)
   end
 
   defp apply_action(socket, :show, %{"id" => id}) do
@@ -75,7 +75,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   def handle_event("validate", %{"gao_note" => params}, socket) do
-    selected_tags = selected_tags_from_params(params, socket)
+    selected_labels = selected_labels_from_params(params, socket)
 
     changeset =
       socket.assigns.note
@@ -85,31 +85,31 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     {:noreply,
      socket
      |> assign(:form, to_form(changeset, as: :gao_note))
-     |> assign_tag_state(selected_tags)}
+     |> assign_label_state(selected_labels)}
   end
 
   def handle_event("save", %{"gao_note" => params}, socket) do
     save_note(socket, socket.assigns.live_action, params)
   end
 
-  def handle_event("set_tags", %{"tags" => tag_names}, socket) do
-    {:noreply, assign_tag_state(socket, tag_names)}
+  def handle_event("set_labels", %{"labels" => label_names}, socket) do
+    {:noreply, assign_label_state(socket, label_names)}
   end
 
-  def handle_event("tag_input_changed", params, socket) do
-    {:noreply, assign(socket, :tag_input, Map.get(params, "tag_input", ""))}
+  def handle_event("label_input_changed", params, socket) do
+    {:noreply, assign(socket, :label_input, Map.get(params, "label_input", ""))}
   end
 
-  def handle_event("add_tag_option", %{"name" => name}, socket) do
-    selected_tags = normalize_tag_names(socket.assigns.selected_tags ++ [name])
+  def handle_event("add_label_option", %{"name" => name}, socket) do
+    selected_labels = normalize_label_names(socket.assigns.selected_labels ++ [name])
 
     {:noreply,
      socket
-     |> assign(:tag_input, "")
-     |> assign_tag_state(selected_tags)}
+     |> assign(:label_input, "")
+     |> assign_label_state(selected_labels)}
   end
 
-  def handle_event("add_tag_option", _params, socket), do: {:noreply, socket}
+  def handle_event("add_label_option", _params, socket), do: {:noreply, socket}
 
   def handle_event("delete", %{"id" => id}, socket) do
     note = GaoNote.get_note!(id)
@@ -127,7 +127,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   defp save_note(socket, :new, params) do
-    params = put_selected_tags(params, socket)
+    params = put_selected_labels(params, socket)
 
     case GaoNote.create_note(params, current_actor(socket)) do
       {:ok, note} ->
@@ -142,7 +142,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   defp save_note(socket, :edit, params) do
-    params = put_selected_tags(params, socket)
+    params = put_selected_labels(params, socket)
 
     case GaoNote.update_note(socket.assigns.note, params, current_actor(socket)) do
       {:ok, note} ->
@@ -159,14 +159,14 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   defp filter_params(params) do
     %{
       "search" => Map.get(params, "search", ""),
-      "tag" => Map.get(params, "tag", "")
+      "label_setting" => Map.get(params, "label_setting", "")
     }
   end
 
   defp filter_opts(filters) do
     [
       search: blank_to_nil(filters["search"]),
-      tag: blank_to_nil(filters["tag"]),
+      label_setting: blank_to_nil(filters["label_setting"]),
       limit: 100
     ]
   end
@@ -183,58 +183,58 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     )
   end
 
-  defp selected_tags_from_params(params, socket) do
+  defp selected_labels_from_params(params, socket) do
     params
-    |> Map.get("tags", socket.assigns.selected_tags)
-    |> normalize_tag_names()
+    |> Map.get("labels", socket.assigns.selected_labels)
+    |> normalize_label_names()
   end
 
-  defp put_selected_tags(params, socket) do
-    Map.put(params, "tags", selected_tags_from_params(params, socket))
+  defp put_selected_labels(params, socket) do
+    Map.put(params, "labels", selected_labels_from_params(params, socket))
   end
 
-  defp assign_tag_state(socket, tag_names) do
-    selected_tags = normalize_tag_names(tag_names)
+  defp assign_label_state(socket, label_names) do
+    selected_labels = normalize_label_names(label_names)
 
     socket
-    |> assign(:selected_tags, selected_tags)
-    |> assign_tag_options_async(selected_tags)
+    |> assign(:selected_labels, selected_labels)
+    |> assign_label_options_async(selected_labels)
   end
 
-  defp assign_tag_options_async(socket, selected_tags) do
+  defp assign_label_options_async(socket, selected_labels) do
     assign_async(
       socket,
-      :tag_options,
-      fn -> {:ok, %{tag_options: tag_options(selected_tags)}} end,
+      :label_options,
+      fn -> {:ok, %{label_options: label_options(selected_labels)}} end,
       reset: true
     )
   end
 
-  defp tag_options(selected_tags) do
+  defp label_options(selected_labels) do
     existing_names =
       [limit: 200]
-      |> GaoNote.list_tags()
+      |> GaoNote.list_label_settings()
       |> Enum.map(& &1.name)
 
     existing_names
-    |> Enum.concat(selected_tags)
-    |> normalize_tag_names()
+    |> Enum.concat(selected_labels)
+    |> normalize_label_names()
     |> Enum.map(&%{value: &1, label: &1})
   end
 
-  defp normalize_tag_names(tag_names) do
-    tag_names
+  defp normalize_label_names(label_names) do
+    label_names
     |> List.wrap()
     |> Enum.reject(&is_nil/1)
     |> Enum.map(&to_string/1)
-    |> Enum.map(&Tag.normalize_display_name/1)
+    |> Enum.map(&LabelSetting.normalize_display_name/1)
     |> Enum.reject(&blank?/1)
-    |> Enum.uniq_by(&Tag.normalized_key/1)
+    |> Enum.uniq_by(&LabelSetting.normalized_key/1)
   end
 
-  defp selected_tag_options(selected_tags) do
-    selected_tags
-    |> normalize_tag_names()
+  defp selected_label_options(selected_labels) do
+    selected_labels
+    |> normalize_label_names()
     |> Enum.map(&%{value: &1, label: &1})
   end
 
@@ -267,6 +267,48 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   defp format_dt(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
   defp format_dt(%NaiveDateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
 
+  defp note_labels(%Note{} = note) do
+    labels =
+      case note.labels do
+        %Ecto.Association.NotLoaded{} -> []
+        nil -> []
+        labels -> labels
+      end
+
+    labels =
+      if labels == [] do
+        note.labels
+        |> loaded_list()
+        |> Enum.map(&%{key: &1.name, value: "", status: "valid", errors: []})
+      else
+        Enum.map(labels, fn
+          %Label{label_setting: %LabelSetting{} = label_setting} = label ->
+            %{
+              key: label_setting.name,
+              value: label.value || "",
+              status: label.status || "valid",
+              errors: label.errors || []
+            }
+
+          _label ->
+            nil
+        end)
+        |> Enum.reject(&is_nil/1)
+      end
+
+    Enum.sort_by(labels, &LabelSetting.normalized_key(&1.key))
+  end
+
+  defp loaded_list(%Ecto.Association.NotLoaded{}), do: []
+  defp loaded_list(nil), do: []
+  defp loaded_list(list), do: list
+
+  defp label_text(%{key: key, value: ""}), do: key
+  defp label_text(%{key: key, value: value}), do: "#{key}=#{value}"
+
+  defp label_variant(%{status: "invalid"}), do: "error"
+  defp label_variant(_label), do: "primary"
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -291,7 +333,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           class="grid gap-3 md:grid-cols-2"
         >
           <.dm_input name="filters[search]" value={@filters["search"]} label="Search" />
-          <.dm_input name="filters[tag]" value={@filters["tag"]} label="Tag" />
+          <.dm_input name="filters[label_setting]" value={@filters["label_setting"]} label="LabelSetting" />
         </form>
 
         <.dm_skeleton_table
@@ -315,14 +357,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           <:col :let={note} label="Title">
             <span class="font-medium text-sm">{note.title}</span>
           </:col>
-          <:col :let={note} label="Tags">
+          <:col :let={note} label="Labels">
             <div class="flex min-w-32 max-w-56 flex-wrap gap-1">
-              <.dm_badge :for={tag <- note.tags} variant="primary" soft>{tag.name}</.dm_badge>
-              <span :if={note.tags == []} class="text-xs text-base-content/40">None</span>
+              <.dm_badge :for={label <- note_labels(note)} variant={label_variant(label)} soft>
+                {label_text(label)}
+              </.dm_badge>
+              <span :if={note_labels(note) == []} class="text-xs text-base-content/40">None</span>
             </div>
-          </:col>
-          <:col :let={note} label="Creator">
-            <span class="font-mono text-xs">{note.creator}</span>
           </:col>
           <:col :let={note} label="Created">
             <span class="font-mono text-xs">{format_dt(note.created_at)}</span>
@@ -427,54 +468,49 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
         >
           <.dm_input field={@form[:title]} label="Title" errors={field_errors(@form[:title])} />
           <.dm_input
-            field={@form[:creator]}
-            label="Creator"
-            errors={field_errors(@form[:creator])}
-          />
-          <.dm_input
             field={@form[:description]}
             label="Description"
             errors={field_errors(@form[:description])}
           />
 
           <div class="grid gap-2">
-            <.dm_label for="gao-note-tags">Tags</.dm_label>
+            <.dm_label for="gao-note-labels">Labels</.dm_label>
             <.dm_multi_select
-              id="gao-note-tags"
-              name="gao_note[tags]"
-              options={async_value(@tag_options, selected_tag_options(@selected_tags))}
-              selected={@selected_tags}
-              placeholder="Select tags"
+              id="gao-note-labels"
+              name="gao_note[labels]"
+              options={async_value(@label_options, selected_label_options(@selected_labels))}
+              selected={@selected_labels}
+              placeholder="Select labels"
               searchable
               show_counter
               clearable
               tag_variant="primary"
-              phx-hook="GaoNoteTagsMultiSelect"
+              phx-hook="GaoNoteLabelsMultiSelect"
             />
             <div
-              :if={async_loading?(@tag_options)}
-              id="gao-note-tags-loading"
+              :if={async_loading?(@label_options)}
+              id="gao-note-labels-loading"
               class="text-sm text-base-content/60"
             >
-              Loading tags
+              Loading labels
             </div>
-            <div :if={async_failed?(@tag_options)} class="text-sm text-error">
-              Unable to load tags.
+            <div :if={async_failed?(@label_options)} class="text-sm text-error">
+              Unable to load labels.
             </div>
             <div class="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
               <.dm_input
-                id="gao-note-tag-input"
-                name="tag_input"
-                value={@tag_input}
-                label="Add tag option"
+                id="gao-note-label_setting-input"
+                name="label_input"
+                value={@label_input}
+                label="Add label key"
                 autocomplete="off"
-                phx-change="tag_input_changed"
+                phx-change="label_input_changed"
               />
               <.dm_btn
                 type="button"
                 variant="secondary"
-                phx-click="add_tag_option"
-                phx-value-name={@tag_input}
+                phx-click="add_label_option"
+                phx-value-name={@label_input}
               >
                 <.dm_mdi name="plus" class="w-4 h-4" /> Add
               </.dm_btn>
@@ -588,10 +624,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
 
         <div class="grid gap-3 md:grid-cols-2">
           <div>
-            <div class="font-mono text-xs text-base-content/50">Creator</div>
-            <div class="font-mono text-xs">{@note.creator}</div>
-          </div>
-          <div>
             <div class="font-mono text-xs text-base-content/50">Created</div>
             <div class="font-mono text-xs">{format_dt(@note.created_at)}</div>
           </div>
@@ -605,8 +637,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           {@note.description}
         </div>
 
-        <div :if={@note.tags != []} class="flex flex-wrap gap-2">
-          <.dm_badge :for={tag <- @note.tags} variant="primary" soft>{tag.name}</.dm_badge>
+        <div :if={note_labels(@note) != []} class="flex flex-wrap gap-2">
+          <.dm_badge :for={label <- note_labels(@note)} variant={label_variant(label)} soft>
+            {label_text(label)}
+          </.dm_badge>
         </div>
 
         <div class="w-full">

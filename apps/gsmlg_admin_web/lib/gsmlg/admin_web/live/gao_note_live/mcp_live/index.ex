@@ -162,7 +162,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
         uri: "gaonote://notes/{id}/assets",
         mime_type: "application/json"
       },
-      %{name: "gao_note.tag", uri: "gaonote://tags/{id}", mime_type: "application/json"},
+      %{name: "gao_note.label_setting", uri: "gaonote://label_settings/{id}", mime_type: "application/json"},
       %{name: "gao_note.asset", uri: "gaonote://assets/{asset_id}", mime_type: "application/json"}
     ]
   end
@@ -188,13 +188,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
   defp mcp_actor(_actor), do: %{id: nil, source: "mcp_console"}
 
   defp default_arguments_json("gao_note.search"), do: ~s({"query": "", "limit": 10})
-  defp default_arguments_json("gao_note.list_tags"), do: "{}"
+  defp default_arguments_json("gao_note.list_label_settings"), do: "{}"
 
   defp default_arguments_json("gao_note.create"),
-    do: ~s({"title": "", "content": "", "creator": "agent-name"})
+    do: ~s({"title": "", "content": ""})
 
-  defp default_arguments_json("gao_note.create_tag"), do: ~s({"name": "", "color": ""})
-  defp default_arguments_json("gao_note.set_tags"), do: ~s({"id": "", "tags": []})
+  defp default_arguments_json("gao_note.create_label_setting"), do: ~s({"name": "", "color": ""})
+  defp default_arguments_json("gao_note.set_labels"), do: ~s({"id": "", "labels": []})
   defp default_arguments_json("gao_note.references.add"), do: ~s({"id": "", "url": ""})
 
   defp default_arguments_json("gao_note.references.update"),

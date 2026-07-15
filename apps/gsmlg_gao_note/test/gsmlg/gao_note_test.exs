@@ -4,6 +4,7 @@ defmodule GSMLG.GaoNoteTest do
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.Accounts.User
+  alias GSMLG.Storage
   alias GSMLG.Storage.StorageFile
 
   setup do
@@ -33,8 +34,7 @@ defmodule GSMLG.GaoNoteTest do
                    slug: "ignored",
                    summary: "ignored",
                    status: "published",
-                   visibility: "public",
-                   creator: "note-agent"
+                   visibility: "public"
                  },
                  actor()
                )
@@ -42,7 +42,6 @@ defmodule GSMLG.GaoNoteTest do
       assert note.title == "Hello, World!"
       assert note.description == "Short context"
       assert note.content == "# Content"
-      assert note.creator == "note-agent"
       assert %DateTime{} = note.created_at
       assert %DateTime{} = note.updated_at
 
@@ -60,7 +59,6 @@ defmodule GSMLG.GaoNoteTest do
       assert rendered["title"] == "Hello, World!"
       assert rendered["description"] == "Short context"
       assert rendered["content"] == "# Content"
-      assert rendered["creator"] == "note-agent"
       assert rendered["created_at"]
       assert rendered["updated_at"]
 
@@ -87,16 +85,6 @@ defmodule GSMLG.GaoNoteTest do
       assert note.content == "Content without description"
     end
 
-    test "defaults creator to empty when omitted" do
-      assert {:ok, %Note{} = note} =
-               GaoNote.create_note(
-                 %{title: unique_title("No Creator"), content: "Content without creator"},
-                 actor()
-               )
-
-      assert note.creator == ""
-    end
-
     test "requires title and content only" do
       assert {:error, %Ecto.Changeset{} = changeset} =
                GaoNote.create_note(
@@ -109,7 +97,6 @@ defmodule GSMLG.GaoNoteTest do
       errors = errors_on(changeset)
 
       assert %{title: [_ | _], content: [_ | _]} = errors
-      refute Map.has_key?(errors, :creator)
       refute Map.has_key?(errors, :description)
     end
 
@@ -128,7 +115,6 @@ defmodule GSMLG.GaoNoteTest do
                    title: "Renamed",
                    description: "Updated description",
                    content: "Updated content",
-                   creator: "Renamed Creator",
                    body: "ignored",
                    body_format: "ignored",
                    created_by_id: "ignored",
@@ -145,7 +131,6 @@ defmodule GSMLG.GaoNoteTest do
       assert updated.title == "Renamed"
       assert updated.description == "Updated description"
       assert updated.content == "Updated content"
-      assert updated.creator == "Renamed Creator"
 
       refute Map.has_key?(updated, :body)
       refute Map.has_key?(updated, :body_format)
@@ -162,6 +147,55 @@ defmodule GSMLG.GaoNoteTest do
       assert {:ok, %Note{}} = GaoNote.delete_note(updated, actor())
       assert GaoNote.get_note(note_id) == nil
       assert GaoNote.get_public_note(note_id) == nil
+    end
+
+    @tag :task2_context
+    test "soft-delete, restore, and permanent-delete preserve subordinate data correctly" do
+      note = note_fixture()
+      file = storage_file_fixture()
+      attachment = attachment_fixture(note, file)
+
+      assert {:ok, %Note{} = labeled_note} =
+               GaoNote.set_labels(note, ["Lifecycle=kept"], actor())
+
+      assert {:ok, %Note{id: note_id}} = GaoNote.delete_note(labeled_note, actor())
+      assert GaoNote.get_note(note_id) == nil
+      assert GaoNote.get_public_note(note_id) == nil
+      refute Enum.any?(GaoNote.list_notes(), &(&1.id == note_id))
+
+      assert [
+               %Note{
+                 id: ^note_id,
+                 labels: [%Label{label_setting: %LabelSetting{name: "Lifecycle"}}],
+                 attachments: [%Attachment{id: attachment_id}]
+               }
+             ] = GaoNote.list_deleted_notes()
+
+      assert attachment_id == attachment.id
+
+      assert %Note{
+               id: ^note_id,
+               labels: [%Label{label_setting: %LabelSetting{name: "Lifecycle"}}],
+               attachments: [%Attachment{id: recycled_attachment_id}]
+             } = recycled_note = GaoNote.get_deleted_note(note_id)
+
+      assert recycled_attachment_id == attachment.id
+      assert {:ok, %Note{id: ^note_id}} = GaoNote.restore_note(recycled_note, actor())
+      assert GaoNote.get_deleted_note(note_id) == nil
+
+      assert %Note{
+               labels: [%Label{label_setting: %LabelSetting{name: "Lifecycle"}}],
+               attachments: [%Attachment{id: restored_attachment_id}]
+             } = restored_note = GaoNote.get_note(note_id)
+
+      assert restored_attachment_id == attachment.id
+      assert Enum.any?(GaoNote.list_notes(), &(&1.id == note_id))
+
+      assert {:ok, %Note{id: ^note_id}} = GaoNote.delete_note(restored_note, actor())
+      recycled_note = GaoNote.get_deleted_note(note_id)
+      assert {:ok, %Note{id: ^note_id}} = GaoNote.permanently_delete_note(recycled_note, actor())
+      assert GaoNote.get_deleted_note(note_id) == nil
+      refute Enum.any?(GaoNote.list_deleted_notes(), &(&1.id == note_id))
     end
 
     test "list/search options return notes by search text" do
@@ -265,17 +299,23 @@ defmodule GSMLG.GaoNoteTest do
       assert GaoNote.list_label_settings() == []
     end
 
-    test "replace_label_settings/3 normalizes, dedupes, and filters by label_setting" do
+    @tag :task2_context
+    test "set_labels/3 normalizes, dedupes, and filters by label" do
       note = note_fixture()
+      file = storage_file_fixture()
+      attachment = attachment_fixture(note, file)
 
       assert {:ok, %Note{} = tagged_note} =
-               GaoNote.replace_label_settings(note, ["  Elixir  ", "elixir", "MCP Tools"], actor())
+               GaoNote.set_labels(note, ["  Elixir  ", "elixir", "MCP Tools"], actor())
 
-      tag_names = tagged_note.labels |> Enum.map(& &1.name) |> Enum.sort()
-      assert tag_names == ["Elixir", "MCP Tools"]
+      label_names = tagged_note.labels |> Enum.map(& &1.label_setting.name) |> Enum.sort()
+      assert label_names == ["Elixir", "MCP Tools"]
 
-      assert [%Note{id: id}] = GaoNote.list_notes(label_setting: "elixir")
+      assert [%Note{id: id, attachments: [%Attachment{id: attachment_id}]}] =
+               GaoNote.list_notes(label: "elixir")
+
       assert id == note.id
+      assert attachment_id == attachment.id
 
       assert [%LabelSetting{name: "Elixir"}, %LabelSetting{name: "MCP Tools"}] = GaoNote.list_label_settings()
     end
@@ -403,6 +443,8 @@ defmodule GSMLG.GaoNoteTest do
   end
 
   describe "attachment context" do
+    @describetag :task2_context
+
     test "exports only the final attachment APIs" do
       for {name, arity} <- [
             list_attachments: 1,
@@ -552,36 +594,80 @@ defmodule GSMLG.GaoNoteTest do
                GaoNote.attach_existing_file(deleted_note.id, file.id, %{}, [])
     end
 
-    test "uploads through the attachment storage type after validating the note" do
-      original = Application.get_env(:gsmlg_storage, :allowed_types)
+    @tag :tmp_dir
+    test "uploads and returns a preloaded attachment while preserving supported options", %{tmp_dir: tmp_dir} do
+      with_storage_test_config(fn ->
+        note = note_fixture()
+        contents = "real attachment upload #{System.unique_integer([:positive])}"
+        filename = "client-report-#{System.unique_integer([:positive])}.txt"
+        upload = plug_upload(tmp_dir, filename, contents)
+        metadata = %{"visibility" => "private", "source" => "task-2-test"}
 
-      on_exit(fn ->
-        if original,
-          do: Application.put_env(:gsmlg_storage, :allowed_types, original),
-          else: Application.delete_env(:gsmlg_storage, :allowed_types)
+        assert {:ok,
+                %Attachment{
+                  id: attachment_id,
+                  note_id: note_id,
+                  path: nil,
+                  metadata: ^metadata,
+                  storage_file:
+                    %StorageFile{
+                      tenant: "gao_note",
+                      type: "attachment",
+                      filename: ^filename,
+                      uploaded_by: "explicit-owner",
+                      metadata: storage_metadata
+                    } = storage_file
+                }} =
+                 GaoNote.upload_attachment(
+                   note.id,
+                   upload,
+                   %{metadata: metadata},
+                   actor: actor("upload-actor"), uploaded_by: "explicit-owner"
+                 )
+
+        assert note_id == note.id
+        assert storage_metadata["visibility"] == "private"
+        assert storage_metadata["source"] == "task-2-test"
+        assert storage_metadata["note_id"] == note.id
+        assert {:ok, ^contents} = Storage.stream(storage_file)
+
+        assert {:ok, %Attachment{id: ^attachment_id}} =
+                 GaoNote.detach_attachment(note.id, attachment_id)
+
+        assert {:ok, deleted_file} = Storage.delete(storage_file)
+        assert {:ok, %StorageFile{}} = Storage.purge(deleted_file)
       end)
+    end
 
-      Application.put_env(:gsmlg_storage, :allowed_types, %{"attachment" => ~w(image/png)})
+    @tag :tmp_dir
+    test "deactivates a newly uploaded file when attachment insertion fails", %{tmp_dir: tmp_dir} do
+      with_storage_test_config(fn ->
+        note = note_fixture()
+        existing_file = storage_file_fixture()
+        _existing_attachment = attachment_fixture(note, existing_file, %{path: "duplicate.txt"})
+        filename = "cleanup-#{System.unique_integer([:positive])}.txt"
+        upload = plug_upload(tmp_dir, filename, "cleanup behavior")
 
-      note = note_fixture()
+        assert {:error, %Ecto.Changeset{} = insertion_error} =
+                 GaoNote.upload_attachment(
+                   note.id,
+                   upload,
+                   %{path: "duplicate.txt", metadata: %{"visibility" => "private"}},
+                   actor: actor("cleanup-owner")
+                 )
 
-      assert {:error, {:content_type_not_allowed, _content_type, "attachment"}} =
-               GaoNote.upload_attachment(
-                 note.id,
-                 {"temporary-upload-name.txt", "hello world content"},
-                 %{path: "./client-name.txt"},
-                 actor: actor("uploader")
-               )
+        assert %{path: [_ | _]} = errors_on(insertion_error)
 
-      assert {:ok, _deleted_note} = GaoNote.delete_note(note, actor())
-
-      assert {:error, :not_found} =
-               GaoNote.upload_attachment(
-                 note.id,
-                 {"temporary-upload-name.txt", "hello world content"},
-                 %{},
-                 []
-               )
+        uploaded_file = Repo.get_by!(StorageFile, filename: filename)
+        assert uploaded_file.tenant == "gao_note"
+        assert uploaded_file.type == "attachment"
+        assert uploaded_file.uploaded_by == "cleanup-owner"
+        assert uploaded_file.status == "deleted"
+        assert Storage.get_active(uploaded_file.id) == nil
+        assert [%Attachment{storage_file_id: storage_file_id}] = GaoNote.list_attachments(note.id)
+        assert storage_file_id == existing_file.id
+        assert {:ok, %StorageFile{}} = Storage.purge(uploaded_file)
+      end)
     end
 
     test "updates and detaches only within an active note without deleting storage" do
@@ -680,6 +766,33 @@ defmodule GSMLG.GaoNoteTest do
     %Attachment{}
     |> Attachment.changeset(attrs)
     |> Repo.insert!()
+  end
+
+  defp with_storage_test_config(fun) do
+    keys = [:allowed_types, :s3_bucket, :s3_endpoint]
+    original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
+
+    Application.put_env(:gsmlg_storage, :allowed_types, %{
+      "attachment" => ["application/octet-stream", "text/plain"]
+    })
+
+    Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
+    Application.put_env(:gsmlg_storage, :s3_endpoint, System.fetch_env!("AWS_ENDPOINT_URL"))
+
+    try do
+      fun.()
+    after
+      Enum.each(original, fn
+        {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
+        {key, :error} -> Application.delete_env(:gsmlg_storage, key)
+      end)
+    end
+  end
+
+  defp plug_upload(tmp_dir, filename, contents) do
+    path = Path.join(tmp_dir, "temporary-#{System.unique_integer([:positive])}")
+    File.write!(path, contents)
+    %Plug.Upload{path: path, filename: filename, content_type: "text/plain"}
   end
 
   defp unique_title(prefix) do

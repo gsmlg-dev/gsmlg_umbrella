@@ -7,11 +7,8 @@ defmodule GSMLG.Repo.Migrations.CreateGaoNotes do
       add :title, :string, null: false
       add :description, :text, null: false
       add :content, :text, null: false
-      add :creator, :string, null: false, default: ""
 
       timestamps(inserted_at: :created_at, type: :utc_datetime_usec)
     end
-
-    create index(:gao_notes, [:creator])
   end
 end
