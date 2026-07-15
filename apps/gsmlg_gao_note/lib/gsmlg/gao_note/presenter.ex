@@ -3,23 +3,20 @@ defmodule GSMLG.GaoNote.Presenter do
   Serializes GaoNote domain structs for LiveView and MCP surfaces.
   """
 
-  alias GSMLG.GaoNote.{Asset, Note, Reference, Tag}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Note}
   alias GSMLG.Storage.StorageFile
 
   def note(%Note{} = note) do
-    tags =
-      note
-      |> loaded_list(:tags)
-      |> Enum.sort_by(&Tag.normalized_key(&1.name))
-      |> Enum.map(&tag/1)
+    labels = labels(note)
 
     %{
       "id" => note.id,
       "title" => note.title,
       "description" => note.description,
+      "labels" => labels,
       "content" => note.content,
       "creator" => note.creator,
-      "tags" => tags,
+      "attachments" => attachments(note),
       "created_at" => format_datetime(note.created_at),
       "updated_at" => format_datetime(note.updated_at)
     }
@@ -29,55 +26,52 @@ defmodule GSMLG.GaoNote.Presenter do
     note(note)
   end
 
-  def tag(%Tag{} = tag) do
+  def label_setting(%LabelSetting{} = label_setting) do
     %{
-      "id" => tag.id,
-      "name" => tag.name,
-      "color" => tag.color,
-      "metadata" => tag.metadata || %{}
+      "id" => label_setting.id,
+      "name" => label_setting.name,
+      "key" => label_setting.name,
+      "color" => label_setting.color,
+      "description" => label_setting.description || "",
+      "value_type" => label_setting.value_type || "text",
+      "metadata" => label_setting.metadata || %{}
     }
   end
 
-  def reference(%Reference{} = reference) do
+  def label(%Label{label_setting: %LabelSetting{} = label_setting} = label) do
     %{
-      "id" => reference.id,
-      "note_id" => reference.note_id,
-      "url" => reference.url,
-      "canonical_url" => reference.canonical_url,
-      "title" => reference.title,
-      "description" => reference.description,
-      "site_name" => reference.site_name,
-      "favicon_url" => reference.favicon_url,
-      "position" => reference.position,
-      "metadata" => reference.metadata || %{}
+      "key" => label_setting.name,
+      "value" => label.value || "",
+      "value_type" => label_setting.value_type || "text",
+      "description" => label_setting.description || "",
+      "status" => label.status || "valid",
+      "errors" => label.errors || []
     }
   end
 
-  def asset(%Asset{} = asset, %Note{} = note) do
-    storage_file = loaded_storage_file(asset)
-
-    base = %{
-      id: asset.id,
-      note_id: asset.note_id,
-      storage_file_id: asset.storage_file_id,
-      role: asset.role,
-      caption: asset.caption,
-      alt_text: asset.alt_text,
-      position: asset.position,
-      metadata: asset.metadata || %{},
-      storage_file: storage_file(storage_file)
+  def label(%LabelSetting{} = label_setting) do
+    %{
+      "key" => label_setting.name,
+      "value" => "",
+      "value_type" => label_setting.value_type || "text",
+      "description" => label_setting.description || "",
+      "status" => "valid",
+      "errors" => []
     }
-
-    case public_file_url(asset, note, storage_file) do
-      nil -> base
-      url -> Map.put(base, :url, url)
-    end
   end
 
-  def asset_json(%Asset{} = asset, %Note{} = note) do
-    asset(asset, note)
-    |> Enum.map(fn {key, value} -> {to_string(key), value} end)
-    |> Map.new()
+  def attachment(%Attachment{} = attachment) do
+    %{
+      "id" => attachment.id,
+      "role" => attachment.role,
+      "description" => attachment.description || "",
+      "path" => attachment.path,
+      "caption" => attachment.caption,
+      "alt_text" => attachment.alt_text,
+      "position" => attachment.position,
+      "metadata" => attachment.metadata || %{},
+      "storage_file" => attachment |> loaded_storage_file() |> storage_file()
+    }
   end
 
   def error_text(%Ecto.Changeset{} = changeset) do
@@ -93,28 +87,57 @@ defmodule GSMLG.GaoNote.Presenter do
   def error_text(reason), do: inspect(reason)
 
   defp storage_file(%StorageFile{} = file) do
+    visibility = storage_visibility(file)
+
     %{
-      id: file.id,
-      filename: file.filename,
-      content_type: file.content_type,
-      size: file.size,
-      metadata: file.metadata || %{},
-      status: file.status
+      "id" => file.id,
+      "filename" => file.filename,
+      "content_type" => file.content_type,
+      "size" => file.size,
+      "visibility" => visibility,
+      "inserted_at" => format_datetime(file.inserted_at),
+      "updated_at" => format_datetime(file.updated_at)
     }
+    |> maybe_put_public_content(file, visibility)
   end
 
   defp storage_file(_file), do: nil
 
-  defp public_file_url(_asset, %Note{}, %StorageFile{} = file) do
-    if get_in(file.metadata || %{}, ["visibility"]) == "public" do
-      "/files/#{file.id}"
+  defp labels(%Note{} = note) do
+    labels =
+      note
+      |> loaded_list(:labels)
+      |> Enum.filter(&match?(%Label{label_setting: %LabelSetting{}}, &1))
+
+    labels = Enum.map(labels, &label/1)
+
+    Enum.sort_by(labels, &LabelSetting.normalized_key(&1["key"]))
+  end
+
+  defp attachments(%Note{} = note) do
+    note
+    |> loaded_list(:attachments)
+    |> Enum.filter(&match?(%Attachment{}, &1))
+    |> Enum.map(&attachment/1)
+  end
+
+  defp loaded_storage_file(%Attachment{storage_file: %StorageFile{} = file}), do: file
+  defp loaded_storage_file(_attachment), do: nil
+
+  defp storage_visibility(%StorageFile{metadata: metadata}) when is_map(metadata) do
+    Map.get(metadata, "visibility") || Map.get(metadata, :visibility)
+  end
+
+  defp storage_visibility(_file), do: nil
+
+  defp maybe_put_public_content(presented, file, "public") do
+    case Map.fetch(file, :content) do
+      {:ok, content} -> Map.put(presented, "content", content)
+      :error -> presented
     end
   end
 
-  defp public_file_url(_asset, _note, _file), do: nil
-
-  defp loaded_storage_file(%Asset{storage_file: %StorageFile{} = file}), do: file
-  defp loaded_storage_file(_asset), do: nil
+  defp maybe_put_public_content(presented, _file, _visibility), do: presented
 
   defp loaded_list(struct, key) do
     case Map.get(struct, key) do
