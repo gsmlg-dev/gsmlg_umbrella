@@ -56,8 +56,70 @@ defmodule GSMLG.Storage.ContentTypeTest do
       assert {:ok, "text/html"} = ContentType.detect("<!DOCTYPE html><html></html>")
     end
 
-    test "returns octet-stream for unknown types" do
-      assert {:ok, "application/octet-stream"} = ContentType.detect("unknown binary data here")
+    test "returns octet-stream for binary data without a known signature" do
+      assert {:ok, "application/octet-stream"} = ContentType.detect(<<0x00, 0x01, 0x02, 0xFF>>)
+    end
+
+    test "classifies safe text without filename context as plain text" do
+      assert {:ok, "text/plain"} = ContentType.detect("plain text content")
+    end
+  end
+
+  describe "detect/2" do
+    test "classifies ASCII and UTF-8 .txt content as plain text" do
+      assert {:ok, "text/plain"} = ContentType.detect("plain ASCII text", "notes.txt")
+      assert {:ok, "text/plain"} = ContentType.detect("UTF-8 text: \u4f60\u597d", "notes.txt")
+    end
+
+    test "classifies extensionless and unknown-extension safe text as plain text" do
+      assert {:ok, "text/plain"} = ContentType.detect("plain text", "README")
+      assert {:ok, "text/plain"} = ContentType.detect("plain text", "notes.rst")
+    end
+
+    test "maps constrained text extensions" do
+      assert {:ok, "text/markdown"} = ContentType.detect("# Markdown", "notes.md")
+      assert {:ok, "text/markdown"} = ContentType.detect("# Markdown", "notes.markdown")
+      assert {:ok, "application/json"} = ContentType.detect(~s({"ok":true}), "data.json")
+      assert {:ok, "text/csv"} = ContentType.detect("name,value\nalpha,1\n", "data.csv")
+      assert {:ok, "text/xml"} = ContentType.detect("<document>text</document>", "data.xml")
+    end
+
+    test "allows tab, LF, and CR in safe text" do
+      assert {:ok, "text/plain"} =
+               ContentType.detect("column\tvalue\nnext\rline", "notes.txt")
+    end
+
+    test "lets PNG magic bytes override a .txt filename" do
+      data = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A>> <> "rest"
+      assert {:ok, "image/png"} = ContentType.detect(data, "image.txt")
+    end
+
+    test "retains active HTML and SVG detection for .txt filenames" do
+      assert {:ok, "text/html"} =
+               ContentType.detect("<!DOCTYPE html><html></html>", "page.txt")
+
+      assert {:ok, "image/svg+xml"} =
+               ContentType.detect(~s(<svg xmlns="http://www.w3.org/2000/svg"></svg>), "image.txt")
+    end
+
+    test "rejects invalid UTF-8 even with a .txt filename" do
+      assert {:ok, "application/octet-stream"} =
+               ContentType.detect(<<"invalid", 0xFF>>, "notes.txt")
+    end
+
+    test "rejects NUL-containing content even with a .txt filename" do
+      assert {:ok, "application/octet-stream"} =
+               ContentType.detect(<<"before", 0x00, "after">>, "notes.txt")
+    end
+
+    test "rejects disallowed control characters even with a .txt filename" do
+      assert {:ok, "application/octet-stream"} =
+               ContentType.detect(<<"before", 0x01, "after">>, "notes.txt")
+    end
+
+    test "lets ZIP magic bytes override an Office filename" do
+      data = <<0x50, 0x4B, 0x03, 0x04>> <> "arbitrary ZIP content"
+      assert {:ok, "application/zip"} = ContentType.detect(data, "document.docx")
     end
   end
 

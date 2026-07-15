@@ -36,18 +36,48 @@ defmodule GSMLG.StorageTest do
       assert {:error, :invalid_input} = Storage.upload(nil, "tenant", "attachment")
     end
 
-    test "rejects content type not in allowlist" do
+    test "uses filename-assisted text detection for allowlist validation" do
       original = Application.get_env(:gsmlg_storage, :allowed_types)
+
+      on_exit(fn ->
+        if original,
+          do: Application.put_env(:gsmlg_storage, :allowed_types, original),
+          else: Application.delete_env(:gsmlg_storage, :allowed_types)
+      end)
+
       Application.put_env(:gsmlg_storage, :allowed_types, %{"restricted" => ~w(image/png)})
 
       result = Storage.upload({"test.txt", "hello world content"}, "tenant", "restricted")
 
-      assert {:error, {:content_type_not_allowed, "application/octet-stream", "restricted"}} =
+      assert {:error, {:content_type_not_allowed, "text/plain", "restricted"}} =
                result
+    end
 
-      if original,
-        do: Application.put_env(:gsmlg_storage, :allowed_types, original),
-        else: Application.delete_env(:gsmlg_storage, :allowed_types)
+    @tag :tmp_dir
+    test "does not trust Plug.Upload content_type during allowlist validation", %{
+      tmp_dir: tmp_dir
+    } do
+      path = Path.join(tmp_dir, "upload")
+      File.write!(path, "# Server-derived Markdown\n")
+
+      upload = %Plug.Upload{
+        path: path,
+        filename: "notes.md",
+        content_type: "image/png"
+      }
+
+      original = Application.get_env(:gsmlg_storage, :allowed_types)
+
+      on_exit(fn ->
+        if original,
+          do: Application.put_env(:gsmlg_storage, :allowed_types, original),
+          else: Application.delete_env(:gsmlg_storage, :allowed_types)
+      end)
+
+      Application.put_env(:gsmlg_storage, :allowed_types, %{"restricted" => ~w(image/png)})
+
+      assert {:error, {:content_type_not_allowed, "text/markdown", "restricted"}} =
+               Storage.upload(upload, "tenant", "restricted")
     end
 
     test "rejects files exceeding max size" do

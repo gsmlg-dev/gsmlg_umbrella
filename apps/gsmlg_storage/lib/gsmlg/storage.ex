@@ -30,7 +30,7 @@ defmodule GSMLG.Storage do
   """
   def upload(input, tenant, type, opts \\ []) do
     with {:ok, filename, data} <- normalize_input(input),
-         {:ok, content_type} <- ContentType.detect(data),
+         {:ok, content_type} <- ContentType.detect(data, filename),
          :ok <- validate_content_type(content_type, type),
          :ok <- validate_size(data, type),
          checksum <- compute_checksum(data),
