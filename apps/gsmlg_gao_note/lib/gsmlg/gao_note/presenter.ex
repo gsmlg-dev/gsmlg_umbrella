@@ -6,6 +6,9 @@ defmodule GSMLG.GaoNote.Presenter do
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Note}
   alias GSMLG.Storage.StorageFile
 
+  @sensitive_metadata_keys ~w(content content_url s3_key path internal_path)
+  @sensitive_metadata_atom_keys [:content, :content_url, :s3_key, :path, :internal_path]
+
   def note(%Note{} = note) do
     labels = labels(note)
 
@@ -60,17 +63,20 @@ defmodule GSMLG.GaoNote.Presenter do
   end
 
   def attachment(%Attachment{} = attachment) do
+    visibility = Attachment.effective_visibility(attachment)
+
     %{
       "id" => attachment.id,
       "role" => attachment.role,
       "description" => attachment.description || "",
-      "path" => attachment.path,
       "caption" => attachment.caption,
       "alt_text" => attachment.alt_text,
       "position" => attachment.position,
-      "metadata" => attachment.metadata || %{},
-      "storage_file" => attachment |> loaded_storage_file() |> storage_file()
+      "visibility" => visibility,
+      "metadata" => safe_attachment_metadata(attachment.metadata, visibility),
+      "storage_file" => attachment |> loaded_storage_file() |> storage_file(visibility)
     }
+    |> maybe_put_public_path(attachment.path, visibility)
   end
 
   def error_text(%Ecto.Changeset{} = changeset) do
@@ -85,9 +91,7 @@ defmodule GSMLG.GaoNote.Presenter do
 
   def error_text(reason), do: inspect(reason)
 
-  defp storage_file(%StorageFile{} = file) do
-    visibility = storage_visibility(file)
-
+  defp storage_file(%StorageFile{} = file, visibility) do
     %{
       "id" => file.id,
       "filename" => file.filename,
@@ -100,7 +104,7 @@ defmodule GSMLG.GaoNote.Presenter do
     |> maybe_put_public_content(file, visibility)
   end
 
-  defp storage_file(_file), do: nil
+  defp storage_file(_file, _visibility), do: nil
 
   defp labels(%Note{} = note) do
     labels =
@@ -123,12 +127,6 @@ defmodule GSMLG.GaoNote.Presenter do
   defp loaded_storage_file(%Attachment{storage_file: %StorageFile{} = file}), do: file
   defp loaded_storage_file(_attachment), do: nil
 
-  defp storage_visibility(%StorageFile{metadata: metadata}) when is_map(metadata) do
-    Map.get(metadata, "visibility") || Map.get(metadata, :visibility)
-  end
-
-  defp storage_visibility(_file), do: nil
-
   defp maybe_put_public_content(presented, file, "public") do
     case Map.fetch(file, :content) do
       {:ok, content} -> Map.put(presented, "content", content)
@@ -137,6 +135,19 @@ defmodule GSMLG.GaoNote.Presenter do
   end
 
   defp maybe_put_public_content(presented, _file, _visibility), do: presented
+
+  defp maybe_put_public_path(presented, path, "public"), do: Map.put(presented, "path", path)
+  defp maybe_put_public_path(presented, _path, _visibility), do: presented
+
+  defp safe_attachment_metadata(metadata, visibility) do
+    metadata
+    |> metadata_map()
+    |> Map.drop(@sensitive_metadata_keys ++ @sensitive_metadata_atom_keys ++ [:visibility])
+    |> Map.put("visibility", visibility)
+  end
+
+  defp metadata_map(metadata) when is_map(metadata), do: metadata
+  defp metadata_map(_metadata), do: %{}
 
   defp loaded_list(struct, key) do
     case Map.get(struct, key) do

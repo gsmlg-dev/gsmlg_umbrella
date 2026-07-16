@@ -9,8 +9,8 @@ defmodule GSMLG.Web.GaoNoteJSON do
     %{data: Presenter.note(note)}
   end
 
-  def tags(%{tags: tags}) do
-    %{data: Enum.map(tags, &Presenter.tag/1)}
+  def label_settings(%{label_settings: label_settings}) do
+    %{data: Enum.map(label_settings, &Presenter.label_setting/1)}
   end
 
   def references(%{references: references}) do

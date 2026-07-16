@@ -198,6 +198,25 @@ defmodule GSMLG.GaoNoteTest do
       refute Enum.any?(GaoNote.list_deleted_notes(), &(&1.id == note_id))
     end
 
+    test "stale deleted structs cannot restore or purge a note after another restore" do
+      note = note_fixture(%{title: "Atomic recycle note"})
+      assert {:ok, %Note{} = deleted} = GaoNote.delete_note(note, actor("deleter"))
+      stale_deleted = GaoNote.get_deleted_note(deleted.id)
+
+      assert {:ok, %Note{id: note_id, deleted_at: nil}} =
+               GaoNote.restore_note(stale_deleted, actor("restorer"))
+
+      assert {:error, :not_found} =
+               GaoNote.permanently_delete_note(stale_deleted, actor("stale-purger"))
+
+      assert {:error, :not_found} = GaoNote.restore_note(stale_deleted, actor("stale-restorer"))
+      assert %Note{id: ^note_id, deleted_at: nil} = GaoNote.get_note(note_id)
+
+      logs = GaoNote.list_logs(entity_type: "note", note_id: note_id)
+      assert Enum.any?(logs, &match?(%Log{action: "restore", actor_id: "restorer"}, &1))
+      refute Enum.any?(logs, &match?(%Log{action: "purge"}, &1))
+    end
+
     test "list/search options return notes by search text" do
       _other = note_fixture(%{title: "Needle Other"})
       public = note_fixture(%{title: "Needle Public"})
@@ -745,6 +764,60 @@ defmodule GSMLG.GaoNoteTest do
 
       assert {:error, :not_found} =
                GaoNote.detach_attachment(deleted_note.id, deleted_attachment.id)
+    end
+
+    test "ignores arbitrary string attributes without creating atoms" do
+      prefix = "untrusted_#{System.unique_integer([:positive])}_"
+      unknown_keys = Enum.map(1..2_000, &"#{prefix}#{&1}")
+      unknown_attrs = Map.new(unknown_keys, &{&1, "untrusted-value"})
+
+      assert Enum.all?(unknown_keys, &missing_atom?/1)
+
+      assert {:ok, %Note{title: "Whitelisted note", content: "Whitelisted content"} = note} =
+               GaoNote.create_note(
+                 Map.merge(unknown_attrs, %{
+                   "title" => "Whitelisted note",
+                   "content" => "Whitelisted content"
+                 }),
+                 actor("whitelist-actor")
+               )
+
+      assert {:ok, %LabelSetting{name: "Whitelisted label", color: "#123456"}} =
+               GaoNote.create_label_setting(
+                 Map.merge(unknown_attrs, %{
+                   "name" => "Whitelisted label",
+                   "color" => "#123456"
+                 })
+               )
+
+      file = storage_file_fixture(%{filename: "whitelisted.txt"})
+
+      assert {:ok,
+              %Attachment{
+                role: "inline",
+                caption: "Whitelisted caption",
+                metadata: %{"visibility" => "public"}
+              }} =
+               GaoNote.attach_existing_file(
+                 note.id,
+                 file.id,
+                 Map.merge(unknown_attrs, %{
+                   "role" => "inline",
+                   "caption" => "Whitelisted caption",
+                   "metadata" => %{"visibility" => "public"}
+                 })
+               )
+
+      assert Enum.all?(unknown_keys, &missing_atom?/1)
+    end
+  end
+
+  defp missing_atom?(key) do
+    try do
+      _atom = String.to_existing_atom(key)
+      false
+    rescue
+      ArgumentError -> true
     end
   end
 

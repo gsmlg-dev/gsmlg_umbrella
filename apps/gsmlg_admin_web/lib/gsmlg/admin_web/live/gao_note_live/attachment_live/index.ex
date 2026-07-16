@@ -2,6 +2,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
   alias GSMLG.GaoNote
+  alias GSMLG.GaoNote.Attachment
+
+  @page_size 25
+  @attachment_param_keys ~w(role description path caption alt_text position)
+  @mutation_events ~w(upload attach update detach)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -14,12 +19,24 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
   end
 
   @impl true
-  def handle_params(_params, _url, %{assigns: %{live_action: :all}} = socket) do
+  def handle_params(params, _url, %{assigns: %{live_action: :all}} = socket) do
+    page = parse_page(Map.get(params, "page"))
+
+    attachments =
+      GaoNote.list_all_attachments(limit: @page_size + 1, offset: (page - 1) * @page_size)
+
+    has_next = length(attachments) > @page_size
+
     {:noreply,
      assign(socket,
        page_title: "GaoNote Attachments",
        active_menu: "gao_note_attachments",
-       attachments: GaoNote.list_all_attachments()
+       attachments: Enum.take(attachments, @page_size),
+       page: page,
+       previous_page: page - 1,
+       next_page: page + 1,
+       has_previous: page > 1,
+       has_next: has_next
      )}
   end
 
@@ -54,7 +71,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("upload", params, socket) do
+  def handle_event(
+        "upload",
+        params,
+        %{assigns: %{live_action: :index, note: %{id: _note_id}}} = socket
+      ) do
     params = Map.get(params, "attachment", %{})
     note = socket.assigns.note
     opts = [actor: current_actor(socket)]
@@ -82,7 +103,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
     end
   end
 
-  def handle_event("attach", %{"attachment" => params}, socket) do
+  def handle_event(
+        "attach",
+        %{"attachment" => params},
+        %{assigns: %{live_action: :index, note: %{id: _note_id}}} = socket
+      ) do
     note = socket.assigns.note
     storage_file_id = Map.get(params, "storage_file_id")
     attrs = attachment_attrs(params)
@@ -101,7 +126,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
     end
   end
 
-  def handle_event("update", %{"id" => id, "attachment" => params}, socket) do
+  def handle_event(
+        "update",
+        %{"id" => id, "attachment" => params},
+        %{assigns: %{live_action: :index, note: %{id: _note_id}}} = socket
+      ) do
     note = socket.assigns.note
 
     case GaoNote.get_attachment(id) do
@@ -121,7 +150,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
     end
   end
 
-  def handle_event("detach", %{"id" => id}, socket) do
+  def handle_event(
+        "detach",
+        %{"id" => id},
+        %{assigns: %{live_action: :index, note: %{id: _note_id}}} = socket
+      ) do
     note = socket.assigns.note
 
     case GaoNote.detach_attachment(note.id, id) do
@@ -133,13 +166,17 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
     end
   end
 
+  def handle_event(event, _params, socket) when event in @mutation_events do
+    {:noreply, put_flash(socket, :error, "Attachment changes require a note-scoped page")}
+  end
+
   defp reload(socket) do
     assign(socket, attachments: GaoNote.list_attachments(socket.assigns.note.id))
   end
 
   defp upload_attrs(params, client_name) do
     params
-    |> attachment_attrs(%{"original_name" => client_name})
+    |> attachment_attrs()
     |> put_default_path(client_name)
   end
 
@@ -152,11 +189,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
       |> Map.put("visibility", visibility)
 
     params
-    |> Map.drop(["storage_file_id", "visibility"])
+    |> Map.take(@attachment_param_keys)
     |> Map.put("metadata", metadata)
   end
 
   defp put_default_path(attrs, client_name) do
+    client_name = client_name |> String.replace("\\", "/") |> Path.basename()
+
     case Map.get(attrs, "path") do
       path when is_binary(path) ->
         if String.trim(path) == "" do
@@ -182,22 +221,20 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
   end
 
   defp attachment_visibility(attachment) do
-    attachment.metadata
-    |> metadata_map()
-    |> Map.get("visibility", storage_visibility(attachment.storage_file))
-    |> normalize_visibility()
-  end
-
-  defp storage_visibility(nil), do: "private"
-
-  defp storage_visibility(file) do
-    file.metadata
-    |> metadata_map()
-    |> Map.get("visibility", "private")
+    Attachment.visibility(attachment)
   end
 
   defp normalize_visibility("public"), do: "public"
   defp normalize_visibility(_visibility), do: "private"
+
+  defp parse_page(page) when is_binary(page) do
+    case Integer.parse(page) do
+      {parsed, ""} when parsed > 0 -> parsed
+      _invalid -> 1
+    end
+  end
+
+  defp parse_page(_page), do: 1
 
   defp role_options do
     [
@@ -265,6 +302,29 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index do
             </.link>
           </:col>
         </.dm_table>
+
+        <div
+          id="gao-note-attachments-pagination"
+          class="flex items-center justify-between gap-3"
+        >
+          <.link
+            :if={@has_previous}
+            id="gao-note-attachments-previous"
+            patch={~p"/gao_notes/attachments?#{[page: @previous_page]}"}
+          >
+            <.dm_btn size="sm" variant="ghost">Previous</.dm_btn>
+          </.link>
+          <span id="gao-note-attachments-page" class="text-sm text-base-content/60">
+            Page {@page}
+          </span>
+          <.link
+            :if={@has_next}
+            id="gao-note-attachments-next"
+            patch={~p"/gao_notes/attachments?#{[page: @next_page]}"}
+          >
+            <.dm_btn size="sm" variant="ghost">Next</.dm_btn>
+          </.link>
+        </div>
       </div>
 
       <div :if={@live_action == :index} class="flex flex-col gap-4 p-6 w-full max-w-6xl">

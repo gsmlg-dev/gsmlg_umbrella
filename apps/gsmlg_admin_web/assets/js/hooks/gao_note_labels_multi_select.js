@@ -5,7 +5,7 @@ const hiddenInputValues = (root) =>
     .map((input) => input.value)
     .filter((value) => value && value.trim() !== "");
 
-export const GaoNoteTagsMultiSelect = {
+export const GaoNoteLabelsMultiSelect = {
   mounted() {
     this.selected = new Set(hiddenInputValues(this.el));
     this.open = false;
@@ -106,6 +106,6 @@ export const GaoNoteTagsMultiSelect = {
   },
 
   pushSelected() {
-    this.pushEvent("set_tags", { tags: Array.from(this.selected) });
+    this.pushEvent("set_labels", { labels: Array.from(this.selected) });
   },
 };

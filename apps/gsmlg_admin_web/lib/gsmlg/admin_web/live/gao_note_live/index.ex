@@ -14,7 +14,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        filters: %{},
        selected_labels: [],
        label_options: AsyncResult.loading(),
-       label_input: ""
+       label_key_input: "",
+       label_value_input: ""
      )}
   end
 
@@ -93,16 +94,32 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   def handle_event("label_input_changed", params, socket) do
-    {:noreply, assign(socket, :label_input, Map.get(params, "label_input", ""))}
-  end
-
-  def handle_event("add_label_option", %{"name" => name}, socket) do
-    selected_labels = normalize_label_names(socket.assigns.selected_labels ++ [name])
-
     {:noreply,
      socket
-     |> assign(:label_input, "")
-     |> assign_label_state(selected_labels)}
+     |> assign(
+       :label_key_input,
+       Map.get(params, "label_key_input", socket.assigns.label_key_input)
+     )
+     |> assign(
+       :label_value_input,
+       Map.get(params, "label_value_input", socket.assigns.label_value_input)
+     )}
+  end
+
+  def handle_event("add_label_option", %{"key" => key} = params, socket) do
+    if blank?(key) do
+      {:noreply, socket}
+    else
+      value = Map.get(params, "value", "")
+      label = "#{String.trim(key)}=#{String.trim(value)}"
+      selected_labels = normalize_label_names(socket.assigns.selected_labels ++ [label])
+
+      {:noreply,
+       socket
+       |> assign(:label_key_input, "")
+       |> assign(:label_value_input, "")
+       |> assign_label_state(selected_labels)}
+    end
   end
 
   def handle_event("add_label_option", _params, socket), do: {:noreply, socket}
@@ -443,9 +460,17 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
       </div>
 
       <div :if={@live_action in [:new, :edit]} class="flex flex-col gap-4 p-6 w-full max-w-5xl">
-        <div class="flex items-center gap-3">
-          <.dm_mdi name="notebook-edit-outline" class="w-5 h-5 text-primary" />
-          <h1 class="font-semibold text-base-content">{@page_title}</h1>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <.dm_mdi name="notebook-edit-outline" class="w-5 h-5 text-primary" />
+            <h1 class="font-semibold text-base-content">{@page_title}</h1>
+          </div>
+          <div class="flex items-center gap-2">
+            <.link patch={~p"/gao_notes/notes"}>
+              <.dm_btn variant="ghost" type="button">Cancel</.dm_btn>
+            </.link>
+            <button type="submit" form="gao-note-form" class="btn btn-primary">Save</button>
+          </div>
         </div>
 
         <div class="flex gap-2">
@@ -494,12 +519,21 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
             <div :if={async_failed?(@label_options)} class="text-sm text-error">
               Unable to load labels.
             </div>
-            <div class="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-end gap-2">
               <.dm_input
-                id="gao-note-label_setting-input"
-                name="label_input"
-                value={@label_input}
-                label="Add label key"
+                id="gao-note-label-key-input"
+                name="label_key_input"
+                value={@label_key_input}
+                label="Label key"
+                autocomplete="off"
+                phx-change="label_input_changed"
+              />
+              <span class="flex h-12 items-center text-base-content/60">=</span>
+              <.dm_input
+                id="gao-note-label-value-input"
+                name="label_value_input"
+                value={@label_value_input}
+                label="Label value"
                 autocomplete="off"
                 phx-change="label_input_changed"
               />
@@ -507,7 +541,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
                 type="button"
                 variant="secondary"
                 phx-click="add_label_option"
-                phx-value-name={@label_input}
+                phx-value-key={@label_key_input}
+                phx-value-value={@label_value_input}
               >
                 <.dm_mdi name="plus" class="w-4 h-4" /> Add
               </.dm_btn>
@@ -532,13 +567,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
               <.dm_error :for={msg <- content_errors}>{msg}</.dm_error>
             </div>
           </div>
-
-          <:actions>
-            <button type="submit" class="btn btn-primary">Save</button>
-            <.link patch={~p"/gao_notes/notes"}>
-              <.dm_btn variant="ghost" type="button">Cancel</.dm_btn>
-            </.link>
-          </:actions>
         </.dm_form>
       </div>
 

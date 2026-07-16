@@ -66,7 +66,9 @@ defmodule GSMLG.GaoNote.PresenterTest do
              "caption" => "Original source",
              "alt_text" => "A source document",
              "position" => 2,
-             "metadata" => %{"language" => "en"},
+             "visibility" => "public",
+             "metadata" => %{"language" => "en", "visibility" => "public"},
+             "path" => "./source.txt",
              "storage_file" => %{
                "id" => "storage-file-1",
                "filename" => "source.txt",
@@ -87,27 +89,75 @@ defmodule GSMLG.GaoNote.PresenterTest do
     assert Presenter.attachment(%Attachment{})["storage_file"] == nil
   end
 
-  test "only already-present public storage content is exposed" do
-    public_file = storage_file_fixture("public") |> Map.put(:content, "public content")
-    private_file = storage_file_fixture("private") |> Map.put(:content, "private content")
+  test "public storage with a private attachment remains private without content or paths" do
+    attachment =
+      storage_file_fixture("public")
+      |> Map.put(:content, "private attachment content")
+      |> attachment_fixture("private")
 
-    public_storage =
-      public_file
-      |> attachment_fixture()
-      |> Presenter.attachment()
-      |> Map.fetch!("storage_file")
+    attachment = %{
+      attachment
+      | metadata:
+          Map.merge(attachment.metadata, %{
+            "content_url" => "https://internal.example/content",
+            "s3_key" => "internal/object",
+            "internal_path" => "/internal/path"
+          })
+    }
 
-    private_storage =
-      private_file
-      |> attachment_fixture()
-      |> Presenter.attachment()
-      |> Map.fetch!("storage_file")
-
-    assert public_storage["content"] == "public content"
-    refute Map.has_key?(private_storage, "content")
+    attachment
+    |> Presenter.attachment()
+    |> assert_private_attachment()
   end
 
-  defp attachment_fixture(storage_file) do
+  test "private storage is a floor even when the attachment setting is public" do
+    storage_file_fixture("private")
+    |> Map.put(:content, "private storage content")
+    |> attachment_fixture("public")
+    |> Presenter.attachment()
+    |> assert_private_attachment()
+  end
+
+  test "public storage and public attachment expose already-hydrated content" do
+    presented =
+      storage_file_fixture("public")
+      |> Map.put(:content, "public content")
+      |> attachment_fixture("public")
+      |> Presenter.attachment()
+
+    assert presented["visibility"] == "public"
+    assert presented["path"] == "./source.txt"
+    assert presented["storage_file"]["visibility"] == "public"
+    assert presented["storage_file"]["content"] == "public content"
+  end
+
+  test "missing attachment visibility falls back to storage visibility" do
+    public =
+      storage_file_fixture("public")
+      |> Map.put(:content, "public fallback")
+      |> attachment_fixture()
+      |> Presenter.attachment()
+
+    private =
+      storage_file_fixture("private")
+      |> Map.put(:content, "private fallback")
+      |> attachment_fixture()
+      |> Presenter.attachment()
+
+    assert public["visibility"] == "public"
+    assert public["storage_file"]["content"] == "public fallback"
+    assert private["visibility"] == "private"
+    refute Map.has_key?(private, "path")
+    refute Map.has_key?(private["storage_file"], "content")
+  end
+
+  defp attachment_fixture(storage_file, visibility \\ :missing) do
+    metadata =
+      case visibility do
+        :missing -> %{"language" => "en"}
+        visibility -> %{"language" => "en", "visibility" => visibility}
+      end
+
     %Attachment{
       id: "attachment-1",
       note_id: "note-1",
@@ -119,8 +169,22 @@ defmodule GSMLG.GaoNote.PresenterTest do
       caption: "Original source",
       alt_text: "A source document",
       position: 2,
-      metadata: %{"language" => "en"}
+      metadata: metadata
     }
+  end
+
+  defp assert_private_attachment(presented) do
+    assert presented["visibility"] == "private"
+    assert presented["metadata"]["visibility"] == "private"
+    assert presented["storage_file"]["visibility"] == "private"
+
+    for key <- ~w(path content content_url s3_key internal_path) do
+      refute Map.has_key?(presented, key)
+      refute Map.has_key?(presented["metadata"], key)
+      refute Map.has_key?(presented["storage_file"], key)
+    end
+
+    presented
   end
 
   defp storage_file_fixture(visibility) do

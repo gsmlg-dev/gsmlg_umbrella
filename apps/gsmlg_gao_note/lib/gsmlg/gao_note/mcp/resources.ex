@@ -11,11 +11,11 @@ defmodule GSMLG.GaoNote.MCP.Resources do
       %URI{scheme: "gaonote", host: "notes", path: "/" <> note_path} ->
         read_note(uri, note_path, frame)
 
-      %URI{scheme: "gaonote", host: "tags", path: "/" <> tag_id} ->
-        read_tag(uri, tag_id, frame)
+      %URI{scheme: "gaonote", host: "label_settings", path: "/" <> label_setting_id} ->
+        read_label_setting(uri, label_setting_id, frame)
 
-      %URI{scheme: "gaonote", host: "assets", path: "/" <> asset_id} ->
-        read_asset(uri, asset_id, frame)
+      %URI{scheme: "gaonote", host: "attachments", path: "/" <> attachment_id} ->
+        read_attachment(uri, attachment_id, frame)
 
       _ ->
         {:error, Error.resource(:not_found, %{uri: uri}), frame}
@@ -38,19 +38,12 @@ defmodule GSMLG.GaoNote.MCP.Resources do
       {note, ["metadata"]} ->
         {:reply, Response.resource() |> Response.json(%{"note" => Presenter.note(note)}), frame}
 
-      {note, ["references"]} ->
-        references = GaoNote.list_references(note)
+      {note, ["attachments"]} ->
+        attachments = GaoNote.list_attachments(note.id)
 
         {:reply,
          Response.resource()
-         |> Response.json(%{"references" => Enum.map(references, &Presenter.reference/1)}), frame}
-
-      {note, ["assets"]} ->
-        assets = GaoNote.list_assets(note)
-
-        {:reply,
-         Response.resource()
-         |> Response.json(%{"assets" => Enum.map(assets, &Presenter.asset_json(&1, note))}),
+         |> Response.json(%{"attachments" => Enum.map(attachments, &Presenter.attachment/1)}),
          frame}
 
       {_note, _unknown} ->
@@ -58,19 +51,19 @@ defmodule GSMLG.GaoNote.MCP.Resources do
     end
   end
 
-  defp read_tag(uri, tag_id, frame) do
-    case GaoNote.get_tag(tag_id) do
+  defp read_label_setting(uri, label_setting_id, frame) do
+    case GaoNote.get_label_setting(label_setting_id) do
       nil -> {:error, Error.resource(:not_found, %{uri: uri}), frame}
-      tag -> {:reply, Response.resource() |> Response.json(%{"tag" => Presenter.tag(tag)}), frame}
+      label_setting -> {:reply, Response.resource() |> Response.json(%{"label_setting" => Presenter.label_setting(label_setting)}), frame}
     end
   end
 
-  defp read_asset(uri, asset_id, frame) do
-    with asset when not is_nil(asset) <- GaoNote.get_asset(asset_id),
-         note when not is_nil(note) <- resource_note(asset.note_id, mode(frame)) do
+  defp read_attachment(uri, attachment_id, frame) do
+    with attachment when not is_nil(attachment) <- GaoNote.get_attachment(attachment_id),
+         note when not is_nil(note) <- resource_note(attachment.note_id, mode(frame)) do
       {:reply,
        Response.resource()
-       |> Response.json(%{"asset" => Presenter.asset_json(asset, note)}), frame}
+       |> Response.json(%{"attachment" => Presenter.attachment(attachment)}), frame}
     else
       _ -> {:error, Error.resource(:not_found, %{uri: uri}), frame}
     end
@@ -110,52 +103,39 @@ defmodule GSMLG.GaoNote.MCP.Resources.NoteMetadata do
   def read(%{"uri" => uri}, frame), do: GSMLG.GaoNote.MCP.Resources.read(uri, frame)
 end
 
-defmodule GSMLG.GaoNote.MCP.Resources.NoteReferences do
-  @moduledoc "Read GaoNote web references."
+defmodule GSMLG.GaoNote.MCP.Resources.NoteAttachments do
+  @moduledoc "Read GaoNote attachment metadata."
 
   use Backplane.McpProtocol.Server.Component,
     type: :resource,
-    uri_template: "gaonote://notes/{id}/references",
-    name: "gao_note.note.references",
+    uri_template: "gaonote://notes/{id}/attachments",
+    name: "gao_note.note.attachments",
     mime_type: "application/json"
 
   @impl true
   def read(%{"uri" => uri}, frame), do: GSMLG.GaoNote.MCP.Resources.read(uri, frame)
 end
 
-defmodule GSMLG.GaoNote.MCP.Resources.NoteAssets do
-  @moduledoc "Read GaoNote asset metadata."
+defmodule GSMLG.GaoNote.MCP.Resources.LabelSetting do
+  @moduledoc "Read a GaoNote label_setting."
 
   use Backplane.McpProtocol.Server.Component,
     type: :resource,
-    uri_template: "gaonote://notes/{id}/assets",
-    name: "gao_note.note.assets",
+    uri_template: "gaonote://label_settings/{id}",
+    name: "gao_note.label_setting",
     mime_type: "application/json"
 
   @impl true
   def read(%{"uri" => uri}, frame), do: GSMLG.GaoNote.MCP.Resources.read(uri, frame)
 end
 
-defmodule GSMLG.GaoNote.MCP.Resources.Tag do
-  @moduledoc "Read a GaoNote tag."
+defmodule GSMLG.GaoNote.MCP.Resources.Attachment do
+  @moduledoc "Read GaoNote attachment metadata."
 
   use Backplane.McpProtocol.Server.Component,
     type: :resource,
-    uri_template: "gaonote://tags/{id}",
-    name: "gao_note.tag",
-    mime_type: "application/json"
-
-  @impl true
-  def read(%{"uri" => uri}, frame), do: GSMLG.GaoNote.MCP.Resources.read(uri, frame)
-end
-
-defmodule GSMLG.GaoNote.MCP.Resources.Asset do
-  @moduledoc "Read GaoNote asset metadata."
-
-  use Backplane.McpProtocol.Server.Component,
-    type: :resource,
-    uri_template: "gaonote://assets/{asset_id}",
-    name: "gao_note.asset",
+    uri_template: "gaonote://attachments/{attachment_id}",
+    name: "gao_note.attachment",
     mime_type: "application/json"
 
   @impl true

@@ -10,8 +10,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     gao_note.search
     gao_note.get
     gao_note.list_label_settings
-    gao_note.list_references
-    gao_note.list_assets
+    gao_note.list_attachments
   )
 
   @admin_tools @readonly_tools ++
@@ -21,13 +20,10 @@ defmodule GSMLG.GaoNote.MCP.Tools do
                    gao_note.update
                    gao_note.delete
                    gao_note.set_labels
-                   gao_note.references.add
-                   gao_note.references.update
-                   gao_note.references.remove
-                   gao_note.assets.attach_existing
-                   gao_note.assets.upload_base64
-                   gao_note.assets.update
-                   gao_note.assets.detach
+                   gao_note.attachments.attach_existing
+                   gao_note.attachments.upload_base64
+                   gao_note.attachments.update
+                   gao_note.attachments.detach
                  )
 
   @max_base64_bytes 5 * 1024 * 1024
@@ -44,10 +40,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:id, :string, [required: true, description: "GaoNote id."]}
     ],
     "gao_note.list_label_settings" => [],
-    "gao_note.list_references" => [
-      {:id, :string, [required: true, description: "GaoNote id."]}
-    ],
-    "gao_note.list_assets" => [
+    "gao_note.list_attachments" => [
       {:id, :string, [required: true, description: "GaoNote id."]}
     ],
     "gao_note.create" => [
@@ -83,75 +76,52 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:labels, {:list, :string},
        [required: true, description: "Replacement labels as key=value strings."]}
     ],
-    "gao_note.references.add" => [
-      {:id, :string, [required: true, description: "GaoNote id."]},
-      {:url, :string, [required: true, description: "HTTP or HTTPS reference URL."]},
-      {:title, :string, [description: "Optional reference title."]},
-      {:description, :string, [description: "Optional reference description."]},
-      {:canonical_url, :string, [description: "Optional canonical URL override."]},
-      {:site_name, :string, [description: "Optional source site name."]},
-      {:favicon_url, :string, [description: "Optional favicon URL."]},
-      {:position, :integer, [description: "Optional sort position."]}
-    ],
-    "gao_note.references.update" => [
-      {:reference_id, :string, [required: true, description: "GaoNote reference id."]},
-      {:url, :string, [description: "Updated HTTP or HTTPS reference URL."]},
-      {:title, :string, [description: "Updated reference title."]},
-      {:description, :string, [description: "Updated reference description."]},
-      {:canonical_url, :string, [description: "Updated canonical URL override."]},
-      {:site_name, :string, [description: "Updated source site name."]},
-      {:favicon_url, :string, [description: "Updated favicon URL."]},
-      {:position, :integer, [description: "Updated sort position."]}
-    ],
-    "gao_note.references.remove" => [
-      {:reference_id, :string, [required: true, description: "GaoNote reference id."]}
-    ],
-    "gao_note.assets.attach_existing" => [
+    "gao_note.attachments.attach_existing" => [
       {:id, :string, [required: true, description: "GaoNote id."]},
       {:storage_file_id, :string, [required: true, description: "Existing storage file id."]},
-      {:role, :string, [description: "Asset role: attachment, cover, inline, or source."]},
+      {:role, :string, [description: "Attachment role: attachment, cover, inline, or source."]},
       {:path, :string,
        [
          description:
            "Note-relative attachment path. Use the same path in markdown, for example ./data.txt."
        ]},
       {:description, :string, [description: "Optional attachment description."]},
-      {:caption, :string, [description: "Optional asset caption."]},
-      {:alt_text, :string, [description: "Optional asset alt text."]},
+      {:caption, :string, [description: "Optional attachment caption."]},
+      {:alt_text, :string, [description: "Optional attachment alt text."]},
       {:position, :integer, [description: "Optional sort position."]}
     ],
-    "gao_note.assets.upload_base64" => [
+    "gao_note.attachments.upload_base64" => [
       {:id, :string, [required: true, description: "GaoNote id."]},
       {:base64, :string,
        [required: true, description: "Standard Base64 file content, up to 5 MB."]},
       {:filename, :string, [description: "Optional uploaded filename."]},
-      {:role, :string, [description: "Asset role: attachment, cover, inline, or source."]},
+      {:role, :string, [description: "Attachment role: attachment, cover, inline, or source."]},
       {:path, :string,
        [
          description:
            "Note-relative attachment path. Use the same path in markdown, for example ./data.txt."
        ]},
       {:description, :string, [description: "Optional attachment description."]},
-      {:caption, :string, [description: "Optional asset caption."]},
-      {:alt_text, :string, [description: "Optional asset alt text."]},
+      {:caption, :string, [description: "Optional attachment caption."]},
+      {:alt_text, :string, [description: "Optional attachment alt text."]},
       {:position, :integer, [description: "Optional sort position."]}
     ],
-    "gao_note.assets.update" => [
-      {:asset_id, :string, [required: true, description: "GaoNote asset id."]},
+    "gao_note.attachments.update" => [
+      {:attachment_id, :string, [required: true, description: "GaoNote attachment id."]},
       {:role, :string,
-       [description: "Updated asset role: attachment, cover, inline, or source."]},
+       [description: "Updated attachment role: attachment, cover, inline, or source."]},
       {:path, :string,
        [
          description:
            "Updated note-relative attachment path. Use the same path in markdown, for example ./data.txt."
        ]},
       {:description, :string, [description: "Updated attachment description."]},
-      {:caption, :string, [description: "Updated asset caption."]},
-      {:alt_text, :string, [description: "Updated asset alt text."]},
+      {:caption, :string, [description: "Updated attachment caption."]},
+      {:alt_text, :string, [description: "Updated attachment alt text."]},
       {:position, :integer, [description: "Updated sort position."]}
     ],
-    "gao_note.assets.detach" => [
-      {:asset_id, :string, [required: true, description: "GaoNote asset id."]}
+    "gao_note.attachments.detach" => [
+      {:attachment_id, :string, [required: true, description: "GaoNote attachment id."]}
     ]
   }
 
@@ -182,8 +152,9 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   def description("gao_note.search"), do: "Search GaoNote notes."
   def description("gao_note.get"), do: "Get a GaoNote by id."
   def description("gao_note.list_label_settings"), do: "List GaoNote label settings."
-  def description("gao_note.list_references"), do: "List web references for a GaoNote."
-  def description("gao_note.list_assets"), do: "List active storage-backed assets for a GaoNote."
+
+  def description("gao_note.list_attachments"),
+    do: "List active storage-backed attachments for a GaoNote."
 
   def description("gao_note.create"), do: "Create a GaoNote."
 
@@ -199,13 +170,10 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   def description("gao_note.set_labels"),
     do: "Replace GaoNote labels with an array of key=value strings."
 
-  def description("gao_note.references.add"), do: "Add a web reference to a GaoNote."
-  def description("gao_note.references.update"), do: "Update a GaoNote web reference."
-  def description("gao_note.references.remove"), do: "Remove a GaoNote web reference."
-  def description("gao_note.assets.attach_existing"), do: "Attach an existing storage file."
-  def description("gao_note.assets.upload_base64"), do: "Upload a small base64 asset."
-  def description("gao_note.assets.update"), do: "Update GaoNote asset metadata."
-  def description("gao_note.assets.detach"), do: "Detach a GaoNote asset."
+  def description("gao_note.attachments.attach_existing"), do: "Attach an existing storage file."
+  def description("gao_note.attachments.upload_base64"), do: "Upload a small base64 attachment."
+  def description("gao_note.attachments.update"), do: "Update GaoNote attachment metadata."
+  def description("gao_note.attachments.detach"), do: "Detach a GaoNote attachment."
 
   def annotations(name) do
     cond do
@@ -217,7 +185,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
           "openWorldHint" => false
         }
 
-      name in ~w(gao_note.delete gao_note.references.remove gao_note.assets.detach) ->
+      name in ~w(gao_note.delete gao_note.attachments.detach) ->
         %{
           "readOnlyHint" => false,
           "destructiveHint" => true,
@@ -260,24 +228,12 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     })
   end
 
-  defp dispatch("gao_note.list_references", args, _frame, mode) do
+  defp dispatch("gao_note.list_attachments", args, _frame, mode) do
     with %{} = note <- fetch_note(args, mode) do
-      references = GaoNote.list_references(note)
+      attachments = GaoNote.list_attachments(note.id)
 
-      ok("Found #{length(references)} GaoNote references", %{
-        "references" => Enum.map(references, &Presenter.reference/1)
-      })
-    else
-      _ -> error("GaoNote not found")
-    end
-  end
-
-  defp dispatch("gao_note.list_assets", args, _frame, mode) do
-    with %{} = note <- fetch_note(args, mode) do
-      assets = GaoNote.list_assets(note)
-
-      ok("Found #{length(assets)} GaoNote assets", %{
-        "assets" => Enum.map(assets, &Presenter.asset_json(&1, note))
+      ok("Found #{length(attachments)} GaoNote attachments", %{
+        "attachments" => Enum.map(attachments, &Presenter.attachment/1)
       })
     else
       _ -> error("GaoNote not found")
@@ -346,52 +302,17 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     end
   end
 
-  defp dispatch("gao_note.references.add", args, frame, _mode) do
-    with {:ok, actor} <- Authorization.actor(frame),
-         %{} = note <- GaoNote.get_note(Map.get(args, "id")),
-         attrs <- Map.drop(args, ["id"]),
-         {:ok, reference} <- GaoNote.add_reference(note, attrs, mcp_actor(actor)) do
-      audit("gao_note.references.add", actor, note.id)
-      ok("Added GaoNote reference", %{"reference" => Presenter.reference(reference)})
-    else
-      nil -> error("GaoNote not found")
-      {:error, reason} -> error(reason)
-    end
-  end
-
-  defp dispatch("gao_note.references.update", args, frame, _mode) do
-    with {:ok, actor} <- Authorization.actor(frame),
-         %{} = reference <- GaoNote.get_reference(Map.get(args, "reference_id")),
-         attrs <- Map.drop(args, ["reference_id"]),
-         {:ok, reference} <- GaoNote.update_reference(reference, attrs, mcp_actor(actor)) do
-      audit("gao_note.references.update", actor, reference.note_id)
-      ok("Updated GaoNote reference", %{"reference" => Presenter.reference(reference)})
-    else
-      nil -> error("GaoNote reference not found")
-      {:error, reason} -> error(reason)
-    end
-  end
-
-  defp dispatch("gao_note.references.remove", args, frame, _mode) do
-    with {:ok, actor} <- Authorization.actor(frame),
-         %{} = reference <- GaoNote.get_reference(Map.get(args, "reference_id")),
-         {:ok, reference} <- GaoNote.remove_reference(reference, mcp_actor(actor)) do
-      audit("gao_note.references.remove", actor, reference.note_id)
-      ok("Removed GaoNote reference", %{"reference" => Presenter.reference(reference)})
-    else
-      nil -> error("GaoNote reference not found")
-      {:error, reason} -> error(reason)
-    end
-  end
-
-  defp dispatch("gao_note.assets.attach_existing", args, frame, _mode) do
+  defp dispatch("gao_note.attachments.attach_existing", args, frame, _mode) do
     with {:ok, actor} <- Authorization.actor(frame),
          %{} = note <- GaoNote.get_note(Map.get(args, "id")),
          storage_file_id when is_binary(storage_file_id) <- Map.get(args, "storage_file_id"),
          attrs <- Map.drop(args, ["id", "storage_file_id"]),
-         {:ok, asset} <- GaoNote.attach_asset(note, storage_file_id, attrs, mcp_actor(actor)) do
-      audit("gao_note.assets.attach_existing", actor, note.id)
-      ok("Attached GaoNote asset", %{"asset" => Presenter.asset_json(asset, note)})
+         {:ok, attachment} <-
+           GaoNote.attach_existing_file(note.id, storage_file_id, attrs,
+             actor: mcp_actor(actor)
+           ) do
+      audit("gao_note.attachments.attach_existing", actor, note.id)
+      ok("Attached GaoNote attachment", %{"attachment" => Presenter.attachment(attachment)})
     else
       nil -> error("GaoNote not found")
       {:error, reason} -> error(reason)
@@ -399,44 +320,47 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     end
   end
 
-  defp dispatch("gao_note.assets.upload_base64", args, frame, _mode) do
+  defp dispatch("gao_note.attachments.upload_base64", args, frame, _mode) do
     with {:ok, actor} <- Authorization.actor(frame),
          %{} = note <- GaoNote.get_note(Map.get(args, "id")),
          {:ok, binary} <- decode_base64(Map.get(args, "base64")),
-         filename <- Map.get(args, "filename", "gao-note-asset.bin"),
+         filename <- Map.get(args, "filename", "gao-note-attachment.bin"),
          attrs <- Map.drop(args, ["id", "base64", "filename"]),
-         {:ok, asset} <- GaoNote.upload_asset(note, {filename, binary}, attrs, mcp_actor(actor)) do
-      audit("gao_note.assets.upload_base64", actor, note.id)
-      ok("Uploaded GaoNote asset", %{"asset" => Presenter.asset_json(asset, note)})
+         {:ok, attachment} <-
+           GaoNote.upload_attachment(note.id, {filename, binary}, attrs,
+             actor: mcp_actor(actor)
+           ) do
+      audit("gao_note.attachments.upload_base64", actor, note.id)
+      ok("Uploaded GaoNote attachment", %{"attachment" => Presenter.attachment(attachment)})
     else
       nil -> error("GaoNote not found")
       {:error, reason} -> error(reason)
     end
   end
 
-  defp dispatch("gao_note.assets.update", args, frame, _mode) do
+  defp dispatch("gao_note.attachments.update", args, frame, _mode) do
     with {:ok, actor} <- Authorization.actor(frame),
-         %{} = asset <- GaoNote.get_asset(Map.get(args, "asset_id")),
-         %{} = note <- GaoNote.get_note(asset.note_id),
-         attrs <- Map.drop(args, ["asset_id"]),
-         {:ok, asset} <- GaoNote.update_asset(asset, attrs, mcp_actor(actor)) do
-      audit("gao_note.assets.update", actor, asset.note_id)
-      ok("Updated GaoNote asset", %{"asset" => Presenter.asset_json(asset, note)})
+         %{} = attachment <- GaoNote.get_attachment(Map.get(args, "attachment_id")),
+         attrs <- Map.drop(args, ["attachment_id"]),
+         {:ok, attachment} <-
+           GaoNote.update_attachment(attachment.note_id, attachment.id, attrs) do
+      audit("gao_note.attachments.update", actor, attachment.note_id)
+      ok("Updated GaoNote attachment", %{"attachment" => Presenter.attachment(attachment)})
     else
-      nil -> error("GaoNote asset not found")
+      nil -> error("GaoNote attachment not found")
       {:error, reason} -> error(reason)
     end
   end
 
-  defp dispatch("gao_note.assets.detach", args, frame, _mode) do
+  defp dispatch("gao_note.attachments.detach", args, frame, _mode) do
     with {:ok, actor} <- Authorization.actor(frame),
-         %{} = asset <- GaoNote.get_asset(Map.get(args, "asset_id")),
-         %{} = note <- GaoNote.get_note(asset.note_id),
-         {:ok, asset} <- GaoNote.detach_asset(asset, mcp_actor(actor)) do
-      audit("gao_note.assets.detach", actor, asset.note_id)
-      ok("Detached GaoNote asset", %{"asset" => Presenter.asset_json(asset, note)})
+         %{} = attachment <- GaoNote.get_attachment(Map.get(args, "attachment_id")),
+         {:ok, attachment} <-
+           GaoNote.detach_attachment(attachment.note_id, attachment.id) do
+      audit("gao_note.attachments.detach", actor, attachment.note_id)
+      ok("Detached GaoNote attachment", %{"attachment" => Presenter.attachment(attachment)})
     else
-      nil -> error("GaoNote asset not found")
+      nil -> error("GaoNote attachment not found")
       {:error, reason} -> error(reason)
     end
   end
@@ -616,12 +540,8 @@ defmodule GSMLG.GaoNote.MCP.Tools.ListLabelSettings do
   use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.list_label_settings"
 end
 
-defmodule GSMLG.GaoNote.MCP.Tools.ListReferences do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.list_references"
-end
-
-defmodule GSMLG.GaoNote.MCP.Tools.ListAssets do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.list_assets"
+defmodule GSMLG.GaoNote.MCP.Tools.ListAttachments do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.list_attachments"
 end
 
 defmodule GSMLG.GaoNote.MCP.Tools.Create do
@@ -644,30 +564,18 @@ defmodule GSMLG.GaoNote.MCP.Tools.SetLabels do
   use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.set_labels"
 end
 
-defmodule GSMLG.GaoNote.MCP.Tools.AddReference do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.references.add"
+defmodule GSMLG.GaoNote.MCP.Tools.AttachExistingAttachment do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.attachments.attach_existing"
 end
 
-defmodule GSMLG.GaoNote.MCP.Tools.UpdateReference do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.references.update"
+defmodule GSMLG.GaoNote.MCP.Tools.UploadBase64Attachment do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.attachments.upload_base64"
 end
 
-defmodule GSMLG.GaoNote.MCP.Tools.RemoveReference do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.references.remove"
+defmodule GSMLG.GaoNote.MCP.Tools.UpdateAttachment do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.attachments.update"
 end
 
-defmodule GSMLG.GaoNote.MCP.Tools.AttachExistingAsset do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.assets.attach_existing"
-end
-
-defmodule GSMLG.GaoNote.MCP.Tools.UploadBase64Asset do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.assets.upload_base64"
-end
-
-defmodule GSMLG.GaoNote.MCP.Tools.UpdateAsset do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.assets.update"
-end
-
-defmodule GSMLG.GaoNote.MCP.Tools.DetachAsset do
-  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.assets.detach"
+defmodule GSMLG.GaoNote.MCP.Tools.DetachAttachment do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.attachments.detach"
 end

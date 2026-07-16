@@ -36,6 +36,33 @@ defmodule GSMLG.GaoNote.Attachment do
 
   def roles, do: @roles
 
+  @doc """
+  Returns the attachment-level visibility selected in attachment metadata.
+
+  Attachments without an explicit setting inherit the storage-file visibility.
+  Invalid or unavailable visibility data is treated as private.
+  """
+  def visibility(%__MODULE__{} = attachment) do
+    case metadata_visibility(attachment.metadata) do
+      nil -> storage_visibility(attachment.storage_file)
+      visibility -> visibility
+    end
+  end
+
+  @doc """
+  Returns the effective visibility after applying the storage privacy floor.
+  """
+  def effective_visibility(%__MODULE__{} = attachment) do
+    storage_visibility = storage_visibility(attachment.storage_file)
+
+    case metadata_visibility(attachment.metadata) do
+      nil -> storage_visibility
+      "private" -> "private"
+      "public" when storage_visibility == "public" -> "public"
+      _visibility -> "private"
+    end
+  end
+
   def changeset(attachment, attrs) do
     attachment
     |> cast(attrs, [
@@ -122,4 +149,28 @@ defmodule GSMLG.GaoNote.Attachment do
   defp url_path?(path) do
     Regex.match?(@url_scheme, path) or String.contains?(path, "://")
   end
+
+  defp metadata_visibility(metadata) when is_map(metadata) do
+    case Map.fetch(metadata, "visibility") do
+      {:ok, visibility} -> normalize_visibility(visibility)
+      :error -> metadata |> Map.get(:visibility) |> normalize_optional_visibility()
+    end
+  end
+
+  defp metadata_visibility(_metadata), do: nil
+
+  defp storage_visibility(%StorageFile{metadata: metadata}) when is_map(metadata) do
+    metadata
+    |> Map.get("visibility", Map.get(metadata, :visibility))
+    |> normalize_visibility()
+  end
+
+  defp storage_visibility(_storage_file), do: "private"
+
+  defp normalize_optional_visibility(nil), do: nil
+  defp normalize_optional_visibility(visibility), do: normalize_visibility(visibility)
+
+  defp normalize_visibility("public"), do: "public"
+  defp normalize_visibility("private"), do: "private"
+  defp normalize_visibility(_visibility), do: "private"
 end

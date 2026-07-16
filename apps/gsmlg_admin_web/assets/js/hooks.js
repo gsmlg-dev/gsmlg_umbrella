@@ -1,7 +1,7 @@
 import { blogFormHook } from "./hooks/blog_form";
 import TerminalHook from "./hooks/terminal_hook";
 import ClipboardHook from "./hooks/clipboard_hook";
-import { GaoNoteTagsMultiSelect } from "./hooks/gao_note_tags_multi_select";
+import { GaoNoteLabelsMultiSelect } from "./hooks/gao_note_labels_multi_select";
 import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight } from "phoenix_duskmoon/hooks";
 
 // Register duskmoon custom elements
@@ -61,7 +61,7 @@ export const hooks = {
   ...blogFormHook,
   Terminal: TerminalHook,
   Clipboard: ClipboardHook,
-  GaoNoteTagsMultiSelect,
+  GaoNoteLabelsMultiSelect,
   WebComponentHook,
   FormElementHook,
   ThemeSwitcher,

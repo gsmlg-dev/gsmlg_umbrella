@@ -33,7 +33,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
          assign_deleted_notes_async(socket) |> put_flash(:error, "Deleted note not found")}
 
       note ->
-        case GaoNote.restore_note(note, nil) do
+        case GaoNote.restore_note(note, current_actor(socket)) do
           {:ok, _note} ->
             {:noreply, assign_deleted_notes_async(socket) |> put_flash(:info, "Note restored")}
 
@@ -50,7 +50,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
          assign_deleted_notes_async(socket) |> put_flash(:error, "Deleted note not found")}
 
       note ->
-        case GaoNote.permanently_delete_note(note, nil) do
+        case GaoNote.permanently_delete_note(note, current_actor(socket)) do
           {:ok, _note} ->
             {:noreply,
              assign_deleted_notes_async(socket) |> put_flash(:info, "Note permanently deleted")}
@@ -168,6 +168,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
       reset: true
     )
   end
+
+  defp current_actor(socket), do: socket.assigns[:current_user]
 
   defp note_labels(%{labels: %Ecto.Association.NotLoaded{}}), do: []
   defp note_labels(%{labels: labels}) when is_list(labels), do: labels

@@ -427,6 +427,12 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     refute note_html =~ "Second Route Caption"
     refute note_html =~ ~s(id="gao-note-attachment-#{second_attachment.id}")
 
+    assert {:ok, _view, scoped_query_html} =
+             live(conn, "/gao_notes/notes/#{first_note.id}/attachments?page=2")
+
+    assert scoped_query_html =~ "first-route-attachment.txt"
+    refute scoped_query_html =~ "second-route-attachment.txt"
+
     {:ok, _view, html} = live(conn, ~p"/gao_notes/attachments")
 
     assert html =~ "GaoNote Attachments"
@@ -461,6 +467,127 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     refute query_html =~ ~s(id="gao-note-attachment-upload-form")
   end
 
+  test "global attachments paginate without omissions and support previous navigation", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{title: "Paginated Attachments", content: "Pagination content"},
+               user
+             )
+
+    attachments =
+      for index <- 1..26 do
+        filename = "paginated-#{String.pad_leading(Integer.to_string(index), 2, "0")}.txt"
+        file = storage_file_fixture(%{filename: filename})
+
+        assert {:ok, %Attachment{} = attachment} =
+                 GaoNote.attach_existing_file(
+                   note.id,
+                   file.id,
+                   %{caption: "Caption #{index}", metadata: %{"visibility" => "public"}},
+                   actor: user
+                 )
+
+        {filename, attachment.id}
+      end
+
+    tied_inserted_at = ~U[2026-07-16 00:00:00.000000Z]
+    assert {26, nil} = Repo.update_all(Attachment, set: [inserted_at: tied_inserted_at])
+
+    expected_filenames =
+      attachments
+      |> Enum.sort_by(fn {_filename, id} -> id end, :desc)
+      |> Enum.map(fn {filename, _id} -> filename end)
+
+    {expected_first_page, expected_second_page} = Enum.split(expected_filenames, 25)
+
+    {:ok, view, first_page_html} = live(conn, ~p"/gao_notes/attachments")
+
+    assert first_page_html =~ ~s(id="gao-note-attachments-table")
+    assert first_page_html =~ ~s(id="gao-note-attachments-next")
+    refute first_page_html =~ ~s(id="gao-note-attachments-previous")
+
+    for filename <- expected_first_page, do: assert(first_page_html =~ filename)
+    for filename <- expected_second_page, do: refute(first_page_html =~ filename)
+
+    view
+    |> element("#gao-note-attachments-next")
+    |> render_click()
+
+    assert_patch(view, "/gao_notes/attachments?page=2")
+    second_page_html = render(view)
+    assert second_page_html =~ ~s(id="gao-note-attachments-previous")
+    refute second_page_html =~ ~s(id="gao-note-attachments-next")
+
+    for filename <- expected_first_page, do: refute(second_page_html =~ filename)
+    for filename <- expected_second_page, do: assert(second_page_html =~ filename)
+
+    for filename <- expected_filenames do
+      assert Enum.count([first_page_html, second_page_html], &String.contains?(&1, filename)) == 1
+    end
+
+    view
+    |> element("#gao-note-attachments-previous")
+    |> render_click()
+
+    assert_patch(view, "/gao_notes/attachments?page=1")
+  end
+
+  test "forged mutations on the global attachment page are stable no-ops", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{title: "Global Mutation Guard", content: "Mutation guard content"},
+               user
+             )
+
+    file = storage_file_fixture(%{filename: "guarded.txt"})
+    second_file = storage_file_fixture(%{filename: "must-not-attach.txt"})
+
+    assert {:ok, attachment} =
+             GaoNote.attach_existing_file(
+               note.id,
+               file.id,
+               %{caption: "Original caption", metadata: %{"visibility" => "private"}},
+               actor: user
+             )
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/attachments")
+
+    forged_events = [
+      {"upload", %{"attachment" => %{"visibility" => "public"}}},
+      {"attach",
+       %{
+         "attachment" => %{
+           "storage_file_id" => second_file.id,
+           "caption" => "Must not attach",
+           "visibility" => "public"
+         }
+       }},
+      {"update",
+       %{
+         "id" => attachment.id,
+         "attachment" => %{"caption" => "Forged caption", "visibility" => "public"}
+       }},
+      {"detach", %{"id" => attachment.id}}
+    ]
+
+    for {event, params} <- forged_events do
+      assert render_hook(view, event, params) =~
+               "Attachment changes require a note-scoped page"
+    end
+
+    assert [%Attachment{id: id, caption: "Original caption"}] =
+             GaoNote.list_attachments(note.id)
+
+    assert id == attachment.id
+    refute Enum.any?(GaoNote.list_attachments(note.id), &(&1.storage_file_id == second_file.id))
+  end
+
   test "admin can attach, update, and detach an existing file", %{conn: conn, user: user} do
     assert {:ok, note} =
              GaoNote.create_note(
@@ -486,7 +613,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
         "caption" => "Existing caption",
         "alt_text" => "Existing alt text",
         "position" => "2",
-        "visibility" => "private"
+        "visibility" => "private",
+        "unknown_attachment_field" => "must be ignored"
       }
     })
     |> render_submit()
@@ -579,10 +707,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       assert [
                %Attachment{
                  path: expected_path,
-                 metadata: %{
-                   "original_name" => original_name,
-                   "visibility" => "private"
-                 },
+                 metadata: %{"visibility" => "private"},
                  storage_file:
                    %StorageFile{
                      filename: stored_filename,
@@ -592,7 +717,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
                } = attachment
              ] = GaoNote.list_attachments(note.id)
 
-      assert original_name == filename
       assert stored_filename == filename
       assert expected_path == "./#{filename}"
       refute expected_path =~ "temporary"
@@ -614,6 +738,49 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
     assert html =~ "Recycle Bin"
     assert html =~ ~s(aria-label="Admin navigation")
+  end
+
+  test "recycle bin restore and purge actions audit the current admin", %{conn: conn, user: user} do
+    assert {:ok, restore_note} =
+             GaoNote.create_note(
+               %{title: "Recycle Restore Actor", content: "Restore actor content"},
+               user
+             )
+
+    assert {:ok, purge_note} =
+             GaoNote.create_note(
+               %{title: "Recycle Purge Actor", content: "Purge actor content"},
+               user
+             )
+
+    assert {:ok, _deleted} = GaoNote.delete_note(restore_note, user)
+    assert {:ok, _deleted} = GaoNote.delete_note(purge_note, user)
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+    render_async(view)
+
+    view
+    |> element("#deleted-note-#{restore_note.id} [phx-click=restore]")
+    |> render_click()
+
+    render_async(view)
+
+    view
+    |> element("#deleted-note-#{purge_note.id} [phx-click=purge]")
+    |> render_click()
+
+    restore_logs = GaoNote.list_logs(entity_type: "note", note_id: restore_note.id)
+    purge_logs = GaoNote.list_logs(entity_type: "note", note_id: purge_note.id)
+
+    assert Enum.any?(
+             restore_logs,
+             &match?(%Log{action: "restore", actor_id: actor_id} when actor_id == user.id, &1)
+           )
+
+    assert Enum.any?(
+             purge_logs,
+             &match?(%Log{action: "purge", actor_id: actor_id} when actor_id == user.id, &1)
+           )
   end
 
   test "admin can configure and test GaoNote MCP", %{conn: conn, user: user} do

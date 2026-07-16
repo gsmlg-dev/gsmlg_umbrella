@@ -16,6 +16,68 @@ defmodule GSMLG.GaoNote do
   @max_limit 200
   @labels_not_provided :__gao_note_labels_not_provided__
   @mcp_setting_id "default"
+  @note_attr_keys %{
+    "title" => :title,
+    :title => :title,
+    "description" => :description,
+    :description => :description,
+    "content" => :content,
+    :content => :content,
+    "labels" => :labels,
+    :labels => :labels,
+    "tags" => :tags,
+    :tags => :tags
+  }
+  @label_setting_attr_keys %{
+    "name" => :name,
+    :name => :name,
+    "color" => :color,
+    :color => :color,
+    "description" => :description,
+    :description => :description,
+    "value_type" => :value_type,
+    :value_type => :value_type,
+    "metadata" => :metadata,
+    :metadata => :metadata
+  }
+  @attachment_attr_keys %{
+    "note_id" => :note_id,
+    :note_id => :note_id,
+    "storage_file_id" => :storage_file_id,
+    :storage_file_id => :storage_file_id,
+    "role" => :role,
+    :role => :role,
+    "description" => :description,
+    :description => :description,
+    "path" => :path,
+    :path => :path,
+    "caption" => :caption,
+    :caption => :caption,
+    "alt_text" => :alt_text,
+    :alt_text => :alt_text,
+    "position" => :position,
+    :position => :position,
+    "metadata" => :metadata,
+    :metadata => :metadata
+  }
+  @option_keys %{
+    "search" => :search,
+    :search => :search,
+    "label" => :label,
+    :label => :label,
+    "order_by" => :order_by,
+    :order_by => :order_by,
+    "limit" => :limit,
+    :limit => :limit,
+    "offset" => :offset,
+    :offset => :offset,
+    "action" => :action,
+    :action => :action,
+    "entity_type" => :entity_type,
+    :entity_type => :entity_type,
+    "note_id" => :note_id,
+    :note_id => :note_id
+  }
 
   def public_note_query, do: active_note_query()
 
@@ -132,7 +194,7 @@ defmodule GSMLG.GaoNote do
     |> join(:inner, [attachment], file in assoc(attachment, :storage_file))
     |> join(:inner, [attachment, _file], note in assoc(attachment, :note))
     |> where([_attachment, file, note], file.status == "active" and is_nil(note.deleted_at))
-    |> order_by([attachment], desc: attachment.inserted_at)
+    |> order_by([attachment], desc: attachment.inserted_at, desc: attachment.id)
     |> limit(^limit_value(opts[:limit]))
     |> offset(^offset_value(opts[:offset]))
     |> preload([_attachment, file, note], storage_file: file, note: note)
@@ -218,20 +280,20 @@ defmodule GSMLG.GaoNote do
   def verify_mcp_api_key(_api_key), do: :error
 
   def change_note(%Note{} = note, attrs \\ %{}) do
-    Note.changeset(note, attrs)
+    Note.changeset(note, normalize_attrs(attrs, @note_attr_keys))
   end
 
   def change_attachment(%Attachment{} = attachment, attrs \\ %{}) do
-    Attachment.changeset(attachment, attrs)
+    Attachment.changeset(attachment, normalize_attrs(attrs, @attachment_attr_keys))
   end
 
   def change_label_setting(%LabelSetting{} = label_setting, attrs \\ %{}) do
-    LabelSetting.changeset(label_setting, attrs)
+    LabelSetting.changeset(label_setting, normalize_attrs(attrs, @label_setting_attr_keys))
   end
 
   def create_label_setting(attrs, actor \\ nil) do
     %LabelSetting{}
-    |> LabelSetting.changeset(normalize_attrs(attrs))
+    |> LabelSetting.changeset(normalize_attrs(attrs, @label_setting_attr_keys))
     |> Repo.insert()
     |> tap_success(fn label_setting ->
       log_action("create", "label_setting", label_setting.id, nil, actor, %{"name" => label_setting.name})
@@ -242,12 +304,12 @@ defmodule GSMLG.GaoNote do
     old_value_type = label_setting.value_type || "text"
 
     label_setting
-    |> LabelSetting.changeset(normalize_attrs(attrs))
+    |> LabelSetting.changeset(normalize_attrs(attrs, @label_setting_attr_keys))
     |> Repo.update()
     |> tap_success(fn label_setting ->
       log_action("update", "label_setting", label_setting.id, nil, actor, %{
         "name" => label_setting.name,
-        "fields" => changed_fields(attrs)
+        "fields" => changed_fields(attrs, @label_setting_attr_keys)
       })
 
       if old_value_type != (label_setting.value_type || "text") do
@@ -264,7 +326,7 @@ defmodule GSMLG.GaoNote do
   end
 
   def create_note(attrs, actor) do
-    attrs = normalize_attrs(attrs)
+    attrs = normalize_attrs(attrs, @note_attr_keys)
     {label_source, label_values, attrs} = pop_labels_input(attrs)
 
     with {:ok, labels} <- normalize_labels(label_values, label_source) do
@@ -294,7 +356,7 @@ defmodule GSMLG.GaoNote do
   def update_note(%Note{} = note, attrs, actor) do
     attrs =
       attrs
-      |> normalize_attrs()
+      |> normalize_attrs(@note_attr_keys)
 
     {label_source, label_values, attrs} = pop_labels_input(attrs)
 
@@ -309,7 +371,7 @@ defmodule GSMLG.GaoNote do
 
           log_action("update", "note", note.id, note.id, actor, %{
             "title" => note.title,
-            "fields" => changed_fields(attrs, labels)
+            "fields" => changed_fields(attrs, @note_attr_keys, labels)
           })
 
           {:ok, note}
@@ -336,18 +398,29 @@ defmodule GSMLG.GaoNote do
   end
 
   def restore_note(%Note{} = note, actor) do
-    note
-    |> Ecto.Changeset.change(deleted_at: nil)
-    |> Repo.update()
-    |> tap_success(fn restored ->
-      log_action("restore", "note", restored.id, restored.id, actor, %{"title" => restored.title})
+    transact_deleted_note(note.id, fn locked_note ->
+      with {:ok, restored} <-
+             locked_note
+             |> Ecto.Changeset.change(deleted_at: nil)
+             |> Repo.update(),
+           {:ok, _log} <-
+             log_action("restore", "note", restored.id, restored.id, actor, %{
+               "title" => restored.title
+             }) do
+        {:ok, restored}
+      end
     end)
   end
 
   def permanently_delete_note(%Note{} = note, actor) do
-    Repo.delete(note)
-    |> tap_success(fn deleted ->
-      log_action("purge", "note", deleted.id, deleted.id, actor, %{"title" => deleted.title})
+    transact_deleted_note(note.id, fn locked_note ->
+      with {:ok, deleted} <- Repo.delete(locked_note),
+           {:ok, _log} <-
+             log_action("purge", "note", deleted.id, deleted.id, actor, %{
+               "title" => deleted.title
+             }) do
+        {:ok, deleted}
+      end
     end)
   end
 
@@ -384,7 +457,7 @@ defmodule GSMLG.GaoNote do
 
   def upload_attachment(note_id, upload, attrs \\ %{}, opts \\ []) do
     with {:ok, note} <- fetch_active_note(note_id) do
-      attrs = normalize_attrs(attrs)
+      attrs = normalize_attrs(attrs, @attachment_attr_keys)
       actor = attachment_actor(opts)
       metadata = Map.get(attrs, :metadata, %{}) |> Map.merge(%{"note_id" => note.id})
 
@@ -423,12 +496,12 @@ defmodule GSMLG.GaoNote do
   def update_attachment(note_id, attachment_id, attrs) do
     with {:ok, attachment} <- fetch_attachment_for_active_note(note_id, attachment_id) do
       attachment
-      |> Attachment.changeset(normalize_attrs(attrs))
+      |> Attachment.changeset(normalize_attrs(attrs, @attachment_attr_keys))
       |> Repo.update()
       |> case do
         {:ok, attachment} ->
           log_action("update", "attachment", attachment.id, attachment.note_id, nil, %{
-            "fields" => changed_fields(attrs)
+            "fields" => changed_fields(attrs, @attachment_attr_keys)
           })
 
           {:ok, Repo.preload(attachment, :storage_file, force: true)}
@@ -454,7 +527,7 @@ defmodule GSMLG.GaoNote do
   defp insert_attachment(note, file, attrs, actor) do
     attrs =
       attrs
-      |> normalize_attrs()
+      |> normalize_attrs(@attachment_attr_keys)
       |> Map.put(:note_id, note.id)
       |> Map.put(:storage_file_id, file.id)
 
@@ -911,17 +984,24 @@ defmodule GSMLG.GaoNote do
   defp value_to_string(value) when is_binary(value), do: String.trim(value)
   defp value_to_string(value), do: value |> to_string() |> String.trim()
 
-  defp normalize_opts(opts) when is_map(opts), do: Enum.into(opts, [])
+  defp normalize_opts(opts) when is_map(opts) do
+    opts
+    |> normalize_attrs(@option_keys)
+    |> Enum.into([])
+  end
+
   defp normalize_opts(opts), do: opts
 
-  defp normalize_attrs(attrs) when is_map(attrs) do
-    Map.new(attrs, fn
-      {key, value} when is_binary(key) -> {String.to_atom(key), value}
-      pair -> pair
+  defp normalize_attrs(attrs, allowed_keys) when is_map(attrs) do
+    Enum.reduce(attrs, %{}, fn {key, value}, normalized ->
+      case Map.fetch(allowed_keys, key) do
+        {:ok, normalized_key} -> Map.put(normalized, normalized_key, value)
+        :error -> normalized
+      end
     end)
   end
 
-  defp normalize_attrs(attrs), do: attrs
+  defp normalize_attrs(attrs, _allowed_keys), do: attrs
 
   defp actor_id(%{id: id}) when is_binary(id), do: id
   defp actor_id(%{id: id}), do: to_string(id)
@@ -946,6 +1026,37 @@ defmodule GSMLG.GaoNote do
     from(n in Note, where: not is_nil(n.deleted_at))
   end
 
+  defp transact_deleted_note(note_id, operation) do
+    with {:ok, note_id} <- Ecto.UUID.cast(note_id) do
+      Repo.transaction(fn ->
+        deleted_note =
+          deleted_note_query()
+          |> where([note], note.id == ^note_id)
+          |> lock("FOR UPDATE")
+          |> Repo.one()
+
+        case deleted_note do
+          nil ->
+            Repo.rollback(:not_found)
+
+          %Note{} = note ->
+            note = preload_note(note)
+
+            case operation.(note) do
+              {:ok, _result} = result -> result
+              {:error, reason} -> Repo.rollback(reason)
+            end
+        end
+      end)
+      |> case do
+        {:ok, result} -> result
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      :error -> {:error, :not_found}
+    end
+  end
+
   defp log_action(action, entity_type, entity_id, note_id, actor, details) do
     %Log{}
     |> Log.changeset(%{
@@ -967,10 +1078,10 @@ defmodule GSMLG.GaoNote do
 
   defp tap_success(result, _fun), do: result
 
-  defp changed_fields(attrs, labels \\ @labels_not_provided) do
+  defp changed_fields(attrs, allowed_keys, labels \\ @labels_not_provided) do
     fields =
       attrs
-      |> normalize_attrs()
+      |> normalize_attrs(allowed_keys)
       |> Map.keys()
       |> Enum.map(&to_string/1)
 

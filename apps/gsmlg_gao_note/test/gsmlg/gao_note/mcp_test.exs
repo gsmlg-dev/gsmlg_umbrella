@@ -3,15 +3,14 @@ defmodule GSMLG.GaoNote.MCPTest do
 
   alias Backplane.McpProtocol.Server.{Frame, Response}
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Asset, Log, MCPSetting, Note, Reference, LabelSetting, Label}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.Accounts.User
   alias GSMLG.Storage.StorageFile
 
   setup do
     Repo.delete_all(MCPSetting)
     Repo.delete_all(Log)
-    Repo.delete_all(Asset)
-    Repo.delete_all(Reference)
+    Repo.delete_all(Attachment)
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
@@ -26,6 +25,9 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert "gao_note.search" in names
       assert "gao_note.get" in names
       assert "gao_note.list_label_settings" in names
+      assert "gao_note.list_attachments" in names
+      refute "gao_note.list_references" in names
+      refute "gao_note.list_assets" in names
       refute "gao_note.create" in names
       refute "gao_note.delete" in names
       refute "gao_note.assets.upload_base64" in names
@@ -78,7 +80,9 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert "gao_note.create" in names
       assert "gao_note.create_label_setting" in names
       assert "gao_note.delete" in names
-      assert "gao_note.assets.upload_base64" in names
+      assert "gao_note.attachments.upload_base64" in names
+      refute "gao_note.references.add" in names
+      refute "gao_note.assets.upload_base64" in names
       refute "gao_note.publish" in names
       refute "gao_note.archive" in names
     end
@@ -96,7 +100,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert Enum.sort(tool.input_schema["required"]) == ["content", "title"]
 
       refute "color" in tool_property_names(tool)
-      refute "asset_id" in tool_property_names(tool)
+      refute "attachment_id" in tool_property_names(tool)
       refute "limit" in tool_property_names(tool)
       refute "url" in tool_property_names(tool)
       refute "creator" in tool_property_names(tool)
@@ -112,7 +116,7 @@ defmodule GSMLG.GaoNote.MCPTest do
                )
     end
 
-    test "supports create, read, update, delete, labels, and references" do
+    test "supports create, read, update, delete, and labels" do
       frame = admin_frame(actor())
 
       assert %{"structuredContent" => %{"note" => created}} =
@@ -180,16 +184,6 @@ defmodule GSMLG.GaoNote.MCPTest do
                %{"key" => "Admin", "value" => ""},
                %{"key" => "MCP", "value" => ""}
              ]
-
-      assert %{"structuredContent" => %{"reference" => reference}} =
-               call_tool(
-                 GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.references.add",
-                 %{"id" => created["id"], "url" => "https://example.com/ref"},
-                 frame
-               )
-
-      assert reference["url"] == "https://example.com/ref"
 
       assert %{"structuredContent" => %{"note" => deleted}} =
                call_tool(

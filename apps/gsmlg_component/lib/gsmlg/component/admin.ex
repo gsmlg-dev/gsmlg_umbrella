@@ -22,7 +22,8 @@ defmodule GSMLG.Component.Admin do
           </div>
         </div>
         <.dm_link navigate="/">
-          <logo-gsmlg-dev class="h-12" />
+          <%!-- # WORKAROUND(upstream): gsmlg-dev/gsmlg-nodejs#4 --%>
+          <logo-gsmlg-dev class="h-12" width="200" height="40" />
         </.dm_link>
       </:logo>
       <:user_profile>
