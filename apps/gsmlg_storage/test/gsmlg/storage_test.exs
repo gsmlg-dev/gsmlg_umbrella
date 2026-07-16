@@ -1,6 +1,22 @@
 defmodule GSMLG.StorageTest do
   use ExUnit.Case, async: false
 
+  defmodule S3Stub do
+    use Plug.Router
+
+    plug(:match)
+    plug(:dispatch)
+
+    put "/*path" do
+      if pid = Application.get_env(:gsmlg_storage, :storage_test_pid), do: send(pid, :s3_put)
+      send_resp(conn, 200, "")
+    end
+
+    delete "/*path", do: send_resp(conn, 204, "")
+    get "/*path", do: send_resp(conn, 200, "")
+    match _, do: send_resp(conn, 200, "")
+  end
+
   alias GSMLG.Repo
   alias GSMLG.Storage
   alias GSMLG.Storage.StorageFile
@@ -28,6 +44,38 @@ defmodule GSMLG.StorageTest do
     %StorageFile{}
     |> StorageFile.changeset(Map.merge(defaults, attrs))
     |> Repo.insert!()
+  end
+
+  defp with_s3_stub(fun) do
+    keys = [:allowed_types, :s3_bucket, :s3_endpoint, :storage_test_pid, :max_file_size]
+    original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
+    port = available_port()
+    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
+
+    Application.put_env(:gsmlg_storage, :allowed_types, %{"attachment" => :any})
+    Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
+    Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
+    Application.put_env(:gsmlg_storage, :storage_test_pid, self())
+
+    try do
+      fun.()
+    after
+      Enum.each(original, fn
+        {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
+        {key, :error} -> Application.delete_env(:gsmlg_storage, key)
+      end)
+
+      GenServer.stop(s3_stub)
+    end
+  end
+
+  defp available_port do
+    {:ok, socket} =
+      :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, ip: {127, 0, 0, 1}])
+
+    {:ok, {_address, port}} = :inet.sockname(socket)
+    :ok = :gen_tcp.close(socket)
+    port
   end
 
   describe "upload/4 input normalization" do
@@ -90,6 +138,63 @@ defmodule GSMLG.StorageTest do
       if original,
         do: Application.put_env(:gsmlg_storage, :max_file_size, original),
         else: Application.delete_env(:gsmlg_storage, :max_file_size)
+    end
+
+    test "sanitizes path-like filenames and preserves normal Unicode basenames" do
+      with_s3_stub(fn ->
+        assert {:ok, %StorageFile{filename: "file.txt"}} =
+                 Storage.upload({"C:\\fakepath\\file.txt", "windows path"}, "tenant", "attachment")
+
+        assert {:ok, %StorageFile{filename: "file.txt"}} =
+                 Storage.upload({"../../file.txt", "relative path"}, "tenant", "attachment")
+
+        assert {:ok, %StorageFile{filename: "报告.txt"}} =
+                 Storage.upload({"报告.txt", "unicode name"}, "tenant", "attachment")
+
+        assert_receive :s3_put
+        assert_receive :s3_put
+        assert_receive :s3_put
+      end)
+    end
+
+    test "rejects blank, dot, control, NUL, invalid UTF-8, and overlong filenames before S3" do
+      with_s3_stub(fn ->
+        count_before = Repo.aggregate(StorageFile, :count, :id)
+        overlong_multibyte = String.duplicate("界", 84) <> ".txt"
+
+        invalid_filenames = [
+          "",
+          "   ",
+          ".",
+          "..",
+          "bad\0name.txt",
+          "bad\nname.txt",
+          <<"invalid-", 0xFF, ".txt">>,
+          overlong_multibyte
+        ]
+
+        for filename <- invalid_filenames do
+          assert {:error, :invalid_filename} =
+                   Storage.upload({filename, "safe data"}, "tenant", "attachment")
+        end
+
+        assert byte_size(overlong_multibyte) > 255
+        assert Repo.aggregate(StorageFile, :count, :id) == count_before
+        refute_received :s3_put
+      end)
+    end
+
+    test "rejects oversized data before classification, hashing, or S3" do
+      with_s3_stub(fn ->
+        Application.put_env(:gsmlg_storage, :max_file_size, 8)
+        data = "<svg>\0" <> String.duplicate("x", 20)
+
+        assert {:error, {:file_too_large, size, 8}} =
+                 Storage.upload({"oversized.txt", data}, "tenant", "attachment")
+
+        assert size == byte_size(data)
+        refute_received :s3_put
+      end)
     end
   end
 

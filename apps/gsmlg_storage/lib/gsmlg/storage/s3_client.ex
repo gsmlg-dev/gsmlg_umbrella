@@ -13,10 +13,15 @@ defmodule GSMLG.Storage.S3Client do
   Returns `:ok` or `{:error, reason}`.
   """
   def put_object(bucket, key, data, content_type) do
-    case get_client()
-         |> AWS.S3.put_object(bucket, key, data, [{"Content-Type", content_type}]) do
-      {:ok, _, _} -> :ok
-      {:error, _} = error -> error
+    with {:ok, client} <- get_client() do
+      case client
+           |> AWS.S3.put_object(key, bucket, %{
+             "Body" => data,
+             "ContentType" => content_type
+           }) do
+        {:ok, _, _} -> :ok
+        {:error, _} = error -> error
+      end
     end
   end
 
@@ -25,9 +30,11 @@ defmodule GSMLG.Storage.S3Client do
   Returns `{:ok, binary}` or `{:error, reason}`.
   """
   def get_object(bucket, key) do
-    case get_client() |> AWS.S3.get_object(bucket, key) do
-      {:ok, body, _resp} -> {:ok, body}
-      {:error, _} = error -> error
+    with {:ok, client} <- get_client() do
+      case client |> AWS.S3.get_object(bucket, key) do
+        {:ok, body, _resp} -> {:ok, body}
+        {:error, _} = error -> error
+      end
     end
   end
 
@@ -36,13 +43,15 @@ defmodule GSMLG.Storage.S3Client do
   Returns `:ok` or `{:error, reason}`.
   """
   def delete_object(bucket, key) do
-    case get_client() |> AWS.S3.delete_object(bucket, key, %{}, []) do
-      {:ok, _, _} ->
-        :ok
+    with {:ok, client} <- get_client() do
+      case client |> AWS.S3.delete_object(bucket, key, %{}, []) do
+        {:ok, _, _} ->
+          :ok
 
-      {:error, reason} ->
-        Logger.warning("Failed to delete S3 object #{bucket}/#{key}: #{inspect(reason)}")
-        {:error, reason}
+        {:error, reason} ->
+          Logger.warning("Failed to delete S3 object #{bucket}/#{key}: #{inspect(reason)}")
+          {:error, reason}
+      end
     end
   end
 
@@ -56,39 +65,63 @@ defmodule GSMLG.Storage.S3Client do
     if endpoint not in [nil, ""] do
       build_custom_client(endpoint, region)
     else
-      GSMLG.AWS.Client.get_client()
+      {:ok, GSMLG.AWS.Client.get_client()}
     end
   end
 
   defp build_custom_client(endpoint_url, region) do
-    access_key_id =
-      System.get_env("AWS_ACCESS_KEY_ID") ||
-        Application.get_env(:gsmlg_storage, :s3_access_key_id)
+    with {:ok, uri} <- parse_endpoint(endpoint_url) do
+      access_key_id =
+        System.get_env("AWS_ACCESS_KEY_ID") ||
+          Application.get_env(:gsmlg_storage, :s3_access_key_id)
 
-    secret_access_key =
-      System.get_env("AWS_SECRET_ACCESS_KEY") ||
-        Application.get_env(:gsmlg_storage, :s3_secret_access_key)
+      secret_access_key =
+        System.get_env("AWS_SECRET_ACCESS_KEY") ||
+          Application.get_env(:gsmlg_storage, :s3_secret_access_key)
 
-    if is_nil(access_key_id) or is_nil(secret_access_key) do
-      Logger.error(
-        "S3 custom endpoint configured (#{endpoint_url}) but credentials are missing. " <>
-          "Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars or configure via admin UI."
-      )
+      if is_nil(access_key_id) or is_nil(secret_access_key) do
+        Logger.error(
+          "S3 custom endpoint configured (#{endpoint_url}) but credentials are missing. " <>
+            "Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars or configure via admin UI."
+        )
+      end
+
+      client =
+        %AWS.Client{
+          access_key_id: access_key_id,
+          secret_access_key: secret_access_key,
+          region: region,
+          endpoint: uri.host,
+          proto: uri.scheme,
+          port: uri.port
+        }
+        |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []})
+
+      {:ok, client}
     end
-
-    # Parse endpoint URL to extract host:port for AWS client
-    uri = URI.parse(endpoint_url)
-    proto = if uri.scheme == "https", do: "https://", else: "http://"
-    host_port = "#{uri.host}:#{uri.port}"
-
-    %AWS.Client{
-      access_key_id: access_key_id,
-      secret_access_key: secret_access_key,
-      region: region,
-      endpoint: {:keep_prefixes, host_port},
-      proto: proto,
-      port: uri.port
-    }
-    |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []})
   end
+
+  defp parse_endpoint(endpoint_url) when is_binary(endpoint_url) do
+    case URI.parse(endpoint_url) do
+      %URI{
+        scheme: scheme,
+        host: host,
+        port: port,
+        path: path,
+        userinfo: nil,
+        query: nil,
+        fragment: nil
+      } = uri
+      when scheme in ["http", "https"] and is_binary(host) and host != "" and
+             is_integer(port) and path in [nil, "", "/"] ->
+        {:ok, uri}
+
+      _uri ->
+        {:error, {:invalid_s3_endpoint, endpoint_url}}
+    end
+  rescue
+    URI.Error -> {:error, {:invalid_s3_endpoint, endpoint_url}}
+  end
+
+  defp parse_endpoint(endpoint_url), do: {:error, {:invalid_s3_endpoint, endpoint_url}}
 end

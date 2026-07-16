@@ -54,16 +54,16 @@ defmodule GSMLG.Storage.ContentType do
   # scanning large binaries and to prevent deep-embedded <svg> from
   # being misclassified (SVG can contain JavaScript = XSS vector).
   defp detect_without_magic(data, filename) do
-    case active_text_type(data) do
-      nil ->
-        if safe_text?(data) do
+    if safe_text?(data) do
+      case active_text_type(data) do
+        nil ->
           {:ok, text_type_for_filename(filename)}
-        else
-          {:ok, "application/octet-stream"}
-        end
 
-      content_type ->
-        {:ok, content_type}
+        content_type ->
+          {:ok, content_type}
+      end
+    else
+      {:ok, "application/octet-stream"}
     end
   end
 

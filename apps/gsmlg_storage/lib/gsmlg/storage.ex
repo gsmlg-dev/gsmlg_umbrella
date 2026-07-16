@@ -14,6 +14,8 @@ defmodule GSMLG.Storage do
 
   import Ecto.Query
 
+  @max_filename_bytes 255
+
   @doc """
   Uploads a file to S3 and creates a DB record.
 
@@ -29,10 +31,11 @@ defmodule GSMLG.Storage do
   Returns `{:ok, %StorageFile{}}` or `{:error, reason}`.
   """
   def upload(input, tenant, type, opts \\ []) do
-    with {:ok, filename, data} <- normalize_input(input),
+    with {:ok, raw_filename, data} <- normalize_input(input),
+         {:ok, filename} <- sanitize_filename(raw_filename),
+         :ok <- validate_size(data, type),
          {:ok, content_type} <- ContentType.detect(data, filename),
          :ok <- validate_content_type(content_type, type),
-         :ok <- validate_size(data, type),
          checksum <- compute_checksum(data),
          s3_key <- generate_s3_key(tenant, type, filename, content_type),
          bucket <- bucket(),
@@ -400,12 +403,44 @@ defmodule GSMLG.Storage do
 
   defp normalize_input(path) when is_binary(path) do
     case File.read(path) do
-      {:ok, data} -> {:ok, Path.basename(path), data}
+      {:ok, data} -> {:ok, path, data}
       {:error, reason} -> {:error, {:file_read_error, reason}}
     end
   end
 
   defp normalize_input(_), do: {:error, :invalid_input}
+
+  defp sanitize_filename(filename) when is_binary(filename) do
+    cond do
+      not String.valid?(filename) ->
+        {:error, :invalid_filename}
+
+      invalid_filename_controls?(filename) ->
+        {:error, :invalid_filename}
+
+      true ->
+        filename =
+          filename
+          |> String.replace("\\", "/")
+          |> Path.basename()
+          |> String.trim()
+
+        cond do
+          filename in ["", ".", "..", "/"] -> {:error, :invalid_filename}
+          String.contains?(filename, "/") -> {:error, :invalid_filename}
+          byte_size(filename) > @max_filename_bytes -> {:error, :invalid_filename}
+          true -> {:ok, filename}
+        end
+    end
+  end
+
+  defp sanitize_filename(_filename), do: {:error, :invalid_filename}
+
+  defp invalid_filename_controls?(filename) do
+    filename
+    |> String.to_charlist()
+    |> Enum.any?(fn codepoint -> codepoint < 0x20 or codepoint in 0x7F..0x9F end)
+  end
 
   defp validate_content_type(content_type, type) do
     allowed = allowed_types(type)

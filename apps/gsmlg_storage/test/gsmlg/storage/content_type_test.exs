@@ -102,6 +102,29 @@ defmodule GSMLG.Storage.ContentTypeTest do
                ContentType.detect(~s(<svg xmlns="http://www.w3.org/2000/svg"></svg>), "image.txt")
     end
 
+    test "rejects HTML and SVG prefixes followed by NUL" do
+      for data <- ["<!DOCTYPE html><html>\0</html>", "<svg>\0</svg>"] do
+        assert {:ok, "application/octet-stream"} = ContentType.detect(data, "active.txt")
+      end
+    end
+
+    test "rejects HTML and SVG prefixes with invalid UTF-8" do
+      for data <- [<<"<!DOCTYPE html><html>", 0xFF>>, <<"<svg>", 0xFF>>] do
+        assert {:ok, "application/octet-stream"} = ContentType.detect(data, "active.txt")
+      end
+    end
+
+    test "rejects HTML and SVG prefixes with disallowed controls" do
+      for data <- [<<"<!DOCTYPE html><html>", 0x01>>, <<"<svg>", 0x7F>>] do
+        assert {:ok, "application/octet-stream"} = ContentType.detect(data, "active.txt")
+      end
+    end
+
+    test "binary magic still wins when trailing data is not safe text" do
+      data = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0xFF>>
+      assert {:ok, "image/png"} = ContentType.detect(data, "image.txt")
+    end
+
     test "rejects invalid UTF-8 even with a .txt filename" do
       assert {:ok, "application/octet-stream"} =
                ContentType.detect(<<"invalid", 0xFF>>, "notes.txt")
