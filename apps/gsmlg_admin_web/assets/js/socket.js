@@ -6,7 +6,7 @@ import { hooks } from './hooks';
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
 // LiveSocket for LiveView — connects to /live
-const liveSocket = new LiveSocket("/live", Socket, { params: { _csrf_token: csrfToken }, hooks, longPollFallbackMs: 2500 });
+const liveSocket = new LiveSocket("/live", Socket, { params: { _csrf_token: csrfToken }, hooks });
 
 // Separate raw Socket for custom channels — connects to /socket (UserSocket)
 const userSocket = new Socket("/socket", { params: { _csrf_token: csrfToken } });
