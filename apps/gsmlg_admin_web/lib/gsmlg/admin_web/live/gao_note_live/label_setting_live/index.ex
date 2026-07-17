@@ -31,7 +31,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
          socket
          |> put_flash(:info, "Label created")
          |> assign(:form, label_setting_form())
-         |> assign_label_settings_async()}
+         |> assign_label_settings_async()
+         |> push_event("close-dialog", %{id: "gao-note-label-setting-create-modal"})}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply,
@@ -44,7 +45,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
 
     case GaoNote.update_label_setting(label_setting, params) do
       {:ok, _label_setting} ->
-        {:noreply, assign_label_settings_async(socket) |> put_flash(:info, "Label updated")}
+        {:noreply,
+         socket
+         |> assign_label_settings_async()
+         |> put_flash(:info, "Label updated")
+         |> push_event("close-dialog", %{id: edit_modal_id(id)})}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Update failed: #{inspect(reason)}")}
@@ -77,10 +82,16 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
   end
 
   defp label_setting_form do
-    %LabelSetting{}
+    label_setting_form(%LabelSetting{})
+  end
+
+  defp label_setting_form(%LabelSetting{} = label_setting) do
+    label_setting
     |> GaoNote.change_label_setting()
     |> to_form(as: :gao_note_label_setting)
   end
+
+  defp edit_modal_id(id), do: "gao-note-label-setting-edit-modal-#{id}"
 
   defp value_type_options do
     Enum.map(LabelSetting.value_types(), &{&1, &1})
@@ -119,33 +130,64 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
             <.dm_mdi name="label_setting-multiple-outline" class="w-5 h-5 text-primary" />
             <h1 class="font-semibold text-base-content">GaoNote Labels</h1>
           </div>
-          <.link patch={~p"/gao_notes/notes"}>
-            <.dm_btn size="sm" variant="ghost">
-              <.dm_mdi name="notebook-outline" class="w-4 h-4" /> Notes
-            </.dm_btn>
-          </.link>
-        </div>
+          <div class="flex items-center gap-2">
+            <.dm_modal
+              id="gao-note-label-setting-create-modal"
+              size="md"
+              dialog_label="Create label"
+            >
+              <:trigger :let={dialog_id}>
+                <.dm_btn
+                  id="gao-note-label-setting-create"
+                  size="sm"
+                  variant="primary"
+                  type="button"
+                  onclick={"document.getElementById('#{dialog_id}').show()"}
+                >
+                  <.dm_mdi name="plus" class="w-4 h-4" /> New Label
+                </.dm_btn>
+              </:trigger>
+              <:title>Create label</:title>
+              <:body>
+                <.dm_form
+                  id="gao-note-label_setting-form"
+                  for={@form}
+                  phx-submit="create"
+                  class="grid gap-3"
+                >
+                  <.dm_input field={@form[:name]} label="Key" />
+                  <.dm_input field={@form[:color]} label="Color" placeholder="#1f6feb" />
+                  <.dm_select
+                    field={@form[:value_type]}
+                    label="Value Type"
+                    options={value_type_options()}
+                  />
+                  <.dm_input field={@form[:description]} label="Description" />
+                  <:actions>
+                    <div class="flex justify-end gap-2">
+                      <.dm_btn
+                        type="button"
+                        variant="ghost"
+                        onclick="document.getElementById('gao-note-label-setting-create-modal').close()"
+                      >
+                        Cancel
+                      </.dm_btn>
+                      <button type="submit" class="btn btn-primary gap-2">
+                        <.dm_mdi name="plus" class="w-4 h-4" /> Create
+                      </button>
+                    </div>
+                  </:actions>
+                </.dm_form>
+              </:body>
+            </.dm_modal>
 
-        <.dm_form
-          id="gao-note-label_setting-form"
-          for={@form}
-          phx-submit="create"
-          class="grid gap-3 md:grid-cols-[1fr_150px_180px_1fr_auto]"
-        >
-          <.dm_input field={@form[:name]} label="Key" />
-          <.dm_input field={@form[:color]} label="Color" placeholder="#1f6feb" />
-          <.dm_select
-            field={@form[:value_type]}
-            label="Value Type"
-            options={value_type_options()}
-          />
-          <.dm_input field={@form[:description]} label="Description" />
-          <:actions>
-            <button type="submit" class="btn btn-primary gap-2">
-              <.dm_mdi name="plus" class="w-4 h-4" /> Add
-            </button>
-          </:actions>
-        </.dm_form>
+            <.link patch={~p"/gao_notes/notes"}>
+              <.dm_btn size="sm" variant="ghost">
+                <.dm_mdi name="notebook-outline" class="w-4 h-4" /> Notes
+              </.dm_btn>
+            </.link>
+          </div>
+        </div>
 
         <.dm_skeleton_table
           :if={async_loading?(@label_settings)}
@@ -189,6 +231,61 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
           </:col>
           <:col :let={label_setting} label="">
             <div class="flex items-center justify-end gap-1">
+              <% edit_form = label_setting_form(label_setting) %>
+              <.dm_modal
+                id={edit_modal_id(label_setting.id)}
+                size="md"
+                dialog_label={"Edit label #{label_setting.name}"}
+              >
+                <:trigger :let={dialog_id}>
+                  <.dm_btn
+                    id={"gao-note-label-setting-edit-#{label_setting.id}"}
+                    size="xs"
+                    variant="ghost"
+                    type="button"
+                    title="Edit"
+                    onclick={"document.getElementById('#{dialog_id}').show()"}
+                  >
+                    <.dm_mdi name="pencil-outline" class="w-3.5 h-3.5" />
+                  </.dm_btn>
+                </:trigger>
+                <:title>Edit label</:title>
+                <:body>
+                  <.dm_form
+                    id={"gao-note-label-setting-edit-form-#{label_setting.id}"}
+                    for={edit_form}
+                    phx-submit="update"
+                    class="grid gap-3"
+                  >
+                    <input type="hidden" name="id" value={label_setting.id} />
+                    <.dm_input field={edit_form[:name]} label="Key" />
+                    <.dm_input
+                      field={edit_form[:color]}
+                      label="Color"
+                      placeholder="#1f6feb"
+                    />
+                    <.dm_select
+                      field={edit_form[:value_type]}
+                      label="Value Type"
+                      options={value_type_options()}
+                    />
+                    <.dm_input field={edit_form[:description]} label="Description" />
+                    <:actions>
+                      <div class="flex justify-end gap-2">
+                        <.dm_btn
+                          type="button"
+                          variant="ghost"
+                          onclick={"document.getElementById('#{edit_modal_id(label_setting.id)}').close()"}
+                        >
+                          Cancel
+                        </.dm_btn>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                      </div>
+                    </:actions>
+                  </.dm_form>
+                </:body>
+              </.dm_modal>
+
               <.dm_btn
                 size="xs"
                 variant="ghost"

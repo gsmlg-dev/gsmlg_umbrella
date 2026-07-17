@@ -135,7 +135,6 @@ Fields:
 ```text
 id             binary_id primary key
 title          string, required
-description    text, optional, defaults to ""
 content        text, required, Markdown
 created_at
 updated_at
@@ -340,7 +339,6 @@ Validation:
 
 ```text
 title required
-description optional
 content required and interpreted as Markdown
 ```
 
@@ -555,7 +553,6 @@ Default index display:
 
 ```text
 title
-description
 created_at
 updated_at
 actions
@@ -771,7 +768,6 @@ Example shape:
     "note": {
       "id": "...",
       "title": "My Note",
-      "description": "Short description",
       "content": "## Markdown content"
     }
   },
@@ -1112,7 +1108,7 @@ GaoNote is complete when:
 
 ```text
 1. A new app apps/gsmlg_gao_note exists.
-2. Notes support title, description, content, tags, references, and assets.
+2. Notes support title, content, tags, references, and assets.
 3. Assets are S3-backed through GSMLG.Storage.
 4. Admin note UI is available at /gao_notes/notes; tag, reference, and asset index UIs are available at /gao_notes/tags, /gao_notes/references, and /gao_notes/assets.
 5. GaoNote appears under Admin Web → Content only.

@@ -31,7 +31,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   @input_fields %{
     "gao_note.search" => [
       {:query, :string,
-       [description: "Search text matched against note title, description, and markdown content."]},
+       [description: "Search text matched against note title and markdown content."]},
       {:label, :string, [description: "Optional label key or key=value filter."]},
       {:limit, :integer, [description: "Maximum notes to return."]},
       {:offset, :integer, [description: "Number of notes to skip."]}
@@ -45,7 +45,6 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     ],
     "gao_note.create" => [
       {:title, :string, [required: true, description: "Note title."]},
-      {:description, :string, [description: "Optional short note description."]},
       {:content, :string, [required: true, description: "Markdown note content."]},
       {:labels, {:list, :string},
        [description: "Optional labels as key=value strings. Missing label keys are created."]}
@@ -63,7 +62,6 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     "gao_note.update" => [
       {:id, :string, [required: true, description: "GaoNote id."]},
       {:title, :string, [description: "Updated note title."]},
-      {:description, :string, [description: "Updated short note description."]},
       {:content, :string, [description: "Updated markdown note content."]},
       {:labels, {:list, :string},
        [description: "Replacement labels as key=value strings. Missing label keys are created."]}

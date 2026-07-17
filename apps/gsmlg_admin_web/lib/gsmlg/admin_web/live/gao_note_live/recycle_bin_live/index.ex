@@ -117,9 +117,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
               <tr :for={note <- async_value(@notes, [])} id={"deleted-note-#{note.id}"}>
                 <td class="px-4 py-4 align-top">
                   <div class="font-medium text-base-content">{note.title}</div>
-                  <div class="mt-1 line-clamp-2 max-w-xl text-xs text-base-content/60">
-                    {note.description}
-                  </div>
                 </td>
                 <td class="px-4 py-4 align-top">
                   <div class="flex max-w-md flex-wrap gap-1.5">

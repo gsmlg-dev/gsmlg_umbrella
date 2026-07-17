@@ -92,7 +92,6 @@ defmodule GSMLG.GaoNote.MCPTest do
 
       assert tool_property_names(tool) == [
                "content",
-               "description",
                "labels",
                "title"
              ]
@@ -111,7 +110,7 @@ defmodule GSMLG.GaoNote.MCPTest do
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
                  "gao_note.create",
-                 %{"title" => "No Actor", "description" => "x", "content" => "x"},
+                 %{"title" => "No Actor", "content" => "x"},
                  admin_frame(nil)
                )
     end
@@ -125,13 +124,11 @@ defmodule GSMLG.GaoNote.MCPTest do
                  "gao_note.create",
                  %{
                    "title" => "Admin MCP",
-                   "description" => "MCP description",
                    "content" => "MCP content"
                  },
                  frame
                )
 
-      assert created["description"] == "MCP description"
       assert created["content"] == "MCP content"
       assert created["created_at"]
       refute Map.has_key?(created, "body")
@@ -162,14 +159,12 @@ defmodule GSMLG.GaoNote.MCPTest do
                  %{
                    "id" => created["id"],
                    "title" => "Admin MCP Updated",
-                   "description" => "Updated description",
                    "content" => "Updated content"
                  },
                  frame
                )
 
       assert updated["title"] == "Admin MCP Updated"
-      assert updated["description"] == "Updated description"
       assert updated["content"] == "Updated content"
 
       assert %{"structuredContent" => %{"note" => labeled}} =
@@ -308,7 +303,7 @@ defmodule GSMLG.GaoNote.MCPTest do
   defp note_fixture(attrs) do
     attrs =
       Map.merge(
-        %{title: unique_title("Note"), description: "Description", content: "Content"},
+        %{title: unique_title("Note"), content: "Content"},
         attrs
       )
 

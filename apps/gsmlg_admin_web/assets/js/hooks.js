@@ -9,6 +9,10 @@ import "@duskmoon-dev/elements/register";
 import "@duskmoon-dev/el-markdown/register";
 import "@duskmoon-dev/el-markdown-input/register";
 
+window.addEventListener("phx:close-dialog", (event) => {
+  document.getElementById(event.detail.id)?.close?.();
+});
+
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 function resolveTheme(theme) {

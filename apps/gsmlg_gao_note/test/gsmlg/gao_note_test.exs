@@ -24,7 +24,6 @@ defmodule GSMLG.GaoNoteTest do
                GaoNote.create_note(
                  %{
                    title: "Hello, World!",
-                   description: "Short context",
                    content: "# Content",
                    body: "ignored",
                    body_format: "markdown",
@@ -40,7 +39,6 @@ defmodule GSMLG.GaoNoteTest do
                )
 
       assert note.title == "Hello, World!"
-      assert note.description == "Short context"
       assert note.content == "# Content"
       assert %DateTime{} = note.created_at
       assert %DateTime{} = note.updated_at
@@ -57,7 +55,6 @@ defmodule GSMLG.GaoNoteTest do
 
       rendered = GSMLG.GaoNote.Presenter.note(note)
       assert rendered["title"] == "Hello, World!"
-      assert rendered["description"] == "Short context"
       assert rendered["content"] == "# Content"
       assert rendered["created_at"]
       assert rendered["updated_at"]
@@ -73,22 +70,10 @@ defmodule GSMLG.GaoNoteTest do
       refute Map.has_key?(rendered, "visibility")
     end
 
-    test "allows description to be omitted" do
-      assert {:ok, %Note{} = note} =
-               GaoNote.create_note(
-                 %{title: unique_title("No Description"), content: "Content without description"},
-                 actor()
-               )
-
-      assert note.title =~ "No Description"
-      assert note.description in [nil, ""]
-      assert note.content == "Content without description"
-    end
-
-    test "requires title and content only" do
+    test "requires title and content" do
       assert {:error, %Ecto.Changeset{} = changeset} =
                GaoNote.create_note(
-                 %{title: "", description: "", content: ""},
+                 %{title: "", content: ""},
                  nil
                )
 
@@ -97,7 +82,6 @@ defmodule GSMLG.GaoNoteTest do
       errors = errors_on(changeset)
 
       assert %{title: [_ | _], content: [_ | _]} = errors
-      refute Map.has_key?(errors, :description)
     end
 
     test "create, read, update, and delete note lifecycle" do
@@ -113,7 +97,6 @@ defmodule GSMLG.GaoNoteTest do
                  note,
                  %{
                    title: "Renamed",
-                   description: "Updated description",
                    content: "Updated content",
                    body: "ignored",
                    body_format: "ignored",
@@ -129,7 +112,6 @@ defmodule GSMLG.GaoNoteTest do
                )
 
       assert updated.title == "Renamed"
-      assert updated.description == "Updated description"
       assert updated.content == "Updated content"
 
       refute Map.has_key?(updated, :body)
@@ -592,7 +574,7 @@ defmodule GSMLG.GaoNoteTest do
       assert Ecto.assoc_loaded?(listed_note.labels)
 
       assert {:ok, %Note{attachments: [%Attachment{id: updated_attachment_id}]}} =
-               GaoNote.update_note(note, %{description: "Updated"}, actor())
+               GaoNote.update_note(note, %{title: "Updated attachment note"}, actor())
 
       assert updated_attachment_id == attachment.id
     end
@@ -837,7 +819,7 @@ defmodule GSMLG.GaoNoteTest do
   defp note_fixture(attrs \\ %{}) do
     attrs =
       Map.merge(
-        %{title: unique_title("Note"), description: "Description", content: "Content"},
+        %{title: unique_title("Note"), content: "Content"},
         attrs
       )
 

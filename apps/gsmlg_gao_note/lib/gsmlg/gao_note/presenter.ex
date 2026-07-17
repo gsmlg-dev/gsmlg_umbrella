@@ -15,7 +15,6 @@ defmodule GSMLG.GaoNote.Presenter do
     %{
       "id" => note.id,
       "title" => note.title,
-      "description" => note.description,
       "labels" => labels,
       "content" => note.content,
       "attachments" => attachments(note),

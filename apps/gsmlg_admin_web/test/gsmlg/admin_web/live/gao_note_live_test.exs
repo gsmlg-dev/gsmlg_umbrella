@@ -79,7 +79,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
              GaoNote.create_note(
                %{
                  title: "Admin List Note",
-                 description: "Admin description",
                  content: "Admin content",
                  labels: ["Admin Label", "MCP Label"]
                },
@@ -102,8 +101,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/references")
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/assets")
     refute html =~ ~s(id="gao-note-table-loading")
-    refute html =~ "Description"
-    refute html =~ "Admin description"
   end
 
   test "admin can create a note", %{conn: conn} do
@@ -139,7 +136,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     render_submit(view, "save", %{
       "gao_note" => %{
         "title" => "Created From LiveView",
-        "description" => "",
         "content" => "Created content",
         "labels" => ["Existing Label", "New Live Label"]
       }
@@ -148,7 +144,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert [
              %Note{
                title: "Created From LiveView",
-               description: "",
                content: "Created content"
              } = note
            ] =
@@ -170,7 +165,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       render_submit(view, "save", %{
         "gao_note" => %{
           "title" => "",
-          "description" => "",
           "content" => ""
         }
       })
@@ -178,7 +172,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ "can&#39;t be blank"
     assert html =~ ~s(id="gao_note_title-errors")
     assert html =~ ~s(id="gao_note_content-errors")
-    refute html =~ ~s(id="gao_note_description-errors")
   end
 
   test "admin can edit a note with the markdown input", %{conn: conn, user: user} do
@@ -201,7 +194,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     render_submit(view, "save", %{
       "gao_note" => %{
         "title" => "Edited Markdown Note",
-        "description" => "",
         "content" => "## Edited content"
       }
     })
@@ -316,6 +308,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
     assert html =~ "Existing Managed Label"
     assert html =~ ~s(id="gao-note-label_settings-table")
+    assert html =~ ~s(id="gao-note-label-setting-create-modal")
+    assert html =~ ~s(id="gao-note-label-setting-create")
     refute html =~ "Slug"
     refute html =~ ~s(id="gao-note-label_settings-loading")
 
@@ -331,6 +325,30 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
            ] = GaoNote.list_label_settings()
 
     assert render_async(view) =~ "Research"
+
+    view
+    |> form("#gao-note-label-setting-edit-form-#{label_setting.id}", %{
+      "gao_note_label_setting" => %{
+        "name" => "Research Updated",
+        "color" => "#ff5500",
+        "value_type" => "version",
+        "description" => "Release stream"
+      }
+    })
+    |> render_submit()
+
+    assert [
+             %LabelSetting{name: "Existing Managed Label"},
+             %LabelSetting{
+               id: label_setting_id,
+               name: "Research Updated",
+               color: "#ff5500",
+               value_type: "version",
+               description: "Release stream"
+             }
+           ] = GaoNote.list_label_settings()
+
+    assert label_setting_id == label_setting.id
 
     view
     |> element(~s([phx-click="delete"][phx-value-id="#{label_setting.id}"]))

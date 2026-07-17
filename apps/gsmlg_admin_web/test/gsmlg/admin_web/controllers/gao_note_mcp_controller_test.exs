@@ -86,7 +86,6 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
 
     assert create |> get_in(["inputSchema", "properties"]) |> Map.keys() |> Enum.sort() == [
              "content",
-             "description",
              "labels",
              "title"
            ]

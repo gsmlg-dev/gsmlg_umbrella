@@ -82,7 +82,6 @@ defmodule GSMLG.Web.GaoNoteMCPControllerTest do
 
     assert note["id"] == created_note.id
     assert note["title"] == "MCP Visible"
-    assert note["description"] == "Description"
     assert note["content"] == "Content"
     assert note["created_at"]
     refute Map.has_key?(note, "body")
@@ -114,7 +113,6 @@ defmodule GSMLG.Web.GaoNoteMCPControllerTest do
       Map.merge(
         %{
           title: "Draft #{System.unique_integer([:positive])}",
-          description: "Description",
           content: "Content"
         },
         attrs

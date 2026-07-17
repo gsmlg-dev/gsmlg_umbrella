@@ -23,12 +23,6 @@ defmodule GSMLG.GaoNote.NoteChangesetTest do
       )
     end
 
-    test "defaults an omitted description to an empty string" do
-      changeset = Note.create_changeset(%Note{}, valid_attrs())
-
-      assert changeset.valid?
-      assert Ecto.Changeset.get_field(changeset, :description) == ""
-    end
   end
 
   describe "changeset/2" do
@@ -60,6 +54,6 @@ defmodule GSMLG.GaoNote.NoteChangesetTest do
   end
 
   defp existing_note do
-    %Note{title: "Existing title", description: "", content: "Existing content"}
+    %Note{title: "Existing title", content: "Existing content"}
   end
 end

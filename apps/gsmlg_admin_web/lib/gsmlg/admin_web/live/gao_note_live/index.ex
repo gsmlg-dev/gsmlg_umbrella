@@ -12,6 +12,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        active_menu: "gao_note_list",
        notes: AsyncResult.loading(),
        filters: %{},
+       label_filter_key: "",
+       label_filter_operator: "=",
+       label_filter_value: "",
        selected_labels: [],
        label_options: AsyncResult.loading(),
        label_key_input: "",
@@ -67,8 +70,67 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   @impl true
-  def handle_event("filter", %{"filters" => filters}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/gao_notes/notes?#{filters}")}
+  def handle_event("search_form_changed", params, socket) do
+    filters = filter_params(Map.get(params, "filters", %{}))
+    label_filter = Map.get(params, "label_filter", %{})
+
+    {:noreply,
+     assign(socket,
+       filters: filters,
+       label_filter_key: Map.get(label_filter, "key", ""),
+       label_filter_operator: normalize_filter_operator(Map.get(label_filter, "operator")),
+       label_filter_value: Map.get(label_filter, "value", "")
+     )}
+  end
+
+  def handle_event("search", %{"filters" => params}, socket) do
+    filters = filter_params(params)
+    {:noreply, push_patch(socket, to: note_filter_path(filters))}
+  end
+
+  def handle_event("add_search_filter", _params, socket) do
+    key = String.trim(socket.assigns.label_filter_key)
+    value = String.trim(socket.assigns.label_filter_value)
+
+    if blank?(key) do
+      {:noreply, socket}
+    else
+      label_filter = "#{key}=#{value}"
+
+      filters =
+        Map.update!(socket.assigns.filters, "labels", fn labels ->
+          normalize_label_filters(labels ++ [label_filter])
+        end)
+
+      {:noreply,
+       assign(socket,
+         filters: filters,
+         label_filter_key: "",
+         label_filter_operator: "=",
+         label_filter_value: ""
+       )}
+    end
+  end
+
+  def handle_event("remove_search_filter", %{"filter" => label_filter}, socket) do
+    filters =
+      Map.update!(socket.assigns.filters, "labels", fn labels ->
+        Enum.reject(labels, &(&1 == label_filter))
+      end)
+
+    {:noreply, assign(socket, :filters, filters)}
+  end
+
+  def handle_event("clear_search_filters", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(
+       filters: %{"search" => "", "labels" => []},
+       label_filter_key: "",
+       label_filter_operator: "=",
+       label_filter_value: ""
+     )
+     |> push_patch(to: ~p"/gao_notes/notes")}
   end
 
   def handle_event("validate", %{"gao_note" => params}, socket) do
@@ -172,17 +234,44 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   defp filter_params(params) do
     %{
       "search" => Map.get(params, "search", ""),
-      "label" => Map.get(params, "label", "")
+      "labels" =>
+        params
+        |> Map.get("labels", Map.get(params, "label", []))
+        |> normalize_label_filters()
     }
   end
 
   defp filter_opts(filters) do
     [
       search: blank_to_nil(filters["search"]),
-      label: blank_to_nil(filters["label"]),
+      label: filters["labels"],
       limit: 100
     ]
   end
+
+  defp note_filter_path(filters) do
+    query =
+      []
+      |> maybe_put_query(:search, blank_to_nil(filters["search"]))
+      |> maybe_put_query(:labels, filters["labels"])
+
+    ~p"/gao_notes/notes?#{query}"
+  end
+
+  defp maybe_put_query(query, _key, value) when value in [nil, "", []], do: query
+  defp maybe_put_query(query, key, value), do: Keyword.put(query, key, value)
+
+  defp normalize_label_filters(filters) do
+    filters
+    |> List.wrap()
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&blank?/1)
+    |> Enum.uniq_by(&String.downcase/1)
+  end
+
+  defp normalize_filter_operator("="), do: "="
+  defp normalize_filter_operator(_operator), do: "="
 
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(value), do: value
@@ -347,12 +436,79 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
 
         <form
           id="gao-note-filter-form"
-          phx-change="filter"
-          phx-submit="filter"
-          class="grid gap-3 md:grid-cols-2"
+          phx-change="search_form_changed"
+          phx-submit="search"
+          class="grid gap-2 rounded-xl bg-base-200/60 p-3"
         >
-          <.dm_input name="filters[search]" value={@filters["search"]} label="Search" />
-          <.dm_input name="filters[label]" value={@filters["label"]} label="Label" />
+          <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
+            <.dm_input
+              id="gao-note-search-input"
+              name="filters[search]"
+              value={@filters["search"]}
+              placeholder="Search notes"
+              aria-label="Search notes"
+            />
+            <.dm_btn type="submit" variant="primary">
+              <.dm_mdi name="magnify" class="h-4 w-4" /> Search
+            </.dm_btn>
+            <.dm_btn type="button" variant="ghost" phx-click="clear_search_filters">
+              Clear
+            </.dm_btn>
+          </div>
+
+          <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_auto]">
+            <.dm_input
+              id="gao-note-filter-key"
+              name="label_filter[key]"
+              value={@label_filter_key}
+              placeholder="key"
+              aria-label="Label key"
+            />
+            <.dm_select
+              id="gao-note-filter-operator"
+              name="label_filter[operator]"
+              value={@label_filter_operator}
+              options={[{"=", "="}]}
+              aria-label="Label operator"
+            />
+            <.dm_input
+              id="gao-note-filter-value"
+              name="label_filter[value]"
+              value={@label_filter_value}
+              placeholder="value"
+              aria-label="Label value"
+            />
+            <.dm_btn type="button" variant="secondary" phx-click="add_search_filter">
+              Add filter
+            </.dm_btn>
+          </div>
+
+          <input
+            :for={label_filter <- @filters["labels"]}
+            type="hidden"
+            name="filters[labels][]"
+            value={label_filter}
+          />
+
+          <div :if={@filters["labels"] != []} class="flex flex-wrap gap-2">
+            <.dm_badge
+              :for={label_filter <- @filters["labels"]}
+              variant="primary"
+              soft
+              class="gap-1"
+            >
+              <span>{label_filter}</span>
+              <button
+                type="button"
+                class="rounded-full"
+                phx-click="remove_search_filter"
+                phx-value-filter={label_filter}
+                aria-label={"Remove filter #{label_filter}"}
+              >
+                <.dm_mdi name="close" class="h-3 w-3" />
+              </button>
+            </.dm_badge>
+          </div>
         </form>
 
         <.dm_skeleton_table
@@ -489,11 +645,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           class="grid gap-4"
         >
           <.dm_input field={@form[:title]} label="Title" errors={field_errors(@form[:title])} />
-          <.dm_input
-            field={@form[:description]}
-            label="Description"
-            errors={field_errors(@form[:description])}
-          />
 
           <div class="grid gap-2">
             <.dm_label for="gao-note-labels">Labels</.dm_label>
@@ -651,10 +802,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
             <div class="font-mono text-xs text-base-content/50">Updated</div>
             <div class="font-mono text-xs">{format_dt(@note.updated_at)}</div>
           </div>
-        </div>
-
-        <div class="text-sm text-base-content/70">
-          {@note.description}
         </div>
 
         <div :if={note_labels(@note) != []} class="flex flex-wrap gap-2">

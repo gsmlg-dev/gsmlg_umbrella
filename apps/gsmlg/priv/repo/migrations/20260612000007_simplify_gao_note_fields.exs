@@ -3,7 +3,6 @@ defmodule GSMLG.Repo.Migrations.SimplifyGaoNoteFields do
 
   def up do
     alter table(:gao_notes) do
-      add_if_not_exists :description, :text, null: false, default: ""
       add_if_not_exists :content, :text, null: false, default: ""
       add_if_not_exists :created_at, :utc_datetime_usec, null: false, default: fragment("now()")
     end

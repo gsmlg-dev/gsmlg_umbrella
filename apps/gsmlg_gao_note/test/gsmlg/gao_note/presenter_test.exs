@@ -12,7 +12,6 @@ defmodule GSMLG.GaoNote.PresenterTest do
       Presenter.note(%Note{
         id: "note-1",
         title: "Presenter hard break",
-        description: "Final note shape",
         content: "# Note",
         labels: [],
         attachments: [],
@@ -24,7 +23,6 @@ defmodule GSMLG.GaoNote.PresenterTest do
     assert presented == %{
              "id" => "note-1",
              "title" => "Presenter hard break",
-             "description" => "Final note shape",
              "content" => "# Note",
              "labels" => [],
              "attachments" => [],

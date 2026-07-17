@@ -10,7 +10,6 @@ defmodule GSMLG.GaoNote.Note do
 
   schema "gao_notes" do
     field(:title, :string)
-    field(:description, :string)
     field(:content, :string)
     field(:deleted_at, :utc_datetime_usec)
 
@@ -22,22 +21,13 @@ defmodule GSMLG.GaoNote.Note do
 
   def changeset(note, attrs) do
     note
-    |> cast(attrs, [:title, :description, :content])
-    |> put_default_description()
+    |> cast(attrs, [:title, :content])
     |> validate_required([:title, :content])
   end
 
   def create_changeset(note, attrs) do
     note
-    |> cast(attrs, [:title, :description, :content])
-    |> put_default_description()
+    |> cast(attrs, [:title, :content])
     |> validate_required([:title, :content])
-  end
-
-  defp put_default_description(changeset) do
-    case get_field(changeset, :description) do
-      nil -> put_change(changeset, :description, "")
-      _description -> changeset
-    end
   end
 end

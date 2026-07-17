@@ -28,7 +28,6 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
       assert %{"data" => [rendered]} = json_response(conn, 200)
       assert rendered["id"] == note.id
       assert rendered["title"] == "Public Memory"
-      assert rendered["description"] == "Description"
       assert rendered["content"] == "Content"
 
       assert [
@@ -135,7 +134,6 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
       Map.merge(
         %{
           title: "Public API #{System.unique_integer([:positive])}",
-          description: "Description",
           content: "Content"
         },
         attrs

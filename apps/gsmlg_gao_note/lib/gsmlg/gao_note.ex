@@ -19,8 +19,6 @@ defmodule GSMLG.GaoNote do
   @note_attr_keys %{
     "title" => :title,
     :title => :title,
-    "description" => :description,
-    :description => :description,
     "content" => :content,
     :content => :content,
     "labels" => :labels,
@@ -625,29 +623,37 @@ defmodule GSMLG.GaoNote do
     where(
       query,
       [n],
-      ilike(n.title, ^pattern) or ilike(n.description, ^pattern) or ilike(n.content, ^pattern)
+      ilike(n.title, ^pattern) or ilike(n.content, ^pattern)
     )
   end
 
   defp filter_by_label(query, nil), do: query
   defp filter_by_label(query, ""), do: query
 
-  defp filter_by_label(query, label_filter) do
-    case normalize_label_filter(label_filter) do
-      {:ok, label_key, nil} ->
-        query
-        |> join(:inner, [n], label in assoc(n, :labels), as: :filter_labels)
-        |> join(:inner, [filter_labels: label], t in assoc(label, :label_setting),
-          as: :filter_label_settings
-        )
-        |> where([filter_label_settings: t], fragment("lower(?)", t.name) == ^label_key)
+  defp filter_by_label(query, label_filters) when is_list(label_filters) do
+    Enum.reduce(label_filters, query, fn label_filter, filtered_query ->
+      filter_by_label(filtered_query, label_filter)
+    end)
+  end
 
+  defp filter_by_label(query, label_filter) when is_binary(label_filter) do
+    case normalize_label_filter(label_filter) do
       {:ok, label_key, value} ->
-        query
-        |> join(:inner, [n], label in assoc(n, :labels), as: :filter_labels)
-        |> join(:inner, [filter_labels: label], t in assoc(label, :label_setting), as: :filter_label_settings)
-        |> where([filter_label_settings: t], fragment("lower(?)", t.name) == ^label_key)
-        |> where([filter_labels: label], label.value == ^value)
+        matching_note_ids =
+          from(label in GSMLG.GaoNote.Label,
+            join: setting in assoc(label, :label_setting),
+            where: fragment("lower(?)", setting.name) == ^label_key,
+            select: label.note_id
+          )
+
+        matching_note_ids =
+          if is_nil(value) do
+            matching_note_ids
+          else
+            where(matching_note_ids, [label, _setting], label.value == ^value)
+          end
+
+        where(query, [note], note.id in subquery(matching_note_ids))
 
       :error ->
         query
