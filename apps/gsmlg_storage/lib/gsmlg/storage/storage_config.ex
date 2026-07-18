@@ -33,6 +33,7 @@ defmodule GSMLG.Storage.StorageConfig do
     config
     |> cast(attrs, @non_credential_fields ++ @credential_fields)
     |> reject_blank_credentials()
+    |> validate_required([:s3_bucket])
     |> validate_number(:max_file_size, greater_than: 0)
     |> validate_number(:cleanup_interval, greater_than: 0)
     |> validate_number(:retention_window, greater_than: 0)

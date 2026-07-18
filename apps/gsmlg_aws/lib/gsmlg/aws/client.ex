@@ -124,7 +124,7 @@ defmodule GSMLG.AWS.HttpClient do
         # {Tesla.Middleware.FollowRedirects, max_redirects: 3},
         Tesla.Middleware.JSON,
         # {Tesla.Middleware.Headers, [{"Accept", "application/json"}]},
-        Tesla.Middleware.Logger
+        {Tesla.Middleware.Logger, debug: false, filter_headers: ["authorization"]}
       ],
       {Tesla.Adapter.Finch, name: GSMLG.AWS.Finch}
     )

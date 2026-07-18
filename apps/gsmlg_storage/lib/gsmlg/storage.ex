@@ -741,16 +741,30 @@ defmodule GSMLG.Storage do
   defp apply_config(config) do
     if config.s3_bucket, do: Application.put_env(:gsmlg_storage, :s3_bucket, config.s3_bucket)
 
-    if config.s3_endpoint,
-      do: Application.put_env(:gsmlg_storage, :s3_endpoint, config.s3_endpoint)
+    if config.s3_endpoint in [nil, ""] do
+      Application.delete_env(:gsmlg_storage, :s3_endpoint)
+    else
+      Application.put_env(:gsmlg_storage, :s3_endpoint, config.s3_endpoint)
+    end
 
-    if config.s3_region, do: System.put_env("AWS_REGION", config.s3_region)
+    if config.s3_region,
+      do: Application.put_env(:gsmlg_storage, :s3_region, config.s3_region)
 
     if config.s3_access_key_id,
-      do: System.put_env("AWS_ACCESS_KEY_ID", config.s3_access_key_id)
+      do:
+        Application.put_env(
+          :gsmlg_storage,
+          :s3_access_key_id,
+          config.s3_access_key_id
+        )
 
     if config.s3_secret_access_key,
-      do: System.put_env("AWS_SECRET_ACCESS_KEY", config.s3_secret_access_key)
+      do:
+        Application.put_env(
+          :gsmlg_storage,
+          :s3_secret_access_key,
+          config.s3_secret_access_key
+        )
 
     if config.max_file_size,
       do: Application.put_env(:gsmlg_storage, :max_file_size, config.max_file_size)

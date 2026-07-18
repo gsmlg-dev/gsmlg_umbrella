@@ -32,7 +32,7 @@ defmodule GSMLG.Storage.S3Client do
   def get_object(bucket, key) do
     with {:ok, client} <- get_client() do
       case client |> AWS.S3.get_object(bucket, key) do
-        {:ok, body, _resp} -> {:ok, body}
+        {:ok, body, _resp} -> extract_body(body)
         {:error, _} = error -> error
       end
     end
@@ -49,7 +49,11 @@ defmodule GSMLG.Storage.S3Client do
 
     with {:ok, client} <- get_client() do
       case get_object_with_range(client, bucket, key, range) do
-        {:ok, body, _resp} -> {:ok, body}
+        {:ok, body, _resp} -> extract_body(body)
+        {:error, {:unexpected_response, %{status_code: 206, body: body}}}
+        when is_binary(body) ->
+          {:ok, body}
+
         {:error, _} = error -> error
       end
     end
@@ -77,6 +81,10 @@ defmodule GSMLG.Storage.S3Client do
     apply(AWS.S3, :get_object, arguments)
   end
 
+  defp extract_body(%{"Body" => body}) when is_binary(body), do: {:ok, body}
+  defp extract_body(body) when is_binary(body), do: {:ok, body}
+  defp extract_body(_body), do: {:error, :invalid_s3_response_body}
+
   # Build an AWS client for storage operations.
   # When a custom S3 endpoint is configured (e.g. Minio), creates a client
   # pointing at that endpoint. Otherwise falls back to the shared AWS client.
@@ -84,42 +92,36 @@ defmodule GSMLG.Storage.S3Client do
     endpoint = Application.get_env(:gsmlg_storage, :s3_endpoint)
     region = Application.get_env(:gsmlg_storage, :s3_region, "us-east-1")
 
-    if endpoint not in [nil, ""] do
-      build_custom_client(endpoint, region)
-    else
-      {:ok, GSMLG.AWS.Client.get_client()}
+    with {:ok, access_key_id, secret_access_key} <- credentials(),
+         client <-
+           access_key_id
+           |> AWS.Client.create(secret_access_key, region)
+           |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []}) do
+      configure_endpoint(client, endpoint)
     end
   end
 
-  defp build_custom_client(endpoint_url, region) do
+  defp configure_endpoint(client, endpoint) when endpoint in [nil, ""], do: {:ok, client}
+
+  defp configure_endpoint(client, endpoint_url) do
     with {:ok, uri} <- parse_endpoint(endpoint_url) do
-      access_key_id =
-        System.get_env("AWS_ACCESS_KEY_ID") ||
-          Application.get_env(:gsmlg_storage, :s3_access_key_id)
+      {:ok, %{client | endpoint: uri.host, proto: uri.scheme, port: uri.port}}
+    end
+  end
 
-      secret_access_key =
-        System.get_env("AWS_SECRET_ACCESS_KEY") ||
-          Application.get_env(:gsmlg_storage, :s3_secret_access_key)
+  defp credentials do
+    access_key_id =
+      Application.get_env(:gsmlg_storage, :s3_access_key_id) ||
+        System.get_env("AWS_ACCESS_KEY_ID")
 
-      if is_nil(access_key_id) or is_nil(secret_access_key) do
-        Logger.error(
-          "S3 custom endpoint configured (#{endpoint_url}) but credentials are missing. " <>
-            "Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars or configure via admin UI."
-        )
-      end
+    secret_access_key =
+      Application.get_env(:gsmlg_storage, :s3_secret_access_key) ||
+        System.get_env("AWS_SECRET_ACCESS_KEY")
 
-      client =
-        %AWS.Client{
-          access_key_id: access_key_id,
-          secret_access_key: secret_access_key,
-          region: region,
-          endpoint: uri.host,
-          proto: uri.scheme,
-          port: uri.port
-        }
-        |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, []})
-
-      {:ok, client}
+    case {access_key_id, secret_access_key} do
+      {value, _secret} when value in [nil, ""] -> {:error, :missing_s3_access_key_id}
+      {_access, value} when value in [nil, ""] -> {:error, :missing_s3_secret_access_key}
+      {access, secret} -> {:ok, access, secret}
     end
   end
 
