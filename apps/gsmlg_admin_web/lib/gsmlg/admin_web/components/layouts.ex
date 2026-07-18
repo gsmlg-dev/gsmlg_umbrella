@@ -36,18 +36,20 @@ defmodule GSMLG.AdminWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <.local_app_bar page_title={@page_title} />
+    <div class="flex h-dvh min-h-0 flex-col overflow-hidden">
+      <.local_app_bar page_title={@page_title} />
 
-    <.dm_flash_group flash={@flash} />
+      <.dm_flash_group flash={@flash} />
 
-    <div class="flex flex-1 w-full min-h-0 bg-surface text-on-surface">
-      <GSMLG.AdminWeb.Components.AdminNavigation.left_menu
-        active_menu={@active_menu}
-        current_path={@current_path}
-      />
-      <main class="flex-1 min-w-0 bg-surface text-on-surface overflow-auto">
-        {render_slot(@inner_block)}
-      </main>
+      <div class="flex flex-1 w-full min-h-0 bg-surface text-on-surface">
+        <GSMLG.AdminWeb.Components.AdminNavigation.left_menu
+          active_menu={@active_menu}
+          current_path={@current_path}
+        />
+        <main class="flex-1 min-w-0 bg-surface text-on-surface overflow-auto">
+          {render_slot(@inner_block)}
+        </main>
+      </div>
     </div>
     """
   end

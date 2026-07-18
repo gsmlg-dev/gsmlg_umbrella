@@ -105,7 +105,7 @@ defmodule GSMLG.AdminWeb.Router do
 
     live("/gao_notes/notes", GaoNoteLive.Index, :index)
     live("/gao_notes/notes/new", GaoNoteLive.Index, :new)
-    live("/gao_notes/notes/:id", GaoNoteLive.Index, :show)
+    live("/gao_notes/notes/:id/show", GaoNoteLive.Index, :show)
     live("/gao_notes/notes/:id/edit", GaoNoteLive.Index, :edit)
     live("/gao_notes/label_settings", GaoNoteLive.LabelSettingLive.Index, :index)
     live("/gao_notes/recycle_bin", GaoNoteLive.RecycleBinLive.Index, :index)

@@ -113,7 +113,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     if blank?(key) do
       {:noreply, socket}
     else
-      label_filter = "#{key}=#{value}"
+      label_filter = if blank?(value), do: key, else: "#{key}=#{value}"
 
       filters =
         Map.update!(socket.assigns.filters, "labels", fn labels ->
@@ -121,12 +121,14 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
         end)
 
       {:noreply,
-       assign(socket,
+       socket
+       |> assign(
          filters: filters,
          label_filter_key: "",
          label_filter_operator: "=",
          label_filter_value: ""
-       )}
+       )
+       |> push_patch(to: note_filter_path(filters))}
     end
   end
 
@@ -136,7 +138,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
         Enum.reject(labels, &(&1 == label_filter))
       end)
 
-    {:noreply, assign(socket, :filters, filters)}
+    {:noreply,
+     socket
+     |> assign(:filters, filters)
+     |> push_patch(to: note_filter_path(filters))}
   end
 
   def handle_event("clear_search_filters", _params, socket) do
@@ -174,6 +179,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
      socket
      |> cancel_attachment_uploads()
      |> assign(:attachment_modal, %{
+       open: true,
        operation: :new,
        draft_ref: nil,
        immutable_id: false,
@@ -212,6 +218,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           socket
           |> cancel_attachment_uploads()
           |> assign(:attachment_modal, %{
+            open: true,
             operation: :replace,
             draft_ref: ref,
             immutable_id: true,
@@ -285,6 +292,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
          socket
          |> cancel_attachment_uploads()
          |> assign(:attachment_modal, %{
+           open: true,
            operation: operation,
            draft_ref: ref,
            immutable_id: is_binary(draft.persisted_path),
@@ -345,10 +353,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   def handle_event("cancel_attachment_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> reset_attachment_modal()
-     |> push_event("close-dialog", %{id: "gao-note-attachment-modal"})}
+    {:noreply, reset_attachment_modal(socket)}
   end
 
   def handle_event("remove_attachment", %{"ref" => ref}, socket) do
@@ -449,7 +454,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
      socket
      |> put_flash(:info, message)
      |> assign_attachment_editor([])
-     |> push_patch(to: ~p"/gao_notes/notes/#{note.id}")}
+     |> push_patch(to: ~p"/gao_notes/notes/#{note.id}/show")}
   end
 
   defp handle_note_save_result(socket, {:error, %Ecto.Changeset{} = changeset}, _action) do
@@ -496,6 +501,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
       attachment_drafts: drafts,
       attachment_order: order,
       attachment_modal: %{
+        open: false,
         operation: :new,
         draft_ref: nil,
         immutable_id: false,
@@ -702,7 +708,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
       :binary.match(value, <<0>>) != :nomatch ->
         put_attachment_error(errors, field, "must not contain NUL bytes")
 
-      opts[:required] and String.trim(value) == "" ->
+      Keyword.get(opts, :required, false) and String.trim(value) == "" ->
         put_attachment_error(errors, field, "can't be blank")
 
       true ->
@@ -770,9 +776,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
      socket
      |> put_attachment_fields(fields)
      |> stage_attachment_draft(metadata, staged_content)
-     |> reset_attachment_modal()
-     |> assign(:attachment_save_error, nil)
-     |> push_event("close-dialog", %{id: "gao-note-attachment-modal"})}
+     |> reset_attachment_modal(cancel_uploads: false)
+     |> assign(:attachment_save_error, nil)}
   end
 
   defp modal_attachment_content(socket, _fields, _requested_source)
@@ -944,11 +949,18 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     end
   end
 
-  defp reset_attachment_modal(socket) do
+  defp reset_attachment_modal(socket, opts \\ []) do
+    socket =
+      if Keyword.get(opts, :cancel_uploads, true) do
+        cancel_attachment_uploads(socket)
+      else
+        socket
+      end
+
     socket
-    |> cancel_attachment_uploads()
     |> assign(
       attachment_modal: %{
+        open: false,
         operation: :new,
         draft_ref: nil,
         immutable_id: false,
@@ -1198,38 +1210,38 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           </p>
         </div>
 
-        <.dm_modal
-          id="gao-note-attachment-modal"
-          size="lg"
-          responsive
-          hide_close
-          no-dismiss
-          dialog_label={attachment_modal_title(@modal)}
+        <.dm_btn
+          :if={!@modal.open}
+          id="gao-note-add-attachment"
+          type="button"
+          size="sm"
+          variant="secondary"
+          phx-click="open_attachment_modal"
+          phx-value-operation="new"
         >
-          <:trigger :let={dialog_id}>
-            <.dm_btn
-              id="gao-note-add-attachment"
-              type="button"
-              size="sm"
-              variant="secondary"
-              phx-click="open_attachment_modal"
-              phx-value-operation="new"
-              onclick={"document.getElementById('#{dialog_id}').show()"}
-            >
-              <.dm_mdi name="plus" class="h-4 w-4" /> Add attachment
-            </.dm_btn>
-          </:trigger>
+          <.dm_mdi name="plus" class="h-4 w-4" /> Add attachment
+        </.dm_btn>
+      </div>
 
-          <:title>{attachment_modal_title(@modal)}</:title>
+      <section
+        :if={@modal.open}
+        id="gao-note-attachment-inline-form"
+        class="grid gap-4 rounded-xl border border-secondary/40 bg-surface-container p-4"
+      >
+        <div class="grid gap-1">
+          <h3 class="font-semibold">{attachment_modal_title(@modal)}</h3>
+          <p class="text-sm text-on-surface-variant">
+            Stage the attachment here, then save the note to persist it.
+          </p>
+        </div>
 
-          <:body>
-            <.dm_form
-              id="gao-note-attachment-form"
-              for={@form}
-              phx-change="attachment_modal_changed"
-              phx-submit="stage_attachment"
-              class="grid gap-4"
-            >
+        <.dm_form
+          id="gao-note-attachment-form"
+          for={@form}
+          phx-change="attachment_modal_changed"
+          phx-submit="stage_attachment"
+          class="grid gap-4"
+        >
               <div
                 :if={attachment_errors_for(@errors, "base") != []}
                 class="rounded-xl bg-error-container p-3 text-sm text-on-error-container"
@@ -1271,7 +1283,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
                 <.dm_select
                   field={@form[:source]}
                   label="Source"
-                  options={[{"File", "file"}, {"UTF-8 text", "text"}]}
+                  options={[{"file", "File"}, {"text", "UTF-8 text"}]}
                   errors={attachment_errors_for(@errors, "source")}
                 />
 
@@ -1366,10 +1378,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
                   </button>
                 </div>
               </:actions>
-            </.dm_form>
-          </:body>
-        </.dm_modal>
-      </div>
+        </.dm_form>
+      </section>
 
       <div
         :if={@save_error}
@@ -1746,8 +1756,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
               id="gao-note-filter-value"
               name="label_filter[value]"
               value={@label_filter_value}
-              placeholder="value"
-              aria-label="Label value"
+              placeholder="value (optional)"
+              aria-label="Label value (optional)"
             />
             <.dm_btn type="button" variant="secondary" phx-click="add_search_filter">
               Add filter
@@ -1801,7 +1811,12 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           data={async_value(@notes, [])}
         >
           <:col :let={note} label="Title">
-            <span class="font-medium text-sm">{note.title}</span>
+            <.link
+              patch={~p"/gao_notes/notes/#{note.id}/show"}
+              class="font-medium text-sm text-primary hover:underline"
+            >
+              {note.title}
+            </.link>
           </:col>
           <:col :let={note} label="Labels">
             <div class="flex min-w-32 max-w-56 flex-wrap gap-1">
@@ -1819,7 +1834,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           </:col>
           <:col :let={note} label="">
             <div class="flex items-center gap-1">
-              <.link patch={~p"/gao_notes/notes/#{note.id}"}>
+              <.link patch={~p"/gao_notes/notes/#{note.id}/show"}>
                 <.dm_btn size="xs" variant="ghost" title="View">
                   <.dm_mdi name="eye-outline" class="w-3.5 h-3.5" />
                 </.dm_btn>
