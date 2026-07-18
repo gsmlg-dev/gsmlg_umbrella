@@ -4,6 +4,33 @@ defmodule GSMLG.Storage.ContentTypeTest do
   alias GSMLG.Storage.ContentType
 
   describe "detect/1" do
+    test "detects AVIF primary brands before generic MP4" do
+      for brand <- ["avif", "avis"] do
+        data =
+          <<24::32, "ftyp", brand::binary-size(4), 0::32, "mif1", "miaf">>
+
+        assert ContentType.detect(data) == {:ok, "image/avif"}
+      end
+    end
+
+    test "detects AVIF compatible brands at four-byte brand positions" do
+      avif_data =
+        <<28::32, "ftyp", "mif1", 0::32, "mif1", "avif", "miaf">>
+
+      avis_data =
+        <<28::32, "ftyp", "mif1", 0::32, "mif1", "miaf", "avis">>
+
+      assert ContentType.detect(avif_data) == {:ok, "image/avif"}
+      assert ContentType.detect(avis_data) == {:ok, "image/avif"}
+    end
+
+    test "keeps ordinary ISO-BMFF files as MP4" do
+      data =
+        <<24::32, "ftyp", "isom", 0::32, "isom", "mp42">>
+
+      assert ContentType.detect(data) == {:ok, "video/mp4"}
+    end
+
     test "detects JPEG from magic bytes" do
       data = <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10>> <> "rest of file"
       assert {:ok, "image/jpeg"} = ContentType.detect(data)

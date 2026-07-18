@@ -1,9 +1,10 @@
 defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
-  alias Backplane.McpProtocol.Server.Response
+  alias Backplane.McpProtocol.MCP.Error
+  alias Backplane.McpProtocol.Server.Frame
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.MCP.Tools
+  alias GSMLG.GaoNote.MCP.AdminServer
   alias Phoenix.LiveView.AsyncResult
 
   @server_name "gsmlg-gao-note-admin"
@@ -12,7 +13,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    selected_tool = List.first(Tools.admin_tools())
+    selected_tool =
+      AdminServer.__components__(:tool)
+      |> List.first()
+      |> Map.fetch!(:name)
 
     {:ok,
      socket
@@ -124,47 +128,29 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
       server_name: @server_name,
       version: @server_version,
       endpoint: @endpoint_path,
-      tools: Enum.map(Tools.admin_tools(), &tool_info/1),
-      resources: resources()
+      tools: Enum.map(AdminServer.__components__(:tool), &tool_info/1),
+      resources: Enum.map(AdminServer.__components__(:resource), &resource_info/1)
     }
   end
 
-  defp tool_info(name) do
-    annotations = Tools.annotations(name)
+  defp tool_info(tool) do
+    annotations = tool.annotations || %{}
 
     %{
-      name: name,
-      description: Tools.description(name),
-      read_only?: annotations["readOnlyHint"],
-      destructive?: annotations["destructiveHint"]
+      name: tool.name,
+      description: tool.description,
+      read_only?: Map.get(annotations, "readOnlyHint", Map.get(annotations, :readOnlyHint, false)),
+      destructive?:
+        Map.get(annotations, "destructiveHint", Map.get(annotations, :destructiveHint, false))
     }
   end
 
-  defp resources do
-    [
-      %{
-        name: "gao_note.note",
-        uri: "gaonote://notes/{id}",
-        mime_type: "text/markdown"
-      },
-      %{
-        name: "gao_note.note.metadata",
-        uri: "gaonote://notes/{id}/metadata",
-        mime_type: "application/json"
-      },
-      %{
-        name: "gao_note.note.references",
-        uri: "gaonote://notes/{id}/references",
-        mime_type: "application/json"
-      },
-      %{
-        name: "gao_note.note.assets",
-        uri: "gaonote://notes/{id}/assets",
-        mime_type: "application/json"
-      },
-      %{name: "gao_note.label_setting", uri: "gaonote://label_settings/{id}", mime_type: "application/json"},
-      %{name: "gao_note.asset", uri: "gaonote://assets/{asset_id}", mime_type: "application/json"}
-    ]
+  defp resource_info(resource) do
+    %{
+      name: resource.name,
+      uri: resource.uri || resource.uri_template,
+      mime_type: resource.mime_type
+    }
   end
 
   defp decode_arguments(arguments_json) do
@@ -176,41 +162,41 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
   end
 
   defp execute_tool(tool, arguments, actor) do
-    frame = %{assigns: %{mode: :admin, actor: mcp_actor(actor)}}
+    request = %{
+      "jsonrpc" => "2.0",
+      "id" => "mcp-console",
+      "method" => "tools/call",
+      "params" => %{
+        "name" => tool,
+        "arguments" => arguments
+      }
+    }
 
-    case Tools.execute(tool, arguments, frame) do
-      {:reply, %Response{} = response, _frame} -> {:ok, Response.to_protocol(response)}
-      other -> {:error, inspect(other)}
+    frame = Frame.new(%{mode: :admin, actor: mcp_actor(actor)})
+
+    case AdminServer.handle_request(request, frame) do
+      {:reply, response, _frame} when is_map(response) -> {:ok, response}
+      {:error, %Error{} = error, _frame} -> {:ok, Error.build_json_rpc(error, request["id"])}
+      {:error, reason, _frame} -> {:error, "MCP protocol error: #{inspect(reason)}"}
+      other -> {:error, "Unexpected MCP response: #{inspect(other)}"}
     end
   end
 
-  defp mcp_actor(%{id: id}), do: %{id: id, source: "mcp_console"}
-  defp mcp_actor(_actor), do: %{id: nil, source: "mcp_console"}
+  defp mcp_actor(%{id: id}) when is_binary(id),
+    do: %{id: id, source: "mcp_console"}
+
+  defp mcp_actor(actor), do: actor
 
   defp default_arguments_json("gao_note.search"), do: ~s({"query": "", "limit": 10})
   defp default_arguments_json("gao_note.list_label_settings"), do: "{}"
 
-  defp default_arguments_json("gao_note.create"),
-    do: ~s({"title": "", "content": ""})
+  defp default_arguments_json("gao_note.create_note"),
+    do: ~s({"title": "", "content": "", "attachments": []})
 
   defp default_arguments_json("gao_note.create_label_setting"), do: ~s({"name": "", "color": ""})
+  defp default_arguments_json("gao_note.update_note"), do: ~s({"id": "", "attachments": []})
   defp default_arguments_json("gao_note.set_labels"), do: ~s({"id": "", "labels": []})
-  defp default_arguments_json("gao_note.references.add"), do: ~s({"id": "", "url": ""})
-
-  defp default_arguments_json("gao_note.references.update"),
-    do: ~s({"reference_id": "", "url": ""})
-
-  defp default_arguments_json("gao_note.references.remove"), do: ~s({"reference_id": ""})
-
-  defp default_arguments_json("gao_note.assets.attach_existing"),
-    do: ~s({"id": "", "storage_file_id": ""})
-
-  defp default_arguments_json("gao_note.assets.upload_base64"),
-    do: ~s({"id": "", "filename": "", "base64": ""})
-
-  defp default_arguments_json("gao_note.assets.update"), do: ~s({"asset_id": ""})
-  defp default_arguments_json("gao_note.assets.detach"), do: ~s({"asset_id": ""})
-  defp default_arguments_json(_tool), do: ~s({"id": ""})
+  defp default_arguments_json(_tool), do: "{}"
 
   defp format_error(%Ecto.Changeset{} = changeset) do
     changeset

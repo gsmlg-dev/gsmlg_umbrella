@@ -47,8 +47,36 @@ defmodule GSMLG.Storage.ContentType do
   defp magic_type(<<0x42, 0x4D, _::binary>>), do: "image/bmp"
   defp magic_type(<<0x49, 0x49, 0x2A, 0x00, _::binary>>), do: "image/tiff"
   defp magic_type(<<0x4D, 0x4D, 0x00, 0x2A, _::binary>>), do: "image/tiff"
+  defp magic_type(
+         <<box_size::unsigned-big-integer-size(32), "ftyp",
+           major_brand::binary-size(4), _minor_version::32, rest::binary>>
+       )
+       when box_size == 0 or box_size >= 16 do
+    compatible_brands = compatible_brand_bytes(box_size, rest)
+
+    if avif_brand?(major_brand) or avif_compatible_brand?(compatible_brands) do
+      "image/avif"
+    else
+      "video/mp4"
+    end
+  end
+
   defp magic_type(<<_::32, "ftyp", _::binary>>), do: "video/mp4"
   defp magic_type(_data), do: nil
+
+  defp compatible_brand_bytes(0, rest), do: rest
+
+  defp compatible_brand_bytes(box_size, rest) do
+    binary_part(rest, 0, min(box_size - 16, byte_size(rest)))
+  end
+
+  defp avif_brand?(brand), do: brand in ["avif", "avis"]
+
+  defp avif_compatible_brand?(<<brand::binary-size(4), rest::binary>>) do
+    avif_brand?(brand) or avif_compatible_brand?(rest)
+  end
+
+  defp avif_compatible_brand?(_rest), do: false
 
   # SVG and text-based detection — only inspect the first 4KB to avoid
   # scanning large binaries and to prevent deep-embedded <svg> from

@@ -102,6 +102,20 @@ defmodule GSMLG.Web.Router do
   end
 
   scope "/api", GSMLG.Web do
+    pipe_through([:api, :maybe_api_auth, :ensure_authed_access])
+
+    get(
+      "/gao_notes/:note_id/attachments/*path",
+      GaoNoteAttachmentContentController,
+      :show
+    )
+
+    post("/gao_notes", GaoNoteController, :create)
+    put("/gao_notes/:id", GaoNoteController, :update)
+    patch("/gao_notes/:id", GaoNoteController, :update)
+  end
+
+  scope "/api", GSMLG.Web do
     pipe_through([:api, :maybe_api_auth])
 
     post("/sign_in", AuthController, :sign_in)
@@ -112,8 +126,6 @@ defmodule GSMLG.Web.Router do
     get("/gao_notes", GaoNoteController, :index)
     get("/gao_notes/label_settings", GaoNoteController, :label_settings)
     get("/gao_notes/:id", GaoNoteController, :show)
-    get("/gao_notes/:id/references", GaoNoteController, :references)
-    get("/gao_notes/:id/assets", GaoNoteController, :assets)
 
     get("/toolbox/ip_geo", ToolboxController, :ip_geo_json)
     get("/toolbox/whois", ToolboxController, :whois_json)

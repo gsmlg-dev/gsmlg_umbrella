@@ -3,13 +3,13 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
 
   alias GSMLG.Accounts.User
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Asset, Label, LabelSetting, Note, Reference}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, Note}
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
 
   setup %{conn: conn} do
-    Repo.delete_all(Asset)
-    Repo.delete_all(Reference)
+    Repo.delete_all(Log)
+    Repo.delete_all(Attachment)
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
@@ -73,46 +73,31 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
     end
   end
 
-  describe "references" do
-    test "lists references for a GaoNote note", %{conn: conn} do
+  describe "removed aggregate-fragment routes" do
+    test "reference, asset, and standalone attachment collections return 404", %{conn: conn} do
       note = note_fixture()
 
-      assert {:ok, reference} =
-               GaoNote.add_reference(
-                 note,
-                 %{url: "https://example.com/story?utm_source=test", title: "Example"},
-                 actor()
-               )
+      for path <- [
+            "/api/gao_notes/#{note.id}/references",
+            "/api/gao_notes/#{note.id}/assets",
+            "/api/gao_notes/#{note.id}/attachments"
+          ] do
+        response =
+          conn
+          |> recycle()
+          |> get(path)
+          |> json_response(404)
 
-      conn = get(conn, ~p"/api/gao_notes/#{note.id}/references")
+        assert response == %{"errors" => %{"detail" => "Not Found"}}
+      end
 
-      assert %{"data" => [rendered]} = json_response(conn, 200)
-      assert rendered["id"] == reference.id
-      assert rendered["note_id"] == note.id
-      assert rendered["url"] == "https://example.com/story?utm_source=test"
-      assert rendered["canonical_url"] == "https://example.com/story"
-      assert rendered["title"] == "Example"
-    end
-  end
+      controller_functions = GSMLG.Web.GaoNoteController.__info__(:functions)
+      json_functions = GSMLG.Web.GaoNoteJSON.__info__(:functions)
 
-  describe "assets" do
-    test "lists active public assets for a GaoNote note", %{conn: conn} do
-      note = note_fixture()
-      file = storage_file_fixture(%{metadata: %{"visibility" => "public"}})
-
-      assert {:ok, asset} =
-               GaoNote.attach_asset(note, file.id, %{role: "cover", caption: "Cover"}, actor())
-
-      conn = get(conn, ~p"/api/gao_notes/#{note.id}/assets")
-
-      assert %{"data" => [rendered]} = json_response(conn, 200)
-      assert rendered["id"] == asset.id
-      assert rendered["note_id"] == note.id
-      assert rendered["storage_file_id"] == file.id
-      assert rendered["role"] == "cover"
-      assert rendered["caption"] == "Cover"
-      assert rendered["url"] == "/files/#{file.id}"
-      assert rendered["storage_file"]["filename"] == "gao-note.txt"
+      refute {:references, 2} in controller_functions
+      refute {:assets, 2} in controller_functions
+      refute {:references, 1} in json_functions
+      refute {:assets, 1} in json_functions
     end
   end
 
@@ -143,26 +128,4 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
     note
   end
 
-  defp storage_file_fixture(attrs) do
-    attrs =
-      Map.merge(
-        %{
-          tenant: "gao_note",
-          type: "asset",
-          filename: "gao-note.txt",
-          s3_key: "gao_note/asset/#{Ecto.UUID.generate()}.txt",
-          content_type: "text/plain",
-          size: 32,
-          checksum: "checksum",
-          metadata: %{},
-          status: "active",
-          uploaded_by: "public-api-test"
-        },
-        attrs
-      )
-
-    %StorageFile{}
-    |> StorageFile.changeset(attrs)
-    |> Repo.insert!()
-  end
 end

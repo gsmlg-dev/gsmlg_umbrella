@@ -2,6 +2,9 @@
 
 GaoNote does not implement chunking, embedding, chunk persistence, or vector-search storage in this version.
 
+This external indexing contract is separate from GaoNote attachments. Attachment
+metadata and bytes are not part of the indexing request.
+
 The external service owns:
 
 - chunking strategy
@@ -32,7 +35,6 @@ Idempotency-Key: gao-note:<note_id>:<updated_at>
     "id": "note_uuid",
     "title": "Note title",
     "content": "# Markdown note\n\ncontent...",
-    "content_format": "markdown",
     "updated_at": "2026-07-10T12:00:00Z"
   },
   "embedding": {

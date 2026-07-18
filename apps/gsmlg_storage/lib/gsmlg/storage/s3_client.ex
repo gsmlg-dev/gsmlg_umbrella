@@ -39,6 +39,23 @@ defmodule GSMLG.Storage.S3Client do
   end
 
   @doc """
+  Gets an inclusive byte range from an object in S3.
+  Returns `{:ok, binary}` or `{:error, reason}`.
+  """
+  @spec get_object_range(String.t(), String.t(), non_neg_integer(), non_neg_integer()) ::
+          {:ok, binary()} | {:error, term()}
+  def get_object_range(bucket, key, first, last) do
+    range = "bytes=#{first}-#{last}"
+
+    with {:ok, client} <- get_client() do
+      case get_object_with_range(client, bucket, key, range) do
+        {:ok, body, _resp} -> {:ok, body}
+        {:error, _} = error -> error
+      end
+    end
+  end
+
+  @doc """
   Deletes an object from S3.
   Returns `:ok` or `{:error, reason}`.
   """
@@ -53,6 +70,11 @@ defmodule GSMLG.Storage.S3Client do
           {:error, reason}
       end
     end
+  end
+
+  defp get_object_with_range(client, bucket, key, range) do
+    arguments = [client, bucket, key] ++ List.duplicate(nil, 14) ++ [range]
+    apply(AWS.S3, :get_object, arguments)
   end
 
   # Build an AWS client for storage operations.

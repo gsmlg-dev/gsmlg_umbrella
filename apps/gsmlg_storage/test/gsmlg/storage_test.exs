@@ -8,13 +8,63 @@ defmodule GSMLG.StorageTest do
     plug(:dispatch)
 
     put "/*path" do
-      if pid = Application.get_env(:gsmlg_storage, :storage_test_pid), do: send(pid, :s3_put)
+      if pid = Application.get_env(:gsmlg_storage, :storage_test_pid) do
+        send(pid, :s3_put)
+        send(pid, {:s3_put_path, conn.request_path})
+      end
+
       send_resp(conn, 200, "")
     end
 
-    delete "/*path", do: send_resp(conn, 204, "")
-    get "/*path", do: send_resp(conn, 200, "")
+    delete "/*path" do
+      if pid = Application.get_env(:gsmlg_storage, :storage_test_pid) do
+        send(pid, {:s3_delete, conn.request_path})
+      end
+
+      failure_key =
+        Application.get_env(:gsmlg_storage, :storage_test_delete_failure_key)
+
+      if is_binary(failure_key) and String.ends_with?(conn.request_path, failure_key) do
+        send_resp(conn, 500, "delete failed")
+      else
+        send_resp(conn, 204, "")
+      end
+    end
+
+    get "/*path" do
+      range_headers = Plug.Conn.get_req_header(conn, "range")
+
+      if pid = Application.get_env(:gsmlg_storage, :storage_test_pid) do
+        send(pid, {:s3_get, range_headers})
+      end
+
+      object = Application.get_env(:gsmlg_storage, :storage_test_object, "")
+      {status, body} = range_response(object, range_headers)
+      send_resp(conn, status, body)
+    end
+
     match _, do: send_resp(conn, 200, "")
+
+    defp range_response(object, ["bytes=" <> range]) do
+      [first, last] =
+        range
+        |> String.split("-", parts: 2)
+        |> Enum.map(&String.to_integer/1)
+
+      {206, binary_part(object, first, last - first + 1)}
+    end
+
+    defp range_response(object, _headers), do: {200, object}
+  end
+
+  defmodule FailingInsertRepo do
+    def insert(_changeset) do
+      case Process.get({__MODULE__, :failure}) do
+        {:raise, message} -> raise message
+        {:exit, reason} -> exit(reason)
+        {:throw, reason} -> throw(reason)
+      end
+    end
   end
 
   alias GSMLG.Repo
@@ -47,7 +97,17 @@ defmodule GSMLG.StorageTest do
   end
 
   defp with_s3_stub(fun) do
-    keys = [:allowed_types, :s3_bucket, :s3_endpoint, :storage_test_pid, :max_file_size]
+    keys = [
+      :allowed_types,
+      :s3_bucket,
+      :s3_endpoint,
+      :storage_test_pid,
+      :storage_test_object,
+      :storage_test_delete_failure_key,
+      :max_file_size,
+      :repo
+    ]
+
     original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     port = available_port()
     {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
@@ -66,6 +126,23 @@ defmodule GSMLG.StorageTest do
       end)
 
       GenServer.stop(s3_stub)
+    end
+  end
+
+  describe "StorageFile.changeset/2" do
+    test "accepts an explicit zero-byte file" do
+      changeset =
+        StorageFile.changeset(%StorageFile{}, %{
+          tenant: "test",
+          type: "attachment",
+          filename: "empty.txt",
+          s3_key: "test/attachment/empty.txt",
+          content_type: "text/plain",
+          size: 0
+        })
+
+      assert changeset.valid?
+      assert Ecto.Changeset.get_change(changeset, :size) == 0
     end
   end
 
@@ -196,6 +273,128 @@ defmodule GSMLG.StorageTest do
         refute_received :s3_put
       end)
     end
+
+    test "variants: [] suppresses automatic generation for an image upload" do
+      with_s3_stub(fn ->
+        png =
+          Base.decode64!(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+          )
+
+        assert {:ok,
+                %StorageFile{
+                  type: "gao_note_attachment",
+                  variants: %{}
+                } = file} =
+                 Storage.upload(
+                   {"attachment.png", png},
+                   "gao_note",
+                   "gao_note_attachment",
+                   variants: []
+                 )
+
+        assert %StorageFile{variants: %{}} = Storage.get(file.id)
+        assert_receive :s3_put
+        refute_receive {:s3_get, _headers}, 100
+        refute_receive :s3_put, 100
+      end)
+    end
+
+    @tag :tmp_dir
+    test "compensates and re-raises a row insertion exception without changing Plug.Upload",
+         %{tmp_dir: tmp_dir} do
+      with_s3_stub(fn ->
+        png =
+          Base.decode64!(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+          )
+
+        path = Path.join(tmp_dir, "failing-upload")
+        File.write!(path, png)
+
+        upload = %Plug.Upload{
+          path: path,
+          filename: "failing-upload.png",
+          content_type: "image/png"
+        }
+
+        count_before = Repo.aggregate(StorageFile, :count, :id)
+        Application.put_env(:gsmlg_storage, :repo, FailingInsertRepo)
+        Process.put({FailingInsertRepo, :failure}, {:raise, "storage row insert failed"})
+
+        try do
+          Storage.upload(upload, "tenant", "attachment")
+          flunk("expected storage row insertion to raise")
+        rescue
+          error in RuntimeError ->
+            assert Exception.message(error) == "storage row insert failed"
+            assert [{FailingInsertRepo, :insert, 1, _location} | _rest] = __STACKTRACE__
+        end
+
+        assert_receive :s3_put
+        assert_receive {:s3_put_path, put_path}
+        assert_receive {:s3_delete, delete_path}
+        assert delete_path == put_path
+        assert Repo.aggregate(StorageFile, :count, :id) == count_before
+        assert File.read!(path) == png
+        refute_receive {:s3_get, _headers}, 100
+        refute_receive :s3_put, 100
+      end)
+    end
+
+    test "compensates and preserves a row insertion exit" do
+      with_s3_stub(fn ->
+        png =
+          Base.decode64!(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+          )
+
+        count_before = Repo.aggregate(StorageFile, :count, :id)
+        Application.put_env(:gsmlg_storage, :repo, FailingInsertRepo)
+        Process.put({FailingInsertRepo, :failure}, {:exit, :storage_row_insert_exit})
+
+        assert :storage_row_insert_exit =
+                 catch_exit(
+                   Storage.upload({"failing-upload.png", png}, "tenant", "attachment")
+                 )
+
+        assert_receive :s3_put
+        assert_receive {:s3_put_path, put_path}
+        assert_receive {:s3_delete, delete_path}
+        assert delete_path == put_path
+        assert Repo.aggregate(StorageFile, :count, :id) == count_before
+        refute_receive {:s3_get, _headers}, 100
+        refute_receive :s3_put, 100
+      end)
+    end
+
+    test "compensates and preserves a row insertion throw" do
+      with_s3_stub(fn ->
+        png =
+          Base.decode64!(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+          )
+
+        count_before = Repo.aggregate(StorageFile, :count, :id)
+        thrown_term = {:storage_row_insert_throw, Ecto.UUID.generate()}
+        Application.put_env(:gsmlg_storage, :repo, FailingInsertRepo)
+        Process.put({FailingInsertRepo, :failure}, {:throw, thrown_term})
+
+        assert ^thrown_term =
+                 catch_throw(
+                   Storage.upload({"failing-upload.png", png}, "tenant", "attachment")
+                 )
+
+        assert_receive :s3_put
+        assert_receive {:s3_put_path, put_path}
+        assert_receive {:s3_delete, delete_path}
+        assert delete_path == put_path
+        assert Repo.aggregate(StorageFile, :count, :id) == count_before
+        refute_receive {:s3_get, _headers}, 100
+        refute_receive :s3_put, 100
+      end)
+    end
+
   end
 
   describe "get/1 and get_active/1" do
@@ -211,10 +410,50 @@ defmodule GSMLG.StorageTest do
 
     test "get_active/1 returns only active files" do
       file = insert_file(%{status: "active"})
+      processing = insert_file(%{status: "processing"})
       deleted = insert_file(%{status: "deleted"})
 
       assert %StorageFile{} = Storage.get_active(file.id)
+      assert nil == Storage.get_active(processing.id)
       assert nil == Storage.get_active(deleted.id)
+    end
+  end
+
+  describe "read_range/3" do
+    test "retrieves only the requested inclusive bytes for a file or ID" do
+      with_s3_stub(fn ->
+        object = "0123456789"
+        Application.put_env(:gsmlg_storage, :storage_test_object, object)
+        file = insert_file(%{size: byte_size(object), s3_key: "test/attachment/range.txt"})
+
+        assert {:ok, "2345"} = Storage.read_range(file, 2, 5)
+        assert_receive {:s3_get, ["bytes=2-5"]}
+
+        assert {:ok, "67"} = Storage.read_range(file.id, 6, 7)
+        assert_receive {:s3_get, ["bytes=6-7"]}
+      end)
+    end
+
+    test "returns explicit errors for invalid or out-of-bounds ranges" do
+      file = %StorageFile{size: 10, s3_key: "test/attachment/range.txt"}
+
+      assert {:error, :invalid_range} = Storage.read_range(file, "0", 1)
+      assert {:error, :invalid_range} = Storage.read_range(file, -1, 1)
+      assert {:error, :invalid_range} = Storage.read_range(file, 2, 1)
+      assert {:error, :range_out_of_bounds} = Storage.read_range(file, 0, 10)
+      assert {:error, :range_out_of_bounds} = Storage.read_range(file, 10, 10)
+      assert {:error, :invalid_id} = Storage.read_range("not-a-uuid", 0, 1)
+      assert {:error, :invalid_file} = Storage.read_range(123, 0, 1)
+      assert {:error, :invalid_file} = Storage.read_range(nil, 0, 1)
+    end
+
+    test "rejects ranges for zero-byte files without contacting S3" do
+      with_s3_stub(fn ->
+        file = %StorageFile{size: 0, s3_key: "test/attachment/empty.txt"}
+
+        assert {:error, :range_out_of_bounds} = Storage.read_range(file, 0, 0)
+        refute_received {:s3_get, _headers}
+      end)
     end
   end
 
@@ -240,6 +479,7 @@ defmodule GSMLG.StorageTest do
     test "returns error for non-existent ID" do
       assert {:error, :not_found} = Storage.delete(Ecto.UUID.generate())
     end
+
   end
 
   describe "list/1" do
@@ -327,6 +567,87 @@ defmodule GSMLG.StorageTest do
     test "rejects non-deleted files" do
       file = %StorageFile{status: "active"}
       assert {:error, :not_deleted} = Storage.purge(file)
+    end
+
+    test "deletes variants and the original before removing the DB row" do
+      with_s3_stub(fn ->
+        variant_key = "test/attachment/variant-thumb.jpg"
+        original_key = "test/attachment/original.jpg"
+
+        file =
+          insert_file(%{
+            status: "deleted",
+            s3_key: original_key,
+            variants: %{"thumb" => %{"s3_key" => variant_key}}
+          })
+
+        stale_file = %{file | variants: %{}}
+
+        assert {:ok, %StorageFile{id: id}} = Storage.purge(stale_file)
+        assert id == file.id
+        assert nil == Storage.get(file.id)
+
+        assert_receive {:s3_delete, variant_path}
+        assert String.ends_with?(variant_path, variant_key)
+        assert_receive {:s3_delete, original_path}
+        assert String.ends_with?(original_path, original_key)
+      end)
+    end
+
+    test "converges when a later object deletion fails and the purge is retried" do
+      with_s3_stub(fn ->
+        variant_key = "test/attachment/variant-thumb.jpg"
+        original_key = "test/attachment/original-failure.jpg"
+        Application.put_env(:gsmlg_storage, :storage_test_delete_failure_key, original_key)
+
+        file =
+          insert_file(%{
+            status: "deleted",
+            s3_key: original_key,
+            variants: %{"thumb" => %{"s3_key" => variant_key}}
+          })
+
+        assert {:error, _reason} = Storage.purge(file)
+        assert %StorageFile{status: "deleted"} = Storage.get(file.id)
+
+        assert_receive {:s3_delete, variant_path}
+        assert String.ends_with?(variant_path, variant_key)
+        assert_receive {:s3_delete, original_path}
+        assert String.ends_with?(original_path, original_key)
+
+        Application.delete_env(:gsmlg_storage, :storage_test_delete_failure_key)
+
+        assert {:ok, %StorageFile{id: id}} = Storage.purge(Storage.get(file.id))
+        assert id == file.id
+        assert nil == Storage.get(file.id)
+
+        assert_receive {:s3_delete, retried_variant_path}
+        assert String.ends_with?(retried_variant_path, variant_key)
+        assert_receive {:s3_delete, retried_original_path}
+        assert String.ends_with?(retried_original_path, original_key)
+      end)
+    end
+
+    test "stops at the first failed variant deletion" do
+      with_s3_stub(fn ->
+        variant_key = "test/attachment/variant-failure.jpg"
+        original_key = "test/attachment/original-not-attempted.jpg"
+        Application.put_env(:gsmlg_storage, :storage_test_delete_failure_key, variant_key)
+
+        file =
+          insert_file(%{
+            status: "deleted",
+            s3_key: original_key,
+            variants: %{"thumb" => %{"s3_key" => variant_key}}
+          })
+
+        assert {:error, _reason} = Storage.purge(file)
+        assert %StorageFile{status: "deleted"} = Storage.get(file.id)
+
+        assert_receive {:s3_delete, variant_path}
+        assert String.ends_with?(variant_path, variant_key)
+        refute_received {:s3_delete, _path}
+      end)
     end
   end
 

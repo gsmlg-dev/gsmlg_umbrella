@@ -4,10 +4,6 @@ defmodule GSMLG.GaoNote.Presenter do
   """
 
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Note}
-  alias GSMLG.Storage.StorageFile
-
-  @sensitive_metadata_keys ~w(content content_url s3_key path internal_path)
-  @sensitive_metadata_atom_keys [:content, :content_url, :s3_key, :path, :internal_path]
 
   def note(%Note{} = note) do
     labels = labels(note)
@@ -62,20 +58,17 @@ defmodule GSMLG.GaoNote.Presenter do
   end
 
   def attachment(%Attachment{} = attachment) do
-    visibility = Attachment.effective_visibility(attachment)
+    path =
+      attachment.path
+      |> to_string()
 
     %{
       "id" => attachment.id,
-      "role" => attachment.role,
+      "path" => path,
+      "mime" => attachment.mime,
       "description" => attachment.description || "",
-      "caption" => attachment.caption,
-      "alt_text" => attachment.alt_text,
-      "position" => attachment.position,
-      "visibility" => visibility,
-      "metadata" => safe_attachment_metadata(attachment.metadata, visibility),
-      "storage_file" => attachment |> loaded_storage_file() |> storage_file(visibility)
+      "content_url" => content_url(attachment.note_id, path)
     }
-    |> maybe_put_public_path(attachment.path, visibility)
   end
 
   def error_text(%Ecto.Changeset{} = changeset) do
@@ -89,21 +82,6 @@ defmodule GSMLG.GaoNote.Presenter do
   end
 
   def error_text(reason), do: inspect(reason)
-
-  defp storage_file(%StorageFile{} = file, visibility) do
-    %{
-      "id" => file.id,
-      "filename" => file.filename,
-      "content_type" => file.content_type,
-      "size" => file.size,
-      "visibility" => visibility,
-      "inserted_at" => format_datetime(file.inserted_at),
-      "updated_at" => format_datetime(file.updated_at)
-    }
-    |> maybe_put_public_content(file, visibility)
-  end
-
-  defp storage_file(_file, _visibility), do: nil
 
   defp labels(%Note{} = note) do
     labels =
@@ -121,32 +99,24 @@ defmodule GSMLG.GaoNote.Presenter do
     |> loaded_list(:attachments)
     |> Enum.filter(&match?(%Attachment{}, &1))
     |> Enum.map(&attachment/1)
+    |> Enum.sort_by(fn attachment -> {attachment["path"], attachment["id"]} end)
   end
 
-  defp loaded_storage_file(%Attachment{storage_file: %StorageFile{} = file}), do: file
-  defp loaded_storage_file(_attachment), do: nil
+  defp content_url(note_id, path) do
+    encoded_note_id = URI.encode(to_string(note_id), &URI.char_unreserved?/1)
 
-  defp maybe_put_public_content(presented, file, "public") do
-    case Map.fetch(file, :content) do
-      {:ok, content} -> Map.put(presented, "content", content)
-      :error -> presented
-    end
+    encoded_path =
+      path
+      |> content_url_path()
+      |> URI.encode(fn character ->
+        character == ?/ or URI.char_unreserved?(character)
+      end)
+
+    "/api/gao_notes/#{encoded_note_id}/attachments/#{encoded_path}"
   end
 
-  defp maybe_put_public_content(presented, _file, _visibility), do: presented
-
-  defp maybe_put_public_path(presented, path, "public"), do: Map.put(presented, "path", path)
-  defp maybe_put_public_path(presented, _path, _visibility), do: presented
-
-  defp safe_attachment_metadata(metadata, visibility) do
-    metadata
-    |> metadata_map()
-    |> Map.drop(@sensitive_metadata_keys ++ @sensitive_metadata_atom_keys ++ [:visibility])
-    |> Map.put("visibility", visibility)
-  end
-
-  defp metadata_map(metadata) when is_map(metadata), do: metadata
-  defp metadata_map(_metadata), do: %{}
+  defp content_url_path("./" <> path), do: path
+  defp content_url_path(path), do: path
 
   defp loaded_list(struct, key) do
     case Map.get(struct, key) do

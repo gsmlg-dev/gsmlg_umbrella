@@ -14,13 +14,10 @@ defmodule GSMLG.GaoNote.MCP.ReadOnlyServer do
   component(Tools.Search, name: "gao_note.search")
   component(Tools.Get, name: "gao_note.get")
   component(Tools.ListLabelSettings, name: "gao_note.list_label_settings")
-  component(Tools.ListAttachments, name: "gao_note.list_attachments")
 
   component(Resources.Note)
   component(Resources.NoteMetadata)
-  component(Resources.NoteAttachments)
   component(Resources.LabelSetting)
-  component(Resources.Attachment)
 
   @impl true
   def init(_client_info, frame) do

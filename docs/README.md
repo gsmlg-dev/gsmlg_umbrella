@@ -24,6 +24,12 @@ Docs for the `gsmlg_storage` application — S3-backed centralized file manageme
 
 - [Product Requirements Document](storage/prd.md)
 
+### GaoNote
+Current GaoNote public contracts and integration boundaries.
+
+- [Note-Owned Attachment Contract](gao_note_attachments.md)
+- [External Chunking and Embedding Contract](../note_chunking.md)
+
 ### [Migrations](migrations/)
 Migration guides for infrastructure and database changes.
 

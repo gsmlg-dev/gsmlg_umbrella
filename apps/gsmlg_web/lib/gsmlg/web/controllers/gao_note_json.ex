@@ -12,12 +12,4 @@ defmodule GSMLG.Web.GaoNoteJSON do
   def label_settings(%{label_settings: label_settings}) do
     %{data: Enum.map(label_settings, &Presenter.label_setting/1)}
   end
-
-  def references(%{references: references}) do
-    %{data: Enum.map(references, &Presenter.reference/1)}
-  end
-
-  def assets(%{note: note, assets: assets}) do
-    %{data: Enum.map(assets, &Presenter.asset_json(&1, note))}
-  end
 end

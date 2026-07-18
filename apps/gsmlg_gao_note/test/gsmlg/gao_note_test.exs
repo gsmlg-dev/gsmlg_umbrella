@@ -1,8 +1,54 @@
 defmodule GSMLG.GaoNoteTest do
   use GSMLG.GaoNote.DataCase, async: false
+  use Oban.Testing, repo: GSMLG.Repo
+
+  defmodule S3Stub do
+    use Plug.Router
+
+    plug(:match)
+    plug(:dispatch)
+
+    put "/*path" do
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+
+      if String.starts_with?(body, "block-for-") do
+        notify({:s3_put_blocked, self(), conn.request_path})
+
+        receive do
+          :release_s3_put -> :ok
+        after
+          5_000 -> exit(:s3_put_release_timeout)
+        end
+      else
+        notify({:s3_put, conn.request_path, body})
+      end
+
+      send_resp(conn, 200, "")
+    end
+
+    get "/*path" do
+      notify({:s3_get, conn.request_path, Plug.Conn.get_req_header(conn, "range")})
+      body = Application.get_env(:gsmlg_storage, :gao_note_test_object, "")
+      send_resp(conn, 206, body)
+    end
+
+    delete "/*path" do
+      notify({:s3_delete, conn.request_path})
+      send_resp(conn, 204, "")
+    end
+
+    match _, do: send_resp(conn, 200, "")
+
+    defp notify(message) do
+      if pid = Application.get_env(:gsmlg_storage, :gao_note_test_pid) do
+        send(pid, message)
+      end
+    end
+  end
 
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
+  alias GSMLG.GaoNote.Workers.StorageFilePurgeWorker
   alias GSMLG.Accounts.User
   alias GSMLG.Storage
   alias GSMLG.Storage.StorageFile
@@ -40,8 +86,13 @@ defmodule GSMLG.GaoNoteTest do
 
       assert note.title == "Hello, World!"
       assert note.content == "# Content"
+      assert note.attachments == []
       assert %DateTime{} = note.created_at
       assert %DateTime{} = note.updated_at
+
+      for field <- [:assets, :chunks, :creator, :description, :references, :tags] do
+        refute Map.has_key?(note, field)
+      end
 
       refute Map.has_key?(note, :body)
       refute Map.has_key?(note, :body_format)
@@ -106,7 +157,8 @@ defmodule GSMLG.GaoNoteTest do
                    slug: "ignored",
                    summary: "ignored",
                    status: "archived",
-                   visibility: "private"
+                   visibility: "private",
+                   attachments: []
                  },
                  actor("actor-2")
                )
@@ -129,55 +181,6 @@ defmodule GSMLG.GaoNoteTest do
       assert {:ok, %Note{}} = GaoNote.delete_note(updated, actor())
       assert GaoNote.get_note(note_id) == nil
       assert GaoNote.get_public_note(note_id) == nil
-    end
-
-    @tag :task2_context
-    test "soft-delete, restore, and permanent-delete preserve subordinate data correctly" do
-      note = note_fixture()
-      file = storage_file_fixture()
-      attachment = attachment_fixture(note, file)
-
-      assert {:ok, %Note{} = labeled_note} =
-               GaoNote.set_labels(note, ["Lifecycle=kept"], actor())
-
-      assert {:ok, %Note{id: note_id}} = GaoNote.delete_note(labeled_note, actor())
-      assert GaoNote.get_note(note_id) == nil
-      assert GaoNote.get_public_note(note_id) == nil
-      refute Enum.any?(GaoNote.list_notes(), &(&1.id == note_id))
-
-      assert [
-               %Note{
-                 id: ^note_id,
-                 labels: [%Label{label_setting: %LabelSetting{name: "Lifecycle"}}],
-                 attachments: [%Attachment{id: attachment_id}]
-               }
-             ] = GaoNote.list_deleted_notes()
-
-      assert attachment_id == attachment.id
-
-      assert %Note{
-               id: ^note_id,
-               labels: [%Label{label_setting: %LabelSetting{name: "Lifecycle"}}],
-               attachments: [%Attachment{id: recycled_attachment_id}]
-             } = recycled_note = GaoNote.get_deleted_note(note_id)
-
-      assert recycled_attachment_id == attachment.id
-      assert {:ok, %Note{id: ^note_id}} = GaoNote.restore_note(recycled_note, actor())
-      assert GaoNote.get_deleted_note(note_id) == nil
-
-      assert %Note{
-               labels: [%Label{label_setting: %LabelSetting{name: "Lifecycle"}}],
-               attachments: [%Attachment{id: restored_attachment_id}]
-             } = restored_note = GaoNote.get_note(note_id)
-
-      assert restored_attachment_id == attachment.id
-      assert Enum.any?(GaoNote.list_notes(), &(&1.id == note_id))
-
-      assert {:ok, %Note{id: ^note_id}} = GaoNote.delete_note(restored_note, actor())
-      recycled_note = GaoNote.get_deleted_note(note_id)
-      assert {:ok, %Note{id: ^note_id}} = GaoNote.permanently_delete_note(recycled_note, actor())
-      assert GaoNote.get_deleted_note(note_id) == nil
-      refute Enum.any?(GaoNote.list_deleted_notes(), &(&1.id == note_id))
     end
 
     test "stale deleted structs cannot restore or purge a note after another restore" do
@@ -228,7 +231,11 @@ defmodule GSMLG.GaoNoteTest do
       assert {:ok, updated} =
                GaoNote.update_note(
                  note,
-                 %{title: "Logged Note Updated", content: "Updated content"},
+                 %{
+                   title: "Logged Note Updated",
+                   content: "Updated content",
+                   attachments: []
+                 },
                  actor("logger-2")
                )
 
@@ -250,7 +257,7 @@ defmodule GSMLG.GaoNoteTest do
                details: %{"fields" => fields, "title" => "Logged Note Updated"}
              } = update_log
 
-      assert Enum.sort(fields) == ["content", "title"]
+      assert Enum.sort(fields) == ["attachments", "content", "title"]
 
       assert %Log{
                action: "create",
@@ -327,479 +334,1286 @@ defmodule GSMLG.GaoNoteTest do
       assert matching_id == matching.id
     end
 
-    @tag :task2_context
     test "set_labels/3 normalizes, dedupes, and filters by label" do
-      note = note_fixture()
-      file = storage_file_fixture()
-      attachment = attachment_fixture(note, file)
-
-      assert {:ok, %Note{} = labeled_note} =
-               GaoNote.set_labels(note, ["  Elixir  ", "elixir", "MCP Tools"], actor())
-
-      label_names = labeled_note.labels |> Enum.map(& &1.label_setting.name) |> Enum.sort()
-      assert label_names == ["Elixir", "MCP Tools"]
-
-      assert [%Note{id: id, attachments: [%Attachment{id: attachment_id}]}] =
-               GaoNote.list_notes(label: "elixir")
-
-      assert id == note.id
-      assert attachment_id == attachment.id
-
-      assert [%LabelSetting{name: "Elixir"}, %LabelSetting{name: "MCP Tools"}] =
-               GaoNote.list_label_settings()
-    end
-  end
-
-  describe "attachment schema" do
-    test "uses the attachment table and exposes only final subordinate associations" do
-      assert Attachment.__schema__(:source) == "gao_note_attachments"
-      assert Attachment.__schema__(:type, :id) == :binary_id
-      assert Enum.sort(Note.__schema__(:associations)) == [:attachments, :labels]
-      assert Note.__schema__(:association, :attachments).related == Attachment
-      assert Note.__schema__(:association, :labels).related == Label
-    end
-
-    test "keeps attachment fields and defaults description" do
-      assert Enum.sort(Attachment.__schema__(:fields)) ==
-               Enum.sort([
-                 :alt_text,
-                 :caption,
-                 :description,
-                 :id,
-                 :inserted_at,
-                 :metadata,
-                 :note_id,
-                 :path,
-                 :position,
-                 :role,
-                 :storage_file_id,
-                 :updated_at
-               ])
-
-      changeset =
-        %Attachment{description: nil}
-        |> Attachment.changeset(attachment_attrs())
-
-      assert changeset.valid?
-      assert Ecto.Changeset.get_field(changeset, :description) == ""
-      assert Ecto.Changeset.get_field(changeset, :role) == "attachment"
-      assert Ecto.Changeset.get_field(changeset, :position) == 0
-      assert Ecto.Changeset.get_field(changeset, :metadata) == %{}
-    end
-
-    test "normalizes blank and relative attachment paths" do
-      for {path, expected} <- [
-            {"  ", nil},
-            {"./data.txt", "./data.txt"},
-            {"nested/data.txt", "./nested/data.txt"}
-          ] do
-        changeset = Attachment.changeset(%Attachment{}, attachment_attrs(%{path: path}))
-
-        assert changeset.valid?
-        assert Ecto.Changeset.get_field(changeset, :path) == expected
-      end
-    end
-
-    test "rejects absolute paths, parent traversal, URLs, and invalid normalized paths" do
-      for path <- [
-            "/etc/passwd",
-            "C:\\Windows\\system.ini",
-            "\\\\server\\share\\file",
-            "\\rooted\\file",
-            "../secret.txt",
-            "./nested/../secret.txt",
-            "https://example.com/data.txt"
-          ] do
-        changeset = Attachment.changeset(%Attachment{}, attachment_attrs(%{path: path}))
-
-        refute changeset.valid?
-        assert %{path: [_ | _]} = errors_on(changeset)
-      end
-    end
-
-    test "uses final attachment index names and enforces both unique constraints" do
-      note =
-        %Note{}
-        |> Note.create_changeset(%{title: unique_title("Attachment"), content: "Content"})
-        |> Repo.insert!()
-
-      first_file = storage_file_fixture()
-      second_file = storage_file_fixture()
-
-      changeset =
-        Attachment.changeset(
-          %Attachment{},
-          attachment_attrs(%{
-            note_id: note.id,
-            storage_file_id: first_file.id,
-            path: "data.txt"
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [text_attachment("labels-file", "labels.txt", "labels")]
           })
-        )
 
-      assert Enum.map(changeset.constraints, & &1.constraint) == [
-               "gao_note_attachments_note_id_storage_file_id_index",
-               "gao_note_attachments_note_id_path_index"
-             ]
+        assert {:ok, %Note{} = labeled_note} =
+                 GaoNote.set_labels(note, ["  Elixir  ", "elixir", "MCP Tools"], actor())
 
-      assert {:ok, %Attachment{path: "./data.txt"}} = Repo.insert(changeset)
+        label_names = labeled_note.labels |> Enum.map(& &1.label_setting.name) |> Enum.sort()
+        assert label_names == ["Elixir", "MCP Tools"]
 
-      assert {:error, duplicate_file_changeset} =
-               %Attachment{}
-               |> Attachment.changeset(
-                 attachment_attrs(%{
-                   note_id: note.id,
-                   storage_file_id: first_file.id,
-                   path: "copy.txt"
-                 })
-               )
-               |> Repo.insert()
+        assert [%Note{id: id, attachments: [%Attachment{id: "labels-file"}]}] =
+                 GaoNote.list_notes(label: "elixir")
 
-      assert %{storage_file_id: [_ | _]} = errors_on(duplicate_file_changeset)
+        assert id == note.id
 
-      assert {:error, duplicate_path_changeset} =
-               %Attachment{}
-               |> Attachment.changeset(
-                 attachment_attrs(%{
-                   note_id: note.id,
-                   storage_file_id: second_file.id,
-                   path: "./data.txt"
-                 })
-               )
-               |> Repo.insert()
-
-      assert %{path: [_ | _]} = errors_on(duplicate_path_changeset)
+        assert [%LabelSetting{name: "Elixir"}, %LabelSetting{name: "MCP Tools"}] =
+                 GaoNote.list_label_settings()
+      end)
     end
   end
 
-  describe "attachment context" do
-    @describetag :task2_context
+  describe "note-owned attachment reconciliation" do
+    test "removes standalone attachment APIs and keeps note-scoped read APIs" do
+      Code.ensure_loaded!(GSMLG.GaoNote)
 
-    test "exports only the final attachment APIs" do
       for {name, arity} <- [
-            list_attachments: 1,
-            list_all_attachments: 1,
-            get_attachment: 1,
-            change_attachment: 2,
-            attach_existing_file: 4,
-            upload_attachment: 4,
-            update_attachment: 3,
-            detach_attachment: 2
+            get_attachment_by_path: 2,
+            get_deleted_attachment_by_path: 2,
+            read_attachment_text: 2
           ] do
         assert function_exported?(GaoNote, name, arity)
       end
 
       for {name, arity} <- [
-            list_references: 1,
-            list_all_references: 1,
-            get_reference: 1,
-            change_reference: 2,
-            add_reference: 3,
-            update_reference: 3,
-            remove_reference: 2,
-            list_assets: 1,
-            list_all_assets: 1,
-            get_asset: 1,
-            change_asset: 2,
-            attach_asset: 4,
-            upload_asset: 4,
-            update_asset: 3,
-            detach_asset: 2
+            list_attachments: 1,
+            list_all_attachments: 1,
+            get_attachment: 1,
+            attach_existing_file: 4,
+            upload_attachment: 4,
+            update_attachment: 3,
+            detach_attachment: 2,
+            change_attachment: 2
           ] do
         refute function_exported?(GaoNote, name, arity)
       end
     end
 
-    test "lists ordered active attachments for active notes with associations preloaded" do
-      note = note_fixture()
-      first_file = storage_file_fixture(%{filename: "first.txt"})
-      second_file = storage_file_fixture(%{filename: "second.txt"})
-      third_file = storage_file_fixture(%{filename: "third.txt"})
-      inactive_file = storage_file_fixture(%{filename: "inactive.txt", status: "deleted"})
+    test "rejects tuple uploads and mixed Plug.Upload content sources" do
+      with_storage_test_config(fn ->
+        assert {:error,
+                {:attachment,
+                 %{code: :unsupported_content_source, id: "tuple-upload"}}} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Tuple upload",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "tuple-upload",
+                         path: "tuple.txt",
+                         mime: "text/plain",
+                         upload: {"tuple.txt", "bytes"}
+                       }
+                     ]
+                   },
+                   actor()
+                 )
 
-      first = attachment_fixture(note, first_file, %{position: 0, path: "first.txt"})
-      second = attachment_fixture(note, second_file, %{position: 0, path: "second.txt"})
-      third = attachment_fixture(note, third_file, %{position: 1, path: "third.txt"})
-      inactive = attachment_fixture(note, inactive_file, %{position: 0, path: "inactive.txt"})
+        mixed_upload = %Plug.Upload{
+          path: "/not-read-for-mixed-source",
+          filename: "mixed.txt",
+          content_type: "text/plain"
+        }
 
-      deleted_note = note_fixture()
-      deleted_file = storage_file_fixture(%{filename: "deleted-note.txt"})
-      deleted_attachment = attachment_fixture(deleted_note, deleted_file)
-      assert {:ok, _deleted_note} = GaoNote.delete_note(deleted_note, actor())
+        assert {:error,
+                {:attachment,
+                 %{code: :multiple_content_sources, id: "mixed-upload"}}} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Mixed upload",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "mixed-upload",
+                         path: "mixed.txt",
+                         mime: "text/plain",
+                         content: "content",
+                         upload: mixed_upload
+                       }
+                     ]
+                   },
+                   actor()
+                 )
 
-      assert [
-               %Attachment{id: first_id, storage_file: %StorageFile{id: first_file_id}},
-               %Attachment{id: second_id, storage_file: %StorageFile{id: second_file_id}},
-               %Attachment{id: third_id, storage_file: %StorageFile{id: third_file_id}}
-             ] = GaoNote.list_attachments(note.id)
-
-      assert {first_id, second_id, third_id} == {first.id, second.id, third.id}
-
-      assert {first_file_id, second_file_id, third_file_id} ==
-               {first_file.id, second_file.id, third_file.id}
-
-      assert GaoNote.list_attachments(deleted_note.id) == []
-      assert GaoNote.list_attachments("not-a-uuid") == []
-
-      all = GaoNote.list_all_attachments(%{limit: "200", offset: "0"})
-      assert Enum.sort(Enum.map(all, & &1.id)) == Enum.sort([first.id, second.id, third.id])
-      assert Enum.all?(all, &Ecto.assoc_loaded?(&1.storage_file))
-      assert Enum.all?(all, &Ecto.assoc_loaded?(&1.note))
-
-      assert %Attachment{id: id, storage_file: %StorageFile{}} = GaoNote.get_attachment(second.id)
-      assert id == second.id
-      assert GaoNote.get_attachment("not-a-uuid") == nil
-      assert GaoNote.get_attachment(inactive.id) == nil
-      assert GaoNote.get_attachment(deleted_attachment.id) == nil
-    end
-
-    test "normal note results preload labels and attachments without false empty lists" do
-      note = note_fixture()
-      file = storage_file_fixture()
-      attachment = attachment_fixture(note, file)
-
-      assert Ecto.assoc_loaded?(note.labels)
-      assert Ecto.assoc_loaded?(note.attachments)
-
-      assert %Note{attachments: [%Attachment{id: attachment_id}]} = GaoNote.get_note(note.id)
-      assert attachment_id == attachment.id
-
-      assert %Note{attachments: [%Attachment{id: public_attachment_id}]} =
-               GaoNote.get_public_note(note.id)
-
-      assert public_attachment_id == attachment.id
-
-      listed_note = Enum.find(GaoNote.list_notes(), &(&1.id == note.id))
-      assert %Note{attachments: [%Attachment{id: listed_attachment_id}]} = listed_note
-      assert listed_attachment_id == attachment.id
-      assert Ecto.assoc_loaded?(listed_note.labels)
-
-      assert {:ok, %Note{attachments: [%Attachment{id: updated_attachment_id}]}} =
-               GaoNote.update_note(note, %{title: "Updated attachment note"}, actor())
-
-      assert updated_attachment_id == attachment.id
-    end
-
-    test "attaches active existing files and rejects invalid scopes" do
-      note = note_fixture()
-      file = storage_file_fixture(%{filename: "temporary-upload-name.txt"})
-
-      assert {:ok,
-              %Attachment{
-                note_id: note_id,
-                storage_file_id: storage_file_id,
-                path: nil,
-                role: "inline",
-                storage_file: %StorageFile{id: preloaded_file_id}
-              } = attachment} =
-               GaoNote.attach_existing_file(
-                 note.id,
-                 file.id,
-                 %{role: "inline", caption: "Diagram"},
-                 actor: actor("attachment-owner")
-               )
-
-      assert note_id == note.id
-      assert storage_file_id == file.id
-      assert preloaded_file_id == file.id
-
-      changeset = GaoNote.change_attachment(attachment, %{caption: "Updated caption"})
-      assert Ecto.Changeset.get_change(changeset, :caption) == "Updated caption"
-
-      assert %Log{entity_type: "attachment", actor_id: "attachment-owner"} =
-               GaoNote.list_logs(entity_type: "attachment") |> hd()
-
-      inactive_file = storage_file_fixture(%{status: "deleted"})
-
-      assert {:error, :storage_file_not_active} =
-               GaoNote.attach_existing_file(note.id, inactive_file.id, %{}, [])
-
-      assert {:error, :storage_file_not_active} =
-               GaoNote.attach_existing_file(note.id, "not-a-uuid", %{}, [])
-
-      assert {:error, :not_found} =
-               GaoNote.attach_existing_file(Ecto.UUID.generate(), file.id, %{}, [])
-
-      deleted_note = note_fixture()
-      assert {:ok, _deleted_note} = GaoNote.delete_note(deleted_note, actor())
-
-      assert {:error, :not_found} =
-               GaoNote.attach_existing_file(deleted_note.id, file.id, %{}, [])
+        refute_received {:s3_put, _path, _body}
+        assert Repo.aggregate(StorageFile, :count) == 0
+      end)
     end
 
     @tag :tmp_dir
-    test "uploads and returns a preloaded attachment while preserving supported options", %{
+    test "creates a trusted Plug.Upload and ignores its spoofed browser MIME", %{
       tmp_dir: tmp_dir
     } do
       with_storage_test_config(fn ->
-        note = note_fixture()
-        contents = "real attachment upload #{System.unique_integer([:positive])}"
-        filename = "client-report-#{System.unique_integer([:positive])}.txt"
-        upload = plug_upload(tmp_dir, filename, contents)
-        metadata = %{"visibility" => "private", "source" => "task-2-test"}
+        upload =
+          plug_upload(
+            tmp_dir,
+            "trusted.txt",
+            "trusted upload bytes",
+            "application/x-spoofed"
+          )
 
         assert {:ok,
-                %Attachment{
-                  id: attachment_id,
-                  note_id: note_id,
-                  path: nil,
-                  metadata: ^metadata,
-                  storage_file:
-                    %StorageFile{
-                      tenant: "gao_note",
-                      type: "attachment",
-                      filename: ^filename,
-                      uploaded_by: "explicit-owner",
-                      metadata: storage_metadata
-                    } = storage_file
+                %Note{
+                  attachments: [
+                    %Attachment{
+                      id: "trusted-upload",
+                      path: "./trusted.txt",
+                      mime: "text/plain",
+                      storage_file:
+                        %StorageFile{
+                          type: "gao_note_attachment",
+                          filename: "trusted.txt",
+                          content_type: "text/plain",
+                          variants: %{}
+                        }
+                    }
+                  ]
                 }} =
-                 GaoNote.upload_attachment(
-                   note.id,
-                   upload,
-                   %{metadata: metadata},
-                   actor: actor("upload-actor"),
-                   uploaded_by: "explicit-owner"
+                 GaoNote.create_note(
+                   %{
+                     title: "Trusted upload",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "trusted-upload",
+                         path: "trusted.txt",
+                         mime: "text/plain",
+                         upload: upload
+                       }
+                     ]
+                   },
+                   actor()
                  )
 
-        assert note_id == note.id
-        assert storage_metadata["visibility"] == "private"
-        assert storage_metadata["source"] == "task-2-test"
-        assert storage_metadata["note_id"] == note.id
-        assert {:ok, ^contents} = Storage.stream(storage_file)
-
-        assert {:ok, %Attachment{id: ^attachment_id}} =
-                 GaoNote.detach_attachment(note.id, attachment_id)
-
-        assert {:ok, deleted_file} = Storage.delete(storage_file)
-        assert {:ok, %StorageFile{}} = Storage.purge(deleted_file)
+        assert {:ok, "trusted upload bytes"} = File.read(upload.path)
       end)
     end
 
     @tag :tmp_dir
-    test "deactivates a newly uploaded file when attachment insertion fails", %{tmp_dir: tmp_dir} do
+    test "replaces one attachment from Plug.Upload without touching retained storage", %{
+      tmp_dir: tmp_dir
+    } do
       with_storage_test_config(fn ->
-        note = note_fixture()
-        existing_file = storage_file_fixture()
-        _existing_attachment = attachment_fixture(note, existing_file, %{path: "duplicate.txt"})
-        filename = "cleanup-#{System.unique_integer([:positive])}.txt"
-        upload = plug_upload(tmp_dir, filename, "cleanup behavior")
+        note =
+          note_fixture(%{
+            attachments: [
+              text_attachment("plug-replace", "replace.txt", "old bytes"),
+              text_attachment("plug-retain", "retain.txt", "retained bytes")
+            ]
+          })
 
-        assert {:error, %Ecto.Changeset{} = insertion_error} =
-                 GaoNote.upload_attachment(
-                   note.id,
-                   upload,
-                   %{path: "duplicate.txt", metadata: %{"visibility" => "private"}},
-                   actor: actor("cleanup-owner")
-                 )
+        replaced = attachment_by_id(note, "plug-replace")
+        retained = attachment_by_id(note, "plug-retain")
+        upload = plug_upload(tmp_dir, "replace.txt", "new upload bytes", "text/html")
+        flush_storage_messages()
 
-        assert %{path: [_ | _]} = errors_on(insertion_error)
+        Oban.Testing.with_testing_mode(:manual, fn ->
+          assert {:ok, %Note{} = updated} =
+                   GaoNote.update_note(
+                     note,
+                     %{
+                       attachments: [
+                         %{
+                           id: "plug-replace",
+                           path: "replace.txt",
+                           mime: "text/plain",
+                           upload: upload
+                         },
+                         retained_attachment(retained)
+                       ]
+                     },
+                     actor()
+                   )
 
-        uploaded_file = Repo.get_by!(StorageFile, filename: filename)
-        assert uploaded_file.tenant == "gao_note"
-        assert uploaded_file.type == "attachment"
-        assert uploaded_file.uploaded_by == "cleanup-owner"
-        assert uploaded_file.status == "deleted"
-        assert Storage.get_active(uploaded_file.id) == nil
-        assert [%Attachment{storage_file_id: storage_file_id}] = GaoNote.list_attachments(note.id)
-        assert storage_file_id == existing_file.id
-        assert {:ok, %StorageFile{}} = Storage.purge(uploaded_file)
+          replacement = attachment_by_id(updated, "plug-replace")
+          retained_after = attachment_by_id(updated, "plug-retain")
+
+          refute replacement.storage_file_id == replaced.storage_file_id
+          assert retained_after.storage_file_id == retained.storage_file_id
+
+          assert_enqueued(
+            worker: StorageFilePurgeWorker,
+            args: %{storage_file_id: replaced.storage_file_id}
+          )
+
+          assert [] =
+                   all_enqueued(
+                     worker: StorageFilePurgeWorker,
+                     args: %{storage_file_id: retained.storage_file_id}
+                   )
+        end)
+
+        assert %StorageFile{status: "active"} = Storage.get(retained.storage_file_id)
+        refute_received {:s3_delete, _path}
+        assert {:ok, "new upload bytes"} = File.read(upload.path)
       end)
     end
 
-    test "updates and detaches only within an active note without deleting storage" do
+    @tag :tmp_dir
+    test "rejects Plug.Upload MIME mismatch and compensates staging", %{tmp_dir: tmp_dir} do
+      with_storage_test_config(fn ->
+        upload =
+          plug_upload(
+            tmp_dir,
+            "mismatch.txt",
+            "plain upload bytes",
+            "application/json"
+          )
+
+        assert {:error,
+                {:attachment,
+                 %{
+                   code: :mime_mismatch,
+                   id: "plug-mismatch",
+                   submitted: "application/json",
+                   detected: "text/plain"
+                 }}} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Upload mismatch",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "plug-mismatch",
+                         path: "mismatch.txt",
+                         mime: "application/json",
+                         upload: upload
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        assert Repo.aggregate(StorageFile, :count) == 0
+        assert_receive {:s3_delete, _path}
+        assert {:ok, "plain upload bytes"} = File.read(upload.path)
+      end)
+    end
+
+    @tag :tmp_dir
+    test "accepts a zero-byte Plug.Upload as empty text", %{tmp_dir: tmp_dir} do
+      with_storage_test_config(fn ->
+        upload = plug_upload(tmp_dir, "empty.txt", "", "application/octet-stream")
+
+        assert {:ok,
+                %Note{
+                  id: note_id,
+                  attachments: [
+                    %Attachment{
+                      id: "empty-upload",
+                      storage_file: %StorageFile{size: 0, content_type: "text/plain"}
+                    }
+                  ]
+                }} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Empty upload",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "empty-upload",
+                         path: "empty.txt",
+                         mime: "text/plain",
+                         upload: upload
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        flush_storage_messages()
+        assert {:ok, ""} = GaoNote.read_attachment_text(note_id, "empty-upload")
+        refute_received {:s3_get, _path, _range}
+        assert {:ok, ""} = File.read(upload.path)
+      end)
+    end
+
+    @tag :tmp_dir
+    test "transaction failure compensates a staged Plug.Upload", %{tmp_dir: tmp_dir} do
+      with_storage_test_config(fn ->
+        upload = plug_upload(tmp_dir, "rollback.txt", "rollback upload", "text/plain")
+
+        assert {:error, %Ecto.Changeset{} = changeset} =
+                 GaoNote.create_note(
+                   %{
+                     title: "",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "plug-rollback",
+                         path: "rollback.txt",
+                         mime: "text/plain",
+                         upload: upload
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        refute changeset.valid?
+        assert Repo.aggregate(StorageFile, :count) == 0
+        assert Repo.get(Attachment, "plug-rollback") == nil
+        assert_receive {:s3_delete, _path}
+        assert {:ok, "rollback upload"} = File.read(upload.path)
+      end)
+    end
+
+    @tag :tmp_dir
+    test "Plug.Upload validation failure does not modify the caller temp file", %{
+      tmp_dir: tmp_dir
+    } do
+      with_storage_test_config(fn ->
+        upload = plug_upload(tmp_dir, "invalid.txt", "caller-owned", "text/plain")
+
+        assert {:error,
+                {:attachment_input,
+                 %{
+                   code: :invalid,
+                   index: 0,
+                   changeset: %Ecto.Changeset{}
+                 }}} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Invalid upload",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "invalid-upload",
+                         path: "../invalid.txt",
+                         mime: "text/plain",
+                         upload: upload
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        refute_received {:s3_put, _path, _body}
+        assert Repo.aggregate(StorageFile, :count) == 0
+        assert {:ok, "caller-owned"} = File.read(upload.path)
+      end)
+    end
+
+    @tag :tmp_dir
+    test "outer transaction rejects Plug.Upload before staging or note mutation", %{
+      tmp_dir: tmp_dir
+    } do
+      with_storage_test_config(fn ->
+        upload = plug_upload(tmp_dir, "outer.txt", "outer upload", "text/plain")
+        outer_actor = actor("outer-upload-actor")
+        title = unique_title("Outer Plug.Upload")
+
+        assert {:ok, :outer_committed} =
+                 Repo.transaction(fn ->
+                   assert Repo.in_transaction?()
+
+                   assert {:error,
+                           {:attachments,
+                            %{code: :external_transaction_not_supported}}} =
+                            GaoNote.create_note(
+                              %{
+                                title: title,
+                                content: "Body",
+                                attachments: [
+                                  %{
+                                    id: "outer-upload",
+                                    path: "outer.txt",
+                                    mime: "text/plain",
+                                    upload: upload
+                                  }
+                                ]
+                              },
+                              outer_actor
+                            )
+
+                   assert Repo.get_by(Note, title: title) == nil
+                   assert Repo.aggregate(StorageFile, :count) == 0
+                   :outer_committed
+                 end)
+
+        refute_received {:s3_put, _path, _body}
+        assert Repo.get_by(Note, title: title) == nil
+        assert Repo.get(Attachment, "outer-upload") == nil
+        assert {:ok, "outer upload"} = File.read(upload.path)
+      end)
+    end
+
+    test "outer transaction rejects Base64 replacement before staging or mutation" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            title: "Original Base64 note",
+            attachments: [text_attachment("outer-base64", "base64.txt", "old bytes")]
+          })
+
+        original = attachment_by_id(note, "outer-base64")
+        outer_actor = actor("outer-base64-actor")
+        flush_storage_messages()
+
+        assert {:ok, :outer_committed} =
+                 Repo.transaction(fn ->
+                   assert Repo.in_transaction?()
+
+                   assert {:error,
+                           {:attachments,
+                            %{code: :external_transaction_not_supported}}} =
+                            GaoNote.update_note(
+                              note,
+                              %{
+                                title: "Must not persist",
+                                attachments: [
+                                  %{
+                                    id: "outer-base64",
+                                    path: "base64.txt",
+                                    mime: "text/plain",
+                                    content_base64: Base.encode64("new bytes")
+                                  }
+                                ]
+                              },
+                              outer_actor
+                            )
+
+                   assert %Note{title: "Original Base64 note"} = GaoNote.get_note(note.id)
+                   :outer_committed
+                 end)
+
+        refute_received {:s3_put, _path, _body}
+        assert Repo.aggregate(StorageFile, :count) == 1
+        assert %Note{title: "Original Base64 note"} = GaoNote.get_note(note.id)
+
+        assert %Attachment{storage_file_id: storage_file_id} =
+                 attachment_by_id(GaoNote.get_note(note.id), "outer-base64")
+
+        assert storage_file_id == original.storage_file_id
+        assert %StorageFile{status: "active"} = Storage.get(original.storage_file_id)
+      end)
+    end
+
+    test "creates text and Base64 attachments with verified metadata" do
+      with_storage_test_config(fn ->
+        png = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A>>
+
+        assert {:ok, %Note{attachments: attachments} = note} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Attachment note",
+                     content: "Body",
+                     attachments: [
+                       text_attachment("readme", "docs/readme.txt", "hello"),
+                       %{
+                         id: "pixel",
+                         path: "images/pixel.png",
+                         mime: "image/png",
+                         content_base64: Base.encode64(png)
+                       }
+                     ]
+                   },
+                   actor("attachment-creator")
+                 )
+
+        assert [
+                 %Attachment{
+                   id: "pixel",
+                   path: "./images/pixel.png",
+                   mime: "image/png",
+                   storage_file: %StorageFile{
+                     type: "gao_note_attachment",
+                     content_type: "image/png",
+                     variants: %{}
+                   }
+                 },
+                 %Attachment{
+                   id: "readme",
+                   path: "./docs/readme.txt",
+                   mime: "text/plain",
+                   storage_file: %StorageFile{
+                     type: "gao_note_attachment",
+                     content_type: "text/plain",
+                     variants: %{}
+                   }
+                 }
+               ] = Enum.sort_by(attachments, & &1.id)
+
+        assert Enum.all?(attachments, &(&1.storage_file.tenant == note.id))
+        assert %Note{attachments: [_, _], labels: []} = GaoNote.get_note(note.id)
+        assert %Note{attachments: [_, _]} = Enum.find(GaoNote.list_notes(), &(&1.id == note.id))
+        assert %Attachment{id: "readme"} = attachment_by_id(GaoNote.get_note(note.id), "readme")
+      end)
+    end
+
+    test "rejects MIME mismatch and purges the staged file" do
+      with_storage_test_config(fn ->
+        assert {:error,
+                {:attachment,
+                 %{
+                   code: :mime_mismatch,
+                   id: "mime-mismatch",
+                   submitted: "application/json",
+                   detected: "text/plain"
+                 }}} =
+                 GaoNote.create_note(
+                   %{
+                     title: "MIME mismatch",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "mime-mismatch",
+                         path: "data.txt",
+                         mime: "application/json",
+                         content: "plain text"
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        assert Repo.aggregate(StorageFile, :count) == 0
+        assert_receive {:s3_delete, _path}
+      end)
+    end
+
+    test "rejects a new attachment without content" do
+      with_storage_test_config(fn ->
+        assert {:error,
+                {:attachment, %{code: :content_required, id: "missing-content"}}} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Missing content",
+                     content: "Body",
+                     attachments: [
+                       %{
+                         id: "missing-content",
+                         path: "missing.txt",
+                         mime: "text/plain"
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        refute_received {:s3_put, _path, _body}
+        assert Repo.aggregate(StorageFile, :count) == 0
+      end)
+    end
+
+    test "retained and replacement MIME mismatches preserve the existing attachment" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [text_attachment("mime-retain", "mime.txt", "original")]
+          })
+
+        original = attachment_by_id(note, "mime-retain")
+        flush_storage_messages()
+
+        assert {:error,
+                {:attachment,
+                 %{
+                   code: :retained_mime_mismatch,
+                   id: "mime-retain",
+                   submitted: "application/json",
+                   persisted: "text/plain"
+                 }}} =
+                 GaoNote.update_note(
+                   note,
+                   %{
+                     attachments: [
+                       %{
+                         id: "mime-retain",
+                         path: "mime.txt",
+                         mime: "application/json"
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        refute_received {:s3_put, _path, _body}
+
+        assert {:error,
+                {:attachment,
+                 %{
+                   code: :mime_mismatch,
+                   id: "mime-retain",
+                   submitted: "application/json",
+                   detected: "text/plain"
+                 }}} =
+                 GaoNote.update_note(
+                   note,
+                   %{
+                     attachments: [
+                       %{
+                         id: "mime-retain",
+                         path: "mime.txt",
+                         mime: "application/json",
+                         content: "replacement"
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        assert_receive {:s3_delete, _path}
+        assert Repo.aggregate(StorageFile, :count) == 1
+
+        assert %Attachment{storage_file_id: storage_file_id, mime: "text/plain"} =
+                 attachment_by_id(GaoNote.get_note(note.id), "mime-retain")
+
+        assert storage_file_id == original.storage_file_id
+        assert %StorageFile{status: "active"} = Storage.get(original.storage_file_id)
+      end)
+    end
+
+    test "a mid-batch staging failure purges every earlier staged file" do
+      with_storage_test_config(fn ->
+        assert {:error,
+                {:attachment,
+                 %{code: :mime_mismatch, id: "batch-second"}}} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Mid-batch failure",
+                     content: "Body",
+                     attachments: [
+                       text_attachment("batch-first", "first.txt", "first"),
+                       %{
+                         id: "batch-second",
+                         path: "second.txt",
+                         mime: "application/json",
+                         content: "second"
+                       }
+                     ]
+                   },
+                   actor()
+                 )
+
+        assert Repo.aggregate(StorageFile, :count) == 0
+        assert_receive {:s3_delete, _first_path}
+        assert_receive {:s3_delete, _second_path}
+      end)
+    end
+
+    test "rejects duplicate IDs and canonical paths before staging" do
+      with_storage_test_config(fn ->
+        duplicate_id = [
+          text_attachment("duplicate", "one.txt", "one"),
+          text_attachment("duplicate", "two.txt", "two")
+        ]
+
+        assert {:error, {:attachments, %{code: :duplicate_id, id: "duplicate"}}} =
+                 GaoNote.create_note(
+                   %{title: "Duplicate ID", content: "Body", attachments: duplicate_id},
+                   actor()
+                 )
+
+        duplicate_path = [
+          text_attachment("first", "docs/file.txt", "one"),
+          text_attachment("second", "./docs//file.txt", "two")
+        ]
+
+        assert {:error,
+                {:attachments, %{code: :duplicate_path, path: "./docs/file.txt"}}} =
+                 GaoNote.create_note(
+                   %{title: "Duplicate path", content: "Body", attachments: duplicate_path},
+                   actor()
+                 )
+
+        refute_received {:s3_put, _path, _body}
+      end)
+    end
+
+    test "enforces global ID ownership and rejects cross-note moves" do
+      with_storage_test_config(fn ->
+        owner =
+          note_fixture(%{
+            title: "Owner",
+            attachments: [text_attachment("global-id", "owner.txt", "owner")]
+          })
+
+        assert {:error,
+                {:attachment,
+                 %{
+                   code: :owned_by_another_note,
+                   id: "global-id",
+                   owner_note_id: owner_id
+                 }}} =
+                 GaoNote.create_note(
+                   %{
+                     title: "Duplicate owner",
+                     content: "Body",
+                     attachments: [text_attachment("global-id", "copy.txt", "copy")]
+                   },
+                   actor()
+                 )
+
+        assert owner_id == owner.id
+
+        other = note_fixture(%{title: "Other"})
+
+        assert {:error,
+                {:attachment,
+                 %{code: :owned_by_another_note, id: "global-id"}}} =
+                 GaoNote.update_note(
+                   other,
+                   %{
+                     attachments: [
+                       %{id: "global-id", path: "moved.txt", mime: "text/plain"}
+                     ]
+                   },
+                   actor()
+                 )
+
+        assert %Attachment{note_id: owner_id} =
+                 attachment_by_id(GaoNote.get_note(owner.id), "global-id")
+
+        assert owner_id == owner.id
+      end)
+    end
+
+    test "advisory locks serialize overlapping global ID claims and compensate the loser" do
+      with_storage_test_config(fn ->
+        race_actor = actor("race-actor")
+
+        claims =
+          for {title, path, bytes} <- [
+                {"First claim", "first.txt", "block-for-first-claim"},
+                {"Second claim", "second.txt", "block-for-second-claim"}
+              ] do
+            Task.async(fn ->
+              GaoNote.create_note(
+                %{
+                  title: title,
+                  content: "Body",
+                  attachments: [
+                    text_attachment("raced-global-id", path, bytes)
+                  ]
+                },
+                race_actor
+              )
+            end)
+          end
+
+        assert_receive {:s3_put_blocked, first_request_pid, _path}
+        assert_receive {:s3_put_blocked, second_request_pid, _path}
+
+        send(first_request_pid, :release_s3_put)
+        send(second_request_pid, :release_s3_put)
+
+        results = Task.await_many(claims, 5_000)
+
+        assert Enum.count(results, &match?({:ok, %Note{}}, &1)) == 1
+
+        assert Enum.count(
+                 results,
+                 &match?(
+                   {:error,
+                    {:attachment,
+                     %{code: :owned_by_another_note, id: "raced-global-id"}}},
+                   &1
+                 )
+               ) == 1
+
+        winner_result = Enum.find(results, &match?({:ok, %Note{}}, &1))
+
+        loser_result =
+          Enum.find(
+            results,
+            &match?(
+              {:error,
+               {:attachment,
+                %{code: :owned_by_another_note, id: "raced-global-id"}}},
+              &1
+            )
+          )
+
+        assert {:ok, %Note{} = winner} = winner_result
+
+        assert {:error,
+                {:attachment,
+                 %{
+                   code: :owned_by_another_note,
+                   id: "raced-global-id",
+                   owner_note_id: winner_id
+        }}} = loser_result
+
+        assert winner_id == winner.id
+
+        assert %Attachment{note_id: ^winner_id} =
+                 attachment_by_id(GaoNote.get_note(winner_id), "raced-global-id")
+
+        assert Repo.aggregate(StorageFile, :count) == 1
+        assert_receive {:s3_delete, _loser_path}
+      end)
+    end
+
+    test "a concurrent metadata update invalidates the complete attachment snapshot" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [text_attachment("stale-plan", "before.txt", "original")]
+          })
+
+        original = attachment_by_id(note, "stale-plan")
+        stale_actor = actor("stale-actor")
+
+        stale_update =
+          Task.async(fn ->
+            GaoNote.update_note(
+              note,
+              %{
+                attachments: [
+                  text_attachment(
+                    "stale-plan",
+                    "stale.txt",
+                    "block-for-stale-plan"
+                  )
+                ]
+              },
+              stale_actor
+            )
+          end)
+
+        assert_receive {:s3_put_blocked, request_pid, _path}
+
+        assert {:ok, %Note{} = concurrent} =
+                 GaoNote.update_note(
+                   note,
+                   %{
+                     attachments: [
+                       retained_attachment(original, %{
+                         path: "concurrent.txt",
+                         description: "concurrent metadata"
+                       })
+                     ]
+                   },
+                   stale_actor
+                 )
+
+        send(request_pid, :release_s3_put)
+
+        assert {:error, {:attachments, %{code: :stale}}} =
+                 Task.await(stale_update, 5_000)
+
+        assert %Attachment{
+                 path: "./concurrent.txt",
+                 description: "concurrent metadata",
+                 storage_file_id: original_storage_file_id
+               } = attachment_by_id(concurrent, "stale-plan")
+
+        assert original_storage_file_id == original.storage_file_id
+
+        assert %Attachment{path: "./concurrent.txt"} =
+                 attachment_by_id(GaoNote.get_note(note.id), "stale-plan")
+
+        assert Repo.aggregate(StorageFile, :count) == 1
+        assert_receive {:s3_delete, _stale_path}
+      end)
+    end
+
+    test "requires a full attachment list on update" do
       note = note_fixture()
-      other_note = note_fixture()
-      file = storage_file_fixture()
-      attachment = attachment_fixture(note, file)
 
-      assert {:error, :not_found} =
-               GaoNote.update_attachment(other_note.id, attachment.id, %{caption: "Wrong note"})
+      assert {:error, {:attachments, %{code: :required}}} =
+               GaoNote.update_note(note, %{title: "Missing list"}, actor())
 
-      assert {:error, :not_found} =
-               GaoNote.update_attachment(note.id, "not-a-uuid", %{caption: "Invalid"})
-
-      assert {:ok, %Attachment{caption: "Updated", position: 4, storage_file: %StorageFile{}}} =
-               GaoNote.update_attachment(note.id, attachment.id, %{
-                 caption: "Updated",
-                 position: 4
-               })
-
-      assert {:error, :not_found} = GaoNote.detach_attachment(other_note.id, attachment.id)
-      assert {:error, :not_found} = GaoNote.detach_attachment(note.id, "not-a-uuid")
-
-      assert {:ok, %Attachment{id: detached_id}} =
-               GaoNote.detach_attachment(note.id, attachment.id)
-
-      assert detached_id == attachment.id
-      assert Repo.get(Attachment, attachment.id) == nil
-      assert %StorageFile{status: "active"} = Repo.get(StorageFile, file.id)
-      assert {:error, :not_found} = GaoNote.detach_attachment(note.id, attachment.id)
-
-      deleted_note = note_fixture()
-      deleted_file = storage_file_fixture()
-      deleted_attachment = attachment_fixture(deleted_note, deleted_file)
-      assert {:ok, _deleted_note} = GaoNote.delete_note(deleted_note, actor())
-
-      assert {:error, :not_found} =
-               GaoNote.update_attachment(deleted_note.id, deleted_attachment.id, %{
-                 caption: "Hidden"
-               })
-
-      assert {:error, :not_found} =
-               GaoNote.detach_attachment(deleted_note.id, deleted_attachment.id)
+      assert {:error, {:attachments, %{code: :must_be_a_list}}} =
+               GaoNote.update_note(note, %{attachments: %{}}, actor())
     end
 
-    test "ignores arbitrary string attributes without creating atoms" do
-      prefix = "untrusted_#{System.unique_integer([:positive])}_"
-      unknown_keys = Enum.map(1..2_000, &"#{prefix}#{&1}")
-      unknown_attrs = Map.new(unknown_keys, &{&1, "untrusted-value"})
+    test "retains bytes while updating attachment metadata" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [text_attachment("retained", "old.txt", "original")]
+          })
 
-      assert Enum.all?(unknown_keys, &missing_atom?/1)
+        attachment = attachment_by_id(note, "retained")
+        storage_file_id = attachment.storage_file_id
+        flush_storage_messages()
 
-      assert {:ok, %Note{title: "Whitelisted note", content: "Whitelisted content"} = note} =
-               GaoNote.create_note(
-                 Map.merge(unknown_attrs, %{
-                   "title" => "Whitelisted note",
-                   "content" => "Whitelisted content"
-                 }),
-                 actor("whitelist-actor")
-               )
+        assert {:ok, %Note{} = updated} =
+                 GaoNote.update_note(
+                   note,
+                   %{
+                     attachments: [
+                       retained_attachment(attachment, %{
+                         path: "renamed.txt",
+                         description: "renamed"
+                       })
+                     ]
+                   },
+                   actor()
+                 )
 
-      assert {:ok, %LabelSetting{name: "Whitelisted label", color: "#123456"}} =
-               GaoNote.create_label_setting(
-                 Map.merge(unknown_attrs, %{
-                   "name" => "Whitelisted label",
-                   "color" => "#123456"
-                 })
-               )
+        assert %Attachment{
+                 storage_file_id: ^storage_file_id,
+                 path: "./renamed.txt",
+                 description: "renamed"
+               } = attachment_by_id(updated, "retained")
 
-      file = storage_file_fixture(%{filename: "whitelisted.txt"})
-
-      assert {:ok,
-              %Attachment{
-                role: "inline",
-                caption: "Whitelisted caption",
-                metadata: %{"visibility" => "public"}
-              }} =
-               GaoNote.attach_existing_file(
-                 note.id,
-                 file.id,
-                 Map.merge(unknown_attrs, %{
-                   "role" => "inline",
-                   "caption" => "Whitelisted caption",
-                   "metadata" => %{"visibility" => "public"}
-                 })
-               )
-
-      assert Enum.all?(unknown_keys, &missing_atom?/1)
+        refute_received {:s3_put, _path, _body}
+        refute_received {:s3_delete, _path}
+      end)
     end
-  end
 
-  defp missing_atom?(key) do
-    try do
-      _atom = String.to_existing_atom(key)
-      false
-    rescue
-      ArgumentError -> true
+    test "atomically swaps retained attachment paths" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [
+              text_attachment("swap-a", "a.txt", "A"),
+              text_attachment("swap-b", "b.txt", "B")
+            ]
+          })
+
+        a = attachment_by_id(note, "swap-a")
+        b = attachment_by_id(note, "swap-b")
+        flush_storage_messages()
+
+        assert {:ok, %Note{} = swapped} =
+                 GaoNote.update_note(
+                   note,
+                   %{
+                     attachments: [
+                       retained_attachment(a, %{path: "b.txt"}),
+                       retained_attachment(b, %{path: "a.txt"})
+                     ]
+                   },
+                   actor()
+                 )
+
+        assert %Attachment{path: "./b.txt", storage_file_id: a_storage_file_id} =
+                 attachment_by_id(swapped, "swap-a")
+
+        assert %Attachment{path: "./a.txt", storage_file_id: b_storage_file_id} =
+                 attachment_by_id(swapped, "swap-b")
+
+        assert a_storage_file_id == a.storage_file_id
+        assert b_storage_file_id == b.storage_file_id
+        refute_received {:s3_put, _path, _body}
+        refute_received {:s3_delete, _path}
+      end)
+    end
+
+    test "replaces bytes and transactionally schedules old storage cleanup" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [text_attachment("replace", "replace.txt", "old")]
+          })
+
+        old_attachment = attachment_by_id(note, "replace")
+        old_storage_file_id = old_attachment.storage_file_id
+        flush_storage_messages()
+
+        Oban.Testing.with_testing_mode(:manual, fn ->
+          assert {:ok, %Note{} = updated} =
+                   GaoNote.update_note(
+                     note,
+                     %{
+                       attachments: [
+                         text_attachment("replace", "replace.txt", "new")
+                       ]
+                     },
+                     actor()
+                   )
+
+          replacement = attachment_by_id(updated, "replace")
+          refute replacement.storage_file_id == old_storage_file_id
+
+          assert_enqueued(
+            worker: StorageFilePurgeWorker,
+            args: %{storage_file_id: old_storage_file_id}
+          )
+        end)
+
+        assert %StorageFile{status: "active"} = Storage.get(old_storage_file_id)
+        assert_receive {:s3_put, _path, "new"}
+        refute_received {:s3_delete, _path}
+      end)
+    end
+
+    test "removes missing attachments and schedules their storage cleanup" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [
+              text_attachment("keep", "keep.txt", "keep"),
+              text_attachment("remove", "remove.txt", "remove")
+            ]
+          })
+
+        kept = attachment_by_id(note, "keep")
+        removed = attachment_by_id(note, "remove")
+
+        Oban.Testing.with_testing_mode(:manual, fn ->
+          assert {:ok, %Note{attachments: [%Attachment{id: "keep"}]}} =
+                   GaoNote.update_note(
+                     note,
+                     %{attachments: [retained_attachment(kept)]},
+                     actor()
+                   )
+
+          assert_enqueued(
+            worker: StorageFilePurgeWorker,
+            args: %{storage_file_id: removed.storage_file_id}
+          )
+        end)
+
+        assert Repo.get(Attachment, "remove") == nil
+
+        assert %Attachment{storage_file_id: kept_storage_file_id} =
+                 attachment_by_id(GaoNote.get_note(note.id), "keep")
+
+        assert kept_storage_file_id == kept.storage_file_id
+      end)
+    end
+
+    test "an outer rollback removes the transactionally inserted cleanup job" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [
+              text_attachment("rollback-keep", "keep.txt", "keep"),
+              text_attachment("rollback-remove", "remove.txt", "remove")
+            ]
+          })
+
+        kept = attachment_by_id(note, "rollback-keep")
+        removed = attachment_by_id(note, "rollback-remove")
+
+        Oban.Testing.with_testing_mode(:manual, fn ->
+          assert {:error, :deliberate_rollback} =
+                   Repo.transaction(fn ->
+                     assert {:ok, %Note{attachments: [%Attachment{id: "rollback-keep"}]}} =
+                              GaoNote.update_note(
+                                note,
+                                %{attachments: [retained_attachment(kept)]},
+                                actor()
+                              )
+
+                     assert_enqueued(
+                       worker: StorageFilePurgeWorker,
+                       args: %{storage_file_id: removed.storage_file_id}
+                     )
+
+                     Repo.rollback(:deliberate_rollback)
+                   end)
+
+          assert [] =
+                   all_enqueued(
+                     worker: StorageFilePurgeWorker,
+                     args: %{storage_file_id: removed.storage_file_id}
+                   )
+        end)
+
+        assert %Note{attachments: rolled_back_attachments} = GaoNote.get_note(note.id)
+
+        assert %Attachment{id: "rollback-keep"} =
+                 Enum.find(rolled_back_attachments, &(&1.id == "rollback-keep"))
+
+        assert %Attachment{id: "rollback-remove"} =
+                 Enum.find(rolled_back_attachments, &(&1.id == "rollback-remove"))
+
+        assert %StorageFile{status: "active"} = Storage.get(removed.storage_file_id)
+      end)
+    end
+
+    test "purges staged files after a database transaction failure" do
+      with_storage_test_config(fn ->
+        assert {:error, %Ecto.Changeset{} = changeset} =
+                 GaoNote.create_note(
+                   %{
+                     title: "",
+                     content: "Body",
+                     attachments: [
+                       text_attachment("rollback", "rollback.txt", "rollback bytes")
+                     ]
+                   },
+                   actor()
+                 )
+
+        refute changeset.valid?
+        assert Repo.aggregate(StorageFile, :count) == 0
+        assert Repo.get(Attachment, "rollback") == nil
+        assert_receive {:s3_delete, _path}
+      end)
+    end
+
+    test "a failed replacement transaction cleans staging and preserves prior rows and files" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            title: "Original title",
+            attachments: [text_attachment("rollback-existing", "existing.txt", "old")]
+          })
+
+        original = attachment_by_id(note, "rollback-existing")
+        flush_storage_messages()
+
+        assert {:error, %Ecto.Changeset{} = changeset} =
+                 GaoNote.update_note(
+                   note,
+                   %{
+                     title: "",
+                     attachments: [
+                       text_attachment(
+                         "rollback-existing",
+                         "existing.txt",
+                         "new staged bytes"
+                       )
+                     ]
+                   },
+                   actor()
+                 )
+
+        refute changeset.valid?
+        assert_receive {:s3_delete, _staged_path}
+        assert Repo.aggregate(StorageFile, :count) == 1
+
+        assert %Note{title: "Original title"} = GaoNote.get_note(note.id)
+
+        assert %Attachment{storage_file_id: storage_file_id} =
+                 attachment_by_id(GaoNote.get_note(note.id), "rollback-existing")
+
+        assert storage_file_id == original.storage_file_id
+        assert %StorageFile{status: "active"} = Storage.get(original.storage_file_id)
+      end)
+    end
+
+    @tag :tmp_dir
+    test "transaction exceptions preserve caller Plug.Upload after staged-file cleanup", %{
+      tmp_dir: tmp_dir
+    } do
+      with_storage_test_config(fn ->
+        upload =
+          plug_upload(
+            tmp_dir,
+            "exception.txt",
+            "exception upload",
+            "application/x-spoofed"
+          )
+
+        error =
+          catch_error(
+            GaoNote.create_note(
+              %{
+                title: <<"invalid", 0, "title">>,
+                content: "Body",
+                attachments: [
+                  %{
+                    id: "exception-cleanup",
+                    path: "exception.txt",
+                    mime: "text/plain",
+                    upload: upload
+                  }
+                ]
+              },
+              actor()
+            )
+          )
+
+        assert is_exception(error)
+        assert Repo.aggregate(StorageFile, :count) == 0
+        assert Repo.get(Attachment, "exception-cleanup") == nil
+        assert_receive {:s3_delete, _staged_path}
+        assert {:ok, "exception upload"} = File.read(upload.path)
+      end)
+    end
+
+    test "soft delete and restore retain attachments; permanent delete enqueues cleanup" do
+      with_storage_test_config(fn ->
+        note =
+          note_fixture(%{
+            attachments: [text_attachment("lifecycle", "docs/lifecycle.txt", "kept")]
+          })
+
+        attachment = attachment_by_id(note, "lifecycle")
+
+        assert {:ok, %Note{id: note_id}} = GaoNote.delete_note(note, actor())
+        assert GaoNote.get_note(note_id) == nil
+
+        assert %Note{attachments: [%Attachment{id: "lifecycle"}]} =
+                 deleted_note = GaoNote.get_deleted_note(note_id)
+
+        assert %StorageFile{status: "active"} = Storage.get(attachment.storage_file_id)
+        assert {:error, :not_found} = GaoNote.get_attachment_by_path(note_id, "docs/lifecycle.txt")
+
+        assert {:ok, %Attachment{id: "lifecycle"}} =
+                 GaoNote.get_deleted_attachment_by_path(note_id, "./docs/lifecycle.txt")
+
+        assert {:ok, %Note{id: ^note_id}} = GaoNote.restore_note(deleted_note, actor())
+
+        assert %Note{attachments: [%Attachment{id: "lifecycle"}]} =
+                 restored = GaoNote.get_note(note_id)
+
+        assert {:ok, %Attachment{id: "lifecycle"}} =
+                 GaoNote.get_attachment_by_path(note_id, "docs/lifecycle.txt")
+
+        assert {:ok, %Note{}} = GaoNote.delete_note(restored, actor())
+        recycled = GaoNote.get_deleted_note(note_id)
+
+        Oban.Testing.with_testing_mode(:manual, fn ->
+          assert {:ok, %Note{id: ^note_id}} =
+                   GaoNote.permanently_delete_note(recycled, actor())
+
+          assert_enqueued(
+            worker: StorageFilePurgeWorker,
+            args: %{storage_file_id: attachment.storage_file_id}
+          )
+        end)
+
+        assert GaoNote.get_deleted_note(note_id) == nil
+        assert Repo.get(Attachment, "lifecycle") == nil
+        assert %StorageFile{status: "active"} = Storage.get(attachment.storage_file_id)
+      end)
+    end
+
+    test "lazily reads UTF-8 and zero-byte text with precise input and content errors" do
+      with_storage_test_config(fn ->
+        invalid_bytes = <<255>>
+        nul_bytes = <<0>>
+
+        note =
+          note_fixture(%{
+            attachments: [
+              text_attachment("text-read", "text.txt", "lazy text"),
+              text_attachment("empty-read", "empty.txt", ""),
+              %{
+                id: "invalid-read",
+                path: "invalid.bin",
+                mime: "application/octet-stream",
+                content_base64: Base.encode64(invalid_bytes)
+              },
+              %{
+                id: "nul-read",
+                path: "nul.bin",
+                mime: "application/octet-stream",
+                content_base64: Base.encode64(nul_bytes)
+              }
+            ]
+          })
+
+        Application.put_env(:gsmlg_storage, :gao_note_test_object, "lazy text")
+        assert {:ok, "lazy text"} = GaoNote.read_attachment_text(note.id, "text-read")
+        assert_receive {:s3_get, _path, ["bytes=0-8"]}
+
+        flush_storage_messages()
+        assert {:ok, ""} = GaoNote.read_attachment_text(note.id, "empty-read")
+        refute_received {:s3_get, _path, _range}
+
+        Application.put_env(:gsmlg_storage, :gao_note_test_object, invalid_bytes)
+        assert {:error, :invalid_text} = GaoNote.read_attachment_text(note.id, "invalid-read")
+
+        Application.put_env(:gsmlg_storage, :gao_note_test_object, nul_bytes)
+        assert {:error, :invalid_text} = GaoNote.read_attachment_text(note.id, "nul-read")
+
+        other = note_fixture(%{title: "Other note"})
+        assert {:error, :not_found} = GaoNote.read_attachment_text(note.id, "missing")
+        assert {:error, :not_found} = GaoNote.read_attachment_text(other.id, "text-read")
+        assert {:error, :not_found} = GaoNote.read_attachment_text("not-a-uuid", "text-read")
+
+        for malformed_id <- [nil, "", "  ", <<255>>, <<"bad", 0, "id">>] do
+          assert {:error, :invalid_attachment_id} =
+                   GaoNote.read_attachment_text(note.id, malformed_id)
+        end
+      end)
     end
   end
 
@@ -827,54 +1641,28 @@ defmodule GSMLG.GaoNoteTest do
     note
   end
 
-  defp storage_file_fixture(attrs \\ %{}) do
-    defaults = %{
-      tenant: "gao_note",
-      type: "attachment",
-      filename: "note.txt",
-      s3_key: "gao_note/attachment/#{Ecto.UUID.generate()}.txt",
-      content_type: "text/plain",
-      size: 64,
-      checksum: Ecto.UUID.generate(),
-      metadata: %{},
-      variants: %{},
-      status: "active",
-      uploaded_by: "actor-1"
-    }
-
-    %StorageFile{}
-    |> StorageFile.changeset(Map.merge(defaults, attrs))
-    |> Repo.insert!()
-  end
-
-  defp attachment_attrs(attrs \\ %{}) do
-    Map.merge(
-      %{
-        note_id: Ecto.UUID.generate(),
-        storage_file_id: Ecto.UUID.generate()
-      },
-      attrs
-    )
-  end
-
-  defp attachment_fixture(note, file, attrs \\ %{}) do
-    attrs = Map.merge(%{note_id: note.id, storage_file_id: file.id}, attrs)
-
-    %Attachment{}
-    |> Attachment.changeset(attrs)
-    |> Repo.insert!()
-  end
-
   defp with_storage_test_config(fun) do
-    keys = [:allowed_types, :s3_bucket, :s3_endpoint]
+    keys = [
+      :allowed_types,
+      :gao_note_test_object,
+      :gao_note_test_pid,
+      :s3_access_key_id,
+      :s3_bucket,
+      :s3_endpoint,
+      :s3_secret_access_key
+    ]
+
     original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
+    port = available_port()
+    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
 
-    Application.put_env(:gsmlg_storage, :allowed_types, %{
-      "attachment" => ["application/octet-stream", "text/plain"]
-    })
-
+    Application.put_env(:gsmlg_storage, :allowed_types, %{"gao_note_attachment" => :any})
+    Application.put_env(:gsmlg_storage, :gao_note_test_object, "")
+    Application.put_env(:gsmlg_storage, :gao_note_test_pid, self())
+    Application.put_env(:gsmlg_storage, :s3_access_key_id, "test-access-key")
     Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
-    Application.put_env(:gsmlg_storage, :s3_endpoint, System.fetch_env!("AWS_ENDPOINT_URL"))
+    Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
+    Application.put_env(:gsmlg_storage, :s3_secret_access_key, "test-secret-key")
 
     try do
       fun.()
@@ -883,13 +1671,65 @@ defmodule GSMLG.GaoNoteTest do
         {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
         {key, :error} -> Application.delete_env(:gsmlg_storage, key)
       end)
+
+      GenServer.stop(s3_stub)
     end
   end
 
-  defp plug_upload(tmp_dir, filename, contents) do
-    path = Path.join(tmp_dir, "temporary-#{System.unique_integer([:positive])}")
-    File.write!(path, contents)
-    %Plug.Upload{path: path, filename: filename, content_type: "text/plain"}
+  defp text_attachment(id, path, content) do
+    %{id: id, path: path, mime: "text/plain", content: content}
+  end
+
+  defp retained_attachment(%Attachment{} = attachment, attrs \\ %{}) do
+    Map.merge(
+      %{
+        id: attachment.id,
+        path: attachment.path,
+        mime: attachment.mime,
+        description: attachment.description
+      },
+      attrs
+    )
+  end
+
+  defp plug_upload(tmp_dir, filename, bytes, content_type) do
+    path =
+      Path.join(
+        tmp_dir,
+        "#{System.unique_integer([:positive, :monotonic])}-#{filename}"
+      )
+
+    File.write!(path, bytes)
+
+    %Plug.Upload{
+      path: path,
+      filename: filename,
+      content_type: content_type
+    }
+  end
+
+  defp attachment_by_id(%Note{} = note, id) do
+    Enum.find(note.attachments, &(&1.id == id))
+  end
+
+  defp flush_storage_messages do
+    receive do
+      {:s3_put, _path, _body} -> flush_storage_messages()
+      {:s3_put_blocked, _pid, _path} -> flush_storage_messages()
+      {:s3_get, _path, _range} -> flush_storage_messages()
+      {:s3_delete, _path} -> flush_storage_messages()
+    after
+      0 -> :ok
+    end
+  end
+
+  defp available_port do
+    {:ok, socket} =
+      :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, ip: {127, 0, 0, 1}])
+
+    {:ok, {_address, port}} = :inet.sockname(socket)
+    :ok = :gen_tcp.close(socket)
+    port
   end
 
   defp unique_title(prefix) do

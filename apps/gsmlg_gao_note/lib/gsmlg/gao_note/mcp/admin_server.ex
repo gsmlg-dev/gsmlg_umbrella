@@ -14,22 +14,15 @@ defmodule GSMLG.GaoNote.MCP.AdminServer do
   component(Tools.Search, name: "gao_note.search")
   component(Tools.Get, name: "gao_note.get")
   component(Tools.ListLabelSettings, name: "gao_note.list_label_settings")
-  component(Tools.ListAttachments, name: "gao_note.list_attachments")
-  component(Tools.Create, name: "gao_note.create")
+  component(Tools.CreateNote, name: "gao_note.create_note")
   component(Tools.CreateLabelSetting, name: "gao_note.create_label_setting")
-  component(Tools.Update, name: "gao_note.update")
+  component(Tools.UpdateNote, name: "gao_note.update_note")
   component(Tools.Delete, name: "gao_note.delete")
   component(Tools.SetLabels, name: "gao_note.set_labels")
-  component(Tools.AttachExistingAttachment, name: "gao_note.attachments.attach_existing")
-  component(Tools.UploadBase64Attachment, name: "gao_note.attachments.upload_base64")
-  component(Tools.UpdateAttachment, name: "gao_note.attachments.update")
-  component(Tools.DetachAttachment, name: "gao_note.attachments.detach")
 
   component(Resources.Note)
   component(Resources.NoteMetadata)
-  component(Resources.NoteAttachments)
   component(Resources.LabelSetting)
-  component(Resources.Attachment)
 
   @impl true
   def init(_client_info, frame) do

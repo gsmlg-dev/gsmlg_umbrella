@@ -14,9 +14,6 @@ defmodule GSMLG.GaoNote.MCP.Resources do
       %URI{scheme: "gaonote", host: "label_settings", path: "/" <> label_setting_id} ->
         read_label_setting(uri, label_setting_id, frame)
 
-      %URI{scheme: "gaonote", host: "attachments", path: "/" <> attachment_id} ->
-        read_attachment(uri, attachment_id, frame)
-
       _ ->
         {:error, Error.resource(:not_found, %{uri: uri}), frame}
     end
@@ -38,14 +35,6 @@ defmodule GSMLG.GaoNote.MCP.Resources do
       {note, ["metadata"]} ->
         {:reply, Response.resource() |> Response.json(%{"note" => Presenter.note(note)}), frame}
 
-      {note, ["attachments"]} ->
-        attachments = GaoNote.list_attachments(note.id)
-
-        {:reply,
-         Response.resource()
-         |> Response.json(%{"attachments" => Enum.map(attachments, &Presenter.attachment/1)}),
-         frame}
-
       {_note, _unknown} ->
         {:error, Error.resource(:not_found, %{uri: uri}), frame}
     end
@@ -55,17 +44,6 @@ defmodule GSMLG.GaoNote.MCP.Resources do
     case GaoNote.get_label_setting(label_setting_id) do
       nil -> {:error, Error.resource(:not_found, %{uri: uri}), frame}
       label_setting -> {:reply, Response.resource() |> Response.json(%{"label_setting" => Presenter.label_setting(label_setting)}), frame}
-    end
-  end
-
-  defp read_attachment(uri, attachment_id, frame) do
-    with attachment when not is_nil(attachment) <- GaoNote.get_attachment(attachment_id),
-         note when not is_nil(note) <- resource_note(attachment.note_id, mode(frame)) do
-      {:reply,
-       Response.resource()
-       |> Response.json(%{"attachment" => Presenter.attachment(attachment)}), frame}
-    else
-      _ -> {:error, Error.resource(:not_found, %{uri: uri}), frame}
     end
   end
 
@@ -103,19 +81,6 @@ defmodule GSMLG.GaoNote.MCP.Resources.NoteMetadata do
   def read(%{"uri" => uri}, frame), do: GSMLG.GaoNote.MCP.Resources.read(uri, frame)
 end
 
-defmodule GSMLG.GaoNote.MCP.Resources.NoteAttachments do
-  @moduledoc "Read GaoNote attachment metadata."
-
-  use Backplane.McpProtocol.Server.Component,
-    type: :resource,
-    uri_template: "gaonote://notes/{id}/attachments",
-    name: "gao_note.note.attachments",
-    mime_type: "application/json"
-
-  @impl true
-  def read(%{"uri" => uri}, frame), do: GSMLG.GaoNote.MCP.Resources.read(uri, frame)
-end
-
 defmodule GSMLG.GaoNote.MCP.Resources.LabelSetting do
   @moduledoc "Read a GaoNote label_setting."
 
@@ -123,19 +88,6 @@ defmodule GSMLG.GaoNote.MCP.Resources.LabelSetting do
     type: :resource,
     uri_template: "gaonote://label_settings/{id}",
     name: "gao_note.label_setting",
-    mime_type: "application/json"
-
-  @impl true
-  def read(%{"uri" => uri}, frame), do: GSMLG.GaoNote.MCP.Resources.read(uri, frame)
-end
-
-defmodule GSMLG.GaoNote.MCP.Resources.Attachment do
-  @moduledoc "Read GaoNote attachment metadata."
-
-  use Backplane.McpProtocol.Server.Component,
-    type: :resource,
-    uri_template: "gaonote://attachments/{attachment_id}",
-    name: "gao_note.attachment",
     mime_type: "application/json"
 
   @impl true

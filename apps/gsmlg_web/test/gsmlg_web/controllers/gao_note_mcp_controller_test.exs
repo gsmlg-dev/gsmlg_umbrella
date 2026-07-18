@@ -2,16 +2,15 @@ defmodule GSMLG.Web.GaoNoteMCPControllerTest do
   use GSMLG.Web.ConnCase, async: false
 
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Asset, Note, Reference, Tag, Tagging}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Note}
   alias GSMLG.Accounts.User
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
 
   setup do
-    Repo.delete_all(Asset)
-    Repo.delete_all(Reference)
-    Repo.delete_all(Tagging)
-    Repo.delete_all(Tag)
+    Repo.delete_all(Attachment)
+    Repo.delete_all(Label)
+    Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
     Repo.delete_all(StorageFile)
     :ok
@@ -55,9 +54,18 @@ defmodule GSMLG.Web.GaoNoteMCPControllerTest do
 
     names = conn |> json_response(200) |> get_in(["result", "tools"]) |> Enum.map(& &1["name"])
 
-    assert "gao_note.search" in names
-    assert "gao_note.get" in names
+    assert Enum.sort(names) == ~w(
+             gao_note.get
+             gao_note.list_label_settings
+             gao_note.search
+           )
+
     refute "gao_note.create" in names
+    refute "gao_note.create_note" in names
+    refute "gao_note.update" in names
+    refute "gao_note.update_note" in names
+    refute "gao_note.list_attachments" in names
+    refute Enum.any?(names, &String.contains?(&1, ["attachment", "reference", "asset"]))
     refute "gao_note.assets.upload_base64" in names
   end
 
@@ -83,6 +91,7 @@ defmodule GSMLG.Web.GaoNoteMCPControllerTest do
     assert note["id"] == created_note.id
     assert note["title"] == "MCP Visible"
     assert note["content"] == "Content"
+    assert note["attachments"] == []
     assert note["created_at"]
     refute Map.has_key?(note, "body")
     refute Map.has_key?(note, "body_format")

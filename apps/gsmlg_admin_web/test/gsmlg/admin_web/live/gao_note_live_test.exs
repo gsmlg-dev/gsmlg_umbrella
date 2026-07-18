@@ -1,6 +1,37 @@
 defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
   use GSMLG.AdminWeb.ConnCase, async: false
 
+  defmodule S3Stub do
+    use Plug.Router
+
+    plug(:match)
+    plug(:dispatch)
+
+    put "/*path" do
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      notify({:s3_put, conn.request_path, body})
+      send_resp(conn, 200, "")
+    end
+
+    get "/*path" do
+      notify({:s3_get, conn.request_path})
+      send_resp(conn, 206, Application.get_env(:gsmlg_storage, :gao_note_live_test_object, ""))
+    end
+
+    delete "/*path" do
+      notify({:s3_delete, conn.request_path})
+      send_resp(conn, 204, "")
+    end
+
+    match _, do: send_resp(conn, 200, "")
+
+    defp notify(message) do
+      if pid = Application.get_env(:gsmlg_storage, :gao_note_live_test_pid) do
+        send(pid, message)
+      end
+    end
+  end
+
   import GSMLG.AccountsFixtures
   import Phoenix.LiveViewTest
 
@@ -9,29 +40,16 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
 
-  defmodule S3Stub do
-    @behaviour Plug
-
-    @impl true
-    def init(opts), do: opts
-
-    @impl true
-    def call(conn, _opts) do
-      conn
-      |> drain_body()
-      |> Plug.Conn.put_resp_header("etag", "\"test-etag\"")
-      |> Plug.Conn.send_resp(200, "")
-    end
-
-    defp drain_body(conn) do
-      case Plug.Conn.read_body(conn) do
-        {:ok, _body, conn} -> conn
-        {:more, _body, conn} -> drain_body(conn)
-      end
-    end
-  end
-
   @secret_key_base String.duplicate("a", 64)
+  @storage_keys [
+    :allowed_types,
+    :gao_note_live_test_object,
+    :gao_note_live_test_pid,
+    :s3_access_key_id,
+    :s3_bucket,
+    :s3_endpoint,
+    :s3_secret_access_key
+  ]
 
   setup %{conn: conn} do
     endpoint_config = Application.get_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint, [])
@@ -53,6 +71,29 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
     Repo.delete_all(StorageFile)
+
+    original_storage =
+      Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
+
+    port = available_port()
+    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
+
+    Application.put_env(:gsmlg_storage, :allowed_types, %{"gao_note_attachment" => :any})
+    Application.put_env(:gsmlg_storage, :gao_note_live_test_object, "")
+    Application.put_env(:gsmlg_storage, :gao_note_live_test_pid, self())
+    Application.put_env(:gsmlg_storage, :s3_access_key_id, "test-access-key")
+    Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
+    Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
+    Application.put_env(:gsmlg_storage, :s3_secret_access_key, "test-secret-key")
+
+    on_exit(fn ->
+      Enum.each(original_storage, fn
+        {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
+        {key, :error} -> Application.delete_env(:gsmlg_storage, key)
+      end)
+
+      if Process.alive?(s3_stub), do: GenServer.stop(s3_stub)
+    end)
 
     user = user_fixture()
 
@@ -97,7 +138,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ note.title
     assert html =~ "Admin Label"
     assert html =~ "MCP Label"
-    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")
+    refute html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/references")
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/assets")
     refute html =~ ~s(id="gao-note-table-loading")
@@ -121,12 +162,21 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ ~s(name="gao_note[content]")
     refute html =~ ~s(<textarea)
     assert html =~ ~s(id="gao-note-labels")
+    assert html =~ ~s(id="gao-note-attachments")
+    assert html =~ "No attachments staged"
+    assert html =~ "Add attachment"
     assert html =~ ~s(<button type="submit")
     refute html =~ ~s(<el-dm-button variant="primary" class="" style="" type="submit")
 
-    render_change(view, "label_input_changed", %{"label_input" => "New Live Label"})
+    render_change(view, "label_input_changed", %{
+      "label_key_input" => "New Live Label",
+      "label_value_input" => ""
+    })
 
-    assert render_click(view, "add_label_option", %{"name" => "New Live Label"}) =~
+    assert render_click(view, "add_label_option", %{
+             "key" => "New Live Label",
+             "value" => ""
+           }) =~
              "New Live Label"
 
     assert render_click(view, "set_labels", %{
@@ -144,7 +194,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert [
              %Note{
                title: "Created From LiveView",
-               content: "Created content"
+               content: "Created content",
+               attachments: []
              } = note
            ] =
              GaoNote.list_notes(search: "Created From LiveView")
@@ -172,6 +223,18 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ "can&#39;t be blank"
     assert html =~ ~s(id="gao_note_title-errors")
     assert html =~ ~s(id="gao_note_content-errors")
+  end
+
+  test "attachment modal disables native dismissal and exposes only explicit actions", %{
+    conn: conn
+  } do
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+
+    assert has_element?(view, "el-dm-dialog#gao-note-attachment-modal[no-dismiss]")
+    refute has_element?(view, "el-dm-dialog#gao-note-attachment-modal [slot='close']")
+    assert has_element?(view, "#gao-note-attachment-form [phx-click='cancel_attachment_modal']")
+    assert has_element?(view, "#gao-note-attachment-form button[type='submit']")
   end
 
   test "admin can edit a note with the markdown input", %{conn: conn, user: user} do
@@ -207,7 +270,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
   end
 
-  test "admin show renders note content with the markdown component", %{conn: conn, user: user} do
+  test "admin show renders note content as server-side safe HTML", %{conn: conn, user: user} do
     assert {:ok, note} =
              GaoNote.create_note(
                %{
@@ -217,13 +280,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
                user
              )
 
-    {:ok, _view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}")
+    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}")
 
-    assert html =~ ~s(<el-dm-markdown)
+    refute html =~ ~s(<el-dm-markdown)
     assert html =~ ~s(id="gao-note-content-#{note.id}")
-    assert html =~ "## Rendered markdown"
-    assert html =~ "Attachments"
-    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")
+    assert has_element?(view, "#gao-note-content-#{note.id} h2", "Rendered markdown")
+    refute html =~ "Add attachment"
+    refute html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")
     refute html =~ "References"
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/references")
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/assets")
@@ -367,7 +430,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert {:ok, note} =
              GaoNote.update_note(
                note,
-               %{title: "Logged LiveView Note Updated", content: "Updated content"},
+               %{
+                 title: "Logged LiveView Note Updated",
+                 content: "Updated content",
+                 attachments: []
+               },
                user
              )
 
@@ -389,360 +456,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     refute html =~ ~s(id="gao-note-log-loading")
   end
 
-  test "attachment routes isolate note scope and ignore id query on the global action", %{
-    conn: conn,
-    user: user
-  } do
-    assert {:ok, first_note} =
-             GaoNote.create_note(
-               %{title: "First Attachment Note", content: "First attachment content"},
-               user
-             )
-
-    assert {:ok, second_note} =
-             GaoNote.create_note(
-               %{title: "Second Attachment Note", content: "Second attachment content"},
-               user
-             )
-
-    first_file = storage_file_fixture(%{filename: "first-route-attachment.txt"})
-    second_file = storage_file_fixture(%{filename: "second-route-attachment.txt"})
-
-    assert {:ok, first_attachment} =
-             GaoNote.attach_existing_file(
-               first_note.id,
-               first_file.id,
-               %{
-                 role: "cover",
-                 path: "first-route-attachment.txt",
-                 caption: "First Route Caption",
-                 metadata: %{"visibility" => "public"}
-               },
-               actor: user
-             )
-
-    assert {:ok, second_attachment} =
-             GaoNote.attach_existing_file(
-               second_note.id,
-               second_file.id,
-               %{
-                 role: "attachment",
-                 path: "second-route-attachment.txt",
-                 caption: "Second Route Caption",
-                 metadata: %{"visibility" => "private"}
-               },
-               actor: user
-             )
-
-    assert {:ok, _view, note_html} =
-             live(conn, ~p"/gao_notes/notes/#{first_note.id}/attachments")
-
-    assert note_html =~ "First Attachment Note Attachments"
-    assert note_html =~ "first-route-attachment.txt"
-    assert note_html =~ "First Route Caption"
-    assert note_html =~ ~s(id="gao-note-attachment-#{first_attachment.id}")
-    refute note_html =~ "second-route-attachment.txt"
-    refute note_html =~ "Second Route Caption"
-    refute note_html =~ ~s(id="gao-note-attachment-#{second_attachment.id}")
-
-    assert {:ok, _view, scoped_query_html} =
-             live(conn, "/gao_notes/notes/#{first_note.id}/attachments?page=2")
-
-    assert scoped_query_html =~ "first-route-attachment.txt"
-    refute scoped_query_html =~ "second-route-attachment.txt"
-
-    {:ok, _view, html} = live(conn, ~p"/gao_notes/attachments")
-
-    assert html =~ "GaoNote Attachments"
-    assert html =~ ~s(id="gao-note-attachments-table")
-    assert html =~ "First Attachment Note"
-    assert html =~ "Second Attachment Note"
-    assert html =~ "first-route-attachment.txt"
-    assert html =~ "second-route-attachment.txt"
-    assert html =~ "First Route Caption"
-    assert html =~ "Second Route Caption"
-    assert html =~ "public"
-    assert html =~ "private"
-    assert html =~ ~s(href="/gao_notes/notes/#{first_note.id}/attachments")
-    assert html =~ ~s(href="/gao_notes/notes/#{second_note.id}/attachments")
-    refute html =~ ~s(href="/gao_notes/references")
-    refute html =~ ~s(href="/gao_notes/assets")
-
-    assert {:ok, _view, query_html} =
-             live(conn, "/gao_notes/attachments?id=#{first_note.id}")
-
-    assert query_html =~ "GaoNote Attachments"
-    assert query_html =~ "First Attachment Note"
-    assert query_html =~ "Second Attachment Note"
-    assert query_html =~ "first-route-attachment.txt"
-    assert query_html =~ "second-route-attachment.txt"
-    assert query_html =~ "First Route Caption"
-    assert query_html =~ "Second Route Caption"
-    assert query_html =~ ~s(id="gao-note-attachments-table")
-    assert query_html =~ ~s(href="/gao_notes/notes/#{first_note.id}/attachments")
-    assert query_html =~ ~s(href="/gao_notes/notes/#{second_note.id}/attachments")
-    refute query_html =~ ~s(id="gao-note-note-attachments")
-    refute query_html =~ ~s(id="gao-note-attachment-upload-form")
-  end
-
-  test "global attachments paginate without omissions and support previous navigation", %{
-    conn: conn,
-    user: user
-  } do
-    assert {:ok, note} =
-             GaoNote.create_note(
-               %{title: "Paginated Attachments", content: "Pagination content"},
-               user
-             )
-
-    attachments =
-      for index <- 1..26 do
-        filename = "paginated-#{String.pad_leading(Integer.to_string(index), 2, "0")}.txt"
-        file = storage_file_fixture(%{filename: filename})
-
-        assert {:ok, %Attachment{} = attachment} =
-                 GaoNote.attach_existing_file(
-                   note.id,
-                   file.id,
-                   %{caption: "Caption #{index}", metadata: %{"visibility" => "public"}},
-                   actor: user
-                 )
-
-        {filename, attachment.id}
-      end
-
-    tied_inserted_at = ~U[2026-07-16 00:00:00.000000Z]
-    assert {26, nil} = Repo.update_all(Attachment, set: [inserted_at: tied_inserted_at])
-
-    expected_filenames =
-      attachments
-      |> Enum.sort_by(fn {_filename, id} -> id end, :desc)
-      |> Enum.map(fn {filename, _id} -> filename end)
-
-    {expected_first_page, expected_second_page} = Enum.split(expected_filenames, 25)
-
-    {:ok, view, first_page_html} = live(conn, ~p"/gao_notes/attachments")
-
-    assert first_page_html =~ ~s(id="gao-note-attachments-table")
-    assert first_page_html =~ ~s(id="gao-note-attachments-next")
-    refute first_page_html =~ ~s(id="gao-note-attachments-previous")
-
-    for filename <- expected_first_page, do: assert(first_page_html =~ filename)
-    for filename <- expected_second_page, do: refute(first_page_html =~ filename)
-
-    view
-    |> element("#gao-note-attachments-next")
-    |> render_click()
-
-    assert_patch(view, "/gao_notes/attachments?page=2")
-    second_page_html = render(view)
-    assert second_page_html =~ ~s(id="gao-note-attachments-previous")
-    refute second_page_html =~ ~s(id="gao-note-attachments-next")
-
-    for filename <- expected_first_page, do: refute(second_page_html =~ filename)
-    for filename <- expected_second_page, do: assert(second_page_html =~ filename)
-
-    for filename <- expected_filenames do
-      assert Enum.count([first_page_html, second_page_html], &String.contains?(&1, filename)) == 1
-    end
-
-    view
-    |> element("#gao-note-attachments-previous")
-    |> render_click()
-
-    assert_patch(view, "/gao_notes/attachments?page=1")
-  end
-
-  test "forged mutations on the global attachment page are stable no-ops", %{
-    conn: conn,
-    user: user
-  } do
-    assert {:ok, note} =
-             GaoNote.create_note(
-               %{title: "Global Mutation Guard", content: "Mutation guard content"},
-               user
-             )
-
-    file = storage_file_fixture(%{filename: "guarded.txt"})
-    second_file = storage_file_fixture(%{filename: "must-not-attach.txt"})
-
-    assert {:ok, attachment} =
-             GaoNote.attach_existing_file(
-               note.id,
-               file.id,
-               %{caption: "Original caption", metadata: %{"visibility" => "private"}},
-               actor: user
-             )
-
-    {:ok, view, _html} = live(conn, ~p"/gao_notes/attachments")
-
-    forged_events = [
-      {"upload", %{"attachment" => %{"visibility" => "public"}}},
-      {"attach",
-       %{
-         "attachment" => %{
-           "storage_file_id" => second_file.id,
-           "caption" => "Must not attach",
-           "visibility" => "public"
-         }
-       }},
-      {"update",
-       %{
-         "id" => attachment.id,
-         "attachment" => %{"caption" => "Forged caption", "visibility" => "public"}
-       }},
-      {"detach", %{"id" => attachment.id}}
-    ]
-
-    for {event, params} <- forged_events do
-      assert render_hook(view, event, params) =~
-               "Attachment changes require a note-scoped page"
-    end
-
-    assert [%Attachment{id: id, caption: "Original caption"}] =
-             GaoNote.list_attachments(note.id)
-
-    assert id == attachment.id
-    refute Enum.any?(GaoNote.list_attachments(note.id), &(&1.storage_file_id == second_file.id))
-  end
-
-  test "admin can attach, update, and detach an existing file", %{conn: conn, user: user} do
-    assert {:ok, note} =
-             GaoNote.create_note(
-               %{title: "Manage Attachments", content: "Attachment management"},
-               user
-             )
-
-    storage_file = storage_file_fixture(%{filename: "existing-file.txt"})
-    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}/attachments")
-
-    assert html =~ ~s(id="gao-note-attachment-upload-form")
-    assert html =~ ~s(id="gao-note-attachment-attach-form")
-    assert html =~ "Private"
-    assert html =~ "Public"
-
-    view
-    |> form("#gao-note-attachment-attach-form", %{
-      "attachment" => %{
-        "storage_file_id" => storage_file.id,
-        "role" => "inline",
-        "path" => "existing-file.txt",
-        "description" => "Existing description",
-        "caption" => "Existing caption",
-        "alt_text" => "Existing alt text",
-        "position" => "2",
-        "visibility" => "private",
-        "unknown_attachment_field" => "must be ignored"
-      }
-    })
-    |> render_submit()
-
-    assert [
-             %Attachment{
-               role: "inline",
-               path: "./existing-file.txt",
-               description: "Existing description",
-               caption: "Existing caption",
-               alt_text: "Existing alt text",
-               position: 2,
-               metadata: %{"visibility" => "private"}
-             } = attachment
-           ] = GaoNote.list_attachments(note.id)
-
-    assert has_element?(
-             view,
-             "#gao-note-attachment-detach-#{attachment.id}[data-confirm='Detach this attachment?']"
-           )
-
-    view
-    |> form("#gao-note-attachment-update-#{attachment.id}", %{
-      "attachment" => %{
-        "role" => "cover",
-        "path" => "updated-file.txt",
-        "description" => "Updated description",
-        "caption" => "Updated caption",
-        "alt_text" => "Updated alt text",
-        "position" => "4",
-        "visibility" => "public"
-      }
-    })
-    |> render_submit()
-
-    assert %Attachment{
-             role: "cover",
-             path: "./updated-file.txt",
-             description: "Updated description",
-             caption: "Updated caption",
-             alt_text: "Updated alt text",
-             position: 4,
-             metadata: %{"visibility" => "public"}
-           } = GaoNote.get_attachment(attachment.id)
-
-    view
-    |> element("#gao-note-attachment-detach-#{attachment.id}")
-    |> render_click()
-
-    assert GaoNote.list_attachments(note.id) == []
-    assert %StorageFile{status: "active"} = Repo.get(StorageFile, storage_file.id)
-  end
-
-  test "admin upload keeps the client filename and defaults a note-relative path", %{
-    conn: conn,
-    user: user
-  } do
-    with_storage_test_config(fn ->
-      assert {:ok, note} =
-               GaoNote.create_note(
-                 %{title: "Upload Attachment", content: "Upload attachment content"},
-                 user
-               )
-
-      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/attachments")
-      filename = "client-report-#{System.unique_integer([:positive])}.txt"
-      contents = "attachment uploaded from LiveView"
-
-      upload =
-        file_input(view, "#gao-note-attachment-upload-form", :attachment, [
-          %{name: filename, content: contents, type: "text/plain"}
-        ])
-
-      render_upload(upload, filename)
-
-      view
-      |> form("#gao-note-attachment-upload-form", %{
-        "attachment" => %{
-          "role" => "attachment",
-          "path" => "",
-          "description" => "Uploaded description",
-          "caption" => "Uploaded caption",
-          "alt_text" => "Uploaded alt text",
-          "position" => "0",
-          "visibility" => "private"
-        }
-      })
-      |> render_submit()
-
-      assert [
-               %Attachment{
-                 path: expected_path,
-                 metadata: %{"visibility" => "private"},
-                 storage_file:
-                   %StorageFile{
-                     filename: stored_filename,
-                     content_type: "text/plain",
-                     type: "attachment"
-                   } = stored_file
-               } = attachment
-             ] = GaoNote.list_attachments(note.id)
-
-      assert stored_filename == filename
-      assert expected_path == "./#{filename}"
-      refute expected_path =~ "temporary"
-      refute render(view) =~ stored_file.s3_key
-
-      assert {:ok, _attachment} = GaoNote.detach_attachment(note.id, attachment.id)
-    end)
-  end
 
   test "recycle bin remains wrapped in the admin layout", %{conn: conn, user: user} do
     assert {:ok, note} =
@@ -818,8 +531,15 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ "gsmlg-gao-note-admin"
     assert html =~ "/mcp/gao_note"
     assert html =~ "gao_note.search"
-    assert html =~ "gao_note.create"
+    assert html =~ "gao_note.create_note"
+    assert html =~ "gao_note.update_note"
     assert html =~ "gaonote://notes/{id}"
+    assert html =~ "gaonote://label_settings/{id}"
+    refute html =~ "gao_note.note.references"
+    refute html =~ "gao_note.note.assets"
+    refute html =~ "gao_note.asset"
+    refute html =~ "gaonote://assets"
+    refute html =~ "/references"
     assert html =~ ~s(id="gao-note-mcp-api-key-form")
     assert html =~ ~s(id="gao-note-mcp-test-form")
 
@@ -828,6 +548,32 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ ~s(id="gao-note-mcp-generated-key")
     assert %MCPSetting{actor_id: actor_id} = GaoNote.get_mcp_setting()
     assert actor_id == user.id
+
+    html =
+      render_change(view, "select_tool", %{
+        "mcp_test" => %{"tool" => "gao_note.create_note", "arguments" => "{}"}
+      })
+
+    assert html =~ "attachments"
+    refute html =~ "references"
+
+    rejected_title = "Rejected Console Note #{System.unique_integer([:positive])}"
+
+    html =
+      render_submit(view, "run_tool", %{
+        "mcp_test" => %{
+          "tool" => "gao_note.create_note",
+          "arguments" =>
+            Jason.encode!(%{
+              "title" => rejected_title,
+              "content" => "body",
+              "creator" => nil
+            })
+        }
+      })
+
+    assert html =~ "Invalid params"
+    refute Repo.get_by(Note, title: rejected_title)
 
     html =
       render_submit(view, "run_tool", %{
@@ -841,53 +587,1035 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ "MCP Console Note"
   end
 
+  test "create persists padded Base64 text and real Plug.Upload attachment payloads only on save", %{
+    conn: conn
+  } do
+    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+
+    assert html =~ ~s(id="gao-note-attachments")
+    assert html =~ "No attachments staged"
+
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    html =
+      render_submit(view, "stage_attachment", %{
+        "attachment" => %{
+          "id" => "readme",
+          "path" => "docs//./readme.txt",
+          "description" => "Read me",
+          "source" => "text",
+          "text" => "staged text"
+        }
+      })
+
+    assert html =~ "readme"
+    assert html =~ "./docs/readme.txt"
+    assert html =~ "text/plain"
+    assert html =~ "New"
+    assert Repo.aggregate(Attachment, :count) == 0
+    assert Repo.aggregate(StorageFile, :count) == 0
+    refute_received {:s3_put, _path, _body}
+
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    png = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A>>
+
+    upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "pixel.png", content: png, type: "text/plain"}
+      ])
+
+    render_upload(upload, "pixel.png")
+
+    html =
+      render_submit(view, "stage_attachment", %{
+        "attachment" => %{
+          "id" => "pixel",
+          "path" => "./images/pixel.png",
+          "description" => "Pixel",
+          "source" => "file",
+          "text" => ""
+        }
+      })
+
+    assert html =~ "pixel"
+    assert html =~ "./images/pixel.png"
+    assert html =~ "image/png"
+    assert Repo.aggregate(Attachment, :count) == 0
+    assert Repo.aggregate(StorageFile, :count) == 0
+
+    render_submit(view, "save", %{
+      "gao_note" => %{
+        "title" => "Attachment Draft Note",
+        "content" => "Body",
+        "labels" => []
+      }
+    })
+
+    assert [%Note{} = note] = GaoNote.list_notes(search: "Attachment Draft Note")
+
+    assert [
+             %Attachment{id: "pixel", path: "./images/pixel.png", mime: "image/png"},
+             %Attachment{
+               id: "readme",
+               path: "./docs/readme.txt",
+               mime: "text/plain",
+               description: "Read me"
+             }
+           ] = Enum.sort_by(note.attachments, & &1.id)
+
+    assert_receive {:s3_put, _path, "staged text"}
+    assert_receive {:s3_put, _path, ^png}
+    assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
+  end
+
+  test "edit keeps ID immutable and stages metadata, replacement, and removal", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{
+                 title: "Edit Attachments",
+                 content: "Body",
+                 attachments: [
+                   text_attachment("keep-id", "./keep.txt", "old bytes", "Old"),
+                   text_attachment("remove-id", "./remove.txt", "remove bytes", "")
+                 ]
+               },
+               user
+             )
+
+    keep = attachment_by_id(note, "keep-id")
+    remove = attachment_by_id(note, "remove-id")
+    flush_storage_messages()
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/edit")
+    render_async(view)
+
+    view
+    |> element(
+      ~s([data-attachment-id="keep-id"] [phx-click="open_attachment_modal"][phx-value-operation="edit"])
+    )
+    |> render_click()
+
+    assert has_element?(view, "#gao-note-attachment-form input[readonly][value='keep-id']")
+
+    render_submit(view, "stage_attachment", %{
+      "attachment" => %{
+        "id" => "tampered-id",
+        "path" => "./docs/renamed.txt",
+        "description" => "Updated metadata",
+        "source" => "file",
+        "text" => ""
+      }
+    })
+
+    view
+    |> element(
+      ~s([data-attachment-id="keep-id"] [phx-click="open_attachment_modal"][phx-value-operation="replace"])
+    )
+    |> render_click()
+
+    html =
+      render_submit(view, "stage_attachment", %{
+        "attachment" => %{
+          "id" => "tampered-again",
+          "path" => "./docs/renamed.txt",
+          "description" => "Updated metadata",
+          "source" => "text",
+          "text" => "replacement bytes"
+        }
+      })
+
+    assert html =~ "Replacement"
+    assert html =~ "keep-id"
+    assert html =~ "./docs/renamed.txt"
+    refute html =~ "tampered-id"
+
+    view
+    |> element(~s([data-attachment-id="remove-id"] [phx-click="remove_attachment"]))
+    |> render_click()
+
+    assert %Attachment{storage_file_id: keep_storage_id} =
+             reload_attachment(note.id, "keep-id")
+
+    assert keep_storage_id == keep.storage_file_id
+
+    assert %Attachment{storage_file_id: remove_storage_id} =
+             reload_attachment(note.id, "remove-id")
+
+    assert remove_storage_id == remove.storage_file_id
+    refute_received {:s3_put, _path, _body}
+
+    render_submit(view, "save", %{
+      "gao_note" => %{
+        "title" => "Edit Attachments",
+        "content" => "Updated body",
+        "labels" => []
+      }
+    })
+
+    assert %Note{attachments: [%Attachment{} = updated]} = GaoNote.get_note(note.id)
+    assert updated.id == "keep-id"
+    assert updated.path == "./docs/renamed.txt"
+    assert updated.description == "Updated metadata"
+    assert updated.mime == "text/plain"
+    refute updated.storage_file_id == keep.storage_file_id
+    assert reload_attachment(note.id, "remove-id") == nil
+    assert_receive {:s3_put, _path, "replacement bytes"}
+  end
+
+  test "modal and main cancel discard drafts while retained payloads have metadata only", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{
+                 title: "Cancel Attachment Drafts",
+                 content: "Body",
+                 attachments: [text_attachment("stable-id", "./stable.txt", "stable bytes", "")]
+               },
+               user
+             )
+
+    stable = attachment_by_id(note, "stable-id")
+    flush_storage_messages()
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/edit")
+    render_async(view)
+
+    view
+    |> element(
+      ~s([data-attachment-id="stable-id"] [phx-click="open_attachment_modal"][phx-value-operation="replace"])
+    )
+    |> render_click()
+
+    upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "replacement.txt", content: "not staged", type: "application/octet-stream"}
+      ])
+
+    render_upload(upload, "replacement.txt")
+    render_click(view, "cancel_attachment_modal")
+
+    assert %Attachment{storage_file_id: storage_file_id} =
+             reload_attachment(note.id, "stable-id")
+
+    assert storage_file_id == stable.storage_file_id
+    refute_received {:s3_put, _path, _body}
+
+    view
+    |> element(~s([data-attachment-id="stable-id"] [phx-click="remove_attachment"]))
+    |> render_click()
+
+    render_click(view, "cancel_note")
+
+    assert_patch(view, ~p"/gao_notes/notes")
+    assert %Attachment{storage_file_id: storage_file_id} =
+             reload_attachment(note.id, "stable-id")
+
+    assert storage_file_id == stable.storage_file_id
+    refute_received {:s3_put, _path, _body}
+
+    {:ok, retain_view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/edit")
+    render_async(retain_view)
+
+    render_submit(retain_view, "save", %{
+      "gao_note" => %{
+        "title" => "Retained Attachment",
+        "content" => "Retained body",
+        "labels" => []
+      }
+    })
+
+    assert %Attachment{
+             id: "stable-id",
+             path: "./stable.txt",
+             mime: "text/plain",
+             description: "",
+             storage_file_id: retained_storage_id
+           } =
+             reload_attachment(note.id, "stable-id")
+
+    assert retained_storage_id == stable.storage_file_id
+    refute_received {:s3_put, _path, _body}
+  end
+
+  test "aggregate attachment error keeps drafts and shows an actionable message", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, _owner_note} =
+             GaoNote.create_note(
+               %{
+                 title: "Attachment Owner",
+                 content: "Body",
+                 attachments: [
+                   text_attachment("globally-owned", "./owned.txt", "owned bytes", "")
+                 ]
+               },
+               user
+             )
+
+    flush_storage_messages()
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    render_submit(view, "stage_attachment", %{
+      "attachment" => %{
+        "id" => "globally-owned",
+        "path" => "./draft.txt",
+        "description" => "Conflicting draft",
+        "source" => "text",
+        "text" => "draft bytes"
+      }
+    })
+
+    html =
+      render_submit(view, "save", %{
+        "gao_note" => %{
+          "title" => "Rejected Attachment Draft",
+          "content" => "Body",
+          "labels" => []
+        }
+      })
+
+    assert html =~ ~s(id="gao-note-attachment-save-error")
+    assert html =~ "already belongs to another note"
+    assert html =~ "globally-owned"
+    assert html =~ "./draft.txt"
+    assert GaoNote.list_notes(search: "Rejected Attachment Draft") == []
+    refute_received {:s3_put, _path, "draft bytes"}
+  end
+
+  test "edit cards expose authenticated raw URLs and canonical Markdown only", %{
+    conn: conn,
+    user: user
+  } do
+    png = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A>>
+
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{
+                 title: "Attachment References",
+                 content: "Body",
+                 attachments: [
+                   %{
+                     id: "diagram-id",
+                     path: "./images/diagram.png",
+                     mime: "image/png",
+                     description: "Diagram",
+                     content_base64: Base.encode64(png)
+                   },
+                   text_attachment("file-id", "./docs/file.txt", "private raw body", "")
+                 ]
+               },
+               user
+             )
+
+    image = attachment_by_id(note, "diagram-id")
+    file = attachment_by_id(note, "file-id")
+    flush_storage_messages()
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/edit")
+    html = render_async(view)
+
+    assert html =~ "./images/diagram.png"
+    assert html =~ "./docs/file.txt"
+    assert html =~ "image/png"
+    assert html =~ "text/plain"
+
+    assert has_element?(
+             view,
+             ~s(button[data-clipboard-text="![Diagram](./images/diagram.png)"])
+           )
+
+    assert has_element?(
+             view,
+             ~s(button[data-clipboard-text="[file.txt](./docs/file.txt)"])
+           )
+
+    assert html =~
+             ~s(href="/gao_notes/notes/#{note.id}/attachments/images/diagram.png")
+
+    assert html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments/docs/file.txt")
+    refute html =~ image.storage_file_id
+    refute html =~ file.storage_file_id
+    refute html =~ "private raw body"
+    refute html =~ Base.encode64(png)
+  end
+
+  test "saved Markdown rewrites only known canonical attachment links and images", %{
+    conn: conn,
+    user: user
+  } do
+    png = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A>>
+
+    content = """
+    [Download](./docs/report%201.txt)
+    ![Preview](./images/preview.png)
+    [External](https://example.com/docs)
+    [Anchor](#details)
+    [Unknown](./docs/unknown.txt)
+    [Traversal](../private.txt)
+    """
+
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{
+                 title: "Rendered Attachment Markdown",
+                 content: content,
+                 attachments: [
+                   text_attachment("report-id", "./docs/report 1.txt", "report", ""),
+                   %{
+                     id: "preview-id",
+                     path: "./images/preview.png",
+                     mime: "image/png",
+                     description: "",
+                     content_base64: Base.encode64(png)
+                   }
+                 ]
+               },
+               user
+             )
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}")
+    content_selector = "#gao-note-content-#{note.id}"
+
+    assert has_element?(
+             view,
+             ~s(#{content_selector} a[href="/gao_notes/notes/#{note.id}/attachments/docs/report%201.txt"]),
+             "Download"
+           )
+
+    assert has_element?(
+             view,
+             ~s(#{content_selector} img[src="/gao_notes/notes/#{note.id}/attachments/images/preview.png"])
+           )
+
+    assert has_element?(
+             view,
+             ~s(#{content_selector} a[href="https://example.com/docs"]),
+             "External"
+           )
+
+    assert has_element?(view, ~s(#{content_selector} a[href="#details"]), "Anchor")
+    assert has_element?(view, ~s(#{content_selector} a[href="./docs/unknown.txt"]), "Unknown")
+    assert has_element?(view, ~s(#{content_selector} a[href="../private.txt"]), "Traversal")
+  end
+
+  test "persisted text is read lazily and stages replacement only after confirmation", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{
+                 title: "Lazy Text Attachment",
+                 content: "Body",
+                 attachments: [
+                   text_attachment("editable-text", "./editable.txt", "stored text", "Editable")
+                 ]
+               },
+               user
+             )
+
+    original = attachment_by_id(note, "editable-text")
+    Application.put_env(:gsmlg_storage, :gao_note_live_test_object, "loaded on demand")
+    flush_storage_messages()
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/edit")
+    render_async(view)
+
+    refute_received {:s3_get, _path}
+
+    html =
+      view
+      |> element(
+        ~s([data-attachment-id="editable-text"] [phx-click="open_attachment_modal"][phx-value-operation="edit_text"])
+      )
+      |> render_click()
+
+    assert_receive {:s3_get, _path}
+    assert html =~ "loaded on demand"
+    assert has_element?(view, "#gao-note-attachment-form input[readonly][value='editable-text']")
+
+    assert %Attachment{storage_file_id: storage_file_id} =
+             reload_attachment(note.id, "editable-text")
+
+    assert storage_file_id == original.storage_file_id
+    refute_received {:s3_put, _path, _body}
+
+    html =
+      render_submit(view, "stage_attachment", %{
+        "attachment" => %{
+          "id" => "tampered-text-id",
+          "path" => "./editable.txt",
+          "description" => "Edited lazily",
+          "source" => "text",
+          "text" => "edited text"
+        }
+      })
+
+    assert html =~ "Replacement"
+    assert html =~ "editable-text"
+
+    assert %Attachment{storage_file_id: staged_storage_id} =
+             reload_attachment(note.id, "editable-text")
+
+    assert staged_storage_id == original.storage_file_id
+    refute_received {:s3_put, _path, _body}
+
+    render_submit(view, "save", %{
+      "gao_note" => %{
+        "title" => "Lazy Text Attachment",
+        "content" => "Updated body",
+        "labels" => []
+      }
+    })
+
+    assert %Attachment{id: "editable-text", storage_file_id: replacement_storage_id} =
+             reload_attachment(note.id, "editable-text")
+
+    refute replacement_storage_id == original.storage_file_id
+    assert_receive {:s3_put, _path, "edited text"}
+  end
+
+  test "invalid persisted text reports an actionable lazy-edit error without mutation", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{
+                 title: "Invalid Lazy Text",
+                 content: "Body",
+                 attachments: [
+                   text_attachment("invalid-text", "./invalid.txt", "stored text", "")
+                 ]
+               },
+               user
+             )
+
+    original = attachment_by_id(note, "invalid-text")
+    Application.put_env(:gsmlg_storage, :gao_note_live_test_object, <<255>>)
+    flush_storage_messages()
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/edit")
+    render_async(view)
+    refute_received {:s3_get, _path}
+
+    html =
+      view
+      |> element(
+        ~s([data-attachment-id="invalid-text"] [phx-click="open_attachment_modal"][phx-value-operation="edit_text"])
+      )
+      |> render_click()
+
+    assert_receive {:s3_get, _path}
+    assert html =~ "not valid UTF-8 text"
+
+    assert %Attachment{storage_file_id: storage_file_id} =
+             reload_attachment(note.id, "invalid-text")
+
+    assert storage_file_id == original.storage_file_id
+    refute_received {:s3_put, _path, _body}
+  end
+
+  test "reopening a staged text edit uses draft content without rereading storage", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{
+                 title: "Reopen Staged Text",
+                 content: "Body",
+                 attachments: [
+                   text_attachment("reopen-text", "./reopen.txt", "persisted bytes", "")
+                 ]
+               },
+               user
+             )
+
+    Application.put_env(:gsmlg_storage, :gao_note_live_test_object, "persisted response")
+    flush_storage_messages()
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/edit")
+    render_async(view)
+
+    edit_text_selector =
+      ~s([data-attachment-id="reopen-text"] [phx-click="open_attachment_modal"][phx-value-operation="edit_text"])
+
+    view |> element(edit_text_selector) |> render_click()
+    assert_receive {:s3_get, _path}
+
+    render_submit(view, "stage_attachment", %{
+      "attachment" => %{
+        "id" => "reopen-text",
+        "path" => "./reopen.txt",
+        "description" => "",
+        "source" => "text",
+        "text" => "first staged edit"
+      }
+    })
+
+    flush_storage_messages()
+    Application.put_env(:gsmlg_storage, :gao_note_live_test_object, "changed persisted response")
+
+    html = view |> element(edit_text_selector) |> render_click()
+
+    refute_received {:s3_get, _path}
+    assert html =~ "first staged edit"
+
+    render_submit(view, "stage_attachment", %{
+      "attachment" => %{
+        "id" => "reopen-text",
+        "path" => "./reopen.txt",
+        "description" => "",
+        "source" => "text",
+        "text" => "second staged edit"
+      }
+    })
+
+    render_submit(view, "save", %{
+      "gao_note" => %{
+        "title" => "Reopen Staged Text",
+        "content" => "Saved",
+        "labels" => []
+      }
+    })
+
+    assert_receive {:s3_put, _path, "second staged edit"}
+  end
+
+  test "first selected file fills untouched ID and path without trusting browser MIME", %{
+    conn: conn
+  } do
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "client name.txt", content: "plain bytes", type: "image/png"}
+      ])
+
+    render_upload(upload, "client name.txt")
+    html = render(view)
+    document = Floki.parse_fragment!(html)
+
+    assert [generated_id] = Floki.attribute(document, "#attachment_id", "value")
+    assert String.starts_with?(generated_id, "attachment-")
+    assert Floki.attribute(document, "#attachment_path", "value") == ["./client name.txt"]
+    assert Floki.attribute(document, "#gao-note-attachment-mime", "value") == [
+             "Detected from staged bytes"
+           ]
+
+    html =
+      render_submit(view, "stage_attachment", %{
+        "attachment" => %{
+          "id" => generated_id,
+          "path" => "./client name.txt",
+          "description" => "",
+          "source" => "file",
+          "text" => ""
+        }
+      })
+
+    assert html =~ "text/plain"
+    refute html =~ "plain bytes"
+
+    render_click(view, "cancel_note")
+  end
+
+  test "selected file never overwrites user-edited ID or path conveniences", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    render_change(view, "attachment_modal_changed", %{
+      "_target" => ["attachment", "id"],
+      "attachment" => %{
+        "id" => "caller-id",
+        "path" => "./data.txt",
+        "description" => "",
+        "source" => "file",
+        "text" => ""
+      }
+    })
+
+    render_change(view, "attachment_modal_changed", %{
+      "_target" => ["attachment", "path"],
+      "attachment" => %{
+        "id" => "caller-id",
+        "path" => "./caller/path.txt",
+        "description" => "",
+        "source" => "file",
+        "text" => ""
+      }
+    })
+
+    upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "browser-name.txt", content: "content", type: "application/octet-stream"}
+      ])
+
+    render_upload(upload, "browser-name.txt")
+    document = view |> render() |> Floki.parse_fragment!()
+
+    assert Floki.attribute(document, "#attachment_id", "value") == ["caller-id"]
+    assert Floki.attribute(document, "#attachment_path", "value") == ["./caller/path.txt"]
+
+    view
+    |> element(~s([phx-click="cancel_attachment_upload"]))
+    |> render_click()
+
+    second_upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "second-browser-name.txt", content: "second", type: "image/png"}
+      ])
+
+    render_upload(second_upload, "second-browser-name.txt")
+    document = view |> render() |> Floki.parse_fragment!()
+
+    assert Floki.attribute(document, "#attachment_id", "value") == ["caller-id"]
+    assert Floki.attribute(document, "#attachment_path", "value") == ["./caller/path.txt"]
+
+    render_click(view, "cancel_attachment_modal")
+  end
+
+  test "canceling an auto-defaulted upload lets the next entry derive fresh defaults", %{
+    conn: conn
+  } do
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    first_upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "first.txt", content: "first", type: "text/plain"}
+      ])
+
+    render_upload(first_upload, "first.txt")
+    first_document = view |> render() |> Floki.parse_fragment!()
+    assert [first_id] = Floki.attribute(first_document, "#attachment_id", "value")
+    assert Floki.attribute(first_document, "#attachment_path", "value") == ["./first.txt"]
+
+    view
+    |> element(~s([phx-click="cancel_attachment_upload"]))
+    |> render_click()
+
+    reset_document = view |> render() |> Floki.parse_fragment!()
+    assert Floki.attribute(reset_document, "#attachment_id", "value") == [""]
+    assert Floki.attribute(reset_document, "#attachment_path", "value") == ["./data.txt"]
+
+    second_upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "second.txt", content: "second", type: "application/octet-stream"}
+      ])
+
+    render_upload(second_upload, "second.txt")
+    second_document = view |> render() |> Floki.parse_fragment!()
+    assert [second_id] = Floki.attribute(second_document, "#attachment_id", "value")
+    refute second_id == first_id
+    assert Floki.attribute(second_document, "#attachment_path", "value") == ["./second.txt"]
+
+    render_click(view, "cancel_attachment_modal")
+  end
+
+  test "uploaded file drafts stay private and disk-backed through replacement and cancel", %{
+    conn: conn
+  } do
+    before_paths = staged_temp_paths()
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "disk.txt", content: "disk-backed bytes", type: "application/octet-stream"}
+      ])
+
+    render_upload(upload, "disk.txt")
+
+    render_submit(view, "stage_attachment", %{
+      "attachment" => %{
+        "id" => "disk-backed",
+        "path" => "./disk.txt",
+        "description" => "",
+        "source" => "file",
+        "text" => ""
+      }
+    })
+
+    assert [temp_path] = new_staged_temp_paths(before_paths)
+    assert {:ok, %File.Stat{size: 17}} = File.stat(temp_path)
+    refute render(view) =~ "disk-backed bytes"
+
+    view
+    |> element(
+      ~s([data-attachment-id="disk-backed"] [phx-click="open_attachment_modal"][phx-value-operation="replace"])
+    )
+    |> render_click()
+
+    render_submit(view, "stage_attachment", %{
+      "attachment" => %{
+        "id" => "disk-backed",
+        "path" => "./disk.txt",
+        "description" => "",
+        "source" => "text",
+        "text" => "replacement text"
+      }
+    })
+
+    refute File.exists?(temp_path)
+
+    view
+    |> element(~s([data-attachment-id="disk-backed"] [phx-click="remove_attachment"]))
+    |> render_click()
+
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "cancel.bin", content: <<1, 2, 3>>, type: "text/plain"}
+      ])
+
+    render_upload(upload, "cancel.bin")
+
+    render_submit(view, "stage_attachment", %{
+      "attachment" => %{
+        "id" => "cancel-file",
+        "path" => "./cancel.bin",
+        "description" => "",
+        "source" => "file",
+        "text" => ""
+      }
+    })
+
+    assert [cancel_path] = new_staged_temp_paths(before_paths)
+    assert File.exists?(cancel_path)
+
+    render_click(view, "cancel_note")
+
+    refute File.exists?(cancel_path)
+    assert_patch(view, ~p"/gao_notes/notes")
+  end
+
+  test "explicit empty-file staging persists a zero-byte Plug.Upload and cleans its temp file", %{
+    conn: conn
+  } do
+    before_paths = staged_temp_paths()
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    render_change(view, "attachment_modal_changed", %{
+      "_target" => ["attachment", "path"],
+      "attachment" => %{
+        "id" => "empty-file",
+        "path" => "./empty.txt",
+        "description" => "Empty",
+        "source" => "file",
+        "text" => ""
+      }
+    })
+
+    html = view |> element("#gao-note-stage-empty-attachment") |> render_click()
+
+    assert html =~ "empty-file"
+    assert html =~ "./empty.txt"
+    assert html =~ "text/plain"
+    assert [temp_path] = new_staged_temp_paths(before_paths)
+    assert {:ok, %File.Stat{size: 0}} = File.stat(temp_path)
+
+    render_submit(view, "save", %{
+      "gao_note" => %{
+        "title" => "Empty Attachment",
+        "content" => "Body",
+        "labels" => []
+      }
+    })
+
+    assert [%Note{attachments: [%Attachment{id: "empty-file"}]}] =
+             GaoNote.list_notes(search: "Empty Attachment")
+
+    assert_receive {:s3_put, _path, ""}
+    refute File.exists?(temp_path)
+  end
+
+  test "aggregate errors preserve disk drafts for retry and note cancel cleans them", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, _owner_note} =
+             GaoNote.create_note(
+               %{
+                 title: "Disk Conflict Owner",
+                 content: "Body",
+                 attachments: [
+                   text_attachment("disk-conflict", "./owned.txt", "owned", "")
+                 ]
+               },
+               user
+             )
+
+    flush_storage_messages()
+    before_paths = staged_temp_paths()
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
+    render_async(view)
+    render_click(view, "open_attachment_modal", %{"operation" => "new"})
+
+    upload =
+      file_input(view, "#gao-note-attachment-form", :attachment, [
+        %{name: "conflict.bin", content: <<4, 5, 6>>, type: "image/png"}
+      ])
+
+    render_upload(upload, "conflict.bin")
+
+    render_submit(view, "stage_attachment", %{
+      "attachment" => %{
+        "id" => "disk-conflict",
+        "path" => "./conflict.bin",
+        "description" => "",
+        "source" => "file",
+        "text" => ""
+      }
+    })
+
+    assert [temp_path] = new_staged_temp_paths(before_paths)
+
+    html =
+      render_submit(view, "save", %{
+        "gao_note" => %{
+          "title" => "Disk Conflict Draft",
+          "content" => "Body",
+          "labels" => []
+        }
+      })
+
+    assert html =~ "already belongs to another note"
+    assert File.exists?(temp_path)
+    assert GaoNote.list_notes(search: "Disk Conflict Draft") == []
+
+    render_click(view, "cancel_note")
+    refute File.exists?(temp_path)
+  end
+
+  test "show lists every attachment with authenticated metadata and download action", %{
+    conn: conn,
+    user: user
+  } do
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{
+                 title: "Attachment Inventory",
+                 content: "No attachment reference here.",
+                 attachments: [
+                   text_attachment(
+                     "inventory-file",
+                     "./docs/inventory file.txt",
+                     "inventory private bytes",
+                     "Inventory"
+                   )
+                 ]
+               },
+               user
+             )
+
+    attachment = attachment_by_id(note, "inventory-file")
+    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}")
+
+    assert has_element?(view, "#note-attachments")
+    assert html =~ "./docs/inventory file.txt"
+    assert html =~ "text/plain"
+    assert html =~ "Inventory"
+    assert has_element?(
+             view,
+             ~s(#note-attachments a[href="/gao_notes/notes/#{note.id}/attachments/docs/inventory%20file.txt"][download="inventory file.txt"]),
+             "Download"
+           )
+
+    refute html =~ attachment.storage_file_id
+    refute html =~ "inventory private bytes"
+    refute html =~ Base.encode64("inventory private bytes")
+  end
+
   defp with_secret_key_base(conn) do
     %{conn | secret_key_base: @secret_key_base}
   end
 
-  defp storage_file_fixture(attrs) do
-    defaults = %{
-      tenant: "gao_note",
-      type: "attachment",
-      filename: "note.txt",
-      s3_key: "gao_note/attachment/#{Ecto.UUID.generate()}.txt",
-      content_type: "text/plain",
-      size: 64,
-      checksum: Ecto.UUID.generate(),
-      metadata: %{},
-      variants: %{},
-      status: "active",
-      uploaded_by: "admin-test"
+  defp text_attachment(id, path, content, description) do
+    %{
+      id: id,
+      path: path,
+      mime: "text/plain",
+      description: description,
+      content_base64: Base.encode64(content)
     }
-
-    %StorageFile{}
-    |> StorageFile.changeset(Map.merge(defaults, attrs))
-    |> Repo.insert!()
   end
 
-  defp with_storage_test_config(fun) do
-    keys = [:allowed_types, :s3_bucket, :s3_endpoint]
-    original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
-    port = available_port()
-    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
+  defp attachment_by_id(%Note{} = note, id) do
+    Enum.find(note.attachments, &(&1.id == id))
+  end
 
-    Application.put_env(:gsmlg_storage, :allowed_types, %{
-      "attachment" => ["application/octet-stream", "text/plain"]
-    })
+  defp reload_attachment(note_id, attachment_id) do
+    note_id
+    |> GaoNote.get_note!()
+    |> attachment_by_id(attachment_id)
+  end
 
-    Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
-    Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
-
-    try do
-      fun.()
+  defp flush_storage_messages do
+    receive do
+      {:s3_put, _path, _body} -> flush_storage_messages()
+      {:s3_get, _path} -> flush_storage_messages()
+      {:s3_delete, _path} -> flush_storage_messages()
     after
-      Enum.each(original, fn
-        {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
-        {key, :error} -> Application.delete_env(:gsmlg_storage, key)
-      end)
-
-      GenServer.stop(s3_stub)
+      0 -> :ok
     end
+  end
+
+  defp staged_temp_paths do
+    temp_dir = Path.join(System.tmp_dir!(), "gsmlg-admin-gao-note-attachments")
+
+    case File.ls(temp_dir) do
+      {:ok, entries} ->
+        entries
+        |> Enum.flat_map(fn entry ->
+          editor_dir = Path.join(temp_dir, entry)
+
+          case File.lstat(editor_dir) do
+            {:ok, %{type: :directory}} ->
+              case File.ls(editor_dir) do
+                {:ok, files} ->
+                  files
+                  |> Enum.filter(&String.starts_with?(&1, "stage-"))
+                  |> Enum.map(&Path.join(editor_dir, &1))
+
+                {:error, _reason} ->
+                  []
+              end
+
+            _other ->
+              []
+          end
+        end)
+        |> MapSet.new()
+
+      {:error, :enoent} -> MapSet.new()
+    end
+  end
+
+  defp new_staged_temp_paths(before_paths) do
+    staged_temp_paths()
+    |> MapSet.difference(before_paths)
+    |> MapSet.to_list()
   end
 
   defp available_port do

@@ -7,7 +7,7 @@ defmodule GSMLG.GaoNote.MCPLabelFilterTest do
   test "tool schemas use the final label contract and exclude creator" do
     create_tool =
       GSMLG.GaoNote.MCP.AdminServer.__components__(:tool)
-      |> Enum.find(&(&1.name == "gao_note.create"))
+      |> Enum.find(&(&1.name == "gao_note.create_note"))
 
     search_tool =
       GSMLG.GaoNote.MCP.ReadOnlyServer.__components__(:tool)
@@ -17,7 +17,7 @@ defmodule GSMLG.GaoNote.MCPLabelFilterTest do
     search_properties = search_tool.input_schema["properties"]
 
     assert create_properties |> Map.keys() |> Enum.sort() ==
-             ["content", "description", "labels", "title"]
+             ["attachments", "content", "labels", "title"]
 
     refute Map.has_key?(create_properties, "creator")
 

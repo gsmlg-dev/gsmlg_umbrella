@@ -69,6 +69,16 @@ defmodule GSMLG.AdminWeb.Router do
     post("/sign_up", AuthController, :sign_up)
   end
 
+  scope "/api", GSMLG.AdminWeb do
+    pipe_through(:admin_bearer_auth)
+
+    get(
+      "/gao_notes/:note_id/attachments/*path",
+      GaoNoteAttachmentContentController,
+      :show
+    )
+  end
+
   scope "/", GSMLG.AdminWeb do
     pipe_through([:browser, :maybe_browser_auth, :ensure_authed_access])
 
@@ -78,6 +88,12 @@ defmodule GSMLG.AdminWeb.Router do
 
     get("/node_management", NodeManagementController, :index)
     post("/node_management", NodeManagementController, :update)
+
+    get(
+      "/gao_notes/notes/:note_id/attachments/*path",
+      GaoNoteAttachmentContentController,
+      :show
+    )
 
     live("/blogs", BlogLive.Index, :index)
     live("/blogs/import", BlogLive.Import, :import)
@@ -91,8 +107,6 @@ defmodule GSMLG.AdminWeb.Router do
     live("/gao_notes/notes/new", GaoNoteLive.Index, :new)
     live("/gao_notes/notes/:id", GaoNoteLive.Index, :show)
     live("/gao_notes/notes/:id/edit", GaoNoteLive.Index, :edit)
-    live("/gao_notes/notes/:id/attachments", GaoNoteLive.AttachmentLive.Index, :index)
-    live("/gao_notes/attachments", GaoNoteLive.AttachmentLive.Index, :all)
     live("/gao_notes/label_settings", GaoNoteLive.LabelSettingLive.Index, :index)
     live("/gao_notes/recycle_bin", GaoNoteLive.RecycleBinLive.Index, :index)
     live("/gao_notes/logs", GaoNoteLive.LogLive.Index, :index)

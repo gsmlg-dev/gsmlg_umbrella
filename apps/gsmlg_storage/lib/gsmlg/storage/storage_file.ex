@@ -39,7 +39,7 @@ defmodule GSMLG.Storage.StorageFile do
     |> validate_format(:tenant, @safe_path_segment, message: "only letters, numbers, - and _")
     |> validate_format(:type, @safe_path_segment, message: "only letters, numbers, - and _")
     |> validate_inclusion(:status, ~w(active processing deleted))
-    |> validate_number(:size, greater_than: 0)
+    |> validate_number(:size, greater_than_or_equal_to: 0)
     |> unique_constraint(:s3_key)
   end
 

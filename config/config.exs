@@ -17,7 +17,7 @@ config :gsmlg,
 
 config :gsmlg, Oban,
   repo: GSMLG.Repo,
-  queues: [translations: 5],
+  queues: [translations: 5, storage_cleanup: 2],
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7}
   ]

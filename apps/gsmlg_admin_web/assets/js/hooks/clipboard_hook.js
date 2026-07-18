@@ -1,42 +1,64 @@
 /**
  * Clipboard Hook for copying text to clipboard
  *
- * Usage: Add phx-hook="Clipboard" and data-clipboard-target="#element-id" to a button
+ * Usage:
+ * - data-clipboard-text="literal text"
+ * - data-clipboard-target="#element-id" for existing target-based callers
  */
 
 export const ClipboardHook = {
   mounted() {
-    this.el.addEventListener('click', (e) => {
-      e.preventDefault();
+    this._clipboardClick = (event) => {
+      event.preventDefault();
 
-      const targetSelector = this.el.dataset.clipboardTarget;
-      const targetEl = document.querySelector(targetSelector);
+      const text = this.clipboardText();
 
-      if (targetEl) {
-        const text = targetEl.value || targetEl.textContent;
-
-        navigator.clipboard.writeText(text).then(() => {
-          // Show feedback
-          this.showCopiedFeedback();
-        }).catch((err) => {
-          console.error('Failed to copy text:', err);
-          // Fallback for older browsers
-          this.fallbackCopy(text);
-        });
+      if (text === null) {
+        this.showFeedback('Copy unavailable', 'error');
+        return;
       }
-    });
+
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => this.showFeedback('Copied', 'copied'))
+          .catch(() => this.fallbackCopy(text));
+      } else {
+        this.fallbackCopy(text);
+      }
+    };
+
+    this.el.addEventListener('click', this._clipboardClick);
   },
 
-  showCopiedFeedback() {
-    const originalContent = this.el.innerHTML;
-    this.el.innerHTML = `
-      <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-      </svg>
-    `;
+  destroyed() {
+    this.el.removeEventListener('click', this._clipboardClick);
+    clearTimeout(this._clipboardFeedbackTimer);
+  },
 
-    setTimeout(() => {
-      this.el.innerHTML = originalContent;
+  clipboardText() {
+    if (Object.prototype.hasOwnProperty.call(this.el.dataset, 'clipboardText')) {
+      return this.el.dataset.clipboardText;
+    }
+
+    const targetSelector = this.el.dataset.clipboardTarget;
+    const targetEl = targetSelector ? document.querySelector(targetSelector) : null;
+
+    return targetEl ? (targetEl.value || targetEl.textContent) : null;
+  },
+
+  showFeedback(message, state) {
+    const feedback = this.el.querySelector('[data-clipboard-feedback]');
+    this.el.dataset.clipboardState = state;
+
+    if (!feedback) return;
+
+    this._clipboardOriginalText ??= feedback.textContent;
+    feedback.textContent = message;
+    clearTimeout(this._clipboardFeedbackTimer);
+
+    this._clipboardFeedbackTimer = setTimeout(() => {
+      feedback.textContent = this._clipboardOriginalText;
+      delete this.el.dataset.clipboardState;
     }, 2000);
   },
 
@@ -49,10 +71,13 @@ export const ClipboardHook = {
     textarea.select();
 
     try {
-      document.execCommand('copy');
-      this.showCopiedFeedback();
-    } catch (err) {
-      console.error('Fallback copy failed:', err);
+      if (document.execCommand('copy')) {
+        this.showFeedback('Copied', 'copied');
+      } else {
+        this.showFeedback('Copy failed', 'error');
+      }
+    } catch (_error) {
+      this.showFeedback('Copy failed', 'error');
     }
 
     document.body.removeChild(textarea);

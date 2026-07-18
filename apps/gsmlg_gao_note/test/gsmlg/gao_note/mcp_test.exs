@@ -25,12 +25,12 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert "gao_note.search" in names
       assert "gao_note.get" in names
       assert "gao_note.list_label_settings" in names
-      assert "gao_note.list_attachments" in names
+      refute "gao_note.list_attachments" in names
       refute "gao_note.list_references" in names
       refute "gao_note.list_assets" in names
-      refute "gao_note.create" in names
+      refute "gao_note.create_note" in names
       refute "gao_note.delete" in names
-      refute "gao_note.assets.upload_base64" in names
+      refute Enum.any?(names, &String.contains?(&1, "attachment"))
     end
 
     test "search and get return notes without publishing metadata" do
@@ -69,7 +69,7 @@ defmodule GSMLG.GaoNote.MCPTest do
     end
 
     test "mutating tools are unavailable" do
-      refute "gao_note.create" in tool_names(GSMLG.GaoNote.MCP.ReadOnlyServer)
+      refute "gao_note.create_note" in tool_names(GSMLG.GaoNote.MCP.ReadOnlyServer)
     end
   end
 
@@ -77,10 +77,12 @@ defmodule GSMLG.GaoNote.MCPTest do
     test "admin Backplane server registers CRUD tools" do
       names = tool_names(GSMLG.GaoNote.MCP.AdminServer)
 
-      assert "gao_note.create" in names
+      assert "gao_note.create_note" in names
       assert "gao_note.create_label_setting" in names
+      assert "gao_note.update_note" in names
       assert "gao_note.delete" in names
-      assert "gao_note.attachments.upload_base64" in names
+      refute "gao_note.list_attachments" in names
+      refute Enum.any?(names, &String.contains?(&1, "attachment"))
       refute "gao_note.references.add" in names
       refute "gao_note.assets.upload_base64" in names
       refute "gao_note.publish" in names
@@ -88,9 +90,10 @@ defmodule GSMLG.GaoNote.MCPTest do
     end
 
     test "create tool exposes only create-note parameters" do
-      tool = tool(GSMLG.GaoNote.MCP.AdminServer, "gao_note.create")
+      tool = tool(GSMLG.GaoNote.MCP.AdminServer, "gao_note.create_note")
 
       assert tool_property_names(tool) == [
+               "attachments",
                "content",
                "labels",
                "title"
@@ -109,7 +112,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert %{"isError" => true} =
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.create",
+                 "gao_note.create_note",
                  %{"title" => "No Actor", "content" => "x"},
                  admin_frame(nil)
                )
@@ -121,7 +124,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert %{"structuredContent" => %{"note" => created}} =
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.create",
+                 "gao_note.create_note",
                  %{
                    "title" => "Admin MCP",
                    "content" => "MCP content"
@@ -155,11 +158,12 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert %{"structuredContent" => %{"note" => updated}} =
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.update",
+                 "gao_note.update_note",
                  %{
                    "id" => created["id"],
                    "title" => "Admin MCP Updated",
-                   "content" => "Updated content"
+                   "content" => "Updated content",
+                   "attachments" => []
                  },
                  frame
                )
@@ -227,7 +231,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       assert %{"structuredContent" => %{"note" => created}} =
                call_tool(
                  GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.create",
+                 "gao_note.create_note",
                  %{
                    "title" => "SpaceX 股价评价（X 搜索） - 2026-06-18",
                    "content" => "# SpaceX 股价评价（X 搜索） - 2026-06-18\n\n测试内容",
@@ -256,6 +260,140 @@ defmodule GSMLG.GaoNote.MCPTest do
                )
 
       assert message =~ "labels must be an array"
+    end
+
+    test "create and update forward aggregate attachments without exposing bytes" do
+      frame = admin_frame(actor())
+      attachment_id = unique_title("attachment")
+
+      assert %{"structuredContent" => %{"note" => created}} =
+               call_tool(
+                 GSMLG.GaoNote.MCP.AdminServer,
+                 "gao_note.create_note",
+                 %{
+                   "title" => unique_title("Aggregate"),
+                   "content" => "See [data](./docs/data.txt)",
+                   "attachments" => [
+                     %{
+                       "id" => attachment_id,
+                       "path" => "docs/data.txt",
+                       "mime" => "text/plain",
+                       "description" => "MCP data",
+                       "content" => "aggregate bytes"
+                     }
+                   ]
+                 },
+                 frame
+               )
+
+      assert [
+               %{
+                 "id" => ^attachment_id,
+                 "path" => "./docs/data.txt",
+                 "mime" => "text/plain",
+                 "description" => "MCP data"
+               } = attachment
+             ] = created["attachments"]
+
+      assert Map.keys(attachment) |> Enum.sort() ==
+               ~w(content_url description id mime path)
+
+      retained = Map.take(attachment, ~w(id path mime description))
+
+      assert %{"structuredContent" => %{"note" => updated}} =
+               call_tool(
+                 GSMLG.GaoNote.MCP.AdminServer,
+                 "gao_note.update_note",
+                 %{
+                   "id" => created["id"],
+                   "title" => "Aggregate retained",
+                   "attachments" => [retained]
+                 },
+                 frame
+               )
+
+      assert [%{"id" => ^attachment_id, "path" => "./docs/data.txt"}] =
+               updated["attachments"]
+    end
+
+    test "aggregate attachment guard rejects legacy fields and invalid content forms" do
+      frame = admin_frame(actor())
+
+      base_attachment = %{
+        "id" => unique_title("attachment"),
+        "path" => "data.txt",
+        "mime" => "text/plain",
+        "content" => "data"
+      }
+
+      for legacy_field <- ~w(storage_file_id upload role caption alt_text position metadata) do
+        attachment = Map.put(base_attachment, legacy_field, "forbidden")
+
+        assert %{"isError" => true, "content" => [%{"text" => message}]} =
+                 call_tool(
+                   GSMLG.GaoNote.MCP.AdminServer,
+                   "gao_note.create_note",
+                   %{
+                     "title" => unique_title("Rejected field"),
+                     "content" => "body",
+                     "attachments" => [attachment]
+                   },
+                   frame
+                 )
+
+        assert message =~ "unsupported attachment field"
+      end
+
+      assert %{"isError" => true, "content" => [%{"text" => both_message}]} =
+               call_tool(
+                 GSMLG.GaoNote.MCP.AdminServer,
+                 "gao_note.create_note",
+                 %{
+                   "title" => unique_title("Both content forms"),
+                   "content" => "body",
+                   "attachments" => [
+                     Map.put(base_attachment, "content_base64", Base.encode64("data"))
+                   ]
+                 },
+                 frame
+               )
+
+      assert both_message =~ "only one of content or content_base64"
+
+      invalid_base64 =
+        base_attachment
+        |> Map.delete("content")
+        |> Map.put("content_base64", "Zg")
+
+      assert %{"isError" => true, "content" => [%{"text" => base64_message}]} =
+               call_tool(
+                 GSMLG.GaoNote.MCP.AdminServer,
+                 "gao_note.create_note",
+                 %{
+                   "title" => unique_title("Invalid Base64"),
+                   "content" => "body",
+                   "attachments" => [invalid_base64]
+                 },
+                 frame
+               )
+
+      assert base64_message =~ "strict standard padded Base64"
+    end
+
+    test "set_labels remains labels-only and succeeds without attachments" do
+      frame = admin_frame(actor())
+      note = note_fixture(%{title: unique_title("Labels only")})
+
+      assert %{"structuredContent" => %{"note" => labeled}} =
+               call_tool(
+                 GSMLG.GaoNote.MCP.AdminServer,
+                 "gao_note.set_labels",
+                 %{"id" => note.id, "labels" => ["scope=mcp"]},
+                 frame
+               )
+
+      assert [%{"key" => "scope", "value" => "mcp"}] =
+               Enum.map(labeled["labels"], &Map.take(&1, ["key", "value"]))
     end
   end
 

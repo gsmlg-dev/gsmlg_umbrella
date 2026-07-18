@@ -54,22 +54,16 @@ defmodule GSMLG.Storage do
         uploaded_by: opts[:uploaded_by]
       }
 
-      case %StorageFile{} |> StorageFile.changeset(attrs) |> Repo.insert() do
+      case insert_storage_file(attrs, bucket, s3_key) do
         {:ok, file} ->
-          maybe_generate_variants(file)
+          if opts[:variants] != [] do
+            maybe_generate_variants(file)
+          end
+
           {:ok, file}
 
         {:error, changeset} ->
-          case S3Client.delete_object(bucket, s3_key) do
-            :ok ->
-              :ok
-
-            {:error, reason} ->
-              Logger.warning(
-                "Orphaned S3 object: #{bucket}/#{s3_key} — DB insert failed and S3 cleanup also failed: #{inspect(reason)}"
-              )
-          end
-
+          best_effort_delete_uploaded_object(bucket, s3_key)
           {:error, changeset}
       end
     end
@@ -103,6 +97,19 @@ defmodule GSMLG.Storage do
   end
 
   @doc """
+  Reads an inclusive byte range from a file in S3.
+
+  Returns `{:ok, binary}` or `{:error, reason}`.
+  """
+  def read_range(file_or_id, first, last) do
+    with :ok <- validate_range(first, last),
+         {:ok, file} <- resolve_range_file(file_or_id),
+         :ok <- validate_range_bounds(file, last) do
+      S3Client.get_object_range(bucket(), file.s3_key, first, last)
+    end
+  end
+
+  @doc """
   Streams a specific variant of a file from S3.
 
   Returns `{:ok, binary}` or `{:error, reason}`.
@@ -130,19 +137,16 @@ defmodule GSMLG.Storage do
   Permanently purges a soft-deleted file and all its variants from S3.
   Only works on files with status "deleted".
   """
-  def purge(%StorageFile{status: "deleted"} = file) do
-    bucket = bucket()
+  def purge(%StorageFile{status: "deleted", id: id}) when is_binary(id) do
+    case Repo.get(StorageFile, id) do
+      nil ->
+        {:error, :not_found}
 
-    # Delete all variant S3 objects
-    for {_name, %{"s3_key" => variant_key}} <- file.variants || %{} do
-      S3Client.delete_object(bucket, variant_key)
+      current_file ->
+        with :ok <- ensure_purgeable(current_file) do
+          purge_current_file(current_file)
+        end
     end
-
-    # Delete original S3 object
-    S3Client.delete_object(bucket, file.s3_key)
-
-    # Remove DB record
-    Repo.delete(file)
   end
 
   def purge(_file), do: {:error, :not_deleted}
@@ -390,6 +394,75 @@ defmodule GSMLG.Storage do
 
   # --- Private ---
 
+  defp insert_storage_file(attrs, bucket, s3_key) do
+    try do
+      repo = Application.get_env(:gsmlg_storage, :repo, Repo)
+
+      %StorageFile{}
+      |> StorageFile.changeset(attrs)
+      |> repo.insert()
+    catch
+      kind, reason ->
+        stacktrace = __STACKTRACE__
+        best_effort_delete_uploaded_object(bucket, s3_key)
+        :erlang.raise(kind, reason, stacktrace)
+    end
+  end
+
+  defp best_effort_delete_uploaded_object(bucket, s3_key) do
+    try do
+      case S3Client.delete_object(bucket, s3_key) do
+        :ok -> :ok
+        {:error, _reason} -> log_upload_compensation_failure()
+      end
+    catch
+      _kind, _reason -> log_upload_compensation_failure()
+    end
+  end
+
+  defp log_upload_compensation_failure do
+    Logger.warning("S3 cleanup failed after storage row insertion failure")
+    :ok
+  end
+
+  defp validate_range(first, last)
+       when is_integer(first) and is_integer(last) and first >= 0 and last >= first,
+       do: :ok
+
+  defp validate_range(_first, _last), do: {:error, :invalid_range}
+
+  defp validate_range_bounds(%StorageFile{size: size}, last)
+       when is_integer(size) and last < size,
+       do: :ok
+
+  defp validate_range_bounds(%StorageFile{}, _last), do: {:error, :range_out_of_bounds}
+
+  defp ensure_purgeable(%StorageFile{status: "deleted"}), do: :ok
+  defp ensure_purgeable(%StorageFile{}), do: {:error, :not_deleted}
+
+  defp purge_current_file(file) do
+    bucket = bucket()
+
+    with :ok <- delete_variant_objects(bucket, file.variants || %{}),
+         :ok <- S3Client.delete_object(bucket, file.s3_key),
+         {:ok, deleted} <- Repo.delete(file) do
+      {:ok, deleted}
+    end
+  end
+
+  defp delete_variant_objects(bucket, variants) do
+    Enum.reduce_while(variants, :ok, fn
+      {_name, %{"s3_key" => variant_key}}, :ok when is_binary(variant_key) ->
+        case S3Client.delete_object(bucket, variant_key) do
+          :ok -> {:cont, :ok}
+          {:error, _reason} = error -> {:halt, error}
+        end
+
+      {name, _variant}, :ok ->
+        {:halt, {:error, {:invalid_variant, name}}}
+    end)
+  end
+
   defp normalize_input(%{__struct__: Plug.Upload} = upload) do
     case File.read(upload.path) do
       {:ok, data} -> {:ok, upload.filename, data}
@@ -571,6 +644,23 @@ defmodule GSMLG.Storage do
       file -> {:ok, file}
     end
   end
+
+  defp resolve_range_file(%StorageFile{} = file), do: {:ok, file}
+
+  defp resolve_range_file(id) when is_binary(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, id} ->
+        case Repo.get(StorageFile, id) do
+          nil -> {:error, :not_found}
+          file -> {:ok, file}
+        end
+
+      :error ->
+        {:error, :invalid_id}
+    end
+  end
+
+  defp resolve_range_file(_file_or_id), do: {:error, :invalid_file}
 
   defp filter_by_tenant(query, nil), do: query
   defp filter_by_tenant(query, tenant), do: where(query, [f], f.tenant == ^tenant)

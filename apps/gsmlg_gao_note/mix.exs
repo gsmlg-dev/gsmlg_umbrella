@@ -30,6 +30,9 @@ defmodule GSMLG.GaoNote.MixProject do
     [
       {:gsmlg, in_umbrella: true},
       {:gsmlg_storage, in_umbrella: true},
+      {:oban, "~> 2.18"},
+      {:bandit, "~> 1.0", only: :test},
+      {:plug, "~> 1.18"},
       {:backplane_mcp_protocol, "~> 1.6"},
       {:jason, "~> 1.2"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

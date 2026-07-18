@@ -5,12 +5,9 @@ defmodule GSMLG.GaoNote do
 
   import Ecto.Query, warn: false
 
-  require Logger
-
   alias Ecto.Multi
-  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
+  alias GSMLG.GaoNote.{Attachments, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.Repo
-  alias GSMLG.Storage
 
   @default_limit 50
   @max_limit 200
@@ -23,8 +20,8 @@ defmodule GSMLG.GaoNote do
     :content => :content,
     "labels" => :labels,
     :labels => :labels,
-    "tags" => :tags,
-    :tags => :tags
+    "attachments" => :attachments,
+    :attachments => :attachments
   }
   @label_setting_attr_keys %{
     "name" => :name,
@@ -35,26 +32,6 @@ defmodule GSMLG.GaoNote do
     :description => :description,
     "value_type" => :value_type,
     :value_type => :value_type,
-    "metadata" => :metadata,
-    :metadata => :metadata
-  }
-  @attachment_attr_keys %{
-    "note_id" => :note_id,
-    :note_id => :note_id,
-    "storage_file_id" => :storage_file_id,
-    :storage_file_id => :storage_file_id,
-    "role" => :role,
-    :role => :role,
-    "description" => :description,
-    :description => :description,
-    "path" => :path,
-    :path => :path,
-    "caption" => :caption,
-    :caption => :caption,
-    "alt_text" => :alt_text,
-    :alt_text => :alt_text,
-    "position" => :position,
-    :position => :position,
     "metadata" => :metadata,
     :metadata => :metadata
   }
@@ -168,52 +145,13 @@ defmodule GSMLG.GaoNote do
 
   def get_label_setting!(id), do: Repo.get!(LabelSetting, id)
 
-  def list_attachments(note_id) do
-    with {:ok, note_id} <- Ecto.UUID.cast(note_id) do
-      Attachment
-      |> join(:inner, [attachment], file in assoc(attachment, :storage_file))
-      |> join(:inner, [attachment, _file], note in assoc(attachment, :note))
-      |> where(
-        [attachment, file, note],
-        attachment.note_id == ^note_id and file.status == "active" and is_nil(note.deleted_at)
-      )
-      |> order_by([attachment], asc: attachment.position, asc: attachment.inserted_at)
-      |> preload([_attachment, file, _note], storage_file: file)
-      |> Repo.all()
-    else
-      :error -> []
-    end
-  end
+  def get_attachment_by_path(note_id, path), do: Attachments.get_by_path(note_id, path)
 
-  def list_all_attachments(opts \\ []) do
-    opts = normalize_opts(opts)
+  def get_deleted_attachment_by_path(note_id, path),
+    do: Attachments.get_deleted_by_path(note_id, path)
 
-    Attachment
-    |> join(:inner, [attachment], file in assoc(attachment, :storage_file))
-    |> join(:inner, [attachment, _file], note in assoc(attachment, :note))
-    |> where([_attachment, file, note], file.status == "active" and is_nil(note.deleted_at))
-    |> order_by([attachment], desc: attachment.inserted_at, desc: attachment.id)
-    |> limit(^limit_value(opts[:limit]))
-    |> offset(^offset_value(opts[:offset]))
-    |> preload([_attachment, file, note], storage_file: file, note: note)
-    |> Repo.all()
-  end
-
-  def get_attachment(id) do
-    with {:ok, id} <- Ecto.UUID.cast(id) do
-      Attachment
-      |> join(:inner, [attachment], file in assoc(attachment, :storage_file))
-      |> join(:inner, [attachment, _file], note in assoc(attachment, :note))
-      |> where(
-        [attachment, file, note],
-        attachment.id == ^id and file.status == "active" and is_nil(note.deleted_at)
-      )
-      |> preload([_attachment, file, _note], storage_file: file)
-      |> Repo.one()
-    else
-      :error -> nil
-    end
-  end
+  def read_attachment_text(note_id, attachment_id),
+    do: Attachments.read_text(note_id, attachment_id)
 
   def list_logs(opts \\ []) do
     opts = normalize_opts(opts)
@@ -281,10 +219,6 @@ defmodule GSMLG.GaoNote do
     Note.changeset(note, normalize_attrs(attrs, @note_attr_keys))
   end
 
-  def change_attachment(%Attachment{} = attachment, attrs \\ %{}) do
-    Attachment.changeset(attachment, normalize_attrs(attrs, @attachment_attr_keys))
-  end
-
   def change_label_setting(%LabelSetting{} = label_setting, attrs \\ %{}) do
     LabelSetting.changeset(label_setting, normalize_attrs(attrs, @label_setting_attr_keys))
   end
@@ -326,26 +260,35 @@ defmodule GSMLG.GaoNote do
   def create_note(attrs, actor) do
     attrs = normalize_attrs(attrs, @note_attr_keys)
     {label_source, label_values, attrs} = pop_labels_input(attrs)
+    {attachment_values, attrs} = Map.pop(attrs, :attachments, [])
+    note_id = Ecto.UUID.generate()
 
-    with {:ok, labels} <- normalize_labels(label_values, label_source) do
+    with {:ok, labels} <- normalize_labels(label_values, label_source),
+         {:ok, attachment_plan} <-
+           Attachments.prepare(note_id, attachment_values, actor_id(actor)) do
       labels = if labels == @labels_not_provided, do: [], else: labels
 
-      Multi.new()
-      |> Multi.insert(:note, Note.create_changeset(%Note{}, attrs))
-      |> Multi.run(:labels, fn _repo, %{note: note} ->
-        set_labels_in_repo(note, labels)
-      end)
-      |> Repo.transaction()
-      |> case do
-        {:ok, %{note: note}} ->
+      transaction_result =
+        Attachments.transact(attachment_plan, fn ->
+          with {:ok, note} <-
+                 %Note{id: note_id}
+                 |> Note.create_changeset(attrs)
+                 |> Repo.insert(),
+               {:ok, _note} <- set_labels_in_repo(note, labels),
+               {:ok, _attachments} <- Attachments.reconcile(note.id, attachment_plan) do
+            note
+          else
+            {:error, reason} -> Repo.rollback(reason)
+          end
+        end)
+
+      case transaction_result do
+        {:ok, note} ->
           note = preload_note(note)
           log_action("create", "note", note.id, note.id, actor, %{"title" => note.title})
           {:ok, note}
 
-        {:error, :note, changeset, _changes} ->
-          {:error, changeset}
-
-        {:error, _step, reason, _changes} ->
+        {:error, reason} ->
           {:error, reason}
       end
     end
@@ -356,29 +299,46 @@ defmodule GSMLG.GaoNote do
       attrs
       |> normalize_attrs(@note_attr_keys)
 
-    {label_source, label_values, attrs} = pop_labels_input(attrs)
+    with {:ok, attachment_values, attrs} <- pop_required_attachments(attrs) do
+      {label_source, label_values, attrs} = pop_labels_input(attrs)
 
-    with {:ok, labels} <- normalize_labels(label_values, label_source) do
-      Multi.new()
-      |> Multi.update(:note, Note.changeset(note, attrs))
-      |> maybe_replace_labels(labels)
-      |> Repo.transaction()
-      |> case do
-        {:ok, %{note: note}} ->
+      with {:ok, labels} <- normalize_labels(label_values, label_source),
+           {:ok, attachment_plan} <-
+             Attachments.prepare(note.id, attachment_values, actor_id(actor)) do
+        transaction_result =
+          Attachments.transact(attachment_plan, fn ->
+            with {:ok, locked_note} <- lock_active_note(note.id),
+                 {:ok, updated_note} <-
+                   locked_note
+                   |> Note.changeset(attrs)
+                   |> Repo.update(),
+                 {:ok, _note} <- replace_labels_in_repo(updated_note, labels),
+                 {:ok, _attachments} <-
+                   Attachments.reconcile(updated_note.id, attachment_plan) do
+              updated_note
+            else
+              {:error, reason} -> Repo.rollback(reason)
+            end
+          end)
+
+        case transaction_result do
+          {:ok, note} ->
           note = preload_note(note)
 
           log_action("update", "note", note.id, note.id, actor, %{
             "title" => note.title,
-            "fields" => changed_fields(attrs, @note_attr_keys, labels)
+            "fields" =>
+              attrs
+              |> changed_fields(@note_attr_keys, labels)
+              |> Kernel.++(["attachments"])
+              |> Enum.uniq()
           })
 
           {:ok, note}
 
-        {:error, :note, changeset, _changes} ->
-          {:error, changeset}
-
-        {:error, _step, reason, _changes} ->
-          {:error, reason}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end
     end
   end
@@ -412,7 +372,11 @@ defmodule GSMLG.GaoNote do
 
   def permanently_delete_note(%Note{} = note, actor) do
     transact_deleted_note(note.id, fn locked_note ->
-      with {:ok, deleted} <- Repo.delete(locked_note),
+      storage_file_ids =
+        Enum.map(locked_note.attachments, & &1.storage_file_id)
+
+      with {:ok, _jobs} <- Attachments.schedule_purges(storage_file_ids),
+           {:ok, deleted} <- Repo.delete(locked_note),
            {:ok, _log} <-
              log_action("purge", "note", deleted.id, deleted.id, actor, %{
                "title" => deleted.title
@@ -445,161 +409,6 @@ defmodule GSMLG.GaoNote do
         {:error, reason}
     end
   end
-
-  def attach_existing_file(note_id, storage_file_id, attrs \\ %{}, opts \\ []) do
-    with {:ok, note} <- fetch_active_note(note_id),
-         {:ok, file} <- fetch_active_storage_file(storage_file_id) do
-      insert_attachment(note, file, attrs, attachment_actor(opts))
-    end
-  end
-
-  def upload_attachment(note_id, upload, attrs \\ %{}, opts \\ []) do
-    with {:ok, note} <- fetch_active_note(note_id) do
-      attrs = normalize_attrs(attrs, @attachment_attr_keys)
-      actor = attachment_actor(opts)
-      metadata = Map.get(attrs, :metadata, %{}) |> Map.merge(%{"note_id" => note.id})
-
-      upload_opts = [
-        uploaded_by: attachment_option(opts, :uploaded_by) || actor_id(actor),
-        metadata: metadata
-      ]
-
-      with {:ok, file} <- Storage.upload(upload, "gao_note", "attachment", upload_opts) do
-        case insert_attachment(note, file, attrs, actor) do
-          {:ok, _attachment} = result ->
-            result
-
-          {:error, _reason} = error ->
-            cleanup_uploaded_file(file)
-            error
-        end
-      end
-    end
-  end
-
-  defp cleanup_uploaded_file(file) do
-    case Storage.delete(file) do
-      {:ok, _deleted_file} ->
-        :ok
-
-      {:error, reason} ->
-        Logger.warning(
-          "Failed to deactivate storage file #{file.id} after attachment insertion failed: #{inspect(reason)}"
-        )
-
-        :ok
-    end
-  end
-
-  def update_attachment(note_id, attachment_id, attrs) do
-    with {:ok, attachment} <- fetch_attachment_for_active_note(note_id, attachment_id) do
-      attachment
-      |> Attachment.changeset(normalize_attrs(attrs, @attachment_attr_keys))
-      |> Repo.update()
-      |> case do
-        {:ok, attachment} ->
-          log_action("update", "attachment", attachment.id, attachment.note_id, nil, %{
-            "fields" => changed_fields(attrs, @attachment_attr_keys)
-          })
-
-          {:ok, Repo.preload(attachment, :storage_file, force: true)}
-
-        {:error, changeset} ->
-          {:error, changeset}
-      end
-    end
-  end
-
-  def detach_attachment(note_id, attachment_id) do
-    with {:ok, attachment} <- fetch_attachment_for_active_note(note_id, attachment_id) do
-      Repo.delete(attachment)
-      |> tap_success(fn attachment ->
-        log_action("delete", "attachment", attachment.id, attachment.note_id, nil, %{
-          "storage_file_id" => attachment.storage_file_id,
-          "role" => attachment.role
-        })
-      end)
-    end
-  end
-
-  defp insert_attachment(note, file, attrs, actor) do
-    attrs =
-      attrs
-      |> normalize_attrs(@attachment_attr_keys)
-      |> Map.put(:note_id, note.id)
-      |> Map.put(:storage_file_id, file.id)
-
-    %Attachment{}
-    |> Attachment.changeset(attrs)
-    |> Repo.insert()
-    |> case do
-      {:ok, attachment} ->
-        log_action("create", "attachment", attachment.id, note.id, actor, %{
-          "storage_file_id" => file.id,
-          "role" => attachment.role
-        })
-
-        {:ok, Repo.preload(attachment, :storage_file)}
-
-      {:error, changeset} ->
-        {:error, changeset}
-    end
-  end
-
-  defp fetch_active_note(note_id) do
-    with {:ok, note_id} <- Ecto.UUID.cast(note_id),
-         %Note{} = note <- Repo.get(active_note_query(), note_id) do
-      {:ok, note}
-    else
-      _reason -> {:error, :not_found}
-    end
-  end
-
-  defp fetch_active_storage_file(storage_file_id) do
-    with {:ok, storage_file_id} <- Ecto.UUID.cast(storage_file_id),
-         %{id: ^storage_file_id} = file <- Storage.get_active(storage_file_id) do
-      {:ok, file}
-    else
-      _reason -> {:error, :storage_file_not_active}
-    end
-  end
-
-  defp fetch_attachment_for_active_note(note_id, attachment_id) do
-    with {:ok, note_id} <- Ecto.UUID.cast(note_id),
-         {:ok, attachment_id} <- Ecto.UUID.cast(attachment_id),
-         %Attachment{} = attachment <-
-           Attachment
-           |> join(:inner, [attachment], note in assoc(attachment, :note))
-           |> where(
-             [attachment, note],
-             attachment.id == ^attachment_id and attachment.note_id == ^note_id and
-               is_nil(note.deleted_at)
-           )
-           |> preload(:storage_file)
-           |> Repo.one() do
-      {:ok, attachment}
-    else
-      _reason -> {:error, :not_found}
-    end
-  end
-
-  defp attachment_actor(opts) do
-    case attachment_option(opts, :actor) do
-      nil when is_map(opts) ->
-        if Map.has_key?(opts, :id) or Map.has_key?(opts, "id"), do: opts, else: nil
-
-      actor ->
-        actor
-    end
-  end
-
-  defp attachment_option(opts, key) when is_list(opts), do: Keyword.get(opts, key)
-
-  defp attachment_option(opts, key) when is_map(opts) do
-    Map.get(opts, key) || Map.get(opts, Atom.to_string(key))
-  end
-
-  defp attachment_option(_opts, _key), do: nil
 
   defp list_notes_from(queryable, opts) do
     opts = normalize_opts(opts)
@@ -727,13 +536,8 @@ defmodule GSMLG.GaoNote do
 
   defp offset_value(_value), do: 0
 
-  defp maybe_replace_labels(multi, @labels_not_provided), do: multi
-
-  defp maybe_replace_labels(multi, labels) do
-    Multi.run(multi, :labels, fn _repo, %{note: note} ->
-      set_labels_in_repo(note, labels)
-    end)
-  end
+  defp replace_labels_in_repo(%Note{} = note, @labels_not_provided), do: {:ok, note}
+  defp replace_labels_in_repo(%Note{} = note, labels), do: set_labels_in_repo(note, labels)
 
   defp set_labels_in_repo(%Note{} = note, labels) when is_list(labels) do
     label_keys = Enum.map(labels, & &1.name)
@@ -776,6 +580,19 @@ defmodule GSMLG.GaoNote do
     cond do
       labels != @labels_not_provided -> {:labels, labels, attrs}
       true -> {@labels_not_provided, @labels_not_provided, attrs}
+    end
+  end
+
+  defp pop_required_attachments(attrs) do
+    case Map.fetch(attrs, :attachments) do
+      {:ok, attachments} when is_list(attachments) ->
+        {:ok, attachments, Map.delete(attrs, :attachments)}
+
+      {:ok, _attachments} ->
+        {:error, {:attachments, %{code: :must_be_a_list}}}
+
+      :error ->
+        {:error, {:attachments, %{code: :required}}}
     end
   end
 
@@ -1023,6 +840,17 @@ defmodule GSMLG.GaoNote do
 
   defp preload_note(%Note{} = note),
     do: Repo.preload(note, [labels: :label_setting, attachments: :storage_file], force: true)
+
+  defp lock_active_note(note_id) do
+    active_note_query()
+    |> where([note], note.id == ^note_id)
+    |> lock("FOR UPDATE")
+    |> Repo.one()
+    |> case do
+      nil -> {:error, :not_found}
+      note -> {:ok, note}
+    end
+  end
 
   defp active_note_query do
     from(n in Note, where: is_nil(n.deleted_at))

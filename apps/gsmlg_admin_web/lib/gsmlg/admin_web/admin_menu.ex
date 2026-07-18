@@ -53,11 +53,6 @@ defmodule GSMLG.AdminWeb.AdminMenu do
               label: "Label Settings",
               path: "/gao_notes/label_settings"
             },
-            %{
-              id: "gao_note_attachments",
-              label: "Note Attachments",
-              path: "/gao_notes/attachments"
-            },
             %{id: "gao_note_recycle_bin", label: "Recycle Bin", path: "/gao_notes/recycle_bin"},
             %{id: "gao_note_logs", label: "Log", path: "/gao_notes/logs"},
             %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"}

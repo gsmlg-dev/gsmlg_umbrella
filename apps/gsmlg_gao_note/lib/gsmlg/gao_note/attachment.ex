@@ -1,9 +1,6 @@
 defmodule GSMLG.GaoNote.Attachment do
   @moduledoc """
-  Storage-backed GaoNote attachment.
-
-  `path` is the attachment path relative to the note body. Markdown content should
-  reference it with the same relative path, for example `./data.txt`.
+  Persisted metadata for a storage-backed GaoNote attachment.
   """
 
   use Ecto.Schema
@@ -12,84 +9,168 @@ defmodule GSMLG.GaoNote.Attachment do
   alias GSMLG.GaoNote.Note
   alias GSMLG.Storage.StorageFile
 
-  @primary_key {:id, :binary_id, autogenerate: true}
+  @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :binary_id
   @timestamps_opts [type: :utc_datetime_usec]
-  @roles ~w(attachment cover inline source)
+
   @url_scheme ~r/^[a-z][a-z0-9+.-]*:/i
-  @windows_absolute_path ~r/^[a-z]:[\\\/]/i
+  @windows_drive_prefix ~r/^[a-z]:/i
 
   schema "gao_note_attachments" do
     belongs_to(:note, Note)
     belongs_to(:storage_file, StorageFile)
 
-    field(:role, :string, default: "attachment")
-    field(:description, :string, default: "")
     field(:path, :string)
-    field(:caption, :string)
-    field(:alt_text, :string)
-    field(:position, :integer, default: 0)
-    field(:metadata, :map, default: %{})
+    field(:mime, :string)
+    field(:description, :string, default: "")
 
     timestamps()
   end
 
-  def roles, do: @roles
-
   @doc """
-  Returns the attachment-level visibility selected in attachment metadata.
+  Canonicalizes a path relative to its note.
 
-  Attachments without an explicit setting inherit the storage-file visibility.
-  Invalid or unavailable visibility data is treated as private.
+  Empty segments and `.` segments are removed. Absolute paths, URL schemes,
+  Windows drive prefixes, and `..` traversal segments are rejected.
   """
-  def visibility(%__MODULE__{} = attachment) do
-    case metadata_visibility(attachment.metadata) do
-      nil -> storage_visibility(attachment.storage_file)
-      visibility -> visibility
+  @spec normalize_path(term()) :: {:ok, String.t()} | {:error, String.t()}
+  def normalize_path(path) when is_binary(path) do
+    cond do
+      not String.valid?(path) ->
+        {:error, "must be valid UTF-8"}
+
+      contains_nul?(path) ->
+        {:error, "must not contain NUL bytes"}
+
+      true ->
+        do_normalize_path(path)
     end
   end
 
-  @doc """
-  Returns the effective visibility after applying the storage privacy floor.
-  """
-  def effective_visibility(%__MODULE__{} = attachment) do
-    storage_visibility = storage_visibility(attachment.storage_file)
+  def normalize_path(_path), do: {:error, "must be a string"}
 
-    case metadata_visibility(attachment.metadata) do
-      nil -> storage_visibility
-      "private" -> "private"
-      "public" when storage_visibility == "public" -> "public"
-      _visibility -> "private"
+  defp do_normalize_path(path) do
+    path =
+      path
+      |> String.trim()
+      |> String.replace("\\", "/")
+
+    cond do
+      path == "" ->
+        {:error, "can't be blank"}
+
+      String.starts_with?(path, "/") ->
+        {:error, "must be relative to the note"}
+
+      true ->
+        normalize_path_segments(String.split(path, "/", trim: false))
     end
   end
 
   def changeset(attachment, attrs) do
     attachment
-    |> cast(attrs, [
-      :note_id,
-      :storage_file_id,
-      :role,
-      :description,
-      :path,
-      :caption,
-      :alt_text,
-      :position,
-      :metadata
-    ])
+    |> cast(attrs, [:id, :note_id, :storage_file_id, :path, :mime, :description],
+      empty_values: []
+    )
     |> put_default_description()
-    |> normalize_path()
+    |> validate_text_fields()
     |> validate_required([:note_id, :storage_file_id])
-    |> validate_inclusion(:role, @roles)
-    |> validate_number(:position, greater_than_or_equal_to: 0)
-    |> validate_note_relative_path()
-    |> unique_constraint([:note_id, :storage_file_id],
-      name: :gao_note_attachments_note_id_storage_file_id_index,
-      error_key: :storage_file_id
+    |> validate_required_text_fields([:id, :path, :mime])
+    |> normalize_path_change()
+    |> foreign_key_constraint(:note_id, name: :gao_note_attachments_note_id_fkey)
+    |> foreign_key_constraint(:storage_file_id,
+      name: :gao_note_attachments_storage_file_id_fkey
+    )
+    |> unique_constraint(:id, name: :gao_note_attachments_pkey)
+    |> unique_constraint(:storage_file_id,
+      name: :gao_note_attachments_storage_file_id_index
     )
     |> unique_constraint([:note_id, :path],
       name: :gao_note_attachments_note_id_path_index,
       error_key: :path
     )
+  end
+
+  defp normalize_path_segments(segments) do
+    if Enum.any?(segments, &(&1 == "..")) do
+      {:error, "must not contain a .. segment"}
+    else
+      segments
+      |> Enum.reject(&(&1 in ["", "."]))
+      |> Enum.join("/")
+      |> validate_canonical_path()
+    end
+  end
+
+  defp validate_canonical_path(""), do: {:error, "can't be blank"}
+
+  defp validate_canonical_path(path) do
+    cond do
+      Regex.match?(@windows_drive_prefix, path) ->
+        {:error, "must not start with a Windows drive prefix"}
+
+      Regex.match?(@url_scheme, path) ->
+        {:error, "must not include a URL scheme"}
+
+      true ->
+        {:ok, "./" <> path}
+    end
+  end
+
+  defp validate_text_fields(changeset) do
+    Enum.reduce([:id, :path, :mime, :description], changeset, fn field, changeset ->
+      case get_field(changeset, field) do
+        value when is_binary(value) ->
+          cond do
+            not String.valid?(value) ->
+              add_error(changeset, field, "must be valid UTF-8")
+
+            contains_nul?(value) ->
+              add_error(changeset, field, "must not contain NUL bytes")
+
+            true ->
+              changeset
+          end
+
+        _value ->
+          changeset
+      end
+    end)
+  end
+
+  defp validate_required_text_fields(changeset, fields) do
+    Enum.reduce(fields, changeset, fn field, changeset ->
+      cond do
+        Keyword.has_key?(changeset.errors, field) ->
+          changeset
+
+        text_present?(get_field(changeset, field)) ->
+          changeset
+
+        true ->
+          add_error(changeset, field, "can't be blank", validation: :required)
+      end
+    end)
+  end
+
+  defp text_present?(value) when is_binary(value), do: String.trim(value) != ""
+  defp text_present?(_value), do: false
+
+  defp normalize_path_change(changeset) do
+    if Keyword.has_key?(changeset.errors, :path) do
+      changeset
+    else
+      case fetch_change(changeset, :path) do
+        {:ok, path} ->
+          case normalize_path(path) do
+            {:ok, path} -> put_change(changeset, :path, path)
+            {:error, message} -> add_error(changeset, :path, message)
+          end
+
+        :error ->
+          changeset
+      end
+    end
   end
 
   defp put_default_description(changeset) do
@@ -99,78 +180,5 @@ defmodule GSMLG.GaoNote.Attachment do
     end
   end
 
-  defp normalize_path(changeset) do
-    case get_change(changeset, :path) do
-      path when is_binary(path) ->
-        path = String.trim(path)
-
-        cond do
-          path == "" -> put_change(changeset, :path, nil)
-          String.starts_with?(path, "./") -> put_change(changeset, :path, path)
-          absolute_path?(path) -> put_change(changeset, :path, path)
-          url_path?(path) -> put_change(changeset, :path, path)
-          true -> put_change(changeset, :path, "./#{path}")
-        end
-
-      _path ->
-        changeset
-    end
-  end
-
-  defp validate_note_relative_path(changeset) do
-    validate_change(changeset, :path, fn :path, path ->
-      cond do
-        is_nil(path) ->
-          []
-
-        absolute_path?(path) ->
-          [path: "must be relative to the note, for example ./data.txt"]
-
-        String.contains?(path, "..") ->
-          [path: "must not contain .."]
-
-        url_path?(path) ->
-          [path: "must not be an absolute URL"]
-
-        not String.starts_with?(path, "./") ->
-          [path: "must start with ./"]
-
-        true ->
-          []
-      end
-    end)
-  end
-
-  defp absolute_path?(path) do
-    Path.type(path) == :absolute or String.starts_with?(path, "\\") or
-      Regex.match?(@windows_absolute_path, path)
-  end
-
-  defp url_path?(path) do
-    Regex.match?(@url_scheme, path) or String.contains?(path, "://")
-  end
-
-  defp metadata_visibility(metadata) when is_map(metadata) do
-    case Map.fetch(metadata, "visibility") do
-      {:ok, visibility} -> normalize_visibility(visibility)
-      :error -> metadata |> Map.get(:visibility) |> normalize_optional_visibility()
-    end
-  end
-
-  defp metadata_visibility(_metadata), do: nil
-
-  defp storage_visibility(%StorageFile{metadata: metadata}) when is_map(metadata) do
-    metadata
-    |> Map.get("visibility", Map.get(metadata, :visibility))
-    |> normalize_visibility()
-  end
-
-  defp storage_visibility(_storage_file), do: "private"
-
-  defp normalize_optional_visibility(nil), do: nil
-  defp normalize_optional_visibility(visibility), do: normalize_visibility(visibility)
-
-  defp normalize_visibility("public"), do: "public"
-  defp normalize_visibility("private"), do: "private"
-  defp normalize_visibility(_visibility), do: "private"
+  defp contains_nul?(value), do: :binary.match(value, <<0>>) != :nomatch
 end

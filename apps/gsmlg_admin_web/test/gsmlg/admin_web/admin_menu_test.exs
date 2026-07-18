@@ -44,11 +44,6 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
                  path: "/gao_notes/label_settings"
                },
                %{
-                 id: "gao_note_attachments",
-                 label: "Note Attachments",
-                 path: "/gao_notes/attachments"
-               },
-               %{
                  id: "gao_note_recycle_bin",
                  label: "Recycle Bin",
                  path: "/gao_notes/recycle_bin"
@@ -57,7 +52,10 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
                %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"}
              ] = gao_notes.items
 
-      refute Enum.any?(gao_notes.items, &(&1.label in ["Note References", "Note Assets"]))
+      refute Enum.any?(
+               gao_notes.items,
+               &(&1.label in ["Note Attachments", "Note References", "Note Assets"])
+             )
     end
 
     test "includes Scout under the service section" do
@@ -95,7 +93,9 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       assert AdminMenu.active_id(nil, "/gao_notes/notes") == "gao_note_list"
       assert AdminMenu.active_id(nil, "/gao_notes/notes/new") == "gao_note_list"
       assert AdminMenu.active_id(nil, "/gao_notes/label_settings") == "gao_note_label_settings"
-      assert AdminMenu.active_id(nil, "/gao_notes/attachments") == "gao_note_attachments"
+      assert AdminMenu.active_id(nil, "/gao_notes/attachments") == nil
+      assert AdminMenu.active_id(nil, "/gao_notes/notes/note-id/attachments/file.txt") ==
+               "gao_note_list"
       assert AdminMenu.active_id(nil, "/gao_notes/recycle_bin") == "gao_note_recycle_bin"
       assert AdminMenu.active_id(nil, "/gao_notes/logs") == "gao_note_logs"
       assert AdminMenu.active_id(nil, "/gao_notes/mcp") == "gao_note_mcp"
@@ -112,36 +112,19 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
   end
 
   describe "router" do
-    test "exposes only final GaoNote routes through the Attachment LiveView" do
+    test "exposes note editor routes and the authenticated raw attachment route only" do
       routes = GSMLG.AdminWeb.Router |> Phoenix.Router.routes()
       gao_note_routes = Enum.filter(routes, &String.starts_with?(&1.path, "/gao_notes"))
+      paths = Enum.map(gao_note_routes, & &1.path)
 
-      assert Enum.map(gao_note_routes, & &1.path) == [
-               "/gao_notes/notes",
-               "/gao_notes/notes/new",
-               "/gao_notes/notes/:id",
-               "/gao_notes/notes/:id/edit",
-               "/gao_notes/notes/:id/attachments",
-               "/gao_notes/attachments",
-               "/gao_notes/label_settings",
-               "/gao_notes/recycle_bin",
-               "/gao_notes/logs",
-               "/gao_notes/mcp"
-             ]
-
-      for {path, action} <- [
-            {"/gao_notes/notes/:id/attachments", :index},
-            {"/gao_notes/attachments", :all}
-          ] do
-        route = Enum.find(gao_note_routes, &(&1.path == path))
-        live_view = Map.fetch!(route.metadata, :phoenix_live_view) |> Tuple.to_list()
-
-        assert GSMLG.AdminWeb.GaoNoteLive.AttachmentLive.Index in live_view
-        assert action in live_view
-      end
-
-      refute Enum.any?(gao_note_routes, &String.contains?(&1.path, "/references"))
-      refute Enum.any?(gao_note_routes, &String.contains?(&1.path, "/assets"))
+      assert "/gao_notes/notes/:note_id/attachments/*path" in paths
+      assert "/gao_notes/notes" in paths
+      assert "/gao_notes/notes/new" in paths
+      assert "/gao_notes/notes/:id/edit" in paths
+      refute "/gao_notes/notes/:id/attachments" in paths
+      refute "/gao_notes/attachments" in paths
+      refute Enum.any?(paths, &String.contains?(&1, "/references"))
+      refute Enum.any?(paths, &String.contains?(&1, "/assets"))
     end
 
     test "does not expose PKI routes" do
