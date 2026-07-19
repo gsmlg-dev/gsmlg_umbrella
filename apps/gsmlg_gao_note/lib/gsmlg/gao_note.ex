@@ -130,6 +130,14 @@ defmodule GSMLG.GaoNote do
     limit = Keyword.get(opts, :limit)
 
     LabelSetting
+    |> join(:left, [label_setting], label in Label,
+      on: label.label_setting_id == label_setting.id
+    )
+    |> join(:left, [_label_setting, label], note in Note,
+      on: note.id == label.note_id and is_nil(note.deleted_at)
+    )
+    |> group_by([label_setting], label_setting.id)
+    |> select_merge([_label_setting, _label, note], %{note_count: count(note.id)})
     |> order_by([t], asc: fragment("lower(?)", t.name))
     |> maybe_limit(limit)
     |> Repo.all()

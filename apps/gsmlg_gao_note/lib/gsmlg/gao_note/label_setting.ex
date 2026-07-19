@@ -15,6 +15,7 @@ defmodule GSMLG.GaoNote.LabelSetting do
     field(:description, :string, default: "")
     field(:value_type, :string, default: "text")
     field(:metadata, :map, default: %{})
+    field(:note_count, :integer, virtual: true, default: 0)
 
     has_many(:labels, Label, foreign_key: :label_setting_id)
 

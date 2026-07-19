@@ -193,7 +193,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
           :if={async_loading?(@label_settings)}
           id="gao-note-label_settings-loading"
           rows={4}
-          columns={6}
+          columns={7}
           animation="wave"
           loading_label="Loading GaoNote labels"
         />
@@ -225,6 +225,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
               />
               <span class="font-mono text-xs">{label_setting.color || "-"}</span>
             </div>
+          </:col>
+          <:col :let={label_setting} label="Notes">
+            <span class="font-mono text-xs tabular-nums">{label_setting.note_count}</span>
           </:col>
           <:col :let={label_setting} label="Updated">
             <span class="font-mono text-xs tabular-nums">{format_dt(label_setting.updated_at)}</span>
