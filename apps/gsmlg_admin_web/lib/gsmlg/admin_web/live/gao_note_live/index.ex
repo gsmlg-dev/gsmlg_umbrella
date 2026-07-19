@@ -1719,48 +1719,79 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           id="gao-note-filter-form"
           phx-change="search_form_changed"
           phx-submit="search"
-          class="grid gap-2 rounded-xl bg-base-200/60 p-3"
+          class="grid min-w-0 gap-3 rounded-2xl border border-outline-variant bg-surface-container-low p-4 text-on-surface"
         >
-          <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
-            <.dm_input
-              id="gao-note-search-input"
-              name="filters[search]"
-              value={@filters["search"]}
-              placeholder="Search notes"
-              aria-label="Search notes"
-            />
-            <.dm_btn type="submit" variant="primary">
-              <.dm_mdi name="magnify" class="h-4 w-4" /> Search
-            </.dm_btn>
-            <.dm_btn type="button" variant="ghost" phx-click="clear_search_filters">
-              Clear
-            </.dm_btn>
+          <%# WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#100 %>
+          <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <div class="min-w-0">
+              <.dm_input
+                id="gao-note-search-input"
+                name="filters[search]"
+                value={@filters["search"]}
+                placeholder="Search notes"
+                aria-label="Search notes"
+                size="sm"
+                class="h-8"
+                label_class="hidden"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              <.dm_btn type="submit" variant="primary" size="sm">
+                <.dm_mdi name="magnify" class="h-4 w-4" /> Search
+              </.dm_btn>
+              <.dm_btn
+                type="button"
+                variant="ghost"
+                size="sm"
+                phx-click="clear_search_filters"
+              >
+                Clear
+              </.dm_btn>
+            </div>
           </div>
 
-          <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_auto]">
-            <.dm_input
-              id="gao-note-filter-key"
-              name="label_filter[key]"
-              value={@label_filter_key}
-              placeholder="key"
-              aria-label="Label key"
-            />
+          <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_auto] items-center gap-2">
+            <div class="min-w-0">
+              <.dm_input
+                id="gao-note-filter-key"
+                name="label_filter[key]"
+                value={@label_filter_key}
+                placeholder="key"
+                aria-label="Label key"
+                size="sm"
+                class="h-8"
+                label_class="hidden"
+              />
+            </div>
             <.dm_select
               id="gao-note-filter-operator"
               name="label_filter[operator]"
               value={@label_filter_operator}
               options={[{"=", "="}]}
               aria-label="Label operator"
+              size="sm"
+              class="w-full"
+              select_class="h-8 w-full"
             />
-            <.dm_input
-              id="gao-note-filter-value"
-              name="label_filter[value]"
-              value={@label_filter_value}
-              placeholder="value (optional)"
-              aria-label="Label value (optional)"
-            />
-            <.dm_btn type="button" variant="secondary" phx-click="add_search_filter">
-              Add filter
+            <div class="min-w-0">
+              <.dm_input
+                id="gao-note-filter-value"
+                name="label_filter[value]"
+                value={@label_filter_value}
+                placeholder="value (optional)"
+                aria-label="Label value (optional)"
+                size="sm"
+                class="h-8"
+                label_class="hidden"
+              />
+            </div>
+            <.dm_btn
+              type="button"
+              variant="outline"
+              size="sm"
+              phx-click="add_search_filter"
+            >
+              <.dm_mdi name="plus" class="h-4 w-4" /> Add filter
             </.dm_btn>
           </div>
 
