@@ -1919,7 +1919,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           for={@form}
           phx-submit="save"
           phx-change="validate"
-          class="grid gap-4"
+          class="grid min-w-0 max-w-full gap-4"
         >
           <.dm_input field={@form[:title]} label="Title" errors={field_errors(@form[:title])} />
 
@@ -1978,7 +1978,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           </div>
 
           <% content_errors = field_errors(@form[:content]) %>
-          <div class="grid gap-2" phx-feedback-for={@form[:content].name}>
+          <div
+            class="grid min-w-0 max-w-full gap-2"
+            phx-feedback-for={@form[:content].name}
+          >
             <.dm_label for={@form[:content].id}>Markdown Content</.dm_label>
             <.dm_markdown_input
               field={@form[:content]}
@@ -1987,7 +1990,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
               resize="vertical"
               live_preview
               debounce={250}
-              class="min-h-[28rem]"
+              class="block min-h-[28rem] w-full min-w-0 max-w-full overflow-x-auto"
               aria-invalid={content_errors != [] && "true"}
               aria-describedby={content_errors != [] && "#{@form[:content].id}-errors"}
             />
