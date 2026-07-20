@@ -13,6 +13,7 @@ defmodule GSMLG.GaoNote.MCP.ReadOnlyServer do
 
   component(Tools.Search, name: "gao_note.search")
   component(Tools.Get, name: "gao_note.get")
+  component(Tools.GetAttachmentWithContent, name: "gao_note.get_attachment_with_content")
   component(Tools.ListLabelSettings, name: "gao_note.list_label_settings")
 
   component(Resources.Note)

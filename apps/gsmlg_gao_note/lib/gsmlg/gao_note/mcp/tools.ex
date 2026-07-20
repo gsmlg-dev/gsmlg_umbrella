@@ -9,6 +9,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   @readonly_tools ~w(
     gao_note.search
     gao_note.get
+    gao_note.get_attachment_with_content
     gao_note.list_label_settings
   )
 
@@ -19,6 +20,8 @@ defmodule GSMLG.GaoNote.MCP.Tools do
                    gao_note.update_note
                    gao_note.delete
                    gao_note.set_labels
+                   gao_note.put_attachment
+                   gao_note.delete_attachment
                  )
 
   @attachment_input_fields %{
@@ -36,6 +39,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
                                     {__MODULE__,
                                      :reject_additional_attachment_field}}}}}
   @strict_attachment_input_fields {:custom, {__MODULE__, :validate_attachment_input}}
+  @strict_base64_pattern "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
 
   @attachment_input_schema %{
     "type" => "object",
@@ -43,8 +47,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     "properties" => %{
       "id" => %{
         "type" => "string",
-        "description" =>
-          "Globally unique attachment ID. Reuse the same ID to retain or replace an existing attachment."
+        "description" => "Globally unique ID for this new initial attachment."
       },
       "path" => %{
         "type" => "string",
@@ -69,8 +72,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       "content_base64" => %{
         "type" => "string",
         "contentEncoding" => "base64",
-        "pattern" =>
-          "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+        "pattern" => @strict_base64_pattern,
         "description" =>
           "Optional strict standard padded Base64 content. Do not send with content."
       }
@@ -84,17 +86,28 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       %{
         "required" => ["content_base64"],
         "not" => %{"required" => ["content"]}
-      },
-      %{
-        "not" => %{
-          "anyOf" => [
-            %{"required" => ["content"]},
-            %{"required" => ["content_base64"]}
-          ]
-        }
       }
     ]
   }
+
+  @put_attachment_input_fields %{
+    note_id: {:required, :string},
+    attachment_id: {:required, :string},
+    path: {:required, :string},
+    mime: {:required, :string},
+    description: {:required, :string},
+    update_content: {:required, :boolean},
+    content: :string,
+    content_base64: :string
+  }
+  @strict_put_attachment_map_schema {:schema, @put_attachment_input_fields,
+                                     {:additional_keys,
+                                      {:required,
+                                       {:custom,
+                                        {__MODULE__,
+                                         :reject_additional_attachment_field}}}}}
+  @strict_put_attachment_input_fields {:custom,
+                                       {__MODULE__, :validate_put_attachment_input}}
 
   @input_fields %{
     "gao_note.search" => [
@@ -106,6 +119,11 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     ],
     "gao_note.get" => [
       {:id, :string, [required: true, description: "GaoNote id."]}
+    ],
+    "gao_note.get_attachment_with_content" => [
+      {:note_id, :string, [required: true, description: "GaoNote id."]},
+      {:attachment_id, :string,
+       [required: true, description: "Globally unique attachment ID."]}
     ],
     "gao_note.list_label_settings" => [],
     "gao_note.create_note" => [
@@ -135,12 +153,6 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:content, :string, [description: "Updated markdown note content."]},
       {:labels, {:list, :string},
        [description: "Replacement labels as key=value strings. Missing label keys are created."]},
-      {:attachments, {:list, @strict_attachment_input_fields},
-       [
-         required: true,
-         description:
-           "Required complete attachment list. This replaces the full list; include every attachment ID to retain."
-       ]}
     ],
     "gao_note.delete" => [
       {:id, :string, [required: true, description: "GaoNote id."]}
@@ -149,6 +161,32 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:id, :string, [required: true, description: "GaoNote id."]},
       {:labels, {:list, :string},
        [required: true, description: "Replacement labels as key=value strings."]}
+    ],
+    "gao_note.put_attachment" => [
+      {:note_id, :string, [required: true, description: "GaoNote id."]},
+      {:attachment_id, :string,
+       [required: true, description: "Globally unique attachment ID."]},
+      {:path, :string, [required: true, description: "Canonical note-relative path."]},
+      {:mime, :string, [required: true, description: "Expected MIME type."]},
+      {:description, :string, [required: true, description: "Attachment description."]},
+      {:update_content, :boolean,
+       [
+         required: true,
+         description:
+           "Whether to replace stored content. False forbids content fields; true requires exactly one."
+       ]},
+      {:content, :string,
+       [description: "Raw replacement content. Use only when update_content is true."]},
+      {:content_base64, :string,
+       [
+         description:
+           "Strict standard padded Base64 replacement content. Use only when update_content is true."
+       ]}
+    ],
+    "gao_note.delete_attachment" => [
+      {:note_id, :string, [required: true, description: "GaoNote id."]},
+      {:attachment_id, :string,
+       [required: true, description: "Globally unique attachment ID."]}
     ]
   }
 
@@ -176,6 +214,32 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   def validate_attachment_input(_attachment),
     do: {:error, "attachment must be an object", []}
+
+  @doc false
+  def validate_put_attachment_input(args) when is_map(args) do
+    with {:ok, args} <- Peri.validate(@strict_put_attachment_map_schema, args),
+         :ok <- validate_put_attachment_content(args) do
+      {:ok, args}
+    end
+  end
+
+  def validate_put_attachment_input(_args),
+    do: {:error, "attachment input must be an object", []}
+
+  def input_schema("gao_note.get_attachment_with_content") do
+    %{
+      "type" => "object",
+      "additionalProperties" => false,
+      "properties" => %{
+        "note_id" => %{"type" => "string", "description" => "GaoNote id."},
+        "attachment_id" => %{
+          "type" => "string",
+          "description" => "Globally unique attachment ID."
+        }
+      },
+      "required" => ~w(note_id attachment_id)
+    }
+  end
 
   def input_schema("gao_note.create_note") do
     %{
@@ -224,15 +288,88 @@ defmodule GSMLG.GaoNote.MCP.Tools do
           "items" => %{"type" => "string"},
           "description" =>
             "Replacement labels as key=value strings. Missing label keys are created."
-        },
-        "attachments" => %{
-          "type" => "array",
-          "items" => @attachment_input_schema,
-          "description" =>
-            "Required complete attachment list. This replaces the full list; include every attachment ID to retain."
         }
       },
-      "required" => ~w(id attachments)
+      "required" => ~w(id)
+    }
+  end
+
+  def input_schema("gao_note.put_attachment") do
+    %{
+      "type" => "object",
+      "additionalProperties" => false,
+      "properties" => %{
+        "note_id" => %{"type" => "string", "description" => "GaoNote id."},
+        "attachment_id" => %{
+          "type" => "string",
+          "description" => "Globally unique attachment ID."
+        },
+        "path" => %{
+          "type" => "string",
+          "description" => "Canonical note-relative path."
+        },
+        "mime" => %{"type" => "string", "description" => "Expected MIME type."},
+        "description" => %{
+          "type" => "string",
+          "description" => "Attachment description."
+        },
+        "update_content" => %{
+          "type" => "boolean",
+          "description" =>
+            "Whether to replace stored content. False forbids content fields; true requires exactly one."
+        },
+        "content" => %{
+          "type" => "string",
+          "description" => "Raw replacement content. Use only when update_content is true."
+        },
+        "content_base64" => %{
+          "type" => "string",
+          "contentEncoding" => "base64",
+          "pattern" => @strict_base64_pattern,
+          "description" =>
+            "Strict standard padded Base64 replacement content. Use only when update_content is true."
+        }
+      },
+      "required" => ~w(note_id attachment_id path mime description update_content),
+      "oneOf" => [
+        %{
+          "properties" => %{"update_content" => %{"const" => false}},
+          "not" => %{
+            "anyOf" => [
+              %{"required" => ["content"]},
+              %{"required" => ["content_base64"]}
+            ]
+          }
+        },
+        %{
+          "properties" => %{"update_content" => %{"const" => true}},
+          "oneOf" => [
+            %{
+              "required" => ["content"],
+              "not" => %{"required" => ["content_base64"]}
+            },
+            %{
+              "required" => ["content_base64"],
+              "not" => %{"required" => ["content"]}
+            }
+          ]
+        }
+      ]
+    }
+  end
+
+  def input_schema("gao_note.delete_attachment") do
+    %{
+      "type" => "object",
+      "additionalProperties" => false,
+      "properties" => %{
+        "note_id" => %{"type" => "string", "description" => "GaoNote id."},
+        "attachment_id" => %{
+          "type" => "string",
+          "description" => "Globally unique attachment ID."
+        }
+      },
+      "required" => ~w(note_id attachment_id)
     }
   end
 
@@ -263,6 +400,10 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   def description("gao_note.search"), do: "Search GaoNote notes."
   def description("gao_note.get"), do: "Get a GaoNote by id."
+
+  def description("gao_note.get_attachment_with_content"),
+    do: "Get GaoNote attachment metadata and Base64-encoded content."
+
   def description("gao_note.list_label_settings"), do: "List GaoNote label settings."
   def description("gao_note.create_note"), do: "Create a GaoNote and its complete attachment list."
 
@@ -271,13 +412,19 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       "Create a GaoNote label setting by key. Label keys are also created automatically when notes use new labels."
 
   def description("gao_note.update_note"),
-    do:
-      "Update a GaoNote. attachments is required and replaces the complete attachment list."
+    do: "Update GaoNote title, markdown content, and/or labels."
 
   def description("gao_note.delete"), do: "Delete a GaoNote."
 
   def description("gao_note.set_labels"),
     do: "Replace GaoNote labels with an array of key=value strings."
+
+  def description("gao_note.put_attachment"),
+    do:
+      "Replace an existing attachment owned by the identified GaoNote. This tool never creates or transfers an attachment."
+
+  def description("gao_note.delete_attachment"),
+    do: "Delete one GaoNote attachment."
 
   def annotations(name) do
     cond do
@@ -294,6 +441,22 @@ defmodule GSMLG.GaoNote.MCP.Tools do
           "readOnlyHint" => false,
           "destructiveHint" => true,
           "idempotentHint" => false,
+          "openWorldHint" => false
+        }
+
+      name == "gao_note.put_attachment" ->
+        %{
+          "readOnlyHint" => false,
+          "destructiveHint" => true,
+          "idempotentHint" => true,
+          "openWorldHint" => false
+        }
+
+      name == "gao_note.delete_attachment" ->
+        %{
+          "readOnlyHint" => false,
+          "destructiveHint" => true,
+          "idempotentHint" => true,
           "openWorldHint" => false
         }
 
@@ -321,6 +484,24 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     case fetch_note(args, mode) do
       nil -> error("GaoNote not found")
       note -> ok("GaoNote: #{note.title}", %{"note" => Presenter.note(note)})
+    end
+  end
+
+  defp dispatch("gao_note.get_attachment_with_content", args, _frame, mode) do
+    note_args = %{"id" => Map.get(args, "note_id")}
+
+    with %{} = note <- fetch_note(note_args, mode),
+         {:ok, attachment, raw_bytes} <-
+           GaoNote.get_attachment_with_content(note.id, Map.get(args, "attachment_id")) do
+      presented_attachment =
+        attachment
+        |> Presenter.attachment()
+        |> Map.put("content_base64", Base.encode64(raw_bytes))
+
+      ok("Retrieved GaoNote attachment", %{"attachment" => presented_attachment})
+    else
+      nil -> error("GaoNote not found")
+      {:error, reason} -> error(reason)
     end
   end
 
@@ -360,11 +541,40 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     with {:ok, actor} <- Authorization.actor(frame),
          %{} = note <- GaoNote.get_note(Map.get(args, "id")),
          attrs <- Map.drop(args, ["id"]),
-         {:ok, note} <- GaoNote.update_note(note, attrs, mcp_actor(actor)) do
+         {:ok, note} <- GaoNote.update_note_fields(note, attrs, mcp_actor(actor)) do
       audit("gao_note.update_note", actor, note.id)
       ok("Updated GaoNote: #{note.title}", %{"note" => Presenter.note(note)})
     else
       nil -> error("GaoNote not found")
+      {:error, reason} -> error(reason)
+    end
+  end
+
+  defp dispatch("gao_note.put_attachment", args, frame, _mode) do
+    note_id = Map.get(args, "note_id")
+    attachment_id = Map.get(args, "attachment_id")
+    attrs = Map.drop(args, ["note_id", "attachment_id"])
+
+    with {:ok, actor} <- Authorization.actor(frame),
+         {:ok, attachment} <-
+           GaoNote.put_attachment(note_id, attachment_id, attrs, mcp_actor(actor)) do
+      audit("gao_note.put_attachment", actor, note_id)
+      ok("Stored GaoNote attachment", %{"attachment" => Presenter.attachment(attachment)})
+    else
+      {:error, reason} -> error(reason)
+    end
+  end
+
+  defp dispatch("gao_note.delete_attachment", args, frame, _mode) do
+    note_id = Map.get(args, "note_id")
+    attachment_id = Map.get(args, "attachment_id")
+
+    with {:ok, actor} <- Authorization.actor(frame),
+         {:ok, deleted} <-
+           GaoNote.delete_attachment(note_id, attachment_id, mcp_actor(actor)) do
+      audit("gao_note.delete_attachment", actor, note_id)
+      ok("Deleted GaoNote attachment", %{"attachment" => Presenter.attachment(deleted)})
+    else
       {:error, reason} -> error(reason)
     end
   end
@@ -431,8 +641,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   defp default_arguments(_name, args), do: args
 
-  defp validate_aggregate_arguments(name, args)
-       when name in ["gao_note.create_note", "gao_note.update_note"] do
+  defp validate_aggregate_arguments("gao_note.create_note", args) do
     case Map.fetch(args, "attachments") do
       {:ok, attachments} ->
         with {:ok, attachments} <- validate_attachments(attachments) do
@@ -441,6 +650,20 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
       :error ->
         {:ok, args}
+    end
+  end
+
+  defp validate_aggregate_arguments("gao_note.update_note", args) do
+    case Map.keys(args) -- ~w(id title content labels) do
+      [] -> {:ok, args}
+      [field | _rest] -> {:error, "unsupported note field: #{field}"}
+    end
+  end
+
+  defp validate_aggregate_arguments("gao_note.put_attachment", args) do
+    case Peri.validate(@strict_put_attachment_input_fields, args) do
+      {:ok, args} -> {:ok, stringify_keys(args)}
+      {:error, errors} -> {:error, Presenter.error_text(errors)}
     end
   end
 
@@ -483,11 +706,33 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       has_content? and has_content_base64? ->
         {:error, "must contain only one of content or content_base64", []}
 
+      not has_content? and not has_content_base64? ->
+        {:error, "must contain exactly one of content or content_base64", []}
+
       has_content_base64? and not strict_base64?(content_base64) ->
         {:error, "content_base64 must be strict standard padded Base64", []}
 
       true ->
         :ok
+    end
+  end
+
+  defp validate_put_attachment_content(args) do
+    has_content? = attachment_has_key?(args, :content)
+    has_content_base64? = attachment_has_key?(args, :content_base64)
+
+    case attachment_value(args, :update_content) do
+      false when has_content? or has_content_base64? ->
+        {:error, "update_content=false forbids content and content_base64", []}
+
+      false ->
+        :ok
+
+      true when has_content? == has_content_base64? ->
+        {:error, "update_content=true requires exactly one of content or content_base64", []}
+
+      true ->
+        validate_attachment_content(args)
     end
   end
 
@@ -560,11 +805,15 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     GSMLG.Telemetry.info("GaoNote MCP tool call",
       metadata: %{
         tool: tool_name,
-        actor_id: Map.get(actor, :id),
+        actor_id: actor_id(actor),
         note_id: note_id
       }
     )
   end
+
+  defp actor_id(%{id: id}), do: id
+  defp actor_id(%{"id" => id}), do: id
+  defp actor_id(_actor), do: nil
 
   defp log_tool_failure(tool_name, kind, reason, stacktrace) do
     GSMLG.Telemetry.error("GaoNote MCP tool failed",
@@ -608,7 +857,13 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
   end
 
   defp input_schema_override(name)
-       when name in ["gao_note.create_note", "gao_note.update_note"] do
+       when name in [
+              "gao_note.create_note",
+              "gao_note.update_note",
+              "gao_note.get_attachment_with_content",
+              "gao_note.put_attachment",
+              "gao_note.delete_attachment"
+            ] do
     quote do
       defoverridable input_schema: 0
 
@@ -619,7 +874,27 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
 
   defp input_schema_override(_name), do: quote(do: nil)
 
-  defp schema_block(name) when name in ["gao_note.create_note", "gao_note.update_note"] do
+  defp schema_block("gao_note.put_attachment") do
+    schema =
+      {:custom, {GSMLG.GaoNote.MCP.Tools, :validate_put_attachment_input}}
+
+    quote do
+      import Peri
+
+      @doc false
+      def __mcp_raw_schema__, do: unquote(Macro.escape(schema))
+
+      defschema(:mcp_schema, unquote(Macro.escape(schema)))
+    end
+  end
+
+  defp schema_block(name)
+       when name in [
+              "gao_note.create_note",
+              "gao_note.update_note",
+              "gao_note.get_attachment_with_content",
+              "gao_note.delete_attachment"
+            ] do
     fields =
       name
       |> GSMLG.GaoNote.MCP.Tools.input_fields()
@@ -627,11 +902,18 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
         {field_name, Backplane.McpProtocol.Server.Component.__build_field__(type, opts)}
       end)
 
+    rejector =
+      if name in ["gao_note.create_note", "gao_note.update_note"] do
+        :reject_additional_note_field
+      else
+        :reject_additional_attachment_field
+      end
+
     schema =
       {:schema, fields,
        {:additional_keys,
         {:required,
-         {:custom, {GSMLG.GaoNote.MCP.Tools, :reject_additional_note_field}}}}}
+         {:custom, {GSMLG.GaoNote.MCP.Tools, rejector}}}}}
 
     quote do
       import Peri
@@ -677,6 +959,10 @@ defmodule GSMLG.GaoNote.MCP.Tools.Get do
   use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.get"
 end
 
+defmodule GSMLG.GaoNote.MCP.Tools.GetAttachmentWithContent do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.get_attachment_with_content"
+end
+
 defmodule GSMLG.GaoNote.MCP.Tools.ListLabelSettings do
   use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.list_label_settings"
 end
@@ -699,4 +985,12 @@ end
 
 defmodule GSMLG.GaoNote.MCP.Tools.SetLabels do
   use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.set_labels"
+end
+
+defmodule GSMLG.GaoNote.MCP.Tools.PutAttachment do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.put_attachment"
+end
+
+defmodule GSMLG.GaoNote.MCP.Tools.DeleteAttachment do
+  use GSMLG.GaoNote.MCP.ToolComponent, name: "gao_note.delete_attachment"
 end

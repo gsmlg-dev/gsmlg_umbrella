@@ -23,6 +23,14 @@ defmodule GSMLG.GaoNote do
     "attachments" => :attachments,
     :attachments => :attachments
   }
+  @note_field_attr_keys %{
+    "title" => :title,
+    :title => :title,
+    "content" => :content,
+    :content => :content,
+    "labels" => :labels,
+    :labels => :labels
+  }
   @label_setting_attr_keys %{
     "name" => :name,
     :name => :name,
@@ -160,6 +168,48 @@ defmodule GSMLG.GaoNote do
 
   def read_attachment_text(note_id, attachment_id),
     do: Attachments.read_text(note_id, attachment_id)
+
+  def get_attachment_with_content(note_id, attachment_id),
+    do: Attachments.get_with_content(note_id, attachment_id)
+
+  def put_attachment(note_id, attachment_id, attrs, actor) do
+    Attachments.put(note_id, attachment_id, attrs, actor_id(actor))
+    |> tap_success(fn attachment ->
+      log_action(
+        "update",
+        "attachment",
+        attachment.id,
+        attachment.note_id,
+        actor,
+        %{
+          "path" => attachment.path,
+          "mime" => attachment.mime,
+          "description" => attachment.description,
+          "storage_file_id" => attachment.storage_file_id,
+          "content_updated" => attachment_update_content(attrs)
+        }
+      )
+    end)
+  end
+
+  def delete_attachment(note_id, attachment_id, actor) do
+    Attachments.delete(note_id, attachment_id)
+    |> tap_success(fn attachment ->
+      log_action(
+        "delete",
+        "attachment",
+        attachment.id,
+        attachment.note_id,
+        actor,
+        %{
+          "path" => attachment.path,
+          "mime" => attachment.mime,
+          "description" => attachment.description,
+          "storage_file_id" => attachment.storage_file_id
+        }
+      )
+    end)
+  end
 
   def list_logs(opts \\ []) do
     opts = normalize_opts(opts)
@@ -343,6 +393,32 @@ defmodule GSMLG.GaoNote do
           })
 
           {:ok, note}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end
+    end
+  end
+
+  def update_note_fields(%Note{} = note, attrs, actor) do
+    with :ok <- reject_attachment_input(attrs) do
+      attrs = normalize_attrs(attrs, @note_field_attr_keys)
+      {label_source, label_values, attrs} = pop_labels_input(attrs)
+
+      with {:ok, labels} <- normalize_labels(label_values, label_source) do
+        note.id
+        |> update_note_fields_in_repo(attrs, labels)
+        |> case do
+          {:ok, {updated, fields}} ->
+            if fields != [] do
+              log_action("update", "note", updated.id, updated.id, actor, %{
+                "title" => updated.title,
+                "fields" => fields
+              })
+            end
+
+            {:ok, updated}
 
           {:error, reason} ->
             {:error, reason}
@@ -834,6 +910,32 @@ defmodule GSMLG.GaoNote do
 
   defp normalize_attrs(attrs, _allowed_keys), do: attrs
 
+  defp reject_attachment_input(attrs) when is_map(attrs) do
+    if Map.has_key?(attrs, :attachments) or
+         Map.has_key?(attrs, "attachments") do
+      {:error, {:attachments, %{code: :not_allowed}}}
+    else
+      :ok
+    end
+  end
+
+  defp reject_attachment_input(_attrs), do: {:error, :invalid_attrs}
+
+  defp attachment_update_content(attrs) when is_map(attrs) do
+    cond do
+      Map.has_key?(attrs, :update_content) ->
+        Map.fetch!(attrs, :update_content)
+
+      Map.has_key?(attrs, "update_content") ->
+        Map.fetch!(attrs, "update_content")
+
+      true ->
+        false
+    end
+  end
+
+  defp attachment_update_content(_attrs), do: false
+
   defp actor_id(%{id: id}) when is_binary(id), do: id
   defp actor_id(%{id: id}), do: to_string(id)
   defp actor_id(_actor), do: nil
@@ -848,6 +950,79 @@ defmodule GSMLG.GaoNote do
 
   defp preload_note(%Note{} = note),
     do: Repo.preload(note, [labels: :label_setting, attachments: :storage_file], force: true)
+
+  defp update_note_fields_in_repo(note_id, attrs, labels) do
+    Repo.transaction(fn ->
+      with {:ok, locked_note} <- lock_active_note(note_id) do
+        locked_note = preload_labels_for_field_update(locked_note, labels)
+        changeset = Note.changeset(locked_note, attrs)
+        labels_changed? = labels_changed?(locked_note, labels)
+
+        fields =
+          changed_note_fields(changeset) ++
+            if(labels_changed?, do: ["labels"], else: [])
+
+        with {:ok, updated} <- Repo.update(changeset),
+             {:ok, updated} <-
+               replace_changed_labels_in_repo(
+                 updated,
+                 labels,
+                 labels_changed?
+               ) do
+          {preload_note(updated), fields}
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  defp preload_labels_for_field_update(note, @labels_not_provided), do: note
+
+  defp preload_labels_for_field_update(note, _labels),
+    do: Repo.preload(note, labels: :label_setting, force: true)
+
+  defp labels_changed?(_note, @labels_not_provided), do: false
+
+  defp labels_changed?(%Note{labels: labels}, desired_labels) do
+    persisted =
+      labels
+      |> Enum.map(fn label ->
+        {
+          LabelSetting.normalized_key(label.label_setting.name),
+          value_to_string(label.value)
+        }
+      end)
+      |> Enum.sort()
+
+    desired =
+      desired_labels
+      |> Enum.map(&{&1.normalized_key, value_to_string(&1.value)})
+      |> Enum.sort()
+
+    persisted != desired
+  end
+
+  defp replace_changed_labels_in_repo(
+         %Note{} = note,
+         @labels_not_provided,
+         false
+       ),
+       do: {:ok, note}
+
+  defp replace_changed_labels_in_repo(%Note{} = note, _labels, false),
+    do: {:ok, note}
+
+  defp replace_changed_labels_in_repo(%Note{} = note, labels, true),
+    do: set_labels_in_repo(note, labels)
+
+  defp changed_note_fields(changeset) do
+    [:title, :content]
+    |> Enum.filter(&Ecto.Changeset.changed?(changeset, &1))
+    |> Enum.map(&Atom.to_string/1)
+  end
 
   defp lock_active_note(note_id) do
     active_note_query()

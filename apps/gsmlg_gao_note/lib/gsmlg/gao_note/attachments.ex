@@ -12,6 +12,15 @@ defmodule GSMLG.GaoNote.Attachments do
   alias GSMLG.Storage.StorageFile
 
   @storage_type "gao_note_attachment"
+  @put_input_keys [
+    {"path", :path},
+    {"mime", :mime},
+    {"description", :description},
+    {"update_content", :update_content},
+    {"content", :content},
+    {"content_base64", :content_base64},
+    {"upload", :upload}
+  ]
 
   def prepare(note_id, raw_inputs, uploaded_by) when is_list(raw_inputs) do
     with {:ok, note_id} <- cast_note_id(note_id),
@@ -93,26 +102,383 @@ defmodule GSMLG.GaoNote.Attachments do
     get_by_path(note_id, path, :deleted)
   end
 
-  def read_text(note_id, attachment_id) do
+  def get_with_content(note_id, attachment_id) do
     with {:ok, note_id} <- cast_note_id(note_id),
          :ok <- validate_attachment_id(attachment_id),
          %Attachment{} = attachment <-
-           attachment_query()
-           |> where(
-             [attachment, _note, _file],
-             attachment.note_id == ^note_id and attachment.id == ^attachment_id
-           )
-           |> active_scope()
-           |> preload([_attachment, _note, file], storage_file: file)
-           |> Repo.one(),
-         {:ok, bytes} <- read_storage_file(attachment.storage_file),
-         :ok <- validate_text(bytes) do
-      {:ok, bytes}
+           get_active_by_id(note_id, attachment_id) do
+      read_with_changed_storage_retry(
+        note_id,
+        attachment_id,
+        attachment
+      )
     else
       nil -> {:error, :not_found}
       {:error, :invalid_note_id} -> {:error, :not_found}
       {:error, _reason} = error -> error
     end
+  end
+
+  def put(note_id, attachment_id, raw_attrs, uploaded_by) do
+    with {:ok, note_id} <- cast_note_id(note_id),
+         :ok <- validate_attachment_id(attachment_id),
+         {:ok, existing} <- get_owned_active_attachment(note_id, attachment_id),
+         {:ok, input} <- cast_put_input(raw_attrs, attachment_id),
+         {:ok, entry} <- build_entry(input, existing),
+         :ok <- ensure_external_transaction_supported([entry]),
+         {:ok, staged_entry, plan} <-
+           stage_targeted_entry(note_id, entry, uploaded_by) do
+      transact(plan, fn ->
+        with {:ok, _note} <- lock_active_note(note_id, attachment_id),
+             {:ok, locked_attachment} <-
+               lock_owned_attachment(note_id, attachment_id),
+             :ok <-
+               ensure_snapshot_unchanged(
+                 attachment_snapshot([existing]),
+                 [locked_attachment]
+               ),
+             {:ok, updated} <-
+               persist_targeted_entry(locked_attachment, staged_entry),
+             {:ok, _jobs} <-
+               schedule_replaced_file_purge(staged_entry, locked_attachment) do
+          Repo.preload(updated, :storage_file, force: true)
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+    else
+      {:error, :invalid_note_id} -> attachment_error(attachment_id, :not_found)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  def delete(note_id, attachment_id) do
+    with {:ok, note_id} <- cast_note_id(note_id),
+         :ok <- validate_attachment_id(attachment_id) do
+      Repo.transaction(fn ->
+        with {:ok, _note} <- lock_active_note(note_id, attachment_id),
+             {:ok, attachment} <-
+               lock_owned_attachment(note_id, attachment_id),
+             {:ok, _jobs} <-
+               schedule_purges([attachment.storage_file_id]),
+             {:ok, deleted} <- Repo.delete(attachment) do
+          deleted
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+      |> case do
+        {:ok, attachment} -> {:ok, attachment}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, :invalid_note_id} -> attachment_error(attachment_id, :not_found)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  def read_text(note_id, attachment_id) do
+    with {:ok, _attachment, bytes} <-
+           get_with_content(note_id, attachment_id),
+         :ok <- validate_text(bytes) do
+      {:ok, bytes}
+    end
+  end
+
+  defp cast_put_input(raw_attrs, attachment_id) when is_map(raw_attrs) do
+    attrs = normalize_put_attrs(raw_attrs)
+
+    with :ok <- require_put_fields(attrs, attachment_id),
+         :ok <- validate_put_description(attrs, attachment_id),
+         {:ok, update_content} <-
+           validate_update_content(attrs, attachment_id),
+         :ok <- reject_put_upload(attrs, attachment_id),
+         :ok <-
+           validate_put_content_sources(
+             attrs,
+             update_content,
+             attachment_id
+           ),
+         {:ok, input} <-
+           cast_attachment_input(
+             Map.put(attrs, :id, attachment_id),
+             attachment_id
+           ),
+         :ok <-
+           ensure_replacement_content_decoded(
+             input,
+             update_content,
+             attachment_id
+           ) do
+      {:ok, input}
+    end
+  end
+
+  defp cast_put_input(_raw_attrs, attachment_id) do
+    attachment_input_error(attachment_id, :invalid)
+  end
+
+  defp normalize_put_attrs(attrs) do
+    Enum.reduce(@put_input_keys, %{}, fn {string_key, atom_key}, normalized ->
+      cond do
+        Map.has_key?(attrs, atom_key) ->
+          Map.put(normalized, atom_key, Map.fetch!(attrs, atom_key))
+
+        Map.has_key?(attrs, string_key) ->
+          Map.put(normalized, atom_key, Map.fetch!(attrs, string_key))
+
+        true ->
+          normalized
+      end
+    end)
+  end
+
+  defp require_put_fields(attrs, attachment_id) do
+    missing =
+      [:path, :mime, :description, :update_content]
+      |> Enum.reject(&Map.has_key?(attrs, &1))
+
+    case missing do
+      [] -> :ok
+      fields -> attachment_input_error(attachment_id, :required, %{fields: fields})
+    end
+  end
+
+  defp validate_put_description(%{description: description}, _attachment_id)
+       when is_binary(description),
+       do: :ok
+
+  defp validate_put_description(_attrs, attachment_id) do
+    attachment_input_error(attachment_id, :invalid, %{field: :description})
+  end
+
+  defp validate_update_content(%{update_content: update_content}, _attachment_id)
+       when is_boolean(update_content),
+       do: {:ok, update_content}
+
+  defp validate_update_content(_attrs, attachment_id) do
+    attachment_input_error(attachment_id, :invalid, %{
+      field: :update_content
+    })
+  end
+
+  defp reject_put_upload(attrs, attachment_id) do
+    if Map.has_key?(attrs, :upload) do
+      attachment_error(attachment_id, :unsupported_content_source)
+    else
+      :ok
+    end
+  end
+
+  defp validate_put_content_sources(attrs, false, attachment_id) do
+    if Map.has_key?(attrs, :content) or
+         Map.has_key?(attrs, :content_base64) do
+      attachment_error(attachment_id, :content_not_allowed)
+    else
+      :ok
+    end
+  end
+
+  defp validate_put_content_sources(attrs, true, attachment_id) do
+    case {
+      Map.has_key?(attrs, :content),
+      Map.has_key?(attrs, :content_base64)
+    } do
+      {true, false} ->
+        :ok
+
+      {false, true} ->
+        :ok
+
+      {false, false} ->
+        attachment_error(attachment_id, :content_required)
+
+      {true, true} ->
+        attachment_error(attachment_id, :multiple_content_sources)
+    end
+  end
+
+  defp cast_attachment_input(attrs, attachment_id) do
+    case AttachmentInput.cast(attrs) do
+      {:ok, input} ->
+        {:ok, input}
+
+      {:error, changeset} ->
+        attachment_input_error(attachment_id, :invalid, %{
+          changeset: changeset
+        })
+    end
+  end
+
+  defp ensure_replacement_content_decoded(
+         %AttachmentInput{bytes: bytes},
+         true,
+         _attachment_id
+       )
+       when is_binary(bytes),
+       do: :ok
+
+  defp ensure_replacement_content_decoded(
+         %AttachmentInput{},
+         true,
+         attachment_id
+       ),
+       do: attachment_error(attachment_id, :content_required)
+
+  defp ensure_replacement_content_decoded(
+         %AttachmentInput{},
+         false,
+         _attachment_id
+       ),
+       do: :ok
+
+  defp get_owned_active_attachment(note_id, attachment_id) do
+    case Repo.get(Attachment, attachment_id) do
+      nil ->
+        attachment_error(attachment_id, :not_found)
+
+      %Attachment{note_id: owner_note_id}
+      when owner_note_id != note_id ->
+        owned_by_another_note_error(attachment_id, owner_note_id)
+
+      %Attachment{} ->
+        case get_active_by_id(note_id, attachment_id) do
+          nil -> attachment_error(attachment_id, :not_found)
+          attachment -> {:ok, attachment}
+        end
+    end
+  end
+
+  defp get_active_by_id(note_id, attachment_id) do
+    attachment_query()
+    |> where(
+      [attachment, _note, _file],
+      attachment.note_id == ^note_id and attachment.id == ^attachment_id
+    )
+    |> active_scope()
+    |> preload([_attachment, _note, file], storage_file: file)
+    |> Repo.one()
+  end
+
+  defp read_with_changed_storage_retry(
+         note_id,
+         attachment_id,
+         %Attachment{} = attachment
+       ) do
+    case read_storage_file(attachment.storage_file) do
+      {:ok, bytes} ->
+        {:ok, attachment, bytes}
+
+      {:error, _reason} = original_error ->
+        retry_changed_storage_read(
+          note_id,
+          attachment_id,
+          attachment.storage_file_id,
+          original_error
+        )
+    end
+  end
+
+  defp retry_changed_storage_read(
+         note_id,
+         attachment_id,
+         original_storage_file_id,
+         original_error
+       ) do
+    case get_active_by_id(note_id, attachment_id) do
+      nil ->
+        {:error, :not_found}
+
+      %Attachment{storage_file_id: ^original_storage_file_id} ->
+        original_error
+
+      %Attachment{} = attachment ->
+        case read_storage_file(attachment.storage_file) do
+          {:ok, bytes} -> {:ok, attachment, bytes}
+          {:error, _reason} = retry_error -> retry_error
+        end
+    end
+  end
+
+  defp stage_targeted_entry(note_id, entry, uploaded_by) do
+    case stage_entry_safely(note_id, entry, uploaded_by, []) do
+      {:ok, staged_entry, staged_file} ->
+        {:ok, staged_entry, %{staged_files: List.wrap(staged_file)}}
+
+      {:error, reason, staged_files} ->
+        cleanup_files(staged_files)
+        {:error, reason}
+    end
+  end
+
+  defp lock_active_note(note_id, attachment_id) do
+    Note
+    |> where([note], note.id == ^note_id and is_nil(note.deleted_at))
+    |> lock("FOR UPDATE")
+    |> Repo.one()
+    |> case do
+      nil -> attachment_error(attachment_id, :not_found)
+      note -> {:ok, note}
+    end
+  end
+
+  defp lock_owned_attachment(note_id, attachment_id) do
+    Attachment
+    |> join(:inner, [attachment], file in StorageFile,
+      on:
+        file.id == attachment.storage_file_id and
+          file.status == "active"
+    )
+    |> where([attachment], attachment.id == ^attachment_id)
+    |> lock("FOR UPDATE")
+    |> Repo.one()
+    |> case do
+      nil ->
+        attachment_error(attachment_id, :not_found)
+
+      %Attachment{note_id: ^note_id} = attachment ->
+        {:ok, attachment}
+
+      %Attachment{note_id: owner_note_id} ->
+        owned_by_another_note_error(attachment_id, owner_note_id)
+    end
+  end
+
+  defp persist_targeted_entry(attachment, entry) do
+    input = entry.input
+
+    attachment
+    |> Attachment.changeset(%{
+      storage_file_id: storage_file_id(entry, attachment),
+      path: input.path,
+      mime: input.mime,
+      description: input.description
+    })
+    |> Repo.update()
+  end
+
+  defp schedule_replaced_file_purge(
+         %{kind: :replace},
+         %Attachment{storage_file_id: storage_file_id}
+       ),
+       do: schedule_purges([storage_file_id])
+
+  defp schedule_replaced_file_purge(
+         %{kind: :retain},
+         %Attachment{}
+       ),
+       do: {:ok, []}
+
+  defp owned_by_another_note_error(attachment_id, owner_note_id) do
+    attachment_error(attachment_id, :owned_by_another_note, %{
+      owner_note_id: owner_note_id
+    })
+  end
+
+  defp attachment_input_error(attachment_id, code, details \\ %{}) do
+    {:error,
+     {:attachment_input,
+      Map.merge(%{code: code, id: attachment_id}, details)}}
   end
 
   defp cast_inputs(raw_inputs) do

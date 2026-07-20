@@ -92,8 +92,11 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
              gao_note.create_label_setting
              gao_note.create_note
              gao_note.delete
+             gao_note.delete_attachment
              gao_note.get
+             gao_note.get_attachment_with_content
              gao_note.list_label_settings
+             gao_note.put_attachment
              gao_note.search
              gao_note.set_labels
              gao_note.update_note
@@ -112,10 +115,19 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
 
     assert Enum.sort(get_in(create, ["inputSchema", "required"])) == ["content", "title"]
     assert get_in(create, ["inputSchema", "properties", "attachments", "default"]) == []
+    assert get_in(create, ["inputSchema", "additionalProperties"]) == false
     refute "creator" in Map.keys(get_in(create, ["inputSchema", "properties"]))
 
     update = Enum.find(tools, &(&1["name"] == "gao_note.update_note"))
-    assert Enum.sort(get_in(update, ["inputSchema", "required"])) == ["attachments", "id"]
+
+    assert update |> get_in(["inputSchema", "properties"]) |> Map.keys() |> Enum.sort() ==
+             ~w(content id labels title)
+
+    assert get_in(update, ["inputSchema", "required"]) == ["id"]
+    assert get_in(update, ["inputSchema", "additionalProperties"]) == false
+    refute Map.has_key?(get_in(update, ["inputSchema", "properties"]), "attachments")
+
+    assert_standalone_attachment_contracts(tools)
   end
 
   test "admin MCP tools/list accepts the GaoNote MCP API key", %{conn: conn} do
@@ -140,6 +152,9 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     assert "gao_note.create_label_setting" in names
     assert "gao_note.update_note" in names
     assert "gao_note.delete" in names
+    assert "gao_note.get_attachment_with_content" in names
+    assert "gao_note.put_attachment" in names
+    assert "gao_note.delete_attachment" in names
     assert Enum.filter(@removed_tool_names, &(&1 in names)) == []
   end
 
@@ -182,84 +197,134 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
            ]
   end
 
-  test "admin MCP update_note rejects a missing aggregate attachment list", %{conn: conn} do
+  test "admin MCP update_note preserves attachments and rejects them as additional params", %{
+    conn: conn
+  } do
     assert {:ok, note} =
              GaoNote.create_note(
-               %{title: "Missing attachments target", content: "Markdown content"},
+               %{title: "Standalone update target", content: "Markdown content"},
                %{id: "seed-actor"}
              )
 
-    conn =
-      call_mcp_tool(conn, "gao_note.update_note", %{
-        "id" => note.id,
-        "title" => "Must not update"
-      })
-
-    message = assert_invalid_params(json_response(conn, 200))
-
-    assert message =~ "attachments"
-    assert message =~ "required"
-    assert GaoNote.get_note(note.id).title == "Missing attachments target"
-  end
-
-  test "admin MCP aggregate update removes attachments omitted from the complete list", %{
-    conn: conn
-  } do
-    first_id = unique_id("first-attachment")
-    second_id = unique_id("second-attachment")
-
-    create_conn =
-      call_mcp_tool(conn, "gao_note.create_note", %{
-        "title" => unique_id("Aggregate replacement"),
-        "content" => "See [first](./files/first.txt) and [second](./files/second.txt)",
-        "attachments" => [
-          %{
-            "id" => first_id,
-            "path" => "files/first.txt",
-            "mime" => "text/plain",
-            "description" => "First",
-            "content" => "first attachment"
-          },
-          %{
-            "id" => second_id,
-            "path" => "files/second.txt",
-            "mime" => "text/plain",
-            "description" => "Second",
-            "content" => "second attachment"
-          }
-        ]
-      })
-
-    assert %{"result" => %{"structuredContent" => %{"note" => created}}} =
-             json_response(create_conn, 200)
-
-    assert [
-             %{"id" => ^first_id, "path" => "./files/first.txt"} = first,
-             %{"id" => ^second_id, "path" => "./files/second.txt"}
-           ] = created["attachments"]
-
-    retained = Map.take(first, ~w(id path mime description))
+    attachment =
+      attachment_fixture(
+        note,
+        unique_id("preserved-attachment"),
+        "preserved.txt",
+        "Preserved"
+      )
 
     update_conn =
       call_mcp_tool(conn, "gao_note.update_note", %{
-        "id" => created["id"],
-        "attachments" => [retained]
+        "id" => note.id,
+        "title" => "Field-only update",
+        "content" => "Updated markdown",
+        "labels" => ["scope=standalone"]
       })
 
     assert %{"result" => %{"structuredContent" => %{"note" => updated}}} =
              json_response(update_conn, 200)
 
-    assert [%{"id" => ^first_id, "path" => "./files/first.txt"}] =
-             updated["attachments"]
+    assert updated["title"] == "Field-only update"
+    assert updated["content"] == "Updated markdown"
+    assert [%{"id" => attachment_id} = presented_attachment] = updated["attachments"]
+    assert attachment_id == attachment.id
+    assert_attachment_metadata_only(presented_attachment)
 
-    assert [^first_id] =
-             created["id"]
-             |> GaoNote.get_note()
-             |> Map.fetch!(:attachments)
-             |> Enum.map(& &1.id)
+    assert %Attachment{storage_file_id: storage_file_id} =
+             Repo.get!(Attachment, attachment.id)
+
+    assert storage_file_id == attachment.storage_file_id
+
+    rejected_conn =
+      call_mcp_tool(conn, "gao_note.update_note", %{
+        "id" => note.id,
+        "title" => "Must not update",
+        "attachments" => []
+      })
+
+    message = assert_invalid_params(json_response(rejected_conn, 200))
+    assert message =~ "attachments"
+    assert GaoNote.get_note(note.id).title == "Field-only update"
+    assert %Attachment{storage_file_id: ^storage_file_id} = Repo.get!(Attachment, attachment.id)
   end
 
-  test "admin MCP rejects nil-valued unknown nested attachment fields before dispatch", %{
+  test "admin MCP standalone put and delete mutate only the selected attachment", %{
+    conn: conn
+  } do
+    user = user_fixture()
+    authenticated = authenticated_conn(conn, user)
+
+    assert {:ok, note} =
+             GaoNote.create_note(
+               %{title: "Standalone attachment calls", content: "Markdown content"},
+               %{id: "seed-actor"}
+             )
+
+    selected =
+      attachment_fixture(note, unique_id("selected"), "selected.txt", "Selected")
+
+    retained =
+      attachment_fixture(note, unique_id("retained"), "retained.txt", "Retained")
+
+    put_conn =
+      call_authenticated_mcp_tool(authenticated, "gao_note.put_attachment", %{
+        "note_id" => note.id,
+        "attachment_id" => selected.id,
+        "path" => "renamed.txt",
+        "mime" => "text/plain",
+        "description" => "Renamed",
+        "update_content" => false
+      })
+
+    assert %{"result" => %{"structuredContent" => %{"attachment" => updated}}} =
+             json_response(put_conn, 200)
+
+    assert updated["id"] == selected.id
+    assert updated["path"] == "./renamed.txt"
+    assert updated["description"] == "Renamed"
+    assert_attachment_metadata_only(updated)
+
+    assert %Attachment{storage_file_id: storage_file_id} =
+             Repo.get!(Attachment, selected.id)
+
+    assert storage_file_id == selected.storage_file_id
+
+    delete_conn =
+      call_authenticated_mcp_tool(authenticated, "gao_note.delete_attachment", %{
+        "note_id" => note.id,
+        "attachment_id" => selected.id
+      })
+
+    assert %{"result" => %{"structuredContent" => %{"attachment" => deleted}}} =
+             json_response(delete_conn, 200)
+
+    assert deleted["id"] == selected.id
+    assert_attachment_metadata_only(deleted)
+    assert Repo.get(Attachment, selected.id) == nil
+    assert %Attachment{id: retained_id} = Repo.get(Attachment, retained.id)
+    assert retained_id == retained.id
+
+    assert %Log{source: "mcp", actor_id: actor_id} =
+             Repo.get_by!(Log,
+               entity_type: "attachment",
+               entity_id: selected.id,
+               action: "update"
+             )
+
+    assert actor_id == user.id
+
+    assert %Log{source: "mcp", actor_id: actor_id} =
+             Repo.get_by!(Log,
+               entity_type: "attachment",
+               entity_id: selected.id,
+               action: "delete"
+             )
+
+    assert actor_id == user.id
+  end
+
+  test "admin MCP identifies non-nil unknown nested attachment fields before dispatch", %{
     conn: conn
   } do
     title = unique_id("Strict aggregate")
@@ -274,30 +339,32 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
             "path" => "data.txt",
             "mime" => "text/plain",
             "content" => "data",
-            "role" => nil
+            "role" => "source"
           }
         ]
       })
 
     message = assert_invalid_params(json_response(conn, 200))
 
-    assert message =~ "is required"
+    assert message =~ "role"
+    assert message =~ "unsupported attachment field"
     refute Repo.get_by(Note, title: title)
   end
 
-  test "admin MCP rejects nil-valued unknown top-level note fields before dispatch", %{conn: conn} do
+  test "admin MCP identifies non-nil unknown top-level note fields before dispatch", %{conn: conn} do
     title = unique_id("Strict note")
 
     conn =
       call_mcp_tool(conn, "gao_note.create_note", %{
         "title" => title,
         "content" => "body",
-        "creator" => nil
+        "creator" => "legacy-creator"
       })
 
     message = assert_invalid_params(json_response(conn, 200))
 
-    assert message =~ "is required"
+    assert message =~ "creator"
+    assert message =~ "unsupported note field"
     refute Repo.get_by(Note, title: title)
   end
 
@@ -390,9 +457,9 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     refute Repo.get_by(Note, title: title)
   end
 
-  defp authenticated_conn(conn) do
-    user = user_fixture()
+  defp authenticated_conn(conn), do: authenticated_conn(conn, user_fixture())
 
+  defp authenticated_conn(conn, user) do
     {:ok, token, _claims} =
       GSMLG.AdminWeb.Guardian.encode_and_sign(user, %{}, token_type: "access")
 
@@ -402,6 +469,11 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
   defp call_mcp_tool(conn, name, arguments) do
     conn
     |> authenticated_conn()
+    |> call_authenticated_mcp_tool(name, arguments)
+  end
+
+  defp call_authenticated_mcp_tool(conn, name, arguments) do
+    conn
     |> put_req_header("accept", "application/json")
     |> post(~p"/mcp/gao_note", %{
       "jsonrpc" => "2.0",
@@ -421,6 +493,172 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
            } = response
 
     message
+  end
+
+  defp assert_standalone_attachment_contracts(tools) do
+    readonly_annotations = %{
+      "readOnlyHint" => true,
+      "destructiveHint" => false,
+      "idempotentHint" => true,
+      "openWorldHint" => false
+    }
+
+    write_annotations = %{
+      "readOnlyHint" => false,
+      "destructiveHint" => true,
+      "idempotentHint" => true,
+      "openWorldHint" => false
+    }
+
+    get_attachment = Enum.find(tools, &(&1["name"] == "gao_note.get_attachment_with_content"))
+
+    assert get_attachment["inputSchema"] == %{
+             "type" => "object",
+             "additionalProperties" => false,
+             "properties" => %{
+               "note_id" => %{"type" => "string", "description" => "GaoNote id."},
+               "attachment_id" => %{
+                 "type" => "string",
+                 "description" => "Globally unique attachment ID."
+               }
+             },
+             "required" => ["note_id", "attachment_id"]
+           }
+
+    assert get_attachment["annotations"] == readonly_annotations
+
+    put_attachment = Enum.find(tools, &(&1["name"] == "gao_note.put_attachment"))
+
+    assert put_attachment["inputSchema"] == %{
+             "type" => "object",
+             "additionalProperties" => false,
+             "properties" => %{
+               "note_id" => %{"type" => "string", "description" => "GaoNote id."},
+               "attachment_id" => %{
+                 "type" => "string",
+                 "description" => "Globally unique attachment ID."
+               },
+               "path" => %{
+                 "type" => "string",
+                 "description" => "Canonical note-relative path."
+               },
+               "mime" => %{
+                 "type" => "string",
+                 "description" => "Expected MIME type."
+               },
+               "description" => %{
+                 "type" => "string",
+                 "description" => "Attachment description."
+               },
+               "update_content" => %{
+                 "type" => "boolean",
+                 "description" =>
+                   "Whether to replace stored content. False forbids content fields; true requires exactly one."
+               },
+               "content" => %{
+                 "type" => "string",
+                 "description" =>
+                   "Raw replacement content. Use only when update_content is true."
+               },
+               "content_base64" => %{
+                 "type" => "string",
+                 "contentEncoding" => "base64",
+                 "pattern" =>
+                   "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                 "description" =>
+                   "Strict standard padded Base64 replacement content. Use only when update_content is true."
+               }
+             },
+             "required" => [
+               "note_id",
+               "attachment_id",
+               "path",
+               "mime",
+               "description",
+               "update_content"
+             ],
+             "oneOf" => [
+               %{
+                 "properties" => %{"update_content" => %{"const" => false}},
+                 "not" => %{
+                   "anyOf" => [
+                     %{"required" => ["content"]},
+                     %{"required" => ["content_base64"]}
+                   ]
+                 }
+               },
+               %{
+                 "properties" => %{"update_content" => %{"const" => true}},
+                 "oneOf" => [
+                   %{
+                     "required" => ["content"],
+                     "not" => %{"required" => ["content_base64"]}
+                   },
+                   %{
+                     "required" => ["content_base64"],
+                     "not" => %{"required" => ["content"]}
+                   }
+                 ]
+               }
+             ]
+           }
+
+    assert put_attachment["annotations"] == write_annotations
+
+    delete_attachment = Enum.find(tools, &(&1["name"] == "gao_note.delete_attachment"))
+
+    assert delete_attachment["inputSchema"] == %{
+             "type" => "object",
+             "additionalProperties" => false,
+             "properties" => %{
+               "note_id" => %{"type" => "string", "description" => "GaoNote id."},
+               "attachment_id" => %{
+                 "type" => "string",
+                 "description" => "Globally unique attachment ID."
+               }
+             },
+             "required" => ["note_id", "attachment_id"]
+           }
+
+    assert delete_attachment["annotations"] == write_annotations
+  end
+
+  defp assert_attachment_metadata_only(attachment) do
+    assert attachment |> Map.keys() |> Enum.sort() ==
+             ~w(content_url description id mime path)
+  end
+
+  defp attachment_fixture(note, id, path, description) do
+    file =
+      %StorageFile{}
+      |> StorageFile.changeset(%{
+        tenant: note.id,
+        type: "gao_note_attachment",
+        filename: Path.basename(path),
+        s3_key: "gao_note/#{Ecto.UUID.generate()}",
+        content_type: "text/plain",
+        size: 7,
+        checksum: Ecto.UUID.generate(),
+        metadata: %{},
+        variants: %{},
+        status: "active",
+        uploaded_by: "fixture"
+      })
+      |> Repo.insert!()
+
+    attachment =
+      %Attachment{}
+      |> Attachment.changeset(%{
+        id: id,
+        note_id: note.id,
+        storage_file_id: file.id,
+        path: path,
+        mime: "text/plain",
+        description: description
+      })
+      |> Repo.insert!()
+
+    Repo.preload(attachment, :storage_file)
   end
 
   defp unique_id(prefix) do

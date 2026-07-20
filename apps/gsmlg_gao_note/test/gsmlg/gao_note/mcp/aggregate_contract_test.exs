@@ -34,6 +34,7 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
 
     assert readonly_tools == ~w(
              gao_note.get
+             gao_note.get_attachment_with_content
              gao_note.list_label_settings
              gao_note.search
            )
@@ -42,8 +43,11 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
              gao_note.create_label_setting
              gao_note.create_note
              gao_note.delete
+             gao_note.delete_attachment
              gao_note.get
+             gao_note.get_attachment_with_content
              gao_note.list_label_settings
+             gao_note.put_attachment
              gao_note.search
              gao_note.set_labels
              gao_note.update_note
@@ -52,7 +56,7 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
     assert Enum.filter(@removed_tool_names, &(&1 in readonly_tools or &1 in admin_tools)) == []
 
     refute Enum.any?(readonly_tools ++ admin_tools, fn name ->
-             String.contains?(name, ["attachment", "reference", "asset"])
+             String.contains?(name, ["reference", "asset"])
            end)
 
     readonly_resources = components(GSMLG.GaoNote.MCP.ReadOnlyServer, :resource)
@@ -90,24 +94,180 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
     assert attachments["description"] =~ "Defaults to an empty list"
 
     assert_attachment_item_schema(attachments["items"])
+
+    assert {:error, _message, []} =
+             GSMLG.GaoNote.MCP.Tools.validate_attachment_input(%{
+               "id" => "attachment-1",
+               "path" => "data.txt",
+               "mime" => "text/plain"
+             })
   end
 
-  test "update_note schema requires complete full-list replacement" do
+  test "update_note schema mutates note fields without accepting attachments" do
     schema = tool("gao_note.update_note").input_schema
 
     assert Map.keys(schema["properties"]) |> Enum.sort() ==
-             ~w(attachments content id labels title)
+             ~w(content id labels title)
 
-    assert Enum.sort(schema["required"]) == ~w(attachments id)
+    assert schema["required"] == ~w(id)
     assert schema["additionalProperties"] == false
+    refute Map.has_key?(schema["properties"], "attachments")
+    refute GSMLG.GaoNote.MCP.Tools.description("gao_note.update_note") =~ "attachment"
 
-    attachments = schema["properties"]["attachments"]
-    assert attachments["type"] == "array"
-    refute Map.has_key?(attachments, "default")
-    assert attachments["description"] =~ "Required complete attachment list"
-    assert attachments["description"] =~ "replaces the full list"
+    assert {:error, _errors} =
+             Peri.validate(
+               GSMLG.GaoNote.MCP.Tools.UpdateNote.__mcp_raw_schema__(),
+               %{"id" => "note-1", "attachments" => []}
+             )
+  end
 
-    assert_attachment_item_schema(attachments["items"])
+  test "standalone attachment schemas expose exact strict fields" do
+    get_schema = tool("gao_note.get_attachment_with_content").input_schema
+
+    assert Map.keys(get_schema["properties"]) |> Enum.sort() ==
+             ~w(attachment_id note_id)
+
+    assert Enum.sort(get_schema["required"]) == ~w(attachment_id note_id)
+    assert get_schema["additionalProperties"] == false
+
+    put_schema = tool("gao_note.put_attachment").input_schema
+
+    assert Map.keys(put_schema["properties"]) |> Enum.sort() ==
+             ~w(attachment_id content content_base64 description mime note_id path update_content)
+
+    assert Enum.sort(put_schema["required"]) ==
+             ~w(attachment_id description mime note_id path update_content)
+
+    assert put_schema["additionalProperties"] == false
+    assert put_schema["properties"]["update_content"]["type"] == "boolean"
+
+    base64 = put_schema["properties"]["content_base64"]
+    assert base64["contentEncoding"] == "base64"
+
+    assert base64["pattern"] ==
+             "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+
+    assert put_schema["oneOf"] == [
+             %{
+               "properties" => %{"update_content" => %{"const" => false}},
+               "not" => %{
+                 "anyOf" => [
+                   %{"required" => ["content"]},
+                   %{"required" => ["content_base64"]}
+                 ]
+               }
+             },
+             %{
+               "properties" => %{"update_content" => %{"const" => true}},
+               "oneOf" => [
+                 %{
+                   "required" => ["content"],
+                   "not" => %{"required" => ["content_base64"]}
+                 },
+                 %{
+                   "required" => ["content_base64"],
+                   "not" => %{"required" => ["content"]}
+                 }
+               ]
+             }
+           ]
+
+    delete_schema = tool("gao_note.delete_attachment").input_schema
+
+    assert Map.keys(delete_schema["properties"]) |> Enum.sort() ==
+             ~w(attachment_id note_id)
+
+    assert Enum.sort(delete_schema["required"]) == ~w(attachment_id note_id)
+    assert delete_schema["additionalProperties"] == false
+  end
+
+  test "put_attachment runtime schema enforces the content update matrix" do
+    schema = GSMLG.GaoNote.MCP.Tools.PutAttachment.__mcp_raw_schema__()
+
+    base = %{
+      "note_id" => "note-1",
+      "attachment_id" => "attachment-1",
+      "path" => "data.txt",
+      "mime" => "text/plain",
+      "description" => "Data"
+    }
+
+    assert {:ok, _args} = Peri.validate(schema, Map.put(base, "update_content", false))
+
+    assert {:error, _errors} =
+             Peri.validate(
+               schema,
+               Map.merge(base, %{"update_content" => false, "content" => "raw"})
+             )
+
+    assert {:error, _errors} =
+             Peri.validate(
+               schema,
+               Map.merge(base, %{"update_content" => false, "content_base64" => "cmF3"})
+             )
+
+    assert {:error, _errors} = Peri.validate(schema, Map.put(base, "update_content", true))
+
+    assert {:ok, _args} =
+             Peri.validate(
+               schema,
+               Map.merge(base, %{"update_content" => true, "content" => "raw"})
+             )
+
+    assert {:ok, _args} =
+             Peri.validate(
+               schema,
+               Map.merge(base, %{"update_content" => true, "content_base64" => "cmF3"})
+             )
+
+    assert {:error, _errors} =
+             Peri.validate(
+               schema,
+               Map.merge(base, %{
+                 "update_content" => true,
+                 "content" => "raw",
+                 "content_base64" => "cmF3"
+               })
+             )
+
+    assert {:error, _errors} =
+             Peri.validate(
+               schema,
+               Map.merge(base, %{"update_content" => true, "content_base64" => "cmF3="})
+             )
+
+    assert {:error, _errors} =
+             Peri.validate(schema, Map.put(base, "unexpected", "field"))
+  end
+
+  test "standalone attachment tools expose exact access annotations" do
+    assert GSMLG.GaoNote.MCP.Tools.GetAttachmentWithContent.annotations() == %{
+             "readOnlyHint" => true,
+             "destructiveHint" => false,
+             "idempotentHint" => true,
+             "openWorldHint" => false
+           }
+
+    assert GSMLG.GaoNote.MCP.Tools.PutAttachment.annotations() == %{
+             "readOnlyHint" => false,
+             "destructiveHint" => true,
+             "idempotentHint" => true,
+             "openWorldHint" => false
+           }
+
+    assert GSMLG.GaoNote.MCP.Tools.DeleteAttachment.annotations() == %{
+             "readOnlyHint" => false,
+             "destructiveHint" => true,
+             "idempotentHint" => true,
+             "openWorldHint" => false
+           }
+
+    assert GSMLG.GaoNote.MCP.Tools.Delete.annotations() == %{
+             "readOnlyHint" => false,
+             "destructiveHint" => true,
+             "idempotentHint" => false,
+             "openWorldHint" => false
+           }
   end
 
   defp assert_attachment_item_schema(item) do
@@ -127,7 +287,7 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
     base64 = item["properties"]["content_base64"]
     assert base64["contentEncoding"] == "base64"
     assert is_binary(base64["pattern"])
-    assert length(item["oneOf"]) == 3
+    assert length(item["oneOf"]) == 2
 
     for rejected_field <-
           ~w(storage_file_id storage_file upload role caption alt_text position metadata) do
