@@ -576,30 +576,6 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
                "mime",
                "description",
                "update_content"
-             ],
-             "oneOf" => [
-               %{
-                 "properties" => %{"update_content" => %{"const" => false}},
-                 "not" => %{
-                   "anyOf" => [
-                     %{"required" => ["content"]},
-                     %{"required" => ["content_base64"]}
-                   ]
-                 }
-               },
-               %{
-                 "properties" => %{"update_content" => %{"const" => true}},
-                 "oneOf" => [
-                   %{
-                     "required" => ["content"],
-                     "not" => %{"required" => ["content_base64"]}
-                   },
-                   %{
-                     "required" => ["content_base64"],
-                     "not" => %{"required" => ["content"]}
-                   }
-                 ]
-               }
              ]
            }
 

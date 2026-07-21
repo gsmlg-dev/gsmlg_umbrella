@@ -330,31 +330,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
             "Strict standard padded Base64 replacement content. Use only when update_content is true."
         }
       },
-      "required" => ~w(note_id attachment_id path mime description update_content),
-      "oneOf" => [
-        %{
-          "properties" => %{"update_content" => %{"const" => false}},
-          "not" => %{
-            "anyOf" => [
-              %{"required" => ["content"]},
-              %{"required" => ["content_base64"]}
-            ]
-          }
-        },
-        %{
-          "properties" => %{"update_content" => %{"const" => true}},
-          "oneOf" => [
-            %{
-              "required" => ["content"],
-              "not" => %{"required" => ["content_base64"]}
-            },
-            %{
-              "required" => ["content_base64"],
-              "not" => %{"required" => ["content"]}
-            }
-          ]
-        }
-      ]
+      "required" => ~w(note_id attachment_id path mime description update_content)
     }
   end
 

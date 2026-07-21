@@ -147,30 +147,9 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
     assert base64["pattern"] ==
              "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
 
-    assert put_schema["oneOf"] == [
-             %{
-               "properties" => %{"update_content" => %{"const" => false}},
-               "not" => %{
-                 "anyOf" => [
-                   %{"required" => ["content"]},
-                   %{"required" => ["content_base64"]}
-                 ]
-               }
-             },
-             %{
-               "properties" => %{"update_content" => %{"const" => true}},
-               "oneOf" => [
-                 %{
-                   "required" => ["content"],
-                   "not" => %{"required" => ["content_base64"]}
-                 },
-                 %{
-                   "required" => ["content_base64"],
-                   "not" => %{"required" => ["content"]}
-                 }
-               ]
-             }
-           ]
+    for unsupported <- ~w(oneOf anyOf allOf enum const not) do
+      refute Map.has_key?(put_schema, unsupported)
+    end
 
     delete_schema = tool("gao_note.delete_attachment").input_schema
 
