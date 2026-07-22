@@ -295,7 +295,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert {:error, {:invalid_option, :config}} = Local.start_link(notify: self(), config: %{})
 
     assert {:error, {:invalid_option, :notify}} =
-             Local.start_link(config: configuration(dir), notify: :nope)
+             Local.start_link(config: configuration(dir), notify: "not-a-process-name")
 
     assert {:error, {:invalid_option, :file_system}} =
              Local.start_link(config: configuration(dir), notify: self(), file_system: String)

@@ -1,19 +1,462 @@
 defmodule GSMLG.ProxyRules.Coordinator do
+  @moduledoc """
+  Orders source generations and publishes only the latest complete generation.
+  """
+
   use GenServer
 
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  alias GSMLG.ProxyRules.{Compiler, Configuration, Snapshot, SourceSnapshot, Store, Telemetry}
+  alias GSMLG.ProxyRules.Source.{Local, Remote}
 
-  def refresh do
-    try do
-      GenServer.call(__MODULE__, :refresh)
-    catch
-      :exit, _reason -> {:error, :not_available}
+  @default_timeout 30_000
+  @source_slots [:remote, :local_proxy, :local_direct]
+
+  @type dependency :: {module(), GenServer.server()}
+
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(options) when is_list(options) do
+    {gen_options, init_options} = Keyword.split(options, [:name])
+
+    GenServer.start_link(
+      __MODULE__,
+      init_options,
+      Keyword.put_new(gen_options, :name, __MODULE__)
+    )
+  end
+
+  @spec refresh(GenServer.server()) :: {:ok, :accepted} | {:error, :not_available}
+  def refresh(server \\ __MODULE__) do
+    safe_call(server, :refresh)
+  end
+
+  @impl true
+  def init(options) do
+    with {:ok, config} <- configuration(options),
+         {:ok, timeout} <- positive_option(options, :compile_timeout, @default_timeout),
+         {:ok, dependencies} <- dependencies(options) do
+      current = safe_store_current(dependencies.store)
+      generation = restored_generation(current)
+
+      {:ok,
+       %{
+         configuration: config,
+         compiler: Keyword.get(options, :compiler, Compiler),
+         compiler_options: Keyword.get(options, :compiler_options, []),
+         store: dependencies.store,
+         remote_service: dependencies.remote,
+         local_service: dependencies.local,
+         task_supervisor: Keyword.get(options, :task_supervisor, GSMLG.ProxyRules.TaskSupervisor),
+         compile_timeout: timeout,
+         now: Keyword.get(options, :now, &DateTime.utc_now/0),
+         remote: nil,
+         local_proxy: nil,
+         local_direct: nil,
+         source_generation: generation,
+         active: nil,
+         pending: false,
+         last_failure: nil,
+         current: current
+       }, {:continue, :load_sources}}
+    else
+      {:error, reason} -> {:stop, reason}
     end
   end
 
   @impl true
-  def init(_opts), do: {:ok, %{}}
+  def handle_continue(:load_sources, state) do
+    state =
+      state
+      |> put_initial(:remote, safe_remote_snapshot(state.remote_service))
+      |> put_initial_locals(safe_local_snapshots(state.local_service))
+      |> reconcile_initial()
+
+    {:noreply, state}
+  end
 
   @impl true
-  def handle_call(:refresh, _from, state), do: {:reply, {:error, :not_available}, state}
+  def handle_call(:refresh, _from, state) do
+    {:reply, safe_refresh(state.remote_service), state}
+  end
+
+  @impl true
+  def handle_info({:proxy_rules_source, kind, %SourceSnapshot{} = snapshot}, state)
+      when kind in @source_slots do
+    if snapshot.kind == kind and valid_source?(snapshot) do
+      {:noreply, accept_source(kind, snapshot, state)}
+    else
+      {:noreply, state}
+    end
+  end
+
+  def handle_info({:proxy_rules_source_fresh, kind, metadata}, state)
+      when kind in @source_slots and is_map(metadata) do
+    {:noreply, update_freshness(kind, metadata, state)}
+  end
+
+  def handle_info({:proxy_rules_source_status, kind, :stale, reason}, state)
+      when kind in @source_slots and is_atom(reason) do
+    error = bounded_source_error(kind, reason)
+    _ = store_update_status(state.store, stale_readiness(state), error)
+    {:noreply, %{state | last_failure: error}}
+  end
+
+  def handle_info({reference, result}, %{active: %{ref: reference} = active} = state) do
+    Process.demonitor(reference, [:flush])
+    cancel_timer(active.timer)
+    {:noreply, finish_task(result, active.generation, %{state | active: nil})}
+  end
+
+  def handle_info(
+        {:DOWN, reference, :process, _pid, reason},
+        %{active: %{ref: reference} = active} = state
+      ) do
+    cancel_timer(active.timer)
+    _ = store_discard(state.store, active.stage_token)
+    state = %{state | active: nil}
+
+    if reason == :normal do
+      {:noreply, state}
+    else
+      {:noreply, fail_generation(:task_crash, state)}
+    end
+  end
+
+  def handle_info({:compile_timeout, reference}, %{active: %{ref: reference} = active} = state) do
+    _ = Task.Supervisor.terminate_child(state.task_supervisor, active.pid)
+    Process.demonitor(reference, [:flush])
+    _ = store_discard(state.store, active.stage_token)
+    {:noreply, fail_generation(:compile_timeout, %{state | active: nil})}
+  end
+
+  def handle_info({_reference, {:ok, token, %Snapshot{}, _started}}, state) do
+    _ = store_discard(state.store, token)
+    {:noreply, state}
+  end
+
+  def handle_info({:compile_timeout, _stale_reference}, state), do: {:noreply, state}
+  def handle_info({:DOWN, _reference, :process, _pid, _reason}, state), do: {:noreply, state}
+  def handle_info(_message, state), do: {:noreply, state}
+
+  @impl true
+  def terminate(_reason, %{active: nil}), do: :ok
+
+  def terminate(_reason, state) do
+    cancel_timer(state.active.timer)
+    _ = Task.Supervisor.terminate_child(state.task_supervisor, state.active.pid)
+    :ok
+  end
+
+  defp accept_source(kind, snapshot, state) do
+    previous = Map.fetch!(state, kind)
+    state = Map.put(state, kind, snapshot)
+
+    cond do
+      is_nil(previous) and not sources_known?(state) ->
+        state
+
+      is_nil(previous) ->
+        reconcile_initial(state)
+
+      previous.content_sha256 == snapshot.content_sha256 ->
+        state
+
+      true ->
+        state
+        |> Map.update!(:source_generation, &(&1 + 1))
+        |> queue_compile()
+    end
+  end
+
+  defp reconcile_initial(state) do
+    cond do
+      not sources_known?(state) ->
+        state
+
+      restored_matches?(state) ->
+        _ = store_update_status(state.store, :ready, nil)
+        %{state | current: promote_current(state.current), last_failure: nil}
+
+      true ->
+        state
+        |> Map.update!(:source_generation, &(&1 + 1))
+        |> queue_compile()
+    end
+  end
+
+  defp queue_compile(%{active: nil} = state) do
+    if compilable?(state), do: start_compile(state), else: state
+  end
+
+  defp queue_compile(state), do: %{state | pending: true}
+
+  defp start_compile(state) do
+    generation = state.source_generation
+    stage_token = Store.stage_token(generation)
+    compiler = state.compiler
+    store = state.store
+    input = compiler_input(state)
+
+    options =
+      [
+        generation: generation,
+        compiled_at: state.now.(),
+        sample_limit: state.configuration.unsupported_rule_sample_limit
+      ] ++ state.compiler_options
+
+    started = System.monotonic_time()
+    _ = Telemetry.emit([:compile, :start], %{generation: generation}, %{})
+
+    task =
+      Task.Supervisor.async_nolink(state.task_supervisor, fn ->
+        case safe_compile(compiler, input, options) do
+          {:ok, %Snapshot{} = snapshot} ->
+            case store_stage(store, stage_token, snapshot) do
+              {:ok, token} -> {:ok, token, snapshot, started}
+              {:error, reason} -> {:error, persistence_reason(reason), started}
+            end
+
+          {:error, _diagnostics} ->
+            {:error, :compile_failed, started}
+
+          _invalid ->
+            {:error, :compile_failed, started}
+        end
+      end)
+
+    timer = Process.send_after(self(), {:compile_timeout, task.ref}, state.compile_timeout)
+    _ = store_update_status(state.store, refreshing_readiness(state), nil)
+
+    %{
+      state
+      | active: %{
+          ref: task.ref,
+          pid: task.pid,
+          generation: generation,
+          stage_token: stage_token,
+          timer: timer
+        },
+        pending: false
+    }
+  end
+
+  defp finish_task({:ok, token, snapshot, started}, active_generation, state) do
+    duration = System.monotonic_time() - started
+
+    if snapshot.generation == active_generation and active_generation == state.source_generation do
+      case store_commit(state.store, token) do
+        :ok ->
+          _ =
+            Telemetry.emit(
+              [:compile, :stop],
+              %{generation: snapshot.generation, duration: duration},
+              %{}
+            )
+
+          _ = Telemetry.emit([:artifact, :publication], %{generation: snapshot.generation}, %{})
+
+          _ =
+            Telemetry.emit([:status, :change], %{generation: snapshot.generation}, %{
+              readiness: :ready
+            })
+
+          state
+          |> Map.put(:current, {:ok, snapshot})
+          |> Map.put(:last_failure, nil)
+          |> start_pending()
+
+        {:error, _reason} ->
+          _ = store_discard(state.store, token)
+          fail_generation(:persistence_failed, state)
+      end
+    else
+      _ = store_discard(state.store, token)
+
+      _ =
+        Telemetry.emit(
+          [:compile, :stale_result, :discard],
+          %{generation: snapshot.generation},
+          %{}
+        )
+
+      start_pending(state)
+    end
+  end
+
+  defp finish_task({:error, reason, _started}, _active_generation, state),
+    do: fail_generation(reason, state)
+
+  defp finish_task(_invalid, _active_generation, state),
+    do: fail_generation(:compile_failed, state)
+
+  defp fail_generation(reason, state) do
+    error = %{kind: failure_kind(reason), reason: reason}
+    _ = store_update_status(state.store, stale_readiness(state), error)
+
+    _ =
+      Telemetry.emit([:compile, :exception], %{generation: state.source_generation}, %{
+        failure_category: reason
+      })
+
+    state
+    |> Map.put(:last_failure, error)
+    |> start_pending()
+  end
+
+  defp start_pending(%{pending: true} = state), do: start_compile(%{state | pending: false})
+  defp start_pending(state), do: state
+
+  defp update_freshness(kind, metadata, state) do
+    case Map.fetch!(state, kind) do
+      %SourceSnapshot{} = snapshot ->
+        availability = if kind == :remote, do: snapshot.availability, else: :ready
+
+        Map.put(state, kind, %{
+          snapshot
+          | metadata: Map.merge(snapshot.metadata, metadata),
+            availability: availability
+        })
+
+      nil ->
+        state
+    end
+  end
+
+  defp compiler_input(state) do
+    %{
+      remote: Base.encode64(state.remote.content),
+      local_proxy: state.local_proxy.content,
+      local_direct: state.local_direct.content
+    }
+  end
+
+  defp sources_known?(state),
+    do: Enum.all?(@source_slots, &match?(%SourceSnapshot{}, Map.fetch!(state, &1)))
+
+  defp compilable?(state) do
+    sources_known?(state) and state.remote.availability == :ready and
+      state.local_proxy.availability in [:ready, :missing] and
+      state.local_direct.availability in [:ready, :missing]
+  end
+
+  defp restored_matches?(%{current: {:ok, %Snapshot{} = snapshot}} = state) do
+    snapshot.source_versions == %{
+      gfwlist: state.remote.content_sha256,
+      local_proxy: state.local_proxy.content_sha256,
+      local_direct: state.local_direct.content_sha256
+    }
+  end
+
+  defp restored_matches?(_state), do: false
+
+  defp put_initial(state, _kind, nil), do: state
+  defp put_initial(state, kind, %SourceSnapshot{} = snapshot), do: Map.put(state, kind, snapshot)
+
+  defp put_initial_locals(state, %{proxy: proxy, direct: direct}) do
+    state |> put_initial(:local_proxy, proxy) |> put_initial(:local_direct, direct)
+  end
+
+  defp put_initial_locals(state, _invalid), do: state
+
+  defp valid_source?(snapshot) do
+    is_binary(snapshot.content) and String.valid?(snapshot.content) and
+      is_binary(snapshot.content_sha256) and byte_size(snapshot.content_sha256) == 64 and
+      SourceSnapshot.valid_availability?(snapshot.availability)
+  end
+
+  defp configuration(options) do
+    case Keyword.fetch(options, :configuration) do
+      {:ok, %Configuration{} = config} -> {:ok, config}
+      {:ok, _invalid} -> {:error, {:invalid_option, :configuration}}
+      :error -> Configuration.load()
+    end
+  end
+
+  defp dependencies(options) do
+    dependencies = %{
+      store: Keyword.get(options, :store, {Store, Store}),
+      remote: Keyword.get(options, :remote, {Remote, Remote}),
+      local: Keyword.get(options, :local, {Local, Local})
+    }
+
+    if Enum.all?(dependencies, fn {_key, value} -> valid_dependency?(value) end),
+      do: {:ok, dependencies},
+      else: {:error, {:invalid_option, :dependency}}
+  end
+
+  defp valid_dependency?({module, server}) when is_atom(module), do: not is_nil(server)
+  defp valid_dependency?(_dependency), do: false
+
+  defp positive_option(options, key, default) do
+    case Keyword.get(options, key, default) do
+      value when is_integer(value) and value > 0 -> {:ok, value}
+      _invalid -> {:error, {:invalid_option, key}}
+    end
+  end
+
+  defp safe_compile(module, input, options), do: module.compile(input, options)
+
+  defp safe_remote_snapshot({module, server}), do: safe_apply(module, :snapshot, [server], nil)
+  defp safe_local_snapshots({module, server}), do: safe_apply(module, :snapshots, [server], %{})
+
+  defp safe_refresh({module, server}),
+    do: safe_apply(module, :refresh, [server], {:error, :not_available})
+
+  defp safe_store_current({module, server}),
+    do: safe_apply(module, :current, [server], {:error, :not_ready})
+
+  defp store_stage({module, server}, token, snapshot),
+    do: safe_apply(module, :stage, [server, token, snapshot], {:error, :persistence_failed})
+
+  defp store_commit({module, server}, token),
+    do: safe_apply(module, :commit, [server, token], {:error, :persistence_failed})
+
+  defp store_discard({module, server}, token),
+    do: safe_apply(module, :discard, [server, token], :ok)
+
+  defp store_update_status({module, server}, readiness, error),
+    do: safe_apply(module, :update_status, [server, readiness, error], {:error, :not_available})
+
+  defp safe_apply(module, function, arguments, fallback) do
+    apply(module, function, arguments)
+  rescue
+    _error -> fallback
+  catch
+    :exit, _reason -> fallback
+    _kind, _reason -> fallback
+  end
+
+  defp safe_call(server, request) do
+    GenServer.call(server, request)
+  catch
+    :exit, _reason -> {:error, :not_available}
+  end
+
+  defp restored_generation({:ok, %Snapshot{generation: generation}}), do: generation
+  defp restored_generation(_current), do: 0
+
+  defp promote_current({:ok, snapshot}),
+    do: {:ok, %{snapshot | readiness: :ready, last_error: nil}}
+
+  defp promote_current(current), do: current
+
+  defp stale_readiness(%{current: {:ok, _snapshot}}), do: :stale
+  defp stale_readiness(_state), do: :not_ready
+  defp refreshing_readiness(_state), do: :refreshing
+  defp failure_kind(:persistence_failed), do: :persistence
+  defp failure_kind(_reason), do: :compiler
+  defp persistence_reason(:invalid_snapshot), do: :persistence_failed
+  defp persistence_reason(_reason), do: :persistence_failed
+
+  defp bounded_source_error(kind, reason) do
+    error = %{kind: source_error_kind(kind), reason: reason}
+
+    if Snapshot.valid_operational_error?(error),
+      do: error,
+      else: %{kind: source_error_kind(kind), reason: :source_unavailable}
+  end
+
+  defp source_error_kind(:remote), do: :remote
+  defp source_error_kind(kind), do: kind
+  defp cancel_timer(nil), do: :ok
+  defp cancel_timer(reference), do: Process.cancel_timer(reference)
 end

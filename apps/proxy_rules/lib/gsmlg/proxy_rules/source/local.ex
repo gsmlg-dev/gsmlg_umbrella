@@ -147,7 +147,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
   defp validate_options(options) do
     validators = [
       {:config, &match?(%Configuration{}, &1)},
-      {:notify, &is_pid/1},
+      {:notify, &(is_pid(&1) or is_atom(&1))},
       {:file_system, &valid_file_system?/1},
       {:file_system_options, &Keyword.keyword?/1},
       {:scheduler, &is_function(&1, 3)},
@@ -440,7 +440,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
       entry.snapshot.availability != :ready ->
         metadata = %{path: target.path, observed_at: observed_at, availability: :ready}
-        send(state.notify, {:proxy_rules_source_fresh, target.kind, metadata})
+        notify(state.notify, {:proxy_rules_source_fresh, target.kind, metadata})
         put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
 
       true ->
@@ -450,7 +450,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
   defp source_changed(kind, snapshot, state) do
     _ = Telemetry.emit([:local, :source, :change], %{}, %{source: kind})
-    send(state.notify, {:proxy_rules_source, kind, snapshot})
+    notify(state.notify, {:proxy_rules_source, kind, snapshot})
   end
 
   defp fail_source(slot, target, reason, entry, state) do
@@ -485,7 +485,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
         failure_category: telemetry_failure(reason)
       })
 
-    send(state.notify, {:proxy_rules_source_status, kind, :stale, reason})
+    notify(state.notify, {:proxy_rules_source_status, kind, :stale, reason})
   end
 
   defp telemetry_failure(reason)
@@ -572,4 +572,10 @@ defmodule GSMLG.ProxyRules.Source.Local do
   defp bounded_exit_reason(_reason), do: :unexpected_exit
 
   defp sha256(content), do: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
+
+  defp notify(destination, message) when is_pid(destination), do: send(destination, message)
+
+  defp notify(destination, message) when is_atom(destination) do
+    if Process.whereis(destination), do: send(destination, message), else: message
+  end
 end

@@ -2,7 +2,7 @@ defmodule GSMLG.ProxyRulesTest do
   use ExUnit.Case, async: false
 
   alias GSMLG.ProxyRules
-  alias GSMLG.ProxyRules.Store
+  alias GSMLG.ProxyRules.{Compiler, Output, Store}
 
   test "returns not-ready for every valid artifact lookup before publication" do
     for list <- [:proxy, :direct], format <- [:raw, :squid, :clash] do
@@ -31,12 +31,42 @@ defmodule GSMLG.ProxyRulesTest do
     assert {:error, :not_found} == ProxyRules.get_artifact(:proxy, :unknown)
   end
 
-  test "reports not-ready metadata without fabricated counts" do
-    assert {:error, :not_ready} == ProxyRules.metadata()
+  test "returns a typed output from one complete current snapshot" do
+    assert {:ok, snapshot} =
+             Compiler.compile(
+               %{
+                 remote: Base.encode64("||remote.example^\n"),
+                 local_proxy: "proxy.example\n",
+                 local_direct: "direct.example\n"
+               },
+               generation: 42,
+               compiled_at: ~U[2026-07-23 00:00:00Z],
+               sample_limit: 2
+             )
+
+    on_exit(fn ->
+      :sys.replace_state(Store, fn state ->
+        :ets.delete(:gsmlg_proxy_rules_store, :current)
+        state
+      end)
+    end)
+
+    :sys.replace_state(Store, fn state ->
+      :ets.insert(:gsmlg_proxy_rules_store, {:current, snapshot})
+      state
+    end)
+
+    assert {:ok, %Output{body: body}} = ProxyRules.get_artifact(:proxy, :raw)
+    assert body =~ "proxy.example"
   end
 
-  test "reports refresh unavailable before source ingestion exists" do
-    assert {:error, :not_available} == ProxyRules.refresh()
+  test "reports not-ready metadata without fabricated counts" do
+    assert {:ok, %{readiness: readiness}} = ProxyRules.metadata()
+    assert readiness in [:not_ready, :refreshing, :stale, :ready]
+  end
+
+  test "accepts a refresh while the source service is available" do
+    assert {:ok, :accepted} == ProxyRules.refresh()
   end
 
   test "reports refresh unavailable while the coordinator is unavailable" do

@@ -77,6 +77,27 @@ defmodule GSMLG.ProxyRules.StoreTest do
   end
 
   @tag :tmp_dir
+  test "stages durably and commits or discards only an exact token", %{tmp_dir: dir} do
+    first = fixture_snapshot(90)
+    second = fixture_snapshot(91)
+
+    assert {:ok, first_token} = Store.stage(Store, first)
+    assert {:error, :not_ready} = Store.current()
+    assert {:error, :invalid_stage} = Store.commit(Store, {:proxy_rules_stage, 0, 90})
+
+    assert {:error, :invalid_stage} =
+             Store.stage(Store, {:proxy_rules_stage, 999, 89}, first)
+
+    assert :ok = Store.discard(Store, first_token)
+    assert {:error, :not_ready} = Store.current()
+
+    assert {:ok, second_token} = Store.stage(Store, second)
+    assert :ok = Store.commit(Store, second_token)
+    assert {:ok, %Snapshot{generation: 91}} = Store.current()
+    assert {:ok, %Snapshot{generation: 91}} = Persistence.read_artifact(dir)
+  end
+
+  @tag :tmp_dir
   test "restores a valid artifact immediately as stale", %{tmp_dir: dir} do
     snapshot = fixture_snapshot(11)
     assert :ok = Persistence.write_artifact(dir, snapshot)

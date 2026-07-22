@@ -34,6 +34,9 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   @spec refresh(GenServer.server()) :: {:ok, :accepted}
   def refresh(server), do: GenServer.call(server, :refresh)
 
+  @spec snapshot(GenServer.server()) :: SourceSnapshot.t() | nil
+  def snapshot(server), do: GenServer.call(server, :snapshot)
+
   @doc false
   @spec retry_delay(pos_integer(), pos_integer(), non_neg_integer(), boolean(), (pos_integer() ->
                                                                                    pos_integer())) ::
@@ -108,6 +111,8 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     {:reply, {:ok, :accepted}, state}
   end
 
+  def handle_call(:snapshot, _from, state), do: {:reply, state.source, state}
+
   @impl true
   def handle_info({:scheduled_refresh, token}, %{timer: %{token: token}} = state) do
     state = %{state | timer: nil}
@@ -151,7 +156,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
          ) do
       {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = snapshot}
       when source_url == state.config.source_url ->
-        send(state.notify, {:proxy_rules_source, :remote, snapshot})
+        notify(state.notify, {:proxy_rules_source, :remote, snapshot})
         %{state | source: snapshot}
 
       _missing_mismatched_or_invalid ->
@@ -264,9 +269,9 @@ defmodule GSMLG.ProxyRules.Source.Remote do
           )
 
         if state.source && state.source.content_sha256 == hash do
-          send(state.notify, {:proxy_rules_source_fresh, :remote, snapshot.metadata})
+          notify(state.notify, {:proxy_rules_source_fresh, :remote, snapshot.metadata})
         else
-          send(state.notify, {:proxy_rules_source, :remote, snapshot})
+          notify(state.notify, {:proxy_rules_source, :remote, snapshot})
         end
 
         success(%{state | source: snapshot})
@@ -312,7 +317,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
             status: 304
           })
 
-        send(state.notify, {:proxy_rules_source_fresh, :remote, metadata})
+        notify(state.notify, {:proxy_rules_source_fresh, :remote, metadata})
         success(%{state | source: snapshot})
 
       {:error, _reason} ->
@@ -347,6 +352,8 @@ defmodule GSMLG.ProxyRules.Source.Remote do
         source: :gfwlist,
         failure_category: category
       })
+
+    notify(state.notify, {:proxy_rules_source_status, :remote, :stale, category})
 
     delay =
       retry_delay(
@@ -509,4 +516,10 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   end
 
   defp valid_transport?(_transport), do: false
+
+  defp notify(destination, message) when is_pid(destination), do: send(destination, message)
+
+  defp notify(destination, message) when is_atom(destination) do
+    if Process.whereis(destination), do: send(destination, message), else: message
+  end
 end

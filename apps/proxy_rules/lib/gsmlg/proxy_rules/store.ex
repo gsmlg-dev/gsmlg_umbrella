@@ -6,7 +6,15 @@ defmodule GSMLG.ProxyRules.Store do
   @table :gsmlg_proxy_rules_store
   @readiness [:not_ready, :refreshing, :ready, :stale]
 
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link(opts) do
+    {gen_options, init_options} = Keyword.split(opts, [:name])
+
+    GenServer.start_link(
+      __MODULE__,
+      init_options,
+      Keyword.put_new(gen_options, :name, __MODULE__)
+    )
+  end
 
   @spec current() :: {:ok, Snapshot.t()} | {:error, :not_ready}
   def current do
@@ -18,6 +26,32 @@ defmodule GSMLG.ProxyRules.Store do
     ArgumentError -> {:error, :not_ready}
   end
 
+  @spec current(GenServer.server()) :: {:ok, Snapshot.t()} | {:error, :not_ready}
+  def current(server), do: GenServer.call(server, :current)
+
+  @type stage_token :: {:proxy_rules_stage, pos_integer(), non_neg_integer()}
+
+  @spec stage_token(non_neg_integer()) :: stage_token()
+  def stage_token(generation) when is_integer(generation) and generation >= 0,
+    do: {:proxy_rules_stage, System.unique_integer([:positive, :monotonic]), generation}
+
+  @spec stage(GenServer.server(), Snapshot.t()) ::
+          {:ok, stage_token()} | {:error, :invalid_snapshot | :persistence_failed}
+  def stage(server, snapshot), do: GenServer.call(server, {:stage, snapshot}, :infinity)
+
+  @spec stage(GenServer.server(), stage_token(), Snapshot.t()) ::
+          {:ok, stage_token()}
+          | {:error, :invalid_snapshot | :invalid_stage | :persistence_failed}
+  def stage(server, token, snapshot),
+    do: GenServer.call(server, {:stage, token, snapshot}, :infinity)
+
+  @spec commit(GenServer.server(), stage_token()) ::
+          :ok | {:error, :invalid_stage | :persistence_failed}
+  def commit(server, token), do: GenServer.call(server, {:commit, token}, :infinity)
+
+  @spec discard(GenServer.server(), stage_token()) :: :ok
+  def discard(server, token), do: GenServer.call(server, {:discard, token})
+
   @spec publish(Snapshot.t()) :: :ok | {:error, :invalid_snapshot | :persistence_failed}
   def publish(snapshot), do: GenServer.call(__MODULE__, {:publish, snapshot})
 
@@ -25,6 +59,15 @@ defmodule GSMLG.ProxyRules.Store do
           :ok | {:error, :invalid_readiness | :invalid_operational_error}
   def update_status(readiness, operational_error),
     do: GenServer.call(__MODULE__, {:update_status, readiness, operational_error})
+
+  @spec update_status(
+          GenServer.server(),
+          Snapshot.readiness(),
+          nil | Snapshot.operational_error()
+        ) ::
+          :ok | {:error, :invalid_readiness | :invalid_operational_error}
+  def update_status(server, readiness, operational_error),
+    do: GenServer.call(server, {:update_status, readiness, operational_error})
 
   @spec metadata() :: {:ok, map()}
   def metadata, do: GenServer.call(__MODULE__, :metadata)
@@ -45,8 +88,96 @@ defmodule GSMLG.ProxyRules.Store do
        state_directory: state_directory,
        persistence_options: persistence_options,
        readiness: if(snapshot, do: snapshot.readiness, else: :not_ready),
-       operational_status: operational_status
+       operational_status: operational_status,
+       staged: %{}
      }}
+  end
+
+  def handle_call(:current, _from, state), do: {:reply, current(), state}
+
+  def handle_call({:stage, snapshot}, from, state) do
+    if match?(%Snapshot{}, snapshot) do
+      handle_call({:stage, stage_token(snapshot.generation), snapshot}, from, state)
+    else
+      {:reply, {:error, :invalid_snapshot}, state}
+    end
+  end
+
+  def handle_call(
+        {:stage, {:proxy_rules_stage, id, generation} = token, snapshot},
+        _from,
+        state
+      )
+      when is_integer(id) and id > 0 and is_integer(generation) and generation >= 0 do
+    cond do
+      not Persistence.valid_snapshot?(snapshot) ->
+        {:reply, {:error, :invalid_snapshot}, state}
+
+      generation != snapshot.generation or Map.has_key?(state.staged, token) ->
+        {:reply, {:error, :invalid_stage}, state}
+
+      not is_binary(state.state_directory) ->
+        {:reply, {:error, :persistence_failed}, state}
+
+      true ->
+        directory = Path.join(state.state_directory, ".artifact-stage-#{id}")
+
+        case Persistence.write_artifact(directory, snapshot, state.persistence_options) do
+          :ok ->
+            staged = Map.put(state.staged, token, %{snapshot: snapshot, directory: directory})
+            {:reply, {:ok, token}, %{state | staged: staged}}
+
+          {:error, _reason} ->
+            {:reply, {:error, :persistence_failed}, state}
+        end
+    end
+  end
+
+  def handle_call({:stage, _token, _snapshot}, _from, state),
+    do: {:reply, {:error, :invalid_stage}, state}
+
+  def handle_call({:commit, token}, _from, state) do
+    case Map.fetch(state.staged, token) do
+      {:ok, %{snapshot: snapshot, directory: directory}} ->
+        staged_path = Path.join(directory, "artifact.snapshot")
+        target = Path.join(state.state_directory, "artifact.snapshot")
+
+        case File.rename(staged_path, target) do
+          :ok ->
+            true = :ets.insert(@table, {:current, snapshot})
+            _ = File.rmdir(directory)
+
+            {:reply, :ok,
+             %{
+               state
+               | staged: Map.delete(state.staged, token),
+                 readiness: snapshot.readiness,
+                 operational_status: nil
+             }}
+
+          {:error, _reason} ->
+            readiness = mark_current_stale(:persistence_failed)
+            status = %{kind: :persistence, reason: :persistence_failed}
+
+            {:reply, {:error, :persistence_failed},
+             %{state | readiness: readiness, operational_status: status}}
+        end
+
+      :error ->
+        {:reply, {:error, :invalid_stage}, state}
+    end
+  end
+
+  def handle_call({:discard, token}, _from, state) do
+    case Map.pop(state.staged, token) do
+      {nil, staged} ->
+        {:reply, :ok, %{state | staged: staged}}
+
+      {%{directory: directory}, staged} ->
+        _ = File.rm(Path.join(directory, "artifact.snapshot"))
+        _ = File.rmdir(directory)
+        {:reply, :ok, %{state | staged: staged}}
+    end
   end
 
   @impl true

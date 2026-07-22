@@ -49,6 +49,10 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
 
 config :logger, level: :warning
 
+# Keep proxy-rules application startup deterministic; transport behavior is
+# exercised with explicit local and injected transports in its scoped tests.
+config :proxy_rules, initial_fetch: false
+
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test
 
 config :gsmlg, Oban, testing: :inline
