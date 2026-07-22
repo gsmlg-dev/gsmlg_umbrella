@@ -1,7 +1,7 @@
 defmodule GSMLG.ProxyRules.Persistence do
   @moduledoc false
 
-  alias GSMLG.ProxyRules.{Diagnostic, Output, Snapshot, SourceSnapshot}
+  alias GSMLG.ProxyRules.{Configuration, Diagnostic, Output, Snapshot, SourceSnapshot}
   alias GSMLG.ProxyRules.Parser.GFWList
 
   @artifact_file "artifact.snapshot"
@@ -20,7 +20,6 @@ defmodule GSMLG.ProxyRules.Persistence do
   @max_output_bytes 64 * 1024 * 1024
   @max_diagnostic_count 1_000
   @max_diagnostic_sample_bytes 512
-  @max_remote_body_bytes 64 * 1024 * 1024
   @max_remote_metadata_bytes 64 * 1024
   @snapshot_keys [
     :__struct__,
@@ -60,7 +59,8 @@ defmodule GSMLG.ProxyRules.Persistence do
           :ok | {:error, :invalid_snapshot | :persistence_failed}
   def write_remote(directory, body, %SourceSnapshot{} = snapshot, opts)
       when is_binary(directory) and is_binary(body) and is_list(opts) do
-    if byte_size(body) <= @max_remote_body_bytes and valid_remote_snapshot?(snapshot) and
+    if byte_size(body) <= Configuration.max_remote_body_size() and
+         valid_remote_snapshot?(snapshot) and
          valid_remote_body?(body, snapshot) do
       metadata = remote_metadata(snapshot, body)
       payload = :erlang.term_to_binary(metadata)
@@ -133,7 +133,7 @@ defmodule GSMLG.ProxyRules.Persistence do
   end
 
   defp decode_remote_pair({body_path, metadata_path}, opts) do
-    max_body_bytes = Keyword.get(opts, :max_body_bytes, @max_remote_body_bytes)
+    max_body_bytes = Keyword.get(opts, :max_body_bytes, Configuration.max_remote_body_size())
 
     with {:ok, envelope_binary} <- remote_read(metadata_path, @max_remote_metadata_bytes),
          {:ok, envelope} <- safe_decode(envelope_binary),

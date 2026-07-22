@@ -33,7 +33,7 @@ defmodule GSMLG.ProxyRules.TestTransportController do
 end
 
 defmodule GSMLG.ProxyRules.Source.RemoteTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias GSMLG.ProxyRules.{Configuration, Persistence, SourceSnapshot}
   alias GSMLG.ProxyRules.Source.Remote

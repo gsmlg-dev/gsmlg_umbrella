@@ -66,6 +66,22 @@ defmodule GSMLG.ProxyRules.ConfigurationTest do
     assert {:error, {:missing_setting, :source_url}} = Configuration.new(%{})
   end
 
+  test "accepts the persistence ceiling for remote bodies" do
+    ceiling = 64 * 1024 * 1024
+
+    assert Configuration.max_remote_body_size() == ceiling
+
+    assert {:ok, %Configuration{remote_max_body_size: ^ceiling}} =
+             Configuration.new(%{@settings | remote_max_body_size: ceiling})
+  end
+
+  test "rejects a remote body limit above the persistence ceiling" do
+    above_ceiling = Configuration.max_remote_body_size() + 1
+
+    assert {:error, {:invalid_setting, :remote_max_body_size}} =
+             Configuration.new(%{@settings | remote_max_body_size: above_ceiling})
+  end
+
   test "declares diagnostic sample limit as a non-negative integer" do
     assert {:ok, types} = Code.Typespec.fetch_types(Configuration)
     assert {:type, {:t, type, []}} = List.keyfind(types, :type, 0)
@@ -82,5 +98,22 @@ defmodule GSMLG.ProxyRules.ConfigurationTest do
              end)
 
     assert {:type, _, :non_neg_integer, []} = declared_type
+  end
+
+  test "declares the remote body limit as bounded by the persistence ceiling" do
+    assert {:ok, types} = Code.Typespec.fetch_types(Configuration)
+    assert {:type, {:t, type, []}} = List.keyfind(types, :type, 0)
+    assert {:type, _, :map, fields} = type
+
+    assert {:type, _, :map_field_exact, [{:atom, _, :remote_max_body_size}, declared_type]} =
+             Enum.find(fields, fn
+               {:type, _, :map_field_exact, [{:atom, _, :remote_max_body_size}, _type]} ->
+                 true
+
+               _field ->
+                 false
+             end)
+
+    assert {:type, _, :range, [{:integer, _, 1}, {:integer, _, 67_108_864}]} = declared_type
   end
 end
