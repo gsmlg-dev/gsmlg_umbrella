@@ -34,6 +34,8 @@ defmodule GSMLG.ProxyRules.Store do
     :ets.new(@table, [:named_table, :set, :protected, read_concurrency: true])
 
     state_directory = state_directory(opts)
+    persistence_options = Keyword.get(opts, :persistence_options, [])
+    _ = recover(state_directory, persistence_options)
     {snapshot, operational_status} = restore(state_directory)
 
     if snapshot, do: :ets.insert(@table, {:current, snapshot})
@@ -41,7 +43,7 @@ defmodule GSMLG.ProxyRules.Store do
     {:ok,
      %{
        state_directory: state_directory,
-       persistence_options: Keyword.get(opts, :persistence_options, []),
+       persistence_options: persistence_options,
        readiness: if(snapshot, do: snapshot.readiness, else: :not_ready),
        operational_status: operational_status
      }}
@@ -129,8 +131,15 @@ defmodule GSMLG.ProxyRules.Store do
 
   defp persist(nil, _snapshot, _opts), do: {:error, :persistence_failed}
 
-  defp persist(state_directory, snapshot, opts),
-    do: Persistence.write_artifact(state_directory, snapshot, opts)
+  defp persist(state_directory, snapshot, opts) do
+    with :ok <- Persistence.recover_artifact(state_directory, opts),
+         :ok <- Persistence.write_artifact(state_directory, snapshot, opts) do
+      :ok
+    end
+  end
+
+  defp recover(nil, _opts), do: {:error, :persistence_failed}
+  defp recover(state_directory, opts), do: Persistence.recover_artifact(state_directory, opts)
 
   defp mark_current_stale(reason) do
     case current() do

@@ -188,6 +188,31 @@ defmodule GSMLG.ProxyRules.StoreTest do
   end
 
   @tag :tmp_dir
+  test "a later publication recovers an interrupted transaction before retrying", %{
+    tmp_dir: dir
+  } do
+    first = fixture_snapshot(18)
+    interrupted = fixture_snapshot(19)
+    retry = fixture_snapshot(20)
+    assert :ok = Persistence.write_artifact(dir, first)
+
+    restart_store(dir,
+      persistence_options: [sync_directory: fail_sync_on_call(2, dir)]
+    )
+
+    assert {:error, :persistence_failed} = Store.publish(interrupted)
+    assert {:ok, %Snapshot{generation: 18, readiness: :stale}} = Store.current()
+    assert File.regular?(Path.join(dir, ".artifact.snapshot.transaction"))
+
+    assert :ok = Store.publish(retry)
+    assert {:ok, %Snapshot{generation: 20, readiness: :ready}} = Store.current()
+    assert {:ok, ^retry} = Persistence.read_artifact(dir)
+
+    restart_store(dir)
+    assert {:ok, %Snapshot{generation: 20, readiness: :stale}} = Store.current()
+  end
+
+  @tag :tmp_dir
   test "rejects invalid publication and status inputs without crashing" do
     assert {:error, :invalid_snapshot} = Store.publish(%{})
     assert {:error, :invalid_readiness} = Store.update_status(:broken, nil)
@@ -238,6 +263,16 @@ defmodule GSMLG.ProxyRules.StoreTest do
       :ok = :counters.add(counter, 1, 1)
       call = :counters.get(counter, 1)
       if call >= failing_call, do: {:error, :eio}, else: :ok
+    end
+  end
+
+  defp fail_sync_on_call(failing_call, expected_dir) do
+    counter = :counters.new(1, [])
+
+    fn ^expected_dir ->
+      :ok = :counters.add(counter, 1, 1)
+      call = :counters.get(counter, 1)
+      if call == failing_call, do: {:error, :eio}, else: :ok
     end
   end
 end

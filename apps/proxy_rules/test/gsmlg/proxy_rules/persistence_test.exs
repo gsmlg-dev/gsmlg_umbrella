@@ -209,6 +209,10 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     assert {:ok, ^first} = Persistence.read_artifact(dir)
     assert File.regular?(Path.join(dir, "artifact.snapshot"))
     assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.tmp"))
+    assert File.regular?(Path.join(dir, @marker))
+    assert File.regular?(Path.join(dir, @backup))
+
+    assert :ok = Persistence.recover_artifact(dir)
     refute File.exists?(Path.join(dir, @marker))
     refute File.exists?(Path.join(dir, @backup))
   end
@@ -222,6 +226,8 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
 
     assert File.regular?(Path.join(dir, @marker))
     assert {:error, :snapshot_not_found} = Persistence.read_artifact(dir)
+    assert File.regular?(Path.join(dir, @marker))
+    assert :ok = Persistence.recover_artifact(dir)
     assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.tmp"))
     refute File.exists?(Path.join(dir, @marker))
     refute File.exists?(Path.join(dir, @backup))
@@ -240,6 +246,7 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
                Persistence.write_artifact(dir, fixture_snapshot(13), sync_directory: callback)
 
       assert {:error, :snapshot_not_found} = Persistence.read_artifact(dir)
+      assert :ok = Persistence.recover_artifact(dir)
     end)
   end
 
@@ -257,10 +264,13 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     assert File.regular?(Path.join(dir, @backup))
 
     assert {:ok, ^first} = Persistence.read_artifact(dir)
+    assert File.regular?(Path.join(dir, @marker))
+    assert :ok = Persistence.recover_artifact(dir)
 
     write_transaction(dir, :pending, true, first, second)
     File.write!(Path.join(dir, @marker), "partial")
     assert {:ok, ^first} = Persistence.read_artifact(dir)
+    assert :ok = Persistence.recover_artifact(dir)
   end
 
   @tag :tmp_dir
@@ -270,6 +280,8 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     write_marker(dir, :pending, false)
 
     assert {:error, :snapshot_not_found} = Persistence.read_artifact(dir)
+    assert File.exists?(Path.join(dir, "artifact.snapshot"))
+    assert :ok = Persistence.recover_artifact(dir)
     refute File.exists?(Path.join(dir, "artifact.snapshot"))
   end
 
@@ -283,6 +295,9 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
 
     write_transaction(dir, :committed, true, first, second)
     assert {:ok, ^second} = Persistence.read_artifact(dir)
+    assert File.exists?(Path.join(dir, @marker))
+    assert File.exists?(Path.join(dir, @backup))
+    assert :ok = Persistence.recover_artifact(dir)
     refute File.exists?(Path.join(dir, @marker))
     refute File.exists?(Path.join(dir, @backup))
 
@@ -290,6 +305,108 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     assert {:ok, ^third} = Persistence.read_artifact(dir)
     refute File.exists?(Path.join(dir, @marker))
     refute File.exists?(Path.join(dir, @backup))
+  end
+
+  @tag :tmp_dir
+  test "committed cleanup failure leaves an authoritative marker for a later retry", %{
+    tmp_dir: dir
+  } do
+    first = fixture_snapshot(30)
+    second = fixture_snapshot(31)
+    write_transaction(dir, :committed, true, first, second)
+
+    assert :ok =
+             Persistence.recover_artifact(dir,
+               sync_directory: fail_sync_on_call(2, dir)
+             )
+
+    assert {:ok, ^second} = Persistence.read_artifact(dir)
+    assert File.regular?(Path.join(dir, @marker))
+    refute File.exists?(Path.join(dir, @backup))
+
+    assert :ok = Persistence.recover_artifact(dir)
+    refute File.exists?(Path.join(dir, @marker))
+    assert {:ok, ^second} = Persistence.read_artifact(dir)
+  end
+
+  @tag :tmp_dir
+  test "rolled-back cleanup failure preserves the prior artifact until cleanup retries", %{
+    tmp_dir: dir
+  } do
+    first = fixture_snapshot(32)
+    second = fixture_snapshot(33)
+    write_transaction(dir, :pending, true, first, second)
+
+    assert :ok =
+             Persistence.recover_artifact(dir,
+               sync_directory: fail_sync_on_call(3, dir)
+             )
+
+    assert {:ok, ^first} = Persistence.read_artifact(dir)
+    assert File.regular?(Path.join(dir, @marker))
+    refute File.exists?(Path.join(dir, @backup))
+
+    assert :ok = Persistence.recover_artifact(dir)
+    refute File.exists?(Path.join(dir, @marker))
+    assert {:ok, ^first} = Persistence.read_artifact(dir)
+  end
+
+  @tag :tmp_dir
+  test "rolled-back first publication stays absent when cleanup retries", %{tmp_dir: dir} do
+    snapshot = fixture_snapshot(34)
+    File.write!(Path.join(dir, "artifact.snapshot"), artifact_bytes(snapshot))
+    write_marker(dir, :pending, false)
+
+    assert :ok =
+             Persistence.recover_artifact(dir,
+               sync_directory: fail_sync_on_call(2, dir)
+             )
+
+    assert {:error, :snapshot_not_found} = Persistence.read_artifact(dir)
+    assert File.regular?(Path.join(dir, @marker))
+    refute File.exists?(Path.join(dir, "artifact.snapshot"))
+
+    assert :ok = Persistence.recover_artifact(dir)
+    refute File.exists?(Path.join(dir, @marker))
+    assert {:error, :snapshot_not_found} = Persistence.read_artifact(dir)
+  end
+
+  @tag :tmp_dir
+  test "reader observes old generation while writer is post-rename and pre-commit", %{
+    tmp_dir: dir
+  } do
+    old = fixture_snapshot(28)
+    new = fixture_snapshot(29)
+    assert :ok = Persistence.write_artifact(dir, old)
+
+    test_process = self()
+    counter = :counters.new(1, [])
+
+    blocking_sync = fn ^dir ->
+      :ok = :counters.add(counter, 1, 1)
+
+      if :counters.get(counter, 1) == 2 do
+        send(test_process, {:post_rename_sync, self()})
+
+        receive do
+          :continue_sync -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    writer =
+      Task.async(fn -> Persistence.write_artifact(dir, new, sync_directory: blocking_sync) end)
+
+    assert_receive {:post_rename_sync, writer_pid}, 2_000
+    assert {:ok, ^old} = Persistence.read_artifact(dir)
+    assert File.regular?(Path.join(dir, @marker))
+    assert File.regular?(Path.join(dir, @backup))
+
+    send(writer_pid, :continue_sync)
+    assert :ok = Task.await(writer)
+    assert {:ok, ^new} = Persistence.read_artifact(dir)
   end
 
   @tag :tmp_dir
@@ -382,6 +499,16 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
       :ok = :counters.add(counter, 1, 1)
       call = :counters.get(counter, 1)
       if call >= failing_call, do: {:error, :eio}, else: :ok
+    end
+  end
+
+  defp fail_sync_on_call(failing_call, expected_dir) do
+    counter = :counters.new(1, [])
+
+    fn ^expected_dir ->
+      :ok = :counters.add(counter, 1, 1)
+      call = :counters.get(counter, 1)
+      if call == failing_call, do: {:error, :eio}, else: :ok
     end
   end
 
