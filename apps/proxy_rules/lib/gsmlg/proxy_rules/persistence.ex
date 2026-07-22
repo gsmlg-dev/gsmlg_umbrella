@@ -10,6 +10,27 @@ defmodule GSMLG.ProxyRules.Persistence do
   @max_output_bytes 64 * 1024 * 1024
   @max_diagnostic_count 1_000
   @max_diagnostic_sample_bytes 512
+  @snapshot_keys [
+    :__struct__,
+    :generation,
+    :compiled_at,
+    :readiness,
+    :source_versions,
+    :rendered_outputs,
+    :statistics,
+    :diagnostics,
+    :last_error
+  ]
+  @output_keys [
+    :__struct__,
+    :body,
+    :sha256,
+    :etag,
+    :last_modified,
+    :content_type,
+    :content_length
+  ]
+  @diagnostic_keys [:__struct__, :kind, :source, :location, :reason, :sample]
 
   @type read_error ::
           :snapshot_not_found
@@ -70,8 +91,9 @@ defmodule GSMLG.ProxyRules.Persistence do
   def max_diagnostic_count, do: @max_diagnostic_count
 
   @spec valid_snapshot?(term()) :: boolean()
-  def valid_snapshot?(%Snapshot{} = snapshot) when map_size(snapshot) == 9 do
-    non_negative_integer?(snapshot.generation) and
+  def valid_snapshot?(%Snapshot{} = snapshot) do
+    exact_keys?(snapshot, @snapshot_keys) and
+      non_negative_integer?(snapshot.generation) and
       valid_datetime?(snapshot.compiled_at) and
       Snapshot.persisted_readiness?(snapshot.readiness) and
       valid_source_versions?(snapshot.source_versions) and
@@ -169,8 +191,7 @@ defmodule GSMLG.ProxyRules.Persistence do
       with :ok <- :file.write(file, binary),
            :ok <- :file.sync(file),
            :ok <- :file.close(file),
-           :ok <- File.rename(temporary, path),
-           :ok <- sync_directory(directory, opts) do
+           :ok <- replace_and_sync(temporary, path, directory, opts) do
         :ok
       end
 
@@ -178,10 +199,97 @@ defmodule GSMLG.ProxyRules.Persistence do
     result
   end
 
-  defp sync_directory(directory, opts) do
-    case Keyword.get(opts, :sync_directory) do
-      sync when is_function(sync, 1) -> sync.(directory)
-      nil -> sync_directory(directory)
+  defp replace_and_sync(temporary, path, directory, opts) do
+    backup = backup_path(path)
+
+    with {:ok, had_target?} <- preserve_target(path, backup, directory, opts),
+         :ok <- rename_with_rollback(temporary, path, backup, directory, had_target?, opts) do
+      :ok
+    end
+  end
+
+  defp preserve_target(path, backup, directory, opts) do
+    case File.ln(path, backup) do
+      :ok ->
+        case run_directory_sync(directory, opts) do
+          :ok ->
+            {:ok, true}
+
+          {:error, _reason} = error ->
+            _ = File.rm(backup)
+            _ = run_directory_sync(directory, opts)
+            error
+        end
+
+      {:error, :enoent} ->
+        {:ok, false}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp rename_with_rollback(temporary, path, backup, directory, had_target?, opts) do
+    case File.rename(temporary, path) do
+      :ok ->
+        case run_directory_sync(directory, opts) do
+          :ok ->
+            cleanup_backup(backup, directory, had_target?, opts)
+            :ok
+
+          {:error, _reason} = error ->
+            rollback_target(path, backup, directory, had_target?, opts)
+            error
+        end
+
+      {:error, _reason} = error ->
+        cleanup_backup(backup, directory, had_target?, opts)
+        error
+    end
+  end
+
+  defp rollback_target(path, backup, directory, true, opts) do
+    case File.rename(backup, path) do
+      :ok ->
+        _ = run_directory_sync(directory, opts)
+        :ok
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp rollback_target(path, _backup, directory, false, opts) do
+    _ = File.rm(path)
+    _ = run_directory_sync(directory, opts)
+    :ok
+  end
+
+  defp cleanup_backup(_backup, _directory, false, _opts), do: :ok
+
+  defp cleanup_backup(backup, directory, true, opts) do
+    if File.rm(backup) == :ok do
+      # The replacement is already durable. This second sync only makes backup
+      # cleanup durable, so failure cannot invalidate the successful publish.
+      _ = run_directory_sync(directory, opts)
+    end
+
+    :ok
+  end
+
+  defp run_directory_sync(directory, opts) do
+    sync = Keyword.get(opts, :sync_directory, &sync_directory/1)
+
+    try do
+      case sync.(directory) do
+        :ok -> :ok
+        {:error, reason} -> {:error, reason}
+        _unexpected -> {:error, :invalid_sync_result}
+      end
+    rescue
+      _error -> {:error, :directory_sync_failed}
+    catch
+      _kind, _reason -> {:error, :directory_sync_failed}
     end
   end
 
@@ -200,6 +308,11 @@ defmodule GSMLG.ProxyRules.Persistence do
   defp temporary_path(path) do
     suffix = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
     Path.join(Path.dirname(path), ".#{Path.basename(path)}.#{suffix}.tmp")
+  end
+
+  defp backup_path(path) do
+    suffix = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
+    Path.join(Path.dirname(path), ".#{Path.basename(path)}.#{suffix}.bak")
   end
 
   defp valid_source_versions?(versions) when is_map(versions) and map_size(versions) == 3 do
@@ -234,8 +347,9 @@ defmodule GSMLG.ProxyRules.Persistence do
     end
   end
 
-  defp valid_output?(%Output{} = output) when map_size(output) == 7 do
-    is_binary(output.body) and
+  defp valid_output?(%Output{} = output) do
+    exact_keys?(output, @output_keys) and
+      is_binary(output.body) and
       valid_hex_hash?(output.sha256) and
       output.sha256 == sha256_hex(output.body) and
       output.etag == ~s("sha256-#{output.sha256}") and
@@ -298,9 +412,9 @@ defmodule GSMLG.ProxyRules.Persistence do
           location: location,
           reason: reason,
           sample: sample
-        } = diagnostic
-        when map_size(diagnostic) == 6 ->
-          kind in [:invalid, :unsupported, :systemic] and
+        } = diagnostic ->
+          exact_keys?(diagnostic, @diagnostic_keys) and
+            kind in [:invalid, :unsupported, :systemic] and
             source in [:gfwlist, :local_proxy, :local_direct] and
             (location == :system or (is_integer(location) and location > 0)) and
             Diagnostic.valid_reason?(reason) and
@@ -330,4 +444,8 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   defp sha256_hex(binary), do: :crypto.hash(:sha256, binary) |> Base.encode16(case: :lower)
   defp non_negative_integer?(value), do: is_integer(value) and value >= 0
+
+  defp exact_keys?(map, keys) do
+    map_size(map) == length(keys) and Enum.all?(keys, &Map.has_key?(map, &1))
+  end
 end
