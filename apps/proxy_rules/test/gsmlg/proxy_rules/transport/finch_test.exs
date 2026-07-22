@@ -80,6 +80,38 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     await_server(server)
   end
 
+  test "accepts the exact body limit and rejects limit plus one", %{finch_name: finch_name} do
+    for {body, expected} <- [{"12345", {:ok, "12345"}}, {"123456", {:error, :body_too_large}}] do
+      {url, server} =
+        start_server(fn socket, _parent ->
+          recv_request(socket)
+
+          :ok =
+            :gen_tcp.send(socket, [
+              "HTTP/1.1 200 OK\r\n",
+              "Transfer-Encoding: chunked\r\n",
+              "Connection: close\r\n\r\n",
+              Integer.to_string(byte_size(body), 16),
+              "\r\n",
+              body,
+              "\r\n0\r\n\r\n"
+            ])
+        end)
+
+      case expected do
+        {:ok, expected_body} ->
+          assert {:ok, %{body: ^expected_body}} =
+                   FinchTransport.get(url, [], transport_options(finch_name, 5))
+
+        {:error, reason} ->
+          assert {:error, ^reason} =
+                   FinchTransport.get(url, [], transport_options(finch_name, 5))
+      end
+
+      await_server(server)
+    end
+  end
+
   test "supports content-length bodies and empty 204 and 304 responses", %{
     finch_name: finch_name
   } do
@@ -157,6 +189,19 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
              FinchTransport.get(url, [], transport_options(finch_name, 1))
 
     await_server(server)
+  end
+
+  test "header accounting accepts exactly 64 KiB and rejects one byte more" do
+    exact_headers = [{"x", :binary.copy("v", 65_531)}]
+    over_headers = [{"x", :binary.copy("v", 65_532)}]
+
+    assert FinchTransport.header_bytes(exact_headers) == 65_536
+    assert :ok = FinchTransport.validate_response_headers(exact_headers)
+
+    assert FinchTransport.header_bytes(over_headers) == 65_537
+
+    assert {:error, :headers_too_large} =
+             FinchTransport.validate_response_headers(over_headers)
   end
 
   test "normalizes connection failure and receive timeout", %{finch_name: finch_name} do
@@ -314,7 +359,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
   end
 
   test "header boundary failures are finite transport and operational reasons" do
-    assert transport_error_atoms() |> MapSet.member?(:headers_too_large)
+    assert transport_error_atoms() == MapSet.new(Transport.error_reasons())
 
     assert Snapshot.valid_operational_error?(%{
              kind: :remote,

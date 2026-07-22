@@ -3,7 +3,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
   One complete, immutable proxy-rules generation.
   """
 
-  alias GSMLG.ProxyRules.{Diagnostic, Output}
+  alias GSMLG.ProxyRules.{Diagnostic, Output, Transport}
 
   @enforce_keys [
     :generation,
@@ -23,6 +23,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
           :remote | :local_proxy | :local_direct | :compiler | :persistence | :store
   @type operational_reason ::
           Diagnostic.reason()
+          | Transport.error_reason()
           | :snapshot_not_found
           | :snapshot_unreadable
           | :corrupt_snapshot
@@ -31,16 +32,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
           | :invalid_snapshot
           | :persistence_failed
           | :configuration_unavailable
-          | :timeout
-          | :connect_timeout
-          | :receive_timeout
-          | :connection_failed
-          | :transport_error
-          | :invalid_headers
-          | :headers_too_large
-          | :http_error
           | :unexpected_status
-          | :body_too_large
           | :compile_failed
           | :compile_timeout
           | :task_crash
@@ -109,16 +101,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
     :invalid_snapshot,
     :persistence_failed,
     :configuration_unavailable,
-    :timeout,
-    :connect_timeout,
-    :receive_timeout,
-    :connection_failed,
-    :transport_error,
-    :invalid_headers,
-    :headers_too_large,
-    :http_error,
     :unexpected_status,
-    :body_too_large,
     :compile_failed,
     :compile_timeout,
     :task_crash,
@@ -138,7 +121,8 @@ defmodule GSMLG.ProxyRules.Snapshot do
   def valid_operational_error?(%{kind: kind, reason: reason} = error) when map_size(error) == 2,
     do:
       kind in @operational_kinds and
-        (reason in @operational_reasons or Diagnostic.valid_reason?(reason))
+        (reason in @operational_reasons or Diagnostic.valid_reason?(reason) or
+           Transport.valid_error_reason?(reason))
 
   def valid_operational_error?(_error), do: false
 

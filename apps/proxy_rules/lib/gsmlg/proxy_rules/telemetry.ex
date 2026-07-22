@@ -3,7 +3,7 @@ defmodule GSMLG.ProxyRules.Telemetry do
   Bounded telemetry and diagnostic logging for the proxy-rules pipeline.
   """
 
-  alias GSMLG.ProxyRules.Diagnostic
+  alias GSMLG.ProxyRules.{Diagnostic, Transport}
 
   @prefix [:gsmlg, :proxy_rules]
   @sample_max_bytes 512
@@ -48,14 +48,7 @@ defmodule GSMLG.ProxyRules.Telemetry do
   @formats [:raw, :squid, :clash]
   @readiness_values [:not_ready, :refreshing, :ready, :stale]
   @failure_categories [
-    :timeout,
-    :connect_timeout,
-    :receive_timeout,
-    :connection_failed,
-    :transport_error,
-    :http_error,
     :unexpected_status,
-    :body_too_large,
     :invalid_base64,
     :invalid_utf8,
     :read_failed,
@@ -134,13 +127,26 @@ defmodule GSMLG.ProxyRules.Telemetry do
 
   defp valid_metadata?(metadata) when is_map(metadata) do
     Enum.all?(metadata, fn
-      {:source, value} -> value in @sources
-      {:list, value} -> value in @lists
-      {:format, value} -> value in @formats
-      {:status, value} -> is_integer(value) and value >= 100 and value <= 599
-      {:failure_category, value} -> value in @failure_categories
-      {:readiness, value} -> value in @readiness_values
-      {_key, _value} -> false
+      {:source, value} ->
+        value in @sources
+
+      {:list, value} ->
+        value in @lists
+
+      {:format, value} ->
+        value in @formats
+
+      {:status, value} ->
+        is_integer(value) and value >= 100 and value <= 599
+
+      {:failure_category, value} ->
+        value in @failure_categories or Transport.valid_error_reason?(value)
+
+      {:readiness, value} ->
+        value in @readiness_values
+
+      {_key, _value} ->
+        false
     end)
   end
 

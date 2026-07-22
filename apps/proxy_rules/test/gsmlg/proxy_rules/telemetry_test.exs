@@ -1,7 +1,7 @@
 defmodule GSMLG.ProxyRules.TelemetryTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.ProxyRules.{Diagnostic, Telemetry}
+  alias GSMLG.ProxyRules.{Diagnostic, Snapshot, Telemetry, Transport}
 
   defmodule TestLogger do
     def log(level, message, opts) do
@@ -76,6 +76,32 @@ defmodule GSMLG.ProxyRules.TelemetryTest do
              Telemetry.emit([:remote, :fetch, :stop], %{}, %{body: "secret source body"})
 
     refute_receive :executed
+  end
+
+  test "every finite transport failure crosses snapshot and telemetry boundaries" do
+    handler_id = {__MODULE__, self()}
+    event = [:gsmlg, :proxy_rules, :remote, :fetch, :exception]
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        event,
+        fn _name, _measurements, metadata, pid -> send(pid, {:failure, metadata}) end,
+        self()
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    for reason <- Transport.error_reasons() do
+      assert Snapshot.valid_operational_error?(%{kind: :remote, reason: reason})
+
+      assert :ok =
+               Telemetry.emit([:remote, :fetch, :exception], %{}, %{
+                 failure_category: reason
+               })
+
+      assert_receive {:failure, %{failure_category: ^reason}}
+    end
   end
 
   test "sample_log logs only indices below the limit with bounded metadata" do

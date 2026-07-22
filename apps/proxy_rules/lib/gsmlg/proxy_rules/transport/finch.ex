@@ -24,6 +24,25 @@ defmodule GSMLG.ProxyRules.Transport.Finch do
     end
   end
 
+  @doc false
+  @spec header_bytes([{binary(), binary()}]) :: non_neg_integer()
+  def header_bytes(headers) do
+    Enum.reduce(headers, 0, fn {name, value}, size ->
+      size + byte_size(name) + byte_size(value) + 4
+    end)
+  end
+
+  @doc false
+  @spec validate_response_headers([{binary(), binary()}], non_neg_integer()) ::
+          :ok | {:error, :headers_too_large}
+  def validate_response_headers(headers, retained_size \\ 0)
+      when is_list(headers) and is_integer(retained_size) and retained_size >= 0 do
+    headers
+    |> header_bytes()
+    |> Kernel.+(retained_size)
+    |> header_limit_result()
+  end
+
   defp stream(request, options) do
     initial = %{
       status: nil,
@@ -67,10 +86,10 @@ defmodule GSMLG.ProxyRules.Transport.Finch do
   end
 
   defp reduce_response({:headers, headers}, accumulator, max_body_size) do
-    header_size = accumulator.header_size + headers_size(headers)
+    header_size = accumulator.header_size + header_bytes(headers)
 
     cond do
-      header_size > @max_header_bytes ->
+      header_limit_result(header_size) == {:error, :headers_too_large} ->
         {:halt, %{accumulator | error: :headers_too_large}}
 
       final_response?(accumulator.status) and content_length_exceeds?(headers, max_body_size) ->
@@ -140,11 +159,8 @@ defmodule GSMLG.ProxyRules.Transport.Finch do
     end
   end
 
-  defp headers_size(headers) do
-    Enum.reduce(headers, 0, fn {name, value}, size ->
-      size + byte_size(name) + byte_size(value) + 4
-    end)
-  end
+  defp header_limit_result(size) when size <= @max_header_bytes, do: :ok
+  defp header_limit_result(_size), do: {:error, :headers_too_large}
 
   defp content_length_exceeds?(headers, max_body_size) do
     Enum.any?(headers, fn {name, value} ->
