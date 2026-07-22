@@ -37,7 +37,7 @@ end
 defmodule GSMLG.ProxyRules.Source.LocalTest do
   use ExUnit.Case, async: false
 
-  alias GSMLG.ProxyRules.{Configuration, SourceSnapshot}
+  alias GSMLG.ProxyRules.{Configuration, SourceSnapshot, Store}
   alias GSMLG.ProxyRules.Source.Local
 
   @now ~U[2026-07-23 02:03:04Z]
@@ -54,6 +54,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
            } = Local.snapshots(server)
 
     proxy = Path.join(dir, "proxy.txt")
+    revision = Store.source_revision(Store)
     File.write!(proxy, "example.com\n")
     assert :ok = Local.reconcile(server)
 
@@ -68,6 +69,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
                     }}
 
     assert hash =~ ~r/^[0-9a-f]{64}$/
+    assert Store.source_revision(Store) > revision
   end
 
   @tag :tmp_dir

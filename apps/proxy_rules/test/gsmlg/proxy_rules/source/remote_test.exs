@@ -35,7 +35,7 @@ end
 defmodule GSMLG.ProxyRules.Source.RemoteTest do
   use ExUnit.Case, async: false
 
-  alias GSMLG.ProxyRules.{Configuration, Persistence, SourceSnapshot}
+  alias GSMLG.ProxyRules.{Configuration, Persistence, SourceSnapshot, Store}
   alias GSMLG.ProxyRules.Source.Remote
 
   @now ~U[2026-07-23 02:03:04Z]
@@ -163,9 +163,11 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert_receive {:proxy_rules_source_status, :remote, :refreshing, nil}
     assert_receive {:transport_request, task, _, _, _}
     assert nil == Remote.snapshot(server)
+    revision = Store.source_revision(Store)
 
     send(task, {:transport_response, response(200, Base.encode64("example.com\n"))})
     assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{availability: :ready}}, 1_000
+    assert Store.source_revision(Store) > revision
   end
 
   @tag :tmp_dir

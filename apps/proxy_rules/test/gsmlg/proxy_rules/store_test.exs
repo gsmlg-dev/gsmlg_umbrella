@@ -92,6 +92,9 @@ defmodule GSMLG.ProxyRules.StoreTest do
     assert {:error, :not_ready} = Store.current()
 
     assert {:ok, second_token} = Store.stage(Store, second)
+    assert {:error, :invalid_stage} = Store.commit(Store, second_token)
+    assert :ok = Store.finalize(Store, second_token)
+    assert {:error, :not_ready} = Store.current()
     assert :ok = Store.commit(Store, second_token)
     assert {:ok, %Snapshot{generation: 91}} = Store.current()
     assert {:ok, %Snapshot{generation: 91}} = Persistence.read_artifact(dir)
@@ -108,7 +111,7 @@ defmodule GSMLG.ProxyRules.StoreTest do
     )
 
     assert {:ok, token} = Store.stage(Store, second)
-    assert {:error, :persistence_failed} = Store.commit(Store, token)
+    assert {:error, :persistence_failed} = Store.finalize(Store, token)
     assert {:ok, %Snapshot{generation: 92}} = Store.current()
     assert {:ok, %Snapshot{generation: 92}} = Persistence.read_artifact(dir)
 
@@ -124,12 +127,51 @@ defmodule GSMLG.ProxyRules.StoreTest do
     second = fixture_snapshot(95)
     assert :ok = Store.publish(first)
     assert {:ok, token} = Store.stage(Store, second)
+    assert :ok = Store.finalize(Store, token)
+    assert {:ok, %Snapshot{generation: 94}} = Store.current()
+    assert {:ok, %Snapshot{generation: 94}} = Persistence.read_artifact(dir)
     assert :ok = Store.discard(Store, token)
     assert {:ok, %Snapshot{generation: 94}} = Store.current()
     assert {:ok, %Snapshot{generation: 94}} = Persistence.read_artifact(dir)
 
     restart_store(dir)
     assert {:ok, %Snapshot{generation: 94, readiness: :stale}} = Store.current()
+  end
+
+  @tag :tmp_dir
+  test "source revision guard rejects a finalized obsolete generation", %{tmp_dir: dir} do
+    first = fixture_snapshot(97)
+    obsolete = fixture_snapshot(98)
+    assert :ok = Store.publish(first)
+    expected_revision = Store.source_revision(Store)
+    assert {:ok, token} = Store.stage(Store, obsolete)
+    assert :ok = Store.finalize(Store, token)
+
+    assert Store.advance_source_revision(Store) > expected_revision
+    assert {:error, :obsolete} = Store.commit_if_current(Store, token, expected_revision)
+    assert {:ok, %Snapshot{generation: 97}} = Store.current()
+    assert {:ok, %Snapshot{generation: 97}} = Persistence.read_artifact(dir)
+    assert :ok = Store.discard(Store, token)
+  end
+
+  @tag :tmp_dir
+  test "startup prunes orphan stage directories without following stage-like symlinks", %{
+    tmp_dir: dir
+  } do
+    orphan = Path.join(dir, ".artifact-stage-123")
+    outside = Path.join(dir, "outside")
+    stage_like_symlink = Path.join(dir, ".artifact-stage-456")
+    File.mkdir_p!(orphan)
+    File.write!(Path.join(orphan, "artifact.snapshot"), "orphan")
+    File.mkdir_p!(outside)
+    File.write!(Path.join(outside, "keep"), "keep")
+    File.ln_s!(outside, stage_like_symlink)
+
+    restart_store(dir)
+
+    refute File.exists?(orphan)
+    assert {:ok, %File.Stat{type: :symlink}} = File.lstat(stage_like_symlink)
+    assert File.read!(Path.join(outside, "keep")) == "keep"
   end
 
   @tag :tmp_dir

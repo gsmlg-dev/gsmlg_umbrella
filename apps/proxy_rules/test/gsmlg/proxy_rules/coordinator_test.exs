@@ -25,6 +25,14 @@ defmodule GSMLG.ProxyRules.CoordinatorTestStore do
   def start_link(options), do: Agent.start_link(fn -> Keyword.fetch!(options, :state) end)
   def current(server), do: Agent.get(server, & &1.current)
   def metadata(server), do: {:ok, Agent.get(server, & &1.metadata)}
+  def source_revision(server), do: Agent.get(server, &Map.get(&1, :source_revision, 0))
+
+  def advance_source_revision(server) do
+    Agent.get_and_update(server, fn state ->
+      revision = Map.get(state, :source_revision, 0) + 1
+      {revision, Map.put(state, :source_revision, revision)}
+    end)
+  end
 
   def stage(server, token, snapshot) do
     test_process = Agent.get(server, & &1.test_process)
@@ -53,14 +61,32 @@ defmodule GSMLG.ProxyRules.CoordinatorTestStore do
         {false, {nil, _staged}} ->
           {{:error, :invalid_stage}, state}
 
-        {false, {%{snapshot: snapshot, status: :staged}, staged}} ->
-          send(state.test_process, {:finalized, snapshot.generation})
+        {false, {%{snapshot: snapshot, status: :finalized}, staged}} ->
           send(state.test_process, {:published, snapshot.generation})
 
           {:ok,
            %{state | current: {:ok, snapshot}, staged: staged, metadata: %{readiness: :ready}}}
       end
     end)
+  end
+
+  def finalize(server, token) do
+    Agent.get_and_update(server, fn state ->
+      case Map.fetch(state.staged, token) do
+        {:ok, %{snapshot: snapshot, status: :staged} = entry} ->
+          send(state.test_process, {:finalized, snapshot.generation})
+          {:ok, put_in(state, [:staged, token], %{entry | status: :finalized})}
+
+        _missing_or_finalized ->
+          {{:error, :invalid_stage}, state}
+      end
+    end)
+  end
+
+  def commit_if_current(server, token, expected_revision) do
+    if source_revision(server) == expected_revision,
+      do: commit(server, token),
+      else: {:error, :obsolete}
   end
 
   def discard(server, token) do
@@ -201,6 +227,25 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert_receive {:stage_started, 3, latest_stage}, 1_000
     send(latest_stage, :finish_stage)
     assert_receive {:published, 3}
+  end
+
+  test "an authority revision change without new content retries the same generation", context do
+    send_sources(context.coordinator, "one.example")
+    assert_receive {:compile_started, 1, first, _}
+
+    send(
+      context.coordinator,
+      {:proxy_rules_source, :local_proxy, source(:local_proxy, "one.example\n")}
+    )
+
+    send(first, {:compile_result, :compile})
+    assert_receive {:stage_started, 1, stale_stage}, 1_000
+    send(stale_stage, :finish_stage)
+    assert_receive {:finalized, 1}
+    refute_receive {:published, 1}, 30
+
+    assert_receive {:compile_started, 1, retry, _}
+    finish_success(retry, 1)
   end
 
   test "freshness does not compile and status failures mark the current artifact stale",
@@ -494,7 +539,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert_stale_generation(context.store, 1, :persistence_failed)
   end
 
-  test "a source change after durable staging cannot survive a store restart", context do
+  test "a source change during finalization cannot survive a store restart", context do
     supervisor = GSMLG.ProxyRules.Supervisor
     directory = Path.join(System.tmp_dir!(), "proxy-rules-authority-#{System.unique_integer()}")
     File.mkdir_p!(directory)
@@ -525,15 +570,28 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
              )
 
     assert :ok = Store.publish(prior)
+    :ok = GenServer.stop(Store)
     test_process = self()
+    root_syncs = :atomics.new(1, [])
 
-    after_stage = fn token ->
-      send(test_process, {:durably_staged, self(), token})
+    blocking_sync = fn path ->
+      if path == directory and :atomics.add_get(root_syncs, 1, 1) == 1 do
+        send(test_process, {:finalization_started, self()})
 
-      receive do
-        :release_staged_result -> :ok
+        receive do
+          :release_finalization -> :ok
+        end
+      else
+        :ok
       end
     end
+
+    {:ok, _store} =
+      Store.start_link(
+        name: Store,
+        state_directory: directory,
+        persistence_options: [sync_directory: blocking_sync]
+      )
 
     name = String.to_atom("coordinator_authority_#{System.unique_integer([:positive])}")
 
@@ -543,7 +601,6 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
         configuration: %{configuration() | state_directory: directory},
         compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
         compiler_options: [test_process: self()],
-        after_stage: after_stage,
         store: {Store, Store},
         remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
         local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
@@ -556,19 +613,14 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     send_sources(coordinator, "candidate.example")
     assert_receive {:compile_started, 2, candidate, _}
     send(candidate, {:compile_result, :compile})
-    assert_receive {:durably_staged, staged_task, _token}, 2_000
+    assert_receive {:finalization_started, finalizing_store}, 2_000
 
     send(
       coordinator,
       {:proxy_rules_source, :local_proxy, source(:local_proxy, "newer.example\n")}
     )
 
-    assert_eventually(
-      fn -> :sys.get_state(coordinator).source_generation end,
-      &(&1 == 3)
-    )
-
-    send(staged_task, :release_staged_result)
+    send(finalizing_store, :release_finalization)
     assert_receive {:compile_started, 3, _latest, _}
 
     assert {:ok, %Snapshot{generation: 1}} = Store.current()
@@ -580,6 +632,68 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
     assert {:ok, %Snapshot{generation: 1, readiness: :stale}} = Store.current()
     assert {:ok, %Snapshot{generation: 1}} = Persistence.read_artifact(directory)
+  end
+
+  test "store restart cleans a stage orphaned by coordinator termination", context do
+    supervisor = GSMLG.ProxyRules.Supervisor
+    directory = Path.join(System.tmp_dir!(), "proxy-rules-orphan-#{System.unique_integer()}")
+    File.mkdir_p!(directory)
+
+    :ok = Supervisor.terminate_child(supervisor, Coordinator)
+    :ok = Supervisor.terminate_child(supervisor, Store)
+
+    on_exit(fn ->
+      if Process.whereis(Coordinator), do: GenServer.stop(Coordinator)
+      if Process.whereis(Store), do: GenServer.stop(Store)
+      _ = Supervisor.restart_child(supervisor, Store)
+      _ = Supervisor.restart_child(supervisor, Coordinator)
+      File.rm_rf!(directory)
+    end)
+
+    {:ok, _store} = Store.start_link(name: Store, state_directory: directory)
+    test_process = self()
+
+    after_stage = fn token ->
+      send(test_process, {:stage_waiting, token})
+
+      receive do
+        :never_release -> :ok
+      end
+    end
+
+    name = String.to_atom("coordinator_orphan_#{System.unique_integer([:positive])}")
+
+    options = [
+      name: name,
+      configuration: %{configuration() | state_directory: directory},
+      compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
+      compiler_options: [test_process: self()],
+      after_stage: after_stage,
+      store: {Store, Store},
+      remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
+      local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
+      task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
+      compile_timeout: 5_000,
+      now: fn -> @now end
+    ]
+
+    {:ok, coordinator} = Coordinator.start_link(options)
+    Process.unlink(coordinator)
+    send_sources(coordinator, "candidate.example")
+    assert_receive {:compile_started, 1, candidate, _}
+    send(candidate, {:compile_result, :compile})
+    assert_receive {:stage_waiting, _token}, 2_000
+    assert [".artifact-stage-" <> _id] = orphan_stage_entries(directory)
+
+    :ok = GenServer.stop(coordinator)
+    :ok = GenServer.stop(Store)
+    {:ok, _restarted_store} = Store.start_link(name: Store, state_directory: directory)
+    assert [] = orphan_stage_entries(directory)
+
+    {:ok, restarted_coordinator} = Coordinator.start_link(options)
+    Process.unlink(restarted_coordinator)
+    assert Process.alive?(restarted_coordinator)
+    :ok = GenServer.stop(restarted_coordinator)
   end
 
   defp start_coordinator(context) do
@@ -683,6 +797,12 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
   defp assert_eventually(fun, predicate) do
     deadline = System.monotonic_time(:millisecond) + 1_000
     do_assert_eventually(fun, predicate, deadline)
+  end
+
+  defp orphan_stage_entries(directory) do
+    directory
+    |> File.ls!()
+    |> Enum.filter(&String.starts_with?(&1, ".artifact-stage-"))
   end
 
   defp do_assert_eventually(fun, predicate, deadline) do

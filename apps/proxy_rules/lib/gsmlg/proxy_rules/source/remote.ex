@@ -5,7 +5,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
   use GenServer
 
-  alias GSMLG.ProxyRules.{Configuration, Persistence, SourceSnapshot, Telemetry}
+  alias GSMLG.ProxyRules.{Configuration, Persistence, SourceSnapshot, Store, Telemetry}
   alias GSMLG.ProxyRules.Parser.GFWList
 
   @type failure ::
@@ -167,7 +167,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = snapshot}
       when source_url == state.config.source_url ->
         restored = %{snapshot | availability: :stale}
-        notify(state.notify, {:proxy_rules_source, :remote, restored})
+        notify_source_change(state.notify, :remote, restored)
         %{state | source: restored}
 
       _missing_mismatched_or_invalid ->
@@ -285,7 +285,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
         if state.source && state.source.content_sha256 == hash do
           notify(state.notify, {:proxy_rules_source_fresh, :remote, snapshot.metadata})
         else
-          notify(state.notify, {:proxy_rules_source, :remote, snapshot})
+          notify_source_change(state.notify, :remote, snapshot)
         end
 
         success(%{state | source: snapshot})
@@ -541,5 +541,10 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
   defp notify(destination, message) when is_atom(destination) do
     if Process.whereis(destination), do: send(destination, message), else: message
+  end
+
+  defp notify_source_change(destination, kind, snapshot) do
+    _revision = Store.advance_source_revision(Store)
+    notify(destination, {:proxy_rules_source, kind, snapshot})
   end
 end

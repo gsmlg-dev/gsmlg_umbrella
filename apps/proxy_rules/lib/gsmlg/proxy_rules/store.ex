@@ -1,10 +1,21 @@
 defmodule GSMLG.ProxyRules.Store do
+  @moduledoc """
+  Owns staged artifacts, the published ETS snapshot, and source publication authority.
+
+  Source revisions are even while unlocked. Changed sources advance the revision before
+  notifying the Coordinator. Publication atomically changes the exact expected revision
+  to an odd value, preventing concurrent source advances until the durable marker and ETS
+  update complete. A changed or already locked revision rejects the publication.
+  """
+
   use GenServer
 
   alias GSMLG.ProxyRules.{Configuration, Persistence, Snapshot, Telemetry}
 
   @table :gsmlg_proxy_rules_store
   @readiness [:not_ready, :refreshing, :ready, :stale]
+  @authority_key {__MODULE__, :source_authority}
+  @call_timeout 30_000
 
   def start_link(opts) do
     {gen_options, init_options} = Keyword.split(opts, [:name])
@@ -47,7 +58,24 @@ defmodule GSMLG.ProxyRules.Store do
 
   @spec commit(GenServer.server(), stage_token()) ::
           :ok | {:error, :invalid_stage | :persistence_failed}
-  def commit(server, token), do: GenServer.call(server, {:commit, token}, :infinity)
+  def commit(server, token), do: GenServer.call(server, {:commit, token}, @call_timeout)
+
+  @spec finalize(GenServer.server(), stage_token()) ::
+          :ok | {:error, :invalid_stage | :persistence_failed}
+  def finalize(server, token), do: GenServer.call(server, {:finalize, token}, @call_timeout)
+
+  @spec source_revision(GenServer.server()) :: non_neg_integer()
+  def source_revision(_server), do: read_source_revision(ensure_authority())
+
+  @spec advance_source_revision(GenServer.server()) :: non_neg_integer()
+  def advance_source_revision(_server), do: do_advance_source_revision(ensure_authority())
+
+  @spec commit_if_current(GenServer.server(), stage_token(), non_neg_integer()) ::
+          :ok | {:error, :obsolete | :invalid_stage | :persistence_failed}
+  def commit_if_current(server, token, expected_revision)
+      when is_integer(expected_revision) and expected_revision >= 0 do
+    GenServer.call(server, {:commit_if_current, token, expected_revision}, @call_timeout)
+  end
 
   @spec discard(GenServer.server(), stage_token()) :: :ok
   def discard(server, token), do: GenServer.call(server, {:discard, token})
@@ -74,11 +102,15 @@ defmodule GSMLG.ProxyRules.Store do
 
   @impl true
   def init(opts) do
+    authority = ensure_authority()
+    revision = :atomics.get(authority, 1)
+    if rem(revision, 2) == 1, do: :ok = :atomics.put(authority, 1, revision + 1)
     :ets.new(@table, [:named_table, :set, :protected, read_concurrency: true])
 
     state_directory = state_directory(opts)
     persistence_options = Keyword.get(opts, :persistence_options, [])
     _ = recover(state_directory, persistence_options)
+    _ = prune_orphan_stages(state_directory)
     {snapshot, operational_status} = restore(state_directory)
 
     if snapshot do
@@ -150,9 +182,9 @@ defmodule GSMLG.ProxyRules.Store do
   def handle_call({:stage, _token, _snapshot}, _from, state),
     do: {:reply, {:error, :invalid_stage}, state}
 
-  def handle_call({:commit, token}, _from, state) do
+  def handle_call({:finalize, token}, _from, state) do
     case Map.fetch(state.staged, token) do
-      {:ok, %{status: :staged, snapshot: snapshot, directory: directory}} ->
+      {:ok, %{status: :staged, directory: directory} = entry} ->
         staged_path = Path.join(directory, "artifact.snapshot")
 
         case Persistence.finalize_staged_artifact(
@@ -161,16 +193,8 @@ defmodule GSMLG.ProxyRules.Store do
                state.persistence_options
              ) do
           :ok ->
-            true = :ets.insert(@table, {:current, snapshot})
-            _ = File.rmdir(directory)
-
-            {:reply, :ok,
-             %{
-               state
-               | staged: Map.delete(state.staged, token),
-                 readiness: snapshot.readiness,
-                 operational_status: nil
-             }}
+            staged = Map.put(state.staged, token, %{entry | status: :finalized})
+            {:reply, :ok, %{state | staged: staged}}
 
           {:error, :persistence_failed} = error ->
             {:reply, error, state}
@@ -178,6 +202,32 @@ defmodule GSMLG.ProxyRules.Store do
 
       :error ->
         {:reply, {:error, :invalid_stage}, state}
+    end
+  end
+
+  def handle_call({:commit, token}, _from, state) do
+    {reply, state, directory} = commit_finalized(token, state)
+    cleanup_finalized(state, directory)
+    {:reply, reply, state}
+  end
+
+  def handle_call({:commit_if_current, token, expected_revision}, _from, state) do
+    authority = ensure_authority()
+
+    case :atomics.compare_exchange(authority, 1, expected_revision, expected_revision + 1) do
+      :ok ->
+        {reply, state, directory} =
+          try do
+            commit_finalized(token, state)
+          after
+            :ok = :atomics.put(authority, 1, expected_revision + 2)
+          end
+
+        cleanup_finalized(state, directory)
+        {:reply, reply, state}
+
+      _changed_or_locked ->
+        {:reply, {:error, :obsolete}, state}
     end
   end
 
@@ -190,6 +240,19 @@ defmodule GSMLG.ProxyRules.Store do
         _ = File.rm(Path.join(directory, "artifact.snapshot"))
         _ = File.rmdir(directory)
         {:reply, :ok, %{state | staged: staged}}
+
+      {%{status: :finalized, directory: directory}, staged} ->
+        case Persistence.rollback_finalized_artifact(
+               state.state_directory,
+               state.persistence_options
+             ) do
+          :ok ->
+            _ = File.rmdir(directory)
+            {:reply, :ok, %{state | staged: staged}}
+
+          {:error, :persistence_failed} ->
+            {:reply, {:error, :persistence_failed}, state}
+        end
     end
   end
 
@@ -285,6 +348,27 @@ defmodule GSMLG.ProxyRules.Store do
   defp recover(nil, _opts), do: {:error, :persistence_failed}
   defp recover(state_directory, opts), do: Persistence.recover_artifact(state_directory, opts)
 
+  defp prune_orphan_stages(nil), do: :ok
+
+  defp prune_orphan_stages(state_directory) do
+    case File.ls(state_directory) do
+      {:ok, entries} ->
+        Enum.each(entries, fn entry ->
+          if Regex.match?(~r/^\.artifact-stage-[1-9][0-9]*$/, entry) do
+            path = Path.join(state_directory, entry)
+
+            case File.lstat(path) do
+              {:ok, %File.Stat{type: :directory}} -> _ = File.rm_rf(path)
+              _not_a_real_directory -> :ok
+            end
+          end
+        end)
+
+      {:error, _missing_or_unreadable} ->
+        :ok
+    end
+  end
+
   defp mark_current_stale(reason) do
     case current() do
       {:ok, snapshot} ->
@@ -307,4 +391,75 @@ defmodule GSMLG.ProxyRules.Store do
 
   defp valid_operational_error?(nil), do: true
   defp valid_operational_error?(error), do: Snapshot.valid_operational_error?(error)
+
+  defp commit_finalized(token, state) do
+    case Map.fetch(state.staged, token) do
+      {:ok, %{status: :finalized, snapshot: snapshot, directory: directory}} ->
+        case Persistence.commit_finalized_artifact(
+               state.state_directory,
+               state.persistence_options
+             ) do
+          :ok ->
+            true = :ets.insert(@table, {:current, snapshot})
+
+            {:ok,
+             %{
+               state
+               | staged: Map.delete(state.staged, token),
+                 readiness: snapshot.readiness,
+                 operational_status: nil
+             }, directory}
+
+          {:error, :persistence_failed} = error ->
+            {error, state, nil}
+        end
+
+      _not_finalized ->
+        {{:error, :invalid_stage}, state, nil}
+    end
+  end
+
+  defp cleanup_finalized(_state, nil), do: :ok
+
+  defp cleanup_finalized(state, directory) do
+    _ = Persistence.cleanup_committed_artifact(state.state_directory, state.persistence_options)
+    _ = File.rmdir(directory)
+    :ok
+  end
+
+  defp ensure_authority do
+    case :persistent_term.get(@authority_key, nil) do
+      reference when is_reference(reference) ->
+        reference
+
+      _missing ->
+        reference = :atomics.new(1, signed: false)
+        :persistent_term.put(@authority_key, reference)
+        reference
+    end
+  end
+
+  defp read_source_revision(authority) do
+    revision = :atomics.get(authority, 1)
+
+    if rem(revision, 2) == 0 do
+      revision
+    else
+      Process.sleep(0)
+      read_source_revision(authority)
+    end
+  end
+
+  defp do_advance_source_revision(authority) do
+    revision = read_source_revision(authority)
+
+    case :atomics.compare_exchange(authority, 1, revision, revision + 2) do
+      :ok ->
+        revision + 2
+
+      _changed_or_locked ->
+        Process.sleep(0)
+        do_advance_source_revision(authority)
+    end
+  end
 end

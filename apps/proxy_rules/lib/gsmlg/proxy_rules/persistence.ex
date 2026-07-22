@@ -268,7 +268,7 @@ defmodule GSMLG.ProxyRules.Persistence do
       with true <- File.regular?(staged_path),
            :ok <- recover_artifact(directory, opts),
            :ok <- prepare_for_write(directory, opts),
-           :ok <- commit_transaction(staged_path, target, directory, opts) do
+           :ok <- begin_transaction(staged_path, target, directory, opts) do
         :ok
       end
 
@@ -280,6 +280,68 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   def finalize_staged_artifact(_directory, _staged_path, _opts),
     do: {:error, :persistence_failed}
+
+  @doc false
+  @spec commit_finalized_artifact(binary(), keyword()) :: :ok | {:error, :persistence_failed}
+  def commit_finalized_artifact(directory, opts)
+      when is_binary(directory) and is_list(opts) do
+    marker = transaction_path(directory)
+    target = Path.join(directory, @artifact_file)
+
+    result =
+      with true <- File.regular?(target),
+           {:ok, binary} <- bounded_read(marker, @max_marker_bytes),
+           {:ok, :finalized, had_target?} <- decode_marker(binary),
+           :ok <- write_marker(marker, :committed, had_target?, :replace) do
+        :ok
+      end
+
+    if result == :ok, do: :ok, else: {:error, :persistence_failed}
+  end
+
+  def commit_finalized_artifact(_directory, _opts), do: {:error, :persistence_failed}
+
+  @doc false
+  @spec rollback_finalized_artifact(binary(), keyword()) :: :ok | {:error, :persistence_failed}
+  def rollback_finalized_artifact(directory, opts)
+      when is_binary(directory) and is_list(opts) do
+    marker = transaction_path(directory)
+    target = Path.join(directory, @artifact_file)
+    backup = backup_path(directory)
+
+    result =
+      with {:ok, binary} <- bounded_read(marker, @max_marker_bytes),
+           {:ok, :finalized, had_target?} <- decode_marker(binary) do
+        rollback_pending(directory, target, backup, marker, had_target?, opts)
+      end
+
+    if result == :ok, do: :ok, else: {:error, :persistence_failed}
+  end
+
+  def rollback_finalized_artifact(_directory, _opts), do: {:error, :persistence_failed}
+
+  @doc false
+  @spec cleanup_committed_artifact(binary(), keyword()) :: :ok
+  def cleanup_committed_artifact(directory, opts)
+      when is_binary(directory) and is_list(opts) do
+    marker = transaction_path(directory)
+
+    case bounded_read(marker, @max_marker_bytes) do
+      {:ok, binary} ->
+        case decode_marker(binary) do
+          {:ok, :committed, had_target?} ->
+            cleanup_terminal(directory, :committed, had_target?, opts)
+
+          _not_committed ->
+            :ok
+        end
+
+      _missing_or_unreadable ->
+        :ok
+    end
+  end
+
+  def cleanup_committed_artifact(_directory, _opts), do: :ok
 
   @spec max_output_bytes() :: pos_integer()
   def max_output_bytes, do: @max_output_bytes
@@ -406,6 +468,14 @@ defmodule GSMLG.ProxyRules.Persistence do
   end
 
   defp commit_transaction(temporary, target, directory, opts) do
+    with :ok <- begin_transaction(temporary, target, directory, opts),
+         :ok <- commit_finalized_artifact(directory, opts) do
+      cleanup_committed_artifact(directory, opts)
+      :ok
+    end
+  end
+
+  defp begin_transaction(temporary, target, directory, opts) do
     marker = transaction_path(directory)
     backup = backup_path(directory)
     had_target? = File.regular?(target)
@@ -415,10 +485,8 @@ defmodule GSMLG.ProxyRules.Persistence do
          :ok <- run_directory_sync(directory, opts),
          :ok <- File.rename(temporary, target),
          :ok <- run_directory_sync(directory, opts),
-         :ok <- write_marker(marker, :committed, had_target?, :replace) do
-      cleanup_terminal(directory, :committed, had_target?, opts)
-      :ok
-    end
+         :ok <- write_marker(marker, :finalized, had_target?, :replace),
+         do: :ok
   end
 
   defp preserve_target(_target, _backup, false), do: :ok
@@ -464,6 +532,9 @@ defmodule GSMLG.ProxyRules.Persistence do
           {:ok, :pending, had_target?} ->
             select_prior(backup, had_target?)
 
+          {:ok, :finalized, had_target?} ->
+            select_prior(backup, had_target?)
+
           {:ok, :rolled_back, true} ->
             {:ok, target}
 
@@ -501,6 +572,9 @@ defmodule GSMLG.ProxyRules.Persistence do
           {:ok, :pending, had_target?} ->
             rollback_pending(directory, target, backup, marker, had_target?, opts)
 
+          {:ok, :finalized, had_target?} ->
+            rollback_pending(directory, target, backup, marker, had_target?, opts)
+
           {:error, :invalid_marker} ->
             rollback_pending(
               directory,
@@ -527,7 +601,8 @@ defmodule GSMLG.ProxyRules.Persistence do
   defp decode_marker(binary) do
     case safe_decode(binary) do
       {:ok, %{version: 1, state: state, had_target: had_target?} = marker}
-      when map_size(marker) == 3 and state in [:pending, :committed, :rolled_back] and
+      when map_size(marker) == 3 and
+             state in [:pending, :finalized, :committed, :rolled_back] and
              is_boolean(had_target?) ->
         {:ok, state, had_target?}
 

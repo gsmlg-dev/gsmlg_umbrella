@@ -9,7 +9,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
   use GenServer
 
-  alias GSMLG.ProxyRules.{Configuration, SourceSnapshot, Telemetry}
+  alias GSMLG.ProxyRules.{Configuration, SourceSnapshot, Store, Telemetry}
   alias GSMLG.ProxyRules.Parser.Local, as: LocalParser
 
   @max_source_bytes 8 * 1024 * 1024
@@ -450,6 +450,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
   defp source_changed(kind, snapshot, state) do
     _ = Telemetry.emit([:local, :source, :change], %{}, %{source: kind})
+    _revision = Store.advance_source_revision(Store)
     notify(state.notify, {:proxy_rules_source, kind, snapshot})
   end
 

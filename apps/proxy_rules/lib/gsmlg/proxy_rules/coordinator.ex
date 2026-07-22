@@ -91,6 +91,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
   def handle_info({:proxy_rules_source, kind, %SourceSnapshot{} = snapshot}, state)
       when kind in @source_slots do
     if snapshot.kind == kind and valid_source?(snapshot) do
+      _revision = store_advance_source_revision(state.store)
       {:noreply, accept_source(kind, snapshot, state)}
     else
       {:noreply, state}
@@ -214,6 +215,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
     compiler = state.compiler
     store = state.store
     after_stage = state.after_stage
+    authority_revision = store_source_revision(store)
     input = compiler_input(state)
 
     options =
@@ -233,7 +235,11 @@ defmodule GSMLG.ProxyRules.Coordinator do
             case store_stage(store, stage_token, snapshot) do
               {:ok, token} ->
                 :ok = after_stage.(token)
-                {:ok, token, snapshot, started}
+
+                case store_finalize(store, token) do
+                  :ok -> {:ok, token, snapshot, started}
+                  {:error, reason} -> {:error, persistence_reason(reason), started}
+                end
 
               {:error, reason} ->
                 {:error, persistence_reason(reason), started}
@@ -257,6 +263,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
           pid: task.pid,
           generation: generation,
           stage_token: stage_token,
+          authority_revision: authority_revision,
           timer: timer
         },
         pending: false
@@ -267,11 +274,11 @@ defmodule GSMLG.ProxyRules.Coordinator do
     if authoritative?(active.generation, state) do
       case result do
         {:ok, _token, %Snapshot{}, _started} ->
-          finish_task(result, active.generation, state)
+          finish_task(result, active, state)
 
         _failure ->
           _ = store_discard(state.store, active.stage_token)
-          finish_task(result, active.generation, state)
+          finish_task(result, active, state)
       end
     else
       returned_token = result_token(result) || active.stage_token
@@ -279,11 +286,11 @@ defmodule GSMLG.ProxyRules.Coordinator do
     end
   end
 
-  defp finish_task({:ok, token, snapshot, started}, active_generation, state) do
+  defp finish_task({:ok, token, snapshot, started}, active, state) do
     duration = System.monotonic_time() - started
 
-    if snapshot.generation == active_generation do
-      case store_commit(state.store, token) do
+    if snapshot.generation == active.generation do
+      case store_commit_if_current(state.store, token, active.authority_revision) do
         :ok ->
           _ =
             Telemetry.emit(
@@ -300,19 +307,23 @@ defmodule GSMLG.ProxyRules.Coordinator do
           |> transition(:ready, nil)
           |> start_pending()
 
+        {:error, :obsolete} ->
+          _ = store_discard(state.store, token)
+          queue_compile(state)
+
         {:error, _reason} ->
           _ = store_discard(state.store, token)
           fail_generation(:persistence_failed, state)
       end
     else
-      discard_obsolete(token, active_generation, state)
+      discard_obsolete(token, active.generation, state)
     end
   end
 
-  defp finish_task({:error, reason, _started}, _active_generation, state),
+  defp finish_task({:error, reason, _started}, _active, state),
     do: fail_generation(reason, state)
 
-  defp finish_task(_invalid, _active_generation, state),
+  defp finish_task(_invalid, _active, state),
     do: fail_generation(:compile_failed, state)
 
   defp fail_generation(reason, state) do
@@ -504,8 +515,23 @@ defmodule GSMLG.ProxyRules.Coordinator do
   defp store_stage({module, server}, token, snapshot),
     do: safe_apply(module, :stage, [server, token, snapshot], {:error, :persistence_failed})
 
-  defp store_commit({module, server}, token),
-    do: safe_apply(module, :commit, [server, token], {:error, :persistence_failed})
+  defp store_finalize({module, server}, token),
+    do: safe_apply(module, :finalize, [server, token], {:error, :persistence_failed})
+
+  defp store_source_revision({module, server}),
+    do: safe_apply(module, :source_revision, [server], 0)
+
+  defp store_advance_source_revision({module, server}),
+    do: safe_apply(module, :advance_source_revision, [server], 0)
+
+  defp store_commit_if_current({module, server}, token, revision),
+    do:
+      safe_apply(
+        module,
+        :commit_if_current,
+        [server, token, revision],
+        {:error, :persistence_failed}
+      )
 
   defp store_discard({module, server}, token),
     do: safe_apply(module, :discard, [server, token], :ok)
