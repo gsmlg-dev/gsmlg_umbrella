@@ -35,7 +35,7 @@ defmodule GSMLG.ProxyRules.Configuration do
           local_reconciliation_interval: pos_integer(),
           state_directory: String.t(),
           cache_control: String.t(),
-          unsupported_rule_sample_limit: pos_integer()
+          unsupported_rule_sample_limit: non_neg_integer()
         }
 
   @spec new(map()) :: {:ok, t()} | {:error, {:missing_setting, atom()}}
