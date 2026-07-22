@@ -46,22 +46,22 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     server =
       start_remote(dir, [
-        response(200, body, [{"ETag", "one"}]),
-        response(200, body, [{"etag", "two"}])
+        response(200, body, [{"ETag", ~s("one")}]),
+        response(200, body, [{"etag", ~s(W/"two")}])
       ])
 
     assert {:ok, :accepted} = Remote.refresh(server)
 
     assert_receive {:proxy_rules_source, :remote,
-                    %SourceSnapshot{content: "||example.com^\n", metadata: %{etag: "one"}}},
+                    %SourceSnapshot{content: "||example.com^\n", metadata: %{etag: ~s("one")}}},
                    1_000
 
-    assert {:ok, %{metadata: %{etag: "one"}}} = Persistence.read_remote(dir)
+    assert {:ok, %{metadata: %{etag: ~s("one")}}} = Persistence.read_remote(dir)
 
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source_fresh, :remote, %{etag: "two"}}, 1_000
+    assert_receive {:proxy_rules_source_fresh, :remote, %{etag: ~s(W/"two")}}, 1_000
     refute_receive {:proxy_rules_source, :remote, _}, 30
-    assert {:ok, %{metadata: %{etag: "two"}}} = Persistence.read_remote(dir)
+    assert {:ok, %{metadata: %{etag: ~s(W/"two")}}} = Persistence.read_remote(dir)
   end
 
   @tag :tmp_dir
@@ -70,8 +70,11 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     server =
       start_remote(dir, [
-        response(200, body, [{"ETag", "tag"}, {"LAST-MODIFIED", "date"}]),
-        response(304, "", [{"Etag", "tag-2"}])
+        response(200, body, [
+          {"ETag", ~s("tag")},
+          {"LAST-MODIFIED", "Sun, 06 Nov 1994 08:49:37 GMT"}
+        ]),
+        response(304, "", [{"Etag", ~s(W/"tag-2")}])
       ])
 
     assert {:ok, :accepted} = Remote.refresh(server)
@@ -79,14 +82,15 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert_receive {:transport_request, _, _, [],
                     %{connect_timeout: 11, receive_timeout: 12, max_body_size: 256}}
 
-    assert_receive {:proxy_rules_source, :remote, _}, 1_000
+    assert_receive {:proxy_rules_source, :remote, _}, 2_000
 
     assert {:ok, :accepted} = Remote.refresh(server)
     assert_receive {:transport_request, _, _, headers, _}
-    assert {"if-none-match", "tag"} in headers
-    assert {"if-modified-since", "date"} in headers
+    assert {"if-none-match", ~s("tag")} in headers
+    assert {"if-modified-since", "Sun, 06 Nov 1994 08:49:37 GMT"} in headers
 
-    assert_receive {:proxy_rules_source_fresh, :remote, %{etag: "tag-2", last_modified: "date"}},
+    assert_receive {:proxy_rules_source_fresh, :remote,
+                    %{etag: ~s(W/"tag-2"), last_modified: "Sun, 06 Nov 1994 08:49:37 GMT"}},
                    1_000
   end
 
@@ -196,7 +200,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     on_exit(fn -> :telemetry.detach(handler) end)
     body = Base.encode64("example.com\n")
-    server = start_remote(dir, [response(200, body, [{"etag", "secret-validator"}])])
+    server = start_remote(dir, [response(200, body, [{"etag", ~s("bounded")}])])
 
     assert {:ok, :accepted} = Remote.refresh(server)
 
@@ -221,7 +225,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert {:ok, :accepted} = Remote.refresh(server)
     assert_receive {:cancelled, ^first_ref}
     assert_receive {:transport_request, _, _, _, _}
-    assert_receive {:proxy_rules_source, :remote, _}, 1_000
+    assert_receive {:proxy_rules_source, :remote, _}, 2_000
     assert_receive {:scheduled, 100, second_ref}
     refute first_ref == second_ref
 
@@ -233,16 +237,145 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   test "restores and announces a valid cache before an offline initial fetch", %{tmp_dir: dir} do
     content = "example.com\n"
     body = Base.encode64(content)
-    snapshot = source_snapshot(content, %{etag: "cached", last_modified: nil})
+    snapshot = source_snapshot(content, %{etag: ~s("cached"), last_modified: nil})
     assert :ok = Persistence.write_remote(dir, body, snapshot)
 
     _server = start_remote(dir, [{:error, :connection_failed}], initial_fetch: true)
 
     assert_receive {:proxy_rules_source, :remote,
-                    %SourceSnapshot{content: ^content, metadata: %{etag: "cached"}}},
+                    %SourceSnapshot{content: ^content, metadata: %{etag: ~s("cached")}}},
                    1_000
 
     assert_receive {:scheduled, 10, _}
+  end
+
+  @tag :tmp_dir
+  test "URL migration ignores the old cache and sends no stale validators", %{tmp_dir: dir} do
+    content = "example.com\n"
+    body = Base.encode64(content)
+
+    snapshot =
+      content
+      |> source_snapshot(%{etag: ~s("old"), last_modified: nil})
+      |> put_in([Access.key!(:metadata), :source_url], "https://old.example/list")
+
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+    _server = start_remote(dir, [response(304, "")], initial_fetch: true)
+
+    assert_receive {:transport_request, _, _, [], _}
+    assert_receive {:scheduled, 10, _}
+    refute_receive {:proxy_rules_source, :remote, _}, 30
+    refute_receive {:proxy_rules_source_fresh, :remote, _}, 30
+  end
+
+  @tag :tmp_dir
+  test "restore enforces the configured raw body bound", %{tmp_dir: dir} do
+    content = String.duplicate("a", 300)
+    body = Base.encode64(content)
+
+    assert :ok =
+             Persistence.write_remote(
+               dir,
+               body,
+               source_snapshot(content, %{etag: nil, last_modified: nil})
+             )
+
+    _server =
+      start_remote(dir, [], initial_fetch: false, config_overrides: %{remote_max_body_size: 64})
+
+    refute_receive {:proxy_rules_source, :remote, _}, 50
+  end
+
+  @tag :tmp_dir
+  test "restore merges the configured size bound with injected persistence options", %{
+    tmp_dir: dir
+  } do
+    config = configuration(dir, %{remote_max_body_size: 64})
+
+    options =
+      Remote.persistence_read_options(config,
+        test_process: self(),
+        sentinel: :kept,
+        max_body_bytes: 999
+      )
+
+    assert options[:sentinel] == :kept
+    assert options[:max_body_bytes] == 64
+  end
+
+  @tag :tmp_dir
+  test "repeated 304 uses the prior authoritative pair after a failed post-rename update", %{
+    tmp_dir: dir
+  } do
+    old_content = "old.example\n"
+    old_body = Base.encode64(old_content)
+    server = start_remote(dir, [response(200, old_body), response(304, ""), response(304, "")])
+    assert {:ok, :accepted} = Remote.refresh(server)
+    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{content: ^old_content}}, 1_000
+
+    new_content = "new.example\n"
+
+    assert {:error, :persistence_failed} =
+             Persistence.write_remote(
+               dir,
+               Base.encode64(new_content),
+               source_snapshot(new_content, %{etag: nil, last_modified: nil}),
+               sync_directory: fail_sync_from_call(2, dir)
+             )
+
+    for _ <- 1..2 do
+      assert {:ok, :accepted} = Remote.refresh(server)
+      assert_receive {:proxy_rules_source_fresh, :remote, _}, 3_000
+    end
+
+    assert {:ok, %SourceSnapshot{content: ^old_content}, ^old_body} =
+             Persistence.read_remote_pair(dir)
+  end
+
+  @tag :tmp_dir
+  test "rejects duplicate and malformed response validators while retaining the old source", %{
+    tmp_dir: dir
+  } do
+    body = Base.encode64("example.com\n")
+    valid_date = "Sun, 06 Nov 1994 08:49:37 GMT"
+
+    invalid_headers = [
+      [{"etag", ~s("one")}, {"ETag", ~s("two")}],
+      [{"etag", ""}],
+      [{"etag", ~s("unterminated)}],
+      [{"last-modified", "not a date"}],
+      [{"last-modified", valid_date}, {"LAST-MODIFIED", valid_date}]
+    ]
+
+    responses =
+      [response(200, body, [{"etag", ~s("valid")}, {"last-modified", valid_date}])] ++
+        Enum.map(invalid_headers, &response(200, body, &1)) ++
+        [response(304, "", [{"etag", ~s("a")}, {"ETAG", ~s("b")}])]
+
+    server = start_remote(dir, responses)
+    assert {:ok, :accepted} = Remote.refresh(server)
+    assert_receive {:proxy_rules_source, :remote, original}, 1_000
+    assert_receive {:scheduled, 100, _}
+
+    for _ <- 1..6 do
+      assert {:ok, :accepted} = Remote.refresh(server)
+      assert_receive {:scheduled, _, _}
+    end
+
+    assert {:ok, restored} = Persistence.read_remote(dir)
+    assert restored.content_sha256 == original.content_sha256
+  end
+
+  @tag :tmp_dir
+  test "graceful stop terminates an active supervised transport task", %{tmp_dir: dir} do
+    server = start_remote(dir, [:wait])
+    assert {:ok, :accepted} = Remote.refresh(server)
+    assert_receive {:transport_request, task, _, _, _}
+    task_monitor = Process.monitor(task)
+
+    assert :ok = stop_supervised(Remote)
+    assert_receive {:DOWN, ^task_monitor, :process, ^task, _reason}, 1_000
+    refute_receive {:proxy_rules_source, :remote, _}, 30
   end
 
   defmodule FailingPersistence do
@@ -270,7 +403,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     end
 
     options = [
-      config: configuration(dir),
+      config: configuration(dir, Keyword.get(extra, :config_overrides, %{})),
       transport: Keyword.get(extra, :transport, GSMLG.ProxyRules.TestTransport),
       transport_options: [transport_controller: controller],
       notify: parent,
@@ -280,6 +413,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
       now: fn -> @now end,
       random: fn upper -> upper end,
       persistence: Keyword.get(extra, :persistence, Persistence),
+      persistence_options: Keyword.get(extra, :persistence_options, []),
       initial_fetch: Keyword.get(extra, :initial_fetch, false)
     ]
 
@@ -304,24 +438,27 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     ]
   end
 
-  defp configuration(dir) do
-    struct!(Configuration,
-      source_url: "https://example.test/gfwlist.txt",
-      remote_refresh_interval: 100,
-      remote_connect_timeout: 11,
-      remote_receive_timeout: 12,
-      remote_max_body_size: 256,
-      retry_min_interval: 10,
-      retry_max_interval: 80,
-      retry_jitter: false,
-      local_proxy_list_path: "proxy.txt",
-      local_direct_list_path: "direct.txt",
-      local_watch_debounce: 10,
-      local_reconciliation_interval: 100,
-      state_directory: dir,
-      cache_control: "public, max-age=60",
-      unsupported_rule_sample_limit: 2
-    )
+  defp configuration(dir, overrides \\ %{}) do
+    configuration =
+      struct!(Configuration,
+        source_url: "https://example.test/gfwlist.txt",
+        remote_refresh_interval: 100,
+        remote_connect_timeout: 11,
+        remote_receive_timeout: 12,
+        remote_max_body_size: 256,
+        retry_min_interval: 10,
+        retry_max_interval: 80,
+        retry_jitter: false,
+        local_proxy_list_path: "proxy.txt",
+        local_direct_list_path: "direct.txt",
+        local_watch_debounce: 10,
+        local_reconciliation_interval: 100,
+        state_directory: dir,
+        cache_control: "public, max-age=60",
+        unsupported_rule_sample_limit: 2
+      )
+
+    struct!(Configuration, Map.merge(Map.from_struct(configuration), overrides))
   end
 
   defp response(status, body, headers \\ []),
@@ -339,4 +476,13 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   end
 
   defp sha256(content), do: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
+
+  defp fail_sync_from_call(failing_call, expected_dir) do
+    counter = :counters.new(1, [])
+
+    fn ^expected_dir ->
+      :counters.add(counter, 1, 1)
+      if :counters.get(counter, 1) >= failing_call, do: {:error, :eio}, else: :ok
+    end
+  end
 end

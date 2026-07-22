@@ -88,10 +88,54 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   @spec read_remote(binary(), keyword()) :: {:ok, SourceSnapshot.t()} | {:error, read_error()}
   def read_remote(directory, opts) when is_binary(directory) and is_list(opts) do
+    case read_remote_pair(directory, opts) do
+      {:ok, snapshot, _body} -> {:ok, snapshot}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def read_remote(_directory, _opts), do: {:error, :snapshot_unreadable}
+
+  @spec read_remote_pair(binary()) ::
+          {:ok, SourceSnapshot.t(), binary()} | {:error, read_error()}
+  def read_remote_pair(directory), do: read_remote_pair(directory, [])
+
+  @spec read_remote_pair(binary(), keyword()) ::
+          {:ok, SourceSnapshot.t(), binary()} | {:error, read_error()}
+  def read_remote_pair(directory, opts) when is_binary(directory) and is_list(opts) do
+    stable_remote_read(directory, opts, 3)
+  end
+
+  def read_remote_pair(_directory, _opts), do: {:error, :snapshot_unreadable}
+
+  defp stable_remote_read(_directory, _opts, 0), do: {:error, :snapshot_unreadable}
+
+  defp stable_remote_read(directory, opts, attempts_left) do
+    case select_remote_paths(directory) do
+      {:ok, body_path, metadata_path} ->
+        paths = {body_path, metadata_path}
+
+        with {:ok, before} <- remote_read_identity(directory, paths) do
+          run_stable_read_hook(opts)
+          result = decode_remote_pair(paths, opts)
+
+          case stable_remote_selection?(directory, paths, before) do
+            true -> normalize_remote_read_result(result)
+            false -> stable_remote_read(directory, opts, attempts_left - 1)
+          end
+        else
+          {:error, _reason} -> stable_remote_read(directory, opts, attempts_left - 1)
+        end
+
+      {:error, reason} ->
+        normalize_remote_read_result({:error, reason})
+    end
+  end
+
+  defp decode_remote_pair({body_path, metadata_path}, opts) do
     max_body_bytes = Keyword.get(opts, :max_body_bytes, @max_remote_body_bytes)
 
-    with {:ok, body_path, metadata_path} <- select_remote_paths(directory),
-         {:ok, envelope_binary} <- remote_read(metadata_path, @max_remote_metadata_bytes),
+    with {:ok, envelope_binary} <- remote_read(metadata_path, @max_remote_metadata_bytes),
          {:ok, envelope} <- safe_decode(envelope_binary),
          :ok <- validate_remote_envelope(envelope),
          {:ok, metadata} <- safe_decode(envelope.payload),
@@ -112,8 +156,15 @@ defmodule GSMLG.ProxyRules.Persistence do
            last_modified: metadata.last_modified,
            fetched_at: metadata.fetched_at
          }
-       }}
-    else
+       }, body}
+    end
+  end
+
+  defp normalize_remote_read_result(result) do
+    case result do
+      {:ok, %SourceSnapshot{} = snapshot, body} ->
+        {:ok, snapshot, body}
+
       {:error, reason} when reason in [:enoent, :snapshot_not_found] ->
         {:error, :snapshot_not_found}
 
@@ -137,8 +188,6 @@ defmodule GSMLG.ProxyRules.Persistence do
         {:error, :snapshot_unreadable}
     end
   end
-
-  def read_remote(_directory, _opts), do: {:error, :snapshot_unreadable}
 
   @spec recover_remote(binary(), keyword()) :: :ok | {:error, :persistence_failed}
   def recover_remote(directory, opts \\ [])
@@ -718,7 +767,7 @@ defmodule GSMLG.ProxyRules.Persistence do
            metadata
        )
        when map_size(metadata) == 4 do
-    valid_http_url?(url) and valid_validator?(etag) and valid_validator?(last_modified) and
+    valid_http_url?(url) and valid_etag?(etag) and valid_http_date?(last_modified) and
       valid_datetime?(fetched_at)
   end
 
@@ -741,16 +790,41 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   defp valid_http_url?(_url), do: false
 
-  defp valid_validator?(nil), do: true
+  defp valid_etag?(nil), do: true
+  defp valid_etag?("W/" <> quoted), do: valid_quoted_etag?(quoted)
+  defp valid_etag?(quoted), do: valid_quoted_etag?(quoted)
 
-  defp valid_validator?(validator) when is_binary(validator) and byte_size(validator) <= 8_192,
-    do:
-      String.valid?(validator) and
-        Enum.all?(:binary.bin_to_list(validator), fn byte ->
-          byte == 9 or byte in 32..126 or byte >= 128
-        end)
+  defp valid_quoted_etag?(quoted) when is_binary(quoted) and byte_size(quoted) >= 2 do
+    if :binary.first(quoted) == ?" and :binary.last(quoted) == ?" do
+      opaque = binary_part(quoted, 1, byte_size(quoted) - 2)
 
-  defp valid_validator?(_validator), do: false
+      Enum.all?(:binary.bin_to_list(opaque), fn byte ->
+        byte == 0x21 or byte in 0x23..0x7E or byte >= 0x80
+      end)
+    else
+      false
+    end
+  end
+
+  defp valid_quoted_etag?(_quoted), do: false
+
+  defp valid_http_date?(nil), do: true
+
+  defp valid_http_date?(value) when is_binary(value) and byte_size(value) <= 128 do
+    case :httpd_util.convert_request_date(String.to_charlist(value)) do
+      {{year, month, day}, {hour, minute, second}}
+      when is_integer(year) and is_integer(month) and is_integer(day) and is_integer(hour) and
+             is_integer(minute) and is_integer(second) ->
+        true
+
+      _invalid ->
+        false
+    end
+  rescue
+    _error -> false
+  end
+
+  defp valid_http_date?(_value), do: false
 
   defp remote_metadata(snapshot, body) do
     %{
@@ -799,7 +873,7 @@ defmodule GSMLG.ProxyRules.Persistence do
          max_body_bytes
        )
        when map_size(metadata) == 8 and is_integer(max_body_bytes) and max_body_bytes > 0 do
-    if valid_http_url?(url) and valid_validator?(etag) and valid_validator?(last_modified) and
+    if valid_http_url?(url) and valid_etag?(etag) and valid_http_date?(last_modified) and
          valid_datetime?(fetched_at) and valid_datetime?(observed_at) and is_integer(raw_size) and
          raw_size >= 0 and raw_size <= max_body_bytes and valid_hex_hash?(raw_sha256) and
          valid_hex_hash?(decoded_sha256),
@@ -824,6 +898,44 @@ defmodule GSMLG.ProxyRules.Persistence do
   end
 
   defp remote_read(path, max_bytes), do: bounded_read(path, max_bytes)
+
+  defp remote_read_identity(directory, {body_path, metadata_path}) do
+    with {:ok, marker} <- path_identity(remote_transaction_path(directory), true),
+         {:ok, body} <- path_identity(body_path, false),
+         {:ok, metadata} <- path_identity(metadata_path, false) do
+      {:ok, {marker, body, metadata}}
+    end
+  end
+
+  defp stable_remote_selection?(directory, paths, before) do
+    case select_remote_paths(directory) do
+      {:ok, body_path, metadata_path} when {body_path, metadata_path} == paths ->
+        remote_read_identity(directory, paths) == {:ok, before}
+
+      _changed ->
+        false
+    end
+  end
+
+  defp path_identity(path, allow_missing?) do
+    case File.stat(path, time: :posix) do
+      {:ok, stat} ->
+        {:ok, {stat.inode, stat.size, stat.mtime, stat.ctime, stat.links, stat.type}}
+
+      {:error, :enoent} when allow_missing? ->
+        {:ok, :missing}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp run_stable_read_hook(opts) do
+    case Keyword.get(opts, :stable_read_hook) do
+      hook when is_function(hook, 1) -> hook.(:selected)
+      _other -> :ok
+    end
+  end
 
   defp atomic_write_remote(directory, body, metadata, opts) do
     body_path = Path.join(directory, @remote_body_file)

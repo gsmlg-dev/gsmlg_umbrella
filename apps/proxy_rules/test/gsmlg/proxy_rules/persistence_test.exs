@@ -15,9 +15,57 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     assert :ok = Persistence.write_remote(dir, body, snapshot)
     assert File.read!(Path.join(dir, "remote.body")) == body
     assert {:ok, ^snapshot} = Persistence.read_remote(dir)
+    assert {:ok, ^snapshot, ^body} = Persistence.read_remote_pair(dir)
 
     assert {:error, :invalid_snapshot} =
              Persistence.write_remote(dir, Base.encode64("different.example\n"), snapshot)
+  end
+
+  @tag :tmp_dir
+  test "stable remote reads retry instead of mixing files across both renames", %{tmp_dir: dir} do
+    old_body = Base.encode64("old.example\n")
+    old = remote_snapshot("old.example\n")
+    new_body = Base.encode64("new.example\n")
+    new = remote_snapshot("new.example\n")
+    assert :ok = Persistence.write_remote(dir, old_body, old)
+
+    test_process = self()
+    hook_calls = :counters.new(1, [])
+
+    hook = fn :selected ->
+      :counters.add(hook_calls, 1, 1)
+
+      if :counters.get(hook_calls, 1) == 1 do
+        send(test_process, {:reader_selected, self()})
+        receive do: (:continue_reader -> :ok)
+      end
+    end
+
+    reader = Task.async(fn -> Persistence.read_remote_pair(dir, stable_read_hook: hook) end)
+    assert_receive {:reader_selected, reader_pid}, 2_000
+
+    sync_calls = :counters.new(1, [])
+
+    sync = fn ^dir ->
+      :counters.add(sync_calls, 1, 1)
+
+      if :counters.get(sync_calls, 1) == 2 do
+        send(test_process, {:remote_pair_renamed, self()})
+        receive do: (:continue_writer -> :ok)
+      else
+        :ok
+      end
+    end
+
+    writer =
+      Task.async(fn -> Persistence.write_remote(dir, new_body, new, sync_directory: sync) end)
+
+    assert_receive {:remote_pair_renamed, writer_pid}, 2_000
+    send(reader_pid, :continue_reader)
+    assert {:ok, ^old, ^old_body} = Task.await(reader, 2_000)
+    send(writer_pid, :continue_writer)
+    assert :ok = Task.await(writer, 2_000)
+    assert {:ok, ^new, ^new_body} = Persistence.read_remote_pair(dir)
   end
 
   @tag :tmp_dir
@@ -574,8 +622,8 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
       observed_at: @compiled_at,
       metadata: %{
         source_url: "https://example.test/list",
-        etag: "tag",
-        last_modified: "date",
+        etag: ~s("tag"),
+        last_modified: "Sun, 06 Nov 1994 08:49:37 GMT",
         fetched_at: @compiled_at
       }
     }

@@ -54,8 +54,15 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     end
   end
 
+  @doc false
+  @spec persistence_read_options(Configuration.t(), keyword()) :: keyword()
+  def persistence_read_options(%Configuration{} = config, options) when is_list(options) do
+    Keyword.put(options, :max_body_bytes, config.remote_max_body_size)
+  end
+
   @impl true
   def init(options) do
+    Process.flag(:trap_exit, true)
     config = Keyword.fetch!(options, :config)
     true = match?(%Configuration{}, config)
     transport = Keyword.get(options, :transport, GSMLG.ProxyRules.Transport.Finch)
@@ -125,13 +132,29 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
   def handle_info({:DOWN, _reference, :process, _pid, _reason}, state), do: {:noreply, state}
 
+  @impl true
+  def terminate(_reason, state) do
+    _ = cancel_timer(state)
+
+    if state.active_task do
+      _ = Task.Supervisor.terminate_child(state.task_supervisor, state.active_task.pid)
+      Process.demonitor(state.active_task.ref, [:flush])
+    end
+
+    :ok
+  end
+
   defp restore_cache(state) do
-    case state.persistence.read_remote(state.config.state_directory, state.persistence_options) do
-      {:ok, %SourceSnapshot{} = snapshot} ->
+    case state.persistence.read_remote(
+           state.config.state_directory,
+           persistence_read_options(state.config, state.persistence_options)
+         ) do
+      {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = snapshot}
+      when source_url == state.config.source_url ->
         send(state.notify, {:proxy_rules_source, :remote, snapshot})
         %{state | source: snapshot}
 
-      {:error, _finite_reason} ->
+      _missing_mismatched_or_invalid ->
         state
     end
   rescue
@@ -164,17 +187,21 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     case result do
       {:ok, %{status: 200, headers: headers, body: body}}
       when is_list(headers) and is_binary(body) ->
-        if valid_headers?(headers) do
-          handle_200(body, headers, duration, state)
+        with true <- valid_headers?(headers),
+             {:ok, validators} <- response_validators(headers) do
+          handle_200(body, validators, duration, state)
         else
-          fetch_failed(:invalid_response, state)
+          _invalid -> fetch_failed(:invalid_headers, state)
         end
 
       {:ok, %{status: 304, headers: headers, body: body}}
       when is_list(headers) and is_binary(body) ->
-        if valid_headers?(headers),
-          do: handle_304(headers, duration, state),
-          else: fetch_failed(:invalid_response, state)
+        with true <- valid_headers?(headers),
+             {:ok, validators} <- response_validators(headers) do
+          handle_304(validators, duration, state)
+        else
+          _invalid -> fetch_failed(:invalid_headers, state)
+        end
 
       {:ok, %{status: status, headers: headers, body: body}}
       when is_integer(status) and status >= 100 and status <= 599 and is_list(headers) and
@@ -197,20 +224,20 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
   defp handle_fetch_result(_invalid, state), do: fetch_failed(:invalid_response, state)
 
-  defp handle_200(body, headers, duration, state) do
+  defp handle_200(body, validators, duration, state) do
     cond do
       byte_size(body) > state.config.remote_max_body_size ->
         fetch_failed(:body_too_large, state)
 
       true ->
         case GFWList.decode(body) do
-          {:ok, content} -> persist_200(body, content, headers, duration, state)
+          {:ok, content} -> persist_200(body, content, validators, duration, state)
           {:error, reason} -> fetch_failed(reason, state)
         end
     end
   end
 
-  defp persist_200(body, content, headers, duration, state) do
+  defp persist_200(body, content, validators, duration, state) do
     fetched_at = state.now.()
     hash = sha256(content)
 
@@ -221,8 +248,8 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       observed_at: fetched_at,
       metadata: %{
         source_url: state.config.source_url,
-        etag: response_header(headers, "etag"),
-        last_modified: response_header(headers, "last-modified"),
+        etag: validators.etag,
+        last_modified: validators.last_modified,
         fetched_at: fetched_at
       }
     }
@@ -249,25 +276,30 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     end
   end
 
-  defp handle_304(_headers, _duration, %{source: nil} = state),
+  defp handle_304(_validators, _duration, %{source: nil} = state),
     do: fetch_failed(:not_modified_without_cache, state)
 
-  defp handle_304(headers, duration, state) do
-    fetched_at = state.now.()
+  defp handle_304(validators, duration, state) do
+    case state.persistence.read_remote_pair(
+           state.config.state_directory,
+           persistence_read_options(state.config, state.persistence_options)
+         ) do
+      {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = authoritative, body}
+      when source_url == state.config.source_url ->
+        fetched_at = state.now.()
 
-    metadata = %{
-      state.source.metadata
-      | etag: response_header(headers, "etag") || state.source.metadata.etag,
-        last_modified:
-          response_header(headers, "last-modified") || state.source.metadata.last_modified,
-        fetched_at: fetched_at
-    }
+        metadata = %{
+          authoritative.metadata
+          | etag: validators.etag || authoritative.metadata.etag,
+            last_modified: validators.last_modified || authoritative.metadata.last_modified,
+            fetched_at: fetched_at
+        }
 
-    snapshot = %{state.source | observed_at: fetched_at, metadata: metadata}
+        snapshot = %{authoritative | observed_at: fetched_at, metadata: metadata}
+        persist_304(body, snapshot, metadata, duration, state)
 
-    case current_raw_body(state) do
-      {:ok, body} -> persist_304(body, snapshot, metadata, duration, state)
-      {:error, _reason} -> fetch_failed(:persistence_failed, state)
+      _missing_mismatched_or_invalid ->
+        fetch_failed(:persistence_failed, state)
     end
   end
 
@@ -285,28 +317,6 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
       {:error, _reason} ->
         fetch_failed(:persistence_failed, state)
-    end
-  end
-
-  defp current_raw_body(state) do
-    path = Path.join(state.config.state_directory, "remote.body")
-    maximum = state.config.remote_max_body_size
-
-    case :file.open(String.to_charlist(path), [:read, :binary, :raw]) do
-      {:ok, file} ->
-        result =
-          case :file.read(file, maximum + 1) do
-            {:ok, body} when byte_size(body) <= maximum -> {:ok, body}
-            {:ok, _body} -> {:error, :body_too_large}
-            :eof -> {:ok, ""}
-            {:error, reason} -> {:error, reason}
-          end
-
-        _ = :file.close(file)
-        result
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -427,11 +437,59 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     end) != :invalid
   end
 
-  defp response_header(headers, wanted) do
-    Enum.find_value(headers, fn {name, value} ->
-      if String.downcase(name) == wanted, do: value
-    end)
+  defp response_validators(headers) do
+    with {:ok, etag} <- singleton_header(headers, "etag", &valid_etag?/1),
+         {:ok, last_modified} <-
+           singleton_header(headers, "last-modified", &valid_http_date?/1) do
+      {:ok, %{etag: etag, last_modified: last_modified}}
+    end
   end
+
+  defp singleton_header(headers, wanted, validator) do
+    values =
+      for {name, value} <- headers,
+          String.downcase(name) == wanted,
+          do: value
+
+    case values do
+      [] -> {:ok, nil}
+      [value] -> if validator.(value), do: {:ok, value}, else: {:error, :invalid_headers}
+      _duplicates -> {:error, :invalid_headers}
+    end
+  end
+
+  defp valid_etag?("W/" <> quoted), do: valid_quoted_etag?(quoted)
+  defp valid_etag?(quoted), do: valid_quoted_etag?(quoted)
+
+  defp valid_quoted_etag?(quoted) when is_binary(quoted) and byte_size(quoted) >= 2 do
+    if :binary.first(quoted) == ?" and :binary.last(quoted) == ?" do
+      opaque = binary_part(quoted, 1, byte_size(quoted) - 2)
+
+      Enum.all?(:binary.bin_to_list(opaque), fn byte ->
+        byte == 0x21 or byte in 0x23..0x7E or byte >= 0x80
+      end)
+    else
+      false
+    end
+  end
+
+  defp valid_quoted_etag?(_quoted), do: false
+
+  defp valid_http_date?(value) when is_binary(value) and byte_size(value) <= 128 do
+    case :httpd_util.convert_request_date(String.to_charlist(value)) do
+      {{year, month, day}, {hour, minute, second}}
+      when is_integer(year) and is_integer(month) and is_integer(day) and is_integer(hour) and
+             is_integer(minute) and is_integer(second) ->
+        true
+
+      _invalid ->
+        false
+    end
+  rescue
+    _error -> false
+  end
+
+  defp valid_http_date?(_value), do: false
 
   defp capped_exponential(minimum, maximum, attempt) do
     do_capped_exponential(minimum, maximum, attempt)
