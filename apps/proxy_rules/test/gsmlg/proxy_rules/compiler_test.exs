@@ -69,6 +69,25 @@ defmodule GSMLG.ProxyRules.CompilerTest do
     assert snapshot.rendered_outputs.direct.clash.body == "DOMAIN-SUFFIX,example.com\n"
   end
 
+  test "counts exact cross-list conflicts before hierarchy folding" do
+    input = %{
+      remote: Base.encode64("||example.com^\n||a.example.com^\n@@||a.example.com^\n"),
+      local_proxy: "",
+      local_direct: ""
+    }
+
+    assert {:ok, snapshot} =
+             Compiler.compile(input,
+               generation: 8,
+               compiled_at: @compiled_at,
+               sample_limit: 1
+             )
+
+    assert snapshot.rendered_outputs.proxy.raw.body == "example.com\n"
+    assert snapshot.rendered_outputs.direct.raw.body == "a.example.com\n"
+    assert snapshot.statistics.conflict_count == 1
+  end
+
   test "metadata recursively omits artifact bodies and retains validators" do
     assert {:ok, snapshot} =
              Compiler.compile(
@@ -147,6 +166,27 @@ defmodule GSMLG.ProxyRules.CompilerTest do
              Compiler.compile(
                %{remote: valid_remote, local_proxy: "", local_direct: <<255>>},
                generation: 1,
+               sample_limit: 1
+             )
+  end
+
+  test "rejects a forged DateTime with bounded systemic diagnostics" do
+    malformed = %{@compiled_at | month: 13}
+
+    assert {:error,
+            [
+              %Diagnostic{
+                kind: :systemic,
+                source: :gfwlist,
+                location: :system,
+                reason: :systemic_failure,
+                sample: nil
+              }
+            ]} =
+             Compiler.compile(
+               %{remote: Base.encode64("||example.com^\n"), local_proxy: "", local_direct: ""},
+               generation: 1,
+               compiled_at: malformed,
                sample_limit: 1
              )
   end

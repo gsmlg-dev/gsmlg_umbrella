@@ -71,7 +71,7 @@ defmodule GSMLG.ProxyRules.Compiler do
     compiled_at = Keyword.get(options, :compiled_at, DateTime.utc_now())
     sample_limit = Keyword.get(options, :sample_limit)
 
-    if is_integer(generation) and generation >= 0 and match?(%DateTime{}, compiled_at) and
+    if is_integer(generation) and generation >= 0 and valid_datetime?(compiled_at) and
          is_integer(sample_limit) and sample_limit >= 0 do
       {:ok, generation, DateTime.truncate(compiled_at, :second), sample_limit}
     else
@@ -174,13 +174,14 @@ defmodule GSMLG.ProxyRules.Compiler do
        ) do
     proxy_rules = rules_for(remote, :proxy) ++ local_proxy.rules
     direct_rules = rules_for(remote, :direct) ++ local_direct.rules
-    proxy = Hierarchy.fold_with_stats(proxy_rules)
-    direct = Hierarchy.fold_with_stats(direct_rules)
 
     conflicts =
-      proxy.rules
+      proxy_rules
       |> domain_set()
-      |> MapSet.intersection(domain_set(direct.rules))
+      |> MapSet.intersection(domain_set(direct_rules))
+
+    proxy = Hierarchy.fold_with_stats(proxy_rules)
+    direct = Hierarchy.fold_with_stats(direct_rules)
 
     %Snapshot{
       generation: generation,
@@ -232,6 +233,32 @@ defmodule GSMLG.ProxyRules.Compiler do
   end
 
   defp sha256(body), do: :crypto.hash(:sha256, body) |> Base.encode16(case: :lower)
+
+  defp valid_datetime?(%DateTime{} = datetime) do
+    with {:ok, _date} <-
+           Date.new(datetime.year, datetime.month, datetime.day, datetime.calendar),
+         {:ok, _time} <-
+           Time.new(
+             datetime.hour,
+             datetime.minute,
+             datetime.second,
+             datetime.microsecond,
+             datetime.calendar
+           ) do
+      is_binary(datetime.time_zone) and datetime.time_zone != "" and
+        is_binary(datetime.zone_abbr) and datetime.zone_abbr != "" and
+        is_integer(datetime.utc_offset) and abs(datetime.utc_offset) < 86_400 and
+        is_integer(datetime.std_offset) and abs(datetime.std_offset) < 86_400
+    else
+      {:error, _reason} -> false
+    end
+  rescue
+    _error -> false
+  catch
+    _kind, _reason -> false
+  end
+
+  defp valid_datetime?(_datetime), do: false
 
   defp systemic(source, reason) do
     %Diagnostic{kind: :systemic, source: source, location: :system, reason: reason, sample: nil}
