@@ -24,6 +24,12 @@ defmodule GSMLG.ProxyRules.MixProject do
 
   defp deps do
     [
+      {:finch, "~> 0.23"},
+      {:file_system, "~> 1.1"},
+      {:idna, "~> 7.1"},
+      {:telemetry, "~> 1.3"},
+      {:gsmlg_telemetry, in_umbrella: true},
+      {:stream_data, "~> 1.3", only: [:dev, :test]},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
