@@ -92,8 +92,6 @@ defmodule GSMLG.ProxyRules.StoreTest do
     assert {:error, :not_ready} = Store.current()
 
     assert {:ok, second_token} = Store.stage(Store, second)
-    assert {:error, :invalid_stage} = Store.commit(Store, second_token)
-    assert :ok = Store.finalize(Store, second_token)
     assert :ok = Store.commit(Store, second_token)
     assert {:ok, %Snapshot{generation: 91}} = Store.current()
     assert {:ok, %Snapshot{generation: 91}} = Persistence.read_artifact(dir)
@@ -110,12 +108,58 @@ defmodule GSMLG.ProxyRules.StoreTest do
     )
 
     assert {:ok, token} = Store.stage(Store, second)
-    assert {:error, :persistence_failed} = Store.finalize(Store, token)
+    assert {:error, :persistence_failed} = Store.commit(Store, token)
     assert {:ok, %Snapshot{generation: 92}} = Store.current()
     assert {:ok, %Snapshot{generation: 92}} = Persistence.read_artifact(dir)
 
     restart_store(dir)
     assert {:ok, %Snapshot{generation: 92, readiness: :stale}} = Store.current()
+  end
+
+  @tag :tmp_dir
+  test "discarding a non-authoritative stage leaves disk and ETS on the prior generation", %{
+    tmp_dir: dir
+  } do
+    first = fixture_snapshot(94)
+    second = fixture_snapshot(95)
+    assert :ok = Store.publish(first)
+    assert {:ok, token} = Store.stage(Store, second)
+    assert :ok = Store.discard(Store, token)
+    assert {:ok, %Snapshot{generation: 94}} = Store.current()
+    assert {:ok, %Snapshot{generation: 94}} = Persistence.read_artifact(dir)
+
+    restart_store(dir)
+    assert {:ok, %Snapshot{generation: 94, readiness: :stale}} = Store.current()
+  end
+
+  @tag :tmp_dir
+  test "restoration emits artifact and stale status telemetry", %{tmp_dir: dir} do
+    snapshot = fixture_snapshot(96)
+    assert :ok = Persistence.write_artifact(dir, snapshot)
+    test_process = self()
+    handler = "store-restoration-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach_many(
+        handler,
+        [
+          [:gsmlg, :proxy_rules, :artifact, :restoration],
+          [:gsmlg, :proxy_rules, :status, :change]
+        ],
+        fn event, measurements, metadata, _config ->
+          send(test_process, {:restoration_telemetry, event, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+    restart_store(dir)
+
+    assert_receive {:restoration_telemetry, [:gsmlg, :proxy_rules, :artifact, :restoration],
+                    %{generation: 96}, %{}}
+
+    assert_receive {:restoration_telemetry, [:gsmlg, :proxy_rules, :status, :change],
+                    %{generation: 96}, %{readiness: :stale}}
   end
 
   @tag :tmp_dir

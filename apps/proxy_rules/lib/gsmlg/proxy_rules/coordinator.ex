@@ -42,6 +42,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
          configuration: config,
          compiler: Keyword.get(options, :compiler, Compiler),
          compiler_options: Keyword.get(options, :compiler_options, []),
+         after_stage: Keyword.get(options, :after_stage, fn _token -> :ok end),
          store: dependencies.store,
          remote_service: dependencies.remote,
          local_service: dependencies.local,
@@ -69,6 +70,11 @@ defmodule GSMLG.ProxyRules.Coordinator do
       |> put_initial(:remote, safe_remote_snapshot(state.remote_service))
       |> put_initial_locals(safe_local_snapshots(state.local_service))
       |> reconcile_initial()
+
+    state =
+      if safe_remote_status(state.remote_service) == :refreshing,
+        do: transition(state, :refreshing, nil),
+        else: state
 
     {:noreply, state}
   end
@@ -102,6 +108,9 @@ defmodule GSMLG.ProxyRules.Coordinator do
     state = mark_source_stale(kind, state)
     {:noreply, transition(%{state | last_failure: error}, stale_readiness(state), error)}
   end
+
+  def handle_info({:proxy_rules_source_status, :remote, :refreshing, nil}, state),
+    do: {:noreply, transition(state, :refreshing, nil)}
 
   def handle_info({reference, result}, %{active: %{ref: reference} = active} = state) do
     Process.demonitor(reference, [:flush])
@@ -204,6 +213,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
     stage_token = Store.stage_token(generation)
     compiler = state.compiler
     store = state.store
+    after_stage = state.after_stage
     input = compiler_input(state)
 
     options =
@@ -222,10 +232,8 @@ defmodule GSMLG.ProxyRules.Coordinator do
           {:ok, %Snapshot{} = snapshot} ->
             case store_stage(store, stage_token, snapshot) do
               {:ok, token} ->
-                case store_finalize(store, token) do
-                  :ok -> {:ok, token, snapshot, started}
-                  {:error, reason} -> {:error, persistence_reason(reason), started}
-                end
+                :ok = after_stage.(token)
+                {:ok, token, snapshot, started}
 
               {:error, reason} ->
                 {:error, persistence_reason(reason), started}
@@ -484,6 +492,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
   defp safe_compile(module, input, options), do: module.compile(input, options)
 
   defp safe_remote_snapshot({module, server}), do: safe_apply(module, :snapshot, [server], nil)
+  defp safe_remote_status({module, server}), do: safe_apply(module, :status, [server], nil)
   defp safe_local_snapshots({module, server}), do: safe_apply(module, :snapshots, [server], %{})
 
   defp safe_refresh({module, server}),
@@ -497,9 +506,6 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
   defp store_commit({module, server}, token),
     do: safe_apply(module, :commit, [server, token], {:error, :persistence_failed})
-
-  defp store_finalize({module, server}, token),
-    do: safe_apply(module, :finalize, [server, token], {:error, :persistence_failed})
 
   defp store_discard({module, server}, token),
     do: safe_apply(module, :discard, [server, token], :ok)

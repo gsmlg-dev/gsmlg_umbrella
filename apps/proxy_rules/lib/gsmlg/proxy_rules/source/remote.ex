@@ -37,6 +37,9 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   @spec snapshot(GenServer.server()) :: SourceSnapshot.t() | nil
   def snapshot(server), do: GenServer.call(server, :snapshot)
 
+  @spec status(GenServer.server()) :: :refreshing | SourceSnapshot.availability() | nil
+  def status(server), do: GenServer.call(server, :status)
+
   @doc false
   @spec retry_delay(pos_integer(), pos_integer(), non_neg_integer(), boolean(), (pos_integer() ->
                                                                                    pos_integer())) ::
@@ -101,22 +104,29 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   @impl true
   def handle_continue(:restore, state) do
     state = restore_cache(state)
-    if state.initial_fetch, do: {:noreply, start_fetch(state)}, else: {:noreply, state}
+    if state.initial_fetch, do: {:noreply, start_fetch(state, true)}, else: {:noreply, state}
   end
 
   @impl true
   def handle_call(:refresh, _from, state) do
     state = cancel_timer(state)
-    state = if state.active_task, do: state, else: start_fetch(state)
+    state = if state.active_task, do: state, else: start_fetch(state, false)
     {:reply, {:ok, :accepted}, state}
   end
 
   def handle_call(:snapshot, _from, state), do: {:reply, state.source, state}
 
+  def handle_call(:status, _from, %{active_task: active_task} = state)
+      when not is_nil(active_task),
+      do: {:reply, :refreshing, state}
+
+  def handle_call(:status, _from, state),
+    do: {:reply, if(state.source, do: state.source.availability, else: nil), state}
+
   @impl true
   def handle_info({:scheduled_refresh, token}, %{timer: %{token: token}} = state) do
     state = %{state | timer: nil}
-    {:noreply, if(state.active_task, do: state, else: start_fetch(state))}
+    {:noreply, if(state.active_task, do: state, else: start_fetch(state, true))}
   end
 
   def handle_info({:scheduled_refresh, _stale_token}, state), do: {:noreply, state}
@@ -169,7 +179,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     _kind, _reason -> state
   end
 
-  defp start_fetch(state) do
+  defp start_fetch(state, notify_status?) do
     headers = conditional_headers(state.source)
     options = transport_options(state.config, state.transport_options)
     transport = state.transport
@@ -178,6 +188,9 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     started = System.monotonic_time()
 
     _ = Telemetry.emit([:remote, :fetch, :start], %{}, %{source: :gfwlist})
+
+    if notify_status?,
+      do: notify(state.notify, {:proxy_rules_source_status, :remote, :refreshing, nil})
 
     task =
       Task.Supervisor.async_nolink(state.task_supervisor, fn ->

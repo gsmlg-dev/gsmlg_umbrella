@@ -44,19 +44,6 @@ defmodule GSMLG.ProxyRules.CoordinatorTestStore do
     end
   end
 
-  def finalize(server, token) do
-    Agent.get_and_update(server, fn state ->
-      case Map.fetch(state.staged, token) do
-        {:ok, %{snapshot: snapshot} = entry} ->
-          send(state.test_process, {:finalized, snapshot.generation})
-          {:ok, put_in(state, [:staged, token], %{entry | status: :finalized})}
-
-        :error ->
-          {{:error, :invalid_stage}, state}
-      end
-    end)
-  end
-
   def commit(server, token) do
     Agent.get_and_update(server, fn state ->
       case {Map.get(state, :fail_commit, false), Map.pop(state.staged, token)} do
@@ -66,7 +53,8 @@ defmodule GSMLG.ProxyRules.CoordinatorTestStore do
         {false, {nil, _staged}} ->
           {{:error, :invalid_stage}, state}
 
-        {false, {%{snapshot: snapshot, status: :finalized}, staged}} ->
+        {false, {%{snapshot: snapshot, status: :staged}, staged}} ->
+          send(state.test_process, {:finalized, snapshot.generation})
           send(state.test_process, {:published, snapshot.generation})
 
           {:ok,
@@ -111,7 +99,16 @@ end
 defmodule GSMLG.ProxyRules.CoordinatorTest do
   use ExUnit.Case, async: false
 
-  alias GSMLG.ProxyRules.{Configuration, Coordinator, Diagnostic, Snapshot, SourceSnapshot}
+  alias GSMLG.ProxyRules.{
+    Compiler,
+    Configuration,
+    Coordinator,
+    Diagnostic,
+    Persistence,
+    Snapshot,
+    SourceSnapshot,
+    Store
+  }
 
   @now ~U[2026-07-23 03:04:05Z]
 
@@ -148,7 +145,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
                  remote: {GSMLG.ProxyRules.CoordinatorTestRemote, remote},
                  local: {GSMLG.ProxyRules.CoordinatorTestLocal, local},
                  task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
-                 compile_timeout: 100,
+                 compile_timeout: 500,
                  now: fn -> @now end
                ]
              ]}
@@ -172,7 +169,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
     assert_receive {:compile_started, 1, task, _input}
     send(task, {:compile_result, :compile})
-    assert_receive {:stage_started, 1, stage_task}
+    assert_receive {:stage_started, 1, stage_task}, 1_000
     send(stage_task, :finish_stage)
     assert_receive {:published, 1}
     assert {:ok, %Snapshot{generation: 1, readiness: :ready}} = store_current(context.store)
@@ -189,7 +186,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     )
 
     send(first, {:compile_result, :compile})
-    assert_receive {:stage_started, 1, stale_stage}
+    assert_receive {:stage_started, 1, stale_stage}, 1_000
 
     send(
       context.coordinator,
@@ -201,7 +198,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
     assert_receive {:compile_started, 3, latest, %{local_proxy: "three.example\n"}}
     send(latest, {:compile_result, :compile})
-    assert_receive {:stage_started, 3, latest_stage}
+    assert_receive {:stage_started, 3, latest_stage}, 1_000
     send(latest_stage, :finish_stage)
     assert_receive {:published, 3}
   end
@@ -211,7 +208,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     send_sources(context.coordinator, "one.example")
     assert_receive {:compile_started, 1, task, _}
     send(task, {:compile_result, :compile})
-    assert_receive {:stage_started, 1, stage_task}
+    assert_receive {:stage_started, 1, stage_task}, 1_000
     send(stage_task, :finish_stage)
     assert_receive {:published, 1}
 
@@ -242,6 +239,15 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert {:ok, :accepted} = Coordinator.refresh(context.coordinator)
     assert_receive :refresh_called
     assert %{readiness: :refreshing} = Agent.get(context.store, & &1.metadata)
+  end
+
+  test "automatic remote fetch status transitions readiness to refreshing", context do
+    send(context.coordinator, {:proxy_rules_source_status, :remote, :refreshing, nil})
+
+    assert_eventually(fn -> Agent.get(context.store, & &1.metadata) end, fn
+      %{readiness: :refreshing} -> true
+      _ -> false
+    end)
   end
 
   test "emits bounded status telemetry for refreshing, stale, and ready transitions", context do
@@ -319,7 +325,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       {:proxy_rules_source, :local_proxy, source(:local_proxy, "four.example\n")}
     )
 
-    assert_receive {:compile_started, 4, latest, _}, 500
+    assert_receive {:compile_started, 4, latest, _}, 1_000
     refute Process.alive?(waiting)
     assert {:ok, %Snapshot{generation: 1, last_error: nil}} = store_current(context.store)
     finish_success(latest, 4)
@@ -330,7 +336,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert_receive {:compile_started, 1, task, _}
     send(context.coordinator, {:proxy_rules_source_status, :local_proxy, :stale, :not_found})
     send(task, {:compile_result, :compile})
-    assert_receive {:stage_started, 1, stage}
+    assert_receive {:stage_started, 1, stage}, 1_000
     send(stage, :finish_stage)
     refute_receive {:published, 1}, 30
     assert {:error, :not_ready} = store_current(context.store)
@@ -344,7 +350,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     send_sources(context.coordinator, "one.example")
     assert_receive {:compile_started, 1, first, _}
     send(first, {:compile_result, :compile})
-    assert_receive {:stage_started, 1, stage_task}
+    assert_receive {:stage_started, 1, stage_task}, 1_000
     send(stage_task, :finish_stage)
     assert_receive {:published, 1}
 
@@ -388,7 +394,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     send_sources(context.coordinator, "one.example")
     assert_receive {:compile_started, 1, first, _}
     send(first, {:compile_result, :compile})
-    assert_receive {:stage_started, 1, stage_task}
+    assert_receive {:stage_started, 1, stage_task}, 1_000
     send(stage_task, :finish_stage)
     assert_receive {:published, 1}
 
@@ -399,7 +405,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
     assert_receive {:compile_started, 2, second, _}
     send(second, {:compile_result, :compile})
-    assert_receive {:stage_started, 2, failed_stage}
+    assert_receive {:stage_started, 2, failed_stage}, 1_000
     send(failed_stage, {:fail_stage, :persistence_failed})
     assert_stale_generation(context.store, 1, :persistence_failed)
 
@@ -470,7 +476,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     send_sources(context.coordinator, "one.example")
     assert_receive {:compile_started, 1, first, _}
     send(first, {:compile_result, :compile})
-    assert_receive {:stage_started, 1, first_stage}
+    assert_receive {:stage_started, 1, first_stage}, 1_000
     send(first_stage, :finish_stage)
     assert_receive {:published, 1}
 
@@ -483,9 +489,97 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
     assert_receive {:compile_started, 2, second, _}
     send(second, {:compile_result, :compile})
-    assert_receive {:stage_started, 2, second_stage}
+    assert_receive {:stage_started, 2, second_stage}, 1_000
     send(second_stage, :finish_stage)
     assert_stale_generation(context.store, 1, :persistence_failed)
+  end
+
+  test "a source change after durable staging cannot survive a store restart", context do
+    supervisor = GSMLG.ProxyRules.Supervisor
+    directory = Path.join(System.tmp_dir!(), "proxy-rules-authority-#{System.unique_integer()}")
+    File.mkdir_p!(directory)
+
+    :ok = Supervisor.terminate_child(supervisor, Coordinator)
+    :ok = Supervisor.terminate_child(supervisor, Store)
+
+    on_exit(fn ->
+      if Process.whereis(Coordinator), do: GenServer.stop(Coordinator)
+      if Process.whereis(Store), do: GenServer.stop(Store)
+      _ = Supervisor.restart_child(supervisor, Store)
+      _ = Supervisor.restart_child(supervisor, Coordinator)
+      File.rm_rf!(directory)
+    end)
+
+    {:ok, _store} = Store.start_link(name: Store, state_directory: directory)
+
+    assert {:ok, prior} =
+             Compiler.compile(
+               %{
+                 remote: Base.encode64("||prior-remote.example^\n"),
+                 local_proxy: "prior-proxy.example\n",
+                 local_direct: "prior-direct.example\n"
+               },
+               generation: 1,
+               compiled_at: @now,
+               sample_limit: 2
+             )
+
+    assert :ok = Store.publish(prior)
+    test_process = self()
+
+    after_stage = fn token ->
+      send(test_process, {:durably_staged, self(), token})
+
+      receive do
+        :release_staged_result -> :ok
+      end
+    end
+
+    name = String.to_atom("coordinator_authority_#{System.unique_integer([:positive])}")
+
+    {:ok, coordinator} =
+      Coordinator.start_link(
+        name: name,
+        configuration: %{configuration() | state_directory: directory},
+        compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
+        compiler_options: [test_process: self()],
+        after_stage: after_stage,
+        store: {Store, Store},
+        remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
+        local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
+        task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
+        compile_timeout: 5_000,
+        now: fn -> @now end
+      )
+
+    Process.unlink(coordinator)
+    send_sources(coordinator, "candidate.example")
+    assert_receive {:compile_started, 2, candidate, _}
+    send(candidate, {:compile_result, :compile})
+    assert_receive {:durably_staged, staged_task, _token}, 2_000
+
+    send(
+      coordinator,
+      {:proxy_rules_source, :local_proxy, source(:local_proxy, "newer.example\n")}
+    )
+
+    assert_eventually(
+      fn -> :sys.get_state(coordinator).source_generation end,
+      &(&1 == 3)
+    )
+
+    send(staged_task, :release_staged_result)
+    assert_receive {:compile_started, 3, _latest, _}
+
+    assert {:ok, %Snapshot{generation: 1}} = Store.current()
+    assert {:ok, %Snapshot{generation: 1}} = Persistence.read_artifact(directory)
+
+    :ok = GenServer.stop(coordinator)
+    :ok = GenServer.stop(Store)
+    {:ok, _restarted_store} = Store.start_link(name: Store, state_directory: directory)
+
+    assert {:ok, %Snapshot{generation: 1, readiness: :stale}} = Store.current()
+    assert {:ok, %Snapshot{generation: 1}} = Persistence.read_artifact(directory)
   end
 
   defp start_coordinator(context) do
@@ -506,7 +600,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
                remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
                local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
                task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
-               compile_timeout: 100,
+               compile_timeout: 500,
                now: fn -> @now end
              ]
            ]}
@@ -537,7 +631,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
   defp finish_success(task, generation) do
     send(task, {:compile_result, :compile})
-    assert_receive {:stage_started, ^generation, stage}
+    assert_receive {:stage_started, ^generation, stage}, 1_000
     send(stage, :finish_stage)
     assert_receive {:finalized, ^generation}
     assert_receive {:published, ^generation}

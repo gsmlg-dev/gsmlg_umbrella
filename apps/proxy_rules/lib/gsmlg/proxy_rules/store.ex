@@ -1,7 +1,7 @@
 defmodule GSMLG.ProxyRules.Store do
   use GenServer
 
-  alias GSMLG.ProxyRules.{Configuration, Persistence, Snapshot}
+  alias GSMLG.ProxyRules.{Configuration, Persistence, Snapshot, Telemetry}
 
   @table :gsmlg_proxy_rules_store
   @readiness [:not_ready, :refreshing, :ready, :stale]
@@ -49,10 +49,6 @@ defmodule GSMLG.ProxyRules.Store do
           :ok | {:error, :invalid_stage | :persistence_failed}
   def commit(server, token), do: GenServer.call(server, {:commit, token}, :infinity)
 
-  @spec finalize(GenServer.server(), stage_token()) ::
-          :ok | {:error, :invalid_stage | :persistence_failed}
-  def finalize(server, token), do: GenServer.call(server, {:finalize, token}, :infinity)
-
   @spec discard(GenServer.server(), stage_token()) :: :ok
   def discard(server, token), do: GenServer.call(server, {:discard, token})
 
@@ -85,7 +81,15 @@ defmodule GSMLG.ProxyRules.Store do
     _ = recover(state_directory, persistence_options)
     {snapshot, operational_status} = restore(state_directory)
 
-    if snapshot, do: :ets.insert(@table, {:current, snapshot})
+    if snapshot do
+      :ets.insert(@table, {:current, snapshot})
+      _ = Telemetry.emit([:artifact, :restoration], %{generation: snapshot.generation}, %{})
+
+      _ =
+        Telemetry.emit([:status, :change], %{generation: snapshot.generation}, %{
+          readiness: :stale
+        })
+    end
 
     {:ok,
      %{
@@ -146,9 +150,9 @@ defmodule GSMLG.ProxyRules.Store do
   def handle_call({:stage, _token, _snapshot}, _from, state),
     do: {:reply, {:error, :invalid_stage}, state}
 
-  def handle_call({:finalize, token}, _from, state) do
+  def handle_call({:commit, token}, _from, state) do
     case Map.fetch(state.staged, token) do
-      {:ok, %{status: :staged, directory: directory} = entry} ->
+      {:ok, %{status: :staged, snapshot: snapshot, directory: directory}} ->
         staged_path = Path.join(directory, "artifact.snapshot")
 
         case Persistence.finalize_staged_artifact(
@@ -157,37 +161,20 @@ defmodule GSMLG.ProxyRules.Store do
                state.persistence_options
              ) do
           :ok ->
-            staged = Map.put(state.staged, token, %{entry | status: :finalized})
-            {:reply, :ok, %{state | staged: staged}}
+            true = :ets.insert(@table, {:current, snapshot})
+            _ = File.rmdir(directory)
+
+            {:reply, :ok,
+             %{
+               state
+               | staged: Map.delete(state.staged, token),
+                 readiness: snapshot.readiness,
+                 operational_status: nil
+             }}
 
           {:error, :persistence_failed} = error ->
             {:reply, error, state}
         end
-
-      {:ok, %{status: :finalized}} ->
-        {:reply, :ok, state}
-
-      :error ->
-        {:reply, {:error, :invalid_stage}, state}
-    end
-  end
-
-  def handle_call({:commit, token}, _from, state) do
-    case Map.fetch(state.staged, token) do
-      {:ok, %{status: :finalized, snapshot: snapshot, directory: directory}} ->
-        true = :ets.insert(@table, {:current, snapshot})
-        _ = File.rmdir(directory)
-
-        {:reply, :ok,
-         %{
-           state
-           | staged: Map.delete(state.staged, token),
-             readiness: snapshot.readiness,
-             operational_status: nil
-         }}
-
-      {:ok, %{status: :staged}} ->
-        {:reply, {:error, :invalid_stage}, state}
 
       :error ->
         {:reply, {:error, :invalid_stage}, state}
@@ -201,10 +188,6 @@ defmodule GSMLG.ProxyRules.Store do
 
       {%{status: :staged, directory: directory}, staged} ->
         _ = File.rm(Path.join(directory, "artifact.snapshot"))
-        _ = File.rmdir(directory)
-        {:reply, :ok, %{state | staged: staged}}
-
-      {%{status: :finalized, directory: directory}, staged} ->
         _ = File.rmdir(directory)
         {:reply, :ok, %{state | staged: staged}}
     end

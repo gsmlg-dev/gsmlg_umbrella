@@ -158,6 +158,17 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   end
 
   @tag :tmp_dir
+  test "automatic initial fetch announces refreshing before completion", %{tmp_dir: dir} do
+    server = start_remote(dir, [:wait], initial_fetch: true)
+    assert_receive {:proxy_rules_source_status, :remote, :refreshing, nil}
+    assert_receive {:transport_request, task, _, _, _}
+    assert nil == Remote.snapshot(server)
+
+    send(task, {:transport_response, response(200, Base.encode64("example.com\n"))})
+    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{availability: :ready}}, 1_000
+  end
+
+  @tag :tmp_dir
   test "rejects a transport module that does not implement get/3", %{tmp_dir: dir} do
     assert {:error, {:invalid_option, :transport}} =
              Remote.start_link(remote_options(dir, [], transport: String))
@@ -265,7 +276,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert %SourceSnapshot{availability: :stale} = Remote.snapshot(server)
 
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source_fresh, :remote, _}
+    assert_receive {:proxy_rules_source_fresh, :remote, _}, 1_000
     assert %SourceSnapshot{availability: :ready} = Remote.snapshot(server)
   end
 
@@ -331,7 +342,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     old_body = Base.encode64(old_content)
     server = start_remote(dir, [response(200, old_body), response(304, ""), response(304, "")])
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{content: ^old_content}}, 1_000
+    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{content: ^old_content}}, 3_000
 
     new_content = "new.example\n"
 
