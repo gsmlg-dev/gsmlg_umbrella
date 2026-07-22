@@ -1,6 +1,10 @@
 defmodule GSMLG.ProxyRules.Source.Local do
   @moduledoc """
   Watches and periodically reconciles the two local proxy-rule source files.
+
+  Local inputs are bounded to 8 MiB and descriptor reads are bounded to 250 ms.
+  This keeps special files and unexpectedly large inputs from wedging the source
+  service or growing it without limit.
   """
 
   use GenServer
@@ -8,14 +12,31 @@ defmodule GSMLG.ProxyRules.Source.Local do
   alias GSMLG.ProxyRules.{Configuration, SourceSnapshot, Telemetry}
   alias GSMLG.ProxyRules.Parser.Local, as: LocalParser
 
+  @max_source_bytes 8 * 1024 * 1024
+  @read_timeout 250
+
   @type failure ::
-          :not_found | :permission_denied | :invalid_utf8 | :invalid_replacement | :read_failed
+          :not_found
+          | :permission_denied
+          | :invalid_utf8
+          | :invalid_replacement
+          | :body_too_large
+          | :read_failed
+
+  @doc false
+  @spec max_source_bytes() :: pos_integer()
+  def max_source_bytes, do: @max_source_bytes
+
+  @doc false
+  @spec read_timeout() :: pos_integer()
+  def read_timeout, do: @read_timeout
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(options) when is_list(options) do
-    with :ok <- validate_options(options) do
+    with :ok <- validate_options(options),
+         {:ok, targets} <- canonical_targets(Keyword.fetch!(options, :config)) do
       {gen_options, init_options} = Keyword.split(options, [:name])
-      GenServer.start_link(__MODULE__, init_options, gen_options)
+      GenServer.start_link(__MODULE__, Keyword.put(init_options, :targets, targets), gen_options)
     end
   end
 
@@ -30,10 +51,10 @@ defmodule GSMLG.ProxyRules.Source.Local do
   @impl true
   def init(options) do
     Process.flag(:trap_exit, true)
-    config = Keyword.fetch!(options, :config)
 
     state = %{
-      config: config,
+      config: Keyword.fetch!(options, :config),
+      targets: Keyword.fetch!(options, :targets),
       notify: Keyword.fetch!(options, :notify),
       file_system: Keyword.get(options, :file_system, FileSystem),
       file_system_options: Keyword.get(options, :file_system_options, []),
@@ -41,61 +62,74 @@ defmodule GSMLG.ProxyRules.Source.Local do
       cancel_timer: Keyword.get(options, :cancel_timer, &Process.cancel_timer/1),
       now: Keyword.get(options, :now, &DateTime.utc_now/0),
       watcher: nil,
+      watch_directories: [],
       debounce_timer: nil,
       periodic_timer: nil,
-      sources: %{proxy: nil, direct: nil}
+      entries: %{proxy: new_entry(), direct: new_entry()}
     }
 
-    {:ok, state, {:continue, :reconcile_and_watch}}
+    {:ok, state, {:continue, :watch_and_reconcile}}
   end
 
   @impl true
-  def handle_continue(:reconcile_and_watch, state) do
-    state = reconcile_sources(state)
-
-    case start_watcher(state) do
-      {:ok, state} -> {:noreply, schedule_periodic(state)}
+  def handle_continue(:watch_and_reconcile, state) do
+    case refresh_watcher(state) do
+      {:ok, state} -> {:noreply, state |> reconcile_sources() |> schedule_periodic()}
       {:error, reason} -> stop_for_watcher(reason, state)
     end
   end
 
   @impl true
-  def handle_call(:snapshots, _from, state), do: {:reply, public_snapshots(state.sources), state}
+  def handle_call(:snapshots, _from, state), do: {:reply, public_snapshots(state.entries), state}
 
   def handle_call(:reconcile, _from, state) do
-    {:reply, :ok, reconcile_sources(state)}
+    case refresh_watcher(state) do
+      {:ok, state} ->
+        {:reply, :ok, reconcile_sources(state)}
+
+      {:error, reason} ->
+        emit_watcher_failure()
+        {:stop, {:watcher_failed, reason}, {:error, :watcher_failed}, state}
+    end
   end
 
   @impl true
   def handle_info({:file_event, watcher, {path, _events}}, %{watcher: watcher} = state)
       when is_binary(path) do
-    if relevant_path?(path, state.config) do
+    if relevant_path?(path, state) do
       {:noreply, schedule_debounce(state)}
     else
       {:noreply, state}
     end
   end
 
-  def handle_info({:file_event, watcher, :stop}, %{watcher: watcher} = state) do
-    stop_for_watcher(:unexpected_stop, state)
-  end
+  def handle_info({:file_event, watcher, :stop}, %{watcher: watcher} = state),
+    do: stop_for_watcher(:unexpected_stop, state)
 
   def handle_info({:debounced_reconcile, token}, %{debounce_timer: %{token: token}} = state) do
-    {:noreply, reconcile_sources(%{state | debounce_timer: nil})}
+    state = %{state | debounce_timer: nil}
+
+    case refresh_watcher(state) do
+      {:ok, state} -> {:noreply, reconcile_sources(state)}
+      {:error, reason} -> stop_for_watcher(reason, state)
+    end
   end
 
   def handle_info({:debounced_reconcile, _stale_token}, state), do: {:noreply, state}
 
   def handle_info({:periodic_reconcile, token}, %{periodic_timer: %{token: token}} = state) do
     state = %{state | periodic_timer: nil}
-    {:noreply, state |> reconcile_sources() |> schedule_periodic()}
+
+    case refresh_watcher(state) do
+      {:ok, state} -> {:noreply, state |> reconcile_sources() |> schedule_periodic()}
+      {:error, reason} -> stop_for_watcher(reason, state)
+    end
   end
 
   def handle_info({:periodic_reconcile, _stale_token}, state), do: {:noreply, state}
 
-  def handle_info({:EXIT, watcher, reason}, %{watcher: watcher} = state) do
-    stop_for_watcher(bounded_exit_reason(reason), state)
-  end
+  def handle_info({:EXIT, watcher, reason}, %{watcher: watcher} = state),
+    do: stop_for_watcher(bounded_exit_reason(reason), state)
 
   def handle_info(_message, state), do: {:noreply, state}
 
@@ -103,8 +137,12 @@ defmodule GSMLG.ProxyRules.Source.Local do
   def terminate(_reason, state) do
     cancel_timer(state.debounce_timer, state.cancel_timer)
     cancel_timer(state.periodic_timer, state.cancel_timer)
+    stop_watcher(state.watcher)
     :ok
   end
+
+  defp new_entry,
+    do: %{snapshot: nil, has_valid_snapshot: false, last_failure: nil}
 
   defp validate_options(options) do
     validators = [
@@ -126,23 +164,35 @@ defmodule GSMLG.ProxyRules.Source.Local do
     }
 
     Enum.reduce_while(validators, :ok, fn {key, validator}, :ok ->
-      case Keyword.fetch(options, key) do
-        {:ok, value} ->
-          if validator.(value), do: {:cont, :ok}, else: {:halt, {:error, {:invalid_option, key}}}
+      value = Keyword.get(options, key, Map.get(defaults, key, :missing))
 
-        :error ->
-          case Map.fetch(defaults, key) do
-            {:ok, value} ->
-              if validator.(value),
-                do: {:cont, :ok},
-                else: {:halt, {:error, {:invalid_option, key}}}
-
-            :error ->
-              {:halt, {:error, {:invalid_option, key}}}
-          end
-      end
+      if validator.(value),
+        do: {:cont, :ok},
+        else: {:halt, {:error, {:invalid_option, key}}}
     end)
   end
+
+  defp canonical_targets(config) do
+    with {:ok, proxy} <- canonical_path(config.local_proxy_list_path),
+         {:ok, direct} <- canonical_path(config.local_direct_list_path) do
+      if proxy == direct do
+        {:error, {:invalid_option, :local_source_paths}}
+      else
+        {:ok,
+         %{
+           proxy: %{kind: :local_proxy, action: :proxy, path: proxy},
+           direct: %{kind: :local_direct, action: :direct, path: direct}
+         }}
+      end
+    else
+      :error -> {:error, {:invalid_option, :local_source_paths}}
+    end
+  end
+
+  defp canonical_path(path) when is_binary(path) and byte_size(path) > 0,
+    do: {:ok, Path.expand(path)}
+
+  defp canonical_path(_path), do: :error
 
   defp valid_file_system?(module) when is_atom(module) do
     Code.ensure_loaded?(module) and function_exported?(module, :start_link, 1) and
@@ -151,28 +201,49 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
   defp valid_file_system?(_module), do: false
 
-  defp start_watcher(state) do
-    directories =
-      [state.config.local_proxy_list_path, state.config.local_direct_list_path]
-      |> Enum.map(&Path.dirname/1)
-      |> Enum.uniq()
+  defp refresh_watcher(state) do
+    directories = desired_watch_directories(state.targets)
 
+    if state.watcher && state.watch_directories == directories do
+      {:ok, state}
+    else
+      replace_watcher(directories, state)
+    end
+  end
+
+  defp desired_watch_directories(targets) do
+    targets
+    |> Map.values()
+    |> Enum.map(&nearest_existing_ancestor(Path.dirname(&1.path)))
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  defp nearest_existing_ancestor(path) do
+    if File.dir?(path) do
+      path
+    else
+      parent = Path.dirname(path)
+      if parent == path, do: path, else: nearest_existing_ancestor(parent)
+    end
+  end
+
+  defp replace_watcher(directories, state) do
     watcher_options = Keyword.put(state.file_system_options, :dirs, directories)
 
     case state.file_system.start_link(watcher_options) do
       {:ok, watcher} when is_pid(watcher) ->
-        case state.file_system.subscribe(watcher) do
-          :ok -> {:ok, %{state | watcher: watcher}}
-          _invalid -> {:error, :subscribe_failed}
+        case subscribe_watcher(state.file_system, watcher) do
+          :ok ->
+            stop_watcher(state.watcher)
+            {:ok, %{state | watcher: watcher, watch_directories: directories}}
+
+          _failure ->
+            stop_watcher(watcher)
+            {:error, :subscribe_failed}
         end
 
-      :ignore ->
-        {:error, :start_failed}
-
-      {:error, _reason} ->
-        {:error, :start_failed}
-
-      _invalid ->
+      _failure ->
         {:error, :start_failed}
     end
   rescue
@@ -181,41 +252,119 @@ defmodule GSMLG.ProxyRules.Source.Local do
     _kind, _reason -> {:error, :start_failed}
   end
 
-  defp reconcile_sources(state) do
-    Enum.reduce([:proxy, :direct], state, &reconcile_source/2)
+  defp subscribe_watcher(file_system, watcher) do
+    file_system.subscribe(watcher)
+  rescue
+    _error -> :error
+  catch
+    _kind, _reason -> :error
   end
 
-  defp reconcile_source(slot, state) do
-    {kind, action, path} = source_spec(slot, state.config)
-    previous = Map.fetch!(state.sources, slot)
+  defp stop_watcher(nil), do: :ok
 
-    case read_source(path, action, kind, state.config.unsupported_rule_sample_limit) do
-      {:ok, content, availability} ->
-        accept_source(slot, kind, path, content, availability, previous, state)
+  defp stop_watcher(watcher) when is_pid(watcher) do
+    Process.unlink(watcher)
 
-      {:error, reason} ->
-        fail_source(slot, kind, path, reason, previous, state)
+    if Process.alive?(watcher) do
+      try do
+        GenServer.stop(watcher, :normal, 1_000)
+      catch
+        :exit, _reason -> :ok
+      end
     end
+
+    :ok
+  end
+
+  defp reconcile_sources(state) do
+    state.targets
+    |> Enum.map(fn {slot, target} ->
+      {slot,
+       Task.async(fn ->
+         read_source(
+           target.path,
+           target.action,
+           target.kind,
+           state.config.unsupported_rule_sample_limit
+         )
+       end)}
+    end)
+    |> await_reads()
+    |> Enum.reduce(state, fn {slot, result}, current ->
+      reconcile_result(slot, result, current)
+    end)
+  end
+
+  defp await_reads(slot_tasks) do
+    tasks = Enum.map(slot_tasks, &elem(&1, 1))
+    slots = Map.new(slot_tasks, fn {slot, task} -> {task.ref, slot} end)
+
+    tasks
+    |> Task.yield_many(@read_timeout)
+    |> Enum.map(fn
+      {task, {:ok, result}} ->
+        {Map.fetch!(slots, task.ref), result}
+
+      {task, _exit_or_timeout} ->
+        _ = Task.shutdown(task, :brutal_kill)
+        {Map.fetch!(slots, task.ref), {:error, :read_failed}}
+    end)
   end
 
   defp read_source(path, action, kind, sample_limit) do
-    case File.read(path) do
-      {:ok, bytes} ->
-        if String.valid?(bytes) do
-          content = normalize(bytes)
+    case descriptor_read(path) do
+      {:ok, bytes} -> validate_content(bytes, action, kind, sample_limit)
+      {:error, :enoent} -> {:ok, "", :missing}
+      {:error, reason} -> {:error, file_failure(reason)}
+    end
+  rescue
+    _error -> {:error, :read_failed}
+  catch
+    _kind, _reason -> {:error, :read_failed}
+  end
 
-          if valid_replacement?(content, action, kind, sample_limit),
-            do: {:ok, content, :ready},
-            else: {:error, :invalid_replacement}
-        else
-          {:error, :invalid_utf8}
-        end
+  defp descriptor_read(path) do
+    with {:ok, descriptor} <- :file.open(String.to_charlist(path), [:read, :binary, :raw]) do
+      try do
+        descriptor_contents(descriptor)
+      after
+        :file.close(descriptor)
+      end
+    end
+  end
 
-      {:error, :enoent} ->
-        {:ok, "", :missing}
+  defp descriptor_contents(descriptor) do
+    with {:ok, info_record} <- :file.read_file_info(descriptor),
+         %File.Stat{type: :regular, size: size} <- File.Stat.from_record(info_record),
+         true <- size <= @max_source_bytes,
+         {:ok, bytes} <- read_bytes(descriptor),
+         true <- byte_size(bytes) <= @max_source_bytes do
+      {:ok, bytes}
+    else
+      %File.Stat{} -> {:error, :nonregular}
+      false -> {:error, :body_too_large}
+      {:error, reason} -> {:error, reason}
+      _invalid -> {:error, :read_failed}
+    end
+  end
 
-      {:error, reason} ->
-        {:error, file_failure(reason)}
+  defp read_bytes(descriptor) do
+    case :file.read(descriptor, @max_source_bytes + 1) do
+      {:ok, bytes} -> {:ok, bytes}
+      :eof -> {:ok, ""}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_content(bytes, action, kind, sample_limit) do
+    if String.valid?(bytes) do
+      content = normalize(bytes)
+
+      if valid_replacement?(content, action, kind, sample_limit),
+        do: {:ok, content, :ready},
+        else: {:error, :invalid_replacement}
+    else
+      {:error, :invalid_utf8}
     end
   end
 
@@ -246,67 +395,85 @@ defmodule GSMLG.ProxyRules.Source.Local do
     result.counts.accepted > 0 or result.counts.invalid == 0
   end
 
-  defp accept_source(slot, kind, path, content, availability, previous, state) do
+  defp reconcile_result(slot, {:ok, content, availability}, state) do
+    target = Map.fetch!(state.targets, slot)
+    entry = Map.fetch!(state.entries, slot)
+    accept_source(slot, target, content, availability, entry, state)
+  end
+
+  defp reconcile_result(slot, {:error, reason}, state) do
+    target = Map.fetch!(state.targets, slot)
+    entry = Map.fetch!(state.entries, slot)
+    fail_source(slot, target, reason, entry, state)
+  end
+
+  defp accept_source(slot, target, content, availability, entry, state) do
     observed_at = state.now.()
     hash = sha256(content)
 
     snapshot = %SourceSnapshot{
-      kind: kind,
+      kind: target.kind,
       content: content,
       content_sha256: hash,
       observed_at: observed_at,
-      metadata: %{path: path},
+      metadata: %{path: target.path},
       availability: availability
     }
 
     cond do
-      previous == nil ->
-        _ = Telemetry.emit([:local, :source, :change], %{}, %{source: kind})
-        send(state.notify, {:proxy_rules_source, kind, snapshot})
-        put_source(state, slot, snapshot)
+      not entry.has_valid_snapshot ->
+        source_changed(target.kind, snapshot, state)
+        put_entry(state, slot, %{snapshot: snapshot, has_valid_snapshot: true, last_failure: nil})
 
-      availability == :missing and previous.availability == :missing ->
-        put_source(state, slot, snapshot)
+      availability == :missing and entry.snapshot.availability == :missing ->
+        put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
 
       availability == :missing ->
-        fail_source(slot, kind, path, :not_found, previous, state)
+        fail_source(slot, target, :not_found, entry, state)
 
-      previous.content_sha256 != hash ->
-        _ = Telemetry.emit([:local, :source, :change], %{}, %{source: kind})
-        send(state.notify, {:proxy_rules_source, kind, snapshot})
-        put_source(state, slot, snapshot)
+      entry.snapshot.content_sha256 != hash ->
+        source_changed(target.kind, snapshot, state)
+        put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
 
-      previous.availability != :ready ->
-        metadata = %{path: path, observed_at: observed_at, availability: :ready}
-        send(state.notify, {:proxy_rules_source_fresh, kind, metadata})
-        put_source(state, slot, snapshot)
+      entry.snapshot.availability != :ready ->
+        metadata = %{path: target.path, observed_at: observed_at, availability: :ready}
+        send(state.notify, {:proxy_rules_source_fresh, target.kind, metadata})
+        put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
 
       true ->
-        put_source(state, slot, snapshot)
+        put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
     end
   end
 
-  defp fail_source(slot, kind, path, reason, nil, state) do
-    observed_at = state.now.()
+  defp source_changed(kind, snapshot, state) do
+    _ = Telemetry.emit([:local, :source, :change], %{}, %{source: kind})
+    send(state.notify, {:proxy_rules_source, kind, snapshot})
+  end
 
-    snapshot = %SourceSnapshot{
-      kind: kind,
+  defp fail_source(slot, target, reason, entry, state) do
+    snapshot = stale_snapshot(target, entry.snapshot, state.now.())
+    if entry.last_failure != reason, do: notify_failure(target.kind, reason, state)
+
+    put_entry(state, slot, %{
+      entry
+      | snapshot: snapshot,
+        last_failure: reason
+    })
+  end
+
+  defp stale_snapshot(target, nil, observed_at) do
+    %SourceSnapshot{
+      kind: target.kind,
       content: "",
       content_sha256: sha256(""),
       observed_at: observed_at,
-      metadata: %{path: path},
+      metadata: %{path: target.path},
       availability: :stale
     }
-
-    notify_failure(kind, reason, state)
-    put_source(state, slot, snapshot)
   end
 
-  defp fail_source(slot, kind, _path, reason, previous, state) do
-    snapshot = %{previous | availability: :stale, observed_at: state.now.()}
-    if previous.availability != :stale, do: notify_failure(kind, reason, state)
-    put_source(state, slot, snapshot)
-  end
+  defp stale_snapshot(_target, snapshot, observed_at),
+    do: %{snapshot | availability: :stale, observed_at: observed_at}
 
   defp notify_failure(kind, reason, state) do
     _ =
@@ -318,12 +485,18 @@ defmodule GSMLG.ProxyRules.Source.Local do
     send(state.notify, {:proxy_rules_source_status, kind, :stale, reason})
   end
 
-  defp telemetry_failure(:not_found), do: :not_found
-  defp telemetry_failure(:permission_denied), do: :permission_denied
-  defp telemetry_failure(:invalid_utf8), do: :invalid_utf8
+  defp telemetry_failure(reason)
+       when reason in [:not_found, :permission_denied, :invalid_utf8, :body_too_large],
+       do: reason
+
   defp telemetry_failure(_reason), do: :read_failed
 
   defp stop_for_watcher(reason, state) do
+    emit_watcher_failure()
+    {:stop, {:watcher_failed, reason}, state}
+  end
+
+  defp emit_watcher_failure do
     Enum.each([:local_proxy, :local_direct], fn source ->
       _ =
         Telemetry.emit([:local, :reconciliation, :failure], %{}, %{
@@ -331,24 +504,31 @@ defmodule GSMLG.ProxyRules.Source.Local do
           failure_category: :watcher_failed
         })
     end)
-
-    {:stop, {:watcher_failed, reason}, state}
   end
 
-  defp put_source(state, slot, snapshot),
-    do: put_in(state, [:sources, slot], snapshot)
+  defp put_entry(state, slot, entry), do: put_in(state, [:entries, slot], entry)
 
-  defp source_spec(:proxy, config),
-    do: {:local_proxy, :proxy, config.local_proxy_list_path}
+  defp public_snapshots(entries) do
+    %{proxy: entries.proxy.snapshot, direct: entries.direct.snapshot}
+  end
 
-  defp source_spec(:direct, config),
-    do: {:local_direct, :direct, config.local_direct_list_path}
+  defp relevant_path?(path, state) do
+    event_paths =
+      if Path.type(path) == :absolute do
+        [Path.expand(path)]
+      else
+        Enum.map(state.watch_directories, &Path.expand(path, &1))
+      end
 
-  defp public_snapshots(%{proxy: proxy, direct: direct}), do: %{proxy: proxy, direct: direct}
+    Enum.any?(event_paths, fn event_path ->
+      Enum.any?(state.targets, fn {_slot, target} -> ancestor_of?(event_path, target.path) end)
+    end)
+  end
 
-  defp relevant_path?(path, config) do
-    targets = [config.local_proxy_list_path, config.local_direct_list_path]
-    path in targets or path in Enum.map(targets, &Path.dirname/1)
+  defp ancestor_of?(candidate, target) do
+    candidate_parts = Path.split(candidate)
+    target_parts = Path.split(target)
+    Enum.take(target_parts, length(candidate_parts)) == candidate_parts
   end
 
   defp schedule_debounce(state) do
@@ -381,6 +561,8 @@ defmodule GSMLG.ProxyRules.Source.Local do
   defp default_schedule(server, message, delay), do: Process.send_after(server, message, delay)
 
   defp file_failure(reason) when reason in [:eacces, :eperm], do: :permission_denied
+  defp file_failure(:enoent), do: :enoent
+  defp file_failure(:body_too_large), do: :body_too_large
   defp file_failure(_reason), do: :read_failed
 
   defp bounded_exit_reason(reason) when reason in [:normal, :shutdown, :killed], do: reason

@@ -1,30 +1,37 @@
 defmodule GSMLG.ProxyRules.Source.LocalTestWatcher do
-  def start_link(options) do
+  use GenServer
+
+  def start_link(options), do: GenServer.start_link(__MODULE__, options)
+  def subscribe(pid), do: GenServer.call(pid, {:subscribe, self()})
+
+  @impl true
+  def init(options) do
     test_process = Keyword.get(options, :test_process)
-    pid = spawn_link(fn -> loop(nil, test_process) end)
-    if test_process, do: send(test_process, {:watcher_started, pid, options})
-    {:ok, pid}
+    if test_process, do: send(test_process, {:watcher_started, self(), options})
+
+    {:ok,
+     %{
+       subscriber: nil,
+       test_process: test_process,
+       on_subscribe: Keyword.get(options, :on_subscribe)
+     }}
   end
 
-  def subscribe(pid) do
-    send(pid, {:subscriber, self()})
-    :ok
+  @impl true
+  def handle_call({:subscribe, subscriber}, _from, state) do
+    if state.on_subscribe, do: state.on_subscribe.()
+    if state.test_process, do: send(state.test_process, {:watcher_subscribed, self()})
+    {:reply, :ok, %{state | subscriber: subscriber}}
   end
 
-  defp loop(subscriber, test_process) do
-    receive do
-      {:subscriber, new_subscriber} ->
-        if test_process, do: send(test_process, {:watcher_subscribed, self()})
-        loop(new_subscriber, test_process)
-
-      {:event, path, events} ->
-        if subscriber, do: send(subscriber, {:file_event, self(), {path, events}})
-        loop(subscriber, test_process)
-
-      {:crash, reason} ->
-        exit(reason)
-    end
+  @impl true
+  def handle_info({:event, path, events}, state) do
+    if state.subscriber, do: send(state.subscriber, {:file_event, self(), {path, events}})
+    {:noreply, state}
   end
+
+  def handle_info({:crash, reason}, state), do: {:stop, reason, state}
+  def handle_info(_message, state), do: {:noreply, state}
 end
 
 defmodule GSMLG.ProxyRules.Source.LocalTest do
@@ -170,9 +177,21 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   @tag :tmp_dir
   test "in-place edit, atomic rename, and symlink entry replacement reconcile", %{tmp_dir: dir} do
     path = Path.join(dir, "proxy.txt")
+    relative_path = Path.relative_to_cwd(path)
     File.write!(path, "one.example\n")
-    server = start_local(dir, file_system: FileSystem)
+
+    server =
+      start_local(dir,
+        file_system: FileSystem,
+        config_overrides: %{
+          local_proxy_list_path: relative_path,
+          local_direct_list_path: Path.relative_to_cwd(Path.join(dir, "direct.txt")),
+          local_reconciliation_interval: 60_000
+        }
+      )
+
     assert %{proxy: %SourceSnapshot{content: "one.example\n"}} = Local.snapshots(server)
+    await_real_watcher(server, dir)
     flush_messages()
 
     File.write!(path, "two.example\n")
@@ -206,6 +225,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert_receive {:watcher_started, watcher, options}
     assert Keyword.fetch!(options, :dirs) == [dir]
     assert_receive {:watcher_subscribed, ^watcher}
+    assert %{proxy: %SourceSnapshot{availability: :missing}} = Local.snapshots(server)
     flush_messages()
 
     path = Path.join(dir, "proxy.txt")
@@ -260,6 +280,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
       )
 
     assert_receive {:watcher_started, watcher, _}
+    assert_receive {:watcher_subscribed, ^watcher}
     monitor = Process.monitor(server)
     send(watcher, {:crash, :watcher_broke})
 
@@ -278,35 +299,221 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
 
     assert {:error, {:invalid_option, :file_system}} =
              Local.start_link(config: configuration(dir), notify: self(), file_system: String)
+
+    same_path = Path.join(dir, "same.txt")
+
+    assert {:error, {:invalid_option, :local_source_paths}} =
+             Local.start_link(
+               config:
+                 configuration(dir, %{
+                   local_proxy_list_path: same_path,
+                   local_direct_list_path: Path.join(dir, "./same.txt")
+                 }),
+               notify: self()
+             )
+  end
+
+  @tag :tmp_dir
+  test "initial invalid sources do not suppress the first later valid empty publication", %{
+    tmp_dir: dir
+  } do
+    for {name, initial} <- [
+          {"invalid-utf8", <<255>>},
+          {"invalid-replacement", "not a domain\n"}
+        ] do
+      source_dir = Path.join(dir, name)
+      File.mkdir_p!(source_dir)
+      path = Path.join(source_dir, "proxy.txt")
+      File.write!(path, initial)
+      server = start_local(source_dir)
+      assert %{proxy: %SourceSnapshot{availability: :stale}} = Local.snapshots(server)
+      flush_messages()
+
+      File.write!(path, "")
+      assert :ok = Local.reconcile(server)
+
+      assert_receive {:proxy_rules_source, :local_proxy,
+                      %SourceSnapshot{content: "", availability: :ready}}
+
+      assert :ok = GenServer.stop(server)
+    end
+
+    read_dir = Path.join(dir, "read-failure")
+    File.mkdir_p!(read_dir)
+    path = Path.join(read_dir, "proxy.txt")
+    File.mkdir!(path)
+    server = start_local(read_dir)
+    assert %{proxy: %SourceSnapshot{availability: :stale}} = Local.snapshots(server)
+    flush_messages()
+    File.rmdir!(path)
+    File.write!(path, "")
+    assert :ok = Local.reconcile(server)
+
+    assert_receive {:proxy_rules_source, :local_proxy,
+                    %SourceSnapshot{content: "", availability: :ready}}
+
+    assert :ok = GenServer.stop(server)
+  end
+
+  @tag :tmp_dir
+  test "canonicalizes relative targets and metadata while keeping one same-parent watcher", %{
+    tmp_dir: dir
+  } do
+    relative_dir = Path.relative_to_cwd(dir)
+    proxy = Path.join(relative_dir, "proxy.txt")
+    direct = Path.join(relative_dir, "direct.txt")
+    File.write!(Path.expand(proxy), "example.com\n")
+
+    server =
+      start_local(dir,
+        config_overrides: %{
+          local_proxy_list_path: proxy,
+          local_direct_list_path: direct
+        },
+        file_system_options: [test_process: self()]
+      )
+
+    assert_receive {:watcher_started, _watcher, options}
+    assert Keyword.fetch!(options, :dirs) == [Path.expand(relative_dir)]
+    assert %{proxy: %SourceSnapshot{metadata: %{path: path}}} = Local.snapshots(server)
+    assert path == Path.expand(proxy)
+  end
+
+  @tag :tmp_dir
+  test "watcher is subscribed before initial reconciliation", %{tmp_dir: dir} do
+    path = Path.join(dir, "proxy.txt")
+    File.write!(path, "old.example\n")
+
+    server =
+      start_local(dir,
+        file_system_options: [
+          test_process: self(),
+          on_subscribe: fn -> File.write!(path, "latest.example\n") end
+        ]
+      )
+
+    assert_receive {:watcher_subscribed, _watcher}
+
+    assert %{proxy: %SourceSnapshot{content: "latest.example\n", availability: :ready}} =
+             Local.snapshots(server)
+  end
+
+  @tag :tmp_dir
+  test "oversized and FIFO sources fail within finite bounds and later recover", %{tmp_dir: dir} do
+    path = Path.join(dir, "proxy.txt")
+    File.write!(path, :binary.copy("x", Local.max_source_bytes() + 1))
+    server = start_local(dir)
+    assert %{proxy: %SourceSnapshot{availability: :stale}} = Local.snapshots(server)
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :body_too_large}
+
+    File.rm!(path)
+    {_, 0} = System.cmd("mkfifo", [path])
+    started = System.monotonic_time(:millisecond)
+    assert :ok = Local.reconcile(server)
+    elapsed = System.monotonic_time(:millisecond) - started
+    assert elapsed < Local.read_timeout() * 3
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :read_failed}
+
+    File.rm!(path)
+    File.write!(path, "fifo-recovered.example\n")
+    assert :ok = Local.reconcile(server)
+
+    assert_receive {:proxy_rules_source, :local_proxy,
+                    %SourceSnapshot{content: "fifo-recovered.example\n"}}
+  end
+
+  @tag :tmp_dir
+  test "stale reason changes notify while identical repeats remain quiet", %{tmp_dir: dir} do
+    path = Path.join(dir, "proxy.txt")
+    File.write!(path, "example.com\n")
+    server = start_local(dir)
+    assert %{proxy: %SourceSnapshot{availability: :ready}} = Local.snapshots(server)
+    flush_messages()
+
+    File.rm!(path)
+    assert :ok = Local.reconcile(server)
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found}
+    assert :ok = Local.reconcile(server)
+    refute_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found}, 30
+
+    File.write!(path, <<255>>)
+    assert :ok = Local.reconcile(server)
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :invalid_utf8}
+  end
+
+  @tag :tmp_dir
+  test "missing target parents are watched through an ancestor and recover by events", %{
+    tmp_dir: dir
+  } do
+    nested = Path.join([dir, "future", "rules"])
+    proxy = Path.join(nested, "proxy.txt")
+    direct = Path.join(nested, "direct.txt")
+
+    server =
+      start_local(dir,
+        config_overrides: %{
+          local_proxy_list_path: proxy,
+          local_direct_list_path: direct,
+          local_reconciliation_interval: 60_000
+        },
+        file_system: FileSystem
+      )
+
+    assert %{proxy: %SourceSnapshot{availability: :missing}} = Local.snapshots(server)
+    await_real_watcher(server, dir)
+    File.mkdir_p!(nested)
+    File.write!(proxy, "created.example\n")
+    assert_eventually_snapshot(server, :proxy, "created.example\n")
+    assert Path.dirname(proxy) in :sys.get_state(server).watch_directories
+  end
+
+  @tag :tmp_dir
+  test "normal stop explicitly terminates the watcher", %{tmp_dir: dir} do
+    server = start_local(dir)
+    watcher = :sys.get_state(server).watcher
+    monitor = Process.monitor(watcher)
+    assert :ok = GenServer.stop(server)
+    assert_receive {:DOWN, ^monitor, :process, ^watcher, _reason}, 1_000
   end
 
   defp start_local(dir, extra \\ []) do
+    {config_overrides, extra} = Keyword.pop(extra, :config_overrides, %{})
     defaults = [file_system: GSMLG.ProxyRules.Source.LocalTestWatcher]
-    start_supervised!({Local, local_options(dir, Keyword.merge(defaults, extra))})
-  end
 
-  defp local_options(dir, extra) do
-    Keyword.merge([config: configuration(dir), notify: self(), now: fn -> @now end], extra)
-  end
-
-  defp configuration(dir) do
-    struct!(Configuration,
-      source_url: "https://example.test/gfwlist.txt",
-      remote_refresh_interval: 1_000,
-      remote_connect_timeout: 11,
-      remote_receive_timeout: 12,
-      remote_max_body_size: 256,
-      retry_min_interval: 10,
-      retry_max_interval: 80,
-      retry_jitter: false,
-      local_proxy_list_path: Path.join(dir, "proxy.txt"),
-      local_direct_list_path: Path.join(dir, "direct.txt"),
-      local_watch_debounce: 10,
-      local_reconciliation_interval: 100,
-      state_directory: dir,
-      cache_control: "public, max-age=60",
-      unsupported_rule_sample_limit: 2
+    start_supervised!(
+      {Local, local_options(dir, Keyword.merge(defaults, extra), config_overrides)},
+      restart: :temporary
     )
+  end
+
+  defp local_options(dir, extra, config_overrides \\ %{}) do
+    Keyword.merge(
+      [config: configuration(dir, config_overrides), notify: self(), now: fn -> @now end],
+      extra
+    )
+  end
+
+  defp configuration(dir, overrides \\ %{}) do
+    configuration =
+      struct!(Configuration,
+        source_url: "https://example.test/gfwlist.txt",
+        remote_refresh_interval: 1_000,
+        remote_connect_timeout: 11,
+        remote_receive_timeout: 12,
+        remote_max_body_size: 256,
+        retry_min_interval: 10,
+        retry_max_interval: 80,
+        retry_jitter: false,
+        local_proxy_list_path: Path.join(dir, "proxy.txt"),
+        local_direct_list_path: Path.join(dir, "direct.txt"),
+        local_watch_debounce: 10,
+        local_reconciliation_interval: 100,
+        state_directory: dir,
+        cache_control: "public, max-age=60",
+        unsupported_rule_sample_limit: 2
+      )
+
+    struct!(Configuration, Map.merge(Map.from_struct(configuration), overrides))
   end
 
   defp scheduler(test_process) do
@@ -333,7 +540,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   end
 
   defp assert_eventually_snapshot(server, slot, content) do
-    deadline = System.monotonic_time(:millisecond) + 2_000
+    deadline = System.monotonic_time(:millisecond) + 5_000
     do_assert_eventually_snapshot(server, slot, content, deadline)
   end
 
@@ -350,6 +557,31 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
           end
         else
           flunk("snapshot #{slot} did not reach expected content #{inspect(content)}")
+        end
+    end
+  end
+
+  defp await_real_watcher(server, directory) do
+    watcher = :sys.get_state(server).watcher
+    assert :ok = FileSystem.subscribe(watcher)
+    barrier = Path.join(directory, ".local-watcher-barrier")
+    deadline = System.monotonic_time(:millisecond) + 5_000
+    do_await_real_watcher(watcher, barrier, deadline, 0)
+    File.rm(barrier)
+  end
+
+  defp do_await_real_watcher(watcher, barrier, deadline, attempt) do
+    File.write!(barrier, Integer.to_string(attempt))
+
+    receive do
+      {:file_event, ^watcher, {^barrier, _events}} ->
+        :ok
+    after
+      20 ->
+        if System.monotonic_time(:millisecond) < deadline do
+          do_await_real_watcher(watcher, barrier, deadline, attempt + 1)
+        else
+          flunk("real file-system watcher did not become ready")
         end
     end
   end
