@@ -38,4 +38,25 @@ defmodule GSMLG.ProxyRulesTest do
   test "reports refresh unavailable before source ingestion exists" do
     assert {:error, :not_available} == ProxyRules.refresh()
   end
+
+  test "reports refresh unavailable while the coordinator is unavailable" do
+    assert :ok =
+             Supervisor.terminate_child(
+               GSMLG.ProxyRules.Supervisor,
+               GSMLG.ProxyRules.Coordinator
+             )
+
+    on_exit(fn ->
+      case Supervisor.restart_child(
+             GSMLG.ProxyRules.Supervisor,
+             GSMLG.ProxyRules.Coordinator
+           ) do
+        {:ok, _pid} -> :ok
+        {:ok, _pid, _info} -> :ok
+        {:error, :running} -> :ok
+      end
+    end)
+
+    assert {:error, :not_available} == ProxyRules.refresh()
+  end
 end
