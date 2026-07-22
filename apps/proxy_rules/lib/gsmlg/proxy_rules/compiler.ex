@@ -58,6 +58,8 @@ defmodule GSMLG.ProxyRules.Compiler do
       not is_binary(remote) -> {:error, [systemic(:gfwlist, :systemic_failure)]}
       not is_binary(local_proxy) -> {:error, [systemic(:local_proxy, :systemic_failure)]}
       not is_binary(local_direct) -> {:error, [systemic(:local_direct, :systemic_failure)]}
+      not String.valid?(local_proxy) -> {:error, [systemic(:local_proxy, :invalid_utf8)]}
+      not String.valid?(local_direct) -> {:error, [systemic(:local_direct, :invalid_utf8)]}
       true -> {:ok, %{remote: remote, local_proxy: local_proxy, local_direct: local_direct}}
     end
   end

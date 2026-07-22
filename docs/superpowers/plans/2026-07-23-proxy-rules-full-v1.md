@@ -480,7 +480,7 @@ test "compiles lists independently and records same-domain conflicts" do
   assert snapshot.generation == 7
   assert snapshot.statistics.conflict_count == 1
   assert snapshot.rendered_outputs.proxy.raw.body == "example.com\n"
-  assert snapshot.rendered_outputs.direct.raw.body == "direct.example.com\nexample.com\ninternal.example.com\n"
+  assert snapshot.rendered_outputs.direct.raw.body == "example.com\n"
 end
 ```
 

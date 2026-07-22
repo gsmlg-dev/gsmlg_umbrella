@@ -115,6 +115,42 @@ defmodule GSMLG.ProxyRules.CompilerTest do
              )
   end
 
+  test "returns bounded systemic diagnostics for invalid local UTF-8" do
+    valid_remote = Base.encode64("||example.com^\n")
+
+    assert {:error,
+            [
+              %Diagnostic{
+                kind: :systemic,
+                source: :local_proxy,
+                location: :system,
+                reason: :invalid_utf8,
+                sample: nil
+              }
+            ]} =
+             Compiler.compile(
+               %{remote: valid_remote, local_proxy: <<255>>, local_direct: ""},
+               generation: 1,
+               sample_limit: 1
+             )
+
+    assert {:error,
+            [
+              %Diagnostic{
+                kind: :systemic,
+                source: :local_direct,
+                location: :system,
+                reason: :invalid_utf8,
+                sample: nil
+              }
+            ]} =
+             Compiler.compile(
+               %{remote: valid_remote, local_proxy: "", local_direct: <<255>>},
+               generation: 1,
+               sample_limit: 1
+             )
+  end
+
   test "caps combined diagnostic samples while preserving every source count" do
     assert {:ok, snapshot} =
              Compiler.compile(
