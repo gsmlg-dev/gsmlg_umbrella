@@ -275,16 +275,39 @@ defmodule GSMLG.ProxyRules.Domain do
   @enforce_keys [:name, :reversed_labels]
   defstruct [:name, :reversed_labels]
   @type t :: %__MODULE__{name: String.t(), reversed_labels: [String.t()]}
+  @type error_reason ::
+          :invalid_value
+          | :empty_domain
+          | :invalid_url
+          | :unsupported_scheme
+          | :invalid_idna
+          | :ip_literal
+          | :domain_too_long
+          | :empty_label
+          | :label_too_long
+          | :invalid_label
 end
 
 defmodule GSMLG.ProxyRules.Rule do
   @enforce_keys [:domain, :action, :source, :location]
   defstruct [:domain, :action, :source, :location, match: :suffix]
+  @type source :: :gfwlist | :local_proxy | :local_direct
 end
 
 defmodule GSMLG.ProxyRules.Diagnostic do
   @enforce_keys [:kind, :source, :location, :reason]
   defstruct [:kind, :source, :location, :reason, :sample]
+  @type source :: GSMLG.ProxyRules.Rule.source()
+  @type reason ::
+          GSMLG.ProxyRules.Domain.error_reason()
+          | :invalid_base64
+          | :invalid_utf8
+          | :path_specific
+          | :regular_expression
+          | :modifier
+          | :wildcard
+          | :ambiguous_rule
+          | :systemic_failure
 end
 
 defmodule GSMLG.ProxyRules.ParseResult do
@@ -297,7 +320,7 @@ end
 Implement `Domain.normalize/1` as a pipeline of small private functions:
 
 ```elixir
-@spec normalize(String.t()) :: {:ok, t()} | {:error, atom()}
+@spec normalize(String.t()) :: {:ok, t()} | {:error, error_reason()}
 def normalize(value) when is_binary(value) do
   with {:ok, host} <- extract_host(String.trim(value)),
        host <- host |> String.trim_leading(".") |> String.trim_trailing("."),

@@ -10,6 +10,17 @@ defmodule GSMLG.ProxyRules.Domain do
   defstruct [:name, :reversed_labels]
 
   @type t :: %__MODULE__{name: String.t(), reversed_labels: [String.t()]}
+  @type error_reason ::
+          :invalid_value
+          | :empty_domain
+          | :invalid_url
+          | :unsupported_scheme
+          | :invalid_idna
+          | :ip_literal
+          | :domain_too_long
+          | :empty_label
+          | :label_too_long
+          | :invalid_label
 
   @doc """
   Normalizes a bare domain or the host of an HTTP(S) URL.
@@ -17,10 +28,11 @@ defmodule GSMLG.ProxyRules.Domain do
   Unicode names are converted to IDNA ASCII. Invalid domains and unsupported
   URL forms return a bounded reason atom.
   """
-  @spec normalize(String.t()) :: {:ok, t()} | {:error, atom()}
+  @spec normalize(String.t()) :: {:ok, t()} | {:error, error_reason()}
   def normalize(value) when is_binary(value) do
     with {:ok, host} <- extract_host(String.trim(value)),
          host <- remove_optional_suffix_dots(host),
+         :ok <- validate_source_labels(host),
          {:ok, ascii} <- to_ascii(host),
          ascii <- String.downcase(ascii),
          :ok <- validate_ascii(ascii) do
@@ -101,6 +113,14 @@ defmodule GSMLG.ProxyRules.Domain do
       binary_part(host, 0, byte_size(host) - 1)
     else
       host
+    end
+  end
+
+  defp validate_source_labels(host) do
+    if Enum.any?(String.split(host, ".", trim: false), &(&1 == "")) do
+      {:error, :empty_label}
+    else
+      :ok
     end
   end
 

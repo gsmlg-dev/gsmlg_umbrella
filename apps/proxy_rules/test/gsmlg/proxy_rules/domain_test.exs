@@ -1,7 +1,7 @@
 defmodule GSMLG.ProxyRules.DomainTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.ProxyRules.Domain
+  alias GSMLG.ProxyRules.{Diagnostic, Domain, Rule}
 
   describe "normalize/1" do
     test "trims, removes suffix dots, lowercases, and reverses labels" do
@@ -77,5 +77,102 @@ defmodule GSMLG.ProxyRules.DomainTest do
     test "rejects an empty value" do
       assert {:error, _reason} = Domain.normalize("  ")
     end
+
+    test "rejects empty hosts and malformed URL ports" do
+      for url <- ["http://", "http://example.com:", "http://example.com:65536"] do
+        assert {:error, _reason} = Domain.normalize(url)
+      end
+    end
+
+    test "removes exactly one optional leading and trailing dot" do
+      assert {:ok, %Domain{name: "example.com"}} = Domain.normalize(".example.com.")
+      assert {:error, _reason} = Domain.normalize("..example.com")
+      assert {:error, _reason} = Domain.normalize("example.com..")
+    end
   end
+
+  describe "published types" do
+    test "keeps normalization errors and parser values finite" do
+      domain_reasons = type_definition!(Domain, :error_reason)
+      rule_source = type_definition!(Rule, :source)
+      diagnostic_source = type_definition!(Diagnostic, :source)
+      diagnostic_reason = type_definition!(Diagnostic, :reason)
+
+      assert literal_atoms(domain_reasons) ==
+               MapSet.new([
+                 :invalid_value,
+                 :empty_domain,
+                 :invalid_url,
+                 :unsupported_scheme,
+                 :invalid_idna,
+                 :ip_literal,
+                 :domain_too_long,
+                 :empty_label,
+                 :label_too_long,
+                 :invalid_label
+               ])
+
+      assert literal_atoms(rule_source) ==
+               MapSet.new([:gfwlist, :local_proxy, :local_direct])
+
+      refute contains_unbounded_atom?(domain_reasons)
+      refute contains_unbounded_atom?(rule_source)
+      refute contains_unbounded_atom?(diagnostic_source)
+      refute contains_unbounded_atom?(diagnostic_reason)
+
+      assert contains_type_reference?(normalize_spec!(), :error_reason)
+      assert contains_remote_type_reference?(diagnostic_source, Rule, :source)
+      assert contains_remote_type_reference?(diagnostic_reason, Domain, :error_reason)
+    end
+  end
+
+  defp type_definition!(module, name) do
+    assert {:ok, types} = Code.Typespec.fetch_types(module)
+
+    assert {:type, {^name, definition, []}} =
+             Enum.find(types, fn
+               {:type, {^name, _definition, []}} -> true
+               _type -> false
+             end)
+
+    definition
+  end
+
+  defp normalize_spec! do
+    assert {:ok, specs} = Code.Typespec.fetch_specs(Domain)
+    assert {{:normalize, 1}, [spec]} = Enum.find(specs, &(elem(&1, 0) == {:normalize, 1}))
+    spec
+  end
+
+  defp literal_atoms(term) do
+    Enum.reduce(nodes(term), MapSet.new(), fn
+      {:atom, _line, value}, atoms -> MapSet.put(atoms, value)
+      _node, atoms -> atoms
+    end)
+  end
+
+  defp contains_unbounded_atom?(term) do
+    Enum.any?(nodes(term), &match?({:type, _line, :atom, []}, &1))
+  end
+
+  defp contains_type_reference?(term, type) do
+    Enum.any?(nodes(term), &match?({:user_type, _line, ^type, []}, &1))
+  end
+
+  defp contains_remote_type_reference?(term, module, type) do
+    Enum.any?(nodes(term), fn
+      {:remote_type, _line, [{:atom, _module_line, ^module}, {:atom, _type_line, ^type}, []]} ->
+        true
+
+      _node ->
+        false
+    end)
+  end
+
+  defp nodes(term) when is_tuple(term) do
+    [term | term |> Tuple.to_list() |> Enum.flat_map(&nodes/1)]
+  end
+
+  defp nodes(terms) when is_list(terms), do: Enum.flat_map(terms, &nodes/1)
+  defp nodes(_term), do: []
 end

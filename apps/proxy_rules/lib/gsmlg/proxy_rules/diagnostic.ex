@@ -8,9 +8,18 @@ defmodule GSMLG.ProxyRules.Diagnostic do
   defstruct [:kind, :source, :location, :reason, :sample]
 
   @type kind :: :invalid | :unsupported | :systemic
-  @type source :: atom()
+  @type source :: GSMLG.ProxyRules.Rule.source()
   @type location :: pos_integer() | :system
-  @type reason :: atom()
+  @type reason ::
+          GSMLG.ProxyRules.Domain.error_reason()
+          | :invalid_base64
+          | :invalid_utf8
+          | :path_specific
+          | :regular_expression
+          | :modifier
+          | :wildcard
+          | :ambiguous_rule
+          | :systemic_failure
 
   @type t :: %__MODULE__{
           kind: kind(),

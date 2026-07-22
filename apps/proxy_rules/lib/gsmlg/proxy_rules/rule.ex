@@ -10,7 +10,7 @@ defmodule GSMLG.ProxyRules.Rule do
 
   @type action :: :proxy | :direct
   @type match :: :suffix
-  @type source :: atom()
+  @type source :: :gfwlist | :local_proxy | :local_direct
   @type location :: pos_integer()
 
   @type t :: %__MODULE__{
