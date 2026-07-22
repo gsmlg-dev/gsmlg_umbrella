@@ -486,6 +486,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
         failure_category: telemetry_failure(reason)
       })
 
+    _revision = Store.advance_source_revision(Store)
     notify(state.notify, {:proxy_rules_source_status, kind, :stale, reason})
   end
 

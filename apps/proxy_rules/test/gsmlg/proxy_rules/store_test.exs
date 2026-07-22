@@ -139,6 +139,22 @@ defmodule GSMLG.ProxyRules.StoreTest do
   end
 
   @tag :tmp_dir
+  test "recovers an abandoned finalized transaction before accepting new work", %{tmp_dir: dir} do
+    prior = fixture_snapshot(95)
+    abandoned = fixture_snapshot(96)
+    assert :ok = Store.publish(prior)
+    assert {:ok, token} = Store.stage(Store, abandoned)
+    assert :ok = Store.finalize(Store, token)
+
+    assert :ok = Store.recover_abandoned(Store)
+    assert {:ok, %Snapshot{generation: 95}} = Store.current()
+    assert {:ok, %Snapshot{generation: 95}} = Persistence.read_artifact(dir)
+
+    assert {:ok, next_token} = Store.stage(Store, fixture_snapshot(97))
+    assert :ok = Store.discard(Store, next_token)
+  end
+
+  @tag :tmp_dir
   test "source revision guard rejects a finalized obsolete generation", %{tmp_dir: dir} do
     first = fixture_snapshot(97)
     obsolete = fixture_snapshot(98)
@@ -152,6 +168,42 @@ defmodule GSMLG.ProxyRules.StoreTest do
     assert {:ok, %Snapshot{generation: 97}} = Store.current()
     assert {:ok, %Snapshot{generation: 97}} = Persistence.read_artifact(dir)
     assert :ok = Store.discard(Store, token)
+  end
+
+  @tag :tmp_dir
+  test "an authority-guarded commit waits for a definitive persistence reply", %{tmp_dir: dir} do
+    prior = fixture_snapshot(98)
+    candidate = fixture_snapshot(99)
+    assert :ok = Store.publish(prior)
+    test_process = self()
+    block_commit = :atomics.new(1, [])
+
+    sync = fn path ->
+      if path == dir and :atomics.get(block_commit, 1) == 1 do
+        send(test_process, {:commit_blocked, self()})
+
+        receive do
+          :release_commit -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    restart_store(dir, persistence_options: [sync_directory: sync])
+    revision = Store.source_revision(Store)
+    assert {:ok, token} = Store.stage(Store, candidate)
+    assert :ok = Store.finalize(Store, token)
+    :ok = :atomics.put(block_commit, 1, 1)
+    caller = Task.async(fn -> Store.commit_if_current(Store, token, revision) end)
+    assert_receive {:commit_blocked, blocked_store}, 1_000
+
+    assert nil == Task.yield(caller, 50)
+    :ok = :atomics.put(block_commit, 1, 0)
+    send(blocked_store, :release_commit)
+    assert :ok = Task.await(caller, 1_000)
+    assert {:ok, %Snapshot{generation: 99}} = Store.current()
+    assert {:ok, %Snapshot{generation: 99}} = Persistence.read_artifact(dir)
   end
 
   @tag :tmp_dir

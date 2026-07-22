@@ -373,6 +373,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
         failure_category: category
       })
 
+    _revision = Store.advance_source_revision(Store)
     notify(state.notify, {:proxy_rules_source_status, :remote, :stale, category})
 
     delay =

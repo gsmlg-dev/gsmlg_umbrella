@@ -15,7 +15,6 @@ defmodule GSMLG.ProxyRules.Store do
   @table :gsmlg_proxy_rules_store
   @readiness [:not_ready, :refreshing, :ready, :stale]
   @authority_key {__MODULE__, :source_authority}
-  @call_timeout 30_000
 
   def start_link(opts) do
     {gen_options, init_options} = Keyword.split(opts, [:name])
@@ -58,11 +57,16 @@ defmodule GSMLG.ProxyRules.Store do
 
   @spec commit(GenServer.server(), stage_token()) ::
           :ok | {:error, :invalid_stage | :persistence_failed}
-  def commit(server, token), do: GenServer.call(server, {:commit, token}, @call_timeout)
+  def commit(server, token), do: GenServer.call(server, {:commit, token}, :infinity)
 
   @spec finalize(GenServer.server(), stage_token()) ::
           :ok | {:error, :invalid_stage | :persistence_failed}
-  def finalize(server, token), do: GenServer.call(server, {:finalize, token}, @call_timeout)
+  # These persistence handshakes must return a definitive result. A caller timeout could report
+  # failure while the serialized Store operation continues and changes the durable artifact later.
+  def finalize(server, token), do: GenServer.call(server, {:finalize, token}, :infinity)
+
+  @spec recover_abandoned(GenServer.server()) :: :ok | {:error, :persistence_failed}
+  def recover_abandoned(server), do: GenServer.call(server, :recover_abandoned, :infinity)
 
   @spec source_revision(GenServer.server()) :: non_neg_integer()
   def source_revision(_server), do: read_source_revision(ensure_authority())
@@ -74,7 +78,7 @@ defmodule GSMLG.ProxyRules.Store do
           :ok | {:error, :obsolete | :invalid_stage | :persistence_failed}
   def commit_if_current(server, token, expected_revision)
       when is_integer(expected_revision) and expected_revision >= 0 do
-    GenServer.call(server, {:commit_if_current, token, expected_revision}, @call_timeout)
+    GenServer.call(server, {:commit_if_current, token, expected_revision}, :infinity)
   end
 
   @spec discard(GenServer.server(), stage_token()) :: :ok
@@ -237,29 +241,14 @@ defmodule GSMLG.ProxyRules.Store do
     end
   end
 
+  def handle_call(:recover_abandoned, _from, state) do
+    {reply, state} = recover_abandoned_stages(state)
+    {:reply, reply, state}
+  end
+
   def handle_call({:discard, token}, _from, state) do
-    case Map.pop(state.staged, token) do
-      {nil, staged} ->
-        {:reply, :ok, %{state | staged: staged}}
-
-      {%{status: :staged, directory: directory}, staged} ->
-        _ = File.rm(Path.join(directory, "artifact.snapshot"))
-        _ = File.rmdir(directory)
-        {:reply, :ok, %{state | staged: staged}}
-
-      {%{status: :finalized, directory: directory}, staged} ->
-        case Persistence.rollback_finalized_artifact(
-               state.state_directory,
-               state.persistence_options
-             ) do
-          :ok ->
-            _ = File.rmdir(directory)
-            {:reply, :ok, %{state | staged: staged}}
-
-          {:error, :persistence_failed} ->
-            {:reply, {:error, :persistence_failed}, state}
-        end
-    end
+    {reply, state} = discard_stage(token, state)
+    {:reply, reply, state}
   end
 
   @impl true
@@ -316,6 +305,31 @@ defmodule GSMLG.ProxyRules.Store do
         else: metadata
 
     {:reply, {:ok, metadata}, state}
+  end
+
+  defp discard_stage(token, state) do
+    case Map.pop(state.staged, token) do
+      {nil, staged} ->
+        {:ok, %{state | staged: staged}}
+
+      {%{status: :staged, directory: directory}, staged} ->
+        _ = File.rm(Path.join(directory, "artifact.snapshot"))
+        _ = File.rmdir(directory)
+        {:ok, %{state | staged: staged}}
+
+      {%{status: :finalized, directory: directory}, staged} ->
+        case Persistence.rollback_finalized_artifact(
+               state.state_directory,
+               state.persistence_options
+             ) do
+          :ok ->
+            _ = File.rmdir(directory)
+            {:ok, %{state | staged: staged}}
+
+          {:error, :persistence_failed} ->
+            {{:error, :persistence_failed}, state}
+        end
+    end
   end
 
   defp state_directory(opts) do
@@ -399,6 +413,15 @@ defmodule GSMLG.ProxyRules.Store do
   defp valid_operational_error?(error), do: Snapshot.valid_operational_error?(error)
 
   defp finalized_transaction?(staged), do: not is_nil(finalized_token(staged))
+
+  defp recover_abandoned_stages(state) do
+    Enum.reduce_while(Map.keys(state.staged), {:ok, state}, fn token, {:ok, state} ->
+      case discard_stage(token, state) do
+        {:ok, state} -> {:cont, {:ok, state}}
+        {{:error, :persistence_failed} = error, state} -> {:halt, {error, state}}
+      end
+    end)
+  end
 
   defp finalized_token(staged) do
     Enum.find_value(staged, fn

@@ -108,8 +108,10 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     refute_receive {:proxy_rules_source_fresh, _, _}, 30
 
     File.rm!(path)
+    revision = Store.source_revision(Store)
     assert :ok = Local.reconcile(server)
     assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found}
+    assert Store.source_revision(Store) > revision
 
     assert %{proxy: %SourceSnapshot{content: "example.com\n", availability: :stale}} =
              Local.snapshots(server)

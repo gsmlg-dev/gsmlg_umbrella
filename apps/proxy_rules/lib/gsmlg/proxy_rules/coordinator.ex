@@ -33,7 +33,8 @@ defmodule GSMLG.ProxyRules.Coordinator do
   def init(options) do
     with {:ok, config} <- configuration(options),
          {:ok, timeout} <- positive_option(options, :compile_timeout, @default_timeout),
-         {:ok, dependencies} <- dependencies(options) do
+         {:ok, dependencies} <- dependencies(options),
+         :ok <- store_recover_abandoned(dependencies.store) do
       current = safe_store_current(dependencies.store)
       generation = restored_generation(current)
 
@@ -511,6 +512,9 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
   defp safe_store_current({module, server}),
     do: safe_apply(module, :current, [server], {:error, :not_ready})
+
+  defp store_recover_abandoned({module, server}),
+    do: safe_apply(module, :recover_abandoned, [server], {:error, :persistence_failed})
 
   defp store_stage({module, server}, token, snapshot),
     do: safe_apply(module, :stage, [server, token, snapshot], {:error, :persistence_failed})

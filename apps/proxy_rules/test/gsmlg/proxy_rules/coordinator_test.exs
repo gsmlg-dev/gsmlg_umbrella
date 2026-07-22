@@ -25,6 +25,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTestStore do
   def start_link(options), do: Agent.start_link(fn -> Keyword.fetch!(options, :state) end)
   def current(server), do: Agent.get(server, & &1.current)
   def metadata(server), do: {:ok, Agent.get(server, & &1.metadata)}
+  def recover_abandoned(_server), do: :ok
   def source_revision(server), do: Agent.get(server, &Map.get(&1, :source_revision, 0))
 
   def advance_source_revision(server) do
@@ -621,7 +622,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     )
 
     send(finalizing_store, :release_finalization)
-    assert_receive {:compile_started, 3, _latest, _}
+    assert_receive {:compile_started, 3, _latest, _}, 2_000
 
     assert {:ok, %Snapshot{generation: 1}} = Store.current()
     assert {:ok, %Snapshot{generation: 1}} = Persistence.read_artifact(directory)
@@ -630,6 +631,199 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     :ok = GenServer.stop(Store)
     _restarted_store = start_real_store(name: Store, state_directory: directory)
 
+    assert {:ok, %Snapshot{generation: 1, readiness: :stale}} = Store.current()
+    assert {:ok, %Snapshot{generation: 1}} = Persistence.read_artifact(directory)
+  end
+
+  test "coordinator-only restart rolls back a finalization that was already queued", context do
+    supervisor = GSMLG.ProxyRules.Supervisor
+    directory = Path.join(System.tmp_dir!(), "proxy-rules-recover-#{System.unique_integer()}")
+    File.mkdir_p!(directory)
+
+    :ok = Supervisor.terminate_child(supervisor, Coordinator)
+    :ok = Supervisor.terminate_child(supervisor, Store)
+
+    on_exit(fn ->
+      stop_named(Coordinator)
+      stop_named(Store)
+      _ = Supervisor.restart_child(supervisor, Store)
+      _ = Supervisor.restart_child(supervisor, Coordinator)
+      File.rm_rf!(directory)
+    end)
+
+    _store = start_real_store(name: Store, state_directory: directory)
+
+    assert {:ok, prior} =
+             Compiler.compile(
+               %{
+                 remote: Base.encode64("||prior-remote.example^\n"),
+                 local_proxy: "prior-proxy.example\n",
+                 local_direct: "prior-direct.example\n"
+               },
+               generation: 1,
+               compiled_at: @now,
+               sample_limit: 2
+             )
+
+    assert :ok = Store.publish(prior)
+    :ok = GenServer.stop(Store)
+    test_process = self()
+    block_finalization = :atomics.new(1, [])
+
+    blocking_sync = fn path ->
+      if path == directory and :atomics.compare_exchange(block_finalization, 1, 0, 1) == :ok do
+        send(test_process, {:restart_finalization_started, self()})
+
+        receive do
+          :release_restart_finalization -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    _store =
+      start_real_store(
+        name: Store,
+        state_directory: directory,
+        persistence_options: [sync_directory: blocking_sync]
+      )
+
+    name = String.to_atom("coordinator_recovery_#{System.unique_integer([:positive])}")
+
+    options = [
+      name: name,
+      configuration: %{configuration() | state_directory: directory},
+      compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
+      compiler_options: [test_process: self()],
+      store: {Store, Store},
+      remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
+      local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
+      task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
+      compile_timeout: 5_000,
+      now: fn -> @now end
+    ]
+
+    {:ok, coordinator} = Coordinator.start_link(options)
+    Process.unlink(coordinator)
+    send_sources(coordinator, "abandoned.example")
+    assert_receive {:compile_started, 2, candidate, _}
+    send(candidate, {:compile_result, :compile})
+    assert_receive {:restart_finalization_started, finalizing_store}, 2_000
+    :ok = GenServer.stop(coordinator)
+
+    restart = Task.async(fn -> Coordinator.start_link(options) end)
+    assert nil == Task.yield(restart, 50)
+    send(finalizing_store, :release_restart_finalization)
+    assert {:ok, restarted} = Task.await(restart, 2_000)
+    Process.unlink(restarted)
+
+    send_sources(restarted, "later.example")
+    assert_receive {:compile_started, 2, later, _}
+    send(later, {:compile_result, :compile})
+
+    assert_eventually(fn -> Store.current() end, fn
+      {:ok, %Snapshot{generation: 2}} -> true
+      _other -> false
+    end)
+
+    assert {:ok, %Snapshot{generation: 2}} = Persistence.read_artifact(directory)
+    :ok = GenServer.stop(restarted)
+    :ok = GenServer.stop(Store)
+    _restarted_store = start_real_store(name: Store, state_directory: directory)
+    assert {:ok, %Snapshot{generation: 2, readiness: :stale}} = Store.current()
+    assert {:ok, %Snapshot{generation: 2}} = Persistence.read_artifact(directory)
+  end
+
+  test "a stale epoch during finalization rejects publication before notification arrives",
+       context do
+    supervisor = GSMLG.ProxyRules.Supervisor
+    directory = Path.join(System.tmp_dir!(), "proxy-rules-stale-epoch-#{System.unique_integer()}")
+    File.mkdir_p!(directory)
+
+    :ok = Supervisor.terminate_child(supervisor, Coordinator)
+    :ok = Supervisor.terminate_child(supervisor, Store)
+
+    on_exit(fn ->
+      stop_named(Coordinator)
+      stop_named(Store)
+      _ = Supervisor.restart_child(supervisor, Store)
+      _ = Supervisor.restart_child(supervisor, Coordinator)
+      File.rm_rf!(directory)
+    end)
+
+    _store = start_real_store(name: Store, state_directory: directory)
+
+    assert {:ok, prior} =
+             Compiler.compile(
+               %{
+                 remote: Base.encode64("||prior-remote.example^\n"),
+                 local_proxy: "prior-proxy.example\n",
+                 local_direct: "prior-direct.example\n"
+               },
+               generation: 1,
+               compiled_at: @now,
+               sample_limit: 2
+             )
+
+    assert :ok = Store.publish(prior)
+    :ok = GenServer.stop(Store)
+    test_process = self()
+    root_syncs = :atomics.new(1, [])
+
+    blocking_sync = fn path ->
+      if path == directory and :atomics.add_get(root_syncs, 1, 1) == 1 do
+        send(test_process, {:stale_finalization_started, self()})
+
+        receive do
+          :release_stale_finalization -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    _store =
+      start_real_store(
+        name: Store,
+        state_directory: directory,
+        persistence_options: [sync_directory: blocking_sync]
+      )
+
+    name = String.to_atom("coordinator_stale_epoch_#{System.unique_integer([:positive])}")
+
+    {:ok, coordinator} =
+      Coordinator.start_link(
+        name: name,
+        configuration: %{configuration() | state_directory: directory},
+        compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
+        compiler_options: [test_process: self()],
+        store: {Store, Store},
+        remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
+        local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
+        task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
+        compile_timeout: 5_000,
+        now: fn -> @now end
+      )
+
+    Process.unlink(coordinator)
+    send_sources(coordinator, "candidate.example")
+    assert_receive {:compile_started, 2, candidate, _}
+    send(candidate, {:compile_result, :compile})
+    assert_receive {:stale_finalization_started, finalizing_store}, 2_000
+
+    revision = Store.source_revision(Store)
+    assert Store.advance_source_revision(Store) > revision
+    send(finalizing_store, :release_stale_finalization)
+    assert_receive {:compile_started, 2, _retry, _}, 2_000
+
+    send(coordinator, {:proxy_rules_source_status, :local_proxy, :stale, :not_found})
+    assert {:ok, %Snapshot{generation: 1}} = Store.current()
+    assert {:ok, %Snapshot{generation: 1}} = Persistence.read_artifact(directory)
+
+    :ok = GenServer.stop(coordinator)
+    :ok = GenServer.stop(Store)
+    _restarted_store = start_real_store(name: Store, state_directory: directory)
     assert {:ok, %Snapshot{generation: 1, readiness: :stale}} = Store.current()
     assert {:ok, %Snapshot{generation: 1}} = Persistence.read_artifact(directory)
   end

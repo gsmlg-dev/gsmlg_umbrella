@@ -97,7 +97,10 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   @tag :tmp_dir
   test "304 without a cache is a bounded failure", %{tmp_dir: dir} do
     server = start_remote(dir, [response(304, "")])
+    revision = Store.source_revision(Store)
     assert {:ok, :accepted} = Remote.refresh(server)
+    assert_receive {:proxy_rules_source_status, :remote, :stale, :unexpected_status}
+    assert Store.source_revision(Store) > revision
     assert_receive {:scheduled, 10, _}
     refute_receive {:proxy_rules_source_fresh, _, _}, 30
   end
