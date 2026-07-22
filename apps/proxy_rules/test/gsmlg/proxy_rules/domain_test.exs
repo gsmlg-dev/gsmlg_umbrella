@@ -19,6 +19,12 @@ defmodule GSMLG.ProxyRules.DomainTest do
                Domain.normalize("bücher.example")
     end
 
+    test "preserves IDNA validation for ASCII labels with reserved hyphen forms" do
+      for domain <- ["xn--a.example", "ab--cd.example"] do
+        assert {:error, :invalid_idna} = Domain.normalize(domain)
+      end
+    end
+
     test "accepts a bare domain and a supported URL with a root path" do
       assert {:ok, %Domain{name: "example.com"}} = Domain.normalize("example.com")
       assert {:ok, %Domain{name: "example.com"}} = Domain.normalize("http://example.com/")

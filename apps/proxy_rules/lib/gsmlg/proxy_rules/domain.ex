@@ -140,13 +140,19 @@ defmodule GSMLG.ProxyRules.Domain do
     _kind, _reason -> {:error, :invalid_idna}
   end
 
-  defp ascii_ldh?(<<>>), do: true
+  defp ascii_ldh?(host), do: ascii_ldh?(host, 0)
 
-  defp ascii_ldh?(<<byte, rest::binary>>)
-       when byte in ?a..?z or byte in ?A..?Z or byte in ?0..?9 or byte in [?-, ?.],
-       do: ascii_ldh?(rest)
+  defp ascii_ldh?(<<>>, _label_position), do: true
 
-  defp ascii_ldh?(_non_ldh), do: false
+  defp ascii_ldh?(<<".", rest::binary>>, _label_position), do: ascii_ldh?(rest, 0)
+
+  defp ascii_ldh?(<<"--", _rest::binary>>, 2), do: false
+
+  defp ascii_ldh?(<<byte, rest::binary>>, label_position)
+       when byte in ?a..?z or byte in ?A..?Z or byte in ?0..?9 or byte == ?-,
+       do: ascii_ldh?(rest, label_position + 1)
+
+  defp ascii_ldh?(_non_ldh, _label_position), do: false
 
   defp validate_ascii(""), do: {:error, :empty_domain}
 
