@@ -4,7 +4,7 @@ defmodule GSMLG.ProxyRules.DomainPropertyTest do
 
   alias GSMLG.ProxyRules.Domain
 
-  property "normalization is idempotent for valid and invalid domain candidates" do
+  property "normalization is idempotent for accepted candidates" do
     check all(candidate <- domain_candidate()) do
       case Domain.normalize(candidate) do
         {:ok, domain} -> assert Domain.normalize(domain.name) == {:ok, domain}

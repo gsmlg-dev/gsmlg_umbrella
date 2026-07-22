@@ -57,7 +57,7 @@ defmodule GSMLG.ProxyRules.DomainTest do
     end
 
     test "rejects unsupported URL schemes" do
-      assert {:error, _reason} = Domain.normalize("ftp://example.com")
+      assert {:error, :unsupported_scheme} = Domain.normalize("ftp://example.com")
     end
 
     test "rejects URLs with userinfo, non-root paths, queries, or fragments" do
@@ -70,7 +70,7 @@ defmodule GSMLG.ProxyRules.DomainTest do
       ]
 
       for url <- invalid_urls do
-        assert {:error, _reason} = Domain.normalize(url)
+        assert {:error, :invalid_url} = Domain.normalize(url)
       end
     end
 
@@ -80,7 +80,7 @@ defmodule GSMLG.ProxyRules.DomainTest do
 
     test "rejects empty hosts and malformed URL ports" do
       for url <- ["http://", "http://example.com:", "http://example.com:65536"] do
-        assert {:error, _reason} = Domain.normalize(url)
+        assert {:error, :invalid_url} = Domain.normalize(url)
       end
     end
 

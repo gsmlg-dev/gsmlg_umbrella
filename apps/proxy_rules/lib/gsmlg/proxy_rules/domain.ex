@@ -79,6 +79,9 @@ defmodule GSMLG.ProxyRules.Domain do
               path in [nil, "", "/"],
        do: if(valid_authority?(authority, host), do: {:ok, host}, else: {:error, :invalid_url})
 
+  defp host_from_uri(%URI{scheme: scheme}, _value) when scheme in ["http", "https"],
+    do: {:error, :invalid_url}
+
   defp host_from_uri(%URI{scheme: scheme}, _value) when is_binary(scheme),
     do: {:error, :unsupported_scheme}
 
