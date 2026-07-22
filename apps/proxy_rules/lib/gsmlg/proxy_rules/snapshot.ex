@@ -18,6 +18,41 @@ defmodule GSMLG.ProxyRules.Snapshot do
   defstruct @enforce_keys
 
   @type readiness :: :not_ready | :refreshing | :ready | :stale
+  @type persisted_readiness :: :ready | :stale
+  @type operational_kind ::
+          :remote | :local_proxy | :local_direct | :compiler | :persistence | :store
+  @type operational_reason ::
+          Diagnostic.reason()
+          | :snapshot_not_found
+          | :snapshot_unreadable
+          | :corrupt_snapshot
+          | :incompatible_snapshot
+          | :checksum_mismatch
+          | :invalid_snapshot
+          | :persistence_failed
+          | :configuration_unavailable
+          | :timeout
+          | :connect_timeout
+          | :receive_timeout
+          | :connection_failed
+          | :transport_error
+          | :http_error
+          | :unexpected_status
+          | :body_too_large
+          | :compile_failed
+          | :compile_timeout
+          | :task_crash
+          | :source_unavailable
+          | :remote_unavailable
+          | :local_unavailable
+          | :watcher_failed
+          | :read_failed
+          | :not_found
+          | :permission_denied
+  @type operational_error :: %{
+          required(:kind) => operational_kind(),
+          required(:reason) => operational_reason()
+        }
   @type output_formats :: %{
           required(:raw) => Output.t(),
           required(:squid) => Output.t(),
@@ -49,7 +84,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
           required(:collapsed_count) => non_neg_integer(),
           required(:conflict_count) => non_neg_integer()
         }
-  @type last_error :: nil | %{required(:reason) => Diagnostic.reason()}
+  @type last_error :: nil | operational_error()
 
   @type t :: %__MODULE__{
           generation: non_neg_integer(),
@@ -61,6 +96,51 @@ defmodule GSMLG.ProxyRules.Snapshot do
           diagnostics: [Diagnostic.t()],
           last_error: last_error()
         }
+
+  @operational_kinds [:remote, :local_proxy, :local_direct, :compiler, :persistence, :store]
+  @operational_reasons [
+    :snapshot_not_found,
+    :snapshot_unreadable,
+    :corrupt_snapshot,
+    :incompatible_snapshot,
+    :checksum_mismatch,
+    :invalid_snapshot,
+    :persistence_failed,
+    :configuration_unavailable,
+    :timeout,
+    :connect_timeout,
+    :receive_timeout,
+    :connection_failed,
+    :transport_error,
+    :http_error,
+    :unexpected_status,
+    :body_too_large,
+    :compile_failed,
+    :compile_timeout,
+    :task_crash,
+    :source_unavailable,
+    :remote_unavailable,
+    :local_unavailable,
+    :watcher_failed,
+    :read_failed,
+    :not_found,
+    :permission_denied
+  ]
+
+  @spec persisted_readiness?(term()) :: boolean()
+  def persisted_readiness?(readiness), do: readiness in [:ready, :stale]
+
+  @spec valid_operational_error?(term()) :: boolean()
+  def valid_operational_error?(%{kind: kind, reason: reason} = error) when map_size(error) == 2,
+    do:
+      kind in @operational_kinds and
+        (reason in @operational_reasons or Diagnostic.valid_reason?(reason))
+
+  def valid_operational_error?(_error), do: false
+
+  @spec valid_last_error?(term()) :: boolean()
+  def valid_last_error?(nil), do: true
+  def valid_last_error?(error), do: valid_operational_error?(error)
 
   @spec metadata(t()) :: map()
   def metadata(%__MODULE__{} = snapshot) do

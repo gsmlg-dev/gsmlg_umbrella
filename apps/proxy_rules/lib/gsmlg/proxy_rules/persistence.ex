@@ -6,48 +6,10 @@ defmodule GSMLG.ProxyRules.Persistence do
   @artifact_file "artifact.snapshot"
   @artifact_type :artifact_snapshot
   @version 1
-  @diagnostic_reasons [
-    :invalid_value,
-    :empty_domain,
-    :invalid_url,
-    :unsupported_scheme,
-    :invalid_idna,
-    :ip_literal,
-    :domain_too_long,
-    :empty_label,
-    :label_too_long,
-    :invalid_label,
-    :invalid_base64,
-    :invalid_utf8,
-    :path_specific,
-    :regular_expression,
-    :modifier,
-    :wildcard,
-    :ambiguous_rule,
-    :systemic_failure
-  ]
-  @operational_kinds [:remote, :local_proxy, :local_direct, :compiler, :persistence, :store]
-  @operational_reasons @diagnostic_reasons ++
-                         [
-                           :snapshot_not_found,
-                           :snapshot_unreadable,
-                           :corrupt_snapshot,
-                           :incompatible_snapshot,
-                           :checksum_mismatch,
-                           :invalid_snapshot,
-                           :persistence_failed,
-                           :configuration_unavailable,
-                           :timeout,
-                           :connection_failed,
-                           :http_error,
-                           :body_too_large,
-                           :compile_failed,
-                           :source_unavailable,
-                           :watcher_failed,
-                           :read_failed,
-                           :not_found,
-                           :permission_denied
-                         ]
+  @max_envelope_bytes 64 * 1024 * 1024
+  @max_output_bytes 64 * 1024 * 1024
+  @max_diagnostic_count 1_000
+  @max_diagnostic_sample_bytes 512
 
   @type read_error ::
           :snapshot_not_found
@@ -59,9 +21,14 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   @spec write_artifact(binary(), Snapshot.t()) ::
           :ok | {:error, :invalid_snapshot | :persistence_failed}
-  def write_artifact(directory, %Snapshot{} = snapshot) when is_binary(directory) do
+  def write_artifact(directory, snapshot), do: write_artifact(directory, snapshot, [])
+
+  @spec write_artifact(binary(), Snapshot.t(), keyword()) ::
+          :ok | {:error, :invalid_snapshot | :persistence_failed}
+  def write_artifact(directory, %Snapshot{} = snapshot, opts)
+      when is_binary(directory) and is_list(opts) do
     if valid_snapshot?(snapshot) do
-      payload = :erlang.term_to_binary(snapshot, [:compressed])
+      payload = :erlang.term_to_binary(snapshot)
 
       envelope =
         :erlang.term_to_binary(%{
@@ -71,34 +38,47 @@ defmodule GSMLG.ProxyRules.Persistence do
           payload: payload
         })
 
-      atomic_write(Path.join(directory, @artifact_file), envelope)
+      if byte_size(envelope) <= @max_envelope_bytes,
+        do: atomic_write(Path.join(directory, @artifact_file), envelope, opts),
+        else: {:error, :invalid_snapshot}
     else
       {:error, :invalid_snapshot}
     end
   end
 
-  def write_artifact(_directory, _snapshot), do: {:error, :invalid_snapshot}
+  def write_artifact(_directory, _snapshot, _opts), do: {:error, :invalid_snapshot}
 
   @spec read_artifact(binary()) :: {:ok, Snapshot.t()} | {:error, read_error()}
-  def read_artifact(directory) when is_binary(directory) do
+  def read_artifact(directory), do: read_artifact(directory, [])
+
+  @spec read_artifact(binary(), keyword()) :: {:ok, Snapshot.t()} | {:error, read_error()}
+  def read_artifact(directory, opts) when is_binary(directory) and is_list(opts) do
+    max_bytes = Keyword.get(opts, :max_envelope_bytes, @max_envelope_bytes)
+
     directory
     |> Path.join(@artifact_file)
-    |> File.read()
+    |> bounded_read(max_bytes)
     |> decode_file()
   end
 
-  def read_artifact(_directory), do: {:error, :snapshot_unreadable}
+  def read_artifact(_directory, _opts), do: {:error, :snapshot_unreadable}
+
+  @spec max_output_bytes() :: pos_integer()
+  def max_output_bytes, do: @max_output_bytes
+
+  @spec max_diagnostic_count() :: pos_integer()
+  def max_diagnostic_count, do: @max_diagnostic_count
 
   @spec valid_snapshot?(term()) :: boolean()
-  def valid_snapshot?(%Snapshot{} = snapshot) do
+  def valid_snapshot?(%Snapshot{} = snapshot) when map_size(snapshot) == 9 do
     non_negative_integer?(snapshot.generation) and
       valid_datetime?(snapshot.compiled_at) and
-      snapshot.readiness in [:not_ready, :refreshing, :ready, :stale] and
+      Snapshot.persisted_readiness?(snapshot.readiness) and
       valid_source_versions?(snapshot.source_versions) and
       valid_rendered_outputs?(snapshot.rendered_outputs) and
       valid_statistics?(snapshot.statistics) and
       valid_diagnostics?(snapshot.diagnostics) and
-      valid_last_error?(snapshot.last_error)
+      Snapshot.valid_last_error?(snapshot.last_error)
   end
 
   def valid_snapshot?(_snapshot), do: false
@@ -116,7 +96,10 @@ defmodule GSMLG.ProxyRules.Persistence do
   end
 
   defp decode_file({:error, :enoent}), do: {:error, :snapshot_not_found}
+  defp decode_file({:error, :file_too_large}), do: {:error, :invalid_snapshot}
   defp decode_file({:error, _reason}), do: {:error, :snapshot_unreadable}
+
+  defp safe_decode(<<131, 80, _compressed::binary>>), do: {:error, :corrupt_snapshot}
 
   defp safe_decode(binary) when is_binary(binary) do
     {:ok, :erlang.binary_to_term(binary, [:safe])}
@@ -141,14 +124,36 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   defp validate_envelope(_envelope), do: {:error, :corrupt_snapshot}
 
-  defp atomic_write(path, binary) do
+  defp bounded_read(_path, max_bytes) when not is_integer(max_bytes) or max_bytes <= 0,
+    do: {:error, :file_too_large}
+
+  defp bounded_read(path, max_bytes) do
+    case :file.open(String.to_charlist(path), [:read, :binary, :raw]) do
+      {:ok, file} ->
+        result =
+          case :file.read(file, max_bytes + 1) do
+            {:ok, binary} when byte_size(binary) <= max_bytes -> {:ok, binary}
+            {:ok, _binary} -> {:error, :file_too_large}
+            :eof -> {:ok, <<>>}
+            {:error, reason} -> {:error, reason}
+          end
+
+        _ = :file.close(file)
+        result
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp atomic_write(path, binary, opts) do
     directory = Path.dirname(path)
     temporary = temporary_path(path)
 
     result =
       with :ok <- File.mkdir_p(directory),
            {:ok, file} <- :file.open(temporary, [:write, :binary, :exclusive]) do
-        write_and_rename(file, temporary, path, binary)
+        write_rename_and_sync(file, temporary, path, binary, directory, opts)
       end
 
     _ = File.rm(temporary)
@@ -159,12 +164,13 @@ defmodule GSMLG.ProxyRules.Persistence do
     end
   end
 
-  defp write_and_rename(file, temporary, path, binary) do
+  defp write_rename_and_sync(file, temporary, path, binary, directory, opts) do
     result =
       with :ok <- :file.write(file, binary),
            :ok <- :file.sync(file),
            :ok <- :file.close(file),
-           :ok <- File.rename(temporary, path) do
+           :ok <- File.rename(temporary, path),
+           :ok <- sync_directory(directory, opts) do
         :ok
       end
 
@@ -172,8 +178,27 @@ defmodule GSMLG.ProxyRules.Persistence do
     result
   end
 
+  defp sync_directory(directory, opts) do
+    case Keyword.get(opts, :sync_directory) do
+      sync when is_function(sync, 1) -> sync.(directory)
+      nil -> sync_directory(directory)
+    end
+  end
+
+  defp sync_directory(directory) do
+    case :file.open(String.to_charlist(directory), [:read, :raw, :directory]) do
+      {:ok, file} ->
+        result = :file.sync(file)
+        _ = :file.close(file)
+        result
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   defp temporary_path(path) do
-    suffix = System.unique_integer([:positive, :monotonic])
+    suffix = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
     Path.join(Path.dirname(path), ".#{Path.basename(path)}.#{suffix}.tmp")
   end
 
@@ -190,7 +215,8 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   defp valid_rendered_outputs?(%{proxy: proxy, direct: direct} = outputs)
        when map_size(outputs) == 2 do
-    valid_output_formats?(proxy) and valid_output_formats?(direct)
+    valid_output_formats?(proxy) and valid_output_formats?(direct) and
+      aggregate_output_bytes(outputs) <= @max_output_bytes
   end
 
   defp valid_rendered_outputs?(_outputs), do: false
@@ -202,7 +228,13 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   defp valid_output_formats?(_formats), do: false
 
-  defp valid_output?(%Output{} = output) do
+  defp aggregate_output_bytes(outputs) do
+    for list <- [:proxy, :direct], format <- [:raw, :squid, :clash], reduce: 0 do
+      total -> total + outputs[list][format].content_length
+    end
+  end
+
+  defp valid_output?(%Output{} = output) when map_size(output) == 7 do
     is_binary(output.body) and
       valid_hex_hash?(output.sha256) and
       output.sha256 == sha256_hex(output.body) and
@@ -256,30 +288,31 @@ defmodule GSMLG.ProxyRules.Persistence do
   defp valid_counts?(_counts), do: false
 
   defp valid_diagnostics?(diagnostics) when is_list(diagnostics) do
-    Enum.all?(diagnostics, fn
-      %Diagnostic{kind: kind, source: source, location: location, reason: reason, sample: sample} ->
-        kind in [:invalid, :unsupported, :systemic] and
-          source in [:gfwlist, :local_proxy, :local_direct] and
-          (location == :system or (is_integer(location) and location > 0)) and
-          reason in @diagnostic_reasons and
-          (is_nil(sample) or is_binary(sample))
+    bounded_diagnostics = Enum.take(diagnostics, @max_diagnostic_count + 1)
 
-      _other ->
-        false
-    end)
+    length(bounded_diagnostics) <= @max_diagnostic_count and
+      Enum.all?(bounded_diagnostics, fn
+        %Diagnostic{
+          kind: kind,
+          source: source,
+          location: location,
+          reason: reason,
+          sample: sample
+        } = diagnostic
+        when map_size(diagnostic) == 6 ->
+          kind in [:invalid, :unsupported, :systemic] and
+            source in [:gfwlist, :local_proxy, :local_direct] and
+            (location == :system or (is_integer(location) and location > 0)) and
+            Diagnostic.valid_reason?(reason) and
+            (is_nil(sample) or
+               (is_binary(sample) and byte_size(sample) <= @max_diagnostic_sample_bytes))
+
+        _other ->
+          false
+      end)
   end
 
   defp valid_diagnostics?(_diagnostics), do: false
-
-  defp valid_last_error?(nil), do: true
-
-  defp valid_last_error?(%{reason: reason} = error) when map_size(error) == 1,
-    do: reason in @diagnostic_reasons
-
-  defp valid_last_error?(%{kind: kind, reason: reason} = error) when map_size(error) == 2,
-    do: kind in @operational_kinds and reason in @operational_reasons
-
-  defp valid_last_error?(_error), do: false
 
   defp valid_datetime?(%DateTime{} = datetime) do
     _unix = DateTime.to_unix(datetime, :microsecond)

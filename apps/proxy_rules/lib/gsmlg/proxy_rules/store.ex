@@ -5,30 +5,6 @@ defmodule GSMLG.ProxyRules.Store do
 
   @table :gsmlg_proxy_rules_store
   @readiness [:not_ready, :refreshing, :ready, :stale]
-  @operational_kinds [:remote, :local_proxy, :local_direct, :compiler, :persistence, :store]
-  @operational_reasons [
-    :snapshot_not_found,
-    :snapshot_unreadable,
-    :corrupt_snapshot,
-    :incompatible_snapshot,
-    :checksum_mismatch,
-    :invalid_snapshot,
-    :persistence_failed,
-    :configuration_unavailable,
-    :timeout,
-    :connection_failed,
-    :http_error,
-    :body_too_large,
-    :invalid_base64,
-    :invalid_utf8,
-    :systemic_failure,
-    :compile_failed,
-    :source_unavailable,
-    :watcher_failed,
-    :read_failed,
-    :not_found,
-    :permission_denied
-  ]
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -45,8 +21,8 @@ defmodule GSMLG.ProxyRules.Store do
   @spec publish(Snapshot.t()) :: :ok | {:error, :invalid_snapshot | :persistence_failed}
   def publish(snapshot), do: GenServer.call(__MODULE__, {:publish, snapshot})
 
-  @spec update_status(Snapshot.readiness(), nil | map()) ::
-          :ok | {:error, :invalid_readiness | :invalid_operational_error | :not_ready}
+  @spec update_status(Snapshot.readiness(), nil | Snapshot.operational_error()) ::
+          :ok | {:error, :invalid_readiness | :invalid_operational_error}
   def update_status(readiness, operational_error),
     do: GenServer.call(__MODULE__, {:update_status, readiness, operational_error})
 
@@ -65,6 +41,7 @@ defmodule GSMLG.ProxyRules.Store do
     {:ok,
      %{
        state_directory: state_directory,
+       persistence_options: Keyword.get(opts, :persistence_options, []),
        readiness: if(snapshot, do: snapshot.readiness, else: :not_ready),
        operational_status: operational_status
      }}
@@ -73,7 +50,7 @@ defmodule GSMLG.ProxyRules.Store do
   @impl true
   def handle_call({:publish, snapshot}, _from, state) do
     if Persistence.valid_snapshot?(snapshot) do
-      case persist(state.state_directory, snapshot) do
+      case persist(state.state_directory, snapshot, state.persistence_options) do
         :ok ->
           true = :ets.insert(@table, {:current, snapshot})
           {:reply, :ok, %{state | readiness: snapshot.readiness, operational_status: nil}}
@@ -150,10 +127,10 @@ defmodule GSMLG.ProxyRules.Store do
     end
   end
 
-  defp persist(nil, _snapshot), do: {:error, :persistence_failed}
+  defp persist(nil, _snapshot, _opts), do: {:error, :persistence_failed}
 
-  defp persist(state_directory, snapshot),
-    do: Persistence.write_artifact(state_directory, snapshot)
+  defp persist(state_directory, snapshot, opts),
+    do: Persistence.write_artifact(state_directory, snapshot, opts)
 
   defp mark_current_stale(reason) do
     case current() do
@@ -176,11 +153,5 @@ defmodule GSMLG.ProxyRules.Store do
   defp readiness_without_artifact(_readiness), do: :not_ready
 
   defp valid_operational_error?(nil), do: true
-
-  defp valid_operational_error?(%{kind: kind, reason: reason} = error)
-       when map_size(error) == 2 do
-    kind in @operational_kinds and reason in @operational_reasons
-  end
-
-  defp valid_operational_error?(_error), do: false
+  defp valid_operational_error?(error), do: Snapshot.valid_operational_error?(error)
 end

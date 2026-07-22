@@ -110,10 +110,62 @@ defmodule GSMLG.ProxyRules.StoreTest do
     File.write!(dir, "blocks directory recreation")
 
     assert {:error, :persistence_failed} = Store.publish(second)
-    assert {:ok, %Snapshot{generation: 12}} = Store.current()
+
+    assert {:ok,
+            %Snapshot{
+              generation: 12,
+              readiness: :stale,
+              last_error: %{kind: :persistence, reason: :persistence_failed}
+            }} = Store.current()
+
+    assert {:ok,
+            %{
+              generation: 12,
+              readiness: :stale,
+              operational_status: %{kind: :persistence, reason: :persistence_failed}
+            }} = Store.metadata()
 
     File.rm!(dir)
     File.rename!(moved_dir, dir)
+  end
+
+  @tag :tmp_dir
+  test "a first persistence failure remains not ready", %{tmp_dir: dir} do
+    moved_dir = dir <> "-moved"
+    File.rename!(dir, moved_dir)
+    File.write!(dir, "blocks directory recreation")
+
+    assert {:error, :persistence_failed} = Store.publish(fixture_snapshot(14))
+    assert {:error, :not_ready} = Store.current()
+
+    assert {:ok,
+            %{
+              readiness: :not_ready,
+              operational_status: %{kind: :persistence, reason: :persistence_failed}
+            }} = Store.metadata()
+
+    File.rm!(dir)
+    File.rename!(moved_dir, dir)
+  end
+
+  @tag :tmp_dir
+  test "a directory sync failure does not replace current ETS state", %{tmp_dir: dir} do
+    first = fixture_snapshot(15)
+    second = fixture_snapshot(16)
+    assert :ok = Persistence.write_artifact(dir, first)
+
+    restart_store(dir,
+      persistence_options: [sync_directory: fn ^dir -> {:error, :eio} end]
+    )
+
+    assert {:error, :persistence_failed} = Store.publish(second)
+
+    assert {:ok,
+            %Snapshot{
+              generation: 15,
+              readiness: :stale,
+              last_error: %{kind: :persistence, reason: :persistence_failed}
+            }} = Store.current()
   end
 
   @tag :tmp_dir
@@ -153,10 +205,10 @@ defmodule GSMLG.ProxyRules.StoreTest do
     snapshot
   end
 
-  defp restart_store(dir) do
+  defp restart_store(dir, opts \\ []) do
     old_store = Process.whereis(Store)
     GenServer.stop(old_store)
-    {:ok, new_store} = Store.start_link(state_directory: dir)
+    {:ok, new_store} = Store.start_link(Keyword.put(opts, :state_directory, dir))
     Process.unlink(new_store)
   end
 end

@@ -21,6 +21,27 @@ defmodule GSMLG.ProxyRules.Diagnostic do
           | :ambiguous_rule
           | :systemic_failure
 
+  @reasons [
+    :invalid_value,
+    :empty_domain,
+    :invalid_url,
+    :unsupported_scheme,
+    :invalid_idna,
+    :ip_literal,
+    :domain_too_long,
+    :empty_label,
+    :label_too_long,
+    :invalid_label,
+    :invalid_base64,
+    :invalid_utf8,
+    :path_specific,
+    :regular_expression,
+    :modifier,
+    :wildcard,
+    :ambiguous_rule,
+    :systemic_failure
+  ]
+
   @type t :: %__MODULE__{
           kind: kind(),
           source: source(),
@@ -28,4 +49,7 @@ defmodule GSMLG.ProxyRules.Diagnostic do
           reason: reason(),
           sample: String.t() | nil
         }
+
+  @spec valid_reason?(term()) :: boolean()
+  def valid_reason?(reason), do: reason in @reasons
 end
