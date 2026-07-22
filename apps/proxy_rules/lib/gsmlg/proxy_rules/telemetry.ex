@@ -22,7 +22,7 @@ defmodule GSMLG.ProxyRules.Telemetry do
     [:compile, :stale_result, :discard],
     [:artifact, :publication],
     [:artifact, :restoration],
-    [:readiness, :status, :change],
+    [:status, :change],
     [:api, :artifact, :hit],
     [:api, :artifact, :conditional_hit],
     [:diagnostic, :unsupported, :sample],

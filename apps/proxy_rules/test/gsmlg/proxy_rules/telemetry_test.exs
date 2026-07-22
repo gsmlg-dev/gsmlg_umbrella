@@ -30,6 +30,29 @@ defmodule GSMLG.ProxyRules.TelemetryTest do
     assert_receive {:event, ^event, %{duration: 10}, %{status: 200}}
   end
 
+  test "emit uses the status change suffix consumed by the telemetry bridge" do
+    handler_id = {__MODULE__, self()}
+    event = [:gsmlg, :proxy_rules, :status, :change]
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        event,
+        fn name, measurements, metadata, pid ->
+          send(pid, {:event, name, measurements, metadata})
+        end,
+        self()
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    assert :ok = Telemetry.emit([:status, :change], %{generation: 7}, %{})
+    assert_receive {:event, ^event, %{generation: 7}, %{}}
+
+    assert {:error, :invalid_event} =
+             Telemetry.emit([:readiness, :status, :change], %{generation: 7}, %{})
+  end
+
   test "emit rejects malformed suffixes, measurements, and metadata without executing" do
     handler_id = {__MODULE__, self()}
     event = [:gsmlg, :proxy_rules, :remote, :fetch, :stop]

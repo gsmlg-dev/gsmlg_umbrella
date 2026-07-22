@@ -1,6 +1,7 @@
 defmodule GSMLG.ProxyRules.Transport.FinchTest do
   use ExUnit.Case, async: true
 
+  alias GSMLG.ProxyRules.Transport
   alias GSMLG.ProxyRules.Transport.Finch, as: FinchTransport
 
   setup do
@@ -185,6 +186,19 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
              )
   end
 
+  test "transport response contract requires a positive HTTP status" do
+    assert {:ok, types} = Code.Typespec.fetch_types(Transport)
+
+    assert {:type, {:response, response_type, []}} =
+             Enum.find(types, fn
+               {:type, {:response, _definition, []}} -> true
+               _type -> false
+             end)
+
+    assert Enum.any?(typespec_nodes(response_type), &match?({:type, _, :pos_integer, []}, &1))
+    refute Enum.any?(typespec_nodes(response_type), &match?({:type, _, :non_neg_integer, []}, &1))
+  end
+
   defp start_server(handler) do
     parent = self()
     {:ok, listener} = listen()
@@ -220,4 +234,11 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     assert_receive {:DOWN, ^ref, :process, ^pid, reason}, 1_000
     assert reason in [:normal, :noproc]
   end
+
+  defp typespec_nodes(term) when is_tuple(term) do
+    [term | term |> Tuple.to_list() |> Enum.flat_map(&typespec_nodes/1)]
+  end
+
+  defp typespec_nodes(term) when is_list(term), do: Enum.flat_map(term, &typespec_nodes/1)
+  defp typespec_nodes(_term), do: []
 end

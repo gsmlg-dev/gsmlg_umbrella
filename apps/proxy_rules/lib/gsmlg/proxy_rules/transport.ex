@@ -5,7 +5,7 @@ defmodule GSMLG.ProxyRules.Transport do
 
   @type header :: {binary(), binary()}
   @type response :: %{
-          required(:status) => non_neg_integer(),
+          required(:status) => pos_integer(),
           required(:headers) => [header()],
           required(:body) => binary()
         }
