@@ -46,6 +46,7 @@ defmodule GSMLG.ProxyRules.Telemetry do
   @sources [:gfwlist, :local_proxy, :local_direct]
   @lists [:proxy, :direct]
   @formats [:raw, :squid, :clash]
+  @readiness_values [:not_ready, :refreshing, :ready, :stale]
   @failure_categories [
     :timeout,
     :connect_timeout,
@@ -138,6 +139,7 @@ defmodule GSMLG.ProxyRules.Telemetry do
       {:format, value} -> value in @formats
       {:status, value} -> is_integer(value) and value >= 100 and value <= 599
       {:failure_category, value} -> value in @failure_categories
+      {:readiness, value} -> value in @readiness_values
       {_key, _value} -> false
     end)
   end

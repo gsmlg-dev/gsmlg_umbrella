@@ -3,6 +3,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
 
   alias GSMLG.ProxyRules.Transport
   alias GSMLG.ProxyRules.Transport.Finch, as: FinchTransport
+  alias GSMLG.ProxyRules.Snapshot
 
   setup do
     finch_name = String.to_atom("proxy_rules_finch_#{System.unique_integer([:positive])}")
@@ -106,6 +107,58 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     end
   end
 
+  test "discards interim response headers and body accounting before the final response", %{
+    finch_name: finch_name
+  } do
+    {url, server} =
+      start_server(fn socket, _parent ->
+        recv_request(socket)
+
+        :ok =
+          :gen_tcp.send(socket, [
+            "HTTP/1.1 103 Early Hints\r\n",
+            "ETag: interim\r\n",
+            "Content-Length: 99999\r\n\r\n",
+            "HTTP/1.1 200 OK\r\n",
+            "ETag: final\r\n",
+            "Content-Length: 2\r\n",
+            "Connection: close\r\n\r\n",
+            "ok"
+          ])
+      end)
+
+    assert {:ok, %{status: 200, headers: headers, body: "ok"}} =
+             FinchTransport.get(url, [], transport_options(finch_name, 8))
+
+    assert header_value(headers, "etag") == "final"
+    refute Enum.any?(headers, fn {_name, value} -> value == "interim" end)
+    await_server(server)
+  end
+
+  test "halts when aggregate response headers exceed the fixed limit", %{finch_name: finch_name} do
+    large_headers =
+      for index <- 1..70 do
+        ["X-Large-", Integer.to_string(index), ": ", :binary.copy("x", 1_000), "\r\n"]
+      end
+
+    {url, server} =
+      start_server(fn socket, _parent ->
+        recv_request(socket)
+
+        :ok =
+          :gen_tcp.send(socket, [
+            "HTTP/1.1 200 OK\r\n",
+            large_headers,
+            "Content-Length: 0\r\nConnection: close\r\n\r\n"
+          ])
+      end)
+
+    assert {:error, :headers_too_large} =
+             FinchTransport.get(url, [], transport_options(finch_name, 1))
+
+    await_server(server)
+  end
+
   test "normalizes connection failure and receive timeout", %{finch_name: finch_name} do
     {:ok, listener} = listen()
     {:ok, port} = :inet.port(listener)
@@ -139,7 +192,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
       end)
 
     assert_receive {:headers_sent, server_pid}
-    assert {:error, :receive_timeout} = Task.await(task, 1_000)
+    assert {:error, :timeout} = Task.await(task, 1_000)
     send(server_pid, :close)
     await_server(server)
   end
@@ -184,6 +237,67 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
                receive_timeout: 1,
                max_body_size: 1
              )
+
+    for invalid_url <- [
+          "http://user@example.com/rules",
+          "http://example.com/rules#fragment",
+          "http://exa mple.com/rules",
+          "http://example.com/bad path",
+          "http://example.com:0/rules",
+          "http://example.com:65536/rules",
+          "http://example.com/\nsecret"
+        ] do
+      assert {:error, :invalid_url} =
+               FinchTransport.get(invalid_url, [], transport_options(finch_name, 1))
+    end
+
+    for invalid_headers <- [
+          [{"bad header", "value"}],
+          [{"bad:header", "value"}],
+          [{"x-test", "line\r\ninjection"}],
+          [{"x-test", <<0, 1>>}]
+        ] do
+      assert {:error, :invalid_headers} =
+               FinchTransport.get(
+                 "http://example.com/rules",
+                 invalid_headers,
+                 transport_options(finch_name, 1)
+               )
+    end
+  end
+
+  test "returns bounded failures for missing, wrong, and terminated Finch registrations", %{
+    finch_name: finch_name
+  } do
+    missing_name = unique_name("missing_finch")
+    wrong_name = unique_name("wrong_finch")
+    {:ok, wrong_pid} = Agent.start_link(fn -> nil end, name: wrong_name)
+    on_exit(fn -> if Process.alive?(wrong_pid), do: Agent.stop(wrong_pid) end)
+
+    assert {:error, :connection_failed} =
+             FinchTransport.get(
+               "http://127.0.0.1:1/",
+               [],
+               transport_options(missing_name, 1)
+             )
+
+    assert {:error, bounded_reason} =
+             FinchTransport.get(
+               "http://127.0.0.1:1/",
+               [],
+               transport_options(wrong_name, 1)
+             )
+
+    assert bounded_reason in [:connection_failed, :transport_error]
+
+    :ok = stop_supervised(finch_name)
+
+    assert {:error, :connection_failed} =
+             FinchTransport.get(
+               "http://127.0.0.1:1/",
+               [],
+               transport_options(finch_name, 1)
+             )
   end
 
   test "transport response contract requires a positive HTTP status" do
@@ -197,6 +311,17 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
 
     assert Enum.any?(typespec_nodes(response_type), &match?({:type, _, :pos_integer, []}, &1))
     refute Enum.any?(typespec_nodes(response_type), &match?({:type, _, :non_neg_integer, []}, &1))
+  end
+
+  test "header boundary failures are finite transport and operational reasons" do
+    assert transport_error_atoms() |> MapSet.member?(:headers_too_large)
+
+    assert Snapshot.valid_operational_error?(%{
+             kind: :remote,
+             reason: :headers_too_large
+           })
+
+    assert Snapshot.valid_operational_error?(%{kind: :remote, reason: :invalid_headers})
   end
 
   defp start_server(handler) do
@@ -226,6 +351,37 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
   defp recv_request(socket) do
     {:ok, request} = :gen_tcp.recv(socket, 0, 1_000)
     assert request =~ "GET /rules HTTP/1.1"
+  end
+
+  defp transport_options(finch_name, max_body_size) do
+    [finch_name: finch_name, receive_timeout: 1_000, max_body_size: max_body_size]
+  end
+
+  defp header_value(headers, expected_name) do
+    Enum.find_value(headers, fn {name, value} ->
+      if String.downcase(name) == expected_name, do: value
+    end)
+  end
+
+  defp unique_name(prefix) do
+    String.to_atom("#{prefix}_#{System.unique_integer([:positive])}")
+  end
+
+  defp transport_error_atoms do
+    assert {:ok, types} = Code.Typespec.fetch_types(Transport)
+
+    assert {:type, {:error_reason, definition, []}} =
+             Enum.find(types, fn
+               {:type, {:error_reason, _definition, []}} -> true
+               _type -> false
+             end)
+
+    definition
+    |> typespec_nodes()
+    |> Enum.reduce(MapSet.new(), fn
+      {:atom, _line, atom}, atoms -> MapSet.put(atoms, atom)
+      _node, atoms -> atoms
+    end)
   end
 
   defp await_server(pid) do

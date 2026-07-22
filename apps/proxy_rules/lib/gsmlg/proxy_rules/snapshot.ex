@@ -36,6 +36,8 @@ defmodule GSMLG.ProxyRules.Snapshot do
           | :receive_timeout
           | :connection_failed
           | :transport_error
+          | :invalid_headers
+          | :headers_too_large
           | :http_error
           | :unexpected_status
           | :body_too_large
@@ -112,6 +114,8 @@ defmodule GSMLG.ProxyRules.Snapshot do
     :receive_timeout,
     :connection_failed,
     :transport_error,
+    :invalid_headers,
+    :headers_too_large,
     :http_error,
     :unexpected_status,
     :body_too_large,

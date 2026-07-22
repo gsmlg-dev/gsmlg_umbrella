@@ -13,6 +13,7 @@ defmodule GSMLG.ProxyRules.Transport do
           :invalid_options
           | :invalid_url
           | :invalid_headers
+          | :headers_too_large
           | :timeout
           | :connect_timeout
           | :receive_timeout

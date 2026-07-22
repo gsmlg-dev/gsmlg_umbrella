@@ -46,8 +46,13 @@ defmodule GSMLG.ProxyRules.TelemetryTest do
 
     on_exit(fn -> :telemetry.detach(handler_id) end)
 
-    assert :ok = Telemetry.emit([:status, :change], %{generation: 7}, %{})
-    assert_receive {:event, ^event, %{generation: 7}, %{}}
+    assert :ok =
+             Telemetry.emit([:status, :change], %{generation: 7}, %{readiness: :ready})
+
+    assert_receive {:event, ^event, %{generation: 7}, %{readiness: :ready}}
+
+    assert {:error, :invalid_metadata} =
+             Telemetry.emit([:status, :change], %{generation: 7}, %{readiness: :unknown})
 
     assert {:error, :invalid_event} =
              Telemetry.emit([:readiness, :status, :change], %{generation: 7}, %{})
