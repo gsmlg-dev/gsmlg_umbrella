@@ -155,7 +155,7 @@ defmodule GSMLG.ProxyRules.StoreTest do
     assert :ok = Persistence.write_artifact(dir, first)
 
     restart_store(dir,
-      persistence_options: [sync_directory: fail_sync_on_call(2, dir)]
+      persistence_options: [sync_directory: fail_sync_from_call(2, dir)]
     )
 
     assert {:error, :persistence_failed} = Store.publish(second)
@@ -167,6 +167,7 @@ defmodule GSMLG.ProxyRules.StoreTest do
               last_error: %{kind: :persistence, reason: :persistence_failed}
             }} = Store.current()
 
+    assert File.regular?(Path.join(dir, ".artifact.snapshot.transaction"))
     restart_store(dir)
     assert {:ok, %Snapshot{generation: 15, readiness: :stale}} = Store.current()
   end
@@ -174,11 +175,12 @@ defmodule GSMLG.ProxyRules.StoreTest do
   @tag :tmp_dir
   test "a failed first publish leaves nothing restorable", %{tmp_dir: dir} do
     restart_store(dir,
-      persistence_options: [sync_directory: fail_sync_on_call(1, dir)]
+      persistence_options: [sync_directory: fail_sync_from_call(1, dir)]
     )
 
     assert {:error, :persistence_failed} = Store.publish(fixture_snapshot(17))
     assert {:error, :not_ready} = Store.current()
+    assert File.regular?(Path.join(dir, ".artifact.snapshot.transaction"))
 
     restart_store(dir)
     assert {:error, :not_ready} = Store.current()
@@ -229,13 +231,13 @@ defmodule GSMLG.ProxyRules.StoreTest do
     Process.unlink(new_store)
   end
 
-  defp fail_sync_on_call(failing_call, expected_dir) do
+  defp fail_sync_from_call(failing_call, expected_dir) do
     counter = :counters.new(1, [])
 
     fn ^expected_dir ->
       :ok = :counters.add(counter, 1, 1)
       call = :counters.get(counter, 1)
-      if call == failing_call, do: {:error, :eio}, else: :ok
+      if call >= failing_call, do: {:error, :eio}, else: :ok
     end
   end
 end

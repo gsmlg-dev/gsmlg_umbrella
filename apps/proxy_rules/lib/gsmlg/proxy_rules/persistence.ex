@@ -4,8 +4,11 @@ defmodule GSMLG.ProxyRules.Persistence do
   alias GSMLG.ProxyRules.{Diagnostic, Output, Snapshot}
 
   @artifact_file "artifact.snapshot"
+  @transaction_file ".artifact.snapshot.transaction"
+  @backup_file ".artifact.snapshot.backup"
   @artifact_type :artifact_snapshot
   @version 1
+  @max_marker_bytes 1_024
   @max_envelope_bytes 64 * 1024 * 1024
   @max_output_bytes 64 * 1024 * 1024
   @max_diagnostic_count 1_000
@@ -76,10 +79,10 @@ defmodule GSMLG.ProxyRules.Persistence do
   def read_artifact(directory, opts) when is_binary(directory) and is_list(opts) do
     max_bytes = Keyword.get(opts, :max_envelope_bytes, @max_envelope_bytes)
 
-    directory
-    |> Path.join(@artifact_file)
-    |> bounded_read(max_bytes)
-    |> decode_file()
+    case recover_transaction(directory, opts) do
+      {:ok, path} -> path |> bounded_read(max_bytes) |> decode_file()
+      {:error, :snapshot_not_found} = error -> error
+    end
   end
 
   def read_artifact(_directory, _opts), do: {:error, :snapshot_unreadable}
@@ -174,6 +177,7 @@ defmodule GSMLG.ProxyRules.Persistence do
 
     result =
       with :ok <- File.mkdir_p(directory),
+           :ok <- prepare_for_write(directory, opts),
            {:ok, file} <- :file.open(temporary, [:write, :binary, :exclusive]) do
         write_rename_and_sync(file, temporary, path, binary, directory, opts)
       end
@@ -191,7 +195,7 @@ defmodule GSMLG.ProxyRules.Persistence do
       with :ok <- :file.write(file, binary),
            :ok <- :file.sync(file),
            :ok <- :file.close(file),
-           :ok <- replace_and_sync(temporary, path, directory, opts) do
+           :ok <- commit_transaction(temporary, path, directory, opts) do
         :ok
       end
 
@@ -199,78 +203,189 @@ defmodule GSMLG.ProxyRules.Persistence do
     result
   end
 
-  defp replace_and_sync(temporary, path, directory, opts) do
-    backup = backup_path(path)
+  defp prepare_for_write(directory, opts) do
+    marker = transaction_path(directory)
 
-    with {:ok, had_target?} <- preserve_target(path, backup, directory, opts),
-         :ok <- rename_with_rollback(temporary, path, backup, directory, had_target?, opts) do
+    case bounded_read(marker, @max_marker_bytes) do
+      {:error, :enoent} ->
+        transaction_paths_clear?(directory)
+
+      {:ok, binary} ->
+        case decode_marker(binary) do
+          {:ok, :committed, _had_target?} ->
+            cleanup_committed(directory, opts)
+            transaction_paths_clear?(directory)
+
+          _pending_or_invalid ->
+            {:error, :transaction_pending}
+        end
+
+      {:error, _reason} ->
+        {:error, :transaction_pending}
+    end
+  end
+
+  defp transaction_paths_clear?(directory) do
+    if File.exists?(transaction_path(directory)) or File.exists?(backup_path(directory)),
+      do: {:error, :transaction_pending},
+      else: :ok
+  end
+
+  defp commit_transaction(temporary, target, directory, opts) do
+    marker = transaction_path(directory)
+    backup = backup_path(directory)
+    had_target? = File.regular?(target)
+
+    with :ok <- preserve_target(target, backup, had_target?),
+         :ok <- write_marker(marker, :pending, had_target?, :exclusive),
+         :ok <- run_directory_sync(directory, opts),
+         :ok <- File.rename(temporary, target),
+         :ok <- run_directory_sync(directory, opts),
+         :ok <- write_marker(marker, :committed, had_target?, :replace) do
+      cleanup_committed(directory, opts)
       :ok
     end
   end
 
-  defp preserve_target(path, backup, directory, opts) do
-    case File.ln(path, backup) do
-      :ok ->
-        case run_directory_sync(directory, opts) do
-          :ok ->
-            {:ok, true}
+  defp preserve_target(_target, _backup, false), do: :ok
+  defp preserve_target(target, backup, true), do: File.ln(target, backup)
 
-          {:error, _reason} = error ->
-            _ = File.rm(backup)
-            _ = run_directory_sync(directory, opts)
-            error
-        end
+  defp write_marker(path, state, had_target?, mode) do
+    marker = :erlang.term_to_binary(%{version: 1, state: state, had_target: had_target?})
+    modes = if mode == :exclusive, do: [:write, :binary, :exclusive], else: [:write, :binary]
 
-      {:error, :enoent} ->
-        {:ok, false}
+    case :file.open(path, modes) do
+      {:ok, file} ->
+        result =
+          with :ok <- :file.write(file, marker),
+               :ok <- :file.sync(file),
+               :ok <- :file.close(file) do
+            :ok
+          end
+
+        _ = :file.close(file)
+        result
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  defp rename_with_rollback(temporary, path, backup, directory, had_target?, opts) do
-    case File.rename(temporary, path) do
-      :ok ->
-        case run_directory_sync(directory, opts) do
-          :ok ->
-            cleanup_backup(backup, directory, had_target?, opts)
-            :ok
+  defp recover_transaction(directory, opts) do
+    marker = transaction_path(directory)
+    backup = backup_path(directory)
+    target = Path.join(directory, @artifact_file)
 
-          {:error, _reason} = error ->
-            rollback_target(path, backup, directory, had_target?, opts)
-            error
+    case bounded_read(marker, @max_marker_bytes) do
+      {:error, :enoent} ->
+        if File.regular?(backup),
+          do: recover_pending(directory, target, backup, marker, true, opts),
+          else: {:ok, target}
+
+      {:ok, binary} ->
+        case decode_marker(binary) do
+          {:ok, :committed, _had_target?} ->
+            cleanup_committed(directory, opts)
+            {:ok, target}
+
+          {:ok, :pending, had_target?} ->
+            recover_pending(
+              directory,
+              target,
+              backup,
+              marker,
+              had_target? or File.regular?(backup),
+              opts
+            )
+
+          {:error, :invalid_marker} ->
+            recover_pending(
+              directory,
+              target,
+              backup,
+              marker,
+              File.regular?(backup),
+              opts
+            )
         end
 
-      {:error, _reason} = error ->
-        cleanup_backup(backup, directory, had_target?, opts)
-        error
+      {:error, _reason} ->
+        recover_pending(
+          directory,
+          target,
+          backup,
+          marker,
+          File.regular?(backup),
+          opts
+        )
     end
   end
 
-  defp rollback_target(path, backup, directory, true, opts) do
-    case File.rename(backup, path) do
+  defp decode_marker(binary) do
+    case safe_decode(binary) do
+      {:ok, %{version: 1, state: state, had_target: had_target?} = marker}
+      when map_size(marker) == 3 and state in [:pending, :committed] and
+             is_boolean(had_target?) ->
+        {:ok, state, had_target?}
+
+      _invalid ->
+        {:error, :invalid_marker}
+    end
+  end
+
+  defp recover_pending(directory, target, backup, marker, true, opts) do
+    recovery = recovery_path(directory)
+
+    result =
+      with :ok <- File.ln(backup, recovery),
+           :ok <- File.rename(recovery, target),
+           :ok <- run_directory_sync(directory, opts) do
+        _ = File.rm(backup)
+        _ = run_directory_sync(directory, opts)
+        cleanup_pending_marker(marker, directory, opts)
+        {:ok, target}
+      end
+
+    _ = File.rm(recovery)
+
+    case result do
+      {:ok, _path} = success -> success
+      {:error, _reason} -> {:ok, backup}
+    end
+  end
+
+  defp recover_pending(directory, target, _backup, marker, false, opts) do
+    case File.rm(target) do
       :ok ->
         _ = run_directory_sync(directory, opts)
+        cleanup_pending_marker(marker, directory, opts)
+
+      {:error, :enoent} ->
+        cleanup_pending_marker(marker, directory, opts)
+
+      {:error, _reason} ->
         :ok
-
-      {:error, _reason} = error ->
-        error
     end
+
+    {:error, :snapshot_not_found}
   end
 
-  defp rollback_target(path, _backup, directory, false, opts) do
-    _ = File.rm(path)
-    _ = run_directory_sync(directory, opts)
-    :ok
+  defp cleanup_pending_marker(marker, directory, opts) do
+    if File.rm(marker) == :ok, do: run_directory_sync(directory, opts), else: :ok
   end
 
-  defp cleanup_backup(_backup, _directory, false, _opts), do: :ok
+  defp cleanup_committed(directory, opts) do
+    backup = backup_path(directory)
+    marker = transaction_path(directory)
 
-  defp cleanup_backup(backup, directory, true, opts) do
-    if File.rm(backup) == :ok do
-      # The replacement is already durable. This second sync only makes backup
-      # cleanup durable, so failure cannot invalidate the successful publish.
+    backup_clean? =
+      case File.rm(backup) do
+        :ok -> run_directory_sync(directory, opts) == :ok
+        {:error, :enoent} -> true
+        {:error, _reason} -> false
+      end
+
+    if backup_clean? and File.rm(marker) == :ok do
       _ = run_directory_sync(directory, opts)
     end
 
@@ -310,9 +425,12 @@ defmodule GSMLG.ProxyRules.Persistence do
     Path.join(Path.dirname(path), ".#{Path.basename(path)}.#{suffix}.tmp")
   end
 
-  defp backup_path(path) do
+  defp transaction_path(directory), do: Path.join(directory, @transaction_file)
+  defp backup_path(directory), do: Path.join(directory, @backup_file)
+
+  defp recovery_path(directory) do
     suffix = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
-    Path.join(Path.dirname(path), ".#{Path.basename(path)}.#{suffix}.bak")
+    Path.join(directory, ".artifact.snapshot.#{suffix}.recover")
   end
 
   defp valid_source_versions?(versions) when is_map(versions) and map_size(versions) == 3 do

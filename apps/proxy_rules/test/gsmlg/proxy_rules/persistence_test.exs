@@ -4,6 +4,8 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
   alias GSMLG.ProxyRules.{Compiler, Persistence, Snapshot}
 
   @compiled_at ~U[2026-07-23 01:02:03Z]
+  @marker ".artifact.snapshot.transaction"
+  @backup ".artifact.snapshot.backup"
 
   @tag :tmp_dir
   test "round-trips a versioned checksummed artifact atomically", %{tmp_dir: dir} do
@@ -12,7 +14,8 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     assert :ok = Persistence.write_artifact(dir, snapshot)
     assert {:ok, ^snapshot} = Persistence.read_artifact(dir)
     assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.tmp"))
-    assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.bak"))
+    refute File.exists?(Path.join(dir, @backup))
+    refute File.exists?(Path.join(dir, @marker))
   end
 
   @tag :tmp_dir
@@ -191,30 +194,37 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
   end
 
   @tag :tmp_dir
-  test "restores the prior artifact after post-rename directory sync failure", %{tmp_dir: dir} do
+  test "leaves a recoverable pending transaction after repeated post-rename sync failure", %{
+    tmp_dir: dir
+  } do
     first = fixture_snapshot(10)
     second = fixture_snapshot(11)
     assert :ok = Persistence.write_artifact(dir, first)
 
     assert {:error, :persistence_failed} =
-             Persistence.write_artifact(dir, second, sync_directory: fail_sync_on_call(2, dir))
+             Persistence.write_artifact(dir, second, sync_directory: fail_sync_from_call(2, dir))
 
+    assert File.regular?(Path.join(dir, @marker))
+    assert File.regular?(Path.join(dir, @backup))
     assert {:ok, ^first} = Persistence.read_artifact(dir)
     assert File.regular?(Path.join(dir, "artifact.snapshot"))
     assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.tmp"))
-    assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.bak"))
+    refute File.exists?(Path.join(dir, @marker))
+    refute File.exists?(Path.join(dir, @backup))
   end
 
   @tag :tmp_dir
   test "removes a new artifact when post-rename directory sync fails", %{tmp_dir: dir} do
     assert {:error, :persistence_failed} =
              Persistence.write_artifact(dir, fixture_snapshot(12),
-               sync_directory: fail_sync_on_call(1, dir)
+               sync_directory: fail_sync_from_call(1, dir)
              )
 
+    assert File.regular?(Path.join(dir, @marker))
     assert {:error, :snapshot_not_found} = Persistence.read_artifact(dir)
     assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.tmp"))
-    assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.bak"))
+    refute File.exists?(Path.join(dir, @marker))
+    refute File.exists?(Path.join(dir, @backup))
   end
 
   @tag :tmp_dir
@@ -231,6 +241,91 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
 
       assert {:error, :snapshot_not_found} = Persistence.read_artifact(dir)
     end)
+  end
+
+  @tag :tmp_dir
+  test "pending and corrupt markers fail closed to the prior backup", %{tmp_dir: dir} do
+    first = fixture_snapshot(20)
+    second = fixture_snapshot(21)
+
+    write_transaction(dir, :pending, true, first, second)
+
+    assert {:ok, ^first} =
+             Persistence.read_artifact(dir, sync_directory: fn ^dir -> {:error, :eio} end)
+
+    assert File.regular?(Path.join(dir, @marker))
+    assert File.regular?(Path.join(dir, @backup))
+
+    assert {:ok, ^first} = Persistence.read_artifact(dir)
+
+    write_transaction(dir, :pending, true, first, second)
+    File.write!(Path.join(dir, @marker), "partial")
+    assert {:ok, ^first} = Persistence.read_artifact(dir)
+  end
+
+  @tag :tmp_dir
+  test "pending first publication ignores the uncommitted target", %{tmp_dir: dir} do
+    snapshot = fixture_snapshot(22)
+    File.write!(Path.join(dir, "artifact.snapshot"), artifact_bytes(snapshot))
+    write_marker(dir, :pending, false)
+
+    assert {:error, :snapshot_not_found} = Persistence.read_artifact(dir)
+    refute File.exists?(Path.join(dir, "artifact.snapshot"))
+  end
+
+  @tag :tmp_dir
+  test "committed leftovers select the new target and are cleaned before later writes", %{
+    tmp_dir: dir
+  } do
+    first = fixture_snapshot(23)
+    second = fixture_snapshot(24)
+    third = fixture_snapshot(25)
+
+    write_transaction(dir, :committed, true, first, second)
+    assert {:ok, ^second} = Persistence.read_artifact(dir)
+    refute File.exists?(Path.join(dir, @marker))
+    refute File.exists?(Path.join(dir, @backup))
+
+    assert :ok = Persistence.write_artifact(dir, third)
+    assert {:ok, ^third} = Persistence.read_artifact(dir)
+    refute File.exists?(Path.join(dir, @marker))
+    refute File.exists?(Path.join(dir, @backup))
+  end
+
+  @tag :tmp_dir
+  test "a concurrent writer fails safely while a pending marker is active", %{tmp_dir: dir} do
+    test_process = self()
+    counter = :counters.new(1, [])
+
+    blocking_sync = fn ^dir ->
+      :ok = :counters.add(counter, 1, 1)
+
+      if :counters.get(counter, 1) == 1 do
+        send(test_process, {:pending_sync, self()})
+
+        receive do
+          :continue_sync -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    first_snapshot = fixture_snapshot(26)
+    second_snapshot = fixture_snapshot(27)
+
+    first =
+      Task.async(fn ->
+        Persistence.write_artifact(dir, first_snapshot, sync_directory: blocking_sync)
+      end)
+
+    assert_receive {:pending_sync, writer}, 2_000
+
+    assert {:error, :persistence_failed} = Persistence.write_artifact(dir, second_snapshot)
+
+    send(writer, :continue_sync)
+    assert :ok = Task.await(first)
+    assert {:ok, %Snapshot{generation: 26}} = Persistence.read_artifact(dir)
   end
 
   @tag :tmp_dir
@@ -280,13 +375,37 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     |> Map.put(:substituted_key, true)
   end
 
-  defp fail_sync_on_call(failing_call, expected_dir) do
+  defp fail_sync_from_call(failing_call, expected_dir) do
     counter = :counters.new(1, [])
 
     fn ^expected_dir ->
       :ok = :counters.add(counter, 1, 1)
       call = :counters.get(counter, 1)
-      if call == failing_call, do: {:error, :eio}, else: :ok
+      if call >= failing_call, do: {:error, :eio}, else: :ok
     end
+  end
+
+  defp write_transaction(dir, state, had_target, old_snapshot, new_snapshot) do
+    File.write!(Path.join(dir, @backup), artifact_bytes(old_snapshot))
+    File.write!(Path.join(dir, "artifact.snapshot"), artifact_bytes(new_snapshot))
+    write_marker(dir, state, had_target)
+  end
+
+  defp write_marker(dir, state, had_target) do
+    File.write!(
+      Path.join(dir, @marker),
+      :erlang.term_to_binary(%{version: 1, state: state, had_target: had_target})
+    )
+  end
+
+  defp artifact_bytes(snapshot) do
+    payload = :erlang.term_to_binary(snapshot)
+
+    :erlang.term_to_binary(%{
+      type: :artifact_snapshot,
+      version: 1,
+      sha256: :crypto.hash(:sha256, payload),
+      payload: payload
+    })
   end
 end
