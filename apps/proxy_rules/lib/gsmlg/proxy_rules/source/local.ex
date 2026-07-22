@@ -45,7 +45,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
   @spec snapshots(GenServer.server()) :: %{proxy: SourceSnapshot.t(), direct: SourceSnapshot.t()}
   def snapshots(server), do: GenServer.call(server, :snapshots)
 
-  @spec reconcile(GenServer.server()) :: :ok
+  @spec reconcile(GenServer.server()) :: :ok | {:error, :watcher_failed}
   def reconcile(server), do: GenServer.call(server, :reconcile)
 
   @impl true
@@ -279,17 +279,20 @@ defmodule GSMLG.ProxyRules.Source.Local do
   defp reconcile_sources(state) do
     state.targets
     |> Enum.map(fn {slot, target} ->
-      {slot,
-       Task.async(fn ->
-         read_source(
-           target.path,
-           target.action,
-           target.kind,
-           state.config.unsupported_rule_sample_limit
-         )
-       end)}
+      {slot, Task.async(fn -> descriptor_read(target.path) end)}
     end)
     |> await_reads()
+    |> Enum.map(fn {slot, result} ->
+      target = Map.fetch!(state.targets, slot)
+
+      {slot,
+       validate_read_result(
+         result,
+         target.action,
+         target.kind,
+         state.config.unsupported_rule_sample_limit
+       )}
+    end)
     |> Enum.reduce(state, fn {slot, result}, current ->
       reconcile_result(slot, result, current)
     end)
@@ -311,16 +314,16 @@ defmodule GSMLG.ProxyRules.Source.Local do
     end)
   end
 
-  defp read_source(path, action, kind, sample_limit) do
-    case descriptor_read(path) do
+  defp validate_read_result(result, action, kind, sample_limit) do
+    case result do
       {:ok, bytes} -> validate_content(bytes, action, kind, sample_limit)
       {:error, :enoent} -> {:ok, "", :missing}
       {:error, reason} -> {:error, file_failure(reason)}
     end
   rescue
-    _error -> {:error, :read_failed}
+    _error -> {:error, :invalid_replacement}
   catch
-    _kind, _reason -> {:error, :read_failed}
+    _kind, _reason -> {:error, :invalid_replacement}
   end
 
   defp descriptor_read(path) do

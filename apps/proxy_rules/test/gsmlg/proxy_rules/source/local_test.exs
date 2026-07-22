@@ -423,6 +423,24 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   end
 
   @tag :tmp_dir
+  test "substantial valid sources are parsed outside the descriptor read deadline", %{
+    tmp_dir: dir
+  } do
+    path = Path.join(dir, "proxy.txt")
+    content = Enum.map_join(1..25_000, "", &"domain#{&1}.example.com\n")
+    assert byte_size(content) > 300_000
+    File.write!(path, content)
+
+    server = start_local(dir)
+
+    assert %{proxy: %SourceSnapshot{content: ^content, availability: :ready}} =
+             Local.snapshots(server)
+
+    assert_receive {:proxy_rules_source, :local_proxy,
+                    %SourceSnapshot{content: ^content, availability: :ready}}
+  end
+
+  @tag :tmp_dir
   test "stale reason changes notify while identical repeats remain quiet", %{tmp_dir: dir} do
     path = Path.join(dir, "proxy.txt")
     File.write!(path, "example.com\n")
