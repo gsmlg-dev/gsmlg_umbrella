@@ -114,6 +114,19 @@ defmodule GSMLG.ProxyRules.Parser.GFWListTest do
            ]
   end
 
+  test "rejects repeated terminal separators without broadening proxy or exception rules" do
+    source = "||proxy.example^^\n@@||direct.example^^\n"
+
+    assert {:ok, result, _metadata} = GFWList.parse(Base.encode64(source), 10)
+    assert result.rules == []
+    assert result.counts == %{accepted: 0, invalid: 0, unsupported: 2}
+
+    assert Enum.map(result.diagnostics, &{&1.kind, &1.reason, &1.location}) == [
+             {:unsupported, :ambiguous_rule, 1},
+             {:unsupported, :ambiguous_rule, 2}
+           ]
+  end
+
   @tag timeout: 30_000
   test "the attributed official fixture is valid" do
     fixture = read_fixture("official.txt")

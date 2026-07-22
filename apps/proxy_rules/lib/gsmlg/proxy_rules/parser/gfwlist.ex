@@ -92,16 +92,20 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
 
   defp classify_anchor(value, action, prefix_size) do
     candidate = binary_part(value, prefix_size, byte_size(value) - prefix_size)
+    candidate = remove_terminal_separator(candidate)
 
-    candidate =
-      if String.ends_with?(candidate, "^"),
-        do: String.trim_trailing(candidate, "^"),
-        else: candidate
+    cond do
+      String.contains?(candidate, "^") -> {:unsupported, :ambiguous_rule}
+      String.contains?(candidate, ["/", "?", "#", "|"]) -> {:unsupported, :path_specific}
+      true -> {:candidate, action, candidate}
+    end
+  end
 
-    if String.contains?(candidate, ["/", "?", "#", "|"]) do
-      {:unsupported, :path_specific}
+  defp remove_terminal_separator(candidate) do
+    if String.ends_with?(candidate, "^") do
+      binary_part(candidate, 0, byte_size(candidate) - 1)
     else
-      {:candidate, action, candidate}
+      candidate
     end
   end
 
