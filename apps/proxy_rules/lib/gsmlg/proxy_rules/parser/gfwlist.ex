@@ -3,10 +3,14 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
   Decodes and conservatively extracts suffix-domain rules from GFWList.
 
   Unsupported Adblock constructs are counted without being broadened into a
-  domain rule. Malformed candidates are counted as invalid.
+  domain rule. Malformed candidates are counted as invalid. Retained diagnostic
+  samples are capped at 512 bytes, including the truncation marker.
   """
 
   alias GSMLG.ProxyRules.{Diagnostic, Domain, ParseResult, Rule}
+
+  @diagnostic_sample_max_bytes 512
+  @truncation_marker "...[truncated]"
 
   @type metadata :: %{required(:decoded_sha256) => binary()}
 
@@ -64,11 +68,12 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
   end
 
   defp classify(""), do: :ignored
-  defp classify(<<marker, _rest::binary>>) when marker in [?!, ?#], do: :ignored
+  defp classify(<<marker, _rest::binary>>) when marker == ?!, do: :ignored
 
   defp classify(value) do
     cond do
       metadata?(value) -> :ignored
+      cosmetic_or_hash_syntax?(value) -> {:unsupported, :ambiguous_rule}
       String.contains?(value, "$") -> {:unsupported, :modifier}
       String.contains?(value, "*") -> {:unsupported, :wildcard}
       regular_expression?(value) -> {:unsupported, :regular_expression}
@@ -85,6 +90,10 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
 
   defp metadata?(value),
     do: String.starts_with?(value, "[") and String.ends_with?(value, "]")
+
+  defp cosmetic_or_hash_syntax?(value) do
+    String.starts_with?(value, "#") or String.contains?(value, ["##", "#@#"])
+  end
 
   defp regular_expression?(value),
     do:
@@ -114,7 +123,7 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
   end
 
   defp classify_http_rule(value) do
-    normalized = value |> remove_leading_separator() |> remove_trailing_separator()
+    normalized = remove_leading_separator(value)
 
     if String.contains?(normalized, "|") do
       {:unsupported, :ambiguous_rule}
@@ -126,25 +135,27 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
   defp remove_leading_separator("|" <> rest), do: rest
   defp remove_leading_separator(value), do: value
 
-  defp remove_trailing_separator(value) do
-    if String.ends_with?(value, "|") do
-      binary_part(value, 0, byte_size(value) - 1)
-    else
-      value
-    end
-  end
-
   defp classify_normalized_http_rule(value) do
     uri = URI.parse(value)
 
-    if uri.scheme in ["http", "https"] and is_binary(uri.host) and uri.host != "" and
-         uri.userinfo == nil and uri.query == nil and uri.fragment == nil and
-         uri.path in [nil, "", "/"] do
-      {:candidate, :proxy, value}
-    else
-      {:unsupported, :path_specific}
+    cond do
+      explicit_port?(uri) ->
+        {:unsupported, :ambiguous_rule}
+
+      uri.scheme in ["http", "https"] and is_binary(uri.host) and uri.host != "" and
+        uri.userinfo == nil and uri.query == nil and uri.fragment == nil and
+          uri.path in [nil, "", "/"] ->
+        {:candidate, :proxy, value}
+
+      true ->
+        {:unsupported, :path_specific}
     end
   end
+
+  defp explicit_port?(%URI{authority: authority}) when is_binary(authority),
+    do: String.contains?(authority, ":")
+
+  defp explicit_port?(_uri), do: false
 
   defp plain_domain?(value) do
     String.contains?(value, ".") and Regex.match?(~r/\A[^\s:|^]+\z/u, value)
@@ -173,7 +184,7 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
       source: :gfwlist,
       location: location,
       reason: reason,
-      sample: raw
+      sample: bounded_sample(raw)
     }
 
     diagnostics =
@@ -185,6 +196,25 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
   end
 
   defp increment(counts, key), do: Map.update!(counts, key, &(&1 + 1))
+
+  defp bounded_sample(raw) when byte_size(raw) <= @diagnostic_sample_max_bytes, do: raw
+
+  defp bounded_sample(raw) do
+    prefix_size = @diagnostic_sample_max_bytes - byte_size(@truncation_marker)
+
+    raw
+    |> binary_part(0, prefix_size)
+    |> trim_incomplete_utf8()
+    |> Kernel.<>(@truncation_marker)
+  end
+
+  defp trim_incomplete_utf8(prefix) do
+    if String.valid?(prefix) do
+      prefix
+    else
+      trim_incomplete_utf8(binary_part(prefix, 0, byte_size(prefix) - 1))
+    end
+  end
 
   defp reverse_collections(result) do
     %{result | rules: Enum.reverse(result.rules), diagnostics: Enum.reverse(result.diagnostics)}

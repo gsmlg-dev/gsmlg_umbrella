@@ -127,39 +127,93 @@ defmodule GSMLG.ProxyRules.Parser.GFWListTest do
            ]
   end
 
-  test "accepts only whole-host URLs with at most one separator at either edge" do
-    valid =
-      "http://plain.example/\n|https://start.example/\nhttp://end.example/|\n|https://both.example/|\n"
+  test "accepts whole-host URLs without end anchors and rejects every trailing pipe" do
+    valid = "http://plain.example/\n|https://start.example/\n"
 
     assert {:ok, valid_result, _metadata} = GFWList.parse(Base.encode64(valid), 10)
 
     assert Enum.map(valid_result.rules, & &1.domain.name) == [
              "plain.example",
-             "start.example",
-             "end.example",
-             "both.example"
+             "start.example"
            ]
 
-    assert valid_result.counts == %{accepted: 4, invalid: 0, unsupported: 0}
+    assert valid_result.counts == %{accepted: 2, invalid: 0, unsupported: 0}
 
     malformed =
-      "|http://example.com||\nhttp://example.com||\n|https://example.com|||\nhttp://example.com|extra\n"
+      "http://root-only.example/|\n|https://exact.example/|\n|http://example.com||\nhttp://example.com||\n|https://example.com|||\nhttp://example.com|extra\n"
 
     assert {:ok, malformed_result, _metadata} = GFWList.parse(Base.encode64(malformed), 10)
     assert malformed_result.rules == []
-    assert malformed_result.counts == %{accepted: 0, invalid: 0, unsupported: 4}
+    assert malformed_result.counts == %{accepted: 0, invalid: 0, unsupported: 6}
 
     assert Enum.map(malformed_result.diagnostics, &{&1.kind, &1.reason, &1.location}) == [
              {:unsupported, :ambiguous_rule, 1},
              {:unsupported, :ambiguous_rule, 2},
              {:unsupported, :ambiguous_rule, 3},
-             {:unsupported, :ambiguous_rule, 4}
+             {:unsupported, :ambiguous_rule, 4},
+             {:unsupported, :ambiguous_rule, 5},
+             {:unsupported, :ambiguous_rule, 6}
+           ]
+  end
+
+  test "rejects explicitly specified URL ports before domain extraction" do
+    source =
+      "http://no-port.example/\nhttp://http-default.example:80/\nhttps://https-default.example:443/\nhttps://alternate.example:8443/\nhttp://zero.example:0/\n"
+
+    assert {:ok, result, _metadata} = GFWList.parse(Base.encode64(source), 10)
+    assert Enum.map(result.rules, & &1.domain.name) == ["no-port.example"]
+    assert result.counts == %{accepted: 1, invalid: 0, unsupported: 4}
+
+    assert Enum.map(result.diagnostics, &{&1.reason, &1.location}) == [
+             {:ambiguous_rule, 2},
+             {:ambiguous_rule, 3},
+             {:ambiguous_rule, 4},
+             {:ambiguous_rule, 5}
+           ]
+  end
+
+  test "bounds retained diagnostic samples without breaking UTF-8 or aggregate counts" do
+    oversized_ascii = String.duplicate("x", 700) <> " invalid rule"
+    oversized_multibyte = "##" <> String.duplicate("界", 300)
+    source = Enum.join([oversized_ascii, oversized_multibyte, "another invalid rule"], "\n")
+
+    assert {:ok, result, _metadata} = GFWList.parse(Base.encode64(source), 10)
+    assert result.counts == %{accepted: 0, invalid: 0, unsupported: 3}
+    assert [ascii, multibyte, short] = Enum.map(result.diagnostics, & &1.sample)
+
+    for sample <- [ascii, multibyte] do
+      assert byte_size(sample) <= 512
+      assert String.valid?(sample)
+      assert String.ends_with?(sample, "...[truncated]")
+    end
+
+    refute ascii == oversized_ascii
+    refute multibyte == oversized_multibyte
+    assert short == "another invalid rule"
+  end
+
+  test "counts cosmetic filters and hash-prefixed syntax instead of ignoring them" do
+    source =
+      "! actual comment\n[Adblock Plus 2.0]\n##.advert\nexample.com##.advert\nexample.com#@#.advert\n# not an Adblock comment\n"
+
+    assert {:ok, result, _metadata} = GFWList.parse(Base.encode64(source), 10)
+    assert result.rules == []
+    assert result.counts == %{accepted: 0, invalid: 0, unsupported: 4}
+
+    assert Enum.map(result.diagnostics, &{&1.reason, &1.location, &1.sample}) == [
+             {:ambiguous_rule, 3, "##.advert"},
+             {:ambiguous_rule, 4, "example.com##.advert"},
+             {:ambiguous_rule, 5, "example.com#@#.advert"},
+             {:ambiguous_rule, 6, "# not an Adblock comment"}
            ]
   end
 
   @tag timeout: 30_000
   test "the attributed official fixture is valid" do
     fixture = read_fixture("official.txt")
+
+    assert :crypto.hash(:sha256, fixture) |> Base.encode16(case: :lower) ==
+             "22319f2a1dc096ef57af499f384138eae1842db1f85c28d60530b8abed805985"
 
     assert {:ok, %ParseResult{counts: %{accepted: accepted}}, _metadata} =
              GFWList.parse(fixture, 20)
