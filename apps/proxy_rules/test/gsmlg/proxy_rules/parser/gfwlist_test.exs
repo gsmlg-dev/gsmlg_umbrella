@@ -127,6 +127,36 @@ defmodule GSMLG.ProxyRules.Parser.GFWListTest do
            ]
   end
 
+  test "accepts only whole-host URLs with at most one separator at either edge" do
+    valid =
+      "http://plain.example/\n|https://start.example/\nhttp://end.example/|\n|https://both.example/|\n"
+
+    assert {:ok, valid_result, _metadata} = GFWList.parse(Base.encode64(valid), 10)
+
+    assert Enum.map(valid_result.rules, & &1.domain.name) == [
+             "plain.example",
+             "start.example",
+             "end.example",
+             "both.example"
+           ]
+
+    assert valid_result.counts == %{accepted: 4, invalid: 0, unsupported: 0}
+
+    malformed =
+      "|http://example.com||\nhttp://example.com||\n|https://example.com|||\nhttp://example.com|extra\n"
+
+    assert {:ok, malformed_result, _metadata} = GFWList.parse(Base.encode64(malformed), 10)
+    assert malformed_result.rules == []
+    assert malformed_result.counts == %{accepted: 0, invalid: 0, unsupported: 4}
+
+    assert Enum.map(malformed_result.diagnostics, &{&1.kind, &1.reason, &1.location}) == [
+             {:unsupported, :ambiguous_rule, 1},
+             {:unsupported, :ambiguous_rule, 2},
+             {:unsupported, :ambiguous_rule, 3},
+             {:unsupported, :ambiguous_rule, 4}
+           ]
+  end
+
   @tag timeout: 30_000
   test "the attributed official fixture is valid" do
     fixture = read_fixture("official.txt")

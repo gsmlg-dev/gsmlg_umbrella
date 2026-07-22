@@ -110,18 +110,37 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
   end
 
   defp http_rule?(value) do
-    normalized = String.trim_leading(value, "|")
-    String.starts_with?(normalized, ["http://", "https://"])
+    String.starts_with?(value, ["http://", "https://", "|http://", "|https://"])
   end
 
   defp classify_http_rule(value) do
-    normalized = value |> String.trim_leading("|") |> String.trim_trailing("|")
-    uri = URI.parse(normalized)
+    normalized = value |> remove_leading_separator() |> remove_trailing_separator()
+
+    if String.contains?(normalized, "|") do
+      {:unsupported, :ambiguous_rule}
+    else
+      classify_normalized_http_rule(normalized)
+    end
+  end
+
+  defp remove_leading_separator("|" <> rest), do: rest
+  defp remove_leading_separator(value), do: value
+
+  defp remove_trailing_separator(value) do
+    if String.ends_with?(value, "|") do
+      binary_part(value, 0, byte_size(value) - 1)
+    else
+      value
+    end
+  end
+
+  defp classify_normalized_http_rule(value) do
+    uri = URI.parse(value)
 
     if uri.scheme in ["http", "https"] and is_binary(uri.host) and uri.host != "" and
          uri.userinfo == nil and uri.query == nil and uri.fragment == nil and
          uri.path in [nil, "", "/"] do
-      {:candidate, :proxy, normalized}
+      {:candidate, :proxy, value}
     else
       {:unsupported, :path_specific}
     end
