@@ -1,33 +1,65 @@
 defmodule GSMLG.ProxyRules.ConfigurationTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias GSMLG.ProxyRules.Configuration
 
-  test "builds immutable settings including zero diagnostic samples" do
-    assert {:ok, config} =
-             Configuration.new(%{
-               source_url: "https://example.test/list",
-               remote_refresh_interval: 60_000,
-               remote_connect_timeout: 500,
-               remote_receive_timeout: 1_000,
-               remote_max_body_size: 4_096,
-               retry_min_interval: 100,
-               retry_max_interval: 1_000,
-               retry_jitter: false,
-               local_proxy_list_path: "/tmp/proxy.txt",
-               local_direct_list_path: "/tmp/direct.txt",
-               local_watch_debounce: 25,
-               local_reconciliation_interval: 250,
-               state_directory: "/tmp/state",
-               cache_control: "public, max-age=60",
-               unsupported_rule_sample_limit: 0
-             })
+  @settings %{
+    source_url: "https://example.test/list",
+    remote_refresh_interval: 60_000,
+    remote_connect_timeout: 500,
+    remote_receive_timeout: 1_000,
+    remote_max_body_size: 4_096,
+    retry_min_interval: 100,
+    retry_max_interval: 1_000,
+    retry_jitter: false,
+    local_proxy_list_path: "/tmp/proxy.txt",
+    local_direct_list_path: "/tmp/direct.txt",
+    local_watch_debounce: 25,
+    local_reconciliation_interval: 250,
+    state_directory: "/tmp/state",
+    cache_control: "public, max-age=60",
+    unsupported_rule_sample_limit: 0
+  }
 
-    assert %Configuration{
-             source_url: "https://example.test/list",
-             retry_jitter: false,
-             unsupported_rule_sample_limit: 0
-           } = config
+  @configuration %Configuration{
+    source_url: "https://example.test/list",
+    remote_refresh_interval: 60_000,
+    remote_connect_timeout: 500,
+    remote_receive_timeout: 1_000,
+    remote_max_body_size: 4_096,
+    retry_min_interval: 100,
+    retry_max_interval: 1_000,
+    retry_jitter: false,
+    local_proxy_list_path: "/tmp/proxy.txt",
+    local_direct_list_path: "/tmp/direct.txt",
+    local_watch_debounce: 25,
+    local_reconciliation_interval: 250,
+    state_directory: "/tmp/state",
+    cache_control: "public, max-age=60",
+    unsupported_rule_sample_limit: 0
+  }
+
+  test "builds immutable settings including zero diagnostic samples" do
+    settings = Map.put(@settings, :ignored_setting, :ignored)
+
+    assert {:ok, config} = Configuration.new(settings)
+    assert config == @configuration
+  end
+
+  test "loads immutable settings from the application environment" do
+    previous_settings = Application.fetch_env(:proxy_rules, :settings)
+
+    on_exit(fn ->
+      case previous_settings do
+        {:ok, settings} -> Application.put_env(:proxy_rules, :settings, settings)
+        :error -> Application.delete_env(:proxy_rules, :settings)
+      end
+    end)
+
+    Application.put_env(:proxy_rules, :settings, @settings)
+
+    assert {:ok, config} = Configuration.load()
+    assert config == @configuration
   end
 
   test "rejects a map missing validated settings" do
