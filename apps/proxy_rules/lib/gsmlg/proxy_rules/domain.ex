@@ -128,13 +128,25 @@ defmodule GSMLG.ProxyRules.Domain do
   end
 
   defp to_ascii(host) do
-    ascii = host |> String.to_charlist() |> :idna.encode([:uts46, :std3_rules])
-    {:ok, List.to_string(ascii)}
+    if ascii_ldh?(host) do
+      {:ok, host}
+    else
+      ascii = host |> String.to_charlist() |> :idna.encode([:uts46, :std3_rules])
+      {:ok, List.to_string(ascii)}
+    end
   rescue
     _error -> {:error, :invalid_idna}
   catch
     _kind, _reason -> {:error, :invalid_idna}
   end
+
+  defp ascii_ldh?(<<>>), do: true
+
+  defp ascii_ldh?(<<byte, rest::binary>>)
+       when byte in ?a..?z or byte in ?A..?Z or byte in ?0..?9 or byte in [?-, ?.],
+       do: ascii_ldh?(rest)
+
+  defp ascii_ldh?(_non_ldh), do: false
 
   defp validate_ascii(""), do: {:error, :empty_domain}
 

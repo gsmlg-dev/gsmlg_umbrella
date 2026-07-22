@@ -155,6 +155,49 @@ defmodule GSMLG.ProxyRules.StoreTest do
   end
 
   @tag :tmp_dir
+  test "only the exact finalized token can commit the global transaction", %{tmp_dir: dir} do
+    prior = fixture_snapshot(100)
+    first = fixture_snapshot(101)
+    second = fixture_snapshot(102)
+    third = fixture_snapshot(106)
+    assert :ok = Store.publish(prior)
+    assert {:ok, first_token} = Store.stage(Store, first)
+    assert {:ok, second_token} = Store.stage(Store, second)
+    assert :ok = Store.finalize(Store, first_token)
+
+    assert {:error, :invalid_stage} = Store.stage(Store, third)
+    assert {:error, :invalid_stage} = Store.finalize(Store, second_token)
+    assert {:error, :invalid_stage} = Store.commit(Store, second_token)
+    assert :ok = Store.commit(Store, first_token)
+    assert {:ok, %Snapshot{generation: 101}} = Store.current()
+    assert {:ok, %Snapshot{generation: 101}} = Persistence.read_artifact(dir)
+
+    restart_store(dir)
+    assert {:ok, %Snapshot{generation: 101, readiness: :stale}} = Store.current()
+  end
+
+  @tag :tmp_dir
+  test "discarding another token cannot roll back the finalized transaction", %{tmp_dir: dir} do
+    prior = fixture_snapshot(103)
+    first = fixture_snapshot(104)
+    second = fixture_snapshot(105)
+    assert :ok = Store.publish(prior)
+    assert {:ok, first_token} = Store.stage(Store, first)
+    assert {:ok, second_token} = Store.stage(Store, second)
+    assert :ok = Store.finalize(Store, first_token)
+
+    assert :ok = Store.discard(Store, second_token)
+    assert {:ok, %Snapshot{generation: 103}} = Store.current()
+    assert {:ok, %Snapshot{generation: 103}} = Persistence.read_artifact(dir)
+    assert :ok = Store.commit(Store, first_token)
+    assert {:ok, %Snapshot{generation: 104}} = Store.current()
+    assert {:ok, %Snapshot{generation: 104}} = Persistence.read_artifact(dir)
+
+    restart_store(dir)
+    assert {:ok, %Snapshot{generation: 104, readiness: :stale}} = Store.current()
+  end
+
+  @tag :tmp_dir
   test "startup prunes orphan stage directories without following stage-like symlinks", %{
     tmp_dir: dir
   } do

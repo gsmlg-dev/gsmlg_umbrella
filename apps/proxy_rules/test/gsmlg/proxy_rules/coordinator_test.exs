@@ -548,14 +548,14 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     :ok = Supervisor.terminate_child(supervisor, Store)
 
     on_exit(fn ->
-      if Process.whereis(Coordinator), do: GenServer.stop(Coordinator)
-      if Process.whereis(Store), do: GenServer.stop(Store)
+      stop_named(Coordinator)
+      stop_named(Store)
       _ = Supervisor.restart_child(supervisor, Store)
       _ = Supervisor.restart_child(supervisor, Coordinator)
       File.rm_rf!(directory)
     end)
 
-    {:ok, _store} = Store.start_link(name: Store, state_directory: directory)
+    _store = start_real_store(name: Store, state_directory: directory)
 
     assert {:ok, prior} =
              Compiler.compile(
@@ -586,8 +586,8 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       end
     end
 
-    {:ok, _store} =
-      Store.start_link(
+    _store =
+      start_real_store(
         name: Store,
         state_directory: directory,
         persistence_options: [sync_directory: blocking_sync]
@@ -628,7 +628,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
     :ok = GenServer.stop(coordinator)
     :ok = GenServer.stop(Store)
-    {:ok, _restarted_store} = Store.start_link(name: Store, state_directory: directory)
+    _restarted_store = start_real_store(name: Store, state_directory: directory)
 
     assert {:ok, %Snapshot{generation: 1, readiness: :stale}} = Store.current()
     assert {:ok, %Snapshot{generation: 1}} = Persistence.read_artifact(directory)
@@ -643,14 +643,14 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     :ok = Supervisor.terminate_child(supervisor, Store)
 
     on_exit(fn ->
-      if Process.whereis(Coordinator), do: GenServer.stop(Coordinator)
-      if Process.whereis(Store), do: GenServer.stop(Store)
+      stop_named(Coordinator)
+      stop_named(Store)
       _ = Supervisor.restart_child(supervisor, Store)
       _ = Supervisor.restart_child(supervisor, Coordinator)
       File.rm_rf!(directory)
     end)
 
-    {:ok, _store} = Store.start_link(name: Store, state_directory: directory)
+    _store = start_real_store(name: Store, state_directory: directory)
     test_process = self()
 
     after_stage = fn token ->
@@ -687,7 +687,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
     :ok = GenServer.stop(coordinator)
     :ok = GenServer.stop(Store)
-    {:ok, _restarted_store} = Store.start_link(name: Store, state_directory: directory)
+    _restarted_store = start_real_store(name: Store, state_directory: directory)
     assert [] = orphan_stage_entries(directory)
 
     {:ok, restarted_coordinator} = Coordinator.start_link(options)
@@ -803,6 +803,19 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     directory
     |> File.ls!()
     |> Enum.filter(&String.starts_with?(&1, ".artifact-stage-"))
+  end
+
+  defp start_real_store(options) do
+    {:ok, store} = Store.start_link(options)
+    Process.unlink(store)
+    store
+  end
+
+  defp stop_named(name) do
+    GenServer.stop(name)
+  catch
+    :exit, :noproc -> :ok
+    :exit, {:noproc, _call} -> :ok
   end
 
   defp do_assert_eventually(fun, predicate, deadline) do

@@ -156,6 +156,9 @@ defmodule GSMLG.ProxyRules.Store do
       generation != snapshot.generation or Map.has_key?(state.staged, token) ->
         {:reply, {:error, :invalid_stage}, state}
 
+      finalized_transaction?(state.staged) ->
+        {:reply, {:error, :invalid_stage}, state}
+
       not is_binary(state.state_directory) ->
         {:reply, {:error, :persistence_failed}, state}
 
@@ -183,8 +186,11 @@ defmodule GSMLG.ProxyRules.Store do
     do: {:reply, {:error, :invalid_stage}, state}
 
   def handle_call({:finalize, token}, _from, state) do
-    case Map.fetch(state.staged, token) do
-      {:ok, %{status: :staged, directory: directory} = entry} ->
+    case {finalized_token(state.staged), Map.fetch(state.staged, token)} do
+      {^token, {:ok, %{status: :finalized}}} ->
+        {:reply, :ok, state}
+
+      {nil, {:ok, %{status: :staged, directory: directory} = entry}} ->
         staged_path = Path.join(directory, "artifact.snapshot")
 
         case Persistence.finalize_staged_artifact(
@@ -200,7 +206,7 @@ defmodule GSMLG.ProxyRules.Store do
             {:reply, error, state}
         end
 
-      :error ->
+      _another_or_invalid_token ->
         {:reply, {:error, :invalid_stage}, state}
     end
   end
@@ -391,6 +397,15 @@ defmodule GSMLG.ProxyRules.Store do
 
   defp valid_operational_error?(nil), do: true
   defp valid_operational_error?(error), do: Snapshot.valid_operational_error?(error)
+
+  defp finalized_transaction?(staged), do: not is_nil(finalized_token(staged))
+
+  defp finalized_token(staged) do
+    Enum.find_value(staged, fn
+      {token, %{status: :finalized}} -> token
+      _staged -> nil
+    end)
+  end
 
   defp commit_finalized(token, state) do
     case Map.fetch(state.staged, token) do
