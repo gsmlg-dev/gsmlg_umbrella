@@ -139,6 +139,7 @@ defmodule GSMLG.AdminWeb.Router do
     live("/commander/:name/shell", CommanderLive.ShowLive, :shell)
 
     live("/scout", ScoutLive.DashboardLive, :index)
+    live("/proxy-rules", ProxyRulesLive.Index, :index)
 
     live("/github", GithubLive.Index, :index)
 

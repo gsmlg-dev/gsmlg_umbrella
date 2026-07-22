@@ -129,6 +129,11 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
   end
 
   describe "router" do
+    test "exposes the Proxy Rules dashboard route" do
+      paths = GSMLG.AdminWeb.Router |> Phoenix.Router.routes() |> Enum.map(& &1.path)
+      assert "/proxy-rules" in paths
+    end
+
     test "exposes note editor routes and the authenticated raw attachment route only" do
       routes = GSMLG.AdminWeb.Router |> Phoenix.Router.routes()
       gao_note_routes = Enum.filter(routes, &String.starts_with?(&1.path, "/gao_notes"))
