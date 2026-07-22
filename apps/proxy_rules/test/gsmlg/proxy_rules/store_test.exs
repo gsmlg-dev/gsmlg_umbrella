@@ -1,12 +1,162 @@
 defmodule GSMLG.ProxyRules.StoreTest do
   use ExUnit.Case, async: false
 
-  alias GSMLG.ProxyRules.Store
+  alias GSMLG.ProxyRules.{Compiler, Persistence, Snapshot, Store}
 
+  @compiled_at ~U[2026-07-23 01:02:03Z]
+
+  setup %{tmp_dir: dir} do
+    supervisor = GSMLG.ProxyRules.Supervisor
+    :ok = Supervisor.terminate_child(supervisor, Store)
+
+    {:ok, store} = Store.start_link(state_directory: dir)
+    Process.unlink(store)
+
+    on_exit(fn ->
+      if current_store = Process.whereis(Store), do: GenServer.stop(current_store)
+      assert {:ok, _pid} = Supervisor.restart_child(supervisor, Store)
+    end)
+
+    :ok
+  end
+
+  @tag :tmp_dir
   test "is protected and safe to read before publication" do
     assert :protected == :ets.info(:gsmlg_proxy_rules_store, :protection)
     assert true == :ets.info(:gsmlg_proxy_rules_store, :read_concurrency)
     assert [] == :ets.lookup(:gsmlg_proxy_rules_store, :current)
     assert {:error, :not_ready} == Store.current()
+  end
+
+  @tag :tmp_dir
+  test "metadata reports operational readiness without fabricating artifact fields" do
+    assert {:ok,
+            %{
+              readiness: :not_ready,
+              operational_status: %{reason: :snapshot_not_found}
+            } = metadata} = Store.metadata()
+
+    refute Map.has_key?(metadata, :generation)
+    refute Map.has_key?(metadata, :compiled_at)
+    refute Map.has_key?(metadata, :rendered_outputs)
+  end
+
+  @tag :tmp_dir
+  test "updates operational readiness before any artifact exists" do
+    assert :ok = Store.update_status(:refreshing, %{kind: :remote, reason: :timeout})
+
+    assert {:ok,
+            %{
+              readiness: :refreshing,
+              operational_status: %{kind: :remote, reason: :timeout}
+            } = metadata} = Store.metadata()
+
+    refute Map.has_key?(metadata, :generation)
+    assert {:error, :not_ready} = Store.current()
+  end
+
+  @tag :tmp_dir
+  test "publishes and updates status as one complete ETS record", %{tmp_dir: dir} do
+    snapshot = fixture_snapshot(9)
+
+    assert :ok = Store.publish(snapshot)
+    assert {:ok, %Snapshot{generation: 9, readiness: :ready}} = Store.current()
+    assert {:ok, ^snapshot} = Persistence.read_artifact(dir)
+
+    assert :ok = Store.update_status(:stale, %{kind: :remote, reason: :timeout})
+
+    assert {:ok,
+            %Snapshot{
+              generation: 9,
+              readiness: :stale,
+              last_error: %{kind: :remote, reason: :timeout}
+            } = updated} = Store.current()
+
+    assert updated.rendered_outputs == snapshot.rendered_outputs
+    assert updated.generation == snapshot.generation
+  end
+
+  @tag :tmp_dir
+  test "restores a valid artifact immediately as stale", %{tmp_dir: dir} do
+    snapshot = fixture_snapshot(11)
+    assert :ok = Persistence.write_artifact(dir, snapshot)
+
+    restart_store(dir)
+
+    assert {:ok, %Snapshot{generation: 11, readiness: :stale, last_error: nil}} = Store.current()
+    assert {:ok, %{generation: 11, readiness: :stale}} = Store.metadata()
+  end
+
+  @tag :tmp_dir
+  test "corrupt restoration remains available for status queries", %{tmp_dir: dir} do
+    File.write!(Path.join(dir, "artifact.snapshot"), "corrupt")
+
+    restart_store(dir)
+
+    assert {:error, :not_ready} = Store.current()
+
+    assert {:ok, %{readiness: :not_ready, operational_status: %{reason: :corrupt_snapshot}}} =
+             Store.metadata()
+  end
+
+  @tag :tmp_dir
+  test "a persistence failure preserves the previous current artifact", %{tmp_dir: dir} do
+    first = fixture_snapshot(12)
+    second = fixture_snapshot(13)
+    assert :ok = Store.publish(first)
+
+    moved_dir = dir <> "-moved"
+    File.rename!(dir, moved_dir)
+    File.write!(dir, "blocks directory recreation")
+
+    assert {:error, :persistence_failed} = Store.publish(second)
+    assert {:ok, %Snapshot{generation: 12}} = Store.current()
+
+    File.rm!(dir)
+    File.rename!(moved_dir, dir)
+  end
+
+  @tag :tmp_dir
+  test "rejects invalid publication and status inputs without crashing" do
+    assert {:error, :invalid_snapshot} = Store.publish(%{})
+    assert {:error, :invalid_readiness} = Store.update_status(:broken, nil)
+    assert {:error, :invalid_operational_error} = Store.update_status(:stale, :timeout)
+    assert Process.alive?(Process.whereis(Store))
+  end
+
+  @tag :tmp_dir
+  test "serializes concurrent publications into complete generations", %{tmp_dir: dir} do
+    snapshots = Enum.map(20..39, &fixture_snapshot/1)
+
+    snapshots
+    |> Task.async_stream(&Store.publish/1, max_concurrency: 8, timeout: 5_000)
+    |> Enum.each(fn result -> assert {:ok, :ok} == result end)
+
+    assert {:ok, %Snapshot{generation: generation} = current} = Store.current()
+    assert generation in 20..39
+    assert {:ok, ^current} = Persistence.read_artifact(dir)
+  end
+
+  defp fixture_snapshot(generation) do
+    assert {:ok, %Snapshot{} = snapshot} =
+             Compiler.compile(
+               %{
+                 remote: Base.encode64("||generation#{generation}.example^\n"),
+                 local_proxy: "",
+                 local_direct: ""
+               },
+               generation: generation,
+               compiled_at: @compiled_at,
+               sample_limit: 1
+             )
+
+    snapshot
+  end
+
+  defp restart_store(dir) do
+    old_store = Process.whereis(Store)
+    GenServer.stop(old_store)
+    {:ok, new_store} = Store.start_link(state_directory: dir)
+    Process.unlink(new_store)
   end
 end

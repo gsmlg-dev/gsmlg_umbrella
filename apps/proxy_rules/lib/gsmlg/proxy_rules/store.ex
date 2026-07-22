@@ -1,11 +1,38 @@
 defmodule GSMLG.ProxyRules.Store do
   use GenServer
 
+  alias GSMLG.ProxyRules.{Configuration, Persistence, Snapshot}
+
   @table :gsmlg_proxy_rules_store
+  @readiness [:not_ready, :refreshing, :ready, :stale]
+  @operational_kinds [:remote, :local_proxy, :local_direct, :compiler, :persistence, :store]
+  @operational_reasons [
+    :snapshot_not_found,
+    :snapshot_unreadable,
+    :corrupt_snapshot,
+    :incompatible_snapshot,
+    :checksum_mismatch,
+    :invalid_snapshot,
+    :persistence_failed,
+    :configuration_unavailable,
+    :timeout,
+    :connection_failed,
+    :http_error,
+    :body_too_large,
+    :invalid_base64,
+    :invalid_utf8,
+    :systemic_failure,
+    :compile_failed,
+    :source_unavailable,
+    :watcher_failed,
+    :read_failed,
+    :not_found,
+    :permission_denied
+  ]
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
-  @spec current() :: {:ok, map()} | {:error, :not_ready}
+  @spec current() :: {:ok, Snapshot.t()} | {:error, :not_ready}
   def current do
     case :ets.lookup(@table, :current) do
       [{:current, snapshot}] when is_map(snapshot) -> {:ok, snapshot}
@@ -15,9 +42,145 @@ defmodule GSMLG.ProxyRules.Store do
     ArgumentError -> {:error, :not_ready}
   end
 
+  @spec publish(Snapshot.t()) :: :ok | {:error, :invalid_snapshot | :persistence_failed}
+  def publish(snapshot), do: GenServer.call(__MODULE__, {:publish, snapshot})
+
+  @spec update_status(Snapshot.readiness(), nil | map()) ::
+          :ok | {:error, :invalid_readiness | :invalid_operational_error | :not_ready}
+  def update_status(readiness, operational_error),
+    do: GenServer.call(__MODULE__, {:update_status, readiness, operational_error})
+
+  @spec metadata() :: {:ok, map()}
+  def metadata, do: GenServer.call(__MODULE__, :metadata)
+
   @impl true
-  def init(_opts) do
+  def init(opts) do
     :ets.new(@table, [:named_table, :set, :protected, read_concurrency: true])
-    {:ok, %{}}
+
+    state_directory = state_directory(opts)
+    {snapshot, operational_status} = restore(state_directory)
+
+    if snapshot, do: :ets.insert(@table, {:current, snapshot})
+
+    {:ok,
+     %{
+       state_directory: state_directory,
+       readiness: if(snapshot, do: snapshot.readiness, else: :not_ready),
+       operational_status: operational_status
+     }}
   end
+
+  @impl true
+  def handle_call({:publish, snapshot}, _from, state) do
+    if Persistence.valid_snapshot?(snapshot) do
+      case persist(state.state_directory, snapshot) do
+        :ok ->
+          true = :ets.insert(@table, {:current, snapshot})
+          {:reply, :ok, %{state | readiness: snapshot.readiness, operational_status: nil}}
+
+        {:error, :persistence_failed} = error ->
+          readiness = mark_current_stale(:persistence_failed)
+          status = %{kind: :persistence, reason: :persistence_failed}
+          {:reply, error, %{state | readiness: readiness, operational_status: status}}
+      end
+    else
+      {:reply, {:error, :invalid_snapshot}, state}
+    end
+  end
+
+  def handle_call({:update_status, readiness, operational_error}, _from, state) do
+    cond do
+      readiness not in @readiness ->
+        {:reply, {:error, :invalid_readiness}, state}
+
+      not valid_operational_error?(operational_error) ->
+        {:reply, {:error, :invalid_operational_error}, state}
+
+      true ->
+        case current() do
+          {:ok, snapshot} ->
+            updated = %{snapshot | readiness: readiness, last_error: operational_error}
+            true = :ets.insert(@table, {:current, updated})
+            {:reply, :ok, %{state | readiness: readiness, operational_status: operational_error}}
+
+          {:error, :not_ready} ->
+            readiness = readiness_without_artifact(readiness)
+
+            {:reply, :ok, %{state | readiness: readiness, operational_status: operational_error}}
+        end
+    end
+  end
+
+  def handle_call(:metadata, _from, state) do
+    metadata =
+      case current() do
+        {:ok, snapshot} -> Snapshot.metadata(snapshot)
+        {:error, :not_ready} -> %{readiness: state.readiness}
+      end
+
+    metadata =
+      if state.operational_status,
+        do: Map.put(metadata, :operational_status, state.operational_status),
+        else: metadata
+
+    {:reply, {:ok, metadata}, state}
+  end
+
+  defp state_directory(opts) do
+    case Keyword.fetch(opts, :state_directory) do
+      {:ok, directory} when is_binary(directory) -> directory
+      _other -> configured_state_directory()
+    end
+  end
+
+  defp configured_state_directory do
+    case Configuration.load() do
+      {:ok, %Configuration{state_directory: directory}} -> directory
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp restore(nil),
+    do: {nil, %{kind: :store, reason: :configuration_unavailable}}
+
+  defp restore(state_directory) do
+    case Persistence.read_artifact(state_directory) do
+      {:ok, snapshot} -> {%{snapshot | readiness: :stale}, nil}
+      {:error, reason} -> {nil, %{kind: :store, reason: reason}}
+    end
+  end
+
+  defp persist(nil, _snapshot), do: {:error, :persistence_failed}
+
+  defp persist(state_directory, snapshot),
+    do: Persistence.write_artifact(state_directory, snapshot)
+
+  defp mark_current_stale(reason) do
+    case current() do
+      {:ok, snapshot} ->
+        stale = %{
+          snapshot
+          | readiness: :stale,
+            last_error: %{kind: :persistence, reason: reason}
+        }
+
+        true = :ets.insert(@table, {:current, stale})
+        :stale
+
+      {:error, :not_ready} ->
+        :not_ready
+    end
+  end
+
+  defp readiness_without_artifact(:refreshing), do: :refreshing
+  defp readiness_without_artifact(_readiness), do: :not_ready
+
+  defp valid_operational_error?(nil), do: true
+
+  defp valid_operational_error?(%{kind: kind, reason: reason} = error)
+       when map_size(error) == 2 do
+    kind in @operational_kinds and reason in @operational_reasons
+  end
+
+  defp valid_operational_error?(_error), do: false
 end
