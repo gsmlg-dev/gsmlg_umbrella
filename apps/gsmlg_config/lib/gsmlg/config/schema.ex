@@ -283,6 +283,84 @@ defmodule GSMLG.Config.Schema do
     ]
   ]
 
+  @proxy_rules_schema [
+    source_url: [
+      type: :string,
+      default: "https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt",
+      doc: "Remote GFWList source URL"
+    ],
+    remote_refresh_interval: [
+      type: :pos_integer,
+      default: 86_400_000,
+      doc: "Remote refresh interval in milliseconds"
+    ],
+    remote_connect_timeout: [
+      type: :pos_integer,
+      default: 5_000,
+      doc: "Remote connection timeout in milliseconds"
+    ],
+    remote_receive_timeout: [
+      type: :pos_integer,
+      default: 30_000,
+      doc: "Remote response timeout in milliseconds"
+    ],
+    remote_max_body_size: [
+      type: :pos_integer,
+      default: 10_000_000,
+      doc: "Maximum remote response body size in bytes"
+    ],
+    retry_min_interval: [
+      type: :pos_integer,
+      default: 5_000,
+      doc: "Minimum retry interval in milliseconds"
+    ],
+    retry_max_interval: [
+      type: :pos_integer,
+      default: 300_000,
+      doc: "Maximum retry interval in milliseconds"
+    ],
+    retry_jitter: [
+      type: :boolean,
+      default: true,
+      doc: "Apply jitter to retry intervals"
+    ],
+    local_proxy_list_path: [
+      type: :string,
+      default: "/etc/gsmlg/proxy-rules/proxy-list.txt",
+      doc: "Local proxy-list source path"
+    ],
+    local_direct_list_path: [
+      type: :string,
+      default: "/etc/gsmlg/proxy-rules/direct-list.txt",
+      doc: "Local direct-list source path"
+    ],
+    local_watch_debounce: [
+      type: :pos_integer,
+      default: 500,
+      doc: "Local file watcher debounce in milliseconds"
+    ],
+    local_reconciliation_interval: [
+      type: :pos_integer,
+      default: 60_000,
+      doc: "Local source reconciliation interval in milliseconds"
+    ],
+    state_directory: [
+      type: :string,
+      default: "/var/lib/gsmlg/proxy-rules",
+      doc: "Last-known-good state directory"
+    ],
+    cache_control: [
+      type: :string,
+      default: "public, max-age=3600",
+      doc: "Cache-Control value for generated artifacts"
+    ],
+    unsupported_rule_sample_limit: [
+      type: :non_neg_integer,
+      default: 20,
+      doc: "Maximum unsupported-rule diagnostic samples"
+    ]
+  ]
+
   @scout_blocked_cidrs [
     "0.0.0.0/8",
     "127.0.0.0/8",
@@ -542,6 +620,7 @@ defmodule GSMLG.Config.Schema do
       cluster: @cluster_schema,
       oauth: %{github: @github_oauth_schema},
       web_push: @web_push_schema,
+      proxy_rules: @proxy_rules_schema,
       scout: %{
         general: @scout_general_schema,
         rabbitmq: @scout_rabbitmq_schema,
@@ -638,6 +717,7 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:cluster), do: @cluster_schema
   defp get_section_schema(:oauth), do: %{github: @github_oauth_schema}
   defp get_section_schema(:web_push), do: @web_push_schema
+  defp get_section_schema(:proxy_rules), do: @proxy_rules_schema
 
   defp get_section_schema(:scout),
     do: %{

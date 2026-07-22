@@ -11,6 +11,7 @@ defmodule GSMLG.Config.SetupTest do
       end)
 
     scout_settings = Application.fetch_env(:gsmlg_scout, :settings)
+    proxy_rules_settings = Application.fetch_env(:proxy_rules, :settings)
 
     Enum.each(Map.keys(database_env), &System.delete_env/1)
 
@@ -35,6 +36,11 @@ defmodule GSMLG.Config.SetupTest do
       case scout_settings do
         {:ok, settings} -> Application.put_env(:gsmlg_scout, :settings, settings)
         :error -> Application.delete_env(:gsmlg_scout, :settings)
+      end
+
+      case proxy_rules_settings do
+        {:ok, settings} -> Application.put_env(:proxy_rules, :settings, settings)
+        :error -> Application.delete_env(:proxy_rules, :settings)
       end
 
       Application.delete_env(:gsmlg, :cluster)
@@ -78,6 +84,20 @@ defmodule GSMLG.Config.SetupTest do
       Setup.setup(%{scout: config})
 
       assert Application.get_env(:gsmlg_scout, :settings) == config
+    end
+
+    test "configures proxy-rules settings when proxy-rules config is present" do
+      settings = %{
+        source_url: "https://example.test/gfwlist.txt",
+        remote_refresh_interval: 60_000,
+        local_proxy_list_path: "/tmp/proxy-list.txt",
+        local_direct_list_path: "/tmp/direct-list.txt",
+        state_directory: "/tmp/proxy-rules"
+      }
+
+      GSMLG.Config.Setup.setup(%{proxy_rules: settings})
+
+      assert Application.fetch_env!(:proxy_rules, :settings) == settings
     end
   end
 

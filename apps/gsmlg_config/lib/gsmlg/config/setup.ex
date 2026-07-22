@@ -46,6 +46,10 @@ defmodule GSMLG.Config.Setup do
       setup_scout(config[:scout])
     end
 
+    if config[:proxy_rules] != nil do
+      setup_proxy_rules(config[:proxy_rules])
+    end
+
     if config[:caddy] != nil do
       setup_caddy(config[:caddy])
     end
@@ -288,6 +292,10 @@ defmodule GSMLG.Config.Setup do
 
   def setup_scout(config) do
     Application.put_env(:gsmlg_scout, :settings, config || %{})
+  end
+
+  def setup_proxy_rules(config) do
+    Application.put_env(:proxy_rules, :settings, config || %{})
   end
 
   def setup_i18n(config) do

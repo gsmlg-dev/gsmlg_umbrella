@@ -71,6 +71,23 @@ subject = "mailto:administrator@gsmlg.com"
 public_key = "BIiu8m_dqtrKSvdquIqUJxsrkwswa0Zgep4myzmHlUcHjEtRdxdK4bZAEAd4dhFTARNGrbIkOJIcjdn13Z-yC4w"
 private_key = "7mYUWrgUKIE_YGuFaIw2bRO0WjreR0iY6WoE7mDwbak"
 
+[proxy_rules]
+source_url = "https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt"
+remote_refresh_interval = 86400000
+remote_connect_timeout = 5000
+remote_receive_timeout = 30000
+remote_max_body_size = 10000000
+retry_min_interval = 5000
+retry_max_interval = 300000
+retry_jitter = true
+local_proxy_list_path = "/etc/gsmlg/proxy-rules/proxy-list.txt"
+local_direct_list_path = "/etc/gsmlg/proxy-rules/direct-list.txt"
+local_watch_debounce = 500
+local_reconciliation_interval = 60000
+state_directory = "/var/lib/gsmlg/proxy-rules"
+cache_control = "public, max-age=3600"
+unsupported_rule_sample_limit = 20
+
 [scout.general]
 instance_name = "GSMLG Scout"
 default_region = "local"
