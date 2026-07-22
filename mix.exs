@@ -40,6 +40,7 @@ defmodule GSMLG.Umbrella.MixProject do
           applications: [
             gsmlg: :permanent,
             gsmlg_scout_server: :permanent,
+            proxy_rules: :permanent,
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ]
@@ -48,6 +49,7 @@ defmodule GSMLG.Umbrella.MixProject do
           applications: [
             gsmlg: :permanent,
             gsmlg_scout_server: :permanent,
+            proxy_rules: :permanent,
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ],
