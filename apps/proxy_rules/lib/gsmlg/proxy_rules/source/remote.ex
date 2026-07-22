@@ -21,8 +21,14 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(options) do
-    {gen_options, options} = Keyword.split(options, [:name])
-    GenServer.start_link(__MODULE__, options, gen_options)
+    transport = Keyword.get(options, :transport, GSMLG.ProxyRules.Transport.Finch)
+
+    if valid_transport?(transport) do
+      {gen_options, options} = Keyword.split(options, [:name])
+      GenServer.start_link(__MODULE__, options, gen_options)
+    else
+      {:error, {:invalid_option, :transport}}
+    end
   end
 
   @spec refresh(GenServer.server()) :: {:ok, :accepted}
@@ -52,10 +58,19 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   def init(options) do
     config = Keyword.fetch!(options, :config)
     true = match?(%Configuration{}, config)
+    transport = Keyword.get(options, :transport, GSMLG.ProxyRules.Transport.Finch)
 
-    state = %{
+    if valid_transport?(transport) do
+      {:ok, initial_state(options, config, transport), {:continue, :restore}}
+    else
+      {:stop, {:invalid_option, :transport}}
+    end
+  end
+
+  defp initial_state(options, config, transport) do
+    %{
       config: config,
-      transport: Keyword.get(options, :transport, &production_transport/3),
+      transport: transport,
       transport_options: Keyword.get(options, :transport_options, []),
       notify: Keyword.fetch!(options, :notify),
       task_supervisor: Keyword.fetch!(options, :task_supervisor),
@@ -71,8 +86,6 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       timer: nil,
       retry_attempt: 0
     }
-
-    {:ok, state, {:continue, :restore}}
   end
 
   @impl true
@@ -131,6 +144,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     headers = conditional_headers(state.source)
     options = transport_options(state.config, state.transport_options)
     transport = state.transport
+    options = request_options(transport, options)
     url = state.config.source_url
     started = System.monotonic_time()
 
@@ -138,7 +152,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
     task =
       Task.Supervisor.async_nolink(state.task_supervisor, fn ->
-        {transport.(url, headers, options), started}
+        {transport.get(url, headers, options), started}
       end)
 
     %{state | active_task: %{ref: task.ref, pid: task.pid}}
@@ -390,10 +404,13 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     )
   end
 
-  defp production_transport(url, headers, options) do
-    options = Keyword.delete(options, :connect_timeout)
-    GSMLG.ProxyRules.Transport.Finch.get(url, headers, options)
-  end
+  # Finch connection establishment is configured on its pool child. The
+  # per-request transport boundary retains connect_timeout for injected
+  # transports, while the Finch adapter receives only options it can apply.
+  defp request_options(GSMLG.ProxyRules.Transport.Finch, options),
+    do: Keyword.delete(options, :connect_timeout)
+
+  defp request_options(_transport, options), do: options
 
   defp valid_headers?(headers) do
     Enum.reduce_while(headers, 0, fn
@@ -428,4 +445,10 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
   defp default_schedule(server, message, delay), do: Process.send_after(server, message, delay)
   defp sha256(content), do: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
+
+  defp valid_transport?(transport) when is_atom(transport) do
+    Code.ensure_loaded?(transport) and function_exported?(transport, :get, 3)
+  end
+
+  defp valid_transport?(_transport), do: false
 end

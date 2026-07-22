@@ -1,3 +1,37 @@
+defmodule GSMLG.ProxyRules.TestTransport do
+  @behaviour GSMLG.ProxyRules.Transport
+
+  @impl true
+  def get(url, headers, options) do
+    controller = Keyword.fetch!(options, :transport_controller)
+    public_options = Keyword.delete(options, :transport_controller)
+    send(controller, {:transport_request, self(), url, headers, Map.new(public_options)})
+
+    receive do
+      {:transport_response, :crash} -> exit(:transport_crash)
+      {:transport_response, response} -> response
+    end
+  end
+end
+
+defmodule GSMLG.ProxyRules.TestTransportController do
+  use GenServer
+
+  def start_link(options), do: GenServer.start_link(__MODULE__, options)
+
+  @impl true
+  def init(options),
+    do: {:ok, %{test_process: options[:test_process], responses: options[:responses]}}
+
+  @impl true
+  def handle_info({:transport_request, task, url, headers, options}, state) do
+    [response | responses] = state.responses
+    send(state.test_process, {:transport_request, task, url, headers, options})
+    if response != :wait, do: send(task, {:transport_response, response})
+    {:noreply, %{state | responses: responses}}
+  end
+end
+
 defmodule GSMLG.ProxyRules.Source.RemoteTest do
   use ExUnit.Case, async: true
 
@@ -42,13 +76,13 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     assert {:ok, :accepted} = Remote.refresh(server)
 
-    assert_receive {:transport_request, _, [],
+    assert_receive {:transport_request, _, _, [],
                     %{connect_timeout: 11, receive_timeout: 12, max_body_size: 256}}
 
     assert_receive {:proxy_rules_source, :remote, _}, 1_000
 
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:transport_request, _, headers, _}
+    assert_receive {:transport_request, _, _, headers, _}
     assert {"if-none-match", "tag"} in headers
     assert {"if-modified-since", "date"} in headers
 
@@ -110,20 +144,27 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
   @tag :tmp_dir
   test "active manual refreshes coalesce into one transport request", %{tmp_dir: dir} do
-    parent = self()
-
-    transport = fn url, headers, options ->
-      send(parent, {:transport_request, url, headers, Map.new(options)})
-      receive do: ({:release, response} -> response)
-    end
-
-    server = start_remote(dir, [], transport: transport)
+    server = start_remote(dir, [:wait])
     assert {:ok, :accepted} = Remote.refresh(server)
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:transport_request, _, _, _}
-    refute_receive {:transport_request, _, _, _}, 30
-    send_transport_task(server, {:release, response(200, Base.encode64("example.com\n"))})
+    assert_receive {:transport_request, task, _, _, _}
+    refute_receive {:transport_request, _, _, _, _}, 30
+    send(task, {:transport_response, response(200, Base.encode64("example.com\n"))})
     assert_receive {:proxy_rules_source, :remote, _}, 1_000
+  end
+
+  @tag :tmp_dir
+  test "rejects a transport module that does not implement get/3", %{tmp_dir: dir} do
+    assert {:error, {:invalid_option, :transport}} =
+             Remote.start_link(remote_options(dir, [], transport: String))
+  end
+
+  @tag :tmp_dir
+  test "defaults to the Finch transport behavior module", %{tmp_dir: dir} do
+    options = remote_options(dir, [], transport: GSMLG.ProxyRules.TestTransport)
+    assert {:ok, server} = Remote.start_link(Keyword.delete(options, :transport))
+    assert %{transport: GSMLG.ProxyRules.Transport.Finch} = :sys.get_state(server)
+    GenServer.stop(server)
   end
 
   test "retry delay is capped, exact without jitter, and bounded with jitter" do
@@ -174,18 +215,18 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   test "manual refresh cancels and replaces the scheduled timer", %{tmp_dir: dir} do
     server = start_remote(dir, [response(503, ""), response(200, Base.encode64("example.com\n"))])
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:transport_request, _, _, _}
+    assert_receive {:transport_request, _, _, _, _}
     assert_receive {:scheduled, 10, first_ref}
     %{timer: %{token: stale_token}} = :sys.get_state(server)
     assert {:ok, :accepted} = Remote.refresh(server)
     assert_receive {:cancelled, ^first_ref}
-    assert_receive {:transport_request, _, _, _}
+    assert_receive {:transport_request, _, _, _, _}
     assert_receive {:proxy_rules_source, :remote, _}, 1_000
     assert_receive {:scheduled, 100, second_ref}
     refute first_ref == second_ref
 
     send(server, {:scheduled_refresh, stale_token})
-    refute_receive {:transport_request, _, _, _}, 30
+    refute_receive {:transport_request, _, _, _, _}, 30
   end
 
   @tag :tmp_dir
@@ -211,18 +252,11 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
   defp start_remote(dir, responses, extra \\ []) do
     parent = self()
-    {:ok, responses} = Agent.start_link(fn -> responses end)
 
-    transport =
-      Keyword.get(extra, :transport, fn url, headers, options ->
-        send(parent, {:transport_request, url, headers, Map.new(options)})
-
-        Agent.get_and_update(responses, fn [response | rest] -> {response, rest} end)
-        |> case do
-          :crash -> exit(:transport_crash)
-          response -> response
-        end
-      end)
+    controller =
+      start_supervised!(
+        {GSMLG.ProxyRules.TestTransportController, test_process: parent, responses: responses}
+      )
 
     scheduler = fn _server, _message, delay ->
       ref = make_ref()
@@ -237,7 +271,8 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     options = [
       config: configuration(dir),
-      transport: transport,
+      transport: Keyword.get(extra, :transport, GSMLG.ProxyRules.TestTransport),
+      transport_options: [transport_controller: controller],
       notify: parent,
       task_supervisor: start_supervised!({Task.Supervisor, []}),
       scheduler: scheduler,
@@ -251,9 +286,22 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     start_supervised!({Remote, options})
   end
 
-  defp send_transport_task(server, message) do
-    %{active_task: %{pid: pid}} = :sys.get_state(server)
-    send(pid, message)
+  defp remote_options(dir, responses, extra) do
+    parent = self()
+
+    controller =
+      start_supervised!(
+        {GSMLG.ProxyRules.TestTransportController, test_process: parent, responses: responses}
+      )
+
+    [
+      config: configuration(dir),
+      transport: Keyword.fetch!(extra, :transport),
+      transport_options: [transport_controller: controller],
+      notify: parent,
+      task_supervisor: start_supervised!({Task.Supervisor, []}),
+      initial_fetch: false
+    ]
   end
 
   defp configuration(dir) do
