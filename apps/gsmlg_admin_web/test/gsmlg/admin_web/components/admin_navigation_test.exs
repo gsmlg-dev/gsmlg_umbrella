@@ -63,6 +63,18 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
       refute html =~ ~s(href="/gao_notes/assets")
       assert html =~ ~r/<details(?=[^>]*data-menu-group="gao_notes")(?=[^>]*open)/
     end
+
+    test "renders Proxy Rules as the active service branch" do
+      html =
+        render_component(&AdminNavigation.left_menu/1,
+          active_menu: "proxy_rules_dashboard"
+        )
+
+      assert html =~ "Proxy Rules"
+      assert html =~ ~s(href="/proxy-rules")
+      assert html =~ ~r/<details(?=[^>]*data-menu-group="proxy_rules")(?=[^>]*open)/
+      assert html =~ ~s(aria-current="page")
+    end
   end
 
   describe "Layouts.app/1" do

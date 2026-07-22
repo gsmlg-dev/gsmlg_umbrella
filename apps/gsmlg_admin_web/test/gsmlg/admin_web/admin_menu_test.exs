@@ -69,6 +69,16 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
                %{id: "scout_dashboard", label: "Scout Dashboard", path: "/scout"}
              ] = scout.items
     end
+
+    test "includes Proxy Rules under the service section" do
+      service = Enum.find(AdminMenu.sections(), &(&1.id == "service"))
+
+      assert %{id: "proxy_rules", title: "Proxy Rules"} =
+               group = Enum.find(service.groups, &(&1.id == "proxy_rules"))
+
+      assert [%{id: "proxy_rules_dashboard", label: "Dashboard", path: "/proxy-rules"}] =
+               group.items
+    end
   end
 
   describe "disabled placeholders" do
@@ -94,8 +104,10 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       assert AdminMenu.active_id(nil, "/gao_notes/notes/new") == "gao_note_list"
       assert AdminMenu.active_id(nil, "/gao_notes/label_settings") == "gao_note_label_settings"
       assert AdminMenu.active_id(nil, "/gao_notes/attachments") == nil
+
       assert AdminMenu.active_id(nil, "/gao_notes/notes/note-id/attachments/file.txt") ==
                "gao_note_list"
+
       assert AdminMenu.active_id(nil, "/gao_notes/recycle_bin") == "gao_note_recycle_bin"
       assert AdminMenu.active_id(nil, "/gao_notes/logs") == "gao_note_logs"
       assert AdminMenu.active_id(nil, "/gao_notes/mcp") == "gao_note_mcp"
@@ -108,6 +120,11 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       assert AdminMenu.active_id(nil, "/scout") == "scout_dashboard"
       assert AdminMenu.active_id(nil, "/scout/jobs") == "scout_dashboard"
       assert AdminMenu.group_open?(AdminMenu.find_group!("scout"), "scout_dashboard")
+    end
+
+    test "matches Proxy Rules routes to the service menu item" do
+      assert AdminMenu.active_id(nil, "/proxy-rules") == "proxy_rules_dashboard"
+      assert AdminMenu.group_open?(AdminMenu.find_group!("proxy_rules"), "proxy_rules_dashboard")
     end
   end
 

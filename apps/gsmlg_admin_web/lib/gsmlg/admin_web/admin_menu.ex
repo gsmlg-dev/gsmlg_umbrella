@@ -121,6 +121,13 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           ]
         },
         %{
+          id: "proxy_rules",
+          title: "Proxy Rules",
+          items: [
+            %{id: "proxy_rules_dashboard", label: "Dashboard", path: "/proxy-rules"}
+          ]
+        },
+        %{
           id: "caddy",
           title: "Caddy",
           items: [
