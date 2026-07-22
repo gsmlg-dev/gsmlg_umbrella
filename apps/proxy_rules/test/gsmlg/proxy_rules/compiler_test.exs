@@ -88,6 +88,27 @@ defmodule GSMLG.ProxyRules.CompilerTest do
     assert snapshot.statistics.conflict_count == 1
   end
 
+  test "records the decoded remote content version and remote parser input counts" do
+    decoded = "||example.com^\n||bad_domain.example^\n||path.example/path\n"
+
+    assert {:ok, snapshot} =
+             Compiler.compile(
+               %{remote: Base.encode64(decoded), local_proxy: "", local_direct: ""},
+               generation: 9,
+               compiled_at: @compiled_at,
+               sample_limit: 10
+             )
+
+    assert snapshot.source_versions.gfwlist ==
+             :crypto.hash(:sha256, decoded) |> Base.encode16(case: :lower)
+
+    assert snapshot.statistics.sources.gfwlist == %{
+             accepted: 1,
+             invalid: 1,
+             unsupported: 1
+           }
+  end
+
   test "metadata recursively omits artifact bodies and retains validators" do
     assert {:ok, snapshot} =
              Compiler.compile(

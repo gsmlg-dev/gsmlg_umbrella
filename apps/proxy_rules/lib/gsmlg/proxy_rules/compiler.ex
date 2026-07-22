@@ -2,23 +2,19 @@ defmodule GSMLG.ProxyRules.Compiler do
   @moduledoc """
   Pure orchestration for one complete proxy-rules generation.
 
-  The remote parser here intentionally supports only the temporary domain-anchor
-  input needed to assemble artifacts. The full GFWList classifier replaces it
-  in the next implementation slice.
+  Each input is parsed independently before accepted proxy and direct rules are
+  merged, folded, and rendered into one immutable snapshot.
   """
 
   alias GSMLG.ProxyRules.{
     Diagnostic,
-    Domain,
     Hierarchy,
     Output,
-    ParseResult,
     Renderer,
-    Rule,
     Snapshot
   }
 
-  alias GSMLG.ProxyRules.Parser.Local
+  alias GSMLG.ProxyRules.Parser.{GFWList, Local}
 
   @type input :: %{
           required(:remote) => binary(),
@@ -34,7 +30,7 @@ defmodule GSMLG.ProxyRules.Compiler do
   def compile(input, options) when is_list(options) do
     with {:ok, sources} <- validate_input(input),
          {:ok, generation, compiled_at, sample_limit} <- validate_options(options),
-         {:ok, remote} <- parse_remote(sources.remote, sample_limit) do
+         {:ok, remote, remote_metadata} <- parse_remote(sources.remote, sample_limit) do
       local_proxy = Local.parse(sources.local_proxy, :proxy, :local_proxy, sample_limit)
       local_direct = Local.parse(sources.local_direct, :direct, :local_direct, sample_limit)
 
@@ -42,6 +38,7 @@ defmodule GSMLG.ProxyRules.Compiler do
        build_snapshot(
          sources,
          remote,
+         remote_metadata,
          local_proxy,
          local_direct,
          generation,
@@ -80,92 +77,16 @@ defmodule GSMLG.ProxyRules.Compiler do
   end
 
   defp parse_remote(encoded, sample_limit) do
-    with {:ok, decoded} <- decode_remote(encoded),
-         true <- String.valid?(decoded) do
-      {:ok, parse_remote_lines(decoded, sample_limit)}
-    else
-      :error -> {:error, [systemic(:gfwlist, :invalid_base64)]}
-      false -> {:error, [systemic(:gfwlist, :invalid_utf8)]}
+    case GFWList.parse(encoded, sample_limit) do
+      {:ok, result, metadata} -> {:ok, result, metadata}
+      {:error, reason} -> {:error, [systemic(:gfwlist, reason)]}
     end
-  end
-
-  defp decode_remote(encoded), do: Base.decode64(encoded)
-
-  defp parse_remote_lines(text, sample_limit) do
-    text
-    |> String.split(~r/\R/u)
-    |> Enum.with_index(1)
-    |> Enum.reduce(%ParseResult{}, fn {raw_line, location}, result ->
-      parse_remote_line(String.trim(raw_line), raw_line, location, result, sample_limit)
-    end)
-    |> reverse_parse_result()
-  end
-
-  defp parse_remote_line("", _raw, _location, result, _limit), do: result
-
-  defp parse_remote_line(<<marker, _::binary>>, _raw, _location, result, _limit)
-       when marker in [?!, ?#],
-       do: result
-
-  defp parse_remote_line("@@||" <> anchored, raw, location, result, limit),
-    do: parse_anchor(anchored, raw, location, :direct, result, limit)
-
-  defp parse_remote_line("||" <> anchored, raw, location, result, limit),
-    do: parse_anchor(anchored, raw, location, :proxy, result, limit)
-
-  defp parse_remote_line(_value, raw, location, result, limit) do
-    add_diagnostic(result, :unsupported, :ambiguous_rule, raw, location, limit)
-  end
-
-  defp parse_anchor(anchored, raw, location, action, result, limit) do
-    if String.ends_with?(anchored, "^") do
-      domain = binary_part(anchored, 0, byte_size(anchored) - 1)
-      add_remote_domain(domain, raw, location, action, result, limit)
-    else
-      add_diagnostic(result, :unsupported, :ambiguous_rule, raw, location, limit)
-    end
-  end
-
-  defp add_remote_domain(value, raw, location, action, result, limit) do
-    case Domain.normalize(value) do
-      {:ok, domain} ->
-        rule = %Rule{domain: domain, action: action, source: :gfwlist, location: location}
-
-        %{
-          result
-          | rules: [rule | result.rules],
-            counts: Map.update!(result.counts, :accepted, &(&1 + 1))
-        }
-
-      {:error, reason} ->
-        add_diagnostic(result, :invalid, reason, raw, location, limit)
-    end
-  end
-
-  defp add_diagnostic(result, kind, reason, raw, location, limit) do
-    diagnostic = %Diagnostic{
-      kind: kind,
-      source: :gfwlist,
-      location: location,
-      reason: reason,
-      sample: raw
-    }
-
-    diagnostics =
-      if length(result.diagnostics) < limit,
-        do: [diagnostic | result.diagnostics],
-        else: result.diagnostics
-
-    %{result | diagnostics: diagnostics, counts: Map.update!(result.counts, kind, &(&1 + 1))}
-  end
-
-  defp reverse_parse_result(result) do
-    %{result | rules: Enum.reverse(result.rules), diagnostics: Enum.reverse(result.diagnostics)}
   end
 
   defp build_snapshot(
          sources,
          remote,
+         remote_metadata,
          local_proxy,
          local_direct,
          generation,
@@ -187,7 +108,7 @@ defmodule GSMLG.ProxyRules.Compiler do
       generation: generation,
       compiled_at: compiled_at,
       readiness: :ready,
-      source_versions: source_versions(sources),
+      source_versions: source_versions(sources, remote_metadata),
       rendered_outputs: %{
         proxy: render_outputs(proxy.rules, compiled_at),
         direct: render_outputs(direct.rules, compiled_at)
@@ -224,9 +145,9 @@ defmodule GSMLG.ProxyRules.Compiler do
     }
   end
 
-  defp source_versions(sources) do
+  defp source_versions(sources, remote_metadata) do
     %{
-      gfwlist: sha256(sources.remote),
+      gfwlist: remote_metadata.decoded_sha256,
       local_proxy: sha256(sources.local_proxy),
       local_direct: sha256(sources.local_direct)
     }
