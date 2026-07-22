@@ -1,11 +1,110 @@
 defmodule GSMLG.ProxyRules.PersistenceTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.ProxyRules.{Compiler, Persistence, Snapshot}
+  alias GSMLG.ProxyRules.{Compiler, Persistence, Snapshot, SourceSnapshot}
 
   @compiled_at ~U[2026-07-23 01:02:03Z]
   @marker ".artifact.snapshot.transaction"
   @backup ".artifact.snapshot.backup"
+
+  @tag :tmp_dir
+  test "round-trips the original remote body through a strict typed envelope", %{tmp_dir: dir} do
+    body = Base.encode64("||example.com^\n")
+    snapshot = remote_snapshot("||example.com^\n")
+
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+    assert File.read!(Path.join(dir, "remote.body")) == body
+    assert {:ok, ^snapshot} = Persistence.read_remote(dir)
+
+    assert {:error, :invalid_snapshot} =
+             Persistence.write_remote(dir, Base.encode64("different.example\n"), snapshot)
+  end
+
+  @tag :tmp_dir
+  test "rejects missing, oversized, corrupt, and mismatched remote pairs", %{tmp_dir: dir} do
+    assert {:error, :snapshot_not_found} = Persistence.read_remote(dir)
+
+    File.write!(Path.join(dir, "remote.body"), "%%%%")
+    File.write!(Path.join(dir, "remote.metadata"), "bad")
+    assert {:error, :corrupt_snapshot} = Persistence.read_remote(dir)
+
+    body = Base.encode64("example.com\n")
+    assert :ok = Persistence.write_remote(dir, body, remote_snapshot("example.com\n"))
+    File.write!(Path.join(dir, "remote.body"), body <> "x")
+    assert {:error, :checksum_mismatch} = Persistence.read_remote(dir)
+
+    assert {:error, :invalid_snapshot} = Persistence.read_remote(dir, max_body_bytes: 2)
+  end
+
+  @tag :tmp_dir
+  test "a failed remote pair update never becomes authoritative and recovers its prior cache", %{
+    tmp_dir: dir
+  } do
+    old_body = Base.encode64("old.example\n")
+    old = remote_snapshot("old.example\n")
+    new_body = Base.encode64("new.example\n")
+    new = remote_snapshot("new.example\n")
+    assert :ok = Persistence.write_remote(dir, old_body, old)
+
+    assert {:error, :persistence_failed} =
+             Persistence.write_remote(dir, new_body, new,
+               sync_directory: fail_sync_from_call(2, dir)
+             )
+
+    assert {:ok, ^old} = Persistence.read_remote(dir)
+    assert :ok = Persistence.recover_remote(dir)
+    assert {:ok, ^old} = Persistence.read_remote(dir)
+  end
+
+  @tag :tmp_dir
+  test "remote restore rejects envelope, payload, validator, timestamp, and decoded hash tampering",
+       %{
+         tmp_dir: dir
+       } do
+    body = Base.encode64("example.com\n")
+    snapshot = remote_snapshot("example.com\n")
+
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+    rewrite_remote_envelope(dir, &Map.put(&1, :type, :artifact_snapshot))
+    assert {:error, :incompatible_snapshot} = Persistence.read_remote(dir)
+
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+    rewrite_remote_payload(dir, &Map.put(&1, :extra, true))
+    assert {:error, :invalid_snapshot} = Persistence.read_remote(dir)
+
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+    rewrite_remote_payload(dir, &Map.put(&1, :source_url, "file:///tmp/list"))
+    assert {:error, :invalid_snapshot} = Persistence.read_remote(dir)
+
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+    rewrite_remote_payload(dir, &Map.put(&1, :fetched_at, :not_a_timestamp))
+    assert {:error, :invalid_snapshot} = Persistence.read_remote(dir)
+
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+    rewrite_remote_payload(dir, &Map.put(&1, :etag, String.duplicate("x", 8_193)))
+    assert {:error, :invalid_snapshot} = Persistence.read_remote(dir)
+
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+    rewrite_remote_payload(dir, &Map.put(&1, :decoded_sha256, String.duplicate("0", 64)))
+    assert {:error, :checksum_mismatch} = Persistence.read_remote(dir)
+  end
+
+  @tag :tmp_dir
+  test "remote restore rejects invalid Base64 and UTF-8 after checksum-valid raw reads", %{
+    tmp_dir: dir
+  } do
+    for invalid_body <- ["%%%%", Base.encode64(<<255>>)] do
+      valid_body = Base.encode64("example.com\n")
+      assert :ok = Persistence.write_remote(dir, valid_body, remote_snapshot("example.com\n"))
+      File.write!(Path.join(dir, "remote.body"), invalid_body)
+
+      rewrite_remote_payload(dir, fn payload ->
+        %{payload | raw_size: byte_size(invalid_body), raw_sha256: sha256(invalid_body)}
+      end)
+
+      assert {:error, :invalid_snapshot} = Persistence.read_remote(dir)
+    end
+  end
 
   @tag :tmp_dir
   test "round-trips a versioned checksummed artifact atomically", %{tmp_dir: dir} do
@@ -467,6 +566,21 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     snapshot
   end
 
+  defp remote_snapshot(content) do
+    %SourceSnapshot{
+      kind: :remote,
+      content: content,
+      content_sha256: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower),
+      observed_at: @compiled_at,
+      metadata: %{
+        source_url: "https://example.test/list",
+        etag: "tag",
+        last_modified: "date",
+        fetched_at: @compiled_at
+      }
+    }
+  end
+
   defp write_envelope(path, type, version, hash, payload) do
     File.write!(
       path,
@@ -535,4 +649,24 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
       payload: payload
     })
   end
+
+  defp rewrite_remote_envelope(dir, update) do
+    path = Path.join(dir, "remote.metadata")
+    envelope = path |> File.read!() |> :erlang.binary_to_term([:safe]) |> update.()
+    File.write!(path, :erlang.term_to_binary(envelope))
+  end
+
+  defp rewrite_remote_payload(dir, update) do
+    rewrite_remote_envelope(dir, fn envelope ->
+      payload =
+        envelope.payload
+        |> :erlang.binary_to_term([:safe])
+        |> update.()
+        |> :erlang.term_to_binary()
+
+      %{envelope | payload: payload, sha256: :crypto.hash(:sha256, payload)}
+    end)
+  end
+
+  defp sha256(content), do: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
 end
