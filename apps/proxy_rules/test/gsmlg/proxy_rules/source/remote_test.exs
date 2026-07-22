@@ -243,10 +243,30 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     _server = start_remote(dir, [{:error, :connection_failed}], initial_fetch: true)
 
     assert_receive {:proxy_rules_source, :remote,
-                    %SourceSnapshot{content: ^content, metadata: %{etag: ~s("cached")}}},
+                    %SourceSnapshot{
+                      content: ^content,
+                      availability: :stale,
+                      metadata: %{etag: ~s("cached")}
+                    }},
                    1_000
 
     assert_receive {:scheduled, 10, _}
+  end
+
+  @tag :tmp_dir
+  test "an identical successful refresh recovers a restored stale cache", %{tmp_dir: dir} do
+    content = "example.com\n"
+    body = Base.encode64(content)
+    snapshot = source_snapshot(content, %{etag: ~s("cached"), last_modified: nil})
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+
+    server = start_remote(dir, [response(304, "", [{"etag", ~s("cached")}])])
+    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{availability: :stale}}
+    assert %SourceSnapshot{availability: :stale} = Remote.snapshot(server)
+
+    assert {:ok, :accepted} = Remote.refresh(server)
+    assert_receive {:proxy_rules_source_fresh, :remote, _}
+    assert %SourceSnapshot{availability: :ready} = Remote.snapshot(server)
   end
 
   @tag :tmp_dir

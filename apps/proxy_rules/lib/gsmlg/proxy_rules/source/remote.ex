@@ -156,8 +156,9 @@ defmodule GSMLG.ProxyRules.Source.Remote do
          ) do
       {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = snapshot}
       when source_url == state.config.source_url ->
-        notify(state.notify, {:proxy_rules_source, :remote, snapshot})
-        %{state | source: snapshot}
+        restored = %{snapshot | availability: :stale}
+        notify(state.notify, {:proxy_rules_source, :remote, restored})
+        %{state | source: restored}
 
       _missing_mismatched_or_invalid ->
         state
@@ -300,7 +301,13 @@ defmodule GSMLG.ProxyRules.Source.Remote do
             fetched_at: fetched_at
         }
 
-        snapshot = %{authoritative | observed_at: fetched_at, metadata: metadata}
+        snapshot = %{
+          authoritative
+          | observed_at: fetched_at,
+            metadata: metadata,
+            availability: :ready
+        }
+
         persist_304(body, snapshot, metadata, duration, state)
 
       _missing_mismatched_or_invalid ->

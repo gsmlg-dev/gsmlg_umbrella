@@ -49,6 +49,10 @@ defmodule GSMLG.ProxyRules.Store do
           :ok | {:error, :invalid_stage | :persistence_failed}
   def commit(server, token), do: GenServer.call(server, {:commit, token}, :infinity)
 
+  @spec finalize(GenServer.server(), stage_token()) ::
+          :ok | {:error, :invalid_stage | :persistence_failed}
+  def finalize(server, token), do: GenServer.call(server, {:finalize, token}, :infinity)
+
   @spec discard(GenServer.server(), stage_token()) :: :ok
   def discard(server, token), do: GenServer.call(server, {:discard, token})
 
@@ -124,7 +128,13 @@ defmodule GSMLG.ProxyRules.Store do
 
         case Persistence.write_artifact(directory, snapshot, state.persistence_options) do
           :ok ->
-            staged = Map.put(state.staged, token, %{snapshot: snapshot, directory: directory})
+            staged =
+              Map.put(state.staged, token, %{
+                snapshot: snapshot,
+                directory: directory,
+                status: :staged
+              })
+
             {:reply, {:ok, token}, %{state | staged: staged}}
 
           {:error, _reason} ->
@@ -136,32 +146,48 @@ defmodule GSMLG.ProxyRules.Store do
   def handle_call({:stage, _token, _snapshot}, _from, state),
     do: {:reply, {:error, :invalid_stage}, state}
 
+  def handle_call({:finalize, token}, _from, state) do
+    case Map.fetch(state.staged, token) do
+      {:ok, %{status: :staged, directory: directory} = entry} ->
+        staged_path = Path.join(directory, "artifact.snapshot")
+
+        case Persistence.finalize_staged_artifact(
+               state.state_directory,
+               staged_path,
+               state.persistence_options
+             ) do
+          :ok ->
+            staged = Map.put(state.staged, token, %{entry | status: :finalized})
+            {:reply, :ok, %{state | staged: staged}}
+
+          {:error, :persistence_failed} = error ->
+            {:reply, error, state}
+        end
+
+      {:ok, %{status: :finalized}} ->
+        {:reply, :ok, state}
+
+      :error ->
+        {:reply, {:error, :invalid_stage}, state}
+    end
+  end
+
   def handle_call({:commit, token}, _from, state) do
     case Map.fetch(state.staged, token) do
-      {:ok, %{snapshot: snapshot, directory: directory}} ->
-        staged_path = Path.join(directory, "artifact.snapshot")
-        target = Path.join(state.state_directory, "artifact.snapshot")
+      {:ok, %{status: :finalized, snapshot: snapshot, directory: directory}} ->
+        true = :ets.insert(@table, {:current, snapshot})
+        _ = File.rmdir(directory)
 
-        case File.rename(staged_path, target) do
-          :ok ->
-            true = :ets.insert(@table, {:current, snapshot})
-            _ = File.rmdir(directory)
+        {:reply, :ok,
+         %{
+           state
+           | staged: Map.delete(state.staged, token),
+             readiness: snapshot.readiness,
+             operational_status: nil
+         }}
 
-            {:reply, :ok,
-             %{
-               state
-               | staged: Map.delete(state.staged, token),
-                 readiness: snapshot.readiness,
-                 operational_status: nil
-             }}
-
-          {:error, _reason} ->
-            readiness = mark_current_stale(:persistence_failed)
-            status = %{kind: :persistence, reason: :persistence_failed}
-
-            {:reply, {:error, :persistence_failed},
-             %{state | readiness: readiness, operational_status: status}}
-        end
+      {:ok, %{status: :staged}} ->
+        {:reply, {:error, :invalid_stage}, state}
 
       :error ->
         {:reply, {:error, :invalid_stage}, state}
@@ -173,8 +199,12 @@ defmodule GSMLG.ProxyRules.Store do
       {nil, staged} ->
         {:reply, :ok, %{state | staged: staged}}
 
-      {%{directory: directory}, staged} ->
+      {%{status: :staged, directory: directory}, staged} ->
         _ = File.rm(Path.join(directory, "artifact.snapshot"))
+        _ = File.rmdir(directory)
+        {:reply, :ok, %{state | staged: staged}}
+
+      {%{status: :finalized, directory: directory}, staged} ->
         _ = File.rmdir(directory)
         {:reply, :ok, %{state | staged: staged}}
     end

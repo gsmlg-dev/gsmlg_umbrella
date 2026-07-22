@@ -75,7 +75,10 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
   @impl true
   def handle_call(:refresh, _from, state) do
-    {:reply, safe_refresh(state.remote_service), state}
+    case safe_refresh(state.remote_service) do
+      {:ok, :accepted} = accepted -> {:reply, accepted, transition(state, :refreshing, nil)}
+      {:error, :not_available} = error -> {:reply, error, state}
+    end
   end
 
   @impl true
@@ -96,36 +99,42 @@ defmodule GSMLG.ProxyRules.Coordinator do
   def handle_info({:proxy_rules_source_status, kind, :stale, reason}, state)
       when kind in @source_slots and is_atom(reason) do
     error = bounded_source_error(kind, reason)
-    _ = store_update_status(state.store, stale_readiness(state), error)
-    {:noreply, %{state | last_failure: error}}
+    state = mark_source_stale(kind, state)
+    {:noreply, transition(%{state | last_failure: error}, stale_readiness(state), error)}
   end
 
   def handle_info({reference, result}, %{active: %{ref: reference} = active} = state) do
     Process.demonitor(reference, [:flush])
     cancel_timer(active.timer)
-    {:noreply, finish_task(result, active.generation, %{state | active: nil})}
+    {:noreply, complete_task(result, active, %{state | active: nil})}
   end
 
   def handle_info(
-        {:DOWN, reference, :process, _pid, reason},
+        {:DOWN, reference, :process, _pid, _reason},
         %{active: %{ref: reference} = active} = state
       ) do
     cancel_timer(active.timer)
-    _ = store_discard(state.store, active.stage_token)
     state = %{state | active: nil}
 
-    if reason == :normal do
-      {:noreply, state}
-    else
+    if authoritative?(active.generation, state) do
+      _ = store_discard(state.store, active.stage_token)
       {:noreply, fail_generation(:task_crash, state)}
+    else
+      {:noreply, discard_obsolete(active.stage_token, active.generation, state)}
     end
   end
 
   def handle_info({:compile_timeout, reference}, %{active: %{ref: reference} = active} = state) do
     _ = Task.Supervisor.terminate_child(state.task_supervisor, active.pid)
     Process.demonitor(reference, [:flush])
-    _ = store_discard(state.store, active.stage_token)
-    {:noreply, fail_generation(:compile_timeout, %{state | active: nil})}
+    state = %{state | active: nil}
+
+    if authoritative?(active.generation, state) do
+      _ = store_discard(state.store, active.stage_token)
+      {:noreply, fail_generation(:compile_timeout, state)}
+    else
+      {:noreply, discard_obsolete(active.stage_token, active.generation, state)}
+    end
   end
 
   def handle_info({_reference, {:ok, token, %Snapshot{}, _started}}, state) do
@@ -148,7 +157,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
   defp accept_source(kind, snapshot, state) do
     previous = Map.fetch!(state, kind)
-    state = Map.put(state, kind, snapshot)
+    state = state |> Map.put(kind, snapshot) |> clear_source_failure(kind)
 
     cond do
       is_nil(previous) and not sources_known?(state) ->
@@ -159,6 +168,8 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
       previous.content_sha256 == snapshot.content_sha256 ->
         state
+        |> clear_source_failure(kind)
+        |> reconcile_recovered_source()
 
       true ->
         state
@@ -172,9 +183,8 @@ defmodule GSMLG.ProxyRules.Coordinator do
       not sources_known?(state) ->
         state
 
-      restored_matches?(state) ->
-        _ = store_update_status(state.store, :ready, nil)
-        %{state | current: promote_current(state.current), last_failure: nil}
+      compilable?(state) and restored_matches?(state) ->
+        transition(%{state | last_failure: nil}, :ready, nil)
 
       true ->
         state
@@ -211,8 +221,14 @@ defmodule GSMLG.ProxyRules.Coordinator do
         case safe_compile(compiler, input, options) do
           {:ok, %Snapshot{} = snapshot} ->
             case store_stage(store, stage_token, snapshot) do
-              {:ok, token} -> {:ok, token, snapshot, started}
-              {:error, reason} -> {:error, persistence_reason(reason), started}
+              {:ok, token} ->
+                case store_finalize(store, token) do
+                  :ok -> {:ok, token, snapshot, started}
+                  {:error, reason} -> {:error, persistence_reason(reason), started}
+                end
+
+              {:error, reason} ->
+                {:error, persistence_reason(reason), started}
             end
 
           {:error, _diagnostics} ->
@@ -224,7 +240,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
       end)
 
     timer = Process.send_after(self(), {:compile_timeout, task.ref}, state.compile_timeout)
-    _ = store_update_status(state.store, refreshing_readiness(state), nil)
+    state = transition(state, :refreshing, nil)
 
     %{
       state
@@ -239,10 +255,26 @@ defmodule GSMLG.ProxyRules.Coordinator do
     }
   end
 
+  defp complete_task(result, active, state) do
+    if authoritative?(active.generation, state) do
+      case result do
+        {:ok, _token, %Snapshot{}, _started} ->
+          finish_task(result, active.generation, state)
+
+        _failure ->
+          _ = store_discard(state.store, active.stage_token)
+          finish_task(result, active.generation, state)
+      end
+    else
+      returned_token = result_token(result) || active.stage_token
+      discard_obsolete(returned_token, active.generation, state)
+    end
+  end
+
   defp finish_task({:ok, token, snapshot, started}, active_generation, state) do
     duration = System.monotonic_time() - started
 
-    if snapshot.generation == active_generation and active_generation == state.source_generation do
+    if snapshot.generation == active_generation do
       case store_commit(state.store, token) do
         :ok ->
           _ =
@@ -254,14 +286,10 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
           _ = Telemetry.emit([:artifact, :publication], %{generation: snapshot.generation}, %{})
 
-          _ =
-            Telemetry.emit([:status, :change], %{generation: snapshot.generation}, %{
-              readiness: :ready
-            })
-
           state
           |> Map.put(:current, {:ok, snapshot})
           |> Map.put(:last_failure, nil)
+          |> transition(:ready, nil)
           |> start_pending()
 
         {:error, _reason} ->
@@ -269,16 +297,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
           fail_generation(:persistence_failed, state)
       end
     else
-      _ = store_discard(state.store, token)
-
-      _ =
-        Telemetry.emit(
-          [:compile, :stale_result, :discard],
-          %{generation: snapshot.generation},
-          %{}
-        )
-
-      start_pending(state)
+      discard_obsolete(token, active_generation, state)
     end
   end
 
@@ -290,7 +309,6 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
   defp fail_generation(reason, state) do
     error = %{kind: failure_kind(reason), reason: reason}
-    _ = store_update_status(state.store, stale_readiness(state), error)
 
     _ =
       Telemetry.emit([:compile, :exception], %{generation: state.source_generation}, %{
@@ -299,27 +317,97 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
     state
     |> Map.put(:last_failure, error)
+    |> transition(stale_readiness(state), error)
     |> start_pending()
   end
 
-  defp start_pending(%{pending: true} = state), do: start_compile(%{state | pending: false})
+  defp start_pending(%{pending: true} = state) do
+    if compilable?(state), do: start_compile(%{state | pending: false}), else: state
+  end
+
   defp start_pending(state), do: state
 
   defp update_freshness(kind, metadata, state) do
     case Map.fetch!(state, kind) do
       %SourceSnapshot{} = snapshot ->
-        availability = if kind == :remote, do: snapshot.availability, else: :ready
+        state =
+          Map.put(state, kind, %{
+            snapshot
+            | metadata: Map.merge(snapshot.metadata, metadata),
+              availability: :ready
+          })
 
-        Map.put(state, kind, %{
-          snapshot
-          | metadata: Map.merge(snapshot.metadata, metadata),
-            availability: availability
-        })
+        state
+        |> clear_source_failure(kind)
+        |> reconcile_recovered_source()
 
       nil ->
         state
     end
   end
+
+  defp reconcile_recovered_source(state) do
+    cond do
+      not compilable?(state) ->
+        state
+
+      restored_matches?(state) ->
+        transition(%{state | last_failure: nil}, :ready, nil)
+
+      match?(%{generation: generation} when generation == state.source_generation, state.active) ->
+        state
+
+      true ->
+        queue_compile(state)
+    end
+  end
+
+  defp mark_source_stale(kind, state) do
+    case Map.fetch!(state, kind) do
+      %SourceSnapshot{} = snapshot -> Map.put(state, kind, %{snapshot | availability: :stale})
+      nil -> state
+    end
+  end
+
+  defp clear_source_failure(%{last_failure: %{kind: failure_kind}} = state, kind)
+       when failure_kind == kind,
+       do: %{state | last_failure: nil}
+
+  defp clear_source_failure(state, _kind), do: state
+
+  defp transition(state, requested_readiness, error) do
+    readiness = resulting_readiness(state, requested_readiness)
+    _ = store_update_status(state.store, readiness, error)
+
+    _ =
+      Telemetry.emit([:status, :change], %{generation: state.source_generation}, %{
+        readiness: readiness
+      })
+
+    current =
+      case state.current do
+        {:ok, snapshot} -> {:ok, %{snapshot | readiness: readiness, last_error: error}}
+        unavailable -> unavailable
+      end
+
+    %{state | current: current}
+  end
+
+  defp resulting_readiness(%{current: {:ok, _snapshot}}, readiness), do: readiness
+  defp resulting_readiness(_state, :refreshing), do: :refreshing
+  defp resulting_readiness(_state, _readiness), do: :not_ready
+
+  defp authoritative?(generation, state),
+    do: generation == state.source_generation and compilable?(state)
+
+  defp discard_obsolete(token, generation, state) do
+    _ = store_discard(state.store, token)
+    _ = Telemetry.emit([:compile, :stale_result, :discard], %{generation: generation}, %{})
+    start_pending(state)
+  end
+
+  defp result_token({:ok, token, %Snapshot{}, _started}), do: token
+  defp result_token(_result), do: nil
 
   defp compiler_input(state) do
     %{
@@ -410,6 +498,9 @@ defmodule GSMLG.ProxyRules.Coordinator do
   defp store_commit({module, server}, token),
     do: safe_apply(module, :commit, [server, token], {:error, :persistence_failed})
 
+  defp store_finalize({module, server}, token),
+    do: safe_apply(module, :finalize, [server, token], {:error, :persistence_failed})
+
   defp store_discard({module, server}, token),
     do: safe_apply(module, :discard, [server, token], :ok)
 
@@ -434,14 +525,8 @@ defmodule GSMLG.ProxyRules.Coordinator do
   defp restored_generation({:ok, %Snapshot{generation: generation}}), do: generation
   defp restored_generation(_current), do: 0
 
-  defp promote_current({:ok, snapshot}),
-    do: {:ok, %{snapshot | readiness: :ready, last_error: nil}}
-
-  defp promote_current(current), do: current
-
   defp stale_readiness(%{current: {:ok, _snapshot}}), do: :stale
   defp stale_readiness(_state), do: :not_ready
-  defp refreshing_readiness(_state), do: :refreshing
   defp failure_kind(:persistence_failed), do: :persistence
   defp failure_kind(_reason), do: :compiler
   defp persistence_reason(:invalid_snapshot), do: :persistence_failed

@@ -32,12 +32,29 @@ defmodule GSMLG.ProxyRules.CoordinatorTestStore do
 
     receive do
       :finish_stage ->
-        Agent.update(server, &put_in(&1, [:staged, token], snapshot))
+        Agent.update(
+          server,
+          &put_in(&1, [:staged, token], %{snapshot: snapshot, status: :staged})
+        )
+
         {:ok, token}
 
       {:fail_stage, reason} ->
         {:error, reason}
     end
+  end
+
+  def finalize(server, token) do
+    Agent.get_and_update(server, fn state ->
+      case Map.fetch(state.staged, token) do
+        {:ok, %{snapshot: snapshot} = entry} ->
+          send(state.test_process, {:finalized, snapshot.generation})
+          {:ok, put_in(state, [:staged, token], %{entry | status: :finalized})}
+
+        :error ->
+          {{:error, :invalid_stage}, state}
+      end
+    end)
   end
 
   def commit(server, token) do
@@ -49,7 +66,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTestStore do
         {false, {nil, _staged}} ->
           {{:error, :invalid_stage}, state}
 
-        {false, {snapshot, staged}} ->
+        {false, {%{snapshot: snapshot, status: :finalized}, staged}} ->
           send(state.test_process, {:published, snapshot.generation})
 
           {:ok,
@@ -211,6 +228,116 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       _ ->
         false
     end)
+
+    send(context.coordinator, {:proxy_rules_source_fresh, :remote, %{fetched_at: @now}})
+    refute_receive {:compile_started, _, _, _}, 30
+
+    assert_eventually(fn -> store_current(context.store) end, fn
+      {:ok, %Snapshot{generation: 1, readiness: :ready, last_error: nil}} -> true
+      _ -> false
+    end)
+  end
+
+  test "manual refresh immediately transitions readiness to refreshing", context do
+    assert {:ok, :accepted} = Coordinator.refresh(context.coordinator)
+    assert_receive :refresh_called
+    assert %{readiness: :refreshing} = Agent.get(context.store, & &1.metadata)
+  end
+
+  test "emits bounded status telemetry for refreshing, stale, and ready transitions", context do
+    handler = "coordinator-status-#{System.unique_integer([:positive])}"
+    test_process = self()
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:gsmlg, :proxy_rules, :status, :change],
+        fn _event, measurements, metadata, _config ->
+          send(test_process, {:status_change, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    assert {:ok, :accepted} = Coordinator.refresh(context.coordinator)
+    assert_receive {:status_change, %{generation: 0}, %{readiness: :refreshing}}
+
+    send(context.coordinator, {:proxy_rules_source_status, :remote, :stale, :timeout})
+    assert_receive {:status_change, %{generation: 0}, %{readiness: :not_ready}}
+
+    send_sources(context.coordinator, "one.example")
+    assert_receive {:compile_started, 1, task, _}
+    assert_receive {:status_change, %{generation: 1}, %{readiness: :refreshing}}
+    finish_success(task, 1)
+    assert_receive {:status_change, %{generation: 1}, %{readiness: :ready}}
+  end
+
+  test "an obsolete compile error is discarded without marking the current artifact stale",
+       context do
+    publish_first(context)
+
+    send(
+      context.coordinator,
+      {:proxy_rules_source, :local_proxy, source(:local_proxy, "two.example\n")}
+    )
+
+    assert_receive {:compile_started, 2, obsolete, _}
+
+    send(
+      context.coordinator,
+      {:proxy_rules_source, :local_proxy, source(:local_proxy, "three.example\n")}
+    )
+
+    send(obsolete, {:compile_result, {:error, []}})
+    assert_receive {:compile_started, 3, latest, _}
+    assert {:ok, %Snapshot{generation: 1, last_error: nil}} = store_current(context.store)
+    finish_success(latest, 3)
+  end
+
+  test "obsolete crash and timeout do not overwrite status and start only the latest", context do
+    publish_first(context)
+
+    send(
+      context.coordinator,
+      {:proxy_rules_source, :local_proxy, source(:local_proxy, "two.example\n")}
+    )
+
+    assert_receive {:compile_started, 2, crashing, _}
+
+    send(
+      context.coordinator,
+      {:proxy_rules_source, :local_proxy, source(:local_proxy, "three.example\n")}
+    )
+
+    send(crashing, :crash)
+    assert_receive {:compile_started, 3, waiting, _}
+    assert {:ok, %Snapshot{generation: 1, last_error: nil}} = store_current(context.store)
+
+    send(
+      context.coordinator,
+      {:proxy_rules_source, :local_proxy, source(:local_proxy, "four.example\n")}
+    )
+
+    assert_receive {:compile_started, 4, latest, _}, 500
+    refute Process.alive?(waiting)
+    assert {:ok, %Snapshot{generation: 1, last_error: nil}} = store_current(context.store)
+    finish_success(latest, 4)
+  end
+
+  test "a source going stale during compilation prevents publication until recovery", context do
+    send_sources(context.coordinator, "one.example")
+    assert_receive {:compile_started, 1, task, _}
+    send(context.coordinator, {:proxy_rules_source_status, :local_proxy, :stale, :not_found})
+    send(task, {:compile_result, :compile})
+    assert_receive {:stage_started, 1, stage}
+    send(stage, :finish_stage)
+    refute_receive {:published, 1}, 30
+    assert {:error, :not_ready} = store_current(context.store)
+
+    send(context.coordinator, {:proxy_rules_source_fresh, :local_proxy, %{observed_at: @now}})
+    assert_receive {:compile_started, 1, recovered, _}
+    finish_success(recovered, 1)
   end
 
   test "compile errors, crashes, and timeouts retain the prior artifact", context do
@@ -307,6 +434,38 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert {:ok, %Snapshot{generation: 7, readiness: :ready}} = store_current(context.store)
   end
 
+  test "a restored remote cache cannot promote until a successful reconciliation", context do
+    remote = source(:remote, "remote.example\n")
+    stale_remote = %{remote | availability: :stale}
+    proxy = source(:local_proxy, "proxy.example\n")
+    direct = source(:local_direct, "direct.example\n")
+
+    assert {:ok, restored} =
+             GSMLG.ProxyRules.Compiler.compile(
+               %{
+                 remote: Base.encode64(remote.content),
+                 local_proxy: proxy.content,
+                 local_direct: direct.content
+               },
+               generation: 7,
+               compiled_at: @now,
+               sample_limit: 2
+             )
+
+    Agent.update(context.store, &%{&1 | current: {:ok, %{restored | readiness: :stale}}})
+    Agent.update(context.remote, &Map.put(&1, :snapshot, stale_remote))
+    Agent.update(context.local, fn _ -> %{proxy: proxy, direct: direct} end)
+    :ok = GenServer.stop(context.coordinator)
+    coordinator = start_coordinator(context)
+
+    refute_receive {:compile_started, _, _, _}, 50
+    assert {:ok, %Snapshot{generation: 7, readiness: :stale}} = store_current(context.store)
+
+    send(coordinator, {:proxy_rules_source_fresh, :remote, %{fetched_at: @now}})
+    refute_receive {:compile_started, _, _, _}, 50
+    assert {:ok, %Snapshot{generation: 7, readiness: :ready}} = store_current(context.store)
+  end
+
   test "commit failure retains the prior artifact", context do
     send_sources(context.coordinator, "one.example")
     assert_receive {:compile_started, 1, first, _}
@@ -368,6 +527,20 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       coordinator,
       {:proxy_rules_source, :local_direct, source(:local_direct, "direct.example\n")}
     )
+  end
+
+  defp publish_first(context) do
+    send_sources(context.coordinator, "one.example")
+    assert_receive {:compile_started, 1, first, _}
+    finish_success(first, 1)
+  end
+
+  defp finish_success(task, generation) do
+    send(task, {:compile_result, :compile})
+    assert_receive {:stage_started, ^generation, stage}
+    send(stage, :finish_stage)
+    assert_receive {:finalized, ^generation}
+    assert_receive {:published, ^generation}
   end
 
   defp source(kind, content) do

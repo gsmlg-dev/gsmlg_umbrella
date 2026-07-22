@@ -92,9 +92,30 @@ defmodule GSMLG.ProxyRules.StoreTest do
     assert {:error, :not_ready} = Store.current()
 
     assert {:ok, second_token} = Store.stage(Store, second)
+    assert {:error, :invalid_stage} = Store.commit(Store, second_token)
+    assert :ok = Store.finalize(Store, second_token)
     assert :ok = Store.commit(Store, second_token)
     assert {:ok, %Snapshot{generation: 91}} = Store.current()
     assert {:ok, %Snapshot{generation: 91}} = Persistence.read_artifact(dir)
+  end
+
+  @tag :tmp_dir
+  test "failed staged finalization preserves disk and ETS across restart", %{tmp_dir: dir} do
+    first = fixture_snapshot(92)
+    second = fixture_snapshot(93)
+    assert :ok = Store.publish(first)
+
+    restart_store(dir,
+      persistence_options: [sync_directory: fail_root_sync_from_call(2, dir)]
+    )
+
+    assert {:ok, token} = Store.stage(Store, second)
+    assert {:error, :persistence_failed} = Store.finalize(Store, token)
+    assert {:ok, %Snapshot{generation: 92}} = Store.current()
+    assert {:ok, %Snapshot{generation: 92}} = Persistence.read_artifact(dir)
+
+    restart_store(dir)
+    assert {:ok, %Snapshot{generation: 92, readiness: :stale}} = Store.current()
   end
 
   @tag :tmp_dir
@@ -284,6 +305,19 @@ defmodule GSMLG.ProxyRules.StoreTest do
       :ok = :counters.add(counter, 1, 1)
       call = :counters.get(counter, 1)
       if call >= failing_call, do: {:error, :eio}, else: :ok
+    end
+  end
+
+  defp fail_root_sync_from_call(failing_call, expected_dir) do
+    counter = :counters.new(1, [])
+
+    fn directory ->
+      if directory == expected_dir do
+        :counters.add(counter, 1, 1)
+        if :counters.get(counter, 1) >= failing_call, do: {:error, :eio}, else: :ok
+      else
+        :ok
+      end
     end
   end
 

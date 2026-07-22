@@ -257,6 +257,30 @@ defmodule GSMLG.ProxyRules.Persistence do
 
   def recover_artifact(_directory, _opts), do: {:error, :persistence_failed}
 
+  @doc false
+  @spec finalize_staged_artifact(binary(), binary(), keyword()) ::
+          :ok | {:error, :persistence_failed}
+  def finalize_staged_artifact(directory, staged_path, opts)
+      when is_binary(directory) and is_binary(staged_path) and is_list(opts) do
+    target = Path.join(directory, @artifact_file)
+
+    result =
+      with true <- File.regular?(staged_path),
+           :ok <- recover_artifact(directory, opts),
+           :ok <- prepare_for_write(directory, opts),
+           :ok <- commit_transaction(staged_path, target, directory, opts) do
+        :ok
+      end
+
+    case result do
+      :ok -> :ok
+      _failure -> {:error, :persistence_failed}
+    end
+  end
+
+  def finalize_staged_artifact(_directory, _staged_path, _opts),
+    do: {:error, :persistence_failed}
+
   @spec max_output_bytes() :: pos_integer()
   def max_output_bytes, do: @max_output_bytes
 
