@@ -29,15 +29,17 @@ defmodule GSMLG.ProxyRules.Hierarchy do
   defp fold_unique(rules) do
     rules
     |> Enum.sort_by(&{&1.domain.reversed_labels, &1.domain.name})
-    |> Enum.reduce([], fn rule, kept ->
-      if covered?(rule, kept), do: kept, else: [rule | kept]
+    |> Enum.reduce([], fn
+      rule, [] ->
+        [rule]
+
+      rule, [previous | _rest] = kept ->
+        if List.starts_with?(rule.domain.reversed_labels, previous.domain.reversed_labels) do
+          kept
+        else
+          [rule | kept]
+        end
     end)
     |> Enum.sort_by(& &1.domain.name)
-  end
-
-  defp covered?(rule, kept) do
-    Enum.any?(kept, fn parent ->
-      List.starts_with?(rule.domain.reversed_labels, parent.domain.reversed_labels)
-    end)
   end
 end

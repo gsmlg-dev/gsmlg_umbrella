@@ -36,6 +36,18 @@ defmodule GSMLG.ProxyRules.HierarchyTest do
     assert zed.location == 9
   end
 
+  test "folds a large set by comparing each descendant with its adjacent retained parent" do
+    parents = for index <- 1..2_000, do: "root-#{index}.test"
+    descendants = Enum.map(parents, &"www.#{&1}")
+
+    folded =
+      (descendants ++ parents)
+      |> rules(:proxy)
+      |> Hierarchy.fold()
+
+    assert Enum.map(folded, & &1.domain.name) == Enum.sort(parents)
+  end
+
   defp rules(domains, action) do
     domains
     |> Enum.with_index(1)
