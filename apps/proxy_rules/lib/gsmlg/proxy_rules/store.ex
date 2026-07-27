@@ -113,7 +113,7 @@ defmodule GSMLG.ProxyRules.Store do
 
     state_directory = state_directory(opts)
     persistence_options = Keyword.get(opts, :persistence_options, [])
-    _ = recover(state_directory, persistence_options)
+    recovery_result = recover(state_directory, persistence_options)
     _ = prune_orphan_stages(state_directory)
     {snapshot, operational_status} = restore(state_directory)
 
@@ -133,6 +133,7 @@ defmodule GSMLG.ProxyRules.Store do
        persistence_options: persistence_options,
        readiness: if(snapshot, do: snapshot.readiness, else: :not_ready),
        operational_status: operational_status,
+       startup_recovery: recovery_result,
        staged: %{}
      }}
   end
@@ -415,12 +416,23 @@ defmodule GSMLG.ProxyRules.Store do
   defp finalized_transaction?(staged), do: not is_nil(finalized_token(staged))
 
   defp recover_abandoned_stages(state) do
-    Enum.reduce_while(Map.keys(state.staged), {:ok, state}, fn token, {:ok, state} ->
-      case discard_stage(token, state) do
-        {:ok, state} -> {:cont, {:ok, state}}
-        {{:error, :persistence_failed} = error, state} -> {:halt, {error, state}}
-      end
-    end)
+    with {:ok, state} <- recover_startup_transaction(state) do
+      Enum.reduce_while(Map.keys(state.staged), {:ok, state}, fn token, {:ok, state} ->
+        case discard_stage(token, state) do
+          {:ok, state} -> {:cont, {:ok, state}}
+          {{:error, :persistence_failed} = error, state} -> {:halt, {error, state}}
+        end
+      end)
+    end
+  end
+
+  defp recover_startup_transaction(%{startup_recovery: :ok} = state), do: {:ok, state}
+
+  defp recover_startup_transaction(state) do
+    case recover(state.state_directory, state.persistence_options) do
+      :ok -> {:ok, %{state | startup_recovery: :ok}}
+      {:error, :persistence_failed} = error -> {error, state}
+    end
   end
 
   defp finalized_token(staged) do

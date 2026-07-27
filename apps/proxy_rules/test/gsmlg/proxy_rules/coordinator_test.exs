@@ -847,6 +847,107 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert {:ok, %Snapshot{generation: 2}} = Persistence.read_artifact(directory)
   end
 
+  test "real store retains failed startup recovery until coordinator retry succeeds", context do
+    supervisor = GSMLG.ProxyRules.Supervisor
+
+    directory =
+      Path.join(System.tmp_dir!(), "proxy-rules-startup-recovery-#{System.unique_integer()}")
+
+    stage_directory = Path.join(directory, ".interrupted-stage")
+    File.mkdir_p!(stage_directory)
+
+    :ok = Supervisor.terminate_child(supervisor, Coordinator)
+    :ok = Supervisor.terminate_child(supervisor, Store)
+
+    on_exit(fn ->
+      stop_named(Coordinator)
+      stop_named(Store)
+      _ = Supervisor.restart_child(supervisor, Store)
+      _ = Supervisor.restart_child(supervisor, Coordinator)
+      File.rm_rf!(directory)
+    end)
+
+    assert {:ok, prior} = compiled_snapshot(1, "prior-proxy.example")
+    assert {:ok, interrupted} = compiled_snapshot(2, "interrupted-proxy.example")
+    assert :ok = Persistence.write_artifact(directory, prior)
+    assert :ok = Persistence.write_artifact(stage_directory, interrupted)
+
+    assert :ok =
+             Persistence.finalize_staged_artifact(
+               directory,
+               Path.join(stage_directory, "artifact.snapshot"),
+               []
+             )
+
+    recovery_allowed = :atomics.new(1, [])
+
+    failing_recovery_sync = fn path ->
+      if path == directory and :atomics.get(recovery_allowed, 1) == 0,
+        do: {:error, :eio},
+        else: :ok
+    end
+
+    _store =
+      start_real_store(
+        name: Store,
+        state_directory: directory,
+        persistence_options: [sync_directory: failing_recovery_sync]
+      )
+
+    assert {:ok,
+            %Snapshot{
+              generation: 1,
+              readiness: :stale
+            }} = Store.current()
+
+    Agent.update(context.remote, &Map.put(&1, :snapshot, source(:remote, "||remote.example^\n")))
+
+    Agent.update(context.local, fn _ ->
+      %{
+        proxy: source(:local_proxy, "later.example\n"),
+        direct: source(:local_direct, "direct.example\n")
+      }
+    end)
+
+    name = String.to_atom("coordinator_real_recovery_#{System.unique_integer([:positive])}")
+
+    {:ok, coordinator} =
+      Coordinator.start_link(
+        name: name,
+        configuration: %{configuration() | state_directory: directory},
+        compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
+        compiler_options: [test_process: self()],
+        store: {Store, Store},
+        remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
+        local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
+        task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
+        compile_timeout: 5_000,
+        recovery_scheduler: recovery_scheduler(self()),
+        now: fn -> @now end
+      )
+
+    Process.unlink(coordinator)
+    assert Process.alive?(coordinator)
+    assert_receive {:recovery_scheduled, ^coordinator, {:retry_recovery, token}, 10}
+    refute_receive {:compile_started, _, _, _}, 30
+    assert {:error, :not_available} = Coordinator.refresh(coordinator)
+
+    assert {:ok,
+            %Snapshot{
+              generation: 1,
+              readiness: :stale,
+              last_error: %{kind: :persistence, reason: :persistence_failed}
+            }} = Store.current()
+
+    :ok = :atomics.put(recovery_allowed, 1, 1)
+    send(coordinator, {:retry_recovery, token})
+    assert complete_real_publication(2) >= 1
+    refute_receive {:recovery_scheduled, ^coordinator, _, _}, 30
+
+    assert {:ok, %Snapshot{generation: 2}} = Persistence.read_artifact(directory)
+    :ok = GenServer.stop(coordinator)
+  end
+
   test "a stale epoch during finalization rejects publication before notification arrives",
        context do
     supervisor = GSMLG.ProxyRules.Supervisor
@@ -1125,6 +1226,31 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
   defp assert_eventually(fun, predicate) do
     deadline = System.monotonic_time(:millisecond) + 1_000
     do_assert_eventually(fun, predicate, deadline)
+  end
+
+  defp complete_real_publication(generation) do
+    deadline = System.monotonic_time(:millisecond) + 5_000
+    do_complete_real_publication(generation, deadline, 0)
+  end
+
+  defp do_complete_real_publication(generation, deadline, attempts) do
+    case Store.current() do
+      {:ok, %Snapshot{generation: ^generation, readiness: :ready}} ->
+        attempts
+
+      _not_published ->
+        if System.monotonic_time(:millisecond) >= deadline do
+          flunk("real Store did not publish generation #{generation}")
+        else
+          receive do
+            {:compile_started, ^generation, compile, _input} ->
+              send(compile, {:compile_result, :compile})
+              do_complete_real_publication(generation, deadline, attempts + 1)
+          after
+            10 -> do_complete_real_publication(generation, deadline, attempts)
+          end
+        end
+    end
   end
 
   defp orphan_stage_entries(directory) do
