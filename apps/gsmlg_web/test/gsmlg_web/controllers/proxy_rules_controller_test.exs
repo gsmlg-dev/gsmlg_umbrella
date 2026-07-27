@@ -89,6 +89,21 @@ defmodule GSMLG.Web.ProxyRulesControllerTest do
     assert get_resp_header(conn, "etag") == [output.etag]
   end
 
+  test "does not treat a malformed weak wildcard as a match", %{
+    conn: conn,
+    snapshot: snapshot
+  } do
+    output = snapshot.rendered_outputs.proxy.raw
+
+    conn =
+      conn
+      |> put_req_header("if-none-match", "W/*")
+      |> get("/api/proxy-rules/proxy-list/raw")
+
+    assert response(conn, 200) == output.body
+    assert get_resp_header(conn, "etag") == [output.etag]
+  end
+
   test "returns a bounded plain 404 for invalid list and format identifiers", %{conn: conn} do
     for path <- [
           "/api/proxy-rules/unknown/raw",

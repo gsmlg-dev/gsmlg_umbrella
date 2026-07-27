@@ -54,14 +54,15 @@ defmodule GSMLG.Web.ProxyRulesController do
       header_value
       |> String.split(",")
       |> Enum.any?(fn candidate ->
-        candidate = candidate |> String.trim() |> strip_weak_prefix()
-        candidate == "*" or candidate == current_etag
+        candidate = String.trim(candidate)
+        candidate == "*" or comparable_etag(candidate) == current_etag
       end)
     end)
   end
 
-  defp strip_weak_prefix("W/" <> etag), do: etag
-  defp strip_weak_prefix(etag), do: etag
+  defp comparable_etag("W/\"" <> remainder), do: "\"" <> remainder
+  defp comparable_etag("\"" <> _remainder = etag), do: etag
+  defp comparable_etag(_candidate), do: nil
 
   defp cache_control do
     :proxy_rules

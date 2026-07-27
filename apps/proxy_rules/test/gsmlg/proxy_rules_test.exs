@@ -64,6 +64,8 @@ defmodule GSMLG.ProxyRulesTest do
   end
 
   test "returns generation and output from the same current snapshot" do
+    prior = Store.current()
+
     assert {:ok, snapshot} =
              Compiler.compile(
                %{
@@ -78,7 +80,14 @@ defmodule GSMLG.ProxyRulesTest do
 
     on_exit(fn ->
       :sys.replace_state(Store, fn state ->
-        :ets.delete(:gsmlg_proxy_rules_store, :current)
+        case prior do
+          {:ok, prior_snapshot} ->
+            :ets.insert(:gsmlg_proxy_rules_store, {:current, prior_snapshot})
+
+          {:error, :not_ready} ->
+            :ets.delete(:gsmlg_proxy_rules_store, :current)
+        end
+
         state
       end)
     end)
