@@ -53,6 +53,7 @@ defmodule GSMLG.Web.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.18 or ~> 1.0"},
       {:gsmlg, in_umbrella: true},
+      {:proxy_rules, in_umbrella: true},
       {:gsmlg_component, in_umbrella: true},
       {:gsmlg_ip_geo, in_umbrella: true},
       {:gsmlg_whois, in_umbrella: true},

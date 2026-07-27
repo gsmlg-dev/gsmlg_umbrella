@@ -164,6 +164,12 @@ defmodule GSMLG.Web.Router do
     delete("/blogs/:id", BlogController, :delete)
   end
 
+  scope "/api/proxy-rules", GSMLG.Web do
+    pipe_through(:api)
+
+    get("/:list/:format", ProxyRulesController, :show)
+  end
+
   scope "/api", GSMLG.Web do
     pipe_through(:api)
 

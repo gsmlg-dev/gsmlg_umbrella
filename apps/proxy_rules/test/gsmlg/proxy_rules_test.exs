@@ -7,6 +7,7 @@ defmodule GSMLG.ProxyRulesTest do
   test "returns not-ready for every valid artifact lookup before publication" do
     for list <- [:proxy, :direct], format <- [:raw, :squid, :clash] do
       assert {:error, :not_ready} == ProxyRules.get_artifact(list, format)
+      assert {:error, :not_ready} == ProxyRules.get_artifact_response(list, format)
     end
   end
 
@@ -29,6 +30,8 @@ defmodule GSMLG.ProxyRulesTest do
   test "rejects unsupported list and renderer identifiers" do
     assert {:error, :not_found} == ProxyRules.get_artifact(:unknown, :raw)
     assert {:error, :not_found} == ProxyRules.get_artifact(:proxy, :unknown)
+    assert {:error, :not_found} == ProxyRules.get_artifact_response(:unknown, :raw)
+    assert {:error, :not_found} == ProxyRules.get_artifact_response(:proxy, :unknown)
   end
 
   test "returns a typed output from one complete current snapshot" do
@@ -58,6 +61,37 @@ defmodule GSMLG.ProxyRulesTest do
 
     assert {:ok, %Output{body: body}} = ProxyRules.get_artifact(:proxy, :raw)
     assert body =~ "proxy.example"
+  end
+
+  test "returns generation and output from the same current snapshot" do
+    assert {:ok, snapshot} =
+             Compiler.compile(
+               %{
+                 remote: Base.encode64("||remote.example^\n"),
+                 local_proxy: "proxy.example\n",
+                 local_direct: "direct.example\n"
+               },
+               generation: 43,
+               compiled_at: ~U[2026-07-23 00:00:00Z],
+               sample_limit: 2
+             )
+
+    on_exit(fn ->
+      :sys.replace_state(Store, fn state ->
+        :ets.delete(:gsmlg_proxy_rules_store, :current)
+        state
+      end)
+    end)
+
+    :sys.replace_state(Store, fn state ->
+      :ets.insert(:gsmlg_proxy_rules_store, {:current, snapshot})
+      state
+    end)
+
+    assert {:ok, %{generation: 43, output: %Output{body: body}}} =
+             ProxyRules.get_artifact_response(:direct, :raw)
+
+    assert body =~ "direct.example"
   end
 
   test "reports not-ready metadata without fabricated counts" do

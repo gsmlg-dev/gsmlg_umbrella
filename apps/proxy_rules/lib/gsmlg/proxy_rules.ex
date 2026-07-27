@@ -6,20 +6,30 @@ defmodule GSMLG.ProxyRules do
 
   @spec get_artifact(list_name(), renderer()) ::
           {:ok, Output.t()} | {:error, :not_ready | :not_found}
-  def get_artifact(list, renderer)
+  def get_artifact(list, renderer) do
+    with {:ok, %{output: output}} <- get_artifact_response(list, renderer) do
+      {:ok, output}
+    end
+  end
+
+  @spec get_artifact_response(list_name(), renderer()) ::
+          {:ok, %{generation: non_neg_integer(), output: Output.t()}}
+          | {:error, :not_ready | :not_found}
+  def get_artifact_response(list, renderer)
       when list in [:proxy, :direct] and renderer in [:raw, :squid, :clash] do
     with {:ok, snapshot} <- Store.current(),
+         {:ok, generation} <- Map.fetch(snapshot, :generation),
          {:ok, outputs} <- Map.fetch(snapshot, :rendered_outputs),
          {:ok, list_outputs} <- Map.fetch(outputs, list),
          {:ok, %Output{} = artifact} <- Map.fetch(list_outputs, renderer) do
-      {:ok, artifact}
+      {:ok, %{generation: generation, output: artifact}}
     else
       {:error, :not_ready} = error -> error
       :error -> {:error, :not_found}
     end
   end
 
-  def get_artifact(_list, _renderer), do: {:error, :not_found}
+  def get_artifact_response(_list, _renderer), do: {:error, :not_found}
 
   @spec metadata() :: {:ok, map()} | {:error, :not_available}
   def metadata, do: safe_store_metadata()
