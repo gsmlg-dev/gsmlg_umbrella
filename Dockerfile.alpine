@@ -88,7 +88,7 @@ COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg_umbrella.toml
 COPY --from=builder /app /app
 COPY --from=builder /usr/local/bin/bun /usr/bin/bun
 
-RUN apk add --no-cache openssl bash libstdc++ ca-certificates procps vips \
+RUN apk add --no-cache openssl bash libstdc++ ca-certificates procps vips inotify-tools \
     && mkdir -p /var/lib/mnesia /etc/gsmlg/proxy-rules /var/lib/gsmlg/proxy-rules
 
 VOLUME ["/var/lib/mnesia", "/var/lib/gsmlg/proxy-rules"]

@@ -103,7 +103,7 @@ COPY --from=builder /usr/local/bin/bun /usr/bin/bun
 
 RUN <<EOF
 apt-get update
-apt-get install -y --no-install-recommends openssl ca-certificates procps
+apt-get install -y --no-install-recommends openssl ca-certificates procps inotify-tools
 rm -rf /var/lib/apt/lists/*
 mkdir -p /var/lib/mnesia /etc/gsmlg/proxy-rules /var/lib/gsmlg/proxy-rules
 EOF

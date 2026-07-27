@@ -21,6 +21,9 @@ defmodule GSMLG.ProxyRules.OperationalTest do
 
       assert is_binary(mkdir_command), "#{dockerfile} runtime stage must run mkdir -p"
 
+      assert runtime_stage =~ ~r/(?:apt-get install|apk add)[^\n]*\binotify-tools\b/,
+             "#{dockerfile} runtime stage must install inotify-tools for FileSystem"
+
       for directory <- @runtime_directories do
         assert mkdir_command =~ directory,
                "#{dockerfile} runtime mkdir command must create #{directory}"

@@ -20,7 +20,7 @@ ENV PATH=/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg.toml
 COPY ./app /app
 
-RUN apk add --no-cache ca-certificates procps \
+RUN apk add --no-cache ca-certificates procps inotify-tools \
     && mkdir -p /var/lib/mnesia /etc/gsmlg/proxy-rules /var/lib/gsmlg/proxy-rules
 
 VOLUME ["/var/lib/mnesia", "/var/lib/gsmlg/proxy-rules"]
