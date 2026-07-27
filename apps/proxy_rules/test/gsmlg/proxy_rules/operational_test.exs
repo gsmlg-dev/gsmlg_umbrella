@@ -48,7 +48,11 @@ defmodule GSMLG.ProxyRules.OperationalTest do
              "sudo install -o root -g gsmlg -m 0640 /path/to/gsmlg_umbrella.toml " <>
                "/etc/gsmlg/gsmlg_umbrella.toml"
 
-    assert deploy =~ "StateDirectory=gsmlg/proxy-rules\nStateDirectoryMode=0750"
+    assert deploy =~
+             "ConfigurationDirectory=gsmlg/proxy-rules\n" <>
+               "ConfigurationDirectoryMode=0750\n" <>
+               "StateDirectory=gsmlg/proxy-rules\n" <>
+               "StateDirectoryMode=0750"
   end
 
   test "one benchmark compilation reports positive operational measurements" do

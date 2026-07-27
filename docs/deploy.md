@@ -326,6 +326,7 @@ Environment=MNESIA_DIR=/var/lib/mnesia
 Environment=MIX_BUN_PATH=/usr/bin/bun
 Environment=BUN_SERVER_JS=/opt/gsmlg/gsmlg/lib/gsmlg_component-5.6.0/priv/server.js
 ConfigurationDirectory=gsmlg/proxy-rules
+ConfigurationDirectoryMode=0750
 StateDirectory=gsmlg/proxy-rules
 StateDirectoryMode=0750
 ExecStart=/opt/gsmlg/gsmlg/bin/gsmlg_umbrella start
