@@ -41,32 +41,68 @@ defmodule GSMLG.AdminWeb.ProxyRulesTelemetryBridge do
   @impl true
   def init(options) do
     handler_id = Keyword.get(options, :handler_id, @handler_id)
+    :telemetry.detach(handler_id)
 
-    config = %{
+    state = %{
+      handler_id: handler_id,
       pubsub: Keyword.get(options, :pubsub, GSMLG.PubSub),
-      topic: Keyword.get(options, :topic, @topic)
+      topic: Keyword.get(options, :topic, @topic),
+      broadcaster: Keyword.get(options, :broadcaster, &Phoenix.PubSub.broadcast/3)
     }
 
-    case :telemetry.attach_many(handler_id, @events, &__MODULE__.handle_telemetry/4, config) do
-      :ok -> {:ok, %{handler_id: handler_id}}
-      {:error, :already_exists} -> {:stop, :telemetry_handler_already_exists}
-    end
+    :ok =
+      :telemetry.attach_many(
+        handler_id,
+        @events,
+        &__MODULE__.handle_telemetry/4,
+        %{bridge: self()}
+      )
+
+    {:ok, state}
   end
 
   @doc false
-  def handle_telemetry(_event, measurements, metadata, config) do
-    Phoenix.PubSub.broadcast(
-      config.pubsub,
-      config.topic,
-      {:proxy_rules_status_changed, bounded_measurements(measurements),
-       bounded_metadata(metadata)}
+  def handle_telemetry(_event, measurements, metadata, %{bridge: bridge}) do
+    send(
+      bridge,
+      {:proxy_rules_telemetry, bounded_measurements(measurements), bounded_metadata(metadata)}
     )
+
+    :ok
+  rescue
+    _error -> :ok
+  catch
+    _kind, _reason -> :ok
+  end
+
+  def handle_telemetry(_event, _measurements, _metadata, _invalid_config), do: :ok
+
+  @impl true
+  def handle_info({:proxy_rules_telemetry, measurements, metadata}, state) do
+    message = {:proxy_rules_status_changed, measurements, metadata}
+    safe_broadcast(state.broadcaster, state.pubsub, state.topic, message)
+    {:noreply, state}
   end
 
   @impl true
   def terminate(_reason, %{handler_id: handler_id}) do
-    :telemetry.detach(handler_id)
+    if owns_handler?(handler_id, self()), do: :telemetry.detach(handler_id)
     :ok
+  end
+
+  defp safe_broadcast(broadcaster, pubsub, topic, message) do
+    broadcaster.(pubsub, topic, message)
+  rescue
+    _error -> :ok
+  catch
+    _kind, _reason -> :ok
+  end
+
+  defp owns_handler?(handler_id, owner) do
+    Enum.any?(:telemetry.list_handlers(List.first(@events)), fn
+      %{id: ^handler_id, config: %{bridge: ^owner}} -> true
+      _handler -> false
+    end)
   end
 
   defp bounded_measurements(measurements) when is_map(measurements) do

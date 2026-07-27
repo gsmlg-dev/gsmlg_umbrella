@@ -152,6 +152,48 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
            )
   end
 
+  test "distinguishes never-successful and previously successful stale local sources", %{
+    conn: conn
+  } do
+    failed_at = ~U[2026-07-23 01:12:13Z]
+    successful_at = @compiled_at
+
+    replace_source_snapshots(%{
+      remote: nil,
+      local_proxy:
+        source_snapshot(
+          :local_proxy,
+          String.duplicate("b", 64),
+          failed_at,
+          %{last_success_at: nil},
+          :stale
+        ),
+      local_direct:
+        source_snapshot(
+          :local_direct,
+          String.duplicate("c", 64),
+          failed_at,
+          %{last_success_at: successful_at},
+          :stale
+        )
+    })
+
+    replace_current(fixture_snapshot(), :stale, %{kind: :local_proxy, reason: :invalid_utf8})
+    {:ok, view, _html} = live(conn, ~p"/proxy-rules")
+
+    assert has_element?(
+             view,
+             "#proxy-rules-source-local-proxy-list",
+             "Last success Not available"
+           )
+
+    assert has_element?(
+             view,
+             "#proxy-rules-source-local-direct-list",
+             "Last success 2026-07-23 01:02:03Z"
+           )
+  end
+
   test "accepted refresh immediately disables duplicate clicks", %{conn: conn} do
     snapshot = fixture_snapshot()
     replace_current(snapshot, :ready, nil)
@@ -295,9 +337,38 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
   end
 
   defp replace_sources(versions) do
+    replace_source_snapshots(%{
+      remote:
+        source_snapshot(
+          :remote,
+          versions.gfwlist,
+          @compiled_at,
+          %{
+            etag: ~s("remote-etag"),
+            last_modified: "Wed, 23 Jul 2026 01:02:03 GMT",
+            fetched_at: @compiled_at
+          }
+        ),
+      local_proxy:
+        source_snapshot(
+          :local_proxy,
+          versions.local_proxy,
+          @compiled_at,
+          %{last_success_at: @compiled_at}
+        ),
+      local_direct:
+        source_snapshot(
+          :local_direct,
+          versions.local_direct,
+          @compiled_at,
+          %{last_success_at: @compiled_at}
+        )
+    })
+  end
+
+  defp replace_source_snapshots(sources) do
     coordinator = GSMLG.ProxyRules.Coordinator
     prior_state = :sys.get_state(coordinator)
-    observed_at = @compiled_at
 
     on_exit(fn ->
       :sys.replace_state(coordinator, fn _state -> prior_state end)
@@ -306,31 +377,21 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     :sys.replace_state(coordinator, fn state ->
       %{
         state
-        | remote:
-            source_snapshot(
-              :remote,
-              versions.gfwlist,
-              observed_at,
-              %{
-                etag: ~s("remote-etag"),
-                last_modified: "Wed, 23 Jul 2026 01:02:03 GMT",
-                fetched_at: observed_at
-              }
-            ),
-          local_proxy: source_snapshot(:local_proxy, versions.local_proxy, observed_at, %{}),
-          local_direct: source_snapshot(:local_direct, versions.local_direct, observed_at, %{})
+        | remote: sources.remote,
+          local_proxy: sources.local_proxy,
+          local_direct: sources.local_direct
       }
     end)
   end
 
-  defp source_snapshot(kind, version, observed_at, metadata) do
+  defp source_snapshot(kind, version, observed_at, metadata, availability \\ :ready) do
     %SourceSnapshot{
       kind: kind,
       content: "",
       content_sha256: version,
       observed_at: observed_at,
       metadata: metadata,
-      availability: :ready
+      availability: availability
     }
   end
 

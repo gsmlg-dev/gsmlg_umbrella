@@ -419,7 +419,10 @@ defmodule GSMLG.ProxyRules.Source.Local do
       content: content,
       content_sha256: hash,
       observed_at: observed_at,
-      metadata: %{path: target.path},
+      metadata: %{
+        path: target.path,
+        last_success_at: if(availability == :ready, do: observed_at, else: nil)
+      },
       availability: availability
     }
 
@@ -439,7 +442,13 @@ defmodule GSMLG.ProxyRules.Source.Local do
         put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
 
       entry.snapshot.availability != :ready ->
-        metadata = %{path: target.path, observed_at: observed_at, availability: :ready}
+        metadata = %{
+          path: target.path,
+          observed_at: observed_at,
+          last_success_at: observed_at,
+          availability: :ready
+        }
+
         notify(state.notify, {:proxy_rules_source_fresh, target.kind, metadata})
         put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
 
@@ -471,7 +480,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
       content: "",
       content_sha256: sha256(""),
       observed_at: observed_at,
-      metadata: %{path: target.path},
+      metadata: %{path: target.path, last_success_at: nil},
       availability: :stale
     }
   end

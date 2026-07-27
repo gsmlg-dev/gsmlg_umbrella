@@ -360,6 +360,51 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   end
 
   @tag :tmp_dir
+  test "never-successful stale source has no last-success timestamp", %{tmp_dir: dir} do
+    File.write!(Path.join(dir, "proxy.txt"), <<255>>)
+    server = start_local(dir)
+
+    assert %{
+             proxy: %SourceSnapshot{
+               availability: :stale,
+               observed_at: @now,
+               metadata: %{last_success_at: nil}
+             }
+           } = Local.snapshots(server)
+  end
+
+  @tag :tmp_dir
+  test "stale source retains the timestamp of its last valid read", %{tmp_dir: dir} do
+    successful_at = ~U[2026-07-23 02:03:04Z]
+    failed_at = ~U[2026-07-23 02:13:14Z]
+    {:ok, clock} = Agent.start_link(fn -> successful_at end)
+    path = Path.join(dir, "proxy.txt")
+    File.write!(path, "example.com\n")
+
+    server = start_local(dir, now: fn -> Agent.get(clock, & &1) end)
+
+    assert %{
+             proxy: %SourceSnapshot{
+               availability: :ready,
+               observed_at: ^successful_at,
+               metadata: %{last_success_at: ^successful_at}
+             }
+           } = Local.snapshots(server)
+
+    Agent.update(clock, fn _time -> failed_at end)
+    File.rm!(path)
+    assert :ok = Local.reconcile(server)
+
+    assert %{
+             proxy: %SourceSnapshot{
+               availability: :stale,
+               observed_at: ^failed_at,
+               metadata: %{last_success_at: ^successful_at}
+             }
+           } = Local.snapshots(server)
+  end
+
+  @tag :tmp_dir
   test "canonicalizes relative targets and metadata while keeping one same-parent watcher", %{
     tmp_dir: dir
   } do

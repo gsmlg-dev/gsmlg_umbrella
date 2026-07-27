@@ -17,7 +17,10 @@ defmodule GSMLG.ProxyRules.SourceSnapshot do
           required(:last_modified) => binary() | nil,
           required(:fetched_at) => DateTime.t()
         }
-  @type local_metadata :: %{required(:path) => binary()}
+  @type local_metadata :: %{
+          required(:path) => binary(),
+          required(:last_success_at) => DateTime.t() | nil
+        }
   @type metadata :: remote_metadata() | local_metadata()
 
   @type t :: %__MODULE__{

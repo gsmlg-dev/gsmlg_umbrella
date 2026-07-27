@@ -676,17 +676,12 @@ defmodule GSMLG.ProxyRules.Coordinator do
         do: snapshot.availability,
         else: :missing
 
-    last_success_at =
-      if availability in [:ready, :stale],
-        do: valid_datetime(snapshot.observed_at),
-        else: nil
-
     %{
       label: source_label(kind),
       availability: availability,
       version: if(availability == :missing, do: nil, else: bounded_hash(snapshot.content_sha256)),
       observed_at: valid_datetime(snapshot.observed_at),
-      last_success_at: last_success_at
+      last_success_at: source_last_success_at(kind, availability, snapshot)
     }
     |> maybe_remote_fields(kind, snapshot.metadata)
   end
@@ -702,6 +697,15 @@ defmodule GSMLG.ProxyRules.Coordinator do
   end
 
   defp maybe_remote_fields(summary, _local_kind, _metadata), do: summary
+
+  defp source_last_success_at(:remote, availability, snapshot)
+       when availability in [:ready, :stale],
+       do: valid_datetime(snapshot.observed_at)
+
+  defp source_last_success_at(:remote, _availability, _snapshot), do: nil
+
+  defp source_last_success_at(_local_kind, _availability, snapshot),
+    do: valid_datetime(Map.get(snapshot.metadata, :last_success_at))
 
   defp bounded_hash(value) when is_binary(value) and byte_size(value) == 64, do: value
   defp bounded_hash(_value), do: nil

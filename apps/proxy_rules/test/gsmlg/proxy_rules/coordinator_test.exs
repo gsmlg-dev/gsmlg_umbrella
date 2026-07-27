@@ -237,16 +237,16 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       content_sha256: sha256("proxy secret body"),
       observed_at: @now,
       availability: :stale,
-      metadata: %{path: "/secret/proxy.txt"}
+      metadata: %{path: "/secret/proxy.txt", last_success_at: @now}
     }
 
     local_direct = %SourceSnapshot{
       kind: :local_direct,
-      content: "",
-      content_sha256: sha256(""),
+      content: "never valid",
+      content_sha256: sha256("never valid"),
       observed_at: @now,
-      availability: :missing,
-      metadata: %{path: "/secret/direct.txt"}
+      availability: :stale,
+      metadata: %{path: "/secret/direct.txt", last_success_at: nil}
     }
 
     send(context.coordinator, {:proxy_rules_source, :remote, remote})
@@ -273,8 +273,8 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
              },
              local_direct: %{
                label: "Local direct list",
-               availability: :missing,
-               version: nil,
+               availability: :stale,
+               version: direct_version,
                observed_at: @now,
                last_success_at: nil
              }
@@ -282,6 +282,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
 
     assert remote_version == remote.content_sha256
     assert local_version == local_proxy.content_sha256
+    assert direct_version == local_direct.content_sha256
 
     metadata = Coordinator.source_metadata(context.coordinator)
     refute inspect(metadata) =~ "secret body"
