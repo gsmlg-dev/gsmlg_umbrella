@@ -155,6 +155,13 @@ defmodule GSMLG.ProxyRules.Coordinator do
       when kind in @source_slots and status in [:stale, :refreshing],
       do: {:noreply, state}
 
+  def handle_info(
+        {:proxy_rules_source_status, kind, status, _reason, metadata},
+        %{recovery_blocked: true} = state
+      )
+      when kind in @source_slots and status in [:stale, :refreshing] and is_map(metadata),
+      do: {:noreply, state}
+
   def handle_info({:proxy_rules_source, kind, %SourceSnapshot{} = snapshot}, state)
       when kind in @source_slots do
     if snapshot.kind == kind and valid_source?(snapshot) do
@@ -174,6 +181,13 @@ defmodule GSMLG.ProxyRules.Coordinator do
       when kind in @source_slots and is_atom(reason) do
     error = bounded_source_error(kind, reason)
     state = mark_source_stale(kind, state)
+    {:noreply, transition(%{state | last_failure: error}, stale_readiness(state), error)}
+  end
+
+  def handle_info({:proxy_rules_source_status, kind, :stale, reason, metadata}, state)
+      when kind in [:local_proxy, :local_direct] and is_atom(reason) and is_map(metadata) do
+    error = bounded_source_error(kind, reason)
+    state = mark_source_stale(kind, metadata, state)
     {:noreply, transition(%{state | last_failure: error}, stale_readiness(state), error)}
   end
 
@@ -451,20 +465,29 @@ defmodule GSMLG.ProxyRules.Coordinator do
   defp update_freshness(kind, metadata, state) do
     case Map.fetch!(state, kind) do
       %SourceSnapshot{} = snapshot ->
-        state =
-          Map.put(state, kind, %{
-            snapshot
-            | metadata: Map.merge(snapshot.metadata, metadata),
-              availability: :ready
-          })
+        state = Map.put(state, kind, refreshed_snapshot(kind, snapshot, metadata))
 
-        state
-        |> clear_source_failure(kind)
-        |> reconcile_recovered_source()
+        if kind != :remote and snapshot.availability == :ready do
+          state
+        else
+          state
+          |> clear_source_failure(kind)
+          |> reconcile_recovered_source()
+        end
 
       nil ->
         state
     end
+  end
+
+  defp refreshed_snapshot(:remote, snapshot, metadata) do
+    %{snapshot | metadata: Map.merge(snapshot.metadata, metadata), availability: :ready}
+  end
+
+  defp refreshed_snapshot(_local_kind, snapshot, metadata) do
+    snapshot
+    |> update_local_timing(metadata)
+    |> Map.put(:availability, :ready)
   end
 
   defp reconcile_recovered_source(state) do
@@ -488,6 +511,38 @@ defmodule GSMLG.ProxyRules.Coordinator do
       %SourceSnapshot{} = snapshot -> Map.put(state, kind, %{snapshot | availability: :stale})
       nil -> state
     end
+  end
+
+  defp mark_source_stale(kind, metadata, state) do
+    case Map.fetch!(state, kind) do
+      %SourceSnapshot{} = snapshot ->
+        snapshot =
+          snapshot
+          |> update_local_timing(metadata)
+          |> Map.put(:availability, :stale)
+
+        Map.put(state, kind, snapshot)
+
+      nil ->
+        state
+    end
+  end
+
+  defp update_local_timing(snapshot, timing) do
+    observed_at = valid_datetime(Map.get(timing, :observed_at)) || snapshot.observed_at
+
+    last_success_at =
+      case Map.fetch(timing, :last_success_at) do
+        {:ok, nil} -> nil
+        {:ok, value} -> valid_datetime(value) || Map.get(snapshot.metadata, :last_success_at)
+        :error -> Map.get(snapshot.metadata, :last_success_at)
+      end
+
+    %{
+      snapshot
+      | observed_at: observed_at,
+        metadata: Map.put(snapshot.metadata, :last_success_at, last_success_at)
+    }
   end
 
   defp clear_source_failure(%{last_failure: %{kind: failure_kind}} = state, kind)

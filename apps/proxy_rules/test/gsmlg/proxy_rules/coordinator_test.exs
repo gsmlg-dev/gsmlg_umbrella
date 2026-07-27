@@ -136,6 +136,16 @@ defmodule GSMLG.ProxyRules.CoordinatorTestLocal do
   def snapshots(server), do: Agent.get(server, & &1)
 end
 
+defmodule GSMLG.ProxyRules.CoordinatorTestFileSystem do
+  use GenServer
+
+  def start_link(_options), do: GenServer.start_link(__MODULE__, nil)
+  def subscribe(_watcher), do: :ok
+
+  @impl true
+  def init(nil), do: {:ok, nil}
+end
+
 defmodule GSMLG.ProxyRules.CoordinatorTest do
   use ExUnit.Case, async: false
 
@@ -288,6 +298,94 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     refute inspect(metadata) =~ "secret body"
     refute inspect(metadata) =~ "/secret/proxy.txt"
     refute inspect(metadata) =~ "secret.example"
+  end
+
+  @tag :tmp_dir
+  test "real local timing updates metadata without compiling or exposing source data",
+       %{tmp_dir: dir} = context do
+    successful_at = ~U[2026-07-23 03:14:15Z]
+    failed_at = ~U[2026-07-23 03:24:25Z]
+    proxy_path = Path.join(dir, "private-proxy.txt")
+    direct_path = Path.join(dir, "private-direct.txt")
+    File.write!(proxy_path, "private.example\n")
+    File.write!(direct_path, "")
+    {:ok, clock} = Agent.start_link(fn -> @now end)
+
+    config = %{
+      configuration()
+      | local_proxy_list_path: proxy_path,
+        local_direct_list_path: direct_path,
+        state_directory: dir
+    }
+
+    send(
+      context.coordinator,
+      {:proxy_rules_source, :remote, source(:remote, "||remote.example^\n")}
+    )
+
+    local =
+      start_supervised!(
+        {GSMLG.ProxyRules.Source.Local,
+         [
+           config: config,
+           notify: context.coordinator,
+           file_system: GSMLG.ProxyRules.CoordinatorTestFileSystem,
+           scheduler: fn _server, _message, _delay -> make_ref() end,
+           cancel_timer: fn _reference -> false end,
+           now: fn -> Agent.get(clock, & &1) end
+         ]},
+        restart: :temporary
+      )
+
+    assert_receive {:compile_started, generation, compile, _input}
+    finish_success(compile, generation)
+
+    assert_eventually(fn -> Coordinator.source_metadata(context.coordinator) end, fn
+      %{local_proxy: %{availability: :ready, last_success_at: @now}} -> true
+      _metadata -> false
+    end)
+
+    Agent.update(clock, fn _time -> successful_at end)
+    assert :ok = GSMLG.ProxyRules.Source.Local.reconcile(local)
+
+    assert_eventually(fn -> Coordinator.source_metadata(context.coordinator) end, fn
+      %{
+        local_proxy: %{
+          availability: :ready,
+          observed_at: ^successful_at,
+          last_success_at: ^successful_at
+        }
+      } ->
+        true
+
+      _metadata ->
+        false
+    end)
+
+    refute_receive {:compile_started, _, _, _}, 30
+
+    Agent.update(clock, fn _time -> failed_at end)
+    File.rm!(proxy_path)
+    assert :ok = GSMLG.ProxyRules.Source.Local.reconcile(local)
+
+    metadata =
+      assert_eventually(fn -> Coordinator.source_metadata(context.coordinator) end, fn
+        %{
+          local_proxy: %{
+            availability: :stale,
+            observed_at: ^failed_at,
+            last_success_at: ^successful_at
+          }
+        } ->
+          true
+
+        _metadata ->
+          false
+      end)
+
+    refute_receive {:compile_started, _, _, _}, 30
+    refute inspect(metadata) =~ proxy_path
+    refute inspect(metadata) =~ "private.example"
   end
 
   test "startup recovery failure stays alive, stale, and operationally blocked", context do

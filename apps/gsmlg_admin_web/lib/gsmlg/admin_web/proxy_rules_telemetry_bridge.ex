@@ -41,7 +41,6 @@ defmodule GSMLG.AdminWeb.ProxyRulesTelemetryBridge do
   @impl true
   def init(options) do
     handler_id = Keyword.get(options, :handler_id, @handler_id)
-    :telemetry.detach(handler_id)
 
     state = %{
       handler_id: handler_id,
@@ -50,15 +49,10 @@ defmodule GSMLG.AdminWeb.ProxyRulesTelemetryBridge do
       broadcaster: Keyword.get(options, :broadcaster, &Phoenix.PubSub.broadcast/3)
     }
 
-    :ok =
-      :telemetry.attach_many(
-        handler_id,
-        @events,
-        &__MODULE__.handle_telemetry/4,
-        %{bridge: self()}
-      )
-
-    {:ok, state}
+    case claim_handler(handler_id) do
+      :ok -> {:ok, state}
+      {:error, :already_exists} -> {:stop, :telemetry_handler_already_exists}
+    end
   end
 
   @doc false
@@ -102,6 +96,44 @@ defmodule GSMLG.AdminWeb.ProxyRulesTelemetryBridge do
     Enum.any?(:telemetry.list_handlers(List.first(@events)), fn
       %{id: ^handler_id, config: %{bridge: ^owner}} -> true
       _handler -> false
+    end)
+  end
+
+  defp claim_handler(handler_id) do
+    lock = {{__MODULE__, :handler_claim, handler_id}, self()}
+
+    case :global.trans(lock, fn -> claim_handler_locked(handler_id) end) do
+      :aborted -> {:error, :already_exists}
+      result -> result
+    end
+  end
+
+  defp claim_handler_locked(handler_id) do
+    case registered_owner(handler_id) do
+      owner when is_pid(owner) ->
+        if Process.alive?(owner), do: {:error, :already_exists}, else: reclaim_handler(handler_id)
+
+      _stale_or_missing ->
+        reclaim_handler(handler_id)
+    end
+  end
+
+  defp reclaim_handler(handler_id) do
+    :telemetry.detach(handler_id)
+
+    :telemetry.attach_many(
+      handler_id,
+      @events,
+      &__MODULE__.handle_telemetry/4,
+      %{bridge: self()}
+    )
+  end
+
+  defp registered_owner(handler_id) do
+    Enum.find_value(:telemetry.list_handlers(List.first(@events)), fn
+      %{id: ^handler_id, config: %{bridge: owner}} -> owner
+      %{id: ^handler_id} -> :malformed
+      _handler -> nil
     end)
   end
 

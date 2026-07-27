@@ -66,6 +66,150 @@ defmodule GSMLG.AdminWeb.ProxyRulesTelemetryBridgeTest do
            end)
   end
 
+  test "rejects a live owner without detaching its same-id handler" do
+    owner = self()
+    handler_id = {__MODULE__, self(), make_ref()}
+    first_name = {:global, {__MODULE__, :first, self(), make_ref()}}
+    second_name = {:global, {__MODULE__, :second, self(), make_ref()}}
+
+    first_broadcaster = fn _pubsub, _topic, message ->
+      send(owner, {:first_bridge, message})
+      :ok
+    end
+
+    second_broadcaster = fn _pubsub, _topic, message ->
+      send(owner, {:second_bridge, message})
+      :ok
+    end
+
+    assert {:ok, first} =
+             ProxyRulesTelemetryBridge.start_link(
+               name: first_name,
+               handler_id: handler_id,
+               broadcaster: first_broadcaster
+             )
+
+    {starter, monitor} =
+      spawn_monitor(fn ->
+        Process.flag(:trap_exit, true)
+
+        result =
+          ProxyRulesTelemetryBridge.start_link(
+            name: second_name,
+            handler_id: handler_id,
+            broadcaster: second_broadcaster
+          )
+
+        send(owner, {:second_start, result})
+      end)
+
+    assert_receive {:second_start, {:error, :telemetry_handler_already_exists}}
+    assert_receive {:DOWN, ^monitor, :process, ^starter, :normal}
+
+    assert Process.alive?(first)
+    assert handler_count(handler_id) == 1
+
+    measurements = %{generation: 87}
+    metadata = %{readiness: :ready}
+    message = {:proxy_rules_status_changed, measurements, metadata}
+    :telemetry.execute([:gsmlg, :proxy_rules, :status, :change], measurements, metadata)
+
+    assert_receive {:first_bridge, ^message}
+    refute_receive {:second_bridge, _message}
+    assert Process.alive?(first)
+    assert handler_count(handler_id) == 1
+
+    GenServer.stop(first)
+    assert handler_count(handler_id) == 0
+  end
+
+  test "serializes concurrent claims so exactly one bridge owns the handler" do
+    owner = self()
+    handler_id = {__MODULE__, self(), make_ref()}
+    gate = make_ref()
+
+    starters =
+      for index <- 1..8 do
+        spawn(fn ->
+          Process.flag(:trap_exit, true)
+
+          receive do
+            ^gate ->
+              result =
+                ProxyRulesTelemetryBridge.start_link(
+                  name: {:global, {__MODULE__, :concurrent, self(), index}},
+                  handler_id: handler_id,
+                  broadcaster: fn _pubsub, _topic, message ->
+                    send(owner, {:concurrent_bridge, message})
+                    :ok
+                  end
+                )
+
+              send(owner, {:claim_result, result})
+          end
+        end)
+      end
+
+    Enum.each(starters, &send(&1, gate))
+
+    results =
+      for _index <- starters do
+        assert_receive {:claim_result, result}
+        result
+      end
+
+    assert [{:ok, bridge}] = Enum.filter(results, &match?({:ok, _pid}, &1))
+
+    assert Enum.count(results, &(&1 == {:error, :telemetry_handler_already_exists})) == 7
+    assert handler_count(handler_id) == 1
+
+    measurements = %{generation: 86}
+    metadata = %{readiness: :ready}
+    message = {:proxy_rules_status_changed, measurements, metadata}
+    :telemetry.execute([:gsmlg, :proxy_rules, :status, :change], measurements, metadata)
+
+    assert_receive {:concurrent_bridge, ^message}
+    refute_receive {:concurrent_bridge, _message}
+
+    GenServer.stop(bridge)
+    assert handler_count(handler_id) == 0
+  end
+
+  test "reclaims a malformed stale same-id registration" do
+    owner = self()
+    handler_id = {__MODULE__, self(), make_ref()}
+    event = [:gsmlg, :proxy_rules, :status, :change]
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        event,
+        fn _event, _measurements, _metadata, _config -> send(owner, :legacy_handler) end,
+        %{legacy: true}
+      )
+
+    assert {:ok, bridge} =
+             ProxyRulesTelemetryBridge.start_link(
+               name: {:global, {__MODULE__, :malformed, self(), make_ref()}},
+               handler_id: handler_id,
+               broadcaster: fn _pubsub, _topic, message ->
+                 send(owner, message)
+                 :ok
+               end
+             )
+
+    measurements = %{generation: 85}
+    metadata = %{readiness: :ready}
+    message = {:proxy_rules_status_changed, measurements, metadata}
+    :telemetry.execute(event, measurements, metadata)
+
+    assert_receive ^message
+    refute_receive :legacy_handler
+    assert handler_count(handler_id) == 1
+
+    GenServer.stop(bridge)
+  end
+
   for {reason, down_reason} <- [{:boom, :boom}, {:kill, :killed}] do
     test "supervisor restarts the bridge after #{reason} with exactly one live handler" do
       reason = unquote(reason)

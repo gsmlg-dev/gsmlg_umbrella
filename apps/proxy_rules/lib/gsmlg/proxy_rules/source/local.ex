@@ -442,17 +442,11 @@ defmodule GSMLG.ProxyRules.Source.Local do
         put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
 
       entry.snapshot.availability != :ready ->
-        metadata = %{
-          path: target.path,
-          observed_at: observed_at,
-          last_success_at: observed_at,
-          availability: :ready
-        }
-
-        notify(state.notify, {:proxy_rules_source_fresh, target.kind, metadata})
+        notify_fresh(state.notify, target.kind, observed_at)
         put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
 
       true ->
+        notify_fresh(state.notify, target.kind, observed_at)
         put_entry(state, slot, %{entry | snapshot: snapshot, last_failure: nil})
     end
   end
@@ -465,7 +459,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
   defp fail_source(slot, target, reason, entry, state) do
     snapshot = stale_snapshot(target, entry.snapshot, state.now.())
-    if entry.last_failure != reason, do: notify_failure(target.kind, reason, state)
+    if entry.last_failure != reason, do: notify_failure(target.kind, reason, snapshot, state)
 
     put_entry(state, slot, %{
       entry
@@ -488,7 +482,15 @@ defmodule GSMLG.ProxyRules.Source.Local do
   defp stale_snapshot(_target, snapshot, observed_at),
     do: %{snapshot | availability: :stale, observed_at: observed_at}
 
-  defp notify_failure(kind, reason, state) do
+  defp notify_fresh(destination, kind, observed_at) do
+    notify(
+      destination,
+      {:proxy_rules_source_fresh, kind,
+       %{availability: :ready, observed_at: observed_at, last_success_at: observed_at}}
+    )
+  end
+
+  defp notify_failure(kind, reason, snapshot, state) do
     _ =
       Telemetry.emit([:local, :reconciliation, :failure], %{}, %{
         source: kind,
@@ -496,7 +498,14 @@ defmodule GSMLG.ProxyRules.Source.Local do
       })
 
     _revision = Store.advance_source_revision(Store)
-    notify(state.notify, {:proxy_rules_source_status, kind, :stale, reason})
+
+    timing = %{
+      availability: :stale,
+      observed_at: snapshot.observed_at,
+      last_success_at: Map.get(snapshot.metadata, :last_success_at)
+    }
+
+    notify(state.notify, {:proxy_rules_source_status, kind, :stale, reason, timing})
   end
 
   defp telemetry_failure(reason)

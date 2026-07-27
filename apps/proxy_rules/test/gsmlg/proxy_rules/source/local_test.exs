@@ -96,21 +96,45 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   end
 
   @tag :tmp_dir
-  test "unchanged content is quiet and stale recovery sends freshness only", %{tmp_dir: dir} do
+  test "unchanged content reports bounded timing and stale recovery sends freshness only", %{
+    tmp_dir: dir
+  } do
     path = Path.join(dir, "proxy.txt")
     File.write!(path, "example.com\n")
-    server = start_local(dir)
+    later = ~U[2026-07-23 02:13:14Z]
+    {:ok, clock} = Agent.start_link(fn -> @now end)
+    server = start_local(dir, now: fn -> Agent.get(clock, & &1) end)
     assert %{proxy: %SourceSnapshot{content: "example.com\n"}} = Local.snapshots(server)
     flush_messages()
 
+    Agent.update(clock, fn _time -> later end)
     assert :ok = Local.reconcile(server)
     refute_receive {:proxy_rules_source, _, _}, 30
-    refute_receive {:proxy_rules_source_fresh, _, _}, 30
+
+    assert_receive {:proxy_rules_source_fresh, :local_proxy,
+                    %{
+                      observed_at: ^later,
+                      last_success_at: ^later,
+                      availability: :ready
+                    } = timing}
+
+    assert Map.keys(timing) |> Enum.sort() ==
+             Enum.sort([:availability, :last_success_at, :observed_at])
 
     File.rm!(path)
     revision = Store.source_revision(Store)
     assert :ok = Local.reconcile(server)
-    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found}
+
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found,
+                    %{
+                      observed_at: ^later,
+                      last_success_at: ^later,
+                      availability: :stale
+                    } = stale_timing}
+
+    assert Map.keys(stale_timing) |> Enum.sort() ==
+             Enum.sort([:availability, :last_success_at, :observed_at])
+
     assert Store.source_revision(Store) > revision
 
     assert %{proxy: %SourceSnapshot{content: "example.com\n", availability: :stale}} =
@@ -120,7 +144,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert :ok = Local.reconcile(server)
 
     assert_receive {:proxy_rules_source_fresh, :local_proxy,
-                    %{path: ^path, observed_at: @now, availability: :ready}}
+                    %{observed_at: ^later, last_success_at: ^later, availability: :ready}}
 
     refute_receive {:proxy_rules_source, :local_proxy, _}, 30
   end
@@ -135,7 +159,9 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
 
     File.write!(path, "not a domain\n")
     assert :ok = Local.reconcile(server)
-    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :invalid_replacement}
+
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :invalid_replacement,
+                    _timing}
 
     assert %{proxy: %SourceSnapshot{content: "example.com\n", availability: :stale}} =
              Local.snapshots(server)
@@ -151,7 +177,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert_receive {:proxy_rules_source_fresh, :local_proxy, _}
     File.write!(path, <<255>>)
     assert :ok = Local.reconcile(server)
-    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :invalid_utf8}
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :invalid_utf8, _timing}
   end
 
   @tag :tmp_dir
@@ -453,7 +479,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     File.write!(path, :binary.copy("x", Local.max_source_bytes() + 1))
     server = start_local(dir)
     assert %{proxy: %SourceSnapshot{availability: :stale}} = Local.snapshots(server)
-    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :body_too_large}
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :body_too_large, _timing}
 
     File.rm!(path)
     {_, 0} = System.cmd("mkfifo", [path])
@@ -461,7 +487,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert :ok = Local.reconcile(server)
     elapsed = System.monotonic_time(:millisecond) - started
     assert elapsed < Local.read_timeout() * 3
-    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :read_failed}
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :read_failed, _timing}
 
     File.rm!(path)
     File.write!(path, "fifo-recovered.example\n")
@@ -499,13 +525,13 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
 
     File.rm!(path)
     assert :ok = Local.reconcile(server)
-    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found}
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found, _timing}
     assert :ok = Local.reconcile(server)
-    refute_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found}, 30
+    refute_receive {:proxy_rules_source_status, :local_proxy, :stale, :not_found, _timing}, 30
 
     File.write!(path, <<255>>)
     assert :ok = Local.reconcile(server)
-    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :invalid_utf8}
+    assert_receive {:proxy_rules_source_status, :local_proxy, :stale, :invalid_utf8, _timing}
   end
 
   @tag :tmp_dir
