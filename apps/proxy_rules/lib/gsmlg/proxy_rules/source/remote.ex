@@ -38,7 +38,8 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   @spec snapshot(GenServer.server()) :: SourceSnapshot.t() | nil
   def snapshot(server), do: GenServer.call(server, :snapshot)
 
-  @spec status(GenServer.server()) :: :refreshing | SourceSnapshot.availability() | nil
+  @spec status(GenServer.server()) ::
+          :refreshing | SourceSnapshot.availability() | {:stale, failure()} | nil
   def status(server), do: GenServer.call(server, :status)
 
   @doc false
@@ -96,6 +97,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       random: Keyword.get(options, :random, &:rand.uniform/1),
       initial_fetch: Keyword.get(options, :initial_fetch, true),
       source: nil,
+      failure: nil,
       active_task: nil,
       timer: nil,
       retry_attempt: 0
@@ -121,8 +123,16 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       when not is_nil(active_task),
       do: {:reply, :refreshing, state}
 
-  def handle_call(:status, _from, state),
-    do: {:reply, if(state.source, do: state.source.availability, else: nil), state}
+  def handle_call(:status, _from, state) do
+    status =
+      cond do
+        state.source -> state.source.availability
+        state.failure -> {:stale, state.failure}
+        true -> nil
+      end
+
+    {:reply, status, state}
+  end
 
   @impl true
   def handle_info({:scheduled_refresh, token}, %{timer: %{token: token}} = state) do
@@ -167,10 +177,15 @@ defmodule GSMLG.ProxyRules.Source.Remote do
          ) do
       {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = snapshot, body}
       when source_url == state.config.source_url and is_binary(body) ->
-        :ok = validate_accepted_rules(body)
-        restored = %{snapshot | availability: :stale}
-        notify_source_change(state.notify, :remote, restored)
-        %{state | source: restored}
+        case validate_accepted_rules(body) do
+          :ok ->
+            restored = %{snapshot | availability: :stale}
+            notify_source_change(state.notify, :remote, restored)
+            %{state | source: restored, failure: nil}
+
+          {:error, reason} ->
+            restore_rejected(reason, state)
+        end
 
       _missing_mismatched_or_invalid ->
         state
@@ -179,6 +194,20 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     _error -> state
   catch
     _kind, _reason -> state
+  end
+
+  defp restore_rejected(reason, state) do
+    category = telemetry_failure(reason)
+
+    _ =
+      Telemetry.emit([:remote, :fetch, :exception], %{}, %{
+        source: :gfwlist,
+        failure_category: category
+      })
+
+    _revision = Store.advance_source_revision(Store)
+    notify(state.notify, {:proxy_rules_source_status, :remote, :stale, category})
+    %{state | failure: category}
   end
 
   defp start_fetch(state, notify_status?) do
@@ -369,6 +398,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
   defp success(state) do
     state
+    |> Map.put(:failure, nil)
     |> Map.put(:retry_attempt, 0)
     |> schedule(state.config.remote_refresh_interval)
   end
@@ -395,6 +425,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       )
 
     state
+    |> Map.put(:failure, category)
     |> Map.update!(:retry_attempt, &min(&1 + 1, 1_000_000))
     |> schedule(delay)
   end

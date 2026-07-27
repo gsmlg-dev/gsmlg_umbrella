@@ -294,15 +294,39 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
   @tag :tmp_dir
   test "restore rejects a checksummed cache with zero accepted rules", %{tmp_dir: dir} do
+    handler = "remote-restore-zero-#{System.unique_integer([:positive])}"
+    test_process = self()
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:gsmlg, :proxy_rules, :remote, :fetch, :exception],
+        fn event, measurements, metadata, _config ->
+          send(test_process, {:restore_telemetry, event, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
     content = "! comments only\n/path-specific.example/path\n"
     body = Base.encode64(content)
     snapshot = source_snapshot(content, %{etag: ~s("cached"), last_modified: nil})
     assert :ok = Persistence.write_remote(dir, body, snapshot)
+    assert {:ok, cached, ^body} = Persistence.read_remote_pair(dir)
 
     server = start_remote(dir, [], initial_fetch: false)
 
     assert nil == Remote.snapshot(server)
+    assert {:stale, :no_accepted_rules} == Remote.status(server)
+
+    assert_receive {:proxy_rules_source_status, :remote, :stale, :no_accepted_rules}
+
+    assert_receive {:restore_telemetry, [:gsmlg, :proxy_rules, :remote, :fetch, :exception], %{},
+                    %{source: :gfwlist, failure_category: :no_accepted_rules}}
+
     refute_receive {:proxy_rules_source, :remote, _}, 50
+    refute_receive {:proxy_rules_source_fresh, :remote, _}, 50
+    assert {:ok, ^cached, ^body} = Persistence.read_remote_pair(dir)
   end
 
   @tag :tmp_dir

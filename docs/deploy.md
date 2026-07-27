@@ -220,7 +220,8 @@ sudo install -o root -g gsmlg -m 0640 /path/to/gsmlg_umbrella.toml /etc/gsmlg/gs
 Run migrations before starting a new version:
 
 ```bash
-sudo GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml \
+sudo --user=gsmlg --group=gsmlg -- \
+  env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml \
   /opt/gsmlg/gsmlg/bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
 ```
 

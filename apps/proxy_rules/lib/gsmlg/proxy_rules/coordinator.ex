@@ -83,9 +83,17 @@ defmodule GSMLG.ProxyRules.Coordinator do
       |> reconcile_initial()
 
     state =
-      if safe_remote_status(state.remote_service) == :refreshing,
-        do: transition(state, :refreshing, nil),
-        else: state
+      case safe_remote_status(state.remote_service) do
+        :refreshing ->
+          transition(state, :refreshing, nil)
+
+        {:stale, reason} when is_atom(reason) ->
+          error = bounded_source_error(:remote, reason)
+          transition(%{state | last_failure: error}, stale_readiness(state), error)
+
+        _other ->
+          state
+      end
 
     {:noreply, state}
   end

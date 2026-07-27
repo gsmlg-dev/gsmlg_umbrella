@@ -125,6 +125,7 @@ end
 
 defmodule GSMLG.ProxyRules.CoordinatorTestRemote do
   def snapshot(server), do: Agent.get(server, & &1.snapshot)
+  def status(server), do: Agent.get(server, &Map.get(&1, :status))
 
   def refresh(server) do
     server |> Agent.get(& &1.test_process) |> send(:refresh_called)
@@ -237,6 +238,30 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     send(stage_task, :finish_stage)
     assert_receive {:published, 1}
     assert {:ok, %Snapshot{generation: 1, readiness: :ready}} = store_current(context.store)
+    assert Process.alive?(coordinator)
+  end
+
+  test "startup queries a finite remote restore failure missed before registration", context do
+    Agent.update(context.remote, &Map.put(&1, :status, {:stale, :no_accepted_rules}))
+    :ok = GenServer.stop(context.coordinator)
+    coordinator = start_coordinator(context)
+
+    assert_eventually(
+      fn -> GSMLG.ProxyRules.CoordinatorTestStore.metadata(context.store) end,
+      fn
+        {:ok,
+         %{
+           readiness: :not_ready,
+           operational_status: %{kind: :remote, reason: :no_accepted_rules}
+         }} ->
+          true
+
+        _other ->
+          false
+      end
+    )
+
+    refute_receive {:compile_started, _, _, _}, 50
     assert Process.alive?(coordinator)
   end
 
