@@ -152,11 +152,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesTelemetryBridgeTest do
 
     Enum.each(starters, &send(&1, gate))
 
-    results =
-      for _index <- starters do
-        assert_receive {:claim_result, result}
-        result
-      end
+    deadline = System.monotonic_time(:millisecond) + 2_000
+    results = collect_claim_results(length(starters), deadline)
 
     assert [{:ok, bridge}] = Enum.filter(results, &match?({:ok, _pid}, &1))
 
@@ -306,6 +303,25 @@ defmodule GSMLG.AdminWeb.ProxyRulesTelemetryBridgeTest do
     [:gsmlg, :proxy_rules, :status, :change]
     |> :telemetry.list_handlers()
     |> Enum.count(&(&1.id == handler_id))
+  end
+
+  defp collect_claim_results(count, deadline),
+    do: do_collect_claim_results(count, count, deadline)
+
+  defp do_collect_claim_results(0, _total, _deadline), do: []
+
+  defp do_collect_claim_results(remaining, total, deadline) do
+    timeout = max(deadline - System.monotonic_time(:millisecond), 0)
+
+    receive do
+      {:claim_result, result} ->
+        [result | do_collect_claim_results(remaining - 1, total, deadline)]
+    after
+      timeout ->
+        flunk(
+          "received only #{total - remaining} of #{total} concurrent claim results within 2 seconds"
+        )
+    end
   end
 
   defp eventually_registered(global_key) do
