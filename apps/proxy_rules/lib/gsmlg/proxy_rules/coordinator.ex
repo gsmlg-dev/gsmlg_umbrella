@@ -33,32 +33,39 @@ defmodule GSMLG.ProxyRules.Coordinator do
   def init(options) do
     with {:ok, config} <- configuration(options),
          {:ok, timeout} <- positive_option(options, :compile_timeout, @default_timeout),
-         {:ok, dependencies} <- dependencies(options),
-         :ok <- store_recover_abandoned(dependencies.store) do
+         {:ok, dependencies} <- dependencies(options) do
       current = safe_store_current(dependencies.store)
       generation = restored_generation(current)
 
-      {:ok,
-       %{
-         configuration: config,
-         compiler: Keyword.get(options, :compiler, Compiler),
-         compiler_options: Keyword.get(options, :compiler_options, []),
-         after_stage: Keyword.get(options, :after_stage, fn _token -> :ok end),
-         store: dependencies.store,
-         remote_service: dependencies.remote,
-         local_service: dependencies.local,
-         task_supervisor: Keyword.get(options, :task_supervisor, GSMLG.ProxyRules.TaskSupervisor),
-         compile_timeout: timeout,
-         now: Keyword.get(options, :now, &DateTime.utc_now/0),
-         remote: nil,
-         local_proxy: nil,
-         local_direct: nil,
-         source_generation: generation,
-         active: nil,
-         pending: false,
-         last_failure: nil,
-         current: current
-       }, {:continue, :load_sources}}
+      state = %{
+        configuration: config,
+        compiler: Keyword.get(options, :compiler, Compiler),
+        compiler_options: Keyword.get(options, :compiler_options, []),
+        after_stage: Keyword.get(options, :after_stage, fn _token -> :ok end),
+        store: dependencies.store,
+        remote_service: dependencies.remote,
+        local_service: dependencies.local,
+        task_supervisor: Keyword.get(options, :task_supervisor, GSMLG.ProxyRules.TaskSupervisor),
+        compile_timeout: timeout,
+        now: Keyword.get(options, :now, &DateTime.utc_now/0),
+        recovery_scheduler: Keyword.get(options, :recovery_scheduler, &Process.send_after/3),
+        remote: nil,
+        local_proxy: nil,
+        local_direct: nil,
+        source_generation: generation,
+        active: nil,
+        pending: false,
+        last_failure: nil,
+        current: current,
+        recovery_blocked: false,
+        recovery_retry_attempt: 0,
+        recovery_timer: nil
+      }
+
+      case store_recover_abandoned(dependencies.store) do
+        :ok -> {:ok, state, {:continue, :load_sources}}
+        _failure -> {:ok, block_on_recovery(state)}
+      end
     else
       {:error, reason} -> {:stop, reason}
     end
@@ -81,6 +88,9 @@ defmodule GSMLG.ProxyRules.Coordinator do
   end
 
   @impl true
+  def handle_call(:refresh, _from, %{recovery_blocked: true} = state),
+    do: {:reply, {:error, :not_available}, state}
+
   def handle_call(:refresh, _from, state) do
     case safe_refresh(state.remote_service) do
       {:ok, :accepted} = accepted -> {:reply, accepted, transition(state, :refreshing, nil)}
@@ -89,6 +99,49 @@ defmodule GSMLG.ProxyRules.Coordinator do
   end
 
   @impl true
+  def handle_info(
+        {:retry_recovery, token},
+        %{recovery_blocked: true, recovery_timer: %{token: token}} = state
+      ) do
+    state = %{state | recovery_timer: nil}
+
+    case store_recover_abandoned(state.store) do
+      :ok ->
+        state = %{
+          state
+          | recovery_blocked: false,
+            recovery_retry_attempt: 0,
+            last_failure: nil
+        }
+
+        state = transition(state, stale_readiness(state), nil)
+        {:noreply, state, {:continue, :load_sources}}
+
+      _failure ->
+        {:noreply, block_on_recovery(state)}
+    end
+  end
+
+  def handle_info({:retry_recovery, _stale_token}, state), do: {:noreply, state}
+
+  def handle_info(
+        {:proxy_rules_source, kind, %SourceSnapshot{}},
+        %{recovery_blocked: true} = state
+      )
+      when kind in @source_slots,
+      do: {:noreply, state}
+
+  def handle_info({:proxy_rules_source_fresh, kind, metadata}, %{recovery_blocked: true} = state)
+      when kind in @source_slots and is_map(metadata),
+      do: {:noreply, state}
+
+  def handle_info(
+        {:proxy_rules_source_status, kind, status, _reason},
+        %{recovery_blocked: true} = state
+      )
+      when kind in @source_slots and status in [:stale, :refreshing],
+      do: {:noreply, state}
+
   def handle_info({:proxy_rules_source, kind, %SourceSnapshot{} = snapshot}, state)
       when kind in @source_slots do
     if snapshot.kind == kind and valid_source?(snapshot) do
@@ -158,11 +211,14 @@ defmodule GSMLG.ProxyRules.Coordinator do
   def handle_info(_message, state), do: {:noreply, state}
 
   @impl true
-  def terminate(_reason, %{active: nil}), do: :ok
-
   def terminate(_reason, state) do
-    cancel_timer(state.active.timer)
-    _ = Task.Supervisor.terminate_child(state.task_supervisor, state.active.pid)
+    if state.recovery_timer, do: cancel_timer(state.recovery_timer.ref)
+
+    if state.active do
+      cancel_timer(state.active.timer)
+      _ = Task.Supervisor.terminate_child(state.task_supervisor, state.active.pid)
+    end
+
     :ok
   end
 
@@ -346,6 +402,38 @@ defmodule GSMLG.ProxyRules.Coordinator do
   end
 
   defp start_pending(state), do: state
+
+  defp block_on_recovery(state) do
+    error = %{kind: :persistence, reason: :persistence_failed}
+
+    _ =
+      Telemetry.emit([:recovery, :exception], %{generation: state.source_generation}, %{
+        failure_category: :persistence_failed
+      })
+
+    state
+    |> Map.put(:recovery_blocked, true)
+    |> Map.put(:last_failure, error)
+    |> transition(stale_readiness(state), error)
+    |> schedule_recovery()
+  end
+
+  defp schedule_recovery(state) do
+    token = make_ref()
+    delay = recovery_delay(state.configuration, state.recovery_retry_attempt)
+    timer = state.recovery_scheduler.(self(), {:retry_recovery, token}, delay)
+
+    %{
+      state
+      | recovery_retry_attempt: state.recovery_retry_attempt + 1,
+        recovery_timer: %{token: token, ref: timer}
+    }
+  end
+
+  defp recovery_delay(config, attempt) do
+    multiplier = Integer.pow(2, min(attempt, 30))
+    min(config.retry_min_interval * multiplier, config.retry_max_interval)
+  end
 
   defp update_freshness(kind, metadata, state) do
     case Map.fetch!(state, kind) do

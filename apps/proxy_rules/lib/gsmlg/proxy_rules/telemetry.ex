@@ -20,6 +20,7 @@ defmodule GSMLG.ProxyRules.Telemetry do
     [:compile, :stop],
     [:compile, :exception],
     [:compile, :stale_result, :discard],
+    [:recovery, :exception],
     [:artifact, :publication],
     [:artifact, :restoration],
     [:status, :change],

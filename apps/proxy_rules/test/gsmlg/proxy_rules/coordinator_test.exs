@@ -25,7 +25,20 @@ defmodule GSMLG.ProxyRules.CoordinatorTestStore do
   def start_link(options), do: Agent.start_link(fn -> Keyword.fetch!(options, :state) end)
   def current(server), do: Agent.get(server, & &1.current)
   def metadata(server), do: {:ok, Agent.get(server, & &1.metadata)}
-  def recover_abandoned(_server), do: :ok
+
+  def recover_abandoned(server) do
+    Agent.get_and_update(server, fn state ->
+      case Map.get(state, :recovery_results, []) do
+        [result | rest] ->
+          send(state.test_process, {:recovery_attempt, result})
+          {result, Map.put(state, :recovery_results, rest)}
+
+        [] ->
+          {:ok, state}
+      end
+    end)
+  end
+
   def source_revision(server), do: Agent.get(server, &Map.get(&1, :source_revision, 0))
 
   def advance_source_revision(server) do
@@ -201,6 +214,105 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert_receive {:published, 1}
     assert {:ok, %Snapshot{generation: 1, readiness: :ready}} = store_current(context.store)
     assert Process.alive?(coordinator)
+  end
+
+  test "startup recovery failure stays alive, stale, and operationally blocked", context do
+    {:ok, prior} = compiled_snapshot(4, "prior.example")
+
+    Agent.update(context.store, fn state ->
+      %{state | current: {:ok, prior}}
+      |> Map.put(
+        :recovery_results,
+        [{:error, :persistence_failed}, {:error, :persistence_failed}]
+      )
+    end)
+
+    Agent.update(context.remote, &Map.put(&1, :snapshot, source(:remote, "remote.example\n")))
+
+    Agent.update(context.local, fn _ ->
+      %{
+        proxy: source(:local_proxy, "new.example\n"),
+        direct: source(:local_direct, "direct.example\n")
+      }
+    end)
+
+    handler = "coordinator-recovery-#{System.unique_integer([:positive])}"
+    test_process = self()
+
+    :ok =
+      :telemetry.attach_many(
+        handler,
+        [
+          [:gsmlg, :proxy_rules, :recovery, :exception],
+          [:gsmlg, :proxy_rules, :status, :change]
+        ],
+        fn event, measurements, metadata, _config ->
+          send(test_process, {:recovery_telemetry, event, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+    :ok = GenServer.stop(context.coordinator)
+    scheduler = recovery_scheduler(self())
+    coordinator = start_coordinator(context, recovery_scheduler: scheduler)
+
+    assert Process.alive?(coordinator)
+    assert_receive {:recovery_attempt, {:error, :persistence_failed}}
+
+    assert_receive {:recovery_telemetry, [:gsmlg, :proxy_rules, :recovery, :exception],
+                    %{generation: 4}, %{failure_category: :persistence_failed}}
+
+    assert_receive {:recovery_telemetry, [:gsmlg, :proxy_rules, :status, :change],
+                    %{generation: 4}, %{readiness: :stale}}
+
+    assert_receive {:recovery_scheduled, ^coordinator, {:retry_recovery, token}, 10}
+
+    send(coordinator, {:retry_recovery, token})
+    assert_receive {:recovery_attempt, {:error, :persistence_failed}}
+    assert_receive {:recovery_scheduled, ^coordinator, {:retry_recovery, _next_token}, 20}
+
+    assert {:ok,
+            %Snapshot{
+              generation: 4,
+              readiness: :stale,
+              last_error: %{kind: :persistence, reason: :persistence_failed}
+            }} = store_current(context.store)
+
+    assert {:error, :not_available} = Coordinator.refresh(coordinator)
+    refute_receive :refresh_called, 30
+    refute_receive {:compile_started, _, _, _}, 30
+  end
+
+  test "successful recovery retry reconciles once and resumes publication", context do
+    {:ok, prior} = compiled_snapshot(6, "prior.example")
+
+    Agent.update(context.store, fn state ->
+      %{state | current: {:ok, prior}}
+      |> Map.put(:recovery_results, [{:error, :persistence_failed}, :ok])
+    end)
+
+    Agent.update(context.remote, &Map.put(&1, :snapshot, source(:remote, "remote.example\n")))
+
+    Agent.update(context.local, fn _ ->
+      %{
+        proxy: source(:local_proxy, "later.example\n"),
+        direct: source(:local_direct, "direct.example\n")
+      }
+    end)
+
+    :ok = GenServer.stop(context.coordinator)
+    coordinator = start_coordinator(context, recovery_scheduler: recovery_scheduler(self()))
+    assert_receive {:recovery_attempt, {:error, :persistence_failed}}
+    assert_receive {:recovery_scheduled, ^coordinator, {:retry_recovery, token}, 10}
+    refute_receive {:compile_started, _, _, _}, 30
+
+    send(coordinator, {:retry_recovery, token})
+    assert_receive {:recovery_attempt, :ok}
+    assert_receive {:compile_started, 7, task, %{local_proxy: "later.example\n"}}
+    finish_success(task, 7)
+    refute_receive {:compile_started, _, _, _}, 30
+    assert {:ok, %Snapshot{generation: 7, readiness: :ready}} = store_current(context.store)
   end
 
   test "coalesces rapid changes and never publishes a stale compile or staged result", context do
@@ -890,30 +1002,52 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     :ok = GenServer.stop(restarted_coordinator)
   end
 
-  defp start_coordinator(context) do
+  defp start_coordinator(context, overrides \\ []) do
     name = String.to_atom("coordinator_restart_#{System.unique_integer([:positive])}")
+
+    options =
+      Keyword.merge(
+        [
+          name: name,
+          configuration: configuration(),
+          compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
+          compiler_options: [test_process: self()],
+          store: {GSMLG.ProxyRules.CoordinatorTestStore, context.store},
+          remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
+          local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
+          task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
+          compile_timeout: 500,
+          now: fn -> @now end
+        ],
+        overrides
+      )
 
     start_supervised!(
       %{
         id: name,
-        start:
-          {Coordinator, :start_link,
-           [
-             [
-               name: name,
-               configuration: configuration(),
-               compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
-               compiler_options: [test_process: self()],
-               store: {GSMLG.ProxyRules.CoordinatorTestStore, context.store},
-               remote: {GSMLG.ProxyRules.CoordinatorTestRemote, context.remote},
-               local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
-               task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
-               compile_timeout: 500,
-               now: fn -> @now end
-             ]
-           ]}
+        start: {Coordinator, :start_link, [options]}
       },
       restart: :temporary
+    )
+  end
+
+  defp recovery_scheduler(test_process) do
+    fn server, message, delay ->
+      send(test_process, {:recovery_scheduled, server, message, delay})
+      make_ref()
+    end
+  end
+
+  defp compiled_snapshot(generation, local_proxy) do
+    Compiler.compile(
+      %{
+        remote: Base.encode64("||remote.example^\n"),
+        local_proxy: local_proxy <> "\n",
+        local_direct: "direct.example\n"
+      },
+      generation: generation,
+      compiled_at: @now,
+      sample_limit: 2
     )
   end
 
