@@ -200,6 +200,8 @@ The `--network host` flag is needed because the Scout agent serves a temporary l
 ```bash
 VERSION=5.6.0
 sudo mkdir -p /opt/gsmlg /etc/gsmlg /var/lib/mnesia /var/log/gsmlg
+sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
+sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
 curl -L -o /tmp/gsmlg.tar.gz \
   "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/gsmlg.tar.gz"
 sudo tar -xzf /tmp/gsmlg.tar.gz -C /opt/gsmlg
@@ -238,6 +240,7 @@ docker run -d \
   -p 4111:4111 \
   -v /etc/gsmlg/gsmlg_umbrella.toml:/etc/gsmlg_umbrella.toml:ro \
   -v gsmlg-mnesia:/var/lib/mnesia \
+  -v gsmlg-proxy-rules:/var/lib/gsmlg/proxy-rules \
   -e GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml \
   -e MNESIA_DIR=/var/lib/mnesia \
   "ghcr.io/gsmlg-dev/gsmlg-umbrella:v${VERSION}"
@@ -314,6 +317,8 @@ Environment=GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml
 Environment=MNESIA_DIR=/var/lib/mnesia
 Environment=MIX_BUN_PATH=/usr/bin/bun
 Environment=BUN_SERVER_JS=/opt/gsmlg/gsmlg/lib/gsmlg_component-5.6.0/priv/server.js
+ConfigurationDirectory=gsmlg/proxy-rules
+StateDirectory=gsmlg/proxy-rules
 ExecStart=/opt/gsmlg/gsmlg/bin/gsmlg_umbrella start
 ExecStop=/opt/gsmlg/gsmlg/bin/gsmlg_umbrella stop
 Restart=on-failure
@@ -379,6 +384,14 @@ Umbrella:
 ```bash
 curl -fsS http://127.0.0.1:4110/
 curl -fsS http://127.0.0.1:4111/
+test "$(curl --fail --silent --show-error --dump-header /tmp/proxy-rules.headers \
+  --write-out '%{http_code}' \
+  http://127.0.0.1:4110/api/proxy-rules/proxy-list/raw \
+  --output /tmp/proxy-list.raw)" = 200
+etag=$(awk 'BEGIN {IGNORECASE=1} /^etag:/ {sub(/^[^:]+:[[:space:]]*/, ""); sub(/\r$/, ""); print}' /tmp/proxy-rules.headers)
+test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+  --header "If-None-Match: ${etag}" \
+  http://127.0.0.1:4110/api/proxy-rules/proxy-list/raw)" = 304
 ```
 
 Commander:

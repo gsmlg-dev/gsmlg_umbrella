@@ -105,10 +105,10 @@ RUN <<EOF
 apt-get update
 apt-get install -y --no-install-recommends openssl ca-certificates procps
 rm -rf /var/lib/apt/lists/*
-mkdir -p /var/lib/mnesia
+mkdir -p /var/lib/mnesia /etc/gsmlg/proxy-rules /var/lib/gsmlg/proxy-rules
 EOF
 
-VOLUME ["/var/lib/mnesia"]
+VOLUME ["/var/lib/mnesia", "/var/lib/gsmlg/proxy-rules"]
 
 ENV PATH="/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
