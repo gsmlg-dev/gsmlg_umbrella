@@ -192,6 +192,24 @@ defmodule GSMLG.ProxyRules.Parser.GFWListTest do
     assert short == "another invalid rule"
   end
 
+  test "early proxy-domain acceptance matches full parser classification" do
+    sources = [
+      {"! comment\n@@||direct-only.example^\n", false},
+      {"||supported.example^\n", true},
+      {"https://supported-url.example/\n", true},
+      {"||bad_domain.example^\n||path.example/path\n", false},
+      {"@@||direct.example^\nplain.example\n", true}
+    ]
+
+    for {decoded, expected?} <- sources do
+      assert {:ok, ^expected?} = GFWList.accepted_proxy_domain?(decoded)
+      assert {:ok, parsed, _metadata} = GFWList.parse(Base.encode64(decoded), 10)
+      assert Enum.any?(parsed.rules, &(&1.action == :proxy)) == expected?
+    end
+
+    assert {:error, :invalid_utf8} = GFWList.accepted_proxy_domain?(<<255>>)
+  end
+
   test "counts cosmetic filters and hash-prefixed syntax instead of ignoring them" do
     source =
       "! actual comment\n[Adblock Plus 2.0]\n##.advert\nexample.com##.advert\nexample.com#@#.advert\n# not an Adblock comment\n"

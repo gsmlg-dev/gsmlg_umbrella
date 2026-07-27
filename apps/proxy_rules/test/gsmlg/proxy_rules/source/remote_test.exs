@@ -161,12 +161,35 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     assert %SourceSnapshot{content_sha256: hash} = Remote.snapshot(server)
     assert hash == original.content_sha256
+    assert %SourceSnapshot{availability: :stale} = Remote.snapshot(server)
     assert {:stale, :no_accepted_rules} == Remote.status(server)
     assert {:ok, ^original_cache, ^original_body} = Persistence.read_remote_pair(dir)
 
     assert {:ok, :accepted} = Remote.refresh(server)
     assert_receive {:proxy_rules_source_fresh, :remote, _metadata}, 1_000
+    assert %SourceSnapshot{availability: :ready} = Remote.snapshot(server)
     assert :ready == Remote.status(server)
+  end
+
+  @tag :tmp_dir
+  @tag timeout: 30_000
+  test "large 200 acceptance scanning does not block the Remote mailbox", %{tmp_dir: dir} do
+    decoded = String.duplicate("||path.example/path\n", 300_000)
+    body = Base.encode64(decoded)
+
+    server =
+      start_remote(dir, [response(200, body)],
+        config_overrides: %{remote_max_body_size: byte_size(body) + 1}
+      )
+
+    assert {:ok, :accepted} = Remote.refresh(server)
+    assert_receive {:transport_request, _, _, _, _}
+    Process.sleep(10)
+
+    started = System.monotonic_time(:millisecond)
+    assert nil == Remote.snapshot(server)
+    assert System.monotonic_time(:millisecond) - started < 100
+    assert_receive {:proxy_rules_source_status, :remote, :stale, :no_accepted_rules}, 20_000
   end
 
   @tag :tmp_dir

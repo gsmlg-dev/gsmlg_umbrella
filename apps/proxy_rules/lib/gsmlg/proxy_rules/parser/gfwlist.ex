@@ -11,6 +11,16 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
 
   @diagnostic_sample_max_bytes 512
   @truncation_marker "...[truncated]"
+  @line_breaks [
+    "\r\n",
+    "\n",
+    "\r",
+    "\v",
+    "\f",
+    <<0xC2, 0x85>>,
+    <<0xE2, 0x80, 0xA8>>,
+    <<0xE2, 0x80, 0xA9>>
+  ]
 
   @type metadata :: %{required(:decoded_sha256) => binary()}
 
@@ -26,6 +36,42 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
   end
 
   def decode(_body), do: {:error, :invalid_base64}
+
+  @doc """
+  Returns whether decoded UTF-8 content contains an accepted proxy-domain rule.
+
+  This uses the same conservative classifier and domain normalizer as `parse/2`,
+  but stops at the first accepted proxy candidate without building rules,
+  diagnostics, or aggregate counters.
+  """
+  @spec accepted_proxy_domain?(binary()) :: {:ok, boolean()} | {:error, :invalid_utf8}
+  def accepted_proxy_domain?(decoded) when is_binary(decoded) do
+    if String.valid?(decoded) do
+      {:ok, contains_accepted_proxy_domain?(decoded, :binary.compile_pattern(@line_breaks))}
+    else
+      {:error, :invalid_utf8}
+    end
+  end
+
+  def accepted_proxy_domain?(_decoded), do: {:error, :invalid_utf8}
+
+  defp contains_accepted_proxy_domain?(decoded, line_breaks) do
+    case :binary.match(decoded, line_breaks) do
+      {position, length} ->
+        line = binary_part(decoded, 0, position)
+
+        if accepted_proxy_candidate?(String.trim(line)) do
+          true
+        else
+          offset = position + length
+          rest = binary_part(decoded, offset, byte_size(decoded) - offset)
+          contains_accepted_proxy_domain?(rest, line_breaks)
+        end
+
+      :nomatch ->
+        accepted_proxy_candidate?(String.trim(decoded))
+    end
+  end
 
   @spec parse(binary(), non_neg_integer()) ::
           {:ok, ParseResult.t(), metadata()} | {:error, :invalid_base64 | :invalid_utf8}
@@ -85,6 +131,13 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
       String.contains?(value, ["/", "?", "#"]) -> {:unsupported, :path_specific}
       plain_domain?(value) -> {:candidate, :proxy, value}
       true -> {:unsupported, :ambiguous_rule}
+    end
+  end
+
+  defp accepted_proxy_candidate?(value) do
+    case classify(value) do
+      {:candidate, :proxy, candidate} -> match?({:ok, _domain}, Domain.normalize(candidate))
+      _ignored_direct_invalid_or_unsupported -> false
     end
   end
 

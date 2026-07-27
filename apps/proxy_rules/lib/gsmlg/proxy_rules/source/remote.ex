@@ -177,7 +177,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
          ) do
       {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = snapshot, body}
       when source_url == state.config.source_url and is_binary(body) ->
-        case validate_accepted_rules(body) do
+        case validate_accepted_rules(snapshot.content) do
           :ok ->
             restored = %{snapshot | availability: :stale}
             notify_source_change(state.notify, :remote, restored)
@@ -216,6 +216,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     transport = state.transport
     options = request_options(transport, options)
     url = state.config.source_url
+    max_body_size = state.config.remote_max_body_size
     started = System.monotonic_time()
 
     _ = Telemetry.emit([:remote, :fetch, :start], %{}, %{source: :gfwlist})
@@ -225,7 +226,12 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
     task =
       Task.Supervisor.async_nolink(state.task_supervisor, fn ->
-        {transport.get(url, headers, options), started}
+        result =
+          url
+          |> transport.get(headers, options)
+          |> prepare_fetch_result(max_body_size)
+
+        {result, started}
       end)
 
     %{state | active_task: %{ref: task.ref, pid: task.pid}}
@@ -235,11 +241,11 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     duration = System.monotonic_time() - started
 
     case result do
-      {:ok, %{status: 200, headers: headers, body: body}}
-      when is_list(headers) and is_binary(body) ->
+      {:ok, %{status: 200, headers: headers, body: body, decoded_content: content}}
+      when is_list(headers) and is_binary(body) and is_binary(content) ->
         with true <- valid_headers?(headers),
              {:ok, validators} <- response_validators(headers) do
-          handle_200(body, validators, duration, state)
+          persist_200(body, content, validators, duration, state)
         else
           _invalid -> fetch_failed(:invalid_headers, state)
         end
@@ -273,26 +279,6 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   end
 
   defp handle_fetch_result(_invalid, state), do: fetch_failed(:invalid_response, state)
-
-  defp handle_200(body, validators, duration, state) do
-    cond do
-      byte_size(body) > state.config.remote_max_body_size ->
-        fetch_failed(:body_too_large, state)
-
-      true ->
-        case GFWList.decode(body) do
-          {:ok, content} ->
-            with :ok <- validate_accepted_rules(body) do
-              persist_200(body, content, validators, duration, state)
-            else
-              {:error, reason} -> fetch_failed(reason, state)
-            end
-
-          {:error, reason} ->
-            fetch_failed(reason, state)
-        end
-    end
-  end
 
   defp persist_200(body, content, validators, duration, state) do
     fetched_at = state.now.()
@@ -424,7 +410,14 @@ defmodule GSMLG.ProxyRules.Source.Remote do
         state.random
       )
 
+    source =
+      case state.source do
+        %SourceSnapshot{} = snapshot -> %{snapshot | availability: :stale}
+        nil -> nil
+      end
+
     state
+    |> Map.put(:source, source)
     |> Map.put(:failure, category)
     |> Map.update!(:retry_attempt, &min(&1 + 1, 1_000_000))
     |> schedule(delay)
@@ -447,10 +440,29 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       else: :unexpected_status
   end
 
-  defp validate_accepted_rules(body) do
-    case GFWList.parse(body, 0) do
-      {:ok, %{counts: %{accepted: accepted}}, _metadata} when accepted > 0 -> :ok
-      {:ok, _result, _metadata} -> {:error, :no_accepted_rules}
+  defp prepare_fetch_result(
+         {:ok, %{status: 200, body: body} = response},
+         max_body_size
+       )
+       when is_binary(body) do
+    cond do
+      byte_size(body) > max_body_size ->
+        {:error, :body_too_large}
+
+      true ->
+        with {:ok, content} <- GFWList.decode(body),
+             :ok <- validate_accepted_rules(content) do
+          {:ok, Map.put(response, :decoded_content, content)}
+        end
+    end
+  end
+
+  defp prepare_fetch_result(result, _max_body_size), do: result
+
+  defp validate_accepted_rules(content) do
+    case GFWList.accepted_proxy_domain?(content) do
+      {:ok, true} -> :ok
+      {:ok, false} -> {:error, :no_accepted_rules}
       {:error, reason} -> {:error, reason}
     end
   end

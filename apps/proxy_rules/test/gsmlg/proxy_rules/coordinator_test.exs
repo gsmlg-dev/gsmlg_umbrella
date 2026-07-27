@@ -1105,6 +1105,57 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert {:ok, %Snapshot{generation: 7, readiness: :ready}} = store_current(context.store)
   end
 
+  test "mismatched restored artifact stays stale while the retained remote source is stale",
+       context do
+    restored_remote = source(:remote, "restored.example\n")
+    stale_remote = %{source(:remote, "changed.example\n") | availability: :stale}
+    proxy = source(:local_proxy, "proxy.example\n")
+    direct = source(:local_direct, "direct.example\n")
+
+    assert {:ok, restored} =
+             Compiler.compile(
+               %{
+                 remote: Base.encode64(restored_remote.content),
+                 local_proxy: proxy.content,
+                 local_direct: direct.content
+               },
+               generation: 7,
+               compiled_at: @now,
+               sample_limit: 2
+             )
+
+    Agent.update(context.store, &%{&1 | current: {:ok, %{restored | readiness: :stale}}})
+
+    Agent.update(context.remote, fn state ->
+      state |> Map.put(:snapshot, stale_remote) |> Map.put(:status, :stale)
+    end)
+
+    Agent.update(context.local, fn _ -> %{proxy: proxy, direct: direct} end)
+    test_process = self()
+    handler = {__MODULE__, self(), :mismatched_stale}
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:gsmlg, :proxy_rules, :status, :change],
+        fn _event, measurements, metadata, _config ->
+          send(test_process, {:mismatched_status, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+    :ok = GenServer.stop(context.coordinator)
+    coordinator = start_coordinator(context)
+
+    refute_receive {:compile_started, _, _, _}, 100
+    refute_receive {:mismatched_status, _, %{readiness: :ready}}, 100
+    assert {:ok, %Snapshot{generation: 7, readiness: :stale}} = store_current(context.store)
+
+    assert %{remote_gfwlist: %{availability: :stale}} =
+             Coordinator.source_metadata(coordinator)
+  end
+
   test "commit failure retains the prior artifact", context do
     send_sources(context.coordinator, "one.example")
     assert_receive {:compile_started, 1, first, _}
