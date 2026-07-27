@@ -104,8 +104,14 @@ defmodule GSMLG.ProxyRulesTest do
   end
 
   test "reports not-ready metadata without fabricated counts" do
-    assert {:ok, %{readiness: readiness}} = ProxyRules.metadata()
+    assert {:ok, %{readiness: readiness, sources: sources}} = ProxyRules.metadata()
     assert readiness in [:not_ready, :refreshing, :stale, :ready]
+
+    assert %{
+             remote_gfwlist: %{label: "Remote GFWList"},
+             local_proxy: %{label: "Local proxy list"},
+             local_direct: %{label: "Local direct list"}
+           } = sources
   end
 
   test "accepts a refresh while the source service is available" do
@@ -131,5 +137,7 @@ defmodule GSMLG.ProxyRulesTest do
     end)
 
     assert {:error, :not_available} == ProxyRules.refresh()
+    assert {:ok, metadata} = ProxyRules.metadata()
+    refute Map.has_key?(metadata, :sources)
   end
 end

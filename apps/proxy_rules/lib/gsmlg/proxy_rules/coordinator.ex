@@ -29,6 +29,9 @@ defmodule GSMLG.ProxyRules.Coordinator do
     safe_call(server, :refresh)
   end
 
+  @spec source_metadata(GenServer.server()) :: map() | {:error, :not_available}
+  def source_metadata(server \\ __MODULE__), do: safe_call(server, :source_metadata)
+
   @impl true
   def init(options) do
     with {:ok, config} <- configuration(options),
@@ -96,6 +99,16 @@ defmodule GSMLG.ProxyRules.Coordinator do
       {:ok, :accepted} = accepted -> {:reply, accepted, transition(state, :refreshing, nil)}
       {:error, :not_available} = error -> {:reply, error, state}
     end
+  end
+
+  def handle_call(:source_metadata, _from, state) do
+    metadata = %{
+      remote_gfwlist: source_summary(:remote, state.remote),
+      local_proxy: source_summary(:local_proxy, state.local_proxy),
+      local_direct: source_summary(:local_direct, state.local_direct)
+    }
+
+    {:reply, metadata, state}
   end
 
   @impl true
@@ -645,6 +658,68 @@ defmodule GSMLG.ProxyRules.Coordinator do
   catch
     :exit, _reason -> {:error, :not_available}
   end
+
+  defp source_summary(kind, nil) do
+    %{
+      label: source_label(kind),
+      availability: :missing,
+      version: nil,
+      observed_at: nil,
+      last_success_at: nil
+    }
+    |> maybe_remote_fields(kind, %{})
+  end
+
+  defp source_summary(kind, %SourceSnapshot{} = snapshot) do
+    availability =
+      if SourceSnapshot.valid_availability?(snapshot.availability),
+        do: snapshot.availability,
+        else: :missing
+
+    last_success_at =
+      if availability in [:ready, :stale],
+        do: valid_datetime(snapshot.observed_at),
+        else: nil
+
+    %{
+      label: source_label(kind),
+      availability: availability,
+      version: if(availability == :missing, do: nil, else: bounded_hash(snapshot.content_sha256)),
+      observed_at: valid_datetime(snapshot.observed_at),
+      last_success_at: last_success_at
+    }
+    |> maybe_remote_fields(kind, snapshot.metadata)
+  end
+
+  defp maybe_remote_fields(summary, :remote, metadata) do
+    fetched_at = valid_datetime(Map.get(metadata, :fetched_at))
+
+    summary
+    |> Map.put(:etag, bounded_binary(Map.get(metadata, :etag), 256))
+    |> Map.put(:last_modified, bounded_binary(Map.get(metadata, :last_modified), 128))
+    |> Map.put(:fetched_at, fetched_at)
+    |> Map.put(:last_success_at, fetched_at || summary.last_success_at)
+  end
+
+  defp maybe_remote_fields(summary, _local_kind, _metadata), do: summary
+
+  defp bounded_hash(value) when is_binary(value) and byte_size(value) == 64, do: value
+  defp bounded_hash(_value), do: nil
+
+  defp bounded_binary(nil, _limit), do: nil
+
+  defp bounded_binary(value, limit)
+       when is_binary(value) and byte_size(value) <= limit and is_integer(limit),
+       do: value
+
+  defp bounded_binary(_value, _limit), do: nil
+
+  defp valid_datetime(%DateTime{} = datetime), do: datetime
+  defp valid_datetime(_value), do: nil
+
+  defp source_label(:remote), do: "Remote GFWList"
+  defp source_label(:local_proxy), do: "Local proxy list"
+  defp source_label(:local_direct), do: "Local direct list"
 
   defp restored_generation({:ok, %Snapshot{generation: generation}}), do: generation
   defp restored_generation(_current), do: 0

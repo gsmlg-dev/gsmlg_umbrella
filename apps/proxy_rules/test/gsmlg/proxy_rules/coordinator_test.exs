@@ -216,6 +216,79 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert Process.alive?(coordinator)
   end
 
+  test "reports fixed-label bounded source metadata without bodies or local paths", context do
+    remote = %SourceSnapshot{
+      kind: :remote,
+      content: "remote secret body",
+      content_sha256: sha256("remote secret body"),
+      observed_at: @now,
+      availability: :ready,
+      metadata: %{
+        source_url: "https://secret.example/gfwlist.txt",
+        etag: ~s("remote-etag"),
+        last_modified: "Wed, 23 Jul 2026 03:04:05 GMT",
+        fetched_at: @now
+      }
+    }
+
+    local_proxy = %SourceSnapshot{
+      kind: :local_proxy,
+      content: "proxy secret body",
+      content_sha256: sha256("proxy secret body"),
+      observed_at: @now,
+      availability: :stale,
+      metadata: %{path: "/secret/proxy.txt"}
+    }
+
+    local_direct = %SourceSnapshot{
+      kind: :local_direct,
+      content: "",
+      content_sha256: sha256(""),
+      observed_at: @now,
+      availability: :missing,
+      metadata: %{path: "/secret/direct.txt"}
+    }
+
+    send(context.coordinator, {:proxy_rules_source, :remote, remote})
+    send(context.coordinator, {:proxy_rules_source, :local_proxy, local_proxy})
+    send(context.coordinator, {:proxy_rules_source, :local_direct, local_direct})
+
+    assert %{
+             remote_gfwlist: %{
+               label: "Remote GFWList",
+               availability: :ready,
+               version: remote_version,
+               observed_at: @now,
+               last_success_at: @now,
+               etag: ~s("remote-etag"),
+               last_modified: "Wed, 23 Jul 2026 03:04:05 GMT",
+               fetched_at: @now
+             },
+             local_proxy: %{
+               label: "Local proxy list",
+               availability: :stale,
+               version: local_version,
+               observed_at: @now,
+               last_success_at: @now
+             },
+             local_direct: %{
+               label: "Local direct list",
+               availability: :missing,
+               version: nil,
+               observed_at: @now,
+               last_success_at: nil
+             }
+           } = Coordinator.source_metadata(context.coordinator)
+
+    assert remote_version == remote.content_sha256
+    assert local_version == local_proxy.content_sha256
+
+    metadata = Coordinator.source_metadata(context.coordinator)
+    refute inspect(metadata) =~ "secret body"
+    refute inspect(metadata) =~ "/secret/proxy.txt"
+    refute inspect(metadata) =~ "secret.example"
+  end
+
   test "startup recovery failure stays alive, stale, and operationally blocked", context do
     {:ok, prior} = compiled_snapshot(4, "prior.example")
 

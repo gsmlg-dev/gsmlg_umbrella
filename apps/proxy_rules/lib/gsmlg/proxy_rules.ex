@@ -32,7 +32,11 @@ defmodule GSMLG.ProxyRules do
   def get_artifact_response(_list, _renderer), do: {:error, :not_found}
 
   @spec metadata() :: {:ok, map()} | {:error, :not_available}
-  def metadata, do: safe_store_metadata()
+  def metadata do
+    with {:ok, metadata} <- safe_store_metadata() do
+      {:ok, merge_source_metadata(metadata)}
+    end
+  end
 
   @spec refresh() :: {:ok, :accepted} | {:error, :not_available}
   def refresh, do: Coordinator.refresh()
@@ -41,5 +45,12 @@ defmodule GSMLG.ProxyRules do
     Store.metadata()
   catch
     :exit, _reason -> {:error, :not_available}
+  end
+
+  defp merge_source_metadata(metadata) do
+    case Coordinator.source_metadata() do
+      sources when is_map(sources) -> Map.put(metadata, :sources, sources)
+      {:error, :not_available} -> metadata
+    end
   end
 end
