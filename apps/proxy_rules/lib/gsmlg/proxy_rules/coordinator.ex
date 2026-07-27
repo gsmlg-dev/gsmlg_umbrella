@@ -89,7 +89,11 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
         {:stale, reason} when is_atom(reason) ->
           error = bounded_source_error(:remote, reason)
-          transition(%{state | last_failure: error}, stale_readiness(state), error)
+          state = mark_source_stale(:remote, state)
+
+          state
+          |> Map.put(:last_failure, error)
+          |> transition(stale_readiness(state), error)
 
         _other ->
           state

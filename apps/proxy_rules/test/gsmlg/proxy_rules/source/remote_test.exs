@@ -141,7 +141,13 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   } do
     good = Base.encode64("||example.com^\n")
     zero_accepted = Base.encode64("! comments only\n/path-specific.example/path\n")
-    server = start_remote(dir, [response(200, good), response(200, zero_accepted)])
+
+    server =
+      start_remote(dir, [
+        response(200, good),
+        response(200, zero_accepted),
+        response(200, good)
+      ])
 
     assert {:ok, :accepted} = Remote.refresh(server)
     assert_receive {:proxy_rules_source, :remote, original}, 1_000
@@ -155,7 +161,12 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     assert %SourceSnapshot{content_sha256: hash} = Remote.snapshot(server)
     assert hash == original.content_sha256
+    assert {:stale, :no_accepted_rules} == Remote.status(server)
     assert {:ok, ^original_cache, ^original_body} = Persistence.read_remote_pair(dir)
+
+    assert {:ok, :accepted} = Remote.refresh(server)
+    assert_receive {:proxy_rules_source_fresh, :remote, _metadata}, 1_000
+    assert :ready == Remote.status(server)
   end
 
   @tag :tmp_dir

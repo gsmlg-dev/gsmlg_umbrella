@@ -265,6 +265,68 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert Process.alive?(coordinator)
   end
 
+  test "restart retains a last-known-good generation while reconciling a missed remote failure",
+       context do
+    remote = source(:remote, "||remote.example^\n")
+    proxy = source(:local_proxy, "proxy.example\n")
+    direct = source(:local_direct, "direct.example\n")
+
+    assert {:ok, published} =
+             Compiler.compile(
+               %{
+                 remote: Base.encode64(remote.content),
+                 local_proxy: proxy.content,
+                 local_direct: direct.content
+               },
+               generation: 7,
+               compiled_at: @now,
+               sample_limit: 2
+             )
+
+    Agent.update(context.store, fn state ->
+      %{state | current: {:ok, published}, metadata: %{readiness: :ready}}
+    end)
+
+    Agent.update(context.remote, fn state ->
+      state
+      |> Map.put(:snapshot, remote)
+      |> Map.put(:status, {:stale, :no_accepted_rules})
+    end)
+
+    Agent.update(context.local, fn _ -> %{proxy: proxy, direct: direct} end)
+    :ok = GenServer.stop(context.coordinator)
+    coordinator = start_coordinator(context)
+
+    assert_eventually(
+      fn -> store_current(context.store) end,
+      fn
+        {:ok,
+         %Snapshot{
+           generation: 7,
+           readiness: :stale,
+           last_error: %{kind: :remote, reason: :no_accepted_rules}
+         }} ->
+          true
+
+        _other ->
+          false
+      end
+    )
+
+    assert {:ok, retained} = store_current(context.store)
+    assert retained.generation == published.generation
+    assert retained.source_versions == published.source_versions
+    assert retained.rendered_outputs == published.rendered_outputs
+
+    assert %{
+             remote_gfwlist: %{availability: :stale},
+             local_proxy: %{availability: :ready},
+             local_direct: %{availability: :ready}
+           } = Coordinator.source_metadata(coordinator)
+
+    refute_receive {:compile_started, _, _, _}, 50
+  end
+
   test "successful publication emits bounded aggregate measurements and diagnostic samples",
        context do
     test_process = self()

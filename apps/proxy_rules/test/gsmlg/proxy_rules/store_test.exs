@@ -1,12 +1,13 @@
 defmodule GSMLG.ProxyRules.StoreTest do
   use ExUnit.Case, async: false
 
-  alias GSMLG.ProxyRules.{Compiler, Persistence, Snapshot, Store}
+  alias GSMLG.ProxyRules.{Compiler, Coordinator, Persistence, Snapshot, Store}
 
   @compiled_at ~U[2026-07-23 01:02:03Z]
 
   setup %{tmp_dir: dir} do
     supervisor = GSMLG.ProxyRules.Supervisor
+    :ok = Supervisor.terminate_child(supervisor, Coordinator)
     :ok = Supervisor.terminate_child(supervisor, Store)
 
     {:ok, store} = Store.start_link(state_directory: dir)
@@ -15,6 +16,7 @@ defmodule GSMLG.ProxyRules.StoreTest do
     on_exit(fn ->
       if current_store = Process.whereis(Store), do: GenServer.stop(current_store)
       assert {:ok, _pid} = Supervisor.restart_child(supervisor, Store)
+      assert {:ok, _pid} = Supervisor.restart_child(supervisor, Coordinator)
     end)
 
     :ok

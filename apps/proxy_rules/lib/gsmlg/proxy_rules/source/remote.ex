@@ -126,8 +126,8 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   def handle_call(:status, _from, state) do
     status =
       cond do
-        state.source -> state.source.availability
         state.failure -> {:stale, state.failure}
+        state.source -> state.source.availability
         true -> nil
       end
 
