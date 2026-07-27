@@ -48,15 +48,10 @@ defmodule GSMLG.ProxyRules.Benchmark do
 
     try do
       true = :ets.insert(table, {:current, snapshot})
+      :ok = lookup_many(table, 1)
 
       {lookup_microseconds, :ok} =
-        :timer.tc(fn ->
-          for _iteration <- 1..lookup_iterations do
-            [{:current, ^snapshot}] = :ets.lookup(table, :current)
-          end
-
-          :ok
-        end)
+        :timer.tc(fn -> lookup_many(table, lookup_iterations) end)
 
       %{
         fixture_sha256: sha256(fixture),
@@ -109,6 +104,13 @@ defmodule GSMLG.ProxyRules.Benchmark do
     |> Map.values()
     |> Enum.flat_map(&Map.values/1)
     |> Enum.sum_by(& &1.content_length)
+  end
+
+  defp lookup_many(_table, 0), do: :ok
+
+  defp lookup_many(table, remaining) do
+    [{:current, _snapshot}] = :ets.lookup(table, :current)
+    lookup_many(table, remaining - 1)
   end
 
   defp sha256(body), do: :crypto.hash(:sha256, body) |> Base.encode16(case: :lower)

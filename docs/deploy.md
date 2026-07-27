@@ -199,13 +199,21 @@ The `--network host` flag is needed because the Scout agent serves a temporary l
 
 ```bash
 VERSION=5.6.0
-sudo mkdir -p /opt/gsmlg /etc/gsmlg /var/lib/mnesia /var/log/gsmlg
+if ! getent group gsmlg >/dev/null; then
+  sudo groupadd --system gsmlg
+fi
+if ! id -u gsmlg >/dev/null 2>&1; then
+  sudo useradd --system --gid gsmlg --home-dir /opt/gsmlg \
+    --shell /usr/sbin/nologin gsmlg
+fi
+sudo mkdir -p /opt/gsmlg /var/lib/mnesia /var/log/gsmlg
+sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg
 sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
 curl -L -o /tmp/gsmlg.tar.gz \
   "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/gsmlg.tar.gz"
 sudo tar -xzf /tmp/gsmlg.tar.gz -C /opt/gsmlg
-sudo install -m 600 /path/to/gsmlg_umbrella.toml /etc/gsmlg/gsmlg_umbrella.toml
+sudo install -o root -g gsmlg -m 0640 /path/to/gsmlg_umbrella.toml /etc/gsmlg/gsmlg_umbrella.toml
 ```
 
 Run migrations before starting a new version:
@@ -319,6 +327,7 @@ Environment=MIX_BUN_PATH=/usr/bin/bun
 Environment=BUN_SERVER_JS=/opt/gsmlg/gsmlg/lib/gsmlg_component-5.6.0/priv/server.js
 ConfigurationDirectory=gsmlg/proxy-rules
 StateDirectory=gsmlg/proxy-rules
+StateDirectoryMode=0750
 ExecStart=/opt/gsmlg/gsmlg/bin/gsmlg_umbrella start
 ExecStop=/opt/gsmlg/gsmlg/bin/gsmlg_umbrella stop
 Restart=on-failure
