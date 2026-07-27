@@ -460,7 +460,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   defp prepare_fetch_result(result, _max_body_size), do: result
 
   defp validate_accepted_rules(content) do
-    case GFWList.accepted_proxy_domain?(content) do
+    case GFWList.accepted_rule?(content) do
       {:ok, true} -> :ok
       {:ok, false} -> {:error, :no_accepted_rules}
       {:error, reason} -> {:error, reason}

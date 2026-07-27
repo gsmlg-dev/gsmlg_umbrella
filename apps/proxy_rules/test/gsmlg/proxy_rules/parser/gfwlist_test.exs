@@ -1,5 +1,6 @@
 defmodule GSMLG.ProxyRules.Parser.GFWListTest do
   use ExUnit.Case, async: true
+  use ExUnitProperties
 
   alias GSMLG.ProxyRules.{Diagnostic, ParseResult}
   alias GSMLG.ProxyRules.Parser.GFWList
@@ -192,9 +193,9 @@ defmodule GSMLG.ProxyRules.Parser.GFWListTest do
     assert short == "another invalid rule"
   end
 
-  test "early proxy-domain acceptance matches full parser classification" do
+  test "early rule acceptance matches full parser classification" do
     sources = [
-      {"! comment\n@@||direct-only.example^\n", false},
+      {"! comment\n@@||direct-only.example^\n", true},
       {"||supported.example^\n", true},
       {"https://supported-url.example/\n", true},
       {"||bad_domain.example^\n||path.example/path\n", false},
@@ -202,12 +203,43 @@ defmodule GSMLG.ProxyRules.Parser.GFWListTest do
     ]
 
     for {decoded, expected?} <- sources do
-      assert {:ok, ^expected?} = GFWList.accepted_proxy_domain?(decoded)
+      assert {:ok, ^expected?} = GFWList.accepted_rule?(decoded)
       assert {:ok, parsed, _metadata} = GFWList.parse(Base.encode64(decoded), 10)
-      assert Enum.any?(parsed.rules, &(&1.action == :proxy)) == expected?
+      assert parsed.counts.accepted > 0 == expected?
+      assert parsed.rules != [] == expected?
     end
 
-    assert {:error, :invalid_utf8} = GFWList.accepted_proxy_domain?(<<255>>)
+    assert {:error, :invalid_utf8} = GFWList.accepted_rule?(<<255>>)
+  end
+
+  property "early rule acceptance is equivalent to the full parser" do
+    rule =
+      member_of([
+        "",
+        "! comment",
+        "[Adblock Plus 2.0]",
+        "||proxy.example^",
+        "@@||direct.example^",
+        "plain.example",
+        "https://whole-host.example/",
+        "||bad_domain.example^",
+        "||path.example/path",
+        "||modifier.example^$script",
+        "/regex\\.example/",
+        "##.advert"
+      ])
+
+    check all(
+            lines <- list_of(rule, max_length: 40),
+            separator <- member_of(["\n", "\r\n", "\r", <<0xE2, 0x80, 0xA8>>])
+          ) do
+      decoded = Enum.join(lines, separator)
+
+      assert {:ok, accepted?} = GFWList.accepted_rule?(decoded)
+      assert {:ok, parsed, _metadata} = GFWList.parse(Base.encode64(decoded), 0)
+      assert accepted? == parsed.counts.accepted > 0
+      assert accepted? == (parsed.rules != [])
+    end
   end
 
   test "counts cosmetic filters and hash-prefixed syntax instead of ignoring them" do

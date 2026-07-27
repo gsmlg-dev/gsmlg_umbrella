@@ -38,38 +38,38 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
   def decode(_body), do: {:error, :invalid_base64}
 
   @doc """
-  Returns whether decoded UTF-8 content contains an accepted proxy-domain rule.
+  Returns whether decoded UTF-8 content contains an accepted domain rule.
 
   This uses the same conservative classifier and domain normalizer as `parse/2`,
-  but stops at the first accepted proxy candidate without building rules,
+  but stops at the first accepted proxy or direct candidate without building rules,
   diagnostics, or aggregate counters.
   """
-  @spec accepted_proxy_domain?(binary()) :: {:ok, boolean()} | {:error, :invalid_utf8}
-  def accepted_proxy_domain?(decoded) when is_binary(decoded) do
+  @spec accepted_rule?(binary()) :: {:ok, boolean()} | {:error, :invalid_utf8}
+  def accepted_rule?(decoded) when is_binary(decoded) do
     if String.valid?(decoded) do
-      {:ok, contains_accepted_proxy_domain?(decoded, :binary.compile_pattern(@line_breaks))}
+      {:ok, contains_accepted_rule?(decoded, :binary.compile_pattern(@line_breaks))}
     else
       {:error, :invalid_utf8}
     end
   end
 
-  def accepted_proxy_domain?(_decoded), do: {:error, :invalid_utf8}
+  def accepted_rule?(_decoded), do: {:error, :invalid_utf8}
 
-  defp contains_accepted_proxy_domain?(decoded, line_breaks) do
+  defp contains_accepted_rule?(decoded, line_breaks) do
     case :binary.match(decoded, line_breaks) do
       {position, length} ->
         line = binary_part(decoded, 0, position)
 
-        if accepted_proxy_candidate?(String.trim(line)) do
+        if accepted_candidate?(String.trim(line)) do
           true
         else
           offset = position + length
           rest = binary_part(decoded, offset, byte_size(decoded) - offset)
-          contains_accepted_proxy_domain?(rest, line_breaks)
+          contains_accepted_rule?(rest, line_breaks)
         end
 
       :nomatch ->
-        accepted_proxy_candidate?(String.trim(decoded))
+        accepted_candidate?(String.trim(decoded))
     end
   end
 
@@ -134,9 +134,9 @@ defmodule GSMLG.ProxyRules.Parser.GFWList do
     end
   end
 
-  defp accepted_proxy_candidate?(value) do
+  defp accepted_candidate?(value) do
     case classify(value) do
-      {:candidate, :proxy, candidate} -> match?({:ok, _domain}, Domain.normalize(candidate))
+      {:candidate, _action, candidate} -> match?({:ok, _domain}, Domain.normalize(candidate))
       _ignored_direct_invalid_or_unsupported -> false
     end
   end

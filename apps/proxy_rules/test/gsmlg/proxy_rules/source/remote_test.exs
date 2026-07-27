@@ -172,6 +172,26 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   end
 
   @tag :tmp_dir
+  test "a direct-only response is accepted and persisted", %{tmp_dir: dir} do
+    body = Base.encode64("@@||direct-only.example^\n")
+    server = start_remote(dir, [response(200, body)])
+
+    assert {:ok, :accepted} = Remote.refresh(server)
+
+    assert_receive {:proxy_rules_source, :remote,
+                    %SourceSnapshot{
+                      content: "@@||direct-only.example^\n",
+                      availability: :ready
+                    }},
+                   1_000
+
+    assert :ready == Remote.status(server)
+
+    assert {:ok, %SourceSnapshot{content: "@@||direct-only.example^\n"}} =
+             Persistence.read_remote(dir)
+  end
+
+  @tag :tmp_dir
   @tag timeout: 30_000
   test "large 200 acceptance scanning does not block the Remote mailbox", %{tmp_dir: dir} do
     decoded = String.duplicate("||path.example/path\n", 300_000)
