@@ -1,7 +1,14 @@
 defmodule GSMLG.ProxyRules.Persistence do
   @moduledoc false
 
-  alias GSMLG.ProxyRules.{Configuration, Diagnostic, Output, Snapshot, SourceSnapshot}
+  alias GSMLG.ProxyRules.{
+    Configuration,
+    Diagnostic,
+    Output,
+    Snapshot,
+    SourceSnapshot,
+    Transport
+  }
   alias GSMLG.ProxyRules.Parser.GFWList
 
   @artifact_file "artifact.snapshot"
@@ -367,6 +374,7 @@ defmodule GSMLG.ProxyRules.Persistence do
   defp decode_file({:ok, binary}) do
     with {:ok, envelope} <- safe_decode(binary),
          :ok <- validate_envelope(envelope),
+         :ok <- load_artifact_atom_modules(),
          {:ok, snapshot} <- safe_decode(envelope.payload),
          true <- valid_snapshot?(snapshot) do
       {:ok, snapshot}
@@ -379,6 +387,16 @@ defmodule GSMLG.ProxyRules.Persistence do
   defp decode_file({:error, :enoent}), do: {:error, :snapshot_not_found}
   defp decode_file({:error, :file_too_large}), do: {:error, :invalid_snapshot}
   defp decode_file({:error, _reason}), do: {:error, :snapshot_unreadable}
+
+  defp load_artifact_atom_modules do
+    if Enum.all?([Calendar.ISO, DateTime, Diagnostic, Output, Snapshot, Transport], fn module ->
+         Code.ensure_loaded?(module)
+       end) do
+      :ok
+    else
+      {:error, :incompatible_snapshot}
+    end
+  end
 
   defp safe_decode(<<131, 80, _compressed::binary>>), do: {:error, :corrupt_snapshot}
 

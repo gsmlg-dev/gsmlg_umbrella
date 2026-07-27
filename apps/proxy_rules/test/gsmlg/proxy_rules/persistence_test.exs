@@ -1,7 +1,7 @@
 defmodule GSMLG.ProxyRules.PersistenceTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.ProxyRules.{Compiler, Persistence, Snapshot, SourceSnapshot}
+  alias GSMLG.ProxyRules.{Compiler, Diagnostic, Persistence, Snapshot, SourceSnapshot}
 
   @compiled_at ~U[2026-07-23 01:02:03Z]
   @marker ".artifact.snapshot.transaction"
@@ -163,6 +163,43 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     assert [] == Path.wildcard(Path.join(dir, ".artifact.snapshot.*.tmp"))
     refute File.exists?(Path.join(dir, @backup))
     refute File.exists?(Path.join(dir, @marker))
+  end
+
+  @tag :tmp_dir
+  test "restores bounded diagnostic atoms in a fresh BEAM instance", %{tmp_dir: dir} do
+    diagnostic = %Diagnostic{
+      kind: :invalid,
+      source: :gfwlist,
+      location: 27,
+      reason: :ip_literal,
+      sample: "|http://85.17.73.31/"
+    }
+
+    snapshot = %{fixture_snapshot(41) | diagnostics: [diagnostic]}
+    assert :ok = Persistence.write_artifact(dir, snapshot)
+
+    script = """
+    case GSMLG.ProxyRules.Persistence.read_artifact(hd(System.argv())) do
+      {:ok, %{generation: 41}} -> System.halt(0)
+      result -> IO.inspect(result); System.halt(1)
+    end
+    """
+
+    {output, status} =
+      System.cmd(
+        System.find_executable("elixir"),
+        [
+          "-pa",
+          Application.app_dir(:proxy_rules, "ebin"),
+          "-e",
+          script,
+          "--",
+          dir
+        ],
+        stderr_to_stdout: true
+      )
+
+    assert status == 0, output
   end
 
   @tag :tmp_dir
