@@ -206,7 +206,8 @@ if ! id -u gsmlg >/dev/null 2>&1; then
   sudo useradd --system --gid gsmlg --home-dir /opt/gsmlg \
     --shell /usr/sbin/nologin gsmlg
 fi
-sudo mkdir -p /opt/gsmlg /var/lib/mnesia /var/log/gsmlg
+sudo mkdir -p /opt/gsmlg
+sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/mnesia /var/log/gsmlg
 sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg
 sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
@@ -226,9 +227,9 @@ sudo GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml \
 Start the service:
 
 ```bash
-sudo GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml \
-  MNESIA_DIR=/var/lib/mnesia \
-  MIX_BUN_PATH=/usr/bin/bun \
+sudo --user=gsmlg --group=gsmlg -- \
+  env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml \
+  MNESIA_DIR=/var/lib/mnesia MIX_BUN_PATH=/usr/bin/bun \
   BUN_SERVER_JS=/opt/gsmlg/gsmlg/lib/gsmlg_component-${VERSION}/priv/server.js \
   /opt/gsmlg/gsmlg/bin/gsmlg_umbrella start
 ```
@@ -273,10 +274,12 @@ sudo mkdir -p /opt/gsmlg
 curl -L -o "/tmp/commander-${TARGET}.tar.gz" \
   "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/commander-${TARGET}.tar.gz"
 sudo tar -xzf "/tmp/commander-${TARGET}.tar.gz" -C /opt/gsmlg
-mkdir -p ~/.config/gsmlg/commander
-install -m 600 /path/to/config.toml ~/.config/gsmlg/commander/config.toml
+sudo install -d -o gsmlg -g gsmlg -m 0700 /opt/gsmlg/.config/gsmlg/commander
+sudo install -o gsmlg -g gsmlg -m 0600 /path/to/config.toml \
+  /opt/gsmlg/.config/gsmlg/commander/config.toml
 
-/opt/gsmlg/commander/bin/gsmlg_commander start
+sudo --set-home --user=gsmlg --group=gsmlg -- \
+  /opt/gsmlg/commander/bin/gsmlg_commander start
 ```
 
 Expected result:
@@ -293,9 +296,11 @@ sudo mkdir -p /opt/gsmlg /etc/gsmlg
 curl -L -o /tmp/gsmlg_scout_agent.tar.gz \
   "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/gsmlg_scout_agent.tar.gz"
 sudo tar -xzf /tmp/gsmlg_scout_agent.tar.gz -C /opt/gsmlg
-sudo install -m 600 /path/to/gsmlg_scout_agent.toml /etc/gsmlg/gsmlg_scout_agent.toml
+sudo install -o root -g gsmlg -m 0640 /path/to/gsmlg_scout_agent.toml \
+  /etc/gsmlg/gsmlg_scout_agent.toml
 
-sudo GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_scout_agent.toml \
+sudo --user=gsmlg --group=gsmlg -- \
+  env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_scout_agent.toml \
   /opt/gsmlg/gsmlg_scout_agent/bin/gsmlg_scout_agent start
 ```
 

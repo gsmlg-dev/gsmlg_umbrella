@@ -34,6 +34,24 @@ defmodule GSMLG.Config.SchemaTest do
     assert reason =~ "positive integer"
   end
 
+  test "rejects proxy-rules diagnostic limits above the persistence ceiling" do
+    assert {:error, reason} =
+             Schema.validate(%{proxy_rules: %{unsupported_rule_sample_limit: 1_001}})
+
+    assert reason ==
+             "proxy_rules: invalid unsupported_rule_sample_limit: expected an integer from 0 to 1000"
+  end
+
+  test "rejects a proxy-rules retry maximum below its minimum" do
+    assert {:error, reason} =
+             Schema.validate(%{
+               proxy_rules: %{retry_min_interval: 10_000, retry_max_interval: 5_000}
+             })
+
+    assert reason ==
+             "proxy_rules: invalid retry interval range: retry_max_interval must be greater than or equal to retry_min_interval"
+  end
+
   test "active TOML files define the proxy-rules defaults" do
     config_dir = Path.expand("../../../priv", __DIR__)
 

@@ -52,6 +52,7 @@ defmodule GSMLG.ProxyRules.Telemetry do
     :unexpected_status,
     :invalid_base64,
     :invalid_utf8,
+    :no_accepted_rules,
     :read_failed,
     :not_found,
     :permission_denied,

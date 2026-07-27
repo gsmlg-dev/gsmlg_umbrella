@@ -1,5 +1,6 @@
 defmodule GSMLG.ProxyRules.Configuration do
   @max_remote_body_size 64 * 1024 * 1024
+  @max_diagnostic_sample_limit 1_000
 
   @required [
     :source_url,
@@ -37,7 +38,7 @@ defmodule GSMLG.ProxyRules.Configuration do
           local_reconciliation_interval: pos_integer(),
           state_directory: String.t(),
           cache_control: String.t(),
-          unsupported_rule_sample_limit: non_neg_integer()
+          unsupported_rule_sample_limit: 0..1_000
         }
 
   @spec max_remote_body_size() :: pos_integer()
@@ -45,7 +46,12 @@ defmodule GSMLG.ProxyRules.Configuration do
 
   @spec new(map()) ::
           {:ok, t()}
-          | {:error, {:missing_setting, atom()} | {:invalid_setting, :remote_max_body_size}}
+          | {:error,
+             {:missing_setting, atom()}
+             | {:invalid_setting,
+                :remote_max_body_size
+                | :unsupported_rule_sample_limit
+                | :retry_interval_range}}
   def new(settings) when is_map(settings) do
     case Enum.find(@required, &(not Map.has_key?(settings, &1))) do
       nil -> build(settings)
@@ -55,16 +61,40 @@ defmodule GSMLG.ProxyRules.Configuration do
 
   @spec load() ::
           {:ok, t()}
-          | {:error, {:missing_setting, atom()} | {:invalid_setting, :remote_max_body_size}}
+          | {:error,
+             {:missing_setting, atom()}
+             | {:invalid_setting,
+                :remote_max_body_size
+                | :unsupported_rule_sample_limit
+                | :retry_interval_range}}
   def load do
     :proxy_rules
     |> Application.get_env(:settings, %{})
     |> new()
   end
 
-  defp build(%{remote_max_body_size: size} = settings)
-       when is_integer(size) and size > 0 and size <= @max_remote_body_size,
-       do: {:ok, struct!(__MODULE__, Map.take(settings, @required))}
+  defp build(settings) do
+    cond do
+      not valid_remote_body_size?(settings.remote_max_body_size) ->
+        {:error, {:invalid_setting, :remote_max_body_size}}
 
-  defp build(_settings), do: {:error, {:invalid_setting, :remote_max_body_size}}
+      not valid_sample_limit?(settings.unsupported_rule_sample_limit) ->
+        {:error, {:invalid_setting, :unsupported_rule_sample_limit}}
+
+      not valid_retry_range?(settings.retry_min_interval, settings.retry_max_interval) ->
+        {:error, {:invalid_setting, :retry_interval_range}}
+
+      true ->
+        {:ok, struct!(__MODULE__, Map.take(settings, @required))}
+    end
+  end
+
+  defp valid_remote_body_size?(size),
+    do: is_integer(size) and size > 0 and size <= @max_remote_body_size
+
+  defp valid_sample_limit?(limit),
+    do: is_integer(limit) and limit >= 0 and limit <= @max_diagnostic_sample_limit
+
+  defp valid_retry_range?(minimum, maximum),
+    do: is_integer(minimum) and is_integer(maximum) and minimum > 0 and maximum >= minimum
 end

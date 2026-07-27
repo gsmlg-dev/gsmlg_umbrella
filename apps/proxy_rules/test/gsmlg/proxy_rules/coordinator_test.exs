@@ -146,6 +146,20 @@ defmodule GSMLG.ProxyRules.CoordinatorTestFileSystem do
   def init(nil), do: {:ok, nil}
 end
 
+defmodule GSMLG.ProxyRules.CoordinatorIntegrationTransport do
+  @behaviour GSMLG.ProxyRules.Transport
+
+  @impl true
+  def get(_url, _headers, options) do
+    test_process = Keyword.fetch!(options, :test_process)
+    send(test_process, {:integration_transport_request, self()})
+
+    receive do
+      {:integration_transport_response, response} -> response
+    end
+  end
+end
+
 defmodule GSMLG.ProxyRules.CoordinatorTest do
   use ExUnit.Case, async: false
 
@@ -223,6 +237,208 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     send(stage_task, :finish_stage)
     assert_receive {:published, 1}
     assert {:ok, %Snapshot{generation: 1, readiness: :ready}} = store_current(context.store)
+    assert Process.alive?(coordinator)
+  end
+
+  test "successful publication emits bounded aggregate measurements and diagnostic samples",
+       context do
+    test_process = self()
+
+    events = [
+      [:gsmlg, :proxy_rules, :compile, :stop],
+      [:gsmlg, :proxy_rules, :artifact, :publication],
+      [:gsmlg, :proxy_rules, :diagnostic, :invalid, :sample],
+      [:gsmlg, :proxy_rules, :diagnostic, :unsupported, :sample],
+      [:gsmlg, :log]
+    ]
+
+    handler = {__MODULE__, self(), :publication_telemetry}
+
+    :ok =
+      :telemetry.attach_many(
+        handler,
+        events,
+        fn event, measurements, metadata, pid ->
+          send(pid, {:publication_telemetry, event, measurements, metadata})
+        end,
+        test_process
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    config = %{configuration() | unsupported_rule_sample_limit: 3}
+    :ok = GenServer.stop(context.coordinator)
+    coordinator = start_coordinator(context, configuration: config)
+
+    remote =
+      "||remote.example^\n||bad_domain.example^\n||path.example/path\n"
+
+    local_invalid = String.duplicate("界", 300) <> "_bad"
+    send(coordinator, {:proxy_rules_source, :remote, source(:remote, remote)})
+
+    send(
+      coordinator,
+      {:proxy_rules_source, :local_proxy,
+       source(:local_proxy, "proxy.example\n" <> local_invalid <> "\n")}
+    )
+
+    send(
+      coordinator,
+      {:proxy_rules_source, :local_direct, source(:local_direct, "direct.example\n")}
+    )
+
+    assert_receive {:compile_started, 1, task, _input}
+    finish_success(task, 1)
+
+    assert {:ok, snapshot} = store_current(context.store)
+    assert Persistence.valid_snapshot?(snapshot)
+    assert Enum.any?(snapshot.diagnostics, &(&1.source == :local_proxy))
+    assert Enum.all?(snapshot.diagnostics, &(byte_size(&1.sample) <= 512))
+    assert Enum.all?(snapshot.diagnostics, &String.valid?(&1.sample))
+
+    expected = %{
+      generation: 1,
+      artifact_size:
+        snapshot.rendered_outputs
+        |> Enum.flat_map(fn {_list, outputs} -> Map.values(outputs) end)
+        |> Enum.reduce(0, &(&1.content_length + &2)),
+      input_rule_count: 3,
+      output_rule_count: 3,
+      duplicate_count: 0,
+      collapsed_count: 0,
+      conflict_count: 0,
+      invalid_count: 2,
+      unsupported_count: 1
+    }
+
+    assert_receive {:publication_telemetry, [:gsmlg, :proxy_rules, :compile, :stop],
+                    compile_measurements, %{}}
+
+    assert %{duration: duration} = compile_measurements
+    assert duration >= 0
+    assert Map.delete(compile_measurements, :duration) == expected
+
+    assert_receive {:publication_telemetry, [:gsmlg, :proxy_rules, :artifact, :publication],
+                    ^expected, %{}}
+
+    for diagnostic <- snapshot.diagnostics do
+      assert_receive {:publication_telemetry, [:gsmlg, :proxy_rules, :diagnostic, kind, :sample],
+                      %{generation: 1}, %{source: source}}
+
+      assert kind == diagnostic.kind
+      assert source == diagnostic.source
+
+      assert_receive {:publication_telemetry, [:gsmlg, :log], %{level: :info},
+                      %{category: ^kind, source: ^source, sample: sample}}
+
+      assert byte_size(sample) <= 512
+      assert String.valid?(sample)
+    end
+  end
+
+  @tag :tmp_dir
+  test "zero-accepted remote replacement preserves the published generation and durable cache",
+       %{tmp_dir: dir} = context do
+    name = String.to_atom("coordinator_remote_integration_#{System.unique_integer([:positive])}")
+    config = %{configuration() | state_directory: dir, remote_max_body_size: 4_096}
+
+    remote =
+      start_supervised!(
+        %{
+          id: {GSMLG.ProxyRules.Source.Remote, name},
+          start:
+            {GSMLG.ProxyRules.Source.Remote, :start_link,
+             [
+               [
+                 config: config,
+                 transport: GSMLG.ProxyRules.CoordinatorIntegrationTransport,
+                 transport_options: [test_process: self()],
+                 notify: name,
+                 task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
+                 initial_fetch: false,
+                 scheduler: fn _server, _message, _delay -> make_ref() end,
+                 cancel_timer: fn _reference -> true end,
+                 now: fn -> @now end
+               ]
+             ]}
+        },
+        restart: :temporary
+      )
+
+    Agent.update(context.local, fn _ ->
+      %{
+        proxy: source(:local_proxy, "proxy.example\n"),
+        direct: source(:local_direct, "direct.example\n")
+      }
+    end)
+
+    :ok = GenServer.stop(context.coordinator)
+
+    coordinator =
+      start_supervised!(
+        %{
+          id: name,
+          start:
+            {Coordinator, :start_link,
+             [
+               [
+                 name: name,
+                 configuration: config,
+                 compiler: GSMLG.ProxyRules.CoordinatorTestCompiler,
+                 compiler_options: [test_process: self()],
+                 store: {GSMLG.ProxyRules.CoordinatorTestStore, context.store},
+                 remote: {GSMLG.ProxyRules.Source.Remote, remote},
+                 local: {GSMLG.ProxyRules.CoordinatorTestLocal, context.local},
+                 task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
+                 compile_timeout: 1_000,
+                 now: fn -> @now end
+               ]
+             ]}
+        },
+        restart: :temporary
+      )
+
+    good_body = Base.encode64("||remote.example^\n")
+    assert {:ok, :accepted} = GSMLG.ProxyRules.Source.Remote.refresh(remote)
+    assert_receive {:integration_transport_request, fetch}
+    send(fetch, {:integration_transport_response, response(200, good_body)})
+
+    assert_receive {:compile_started, 1, compile, _input}, 2_000
+    finish_success(compile, 1)
+    assert {:ok, published} = store_current(context.store)
+    assert {:ok, cached, ^good_body} = Persistence.read_remote_pair(dir)
+
+    zero_accepted_body = Base.encode64("! comments only\n||path.example/path\n")
+    assert {:ok, :accepted} = GSMLG.ProxyRules.Source.Remote.refresh(remote)
+    assert_receive {:integration_transport_request, rejected_fetch}
+
+    send(
+      rejected_fetch,
+      {:integration_transport_response, response(200, zero_accepted_body)}
+    )
+
+    assert_eventually(
+      fn -> store_current(context.store) end,
+      fn
+        {:ok,
+         %Snapshot{
+           generation: 1,
+           readiness: :stale,
+           last_error: %{kind: :remote, reason: :no_accepted_rules}
+         }} ->
+          true
+
+        _other ->
+          false
+      end
+    )
+
+    assert {:ok, retained} = store_current(context.store)
+    assert retained.generation == published.generation
+    assert retained.source_versions == published.source_versions
+    assert retained.rendered_outputs == published.rendered_outputs
+    assert {:ok, ^cached, ^good_body} = Persistence.read_remote_pair(dir)
+    refute_receive {:compile_started, 2, _, _}, 50
     assert Process.alive?(coordinator)
   end
 
@@ -1459,6 +1675,8 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
         do_assert_eventually(fun, predicate, deadline)
     end
   end
+
+  defp response(status, body), do: {:ok, %{status: status, headers: [], body: body}}
 
   defp sha256(content), do: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
 end

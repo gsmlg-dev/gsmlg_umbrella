@@ -33,6 +33,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
           | :persistence_failed
           | :configuration_unavailable
           | :unexpected_status
+          | :no_accepted_rules
           | :compile_failed
           | :compile_timeout
           | :task_crash
@@ -102,6 +103,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
     :persistence_failed,
     :configuration_unavailable,
     :unexpected_status,
+    :no_accepted_rules,
     :compile_failed,
     :compile_timeout,
     :task_crash,

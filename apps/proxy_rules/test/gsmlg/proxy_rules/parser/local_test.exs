@@ -77,6 +77,20 @@ defmodule GSMLG.ProxyRules.Parser.LocalTest do
              )
   end
 
+  test "bounds multibyte diagnostic samples to valid UTF-8 within 512 bytes" do
+    invalid = String.duplicate("界", 300) <> "_bad"
+
+    assert %ParseResult{
+             counts: %{accepted: 0, invalid: 1, unsupported: 0},
+             diagnostics: [%Diagnostic{sample: sample}]
+           } = Local.parse(invalid, :proxy, :local_proxy, 1)
+
+    assert byte_size(sample) <= 512
+    assert String.valid?(sample)
+    assert String.ends_with?(sample, "...[truncated]")
+    refute sample == invalid
+  end
+
   test "ignores whitespace-only and indented comment lines" do
     result = Local.parse(" \t\n  # comment\n\t! comment\nexample.com", :proxy, :local_proxy, 1)
 

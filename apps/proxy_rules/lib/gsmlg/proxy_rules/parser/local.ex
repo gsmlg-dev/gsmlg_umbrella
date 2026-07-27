@@ -5,6 +5,9 @@ defmodule GSMLG.ProxyRules.Parser.Local do
 
   alias GSMLG.ProxyRules.{Diagnostic, Domain, ParseResult, Rule}
 
+  @diagnostic_sample_max_bytes 512
+  @truncation_marker "...[truncated]"
+
   @spec parse(binary(), Rule.action(), Rule.source(), non_neg_integer()) :: ParseResult.t()
   def parse(text, action, source, sample_limit)
       when is_binary(text) and action in [:proxy, :direct] and
@@ -42,7 +45,7 @@ defmodule GSMLG.ProxyRules.Parser.Local do
             source: source,
             location: location,
             reason: reason,
-            sample: raw_line
+            sample: bounded_sample(raw_line)
           }
 
           %{
@@ -62,6 +65,25 @@ defmodule GSMLG.ProxyRules.Parser.Local do
 
   defp retain_sample(diagnostics, diagnostic, sample_limit) do
     if length(diagnostics) < sample_limit, do: [diagnostic | diagnostics], else: diagnostics
+  end
+
+  defp bounded_sample(raw) when byte_size(raw) <= @diagnostic_sample_max_bytes, do: raw
+
+  defp bounded_sample(raw) do
+    prefix_size = @diagnostic_sample_max_bytes - byte_size(@truncation_marker)
+
+    raw
+    |> binary_part(0, prefix_size)
+    |> trim_incomplete_utf8()
+    |> Kernel.<>(@truncation_marker)
+  end
+
+  defp trim_incomplete_utf8(prefix) do
+    if String.valid?(prefix) do
+      prefix
+    else
+      trim_incomplete_utf8(binary_part(prefix, 0, byte_size(prefix) - 1))
+    end
   end
 
   defp reverse_collections(result) do

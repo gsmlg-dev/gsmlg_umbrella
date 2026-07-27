@@ -376,14 +376,17 @@ defmodule GSMLG.ProxyRules.Coordinator do
     if snapshot.generation == active.generation do
       case store_commit_if_current(state.store, token, active.authority_revision) do
         :ok ->
+          measurements = publication_measurements(snapshot)
+
           _ =
             Telemetry.emit(
               [:compile, :stop],
-              %{generation: snapshot.generation, duration: duration},
+              Map.put(measurements, :duration, duration),
               %{}
             )
 
-          _ = Telemetry.emit([:artifact, :publication], %{generation: snapshot.generation}, %{})
+          _ = Telemetry.emit([:artifact, :publication], measurements, %{})
+          emit_diagnostic_samples(snapshot, state.configuration.unsupported_rule_sample_limit)
 
           state
           |> Map.put(:current, {:ok, snapshot})
@@ -584,6 +587,44 @@ defmodule GSMLG.ProxyRules.Coordinator do
 
   defp result_token({:ok, token, %Snapshot{}, _started}), do: token
   defp result_token(_result), do: nil
+
+  defp publication_measurements(snapshot) do
+    source_counts = Map.values(snapshot.statistics.sources)
+
+    %{
+      generation: snapshot.generation,
+      artifact_size: artifact_size(snapshot.rendered_outputs),
+      input_rule_count: Enum.reduce(source_counts, 0, &(&1.accepted + &2)),
+      output_rule_count:
+        snapshot.statistics.proxy_rule_count + snapshot.statistics.direct_rule_count,
+      duplicate_count: snapshot.statistics.duplicate_count,
+      collapsed_count: snapshot.statistics.collapsed_count,
+      conflict_count: snapshot.statistics.conflict_count,
+      invalid_count: Enum.reduce(source_counts, 0, &(&1.invalid + &2)),
+      unsupported_count: Enum.reduce(source_counts, 0, &(&1.unsupported + &2))
+    }
+  end
+
+  defp artifact_size(rendered_outputs) do
+    rendered_outputs
+    |> Enum.flat_map(fn {_list, outputs} -> Map.values(outputs) end)
+    |> Enum.reduce(0, &(&1.content_length + &2))
+  end
+
+  defp emit_diagnostic_samples(snapshot, limit) do
+    snapshot.diagnostics
+    |> Enum.with_index()
+    |> Enum.each(fn {diagnostic, index} ->
+      _ =
+        Telemetry.emit(
+          [:diagnostic, diagnostic.kind, :sample],
+          %{generation: snapshot.generation},
+          %{source: diagnostic.source}
+        )
+
+      _ = Telemetry.sample_log(:info, diagnostic, index, limit)
+    end)
+  end
 
   defp compiler_input(state) do
     %{

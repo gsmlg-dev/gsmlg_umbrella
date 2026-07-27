@@ -650,7 +650,8 @@ defmodule GSMLG.Config.Schema do
         with {:ok, config_list} <- to_options(config) do
           case NimbleOptions.validate(config_list, schema) do
             {:ok, validated} ->
-              {:ok, Map.new(validated)}
+              section
+              |> validate_section_contract(Map.new(validated))
 
             {:error, %NimbleOptions.ValidationError{} = error} ->
               {:error, Exception.message(error)}
@@ -732,6 +733,22 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:storage), do: @storage_schema
   defp get_section_schema(:i18n), do: @i18n_schema
   defp get_section_schema(_), do: nil
+
+  defp validate_section_contract(:proxy_rules, settings) do
+    cond do
+      settings.unsupported_rule_sample_limit > 1_000 ->
+        {:error, "invalid unsupported_rule_sample_limit: expected an integer from 0 to 1000"}
+
+      settings.retry_max_interval < settings.retry_min_interval ->
+        {:error,
+         "invalid retry interval range: retry_max_interval must be greater than or equal to retry_min_interval"}
+
+      true ->
+        {:ok, settings}
+    end
+  end
+
+  defp validate_section_contract(_section, settings), do: {:ok, settings}
 
   defp validate_nested(config, _schema) when not is_map(config) do
     {:error, "expected a map, got: #{inspect(config)}"}

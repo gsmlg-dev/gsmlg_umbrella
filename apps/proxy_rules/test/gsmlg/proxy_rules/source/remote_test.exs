@@ -136,6 +136,29 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   end
 
   @tag :tmp_dir
+  test "a valid response with zero accepted rules cannot replace the remote cache", %{
+    tmp_dir: dir
+  } do
+    good = Base.encode64("||example.com^\n")
+    zero_accepted = Base.encode64("! comments only\n/path-specific.example/path\n")
+    server = start_remote(dir, [response(200, good), response(200, zero_accepted)])
+
+    assert {:ok, :accepted} = Remote.refresh(server)
+    assert_receive {:proxy_rules_source, :remote, original}, 1_000
+    assert {:ok, original_cache, original_body} = Persistence.read_remote_pair(dir)
+
+    assert {:ok, :accepted} = Remote.refresh(server)
+
+    assert_receive {:proxy_rules_source_status, :remote, :stale, :no_accepted_rules}, 1_000
+    refute_receive {:proxy_rules_source, :remote, _}, 30
+    refute_receive {:proxy_rules_source_fresh, :remote, _}, 30
+
+    assert %SourceSnapshot{content_sha256: hash} = Remote.snapshot(server)
+    assert hash == original.content_sha256
+    assert {:ok, ^original_cache, ^original_body} = Persistence.read_remote_pair(dir)
+  end
+
+  @tag :tmp_dir
   test "persistence failure and task crash retain state and schedule retry", %{tmp_dir: dir} do
     body = Base.encode64("example.com\n")
     server = start_remote(dir, [response(200, body), :crash], persistence: FailingPersistence)
@@ -267,6 +290,19 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
                    1_000
 
     assert_receive {:scheduled, 10, _}
+  end
+
+  @tag :tmp_dir
+  test "restore rejects a checksummed cache with zero accepted rules", %{tmp_dir: dir} do
+    content = "! comments only\n/path-specific.example/path\n"
+    body = Base.encode64(content)
+    snapshot = source_snapshot(content, %{etag: ~s("cached"), last_modified: nil})
+    assert :ok = Persistence.write_remote(dir, body, snapshot)
+
+    server = start_remote(dir, [], initial_fetch: false)
+
+    assert nil == Remote.snapshot(server)
+    refute_receive {:proxy_rules_source, :remote, _}, 50
   end
 
   @tag :tmp_dir

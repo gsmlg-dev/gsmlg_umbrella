@@ -53,6 +53,27 @@ defmodule GSMLG.ProxyRules.OperationalTest do
                "ConfigurationDirectoryMode=0750\n" <>
                "StateDirectory=gsmlg/proxy-rules\n" <>
                "StateDirectoryMode=0750"
+
+    assert deploy =~
+             "sudo --user=gsmlg --group=gsmlg -- \\\n" <>
+               "  env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml"
+
+    assert deploy =~ "/opt/gsmlg/gsmlg/bin/gsmlg_umbrella start"
+
+    assert deploy =~
+             "sudo --set-home --user=gsmlg --group=gsmlg -- \\\n" <>
+               "  /opt/gsmlg/commander/bin/gsmlg_commander start"
+
+    assert deploy =~
+             "sudo --user=gsmlg --group=gsmlg -- \\\n" <>
+               "  env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_scout_agent.toml \\\n" <>
+               "  /opt/gsmlg/gsmlg_scout_agent/bin/gsmlg_scout_agent start"
+
+    assert deploy =~
+             "sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/mnesia /var/log/gsmlg"
+
+    refute deploy =~
+             ~r/sudo GSMLG_CONFIG_PATH=.*\n(?:.*\\\n){0,5}\s*\/opt\/gsmlg\/gsmlg\/bin\/gsmlg_umbrella (?:start|daemon)/
   end
 
   test "one benchmark compilation reports positive operational measurements" do

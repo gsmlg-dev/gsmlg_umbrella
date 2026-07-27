@@ -82,6 +82,23 @@ defmodule GSMLG.ProxyRules.ConfigurationTest do
              Configuration.new(%{@settings | remote_max_body_size: above_ceiling})
   end
 
+  test "caps persisted diagnostic samples at one thousand" do
+    assert {:ok, %Configuration{unsupported_rule_sample_limit: 1_000}} =
+             Configuration.new(%{@settings | unsupported_rule_sample_limit: 1_000})
+
+    assert {:error, {:invalid_setting, :unsupported_rule_sample_limit}} =
+             Configuration.new(%{@settings | unsupported_rule_sample_limit: 1_001})
+  end
+
+  test "rejects a retry range whose maximum is below its minimum" do
+    assert {:error, {:invalid_setting, :retry_interval_range}} =
+             Configuration.new(%{
+               @settings
+               | retry_min_interval: 1_001,
+                 retry_max_interval: 1_000
+             })
+  end
+
   test "declares diagnostic sample limit as a non-negative integer" do
     assert {:ok, types} = Code.Typespec.fetch_types(Configuration)
     assert {:type, {:t, type, []}} = List.keyfind(types, :type, 0)
@@ -97,7 +114,7 @@ defmodule GSMLG.ProxyRules.ConfigurationTest do
                  false
              end)
 
-    assert {:type, _, :non_neg_integer, []} = declared_type
+    assert {:type, _, :range, [{:integer, _, 0}, {:integer, _, 1_000}]} = declared_type
   end
 
   test "declares the remote body limit as bounded by the persistence ceiling" do

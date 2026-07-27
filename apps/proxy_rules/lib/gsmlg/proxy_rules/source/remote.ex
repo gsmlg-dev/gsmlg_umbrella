@@ -14,6 +14,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
           | :not_modified_without_cache
           | :invalid_base64
           | :invalid_utf8
+          | :no_accepted_rules
           | :body_too_large
           | :persistence_failed
           | :task_crash
@@ -160,12 +161,13 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   end
 
   defp restore_cache(state) do
-    case state.persistence.read_remote(
+    case state.persistence.read_remote_pair(
            state.config.state_directory,
            persistence_read_options(state.config, state.persistence_options)
          ) do
-      {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = snapshot}
-      when source_url == state.config.source_url ->
+      {:ok, %SourceSnapshot{metadata: %{source_url: source_url}} = snapshot, body}
+      when source_url == state.config.source_url and is_binary(body) ->
+        :ok = validate_accepted_rules(body)
         restored = %{snapshot | availability: :stale}
         notify_source_change(state.notify, :remote, restored)
         %{state | source: restored}
@@ -250,8 +252,15 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
       true ->
         case GFWList.decode(body) do
-          {:ok, content} -> persist_200(body, content, validators, duration, state)
-          {:error, reason} -> fetch_failed(reason, state)
+          {:ok, content} ->
+            with :ok <- validate_accepted_rules(body) do
+              persist_200(body, content, validators, duration, state)
+            else
+              {:error, reason} -> fetch_failed(reason, state)
+            end
+
+          {:error, reason} ->
+            fetch_failed(reason, state)
         end
     end
   end
@@ -394,6 +403,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
        when reason in [
               :invalid_base64,
               :invalid_utf8,
+              :no_accepted_rules,
               :body_too_large,
               :persistence_failed,
               :task_crash
@@ -404,6 +414,14 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     if GSMLG.ProxyRules.Transport.valid_error_reason?(reason),
       do: reason,
       else: :unexpected_status
+  end
+
+  defp validate_accepted_rules(body) do
+    case GFWList.parse(body, 0) do
+      {:ok, %{counts: %{accepted: accepted}}, _metadata} when accepted > 0 -> :ok
+      {:ok, _result, _metadata} -> {:error, :no_accepted_rules}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp schedule(state, delay) do
