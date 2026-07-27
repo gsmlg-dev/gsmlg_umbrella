@@ -9,6 +9,7 @@ defmodule GSMLG.ProxyRules.Persistence do
     SourceSnapshot,
     Transport
   }
+
   alias GSMLG.ProxyRules.Parser.GFWList
 
   @artifact_file "artifact.snapshot"
