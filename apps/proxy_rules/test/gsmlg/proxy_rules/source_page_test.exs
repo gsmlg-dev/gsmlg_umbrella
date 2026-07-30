@@ -130,6 +130,21 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
              )
   end
 
+  test "counts valid non-ASCII text at its emitted UTF-8 byte size" do
+    line = String.duplicate("例", 20_000)
+    byte_limit = 256 * 1024
+
+    assert byte_size(line) == 60_000
+
+    assert {:ok, %{lines: [^line]} = page} =
+             SourcePage.page(:remote_gfwlist, snapshot(line), nil,
+               line_limit: 1,
+               byte_limit: byte_limit
+             )
+
+    assert byte_size(JSON.encode!(page)) <= byte_limit
+  end
+
   test "stops before a line that would exceed the page byte limit" do
     one = String.duplicate("a", 100)
     two = String.duplicate("b", 100)

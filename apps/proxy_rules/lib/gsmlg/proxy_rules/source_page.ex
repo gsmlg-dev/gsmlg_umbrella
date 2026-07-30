@@ -300,9 +300,23 @@ defmodule GSMLG.ProxyRules.SourcePage do
        when byte in [?", ?\\, ?\b, ?\t, ?\n, ?\f, ?\r],
        do: json_string_size(rest, size + 2)
 
-  defp json_string_size(<<byte, rest::binary>>, size) when byte < 0x20 or byte >= 0x80,
+  defp json_string_size(<<byte, rest::binary>>, size) when byte < 0x20,
     do: json_string_size(rest, size + 6)
 
-  defp json_string_size(<<_byte, rest::binary>>, size),
+  defp json_string_size(<<codepoint::utf8, rest::binary>>, size) when codepoint >= 0x80 do
+    encoded_size =
+      cond do
+        codepoint <= 0x7FF -> 2
+        codepoint <= 0xFFFF -> 3
+        true -> 4
+      end
+
+    json_string_size(rest, size + encoded_size)
+  end
+
+  defp json_string_size(<<byte, rest::binary>>, size) when byte < 0x80,
     do: json_string_size(rest, size + 1)
+
+  defp json_string_size(<<_invalid_byte, rest::binary>>, size),
+    do: json_string_size(rest, size + 6)
 end
