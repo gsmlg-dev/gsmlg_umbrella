@@ -419,6 +419,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
       content: content,
       content_sha256: hash,
       observed_at: observed_at,
+      line_count: SourceSnapshot.count_lines(content),
       metadata: %{
         path: target.path,
         last_success_at: if(availability == :ready, do: observed_at, else: nil)
@@ -474,6 +475,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
       content: "",
       content_sha256: sha256(""),
       observed_at: observed_at,
+      line_count: 0,
       metadata: %{path: target.path, last_success_at: nil},
       availability: :stale
     }

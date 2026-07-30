@@ -289,6 +289,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       content: content,
       content_sha256: hash,
       observed_at: fetched_at,
+      line_count: SourceSnapshot.count_lines(content),
       metadata: %{
         source_url: state.config.source_url,
         etag: validators.etag,

@@ -158,6 +158,7 @@ defmodule GSMLG.ProxyRules.Persistence do
          content: content,
          content_sha256: metadata.decoded_sha256,
          observed_at: metadata.observed_at,
+         line_count: SourceSnapshot.count_lines(content),
          metadata: %{
            source_url: metadata.source_url,
            etag: metadata.etag,

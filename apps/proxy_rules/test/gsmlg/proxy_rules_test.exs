@@ -2,7 +2,7 @@ defmodule GSMLG.ProxyRulesTest do
   use ExUnit.Case, async: false
 
   alias GSMLG.ProxyRules
-  alias GSMLG.ProxyRules.{Compiler, Output, Store}
+  alias GSMLG.ProxyRules.{Compiler, Coordinator, Output, SourceSnapshot, Store}
 
   test "returns not-ready for every valid artifact lookup before publication" do
     for list <- [:proxy, :direct], format <- [:raw, :squid, :clash] do
@@ -118,6 +118,31 @@ defmodule GSMLG.ProxyRulesTest do
     assert {:ok, :accepted} == ProxyRules.refresh()
   end
 
+  test "pages only remote GFWList and local proxy source snapshots through the facade" do
+    prior = :sys.get_state(Coordinator)
+
+    on_exit(fn ->
+      :sys.replace_state(Coordinator, fn _state -> prior end)
+    end)
+
+    :sys.replace_state(Coordinator, fn state ->
+      %{
+        state
+        | remote: source(:remote, "||example.com^\n"),
+          local_proxy: source(:local_proxy, "proxy.example\n")
+      }
+    end)
+
+    assert {:ok, %{source: :remote_gfwlist, total_lines: 1, lines: ["||example.com^"]}} =
+             ProxyRules.get_source_page(:remote_gfwlist, nil, line_limit: 10)
+
+    assert {:ok, %{source: :local_proxy, total_lines: 1, lines: ["proxy.example"]}} =
+             ProxyRules.get_source_page(:local_proxy, nil, line_limit: 10)
+
+    assert {:error, :not_found} =
+             ProxyRules.get_source_page(:local_direct, nil, [])
+  end
+
   test "reports refresh unavailable while the coordinator is unavailable" do
     assert :ok =
              Supervisor.terminate_child(
@@ -137,7 +162,20 @@ defmodule GSMLG.ProxyRulesTest do
     end)
 
     assert {:error, :not_available} == ProxyRules.refresh()
+    assert {:error, :not_available} == ProxyRules.get_source_page(:remote_gfwlist)
     assert {:ok, metadata} = ProxyRules.metadata()
     refute Map.has_key?(metadata, :sources)
+  end
+
+  defp source(kind, content) do
+    %SourceSnapshot{
+      kind: kind,
+      content: content,
+      content_sha256: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower),
+      observed_at: ~U[2026-07-31 00:00:00Z],
+      line_count: SourceSnapshot.count_lines(content),
+      metadata: %{},
+      availability: :ready
+    }
   end
 end

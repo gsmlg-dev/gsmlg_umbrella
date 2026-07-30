@@ -14,8 +14,10 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
 
     assert :ok = Persistence.write_remote(dir, body, snapshot)
     assert File.read!(Path.join(dir, "remote.body")) == body
-    assert {:ok, ^snapshot} = Persistence.read_remote(dir)
-    assert {:ok, ^snapshot, ^body} = Persistence.read_remote_pair(dir)
+    assert {:ok, %SourceSnapshot{line_count: 1} = ^snapshot} = Persistence.read_remote(dir)
+
+    assert {:ok, %SourceSnapshot{line_count: 1} = ^snapshot, ^body} =
+             Persistence.read_remote_pair(dir)
 
     assert {:error, :invalid_snapshot} =
              Persistence.write_remote(dir, Base.encode64("different.example\n"), snapshot)
@@ -657,6 +659,7 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
       content: content,
       content_sha256: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower),
       observed_at: @compiled_at,
+      line_count: SourceSnapshot.count_lines(content),
       metadata: %{
         source_url: "https://example.test/list",
         etag: ~s("tag"),

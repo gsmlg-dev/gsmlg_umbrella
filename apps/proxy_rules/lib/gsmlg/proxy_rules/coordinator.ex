@@ -32,6 +32,16 @@ defmodule GSMLG.ProxyRules.Coordinator do
   @spec source_metadata(GenServer.server()) :: map() | {:error, :not_available}
   def source_metadata(server \\ __MODULE__), do: safe_call(server, :source_metadata)
 
+  @spec source_snapshot(:remote_gfwlist | :local_proxy, GenServer.server()) ::
+          {:ok, SourceSnapshot.t()} | {:error, :not_found | :not_available}
+  def source_snapshot(source, server \\ __MODULE__)
+
+  def source_snapshot(source, server) when source in [:remote_gfwlist, :local_proxy] do
+    safe_call(server, {:source_snapshot, source})
+  end
+
+  def source_snapshot(_source, _server), do: {:error, :not_found}
+
   @impl true
   def init(options) do
     with {:ok, config} <- configuration(options),
@@ -121,6 +131,26 @@ defmodule GSMLG.ProxyRules.Coordinator do
     }
 
     {:reply, metadata, state}
+  end
+
+  def handle_call({:source_snapshot, source}, _from, state) do
+    snapshot =
+      case source do
+        :remote_gfwlist -> state.remote
+        :local_proxy -> state.local_proxy
+      end
+
+    result =
+      case snapshot do
+        %SourceSnapshot{availability: availability} = snapshot
+        when availability in [:ready, :stale] ->
+          {:ok, snapshot}
+
+        _missing ->
+          {:error, :not_found}
+      end
+
+    {:reply, result, state}
   end
 
   @impl true
@@ -772,6 +802,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
       label: source_label(kind),
       availability: :missing,
       version: nil,
+      line_count: 0,
       observed_at: nil,
       last_success_at: nil
     }
@@ -788,6 +819,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
       label: source_label(kind),
       availability: availability,
       version: if(availability == :missing, do: nil, else: bounded_hash(snapshot.content_sha256)),
+      line_count: snapshot.line_count,
       observed_at: valid_datetime(snapshot.observed_at),
       last_success_at: source_last_success_at(kind, availability, snapshot)
     }

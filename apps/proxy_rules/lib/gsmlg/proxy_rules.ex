@@ -1,5 +1,5 @@
 defmodule GSMLG.ProxyRules do
-  alias GSMLG.ProxyRules.{Coordinator, Output, Store}
+  alias GSMLG.ProxyRules.{Coordinator, Output, SourcePage, Store}
 
   @type list_name :: :proxy | :direct
   @type renderer :: :raw | :squid | :clash
@@ -40,6 +40,25 @@ defmodule GSMLG.ProxyRules do
 
   @spec refresh() :: {:ok, :accepted} | {:error, :not_available}
   def refresh, do: Coordinator.refresh()
+
+  @spec get_source_page(:remote_gfwlist | :local_proxy, binary() | nil, keyword()) ::
+          {:ok, map()}
+          | {:error,
+             :invalid_cursor
+             | :source_changed
+             | :page_too_large
+             | :not_found
+             | :not_available}
+  def get_source_page(source, cursor \\ nil, options \\ [])
+
+  def get_source_page(source, cursor, options)
+      when source in [:remote_gfwlist, :local_proxy] and is_list(options) do
+    with {:ok, snapshot} <- Coordinator.source_snapshot(source) do
+      SourcePage.page(source, snapshot, cursor, options)
+    end
+  end
+
+  def get_source_page(_source, _cursor, _options), do: {:error, :not_found}
 
   defp safe_store_metadata do
     Store.metadata()

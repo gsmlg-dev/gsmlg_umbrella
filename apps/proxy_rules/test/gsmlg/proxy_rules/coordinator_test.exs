@@ -241,6 +241,34 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert Process.alive?(coordinator)
   end
 
+  test "returns only ready or stale viewable source snapshots", context do
+    remote = source(:remote, "||example.com^\n")
+    proxy = %{source(:local_proxy, "proxy.example\n") | availability: :stale}
+
+    send(context.coordinator, {:proxy_rules_source, :remote, remote})
+    send(context.coordinator, {:proxy_rules_source, :local_proxy, proxy})
+    _metadata = Coordinator.source_metadata(context.coordinator)
+
+    assert {:ok, %SourceSnapshot{content: "||example.com^\n"}} =
+             Coordinator.source_snapshot(:remote_gfwlist, context.coordinator)
+
+    assert {:ok, %SourceSnapshot{content: "proxy.example\n", availability: :stale}} =
+             Coordinator.source_snapshot(:local_proxy, context.coordinator)
+
+    assert {:error, :not_found} =
+             Coordinator.source_snapshot(:local_direct, context.coordinator)
+  end
+
+  test "reports missing source snapshots and stopped coordinators without exiting", context do
+    assert {:error, :not_found} =
+             Coordinator.source_snapshot(:local_proxy, context.coordinator)
+
+    :ok = GenServer.stop(context.coordinator)
+
+    assert {:error, :not_available} =
+             Coordinator.source_snapshot(:remote_gfwlist, context.coordinator)
+  end
+
   test "startup queries a finite remote restore failure missed before registration", context do
     Agent.update(context.remote, &Map.put(&1, :status, {:stale, :no_accepted_rules}))
     :ok = GenServer.stop(context.coordinator)
@@ -535,6 +563,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       content: "remote secret body",
       content_sha256: sha256("remote secret body"),
       observed_at: @now,
+      line_count: 1,
       availability: :ready,
       metadata: %{
         source_url: "https://secret.example/gfwlist.txt",
@@ -549,6 +578,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       content: "proxy secret body",
       content_sha256: sha256("proxy secret body"),
       observed_at: @now,
+      line_count: 1,
       availability: :stale,
       metadata: %{path: "/secret/proxy.txt", last_success_at: @now}
     }
@@ -558,6 +588,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       content: "never valid",
       content_sha256: sha256("never valid"),
       observed_at: @now,
+      line_count: 1,
       availability: :stale,
       metadata: %{path: "/secret/direct.txt", last_success_at: nil}
     }
@@ -571,6 +602,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
                label: "Remote GFWList",
                availability: :ready,
                version: remote_version,
+               line_count: 1,
                observed_at: @now,
                last_success_at: @now,
                etag: ~s("remote-etag"),
@@ -581,6 +613,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
                label: "Local proxy list",
                availability: :stale,
                version: local_version,
+               line_count: 1,
                observed_at: @now,
                last_success_at: @now
              },
@@ -588,6 +621,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
                label: "Local direct list",
                availability: :stale,
                version: direct_version,
+               line_count: 1,
                observed_at: @now,
                last_success_at: nil
              }
@@ -1712,6 +1746,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
       content: content,
       content_sha256: sha256(content),
       observed_at: @now,
+      line_count: SourceSnapshot.count_lines(content),
       metadata: %{},
       availability: :ready
     }

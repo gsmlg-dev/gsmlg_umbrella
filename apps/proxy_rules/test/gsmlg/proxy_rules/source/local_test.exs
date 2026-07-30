@@ -49,8 +49,8 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     server = start_local(dir)
 
     assert %{
-             proxy: %SourceSnapshot{content: "", availability: :missing},
-             direct: %SourceSnapshot{content: "", availability: :missing}
+             proxy: %SourceSnapshot{content: "", line_count: 0, availability: :missing},
+             direct: %SourceSnapshot{content: "", line_count: 0, availability: :missing}
            } = Local.snapshots(server)
 
     proxy = Path.join(dir, "proxy.txt")
@@ -62,6 +62,7 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
                     %SourceSnapshot{
                       kind: :local_proxy,
                       content: "example.com\n",
+                      line_count: 1,
                       availability: :ready,
                       metadata: %{path: ^proxy},
                       observed_at: @now,
@@ -83,9 +84,10 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert %{
              proxy: %SourceSnapshot{
                content: "# keep me\nexample.com\n! second\n",
+               line_count: 3,
                availability: :ready
              },
-             direct: %SourceSnapshot{content: "", availability: :ready}
+             direct: %SourceSnapshot{content: "", line_count: 0, availability: :ready}
            } = Local.snapshots(server)
 
     File.write!(Path.join(dir, "proxy.txt"), "# changed only\nexample.com\n")
@@ -137,7 +139,13 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
 
     assert Store.source_revision(Store) > revision
 
-    assert %{proxy: %SourceSnapshot{content: "example.com\n", availability: :stale}} =
+    assert %{
+             proxy: %SourceSnapshot{
+               content: "example.com\n",
+               line_count: 1,
+               availability: :stale
+             }
+           } =
              Local.snapshots(server)
 
     File.write!(path, "example.com\n")

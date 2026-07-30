@@ -181,13 +181,14 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert_receive {:proxy_rules_source, :remote,
                     %SourceSnapshot{
                       content: "@@||direct-only.example^\n",
+                      line_count: 1,
                       availability: :ready
                     }},
                    1_000
 
     assert :ready == Remote.status(server)
 
-    assert {:ok, %SourceSnapshot{content: "@@||direct-only.example^\n"}} =
+    assert {:ok, %SourceSnapshot{content: "@@||direct-only.example^\n", line_count: 1}} =
              Persistence.read_remote(dir)
   end
 
