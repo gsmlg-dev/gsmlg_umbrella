@@ -24,7 +24,7 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
             }} =
              SourcePage.page(:remote_gfwlist, snapshot, nil,
                line_limit: 2,
-               byte_limit: 64
+               byte_limit: 1_024
              )
 
     assert is_binary(cursor)
@@ -39,7 +39,7 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
             }} =
              SourcePage.page(:remote_gfwlist, snapshot, cursor,
                line_limit: 2,
-               byte_limit: 64
+               byte_limit: 1_024
              )
   end
 
@@ -116,14 +116,36 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
              )
   end
 
+  test "rejects a line whose JSON escaping expands the encoded page beyond the byte limit" do
+    line = String.duplicate("\"\\\u0001", 100)
+    byte_limit = 700
+
+    assert byte_size(line) < byte_limit
+    assert byte_size(JSON.encode!(%{lines: [line]})) > byte_limit
+
+    assert {:error, :page_too_large} =
+             SourcePage.page(:remote_gfwlist, snapshot(line), nil,
+               line_limit: 2,
+               byte_limit: byte_limit
+             )
+  end
+
   test "stops before a line that would exceed the page byte limit" do
-    snapshot = snapshot("one\ntwo\nthree\n")
+    one = String.duplicate("a", 100)
+    two = String.duplicate("b", 100)
+    three = String.duplicate("c", 100)
+    snapshot = snapshot(Enum.join([one, two, three], "\n"))
 
-    assert {:ok, %{lines: ["one"], start_line: 1, has_more: true, next_cursor: cursor}} =
-             SourcePage.page(:local_proxy, snapshot, nil, line_limit: 10, byte_limit: 7)
+    assert {:ok,
+            %{lines: [^one], start_line: 1, has_more: true, next_cursor: cursor} = first_page} =
+             SourcePage.page(:local_proxy, snapshot, nil, line_limit: 10, byte_limit: 500)
 
-    assert {:ok, %{lines: ["two"], start_line: 2, has_more: true}} =
-             SourcePage.page(:local_proxy, snapshot, cursor, line_limit: 10, byte_limit: 7)
+    assert byte_size(JSON.encode!(first_page)) <= 500
+
+    assert {:ok, %{lines: [^two, ^three], start_line: 2, has_more: false} = final_page} =
+             SourcePage.page(:local_proxy, snapshot, cursor, line_limit: 10, byte_limit: 500)
+
+    assert byte_size(JSON.encode!(final_page)) <= 500
   end
 
   test "counts empty, newline-terminated, and unterminated source content" do

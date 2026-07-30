@@ -23,7 +23,14 @@ defmodule GSMLG.ProxyRules.SourcePage do
 
     with {:ok, offset, start_line} <- cursor_position(cursor, snapshot),
          {:ok, lines, next_offset, next_line} <-
-           collect_lines(snapshot.content, offset, start_line, line_limit, byte_limit) do
+           collect_lines(
+             source,
+             snapshot,
+             offset,
+             start_line,
+             line_limit,
+             byte_limit
+           ) do
       has_more = next_offset < byte_size(snapshot.content)
 
       {:ok,
@@ -92,38 +99,129 @@ defmodule GSMLG.ProxyRules.SourcePage do
 
   defp valid_position(_content, _offset, _line), do: :error
 
-  defp collect_lines(content, offset, line, line_limit, byte_limit) do
-    collect_lines(content, offset, line, line_limit, byte_limit, 0, [])
+  defp collect_lines(source, snapshot, offset, line, line_limit, byte_limit) do
+    collect_lines(source, snapshot, offset, line, line_limit, byte_limit, 2, [])
   end
 
-  defp collect_lines(content, offset, line, _line_limit, _byte_limit, _bytes, lines)
-       when offset == byte_size(content),
-       do: {:ok, Enum.reverse(lines), offset, line}
+  defp collect_lines(
+         source,
+         snapshot,
+         offset,
+         line,
+         _line_limit,
+         byte_limit,
+         encoded_lines_size,
+         lines
+       )
+       when offset == byte_size(snapshot.content) do
+    finish_page(
+      source,
+      snapshot,
+      offset,
+      line,
+      byte_limit,
+      encoded_lines_size,
+      lines
+    )
+  end
 
-  defp collect_lines(_content, offset, line, 0, _byte_limit, _bytes, lines),
-    do: {:ok, Enum.reverse(lines), offset, line}
+  defp collect_lines(
+         source,
+         snapshot,
+         offset,
+         line,
+         0,
+         byte_limit,
+         encoded_lines_size,
+         lines
+       ) do
+    finish_page(
+      source,
+      snapshot,
+      offset,
+      line,
+      byte_limit,
+      encoded_lines_size,
+      lines
+    )
+  end
 
-  defp collect_lines(content, offset, line, line_limit, byte_limit, bytes, lines) do
-    {line_text, next_offset} = next_line(content, offset)
-    consumed = next_offset - offset
+  defp collect_lines(
+         source,
+         snapshot,
+         offset,
+         line,
+         line_limit,
+         byte_limit,
+         encoded_lines_size,
+         lines
+       ) do
+    {line_text, next_offset} = next_line(snapshot.content, offset)
+
+    candidate_lines_size =
+      encoded_lines_size + json_string_size(line_text) + if(lines == [], do: 0, else: 1)
+
+    candidate_size =
+      encoded_page_size(
+        source,
+        snapshot,
+        line - length(lines),
+        candidate_lines_size,
+        next_offset,
+        line + 1
+      )
 
     cond do
-      consumed > byte_limit and lines == [] ->
-        {:error, :page_too_large}
-
-      bytes + consumed > byte_limit ->
-        {:ok, Enum.reverse(lines), offset, line}
-
-      true ->
+      candidate_size <= byte_limit ->
         collect_lines(
-          content,
+          source,
+          snapshot,
           next_offset,
           line + 1,
           line_limit - 1,
           byte_limit,
-          bytes + consumed,
+          candidate_lines_size,
           [line_text | lines]
         )
+
+      lines == [] ->
+        {:error, :page_too_large}
+
+      true ->
+        finish_page(
+          source,
+          snapshot,
+          offset,
+          line,
+          byte_limit,
+          encoded_lines_size,
+          lines
+        )
+    end
+  end
+
+  defp finish_page(
+         source,
+         snapshot,
+         offset,
+         line,
+         byte_limit,
+         encoded_lines_size,
+         lines
+       ) do
+    start_line = line - length(lines)
+
+    if encoded_page_size(
+         source,
+         snapshot,
+         start_line,
+         encoded_lines_size,
+         offset,
+         line
+       ) <= byte_limit do
+      {:ok, Enum.reverse(lines), offset, line}
+    else
+      {:error, :page_too_large}
     end
   end
 
@@ -142,4 +240,69 @@ defmodule GSMLG.ProxyRules.SourcePage do
   defp encode_cursor(version, offset, line) do
     Base.url_encode64("#{version}:#{offset}:#{line}", padding: false)
   end
+
+  defp encoded_page_size(
+         source,
+         snapshot,
+         start_line,
+         encoded_lines_size,
+         next_offset,
+         next_line
+       ) do
+    has_more = next_offset < byte_size(snapshot.content)
+
+    next_cursor_size =
+      if has_more do
+        snapshot.content_sha256
+        |> encode_cursor(next_offset, next_line)
+        |> json_string_size()
+      else
+        byte_size("null")
+      end
+
+    last_success_at =
+      Map.get(snapshot.metadata, :last_success_at) ||
+        Map.get(snapshot.metadata, :fetched_at)
+
+    values = [
+      source: json_string_size(Atom.to_string(source)),
+      version: json_string_size(snapshot.content_sha256),
+      availability: json_string_size(Atom.to_string(snapshot.availability)),
+      observed_at: json_value_size(snapshot.observed_at),
+      last_success_at: json_value_size(last_success_at),
+      total_lines: integer_size(snapshot.line_count),
+      start_line: integer_size(start_line),
+      lines: encoded_lines_size,
+      next_cursor: next_cursor_size,
+      has_more: if(has_more, do: byte_size("true"), else: byte_size("false"))
+    ]
+
+    2 +
+      length(values) - 1 +
+      Enum.reduce(values, 0, fn {key, value_size}, total ->
+        total + json_string_size(Atom.to_string(key)) + 1 + value_size
+      end)
+  end
+
+  defp json_value_size(nil), do: byte_size("null")
+
+  defp json_value_size(%DateTime{} = datetime),
+    do: datetime |> DateTime.to_iso8601() |> json_string_size()
+
+  defp integer_size(value) when is_integer(value),
+    do: value |> Integer.to_string() |> byte_size()
+
+  defp json_string_size(value) when is_binary(value), do: json_string_size(value, 2)
+
+  defp json_string_size(<<>>, size), do: size
+
+  defp json_string_size(<<byte, rest::binary>>, size)
+       when byte in [?", ?\\, ?\b, ?\t, ?\n, ?\f, ?\r],
+       do: json_string_size(rest, size + 2)
+
+  defp json_string_size(<<byte, rest::binary>>, size) when byte < 0x20 or byte >= 0x80,
+    do: json_string_size(rest, size + 6)
+
+  defp json_string_size(<<_byte, rest::binary>>, size),
+    do: json_string_size(rest, size + 1)
 end
