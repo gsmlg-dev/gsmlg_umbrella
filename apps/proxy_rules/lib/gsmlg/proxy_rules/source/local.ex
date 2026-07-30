@@ -413,13 +413,15 @@ defmodule GSMLG.ProxyRules.Source.Local do
   defp accept_source(slot, target, content, availability, entry, state) do
     observed_at = state.now.()
     hash = sha256(content)
+    {line_count, line_checkpoints} = SourceSnapshot.line_metadata(content)
 
     snapshot = %SourceSnapshot{
       kind: target.kind,
       content: content,
       content_sha256: hash,
       observed_at: observed_at,
-      line_count: SourceSnapshot.count_lines(content),
+      line_count: line_count,
+      line_checkpoints: line_checkpoints,
       metadata: %{
         path: target.path,
         last_success_at: if(availability == :ready, do: observed_at, else: nil)

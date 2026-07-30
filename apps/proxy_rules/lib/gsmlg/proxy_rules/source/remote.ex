@@ -283,13 +283,15 @@ defmodule GSMLG.ProxyRules.Source.Remote do
   defp persist_200(body, content, validators, duration, state) do
     fetched_at = state.now.()
     hash = sha256(content)
+    {line_count, line_checkpoints} = SourceSnapshot.line_metadata(content)
 
     snapshot = %SourceSnapshot{
       kind: :remote,
       content: content,
       content_sha256: hash,
       observed_at: fetched_at,
-      line_count: SourceSnapshot.count_lines(content),
+      line_count: line_count,
+      line_checkpoints: line_checkpoints,
       metadata: %{
         source_url: state.config.source_url,
         etag: validators.etag,

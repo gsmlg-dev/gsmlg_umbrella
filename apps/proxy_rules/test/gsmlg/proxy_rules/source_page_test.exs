@@ -106,6 +106,27 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
              SourcePage.page(:remote_gfwlist, changed, cursor, [])
   end
 
+  test "validates a late cursor from a bounded immutable line checkpoint" do
+    content = String.duplicate("x\n", 10_000)
+    {line_count, checkpoints} = SourceSnapshot.line_metadata(content)
+    snapshot = %{snapshot(content) | line_count: line_count, line_checkpoints: checkpoints}
+    start_line = 9_001
+    offset = (start_line - 1) * 2
+    cursor = encode_cursor(snapshot.content_sha256, offset, start_line)
+
+    assert tuple_size(checkpoints) > 1
+
+    assert {:ok, %{start_line: ^start_line, lines: ["x"]}} =
+             SourcePage.page(:remote_gfwlist, snapshot, cursor, line_limit: 1)
+
+    checkpoint_index = div(start_line - 1, SourceSnapshot.line_checkpoint_interval())
+    bad_checkpoints = put_elem(checkpoints, checkpoint_index, offset + 1)
+    corrupted_index = %{snapshot | line_checkpoints: bad_checkpoints}
+
+    assert {:error, :invalid_cursor} =
+             SourcePage.page(:remote_gfwlist, corrupted_index, cursor, line_limit: 1)
+  end
+
   test "never returns part of a line when one line exceeds the byte limit" do
     oversized = snapshot(String.duplicate("x", 65))
 
@@ -171,12 +192,15 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
   end
 
   defp snapshot(content, metadata \\ []) do
+    {line_count, line_checkpoints} = SourceSnapshot.line_metadata(content)
+
     %SourceSnapshot{
       kind: :remote,
       content: content,
       content_sha256: sha256(content),
       observed_at: @observed_at,
-      line_count: SourceSnapshot.count_lines(content),
+      line_count: line_count,
+      line_checkpoints: line_checkpoints,
       metadata: Map.new(metadata),
       availability: :ready
     }
@@ -184,4 +208,7 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
 
   defp sha256(content),
     do: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
+
+  defp encode_cursor(version, offset, line),
+    do: Base.url_encode64("#{version}:#{offset}:#{line}", padding: false)
 end

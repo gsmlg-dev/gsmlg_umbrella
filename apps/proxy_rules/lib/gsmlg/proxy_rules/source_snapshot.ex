@@ -5,6 +5,7 @@ defmodule GSMLG.ProxyRules.SourceSnapshot do
 
   @kinds [:remote, :local_proxy, :local_direct]
   @availabilities [:ready, :stale, :missing]
+  @line_checkpoint_interval 256
 
   @enforce_keys [:kind, :content, :content_sha256, :observed_at]
   defstruct [
@@ -13,6 +14,7 @@ defmodule GSMLG.ProxyRules.SourceSnapshot do
     :content_sha256,
     :observed_at,
     line_count: 0,
+    line_checkpoints: {0},
     metadata: %{},
     availability: :ready
   ]
@@ -37,13 +39,24 @@ defmodule GSMLG.ProxyRules.SourceSnapshot do
           content_sha256: binary(),
           observed_at: DateTime.t(),
           line_count: non_neg_integer(),
+          line_checkpoints: tuple(),
           metadata: metadata(),
           availability: availability()
         }
 
   @spec count_lines(binary()) :: non_neg_integer()
-  def count_lines(""), do: 0
-  def count_lines(content) when is_binary(content), do: count_lines(content, 0, 0)
+  def count_lines(content) when is_binary(content), do: content |> line_metadata() |> elem(0)
+
+  @doc false
+  @spec line_checkpoint_interval() :: pos_integer()
+  def line_checkpoint_interval, do: @line_checkpoint_interval
+
+  @spec line_metadata(binary()) :: {non_neg_integer(), tuple()}
+  def line_metadata(""), do: {0, {0}}
+
+  def line_metadata(content) when is_binary(content) do
+    line_metadata(content, 0, 0, [0])
+  end
 
   @spec valid_kind?(term()) :: boolean()
   def valid_kind?(kind), do: kind in @kinds
@@ -51,13 +64,25 @@ defmodule GSMLG.ProxyRules.SourceSnapshot do
   @spec valid_availability?(term()) :: boolean()
   def valid_availability?(availability), do: availability in @availabilities
 
-  defp count_lines(content, offset, count) do
+  defp line_metadata(content, offset, count, checkpoints) do
     case :binary.match(content, "\n", scope: {offset, byte_size(content) - offset}) do
       {position, 1} ->
-        count_lines(content, position + 1, count + 1)
+        next_offset = position + 1
+        count = count + 1
+
+        checkpoints =
+          if rem(count, @line_checkpoint_interval) == 0 and
+               next_offset < byte_size(content) do
+            [next_offset | checkpoints]
+          else
+            checkpoints
+          end
+
+        line_metadata(content, next_offset, count, checkpoints)
 
       :nomatch ->
-        if offset < byte_size(content), do: count + 1, else: count
+        count = if offset < byte_size(content), do: count + 1, else: count
+        {count, checkpoints |> Enum.reverse() |> List.to_tuple()}
     end
   end
 end

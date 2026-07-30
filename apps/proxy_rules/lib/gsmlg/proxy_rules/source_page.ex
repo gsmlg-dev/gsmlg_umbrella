@@ -73,7 +73,7 @@ defmodule GSMLG.ProxyRules.SourcePage do
          {offset, ""} <- Integer.parse(offset_text),
          {line, ""} <- Integer.parse(line_text),
          :ok <- matching_version(version, snapshot.content_sha256),
-         :ok <- valid_position(snapshot.content, offset, line) do
+         :ok <- valid_position(snapshot, offset, line) do
       {:ok, offset, line}
     else
       {:error, :source_changed} = error -> error
@@ -86,18 +86,44 @@ defmodule GSMLG.ProxyRules.SourcePage do
   defp matching_version(version, version), do: :ok
   defp matching_version(_cursor_version, _snapshot_version), do: {:error, :source_changed}
 
-  defp valid_position(content, offset, line)
+  defp valid_position(
+         %SourceSnapshot{content: content, line_checkpoints: checkpoints},
+         offset,
+         line
+       )
        when is_integer(offset) and offset > 0 and offset < byte_size(content) and
-              is_integer(line) and line > 1 do
-    if :binary.at(content, offset - 1) == ?\n and
-         SourceSnapshot.count_lines(binary_part(content, 0, offset)) + 1 == line do
+              is_integer(line) and line > 1 and is_tuple(checkpoints) do
+    checkpoint_index = div(line - 1, SourceSnapshot.line_checkpoint_interval())
+
+    with true <- :binary.at(content, offset - 1) == ?\n,
+         true <- checkpoint_index < tuple_size(checkpoints),
+         checkpoint_offset <- elem(checkpoints, checkpoint_index),
+         true <-
+           is_integer(checkpoint_offset) and checkpoint_offset >= 0 and
+             checkpoint_offset <= offset,
+         checkpoint_line <-
+           checkpoint_index * SourceSnapshot.line_checkpoint_interval() + 1,
+         {:ok, ^offset} <-
+           offset_for_line(content, checkpoint_offset, checkpoint_line, line) do
       :ok
     else
-      :error
+      _invalid -> :error
     end
   end
 
-  defp valid_position(_content, _offset, _line), do: :error
+  defp valid_position(_snapshot, _offset, _line), do: :error
+
+  defp offset_for_line(_content, offset, line, line), do: {:ok, offset}
+
+  defp offset_for_line(content, offset, current_line, target_line) do
+    case :binary.match(content, "\n", scope: {offset, byte_size(content) - offset}) do
+      {position, 1} ->
+        offset_for_line(content, position + 1, current_line + 1, target_line)
+
+      :nomatch ->
+        :error
+    end
+  end
 
   defp collect_lines(source, snapshot, offset, line, line_limit, byte_limit) do
     collect_lines(source, snapshot, offset, line, line_limit, byte_limit, 2, [])

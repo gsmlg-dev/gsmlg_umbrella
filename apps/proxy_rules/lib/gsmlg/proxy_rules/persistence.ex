@@ -152,13 +152,16 @@ defmodule GSMLG.ProxyRules.Persistence do
          :ok <- verify_remote_body(body, metadata),
          {:ok, content} <- GFWList.decode(body),
          :ok <- verify_decoded_content(content, metadata) do
+      {line_count, line_checkpoints} = SourceSnapshot.line_metadata(content)
+
       {:ok,
        %SourceSnapshot{
          kind: :remote,
          content: content,
          content_sha256: metadata.decoded_sha256,
          observed_at: metadata.observed_at,
-         line_count: SourceSnapshot.count_lines(content),
+         line_count: line_count,
+         line_checkpoints: line_checkpoints,
          metadata: %{
            source_url: metadata.source_url,
            etag: metadata.etag,
