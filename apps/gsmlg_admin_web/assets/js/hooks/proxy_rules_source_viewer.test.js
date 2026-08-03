@@ -338,6 +338,259 @@ describe("ProxyRulesSourceViewer hook", () => {
     });
   });
 
+  test("blocks a failed later page until an explicit View retry", async () => {
+    await withFakeDom(async ({ root, viewer, frames }) => {
+      const firstLines = Array.from(
+        { length: 20 },
+        (_value, index) => `line-${index + 1}`,
+      );
+      const requests = [];
+      globalThis.fetch = async () => {
+        requests.push(requests.length + 1);
+
+        if (requests.length === 1) {
+          return jsonResponse(200, {
+            version: "a".repeat(64),
+            start_line: 1,
+            lines: firstLines,
+            next_cursor: "next",
+            has_more: true,
+            total_lines: 21,
+          });
+        }
+
+        if (requests.length === 2) return jsonResponse(404, null);
+
+        return jsonResponse(200, {
+          version: "a".repeat(64),
+          start_line: 21,
+          lines: ["line-21"],
+          next_cursor: null,
+          has_more: false,
+          total_lines: 21,
+        });
+      };
+
+      viewer.mounted();
+      viewer.activated = true;
+      await viewer.loadNextPage();
+      root.viewport.scrollTop = 10 * 24;
+      root.viewport.listeners.get("scroll")();
+
+      const [[frameId, renderFrame]] = frames;
+      frames.delete(frameId);
+      renderFrame();
+      await flushPromises();
+
+      expect(requests).toHaveLength(2);
+      root.viewport.listeners.get("scroll")();
+      const [[blockedFrameId, blockedFrame]] = frames;
+      frames.delete(blockedFrameId);
+      blockedFrame();
+      await flushPromises();
+      expect(requests).toHaveLength(2);
+
+      root.click(root.viewButton);
+      await flushPromises();
+      expect(requests).toHaveLength(3);
+      expect(viewer.state.lines).toHaveLength(21);
+      viewer.destroyed();
+    });
+  });
+
+  test("blocks a second page conflict instead of starting another reload loop", async () => {
+    await withFakeDom(async ({ root, viewer, frames }) => {
+      const firstLines = Array.from(
+        { length: 20 },
+        (_value, index) => `line-${index + 1}`,
+      );
+      let requestCount = 0;
+      globalThis.fetch = async () => {
+        requestCount += 1;
+
+        if (requestCount === 2 || requestCount === 4) {
+          return jsonResponse(409, null);
+        }
+
+        if (requestCount === 5) {
+          return jsonResponse(200, {
+            version: "a".repeat(64),
+            start_line: 21,
+            lines: ["line-21"],
+            next_cursor: null,
+            has_more: false,
+            total_lines: 21,
+          });
+        }
+
+        return jsonResponse(200, {
+          version: "a".repeat(64),
+          start_line: 1,
+          lines: firstLines,
+          next_cursor: "next",
+          has_more: true,
+          total_lines: 21,
+        });
+      };
+
+      viewer.mounted();
+      viewer.activated = true;
+      await viewer.loadNextPage();
+
+      await scrollNearEnd(root, frames);
+      expect(requestCount).toBe(3);
+      await scrollNearEnd(root, frames);
+      expect(requestCount).toBe(4);
+      await scrollNearEnd(root, frames);
+      expect(requestCount).toBe(4);
+
+      root.click(root.viewButton);
+      await flushPromises();
+      expect(requestCount).toBe(5);
+      expect(viewer.state.lines).toHaveLength(21);
+      viewer.destroyed();
+    });
+  });
+
+  test("keeps later-page 422 and 503 failures blocked across scrolling", async () => {
+    for (const status of [422, 503]) {
+      await withFakeDom(async ({ root, viewer, frames }) => {
+        const firstLines = Array.from(
+          { length: 20 },
+          (_value, index) => `line-${index + 1}`,
+        );
+        let requestCount = 0;
+        globalThis.fetch = async () => {
+          requestCount += 1;
+          if (requestCount > 1) return jsonResponse(status, null);
+
+          return jsonResponse(200, {
+            version: "a".repeat(64),
+            start_line: 1,
+            lines: firstLines,
+            next_cursor: "next",
+            has_more: true,
+            total_lines: 21,
+          });
+        };
+
+        viewer.mounted();
+        viewer.activated = true;
+        await viewer.loadNextPage();
+        await scrollNearEnd(root, frames);
+        await scrollNearEnd(root, frames);
+
+        expect(requestCount).toBe(2);
+        viewer.destroyed();
+      });
+    }
+  });
+
+  test("blocks later-page network and invalid response failures", async () => {
+    const invalidPages = [
+      () => Promise.reject(new Error("network")),
+      () => ({
+        ok: true,
+        status: 200,
+        json: async () => Promise.reject(new Error("invalid json")),
+      }),
+      () => jsonResponse(200, { invalid: "schema" }),
+      () =>
+        jsonResponse(200, {
+          version: "b".repeat(64),
+          start_line: 21,
+          lines: ["line-21"],
+          next_cursor: null,
+          has_more: false,
+          total_lines: 21,
+        }),
+      () =>
+        jsonResponse(200, {
+          version: "a".repeat(64),
+          start_line: 22,
+          lines: ["line-21"],
+          next_cursor: null,
+          has_more: false,
+          total_lines: 21,
+        }),
+    ];
+
+    for (const failedResponse of invalidPages) {
+      await withFakeDom(async ({ root, viewer, frames }) => {
+        const firstLines = Array.from(
+          { length: 20 },
+          (_value, index) => `line-${index + 1}`,
+        );
+        let requestCount = 0;
+        globalThis.fetch = async () => {
+          requestCount += 1;
+          if (requestCount > 1) return failedResponse();
+
+          return jsonResponse(200, {
+            version: "a".repeat(64),
+            start_line: 1,
+            lines: firstLines,
+            next_cursor: "next",
+            has_more: true,
+            total_lines: 21,
+          });
+        };
+
+        viewer.mounted();
+        viewer.activated = true;
+        await viewer.loadNextPage();
+        await scrollNearEnd(root, frames);
+        await scrollNearEnd(root, frames);
+
+        expect(requestCount).toBe(2);
+        expect(viewer.state.lines).toHaveLength(20);
+        viewer.destroyed();
+      });
+    }
+  });
+
+  test("rehydrates patched controls and messages without resetting loaded rows", async () => {
+    await withFakeDom(async ({ root, viewer }) => {
+      globalThis.fetch = async () =>
+        jsonResponse(200, {
+          version: "a".repeat(64),
+          start_line: 1,
+          lines: ["local.example"],
+          next_cursor: null,
+          has_more: false,
+          total_lines: 1,
+        });
+
+      viewer.mounted();
+      viewer.switchSource("local-proxy");
+      viewer.activated = true;
+      await viewer.loadNextPage();
+      viewer.setError("Client-side message.");
+      const state = viewer.state;
+      const rows = root.rows.children;
+
+      root.gfwlistButton.setAttribute("aria-pressed", "true");
+      root.gfwlistButton.dataset.loaded = "true";
+      root.localButton.setAttribute("aria-pressed", "false");
+      root.localButton.dataset.loaded = "false";
+      root.status.textContent = "server patch";
+      root.error.textContent = "server patch";
+
+      viewer.updated();
+
+      expect(root.gfwlistButton.getAttribute("aria-pressed")).toBe("false");
+      expect(root.gfwlistButton.dataset.loaded).toBe("false");
+      expect(root.localButton.getAttribute("aria-pressed")).toBe("true");
+      expect(root.localButton.dataset.loaded).toBe("true");
+      expect(root.status.textContent).toBe("Loaded 1 of 1 lines.");
+      expect(root.error.textContent).toBe("Client-side message.");
+      expect(viewer.source).toBe("local-proxy");
+      expect(viewer.state).toBe(state);
+      expect(root.rows.children).toBe(rows);
+      viewer.destroyed();
+    });
+  });
+
   test("uses bounded messages for server, network, and invalid JSON failures", async () => {
     const cases = [
       [async () => jsonResponse(404, null), "Source content was not found."],
@@ -562,4 +815,13 @@ async function flushPromises() {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
+}
+
+async function scrollNearEnd(root, frames) {
+  root.viewport.scrollTop = 10 * 24;
+  root.viewport.listeners.get("scroll")();
+  const [[frameId, renderFrame]] = frames;
+  frames.delete(frameId);
+  renderFrame();
+  await flushPromises();
 }

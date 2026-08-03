@@ -85,9 +85,13 @@ const ProxyRulesSourceViewer = {
     this.source = this.selectedSource();
     this.activated = false;
     this.loading = false;
+    this.loadBlocked = false;
+    this.conflictRetryUsed = false;
     this.requestSerial = 0;
     this.animationFrame = null;
     this.abortController = null;
+    this.statusMessage = "";
+    this.errorMessage = "";
 
     this.onScroll = () => {
       if (this.animationFrame !== null) return;
@@ -109,7 +113,9 @@ const ProxyRulesSourceViewer = {
       const viewButton = event.target.closest?.("#proxy-rules-view-content");
       if (viewButton && this.el.contains(viewButton)) {
         this.activated = true;
-        if (this.state === null) this.loadNextPage();
+        this.loadBlocked = false;
+        this.conflictRetryUsed = false;
+        if (this.state === null || this.state.hasMore) this.loadNextPage();
       }
     };
 
@@ -130,6 +136,11 @@ const ProxyRulesSourceViewer = {
 
     this.updateSourceButtons();
     this.clearRenderedContent();
+  },
+
+  updated() {
+    this.updateSourceButtons();
+    this.renderMessages();
   },
 
   destroyed() {
@@ -166,16 +177,21 @@ const ProxyRulesSourceViewer = {
     this.el.querySelectorAll("[data-source]").forEach((button) => {
       const selected = button.dataset.source === this.source;
       button.setAttribute("aria-pressed", String(selected));
-      if (!selected || this.state === null) button.dataset.loaded = "false";
+      button.dataset.loaded = String(selected && this.state !== null);
     });
   },
 
-  resetView({ preserveActivation = false } = {}) {
+  resetView({
+    preserveActivation = false,
+    preserveConflictRetry = false,
+  } = {}) {
     this.requestSerial += 1;
     if (this.abortController) this.abortController.abort();
 
     this.abortController = null;
     this.loading = false;
+    this.loadBlocked = false;
+    if (!preserveConflictRetry) this.conflictRetryUsed = false;
     this.state = null;
     this.activated = preserveActivation;
     this.clearRenderedContent();
@@ -191,8 +207,13 @@ const ProxyRulesSourceViewer = {
     this.setError("");
   },
 
-  async loadNextPage({ retryOnConflict = true } = {}) {
-    if (!this.activated || this.loading || (this.state && !this.state.hasMore))
+  async loadNextPage() {
+    if (
+      !this.activated ||
+      this.loading ||
+      this.loadBlocked ||
+      (this.state && !this.state.hasMore)
+    )
       return;
 
     const source = this.source;
@@ -203,6 +224,7 @@ const ProxyRulesSourceViewer = {
     this.loading = true;
     this.setError("");
     this.setStatus("Loading source content…");
+    let pageAppended = false;
 
     try {
       const response = await fetch(
@@ -216,15 +238,20 @@ const ProxyRulesSourceViewer = {
 
       if (serial !== this.requestSerial || source !== this.source) return;
 
-      if (response.status === 409 && retryOnConflict) {
+      if (response.status === 409 && !this.conflictRetryUsed) {
+        this.conflictRetryUsed = true;
         this.loading = false;
         this.abortController = null;
-        this.resetView({ preserveActivation: true });
+        this.resetView({
+          preserveActivation: true,
+          preserveConflictRetry: true,
+        });
         this.setStatus("Source content changed. Reloading…");
-        return this.loadNextPage({ retryOnConflict: false });
+        return this.loadNextPage();
       }
 
       if (!response.ok) {
+        this.loadBlocked = true;
         this.setStatus("");
         this.setError(
           ERROR_MESSAGES[response.status] ||
@@ -244,6 +271,7 @@ const ProxyRulesSourceViewer = {
 
       try {
         this.state = appendPage(this.state, page);
+        pageAppended = true;
       } catch (_error) {
         throw new Error("invalid_response");
       }
@@ -257,9 +285,8 @@ const ProxyRulesSourceViewer = {
       if (error?.name === "AbortError") return;
       if (serial !== this.requestSerial || source !== this.source) return;
 
-      this.state = null;
-      this.clearRenderedContent();
-      this.updateSourceButtons();
+      this.loadBlocked = true;
+      this.setStatus("");
       this.setError(
         error?.message === "invalid_response"
           ? "The source returned an invalid response."
@@ -270,7 +297,7 @@ const ProxyRulesSourceViewer = {
         this.abortController = null;
         this.loading = false;
 
-        if (this.state?.hasMore && this.nearLoadedEnd()) {
+        if (pageAppended && this.state?.hasMore && this.nearLoadedEnd()) {
           queueMicrotask(() => this.loadNextPage());
         }
       }
@@ -347,11 +374,22 @@ const ProxyRulesSourceViewer = {
   },
 
   setStatus(message) {
-    this.el.querySelector("#proxy-rules-viewer-loading").textContent = message;
+    this.statusMessage = boundedMessage(message);
+    this.el.querySelector("#proxy-rules-viewer-loading").textContent =
+      this.statusMessage;
   },
 
   setError(message) {
-    this.el.querySelector("#proxy-rules-viewer-error").textContent = message;
+    this.errorMessage = boundedMessage(message);
+    this.el.querySelector("#proxy-rules-viewer-error").textContent =
+      this.errorMessage;
+  },
+
+  renderMessages() {
+    this.el.querySelector("#proxy-rules-viewer-loading").textContent =
+      this.statusMessage;
+    this.el.querySelector("#proxy-rules-viewer-error").textContent =
+      this.errorMessage;
   },
 };
 
@@ -362,6 +400,10 @@ function boundedPageSize(value) {
 
 function validSource(source) {
   return source === "gfwlist" || source === "local-proxy";
+}
+
+function boundedMessage(message) {
+  return typeof message === "string" ? message.slice(0, 160) : "";
 }
 
 export default ProxyRulesSourceViewer;
