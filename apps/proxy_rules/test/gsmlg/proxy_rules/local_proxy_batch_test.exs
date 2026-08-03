@@ -19,6 +19,42 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
               }} = LocalProxyBatch.prepare(existing, input, max_bytes: 8 * 1024 * 1024)
     end
 
+    test "accepts one optional Squid-style leading dot and stores bare domains" do
+      input = ".tv\n.IO\n.jsdelivr.net\njsdelivr.net\n"
+
+      assert {:ok,
+              %{
+                content: "tv\nio\njsdelivr.net\n",
+                added_domains: ["tv", "io", "jsdelivr.net"],
+                added_count: 3,
+                duplicate_count: 1
+              }} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+    end
+
+    test "accepts one optional wildcard prefix and deduplicates canonical domains" do
+      input = "*.OpenAI.com\n.openai.com\nopenai.com\n*.chatgpt.com\n"
+
+      assert {:ok,
+              %{
+                content: "openai.com\nchatgpt.com\n",
+                added_domains: ["openai.com", "chatgpt.com"],
+                added_count: 2,
+                duplicate_count: 2
+              }} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+    end
+
+    test "rejects wildcard syntax outside the single optional prefix" do
+      input = "wild*card.example\n*.*.nested.example\n**.double.example\n"
+
+      assert {:error,
+              {:invalid_batch,
+               [
+                 %{line: 1, reason: :wildcard_not_allowed},
+                 %{line: 2, reason: :wildcard_not_allowed},
+                 %{line: 3, reason: :wildcard_not_allowed}
+               ]}} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+    end
+
     test "returns every invalid line without preparing partial content" do
       assert {:error,
               {:invalid_batch,
@@ -55,10 +91,10 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
     test "rejects non-domain input forms before domain normalization" do
       input = """
       ok.example
-      .leading.example
+      ..leading.example
       # comment
       ! legacy comment
-      *.wildcard.example
+      wild*card.example
       path.example/rule
       192.0.2.0/24
       2001:db8::1

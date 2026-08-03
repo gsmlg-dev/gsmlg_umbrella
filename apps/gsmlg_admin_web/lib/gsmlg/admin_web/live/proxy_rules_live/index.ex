@@ -204,8 +204,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
           >
             <:title>Add Local Proxy</:title>
             <p class="text-sm text-on-surface-variant">
-              Add bare domains to the Local proxy source. The whole batch is rejected if any line
-              is invalid.
+              Add domains to the Local proxy source. The whole batch is rejected if any line is
+              invalid.
             </p>
 
             <.dm_form
@@ -225,7 +225,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
                 aria-invalid={to_string(@local_proxy_errors != [])}
               />
               <p id="proxy-rules-local-proxy-help" class="text-sm text-on-surface-variant">
-                Enter one bare domain per line. URLs, wildcards, IP addresses, CIDRs, and comments
+                Enter one domain per line. One leading <code>.</code> or <code>*.</code> prefix is
+                accepted and removed. URLs, other wildcard forms, IP addresses, CIDRs, and comments
                 are not accepted.
               </p>
               <ul
@@ -595,7 +596,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   defp add_error_message(_reason), do: "Local proxy domains could not be added."
 
   defp local_proxy_error_label(:leading_dot_not_allowed),
-    do: "Leading dots are not allowed"
+    do: "Only one optional leading dot is allowed"
 
   defp local_proxy_error_label(:trailing_dot_not_allowed),
     do: "Trailing dots are not allowed"
@@ -603,7 +604,10 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   defp local_proxy_error_label(:comment_not_allowed), do: "Comments are not allowed"
   defp local_proxy_error_label(:url_not_allowed), do: "URLs are not allowed"
   defp local_proxy_error_label(:path_not_allowed), do: "Paths and CIDRs are not allowed"
-  defp local_proxy_error_label(:wildcard_not_allowed), do: "Wildcards are not allowed"
+
+  defp local_proxy_error_label(:wildcard_not_allowed),
+    do: "Only a leading *. wildcard prefix is allowed"
+
   defp local_proxy_error_label(:invalid_utf8), do: "The domain is not valid UTF-8"
 
   defp local_proxy_error_label(:too_many_errors),

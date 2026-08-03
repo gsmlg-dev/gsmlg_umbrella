@@ -88,9 +88,12 @@ defmodule GSMLG.ProxyRules.OperationalTest do
     proxy_readme = File.read!(Path.join(@application_root, "README.md"))
     deploy_doc = File.read!(Path.join(@umbrella_root, "docs/deploy.md"))
 
-    assert proxy_readme =~ "The admin textarea accepts bare domains only, one per line."
+    assert proxy_readme =~
+             "The admin textarea accepts one domain per line, with an optional\n" <>
+               "single `.` or `*.` prefix that is removed before storage."
+
     assert proxy_readme =~ "Validation is atomic"
-    assert proxy_readme =~ "duplicates are automatically omitted"
+    assert proxy_readme =~ ~r/duplicates are\s+automatically omitted/
 
     assert proxy_readme =~
              ~r/Raw\/DNS emits `baidu\.com`,\s+Squid emits\s+`\.baidu\.com`, and Clash emits `DOMAIN-SUFFIX,baidu\.com`\./

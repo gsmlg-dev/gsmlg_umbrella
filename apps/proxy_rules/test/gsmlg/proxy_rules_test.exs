@@ -141,7 +141,7 @@ defmodule GSMLG.ProxyRulesTest do
               added_domains: ["new.example"],
               durability: :confirmed,
               reconciliation: :ok
-            }} = ProxyRules.add_local_proxy_domains("new.example\n")
+            }} = ProxyRules.add_local_proxy_domains("*.new.example\n")
 
     assert File.read!(proxy_path) == "existing.example\nnew.example\n"
 

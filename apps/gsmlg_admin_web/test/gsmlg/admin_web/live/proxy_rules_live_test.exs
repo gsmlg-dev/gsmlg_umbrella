@@ -232,6 +232,13 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
            )
 
     assert has_element?(view, "#proxy-rules-add-local-proxy-submit", "Add domains")
+
+    assert has_element?(
+             view,
+             "#proxy-rules-local-proxy-help",
+             "One leading . or *. prefix is accepted and removed"
+           )
+
     assert has_element?(view, "#proxy-rules-source-viewport[phx-update='ignore']")
     refute html =~ "||remote-secret.example^"
     refute html =~ "local-secret.example"
@@ -250,7 +257,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     html =
       view
       |> form("#proxy-rules-add-local-proxy", %{
-        "local_proxy" => %{"domains" => "Baidu.com\nbaidu.com\n"}
+        "local_proxy" => %{"domains" => "*.Baidu.com\nbaidu.com\n"}
       })
       |> render_submit()
 

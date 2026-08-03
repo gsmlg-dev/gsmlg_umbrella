@@ -164,12 +164,12 @@ retains the last valid snapshot.
 ## Authenticated Admin Source Management
 
 The `/proxy-rules` admin page can add domains only to the configured local
-proxy source. The admin textarea accepts bare domains only, one per line. It
-rejects URLs, comments, wildcards, regular expressions, IP addresses, CIDRs,
-and arbitrary GFWList syntax. Validation is atomic: if any non-empty line is
-invalid, no domains are written. Valid domains are canonicalized, and
-duplicates are automatically omitted both within the submission and against
-the current source.
+proxy source. The admin textarea accepts one domain per line, with an optional
+single `.` or `*.` prefix that is removed before storage. It rejects URLs,
+comments, other wildcard forms, regular expressions, IP addresses, CIDRs, and
+arbitrary GFWList syntax. Validation is atomic: if any non-empty line is invalid,
+no domains are written. Valid domains are canonicalized, and duplicates are
+automatically omitted both within the submission and against the current source.
 
 Admin-added entries are stored as canonical bare domains. Existing semantic
 entries and comments are retained, while mutation normalizes line endings,

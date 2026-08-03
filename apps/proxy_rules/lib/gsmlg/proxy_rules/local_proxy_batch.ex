@@ -2,6 +2,10 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   @moduledoc """
   Validates and prepares bare domains for appending to the local proxy source.
 
+  Submitted domains may include one optional Squid-style leading dot or
+  wildcard prefix. The `.` or `*.` prefix is removed before canonicalization
+  and storage.
+
   Invalid batches retain up to 100 concrete line errors. When more errors are
   found, the result appends one `:too_many_errors` marker at the first omitted
   error line. Textarea input larger than `:max_bytes` is rejected before line
@@ -247,11 +251,14 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     Enum.reverse(errors) ++ [%{line: first_omitted_error_line, reason: :too_many_errors}]
   end
 
-  defp validate_line(value) do
-    cond do
-      String.starts_with?(value, ".") ->
-        {:error, :leading_dot_not_allowed}
+  defp validate_line(".." <> _rest), do: {:error, :leading_dot_not_allowed}
+  defp validate_line("*.." <> _rest), do: {:error, :wildcard_not_allowed}
+  defp validate_line("*." <> value), do: validate_bare_line(value)
+  defp validate_line("." <> value), do: validate_bare_line(value)
+  defp validate_line(value), do: validate_bare_line(value)
 
+  defp validate_bare_line(value) do
+    cond do
       String.ends_with?(value, ".") ->
         {:error, :trailing_dot_not_allowed}
 
