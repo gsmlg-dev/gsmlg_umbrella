@@ -80,7 +80,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
     end
 
     test "accepts CRLF input and treats legacy leading-dot entries as existing domains" do
-      existing = "# keep this comment\r\n.Existing.COM\r\nlegacy/path"
+      existing = "# keep this comment\r\n.Existing.COM.\r\nlegacy/path"
 
       assert {:ok,
               %{
@@ -337,6 +337,32 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                  existing,
                  "not-in-source.test",
                  [max_bytes: 8 * 1024 * 1024],
+                 2_000_000
+               )
+    end
+
+    @tag timeout: 60_000
+    test "bounds a near-8 MiB late repeat with an uppercase existing source" do
+      max_bytes = 8 * 1024 * 1024
+      prefix = Enum.map_join(1..1_024, "\n", &"unique#{&1}.example") <> "\n"
+      repeated_line = "late-repeat.example\n"
+      repetitions = div(max_bytes - byte_size(prefix), byte_size(repeated_line))
+      input = prefix <> :binary.copy(repeated_line, repetitions)
+
+      existing =
+        for number <- 1..648_968, into: "" do
+          Integer.to_string(number, 36) <> ".EXAMPLE\n"
+        end
+
+      assert byte_size(input) <= max_bytes
+      assert byte_size(input) > max_bytes - byte_size(repeated_line)
+      assert byte_size(existing) == 8_388_599
+
+      assert {:error, :body_too_large} =
+               prepare_under_heap_limit(
+                 existing,
+                 input,
+                 [max_bytes: max_bytes],
                  2_000_000
                )
     end

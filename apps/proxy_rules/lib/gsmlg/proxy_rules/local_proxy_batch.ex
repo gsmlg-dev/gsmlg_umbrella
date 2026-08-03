@@ -144,7 +144,13 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   defp cache_entry(cache, key, value) when map_size(cache) < @max_cache_entries,
     do: Map.put(cache, key, value)
 
-  defp cache_entry(cache, _key, _value), do: cache
+  defp cache_entry(cache, key, value) do
+    {evicted_key, _evicted_value, _iterator} = cache |> :maps.iterator() |> :maps.next()
+
+    cache
+    |> Map.delete(evicted_key)
+    |> Map.put(key, value)
+  end
 
   defp accept_domain(%{mode: :valid} = state, domain), do: add_domain(state, domain)
   defp accept_domain(state, _domain), do: state
@@ -261,6 +267,16 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
         {:error, :ip_literal}
 
       true ->
+        normalize_submitted_domain(value)
+    end
+  end
+
+  defp normalize_submitted_domain(value) do
+    case fast_ascii_domain(value) do
+      {:ok, domain} ->
+        {:ok, domain}
+
+      :fallback ->
         case Domain.normalize(value) do
           {:ok, domain} -> {:ok, domain.name}
           {:error, reason} -> {:error, reason}
@@ -289,31 +305,46 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   end
 
   defp match_existing_line(raw_line, pending, duplicate_count, cache) do
-    cond do
-      canonical_ascii_bare?(raw_line) ->
-        remove_existing_match(raw_line, pending, duplicate_count, cache)
+    case fast_ascii_domain(raw_line) do
+      {:ok, domain} ->
+        remove_existing_match(domain, pending, duplicate_count, cache)
 
-      String.valid?(raw_line) ->
-        value = String.trim(raw_line)
+      :fallback ->
+        match_noncanonical_existing_line(raw_line, pending, duplicate_count, cache)
+    end
+  end
 
-        cond do
-          value == "" or String.starts_with?(value, ["#", "!"]) ->
+  defp match_noncanonical_existing_line(raw_line, pending, duplicate_count, cache) do
+    if String.valid?(raw_line) do
+      value = String.trim(raw_line)
+
+      cond do
+        value == "" or String.starts_with?(value, ["#", "!"]) ->
+          {pending, duplicate_count, cache}
+
+        true ->
+          match_trimmed_existing_value(value, pending, duplicate_count, cache)
+      end
+    else
+      {pending, duplicate_count, cache}
+    end
+  end
+
+  defp match_trimmed_existing_value(value, pending, duplicate_count, cache) do
+    case fast_ascii_domain(value) do
+      {:ok, domain} ->
+        remove_existing_match(domain, pending, duplicate_count, cache)
+
+      :fallback ->
+        {normalization, cache} = cached_existing_normalization(value, cache)
+
+        case normalization do
+          {:ok, domain} ->
+            remove_existing_match(domain.name, pending, duplicate_count, cache)
+
+          {:error, _reason} ->
             {pending, duplicate_count, cache}
-
-          true ->
-            {normalization, cache} = cached_existing_normalization(value, cache)
-
-            case normalization do
-              {:ok, domain} ->
-                remove_existing_match(domain.name, pending, duplicate_count, cache)
-
-              {:error, _reason} ->
-                {pending, duplicate_count, cache}
-            end
         end
-
-      true ->
-        {pending, duplicate_count, cache}
     end
   end
 
@@ -336,24 +367,45 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     end
   end
 
-  defp canonical_ascii_bare?(value) when byte_size(value) <= 253,
-    do: canonical_ascii_bare?(value, 0, nil)
+  defp fast_ascii_domain(value) do
+    bare = value |> remove_fast_leading_dot() |> remove_fast_trailing_dot()
 
-  defp canonical_ascii_bare?(_value), do: false
+    if byte_size(bare) <= 253 and ascii_bare_domain?(bare, 0, nil) do
+      {:ok, String.downcase(bare, :ascii)}
+    else
+      :fallback
+    end
+  end
 
-  defp canonical_ascii_bare?(<<>>, label_size, last_byte),
+  defp ascii_bare_domain?(<<>>, label_size, last_byte),
     do: label_size > 0 and last_byte != ?-
 
-  defp canonical_ascii_bare?(<<".", rest::binary>>, label_size, last_byte)
+  defp ascii_bare_domain?(<<"--", _rest::binary>>, 2, _last_byte), do: false
+
+  defp ascii_bare_domain?(<<".", rest::binary>>, label_size, last_byte)
        when label_size > 0 and last_byte != ?-,
-       do: canonical_ascii_bare?(rest, 0, nil)
+       do: ascii_bare_domain?(rest, 0, nil)
 
-  defp canonical_ascii_bare?(<<byte, rest::binary>>, label_size, _last_byte)
+  defp ascii_bare_domain?(<<byte, rest::binary>>, label_size, _last_byte)
        when label_size < 63 and
-              (byte in ?a..?z or byte in ?0..?9 or (byte == ?- and label_size > 0)),
-       do: canonical_ascii_bare?(rest, label_size + 1, byte)
+              (byte in ?a..?z or byte in ?A..?Z or byte in ?0..?9 or
+                 (byte == ?- and label_size > 0)),
+       do: ascii_bare_domain?(rest, label_size + 1, byte)
 
-  defp canonical_ascii_bare?(_value, _label_size, _last_byte), do: false
+  defp ascii_bare_domain?(_value, _label_size, _last_byte), do: false
+
+  defp remove_fast_leading_dot(<<".", rest::binary>>), do: rest
+  defp remove_fast_leading_dot(value), do: value
+
+  defp remove_fast_trailing_dot(""), do: ""
+
+  defp remove_fast_trailing_dot(value) do
+    if :binary.last(value) == ?. do
+      binary_part(value, 0, byte_size(value) - 1)
+    else
+      value
+    end
+  end
 
   defp next_line(binary) do
     case :binary.match(binary, ["\r\n", "\n", "\r"]) do
