@@ -199,18 +199,23 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
     end
 
     @tag timeout: 60_000
-    test "drops valid-result state once the projected body exceeds the limit" do
+    test "keeps candidate state bounded when the final body exceeds the limit" do
       max_bytes = 2 * 1024 * 1024
       existing = "#" <> String.duplicate("x", max_bytes - 1)
-      input = Enum.map_join(1..50_000, "\n", &"unique#{&1}.example")
+      input = Enum.map_join(1..10_000, "\n", &"unique#{&1}.example")
 
       assert byte_size(input) <= max_bytes
 
       assert {:error, :body_too_large} =
-               prepare_under_heap_limit(existing, input, max_bytes: max_bytes)
+               prepare_under_heap_limit(
+                 existing,
+                 input,
+                 [max_bytes: max_bytes],
+                 2_000_000
+               )
     end
 
-    test "invalid lines win after projected overflow for an in-limit input" do
+    test "invalid lines win when the final body would overflow for an in-limit input" do
       existing = String.duplicate("a", 63) <> ".example\n"
       input = "new.example\nhttps://bad.example"
       max_bytes = byte_size(existing)
@@ -219,6 +224,75 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
 
       assert {:error, {:invalid_batch, [%{line: 2, reason: :url_not_allowed}]}} =
                LocalProxyBatch.prepare(existing, input, max_bytes: max_bytes)
+    end
+
+    @tag timeout: 60_000
+    test "accepts exactly the maximum number of newly added domains" do
+      max_added_domains = 10_000
+      domains = Enum.map(1..max_added_domains, &"unique#{&1}.example")
+      input = Enum.join(domains, "\n")
+
+      assert LocalProxyBatch.max_added_domains() == max_added_domains
+
+      assert {:ok,
+              %{
+                added_domains: ^domains,
+                added_count: ^max_added_domains,
+                duplicate_count: 0
+              }} =
+               prepare_under_heap_limit(
+                 "",
+                 input,
+                 [max_bytes: 8 * 1024 * 1024],
+                 2_000_000
+               )
+    end
+
+    test "rejects the 10,001st distinct newly added domain without partial content" do
+      input = Enum.map_join(1..10_001, "\n", &"unique#{&1}.example")
+
+      assert {:error, :too_many_domains} =
+               LocalProxyBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
+    end
+
+    test "invalid lines win after the newly added domain limit for an in-limit input" do
+      input =
+        Enum.map_join(1..10_001, "\n", &"unique#{&1}.example") <>
+          "\nhttps://bad.example"
+
+      assert {:error, {:invalid_batch, [%{line: 10_002, reason: :url_not_allowed}]}} =
+               LocalProxyBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
+    end
+
+    test "counts an existing match once per unique submitted domain" do
+      existing = "existing.example\nexisting.example\n"
+      input = "existing.example\nexisting.example\nnew.example"
+
+      assert {:ok,
+              %{
+                content: "existing.example\nexisting.example\nnew.example\n",
+                added_domains: ["new.example"],
+                added_count: 1,
+                duplicate_count: 2
+              }} = LocalProxyBatch.prepare(existing, input, max_bytes: 1_024)
+    end
+
+    @tag timeout: 120_000
+    test "keeps an 8 MiB distinct canonical existing-source scan bounded" do
+      existing =
+        for number <- 1..648_968, into: "" do
+          String.downcase(Integer.to_string(number, 36)) <> ".example\n"
+        end
+
+      assert byte_size(existing) == 8_388_599
+
+      assert {:error, :body_too_large} =
+               prepare_under_heap_limit(
+                 existing,
+                 "not-in-source.test",
+                 [max_bytes: 8 * 1024 * 1024],
+                 2_000_000
+               )
     end
 
     @tag timeout: 120_000
@@ -237,13 +311,13 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
     end
   end
 
-  defp prepare_under_heap_limit(existing, input, options) do
+  defp prepare_under_heap_limit(existing, input, options, heap_words \\ 500_000) do
     caller = self()
 
     {pid, monitor} =
       :erlang.spawn_opt(
         fn -> send(caller, {self(), LocalProxyBatch.prepare(existing, input, options)}) end,
-        [:monitor, {:max_heap_size, %{size: 500_000, kill: true, error_logger: false}}]
+        [:monitor, {:max_heap_size, %{size: heap_words, kill: true, error_logger: false}}]
       )
 
     receive do

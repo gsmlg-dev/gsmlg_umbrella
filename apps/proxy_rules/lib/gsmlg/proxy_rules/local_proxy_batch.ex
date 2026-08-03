@@ -6,12 +6,15 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   found, the result appends one `:too_many_errors` marker at the first omitted
   error line. Textarea input larger than `:max_bytes` is rejected before line
   validation, even when duplicate removal could make the final body smaller.
+  A batch may add at most 10,000 distinct canonical domains; duplicates do not
+  count toward that limit.
   """
 
   alias GSMLG.ProxyRules.Domain
 
   @max_line_errors 100
   @max_cache_entries 1_024
+  @max_added_domains 10_000
 
   @type rejection_reason ::
           :leading_dot_not_allowed
@@ -32,6 +35,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   @type error_reason ::
           :empty_batch
           | :body_too_large
+          | :too_many_domains
           | {:invalid_batch, [line_error()]}
   @type option :: {:max_bytes, non_neg_integer()}
 
@@ -53,19 +57,21 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     end
   end
 
+  @doc "Returns the maximum number of distinct domains one batch may add."
+  @spec max_added_domains() :: pos_integer()
+  def max_added_domains, do: @max_added_domains
+
   defp initial_state(existing, max_bytes) do
     existing_bytes = byte_size(existing)
     oversized? = existing_bytes > max_bytes
 
     %{
       mode: if(oversized?, do: :body_too_large, else: :valid),
-      seen: if(oversized?, do: nil, else: existing_domains(existing)),
+      seen: if(oversized?, do: nil, else: MapSet.new()),
       cache: %{},
       added_domains: [],
+      added_count: 0,
       duplicate_count: 0,
-      projected_bytes: if(oversized?, do: nil, else: existing_bytes),
-      separator_bytes: separator_bytes(existing),
-      max_bytes: max_bytes,
       nonblank?: false,
       errors: [],
       error_count: 0,
@@ -93,7 +99,8 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   end
 
   defp process_input_line(raw_line, line_number, state) do
-    {validation, cache} = validate_submitted_line(raw_line, state.cache)
+    cache? = state.mode == :valid
+    {validation, cache} = validate_submitted_line(raw_line, state.cache, cache?)
     state = %{state | cache: cache}
 
     case validation do
@@ -103,7 +110,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     end
   end
 
-  defp validate_submitted_line(raw_line, cache) do
+  defp validate_submitted_line(raw_line, cache, cache?) do
     if String.valid?(raw_line) do
       value = String.trim(raw_line)
 
@@ -112,13 +119,19 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
           {:blank, cache}
 
         value ->
-          case Map.fetch(cache, value) do
-            {:ok, validation} -> {validation, cache}
-            :error -> cache_validation(value, cache)
-          end
+          cached_submitted_validation(value, cache, cache?)
       end
     else
       {{:error, :invalid_utf8}, cache}
+    end
+  end
+
+  defp cached_submitted_validation(value, cache, false), do: {validate_line(value), cache}
+
+  defp cached_submitted_validation(value, cache, true) do
+    case Map.fetch(cache, value) do
+      {:ok, validation} -> {validation, cache}
+      :error -> cache_validation(value, cache)
     end
   end
 
@@ -139,21 +152,20 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     if MapSet.member?(state.seen, domain) do
       %{state | duplicate_count: state.duplicate_count + 1}
     else
-      projected_bytes =
-        state.projected_bytes + byte_size(domain) + 1 +
-          if(state.added_domains == [], do: state.separator_bytes, else: 0)
-
-      if projected_bytes > state.max_bytes do
-        discard_valid_result(state, :body_too_large)
-      else
-        %{
-          state
-          | seen: MapSet.put(state.seen, domain),
-            added_domains: [domain | state.added_domains],
-            projected_bytes: projected_bytes
-        }
-      end
+      add_distinct_domain(state, domain)
     end
+  end
+
+  defp add_distinct_domain(%{added_count: @max_added_domains} = state, _domain),
+    do: discard_valid_result(state, :too_many_domains)
+
+  defp add_distinct_domain(state, domain) do
+    %{
+      state
+      | seen: MapSet.put(state.seen, domain),
+        added_domains: [domain | state.added_domains],
+        added_count: state.added_count + 1
+    }
   end
 
   defp retain_error(%{error_count: error_count} = state, line, reason)
@@ -177,9 +189,10 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
       state
       | mode: mode,
         seen: nil,
+        cache: %{},
         added_domains: [],
-        duplicate_count: 0,
-        projected_bytes: nil
+        added_count: 0,
+        duplicate_count: 0
     }
   end
 
@@ -193,8 +206,18 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   defp build_result(%{mode: :body_too_large}, _existing, _max_bytes),
     do: {:error, :body_too_large}
 
+  defp build_result(%{mode: :too_many_domains}, _existing, _max_bytes),
+    do: {:error, :too_many_domains}
+
   defp build_result(state, existing, max_bytes) do
-    added_domains = Enum.reverse(state.added_domains)
+    {pending, existing_duplicate_count} =
+      scan_existing_matches(existing, state.seen, 0, %{})
+
+    added_domains =
+      state.added_domains
+      |> Enum.reverse()
+      |> Enum.filter(&MapSet.member?(pending, &1))
+
     content = append_domains(existing, added_domains)
 
     if byte_size(content) <= max_bytes do
@@ -202,8 +225,8 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
        %{
          content: content,
          added_domains: added_domains,
-         added_count: length(added_domains),
-         duplicate_count: state.duplicate_count
+         added_count: state.added_count - existing_duplicate_count,
+         duplicate_count: state.duplicate_count + existing_duplicate_count
        }}
     else
       {:error, :body_too_large}
@@ -248,39 +271,56 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     match?({:ok, _address}, :inet.parse_address(String.to_charlist(value)))
   end
 
-  defp existing_domains(existing) do
-    {domains, _cache} = scan_existing(existing, MapSet.new(), %{})
-    domains
-  end
+  defp scan_existing_matches(existing, pending, duplicate_count, cache) do
+    if MapSet.size(pending) == 0 do
+      {pending, duplicate_count}
+    else
+      {raw_line, rest} = next_line(existing)
 
-  defp scan_existing(existing, domains, cache) do
-    {raw_line, rest} = next_line(existing)
-    {domains, cache} = include_existing_line(raw_line, domains, cache)
+      {pending, duplicate_count, cache} =
+        match_existing_line(raw_line, pending, duplicate_count, cache)
 
-    case rest do
-      :done -> {domains, cache}
-      rest -> scan_existing(rest, domains, cache)
+      case rest do
+        :done -> {pending, duplicate_count}
+        rest -> scan_existing_matches(rest, pending, duplicate_count, cache)
+      end
     end
   end
 
-  defp include_existing_line(raw_line, domains, cache) do
-    if String.valid?(raw_line) do
-      value = String.trim(raw_line)
+  defp match_existing_line(raw_line, pending, duplicate_count, cache) do
+    cond do
+      canonical_ascii_bare?(raw_line) ->
+        remove_existing_match(raw_line, pending, duplicate_count, cache)
 
-      cond do
-        value == "" or String.starts_with?(value, ["#", "!"]) ->
-          {domains, cache}
+      String.valid?(raw_line) ->
+        value = String.trim(raw_line)
 
-        true ->
-          {normalization, cache} = cached_existing_normalization(value, cache)
+        cond do
+          value == "" or String.starts_with?(value, ["#", "!"]) ->
+            {pending, duplicate_count, cache}
 
-          case normalization do
-            {:ok, domain} -> {MapSet.put(domains, domain.name), cache}
-            {:error, _reason} -> {domains, cache}
-          end
-      end
+          true ->
+            {normalization, cache} = cached_existing_normalization(value, cache)
+
+            case normalization do
+              {:ok, domain} ->
+                remove_existing_match(domain.name, pending, duplicate_count, cache)
+
+              {:error, _reason} ->
+                {pending, duplicate_count, cache}
+            end
+        end
+
+      true ->
+        {pending, duplicate_count, cache}
+    end
+  end
+
+  defp remove_existing_match(domain, pending, duplicate_count, cache) do
+    if MapSet.member?(pending, domain) do
+      {MapSet.delete(pending, domain), duplicate_count + 1, cache}
     else
-      {domains, cache}
+      {pending, duplicate_count, cache}
     end
   end
 
@@ -294,6 +334,25 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
         {normalization, cache_entry(cache, value, normalization)}
     end
   end
+
+  defp canonical_ascii_bare?(value) when byte_size(value) <= 253,
+    do: canonical_ascii_bare?(value, 0, nil)
+
+  defp canonical_ascii_bare?(_value), do: false
+
+  defp canonical_ascii_bare?(<<>>, label_size, last_byte),
+    do: label_size > 0 and last_byte != ?-
+
+  defp canonical_ascii_bare?(<<".", rest::binary>>, label_size, last_byte)
+       when label_size > 0 and last_byte != ?-,
+       do: canonical_ascii_bare?(rest, 0, nil)
+
+  defp canonical_ascii_bare?(<<byte, rest::binary>>, label_size, _last_byte)
+       when label_size < 63 and
+              (byte in ?a..?z or byte in ?0..?9 or (byte == ?- and label_size > 0)),
+       do: canonical_ascii_bare?(rest, label_size + 1, byte)
+
+  defp canonical_ascii_bare?(_value, _label_size, _last_byte), do: false
 
   defp next_line(binary) do
     case :binary.match(binary, ["\r\n", "\n", "\r"]) do
@@ -316,7 +375,4 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     separator = if existing == "" or :binary.last(existing) == ?\n, do: "", else: "\n"
     existing <> separator <> Enum.map_join(domains, "", &(&1 <> "\n"))
   end
-
-  defp separator_bytes(""), do: 0
-  defp separator_bytes(existing), do: if(:binary.last(existing) == ?\n, do: 0, else: 1)
 end
