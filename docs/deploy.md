@@ -384,6 +384,11 @@ if sudo sh -c '
   cat -- "$source" >"$tmp"
   chown "$owner_uid:$group_gid" -- "$tmp"
   chmod "$mode" -- "$tmp"
+  if ! sudo -u gsmlg test -r "$tmp" ||
+     ! sudo -u gsmlg test -w "$tmp"; then
+    echo "Prepared replacement is not readable and writable by gsmlg; original retained" >&2
+    exit 1
+  fi
   mv -fT -- "$tmp" "$target"
   trap - EXIT HUP INT TERM
 ' proxy-rules-external-update "$source" "$target"; then
@@ -395,10 +400,15 @@ fi
 
 The recipe preserves the target's numeric owner UID, group GID, and permission
 mode. The provisioning preflight already guarantees that the preserved metadata
-lets the `gsmlg` service identity read and write the target. The guarded `sudo`
-block is needed to access protected source directories and restore arbitrary
-numeric ownership; no privileged operation runs before the service is confirmed
-stopped. Do not restart the service until the rename completes successfully.
+lets the `gsmlg` service identity read and write the target. Numeric owner,
+group, and mode alone may not preserve ACL-based access, so the prepared
+temporary file is probed as `gsmlg` for both read and write access before rename.
+If that probe fails, cleanup removes the temporary file, the original remains
+unchanged, and the service remains stopped. The guarded `sudo` block is needed
+to access protected source directories and restore arbitrary numeric ownership;
+no privileged filesystem/replacement operation runs before the service is
+confirmed stopped. Do not restart the service until the rename completes
+successfully.
 
 Run migrations before starting a new version:
 

@@ -260,6 +260,11 @@ defmodule GSMLG.ProxyRules.OperationalTest do
                  "  cat -- \"$source\" >\"$tmp\"\n" <>
                  "  chown \"$owner_uid:$group_gid\" -- \"$tmp\"\n" <>
                  "  chmod \"$mode\" -- \"$tmp\"\n" <>
+                 "  if ! sudo -u gsmlg test -r \"$tmp\" ||\n" <>
+                 "     ! sudo -u gsmlg test -w \"$tmp\"; then\n" <>
+                 "    echo \"Prepared replacement is not readable and writable by gsmlg; original retained\" >&2\n" <>
+                 "    exit 1\n" <>
+                 "  fi\n" <>
                  "  mv -fT -- \"$tmp\" \"$target\"\n" <>
                  "  trap - EXIT HUP INT TERM\n" <>
                  "' proxy-rules-external-update \"$source\" \"$target\"; then\n" <>
@@ -274,9 +279,16 @@ defmodule GSMLG.ProxyRules.OperationalTest do
       assert document =~
                ~r/The provisioning preflight already guarantees that the preserved metadata\s+lets\s+the `gsmlg` service identity read and write the target\./
 
+      assert document =~
+               ~r/Numeric owner,\s+group, and mode alone may not preserve ACL-based access, so the\s+prepared\s+temporary file is probed as `gsmlg` for both read and write access\s+before\s+rename\./
+
+      assert document =~
+               ~r/If that probe fails, cleanup removes the temporary file, the original\s+remains\s+unchanged, and the service remains stopped\./
+
       refute document =~ "sudo --user=gsmlg --group=gsmlg -- sh -c"
       refute document =~ "chmod 0640 -- \"$tmp\""
       refute document =~ "Running the replacement as `gsmlg:gsmlg`"
+      refute document =~ "no privileged operation runs before the service is confirmed stopped"
     end
 
     assert deploy_doc =~
