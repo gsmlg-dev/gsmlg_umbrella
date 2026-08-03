@@ -5,6 +5,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   alias GSMLG.ProxyRules
 
   @diagnostic_sample_limit 2
+  @local_proxy_error_limit 101
   @artifact_paths [
     {:proxy, "Proxy", :raw, "Raw", "proxy-list", "raw"},
     {:proxy, "Proxy", :squid, "Squid", "proxy-list", "squid"},
@@ -28,7 +29,9 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
     {:ok,
      assign(socket,
        page_title: "Proxy Rules",
-       state: load_state(ProxyRules.metadata())
+       state: load_state(ProxyRules.metadata()),
+       local_proxy_form: to_form(%{"domains" => ""}, as: :local_proxy),
+       local_proxy_errors: []
      )}
   end
 
@@ -40,6 +43,43 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, refresh_error(reason))}
+    end
+  end
+
+  def handle_event(
+        "add_local_proxy",
+        %{"local_proxy" => %{"domains" => domains}},
+        socket
+      )
+      when is_binary(domains) do
+    case ProxyRules.add_local_proxy_domains(domains) do
+      {:ok, result} ->
+        socket =
+          socket
+          |> assign(
+            local_proxy_form: to_form(%{"domains" => ""}, as: :local_proxy),
+            local_proxy_errors: []
+          )
+          |> put_flash(:info, add_result_message(result))
+          |> maybe_push_local_source_changed(result)
+
+        {:noreply, socket}
+
+      {:error, {:invalid_batch, errors}} ->
+        {:noreply,
+         assign(socket,
+           local_proxy_form: to_form(%{"domains" => domains}, as: :local_proxy),
+           local_proxy_errors: Enum.take(errors, @local_proxy_error_limit)
+         )}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(
+           local_proxy_form: to_form(%{"domains" => domains}, as: :local_proxy),
+           local_proxy_errors: []
+         )
+         |> put_flash(:error, add_error_message(reason))}
     end
   end
 
@@ -80,7 +120,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
           <div class="space-y-2">
             <.dm_btn
               id="proxy-rules-refresh"
-              variant="primary"
+              variant="outline"
               disabled={!refresh_enabled?(@state)}
               phx-click={refresh_enabled?(@state) && "refresh"}
               aria-disabled={to_string(!refresh_enabled?(@state))}
@@ -144,6 +184,165 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
               </dl>
             </.dm_card>
           </div>
+        </section>
+
+        <section
+          id="proxy-rules-local-source-controls"
+          class="grid gap-4 lg:grid-cols-2"
+          aria-label="Local proxy controls and source viewer"
+        >
+          <.dm_card
+            id="proxy-rules-local-proxy-card"
+            variant="bordered"
+            body_class="space-y-4"
+          >
+            <:title>Add Local Proxy</:title>
+            <p class="text-sm text-on-surface-variant">
+              Add bare domains to the Local proxy source. The whole batch is rejected if any line
+              is invalid.
+            </p>
+
+            <.dm_form
+              for={@local_proxy_form}
+              id="proxy-rules-add-local-proxy"
+              class="space-y-3"
+              phx-submit="add_local_proxy"
+            >
+              <.dm_textarea
+                field={@local_proxy_form[:domains]}
+                id="proxy-rules-local-proxy-domains"
+                name={@local_proxy_form[:domains].name}
+                label="Domains"
+                rows={8}
+                placeholder="example.com\nsubdomain.example.net"
+                aria-describedby="proxy-rules-local-proxy-help proxy-rules-local-proxy-errors"
+                aria-invalid={to_string(@local_proxy_errors != [])}
+              />
+              <p id="proxy-rules-local-proxy-help" class="text-sm text-on-surface-variant">
+                Enter one bare domain per line. URLs, wildcards, IP addresses, CIDRs, and comments
+                are not accepted.
+              </p>
+              <ul
+                id="proxy-rules-local-proxy-errors"
+                role={@local_proxy_errors != [] && "alert"}
+                aria-live="polite"
+                class="space-y-1 text-sm text-error"
+              >
+                <li :for={error <- @local_proxy_errors}>
+                  Line {display_value(error.line)}: {local_proxy_error_label(error.reason)}
+                </li>
+              </ul>
+              <:actions>
+                <.dm_btn id="proxy-rules-add-local-proxy-submit" variant="primary" type="submit">
+                  Add Local Proxy
+                </.dm_btn>
+              </:actions>
+            </.dm_form>
+          </.dm_card>
+
+          <.dm_card
+            id="proxy-rules-source-viewer-card"
+            variant="bordered"
+            body_class="space-y-4"
+          >
+            <:title>Source viewer</:title>
+            <div
+              id="proxy-rules-source-viewer"
+              phx-hook="ProxyRulesSourceViewer"
+              data-page-size="200"
+              data-gfwlist-url={~p"/proxy-rules/sources/gfwlist"}
+              data-local-proxy-url={~p"/proxy-rules/sources/local-proxy"}
+              class="space-y-4"
+            >
+              <div class="grid gap-3 sm:grid-cols-2" aria-label="Source selection">
+                <div class="rounded-lg border border-outline-variant bg-surface-container p-3 text-on-surface">
+                  <.dm_btn
+                    id="proxy-rules-viewer-source-gfwlist"
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    data-source="gfwlist"
+                    data-loaded="false"
+                    aria-controls="proxy-rules-source-viewport"
+                    aria-pressed="true"
+                  >
+                    GFWList
+                  </.dm_btn>
+                  <p
+                    id="proxy-rules-viewer-gfwlist-metadata"
+                    class="mt-2 text-xs text-on-surface-variant"
+                  >
+                    {source_line_count(@state.viewer_gfwlist)} · updated {display_datetime(
+                      @state.viewer_gfwlist.updated_at
+                    )}
+                  </p>
+                </div>
+                <div class="rounded-lg border border-outline-variant bg-surface-container p-3 text-on-surface">
+                  <.dm_btn
+                    id="proxy-rules-viewer-source-local-proxy"
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    data-source="local-proxy"
+                    data-loaded="false"
+                    aria-controls="proxy-rules-source-viewport"
+                    aria-pressed="false"
+                  >
+                    Local proxy
+                  </.dm_btn>
+                  <p
+                    id="proxy-rules-viewer-local-proxy-metadata"
+                    class="mt-2 text-xs text-on-surface-variant"
+                  >
+                    {source_line_count(@state.viewer_local_proxy)} · updated {display_datetime(
+                      @state.viewer_local_proxy.updated_at
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-3">
+                <.dm_btn
+                  id="proxy-rules-view-content"
+                  variant="outline"
+                  type="button"
+                  aria-controls="proxy-rules-source-viewport"
+                >
+                  View content
+                </.dm_btn>
+                <p
+                  id="proxy-rules-viewer-loading"
+                  role="status"
+                  aria-live="polite"
+                  class="text-sm text-on-surface-variant"
+                >
+                </p>
+                <p
+                  id="proxy-rules-viewer-error"
+                  role="alert"
+                  aria-live="assertive"
+                  class="text-sm text-error"
+                >
+                </p>
+              </div>
+
+              <div
+                id="proxy-rules-source-viewport"
+                phx-update="ignore"
+                tabindex="0"
+                role="region"
+                aria-label="Proxy rule source content"
+                class="relative h-96 overflow-auto rounded-lg border border-outline-variant bg-surface-container-low text-on-surface"
+              >
+                <div id="proxy-rules-source-spacer" aria-hidden="true"></div>
+                <div
+                  id="proxy-rules-source-rows"
+                  class="absolute inset-x-0 top-0 font-mono text-sm"
+                >
+                </div>
+              </div>
+            </div>
+          </.dm_card>
         </section>
 
         <section class="space-y-4" aria-labelledby="proxy-rules-artifacts-heading">
@@ -233,6 +432,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   defp load_state({:ok, metadata}) do
     statistics = Map.get(metadata, :statistics, %{})
     source_statistics = Map.get(statistics, :sources, %{})
+    sources = source_rows(Map.get(metadata, :sources, %{}))
 
     %{
       status: Map.get(metadata, :readiness, :not_ready),
@@ -241,7 +441,9 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
       compiled_at: Map.get(metadata, :compiled_at),
       proxy_count: Map.get(statistics, :proxy_rule_count),
       direct_count: Map.get(statistics, :direct_rule_count),
-      sources: source_rows(Map.get(metadata, :sources, %{})),
+      sources: sources,
+      viewer_gfwlist: source_for_viewer(sources, :remote_gfwlist),
+      viewer_local_proxy: source_for_viewer(sources, :local_proxy),
       artifacts: artifact_rows(Map.get(metadata, :rendered_outputs, %{})),
       diagnostic_counts: diagnostic_counts(statistics, source_statistics),
       diagnostic_samples:
@@ -259,12 +461,17 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
       source = Map.get(sources, key, %{})
 
       %{
+        key: key,
         id: id,
         label: label,
         availability: Map.get(source, :availability, :missing),
         version: Map.get(source, :version),
+        line_count: Map.get(source, :line_count, 0),
         observed_at: Map.get(source, :observed_at),
         last_success_at: Map.get(source, :last_success_at),
+        updated_at:
+          Map.get(source, :fetched_at) || Map.get(source, :last_success_at) ||
+            Map.get(source, :observed_at),
         etag: Map.get(source, :etag),
         last_modified: Map.get(source, :last_modified)
       }
@@ -294,6 +501,108 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
         end
     end)
   end
+
+  defp source_for_viewer(sources, key) do
+    Enum.find(sources, %{line_count: 0, updated_at: nil}, &(&1.key == key))
+  end
+
+  defp maybe_push_local_source_changed(socket, %{added_count: count})
+       when is_integer(count) and count > 0 do
+    push_event(socket, "proxy-rules:source-changed", %{source: "local-proxy"})
+  end
+
+  defp maybe_push_local_source_changed(socket, _result), do: socket
+
+  defp add_result_message(result) do
+    added_count = Map.get(result, :added_count, 0)
+    duplicate_count = Map.get(result, :duplicate_count, 0)
+
+    add_count_message(added_count)
+    |> append_duplicate_message(duplicate_count)
+    |> append_durability_warning(Map.get(result, :durability))
+    |> append_reconciliation_warning(Map.get(result, :reconciliation))
+  end
+
+  defp add_count_message(0), do: "No domains were added."
+  defp add_count_message(1), do: "Added 1 domain."
+  defp add_count_message(count), do: "Added #{count} domains."
+
+  defp append_duplicate_message(message, 0), do: message
+
+  defp append_duplicate_message(message, 1),
+    do: message <> " The batch ignored 1 duplicate."
+
+  defp append_duplicate_message(message, count),
+    do: message <> " The batch ignored #{count} duplicates."
+
+  defp append_durability_warning(message, :unknown),
+    do: message <> " The source was saved, but durable storage confirmation is unknown."
+
+  defp append_durability_warning(message, _durability), do: message
+
+  defp append_reconciliation_warning(message, {:error, _reason}),
+    do:
+      message <>
+        " The source was saved, but the viewer may be stale because reconciliation failed."
+
+  defp append_reconciliation_warning(message, _reconciliation), do: message
+
+  defp add_error_message(:empty_batch), do: "Enter at least one domain."
+  defp add_error_message(:body_too_large), do: "The submitted domains exceed the 8 MiB limit."
+
+  defp add_error_message(:too_many_domains),
+    do: "Submit at most 10,000 distinct domains at a time."
+
+  defp add_error_message(:not_available),
+    do: "Local proxy source is not available right now."
+
+  defp add_error_message(:outcome_unknown),
+    do: "The request timed out and its outcome is unknown. Check the source before retrying."
+
+  defp add_error_message(:permission_denied),
+    do: "Local proxy source could not be written: permission denied."
+
+  defp add_error_message(reason)
+       when reason in [
+              :open_failed,
+              :write_failed,
+              :sync_failed,
+              :close_failed,
+              :mode_failed,
+              :rename_failed,
+              :invalid_target,
+              :target_probe_failed
+            ],
+       do: "Local proxy source could not be written. The existing source was left unchanged."
+
+  defp add_error_message(_reason), do: "Local proxy domains could not be added."
+
+  defp local_proxy_error_label(:leading_dot_not_allowed),
+    do: "Leading dots are not allowed"
+
+  defp local_proxy_error_label(:trailing_dot_not_allowed),
+    do: "Trailing dots are not allowed"
+
+  defp local_proxy_error_label(:comment_not_allowed), do: "Comments are not allowed"
+  defp local_proxy_error_label(:url_not_allowed), do: "URLs are not allowed"
+  defp local_proxy_error_label(:path_not_allowed), do: "Paths and CIDRs are not allowed"
+  defp local_proxy_error_label(:wildcard_not_allowed), do: "Wildcards are not allowed"
+  defp local_proxy_error_label(:invalid_utf8), do: "The domain is not valid UTF-8"
+
+  defp local_proxy_error_label(:too_many_errors),
+    do: "Additional invalid lines were omitted"
+
+  defp local_proxy_error_label(:ip_literal), do: "IP addresses are not allowed"
+  defp local_proxy_error_label(:domain_too_long), do: "The domain is too long"
+  defp local_proxy_error_label(:empty_label), do: "Domain labels cannot be empty"
+  defp local_proxy_error_label(:label_too_long), do: "A domain label is too long"
+  defp local_proxy_error_label(:invalid_idna), do: "The international domain is invalid"
+  defp local_proxy_error_label(:invalid_label), do: "The domain contains an invalid label"
+  defp local_proxy_error_label(_reason), do: "The domain is invalid"
+
+  defp source_line_count(%{line_count: 1}), do: "1 line"
+  defp source_line_count(%{line_count: count}) when is_integer(count), do: "#{count} lines"
+  defp source_line_count(_source), do: "0 lines"
 
   defp diagnostic_counts(statistics, source_statistics) do
     [
