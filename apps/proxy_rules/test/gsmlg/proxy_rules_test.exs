@@ -183,8 +183,14 @@ defmodule GSMLG.ProxyRulesTest do
   end
 
   test "reports local mutation unavailable instead of exiting with the source service" do
-    server = spawn(fn -> :ok end)
-    monitor = Process.monitor(server)
+    {server, monitor} =
+      spawn_monitor(fn ->
+        receive do
+          :stop -> :ok
+        end
+      end)
+
+    send(server, :stop)
     assert_receive {:DOWN, ^monitor, :process, ^server, :normal}
 
     assert {:error, :not_available} =

@@ -677,6 +677,8 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
 
     server =
       start_local(dir,
+        config_overrides: %{local_reconciliation_interval: 1},
+        scheduler: fn _server, _message, _delay -> make_ref() end,
         writer: fn _path, _content ->
           send(test_process, :writer_called)
           {:error, :write_failed}
