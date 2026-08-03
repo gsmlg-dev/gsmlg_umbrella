@@ -71,6 +71,9 @@ in
 
   scripts.dev-server.exec = ''
     set -euo pipefail
+    proxy_rules_state=.devenv/state/proxy-rules
+    mkdir -p -- "$proxy_rules_state/sources/proxy" \
+      "$proxy_rules_state/sources/direct"
     mix ecto.create --quiet
     mix ecto.migrate
     exec mix service.run

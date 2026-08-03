@@ -55,9 +55,30 @@ defmodule GSMLG.Config.SchemaTest do
   test "active TOML files define the proxy-rules defaults" do
     config_dir = Path.expand("../../../priv", __DIR__)
 
-    for filename <- ~w(gsmlg.toml gsmlg.dev.toml gsmlg.test.toml gsmlg.prod.toml) do
+    for filename <- ~w(gsmlg.toml gsmlg.test.toml gsmlg.prod.toml) do
       assert {:ok, config} = Toml.decode_file(Path.join(config_dir, filename), keys: :atoms)
       assert config.proxy_rules == @expected
     end
+  end
+
+  test "development proxy-rules paths are writable project state provisioned by devenv" do
+    config_dir = Path.expand("../../../priv", __DIR__)
+    umbrella_root = Path.expand("../../../../..", __DIR__)
+
+    assert {:ok, config} =
+             Toml.decode_file(Path.join(config_dir, "gsmlg.dev.toml"), keys: :atoms)
+
+    assert config.proxy_rules == %{
+             @expected
+             | local_proxy_list_path: ".devenv/state/proxy-rules/sources/proxy/proxy-list.txt",
+               local_direct_list_path: ".devenv/state/proxy-rules/sources/direct/direct-list.txt",
+               state_directory: ".devenv/state/proxy-rules"
+           }
+
+    devenv = File.read!(Path.join(umbrella_root, "devenv.nix"))
+
+    assert devenv =~ "proxy_rules_state=.devenv/state/proxy-rules"
+    assert devenv =~ ~s(mkdir -p -- "$proxy_rules_state/sources/proxy")
+    assert devenv =~ ~s("$proxy_rules_state/sources/direct")
   end
 end

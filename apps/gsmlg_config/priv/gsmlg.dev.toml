@@ -69,11 +69,11 @@ remote_max_body_size = 10000000
 retry_min_interval = 5000
 retry_max_interval = 300000
 retry_jitter = true
-local_proxy_list_path = "/etc/gsmlg/proxy-rules/proxy-list.txt"
-local_direct_list_path = "/etc/gsmlg/proxy-rules/direct-list.txt"
+local_proxy_list_path = ".devenv/state/proxy-rules/sources/proxy/proxy-list.txt"
+local_direct_list_path = ".devenv/state/proxy-rules/sources/direct/direct-list.txt"
 local_watch_debounce = 500
 local_reconciliation_interval = 60000
-state_directory = "/var/lib/gsmlg/proxy-rules"
+state_directory = ".devenv/state/proxy-rules"
 cache_control = "public, max-age=3600"
 unsupported_rule_sample_limit = 20
 
