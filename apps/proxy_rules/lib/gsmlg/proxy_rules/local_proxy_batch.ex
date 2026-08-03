@@ -4,12 +4,14 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
 
   Invalid batches retain up to 100 concrete line errors. When more errors are
   found, the result appends one `:too_many_errors` marker at the first omitted
-  error line.
+  error line. Textarea input larger than `:max_bytes` is rejected before line
+  validation, even when duplicate removal could make the final body smaller.
   """
 
   alias GSMLG.ProxyRules.Domain
 
   @max_line_errors 100
+  @max_cache_entries 1_024
 
   @type rejection_reason ::
           :leading_dot_not_allowed
@@ -31,28 +33,44 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
           :empty_batch
           | :body_too_large
           | {:invalid_batch, [line_error()]}
+  @type option :: {:max_bytes, non_neg_integer()}
 
   @doc """
   Validates a textarea batch and prepares the complete local proxy source body.
   """
-  @spec prepare(binary(), binary(), keyword()) ::
+  @spec prepare(binary(), binary(), [option()]) ::
           {:ok, result()} | {:error, error_reason()}
   def prepare(existing, input, options)
       when is_binary(existing) and is_binary(input) and is_list(options) do
     max_bytes = options |> Keyword.fetch!(:max_bytes) |> validate_max_bytes!()
 
-    input
-    |> scan_input(1, %{
-      seen: existing_domains(existing),
+    if byte_size(input) > max_bytes do
+      {:error, :body_too_large}
+    else
+      input
+      |> scan_input(1, initial_state(existing, max_bytes))
+      |> build_result(existing, max_bytes)
+    end
+  end
+
+  defp initial_state(existing, max_bytes) do
+    existing_bytes = byte_size(existing)
+    oversized? = existing_bytes > max_bytes
+
+    %{
+      mode: if(oversized?, do: :body_too_large, else: :valid),
+      seen: if(oversized?, do: nil, else: existing_domains(existing)),
       cache: %{},
       added_domains: [],
       duplicate_count: 0,
+      projected_bytes: if(oversized?, do: nil, else: existing_bytes),
+      separator_bytes: separator_bytes(existing),
+      max_bytes: max_bytes,
       nonblank?: false,
       errors: [],
       error_count: 0,
       first_omitted_error_line: nil
-    })
-    |> build_result(existing, max_bytes)
+    }
   end
 
   defp validate_max_bytes!(max_bytes) when is_integer(max_bytes) and max_bytes >= 0,
@@ -80,7 +98,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
 
     case validation do
       :blank -> state
-      {:ok, domain} -> add_domain(%{state | nonblank?: true}, domain)
+      {:ok, domain} -> accept_domain(%{state | nonblank?: true}, domain)
       {:error, reason} -> retain_error(%{state | nonblank?: true}, line_number, reason)
     end
   end
@@ -106,23 +124,42 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
 
   defp cache_validation(value, cache) do
     validation = validate_line(value)
-    {validation, Map.put(cache, value, validation)}
+    {validation, cache_entry(cache, value, validation)}
   end
+
+  defp cache_entry(cache, key, value) when map_size(cache) < @max_cache_entries,
+    do: Map.put(cache, key, value)
+
+  defp cache_entry(cache, _key, _value), do: cache
+
+  defp accept_domain(%{mode: :valid} = state, domain), do: add_domain(state, domain)
+  defp accept_domain(state, _domain), do: state
 
   defp add_domain(state, domain) do
     if MapSet.member?(state.seen, domain) do
       %{state | duplicate_count: state.duplicate_count + 1}
     else
-      %{
-        state
-        | seen: MapSet.put(state.seen, domain),
-          added_domains: [domain | state.added_domains]
-      }
+      projected_bytes =
+        state.projected_bytes + byte_size(domain) + 1 +
+          if(state.added_domains == [], do: state.separator_bytes, else: 0)
+
+      if projected_bytes > state.max_bytes do
+        discard_valid_result(state, :body_too_large)
+      else
+        %{
+          state
+          | seen: MapSet.put(state.seen, domain),
+            added_domains: [domain | state.added_domains],
+            projected_bytes: projected_bytes
+        }
+      end
     end
   end
 
   defp retain_error(%{error_count: error_count} = state, line, reason)
        when error_count < @max_line_errors do
+    state = discard_valid_result(state, :invalid)
+
     %{
       state
       | errors: [%{line: line, reason: reason} | state.errors],
@@ -131,9 +168,20 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   end
 
   defp retain_error(%{first_omitted_error_line: nil} = state, line, _reason),
-    do: %{state | first_omitted_error_line: line}
+    do: state |> discard_valid_result(:invalid) |> Map.put(:first_omitted_error_line, line)
 
   defp retain_error(state, _line, _reason), do: state
+
+  defp discard_valid_result(state, mode) do
+    %{
+      state
+      | mode: mode,
+        seen: nil,
+        added_domains: [],
+        duplicate_count: 0,
+        projected_bytes: nil
+    }
+  end
 
   defp build_result(%{errors: errors} = state, _existing, _max_bytes) when errors != [] do
     errors = format_errors(errors, state.first_omitted_error_line)
@@ -141,6 +189,9 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   end
 
   defp build_result(%{nonblank?: false}, _existing, _max_bytes), do: {:error, :empty_batch}
+
+  defp build_result(%{mode: :body_too_large}, _existing, _max_bytes),
+    do: {:error, :body_too_large}
 
   defp build_result(state, existing, max_bytes) do
     added_domains = Enum.reverse(state.added_domains)
@@ -240,7 +291,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
 
       :error ->
         normalization = Domain.normalize(value)
-        {normalization, Map.put(cache, value, normalization)}
+        {normalization, cache_entry(cache, value, normalization)}
     end
   end
 
@@ -265,4 +316,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     separator = if existing == "" or :binary.last(existing) == ?\n, do: "", else: "\n"
     existing <> separator <> Enum.map_join(domains, "", &(&1 <> "\n"))
   end
+
+  defp separator_bytes(""), do: 0
+  defp separator_bytes(existing), do: if(:binary.last(existing) == ?\n, do: 0, else: 1)
 end

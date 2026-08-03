@@ -139,6 +139,18 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                LocalProxyBatch.prepare("", "new.example", max_bytes: 0)
     end
 
+    test "bounds textarea bytes before validation or duplicate shrinking" do
+      duplicate_input = "a.co\na.co\n"
+
+      assert byte_size(duplicate_input) > 5
+
+      assert {:error, :body_too_large} =
+               LocalProxyBatch.prepare("", duplicate_input, max_bytes: 5)
+
+      assert {:error, :body_too_large} =
+               LocalProxyBatch.prepare("", <<255, 255>>, max_bytes: 1)
+    end
+
     test "returns a bounded line error for invalid UTF-8 input" do
       input = <<"ok.example\n", 255, "\nnext.example\n">>
 
@@ -177,6 +189,38 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                LocalProxyBatch.prepare("", one_hundred_and_one, max_bytes: 8 * 1024 * 1024)
     end
 
+    @tag timeout: 60_000
+    test "drops valid-result state after the first error" do
+      valid_tail = Enum.map_join(1..50_000, "\n", &"unique#{&1}.example")
+      input = "https://bad.example\n" <> valid_tail
+
+      assert {:error, {:invalid_batch, [%{line: 1, reason: :url_not_allowed}]}} =
+               prepare_under_heap_limit("", input, max_bytes: 8 * 1024 * 1024)
+    end
+
+    @tag timeout: 60_000
+    test "drops valid-result state once the projected body exceeds the limit" do
+      max_bytes = 2 * 1024 * 1024
+      existing = "#" <> String.duplicate("x", max_bytes - 1)
+      input = Enum.map_join(1..50_000, "\n", &"unique#{&1}.example")
+
+      assert byte_size(input) <= max_bytes
+
+      assert {:error, :body_too_large} =
+               prepare_under_heap_limit(existing, input, max_bytes: max_bytes)
+    end
+
+    test "invalid lines win after projected overflow for an in-limit input" do
+      existing = String.duplicate("a", 63) <> ".example\n"
+      input = "new.example\nhttps://bad.example"
+      max_bytes = byte_size(existing)
+
+      assert byte_size(input) <= max_bytes
+
+      assert {:error, {:invalid_batch, [%{line: 2, reason: :url_not_allowed}]}} =
+               LocalProxyBatch.prepare(existing, input, max_bytes: max_bytes)
+    end
+
     @tag timeout: 120_000
     test "keeps the result bounded for an 8 MiB repeated-domain batch" do
       repetitions = div(8 * 1024 * 1024, byte_size("a.co\n"))
@@ -190,6 +234,29 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_count: 1,
                 duplicate_count: ^expected_duplicates
               }} = LocalProxyBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
+    end
+  end
+
+  defp prepare_under_heap_limit(existing, input, options) do
+    caller = self()
+
+    {pid, monitor} =
+      :erlang.spawn_opt(
+        fn -> send(caller, {self(), LocalProxyBatch.prepare(existing, input, options)}) end,
+        [:monitor, {:max_heap_size, %{size: 500_000, kill: true, error_logger: false}}]
+      )
+
+    receive do
+      {^pid, result} ->
+        Process.demonitor(monitor, [:flush])
+        result
+
+      {:DOWN, ^monitor, :process, ^pid, reason} ->
+        flunk("batch process exited before returning: #{inspect(reason)}")
+    after
+      30_000 ->
+        Process.exit(pid, :kill)
+        flunk("batch process did not return within 30 seconds")
     end
   end
 end
