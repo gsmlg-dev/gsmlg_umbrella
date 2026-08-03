@@ -885,6 +885,21 @@ describe("ProxyRulesSourceViewer hook", () => {
     });
   });
 
+  test("visually highlights only the selected source button", async () => {
+    await withFakeDom(async ({ root, viewer }) => {
+      viewer.mounted();
+
+      expect(root.gfwlistButton.getAttribute("variant")).toBe("secondary");
+      expect(root.localButton.getAttribute("variant")).toBe("outline");
+
+      viewer.switchSource("local-proxy");
+
+      expect(root.gfwlistButton.getAttribute("variant")).toBe("outline");
+      expect(root.localButton.getAttribute("variant")).toBe("secondary");
+      viewer.destroyed();
+    });
+  });
+
   test("uses bounded messages for server, network, and invalid JSON failures", async () => {
     const cases = [
       [async () => jsonResponse(404, null), "Source content was not found."],

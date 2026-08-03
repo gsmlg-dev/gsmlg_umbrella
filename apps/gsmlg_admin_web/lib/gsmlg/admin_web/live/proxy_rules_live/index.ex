@@ -16,8 +16,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   ]
   @source_defaults [
     {:remote_gfwlist, "remote-gfwlist", "Remote GFWList"},
-    {:local_proxy, "local-proxy-list", "Local proxy list"},
-    {:local_direct, "local-direct-list", "Local direct list"}
+    {:local_proxy, "local-proxy-list", "Local proxy list"}
   ]
 
   @impl true

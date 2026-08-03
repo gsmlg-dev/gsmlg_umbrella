@@ -80,7 +80,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     assert has_element?(view, "#proxy-rules-direct-count", "Not available")
     assert has_element?(view, "#proxy-rules-source-remote-gfwlist", "Not available")
     assert has_element?(view, "#proxy-rules-source-local-proxy-list", "Not available")
-    assert has_element?(view, "#proxy-rules-source-local-direct-list", "Not available")
+    refute has_element?(view, "#proxy-rules-source-local-direct-list")
+    refute render(view) =~ "Local direct"
     assert has_element?(view, "#proxy-rules-artifacts-empty", "No artifacts have been published.")
     refute has_element?(view, "#proxy-rules-artifacts a")
   end
@@ -127,13 +128,15 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
 
     for {id, label, source} <- [
           {"remote-gfwlist", "Remote GFWList", :gfwlist},
-          {"local-proxy-list", "Local proxy list", :local_proxy},
-          {"local-direct-list", "Local direct list", :local_direct}
+          {"local-proxy-list", "Local proxy list", :local_proxy}
         ] do
       version = snapshot.source_versions[source]
       assert has_element?(view, "#proxy-rules-source-#{id}", label)
       assert has_element?(view, "#proxy-rules-source-#{id} [title='#{version}']")
     end
+
+    refute has_element?(view, "#proxy-rules-source-local-direct-list")
+    refute render(view) =~ "Local direct"
 
     assert has_element?(view, "#proxy-rules-diagnostic-invalid", "1")
     assert has_element?(view, "#proxy-rules-diagnostic-unsupported", "2")
@@ -468,11 +471,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
              "Last success Not available"
            )
 
-    assert has_element?(
-             view,
-             "#proxy-rules-source-local-direct-list",
-             "Last success 2026-07-23 01:02:03Z"
-           )
+    refute has_element?(view, "#proxy-rules-source-local-direct-list")
+    refute render(view) =~ "Local direct"
 
     assert has_element?(view, "#proxy-rules-viewer-gfwlist-status", "Missing")
     assert has_element?(view, "#proxy-rules-viewer-local-proxy-status", "Stale")

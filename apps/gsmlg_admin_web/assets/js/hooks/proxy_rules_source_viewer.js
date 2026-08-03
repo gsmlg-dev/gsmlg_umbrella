@@ -376,6 +376,7 @@ const ProxyRulesSourceViewer = {
     this.el.querySelectorAll("[data-source]").forEach((button) => {
       const selected = button.dataset.source === this.source;
       button.setAttribute("aria-pressed", String(selected));
+      button.setAttribute("variant", selected ? "secondary" : "outline");
       button.dataset.loaded = String(selected && this.state !== null);
     });
   },
