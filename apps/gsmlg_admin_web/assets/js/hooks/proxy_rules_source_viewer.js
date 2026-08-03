@@ -88,11 +88,12 @@ export function cachedLine(state, lineIndex) {
   return undefined;
 }
 
-export function descriptorForLine(state, lineIndex) {
+export function descriptorForLine(state, lineIndex, onVisit = null) {
   if (!state || !Number.isSafeInteger(lineIndex) || lineIndex < 0) return null;
 
   let descriptor = state.lastDescriptor;
   while (descriptor) {
+    onVisit?.(descriptor);
     const startIndex = descriptor.startLine - 1;
     if (
       lineIndex >= startIndex &&
@@ -517,9 +518,18 @@ const ProxyRulesSourceViewer = {
 
     const range = this.logicalVisibleRange();
     for (let lineIndex = range.start; lineIndex < range.end; lineIndex += 1) {
+      if (lineIndex >= this.state.loadedThrough) {
+        if (this.state.hasMore) this.loadNextPage();
+        return;
+      }
+
       if (cachedLine(this.state, lineIndex) !== undefined) continue;
 
-      const descriptor = descriptorForLine(this.state, lineIndex);
+      const descriptor = descriptorForLine(
+        this.state,
+        lineIndex,
+        this.onDescriptorVisit,
+      );
       if (descriptor) {
         this.loadNextPage({ descriptor });
       } else if (this.state.hasMore) {

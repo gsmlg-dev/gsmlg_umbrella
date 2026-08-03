@@ -321,6 +321,22 @@ describe("proxy rule source viewer state", () => {
 });
 
 describe("ProxyRulesSourceViewer hook", () => {
+  test("catches up far forward with zero descriptor scans and linear page fetches", async () => {
+    const results = [];
+    for (const pageCount of [50, 100, 200]) {
+      results.push(await runFarForwardCatchUp(pageCount));
+    }
+
+    for (const result of results) {
+      expect(result.fetchCount).toBe(result.pageCount);
+      expect(result.loadedThrough).toBe(result.pageCount * result.pageSize);
+      expect(result.descriptorVisits).toBe(0);
+    }
+
+    expect(results[2].duration).toBeLessThan(results[0].duration * 8 + 100);
+    expect(results[2].duration).toBeLessThan(results[1].duration * 4 + 100);
+  });
+
   test("stays lazy across source switches and keeps one abortable same-origin request", async () => {
     await withFakeDom(async ({ root, viewer }) => {
       const requests = [];
@@ -950,13 +966,63 @@ async function withFakeDom(callback) {
   };
 
   try {
-    await callback({ root, viewer, frames });
+    return await callback({ root, viewer, frames });
   } finally {
     globalThis.document = originals.document;
     globalThis.fetch = originals.fetch;
     globalThis.requestAnimationFrame = originals.requestAnimationFrame;
     globalThis.cancelAnimationFrame = originals.cancelAnimationFrame;
   }
+}
+
+async function runFarForwardCatchUp(pageCount) {
+  return withFakeDom(async ({ root, viewer, frames }) => {
+    const pageSize = 20;
+    let descriptorVisits = 0;
+    let fetchCount = 0;
+    globalThis.fetch = async (url) => {
+      fetchCount += 1;
+      const cursor = new URL(url, "https://example.test").searchParams.get(
+        "cursor",
+      );
+      const pageIndex = cursor ? Number(cursor.slice("cursor-".length)) : 0;
+      return jsonResponse(200, sourcePage(pageIndex, pageCount, pageSize));
+    };
+
+    viewer.mounted();
+    viewer.onDescriptorVisit = () => {
+      descriptorVisits += 1;
+    };
+    viewer.activated = true;
+    await viewer.loadNextPage();
+
+    root.viewport.scrollTop = (pageCount * pageSize - 4) * 24;
+    root.viewport.listeners.get("scroll")();
+    const [[frameId, renderFrame]] = frames;
+    frames.delete(frameId);
+    const startedAt = performance.now();
+    renderFrame();
+
+    for (
+      let iteration = 0;
+      iteration < pageCount * 20 &&
+      viewer.state.loadedThrough < pageCount * pageSize;
+      iteration += 1
+    ) {
+      await Promise.resolve();
+    }
+
+    const result = {
+      descriptorVisits,
+      duration: performance.now() - startedAt,
+      fetchCount,
+      loadedThrough: viewer.state.loadedThrough,
+      pageCount,
+      pageSize,
+    };
+    viewer.destroyed();
+    return result;
+  });
 }
 
 class FakeElement {
