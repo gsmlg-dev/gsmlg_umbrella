@@ -1,9 +1,15 @@
 defmodule GSMLG.ProxyRules.LocalProxyBatch do
   @moduledoc """
   Validates and prepares bare domains for appending to the local proxy source.
+
+  Invalid batches retain up to 100 concrete line errors. When more errors are
+  found, the result appends one `:too_many_errors` marker at the first omitted
+  error line.
   """
 
   alias GSMLG.ProxyRules.Domain
+
+  @max_line_errors 100
 
   @type rejection_reason ::
           :leading_dot_not_allowed
@@ -11,6 +17,8 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
           | :url_not_allowed
           | :path_not_allowed
           | :wildcard_not_allowed
+          | :invalid_utf8
+          | :too_many_errors
           | Domain.error_reason()
   @type line_error :: %{line: pos_integer(), reason: rejection_reason()}
   @type result :: %{
@@ -31,59 +39,131 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
           {:ok, result()} | {:error, error_reason()}
   def prepare(existing, input, options)
       when is_binary(existing) and is_binary(input) and is_list(options) do
-    max_bytes = Keyword.fetch!(options, :max_bytes)
+    max_bytes = options |> Keyword.fetch!(:max_bytes) |> validate_max_bytes!()
 
-    with {:ok, submitted} <- validate_lines(input) do
-      {added_domains, _seen, duplicate_count} =
-        Enum.reduce(submitted, {[], existing_domains(existing), 0}, fn domain,
-                                                                       {added, seen, duplicates} ->
-          if MapSet.member?(seen, domain) do
-            {added, seen, duplicates + 1}
-          else
-            {[domain | added], MapSet.put(seen, domain), duplicates}
+    input
+    |> scan_input(1, %{
+      seen: existing_domains(existing),
+      cache: %{},
+      added_domains: [],
+      duplicate_count: 0,
+      nonblank?: false,
+      errors: [],
+      error_count: 0,
+      first_omitted_error_line: nil
+    })
+    |> build_result(existing, max_bytes)
+  end
+
+  defp validate_max_bytes!(max_bytes) when is_integer(max_bytes) and max_bytes >= 0,
+    do: max_bytes
+
+  defp validate_max_bytes!(max_bytes) do
+    raise ArgumentError,
+          "expected :max_bytes to be a non-negative integer, got: #{inspect(max_bytes)}"
+  end
+
+  defp scan_input(input, line_number, state) do
+    {raw_line, rest} = next_line(input)
+    state = process_input_line(raw_line, line_number, state)
+
+    cond do
+      state.first_omitted_error_line != nil -> state
+      rest == :done -> state
+      true -> scan_input(rest, line_number + 1, state)
+    end
+  end
+
+  defp process_input_line(raw_line, line_number, state) do
+    {validation, cache} = validate_submitted_line(raw_line, state.cache)
+    state = %{state | cache: cache}
+
+    case validation do
+      :blank -> state
+      {:ok, domain} -> add_domain(%{state | nonblank?: true}, domain)
+      {:error, reason} -> retain_error(%{state | nonblank?: true}, line_number, reason)
+    end
+  end
+
+  defp validate_submitted_line(raw_line, cache) do
+    if String.valid?(raw_line) do
+      value = String.trim(raw_line)
+
+      case value do
+        "" ->
+          {:blank, cache}
+
+        value ->
+          case Map.fetch(cache, value) do
+            {:ok, validation} -> {validation, cache}
+            :error -> cache_validation(value, cache)
           end
-        end)
-
-      added_domains = Enum.reverse(added_domains)
-      content = append_domains(existing, added_domains)
-
-      if byte_size(content) <= max_bytes do
-        {:ok,
-         %{
-           content: content,
-           added_domains: added_domains,
-           added_count: length(added_domains),
-           duplicate_count: duplicate_count
-         }}
-      else
-        {:error, :body_too_large}
       end
+    else
+      {{:error, :invalid_utf8}, cache}
     end
   end
 
-  defp validate_lines(input) do
-    {domains, errors} =
-      input
-      |> String.split(~r/\r\n|\n|\r/)
-      |> Enum.with_index(1)
-      |> Enum.reduce({[], []}, fn {raw_value, line}, {domains, errors} ->
-        value = String.trim(raw_value)
+  defp cache_validation(value, cache) do
+    validation = validate_line(value)
+    {validation, Map.put(cache, value, validation)}
+  end
 
-        case validate_line(value) do
-          :blank -> {domains, errors}
-          {:ok, domain} -> {[domain | domains], errors}
-          {:error, reason} -> {domains, [%{line: line, reason: reason} | errors]}
-        end
-      end)
-
-    case {domains, errors} do
-      {[], []} -> {:error, :empty_batch}
-      {_domains, []} -> {:ok, Enum.reverse(domains)}
-      {_domains, errors} -> {:error, {:invalid_batch, Enum.reverse(errors)}}
+  defp add_domain(state, domain) do
+    if MapSet.member?(state.seen, domain) do
+      %{state | duplicate_count: state.duplicate_count + 1}
+    else
+      %{
+        state
+        | seen: MapSet.put(state.seen, domain),
+          added_domains: [domain | state.added_domains]
+      }
     end
   end
 
-  defp validate_line(""), do: :blank
+  defp retain_error(%{error_count: error_count} = state, line, reason)
+       when error_count < @max_line_errors do
+    %{
+      state
+      | errors: [%{line: line, reason: reason} | state.errors],
+        error_count: error_count + 1
+    }
+  end
+
+  defp retain_error(%{first_omitted_error_line: nil} = state, line, _reason),
+    do: %{state | first_omitted_error_line: line}
+
+  defp retain_error(state, _line, _reason), do: state
+
+  defp build_result(%{errors: errors} = state, _existing, _max_bytes) when errors != [] do
+    errors = format_errors(errors, state.first_omitted_error_line)
+    {:error, {:invalid_batch, errors}}
+  end
+
+  defp build_result(%{nonblank?: false}, _existing, _max_bytes), do: {:error, :empty_batch}
+
+  defp build_result(state, existing, max_bytes) do
+    added_domains = Enum.reverse(state.added_domains)
+    content = append_domains(existing, added_domains)
+
+    if byte_size(content) <= max_bytes do
+      {:ok,
+       %{
+         content: content,
+         added_domains: added_domains,
+         added_count: length(added_domains),
+         duplicate_count: state.duplicate_count
+       }}
+    else
+      {:error, :body_too_large}
+    end
+  end
+
+  defp format_errors(errors, nil), do: Enum.reverse(errors)
+
+  defp format_errors(errors, first_omitted_error_line) do
+    Enum.reverse(errors) ++ [%{line: first_omitted_error_line, reason: :too_many_errors}]
+  end
 
   defp validate_line(value) do
     cond do
@@ -118,28 +198,71 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   end
 
   defp existing_domains(existing) do
-    existing
-    |> String.split(~r/\r\n|\n|\r/)
-    |> Enum.reduce(MapSet.new(), fn value, domains ->
-      value = String.trim(value)
+    {domains, _cache} = scan_existing(existing, MapSet.new(), %{})
+    domains
+  end
+
+  defp scan_existing(existing, domains, cache) do
+    {raw_line, rest} = next_line(existing)
+    {domains, cache} = include_existing_line(raw_line, domains, cache)
+
+    case rest do
+      :done -> {domains, cache}
+      rest -> scan_existing(rest, domains, cache)
+    end
+  end
+
+  defp include_existing_line(raw_line, domains, cache) do
+    if String.valid?(raw_line) do
+      value = String.trim(raw_line)
 
       cond do
         value == "" or String.starts_with?(value, ["#", "!"]) ->
-          domains
+          {domains, cache}
 
         true ->
-          case Domain.normalize(value) do
-            {:ok, domain} -> MapSet.put(domains, domain.name)
-            {:error, _reason} -> domains
+          {normalization, cache} = cached_existing_normalization(value, cache)
+
+          case normalization do
+            {:ok, domain} -> {MapSet.put(domains, domain.name), cache}
+            {:error, _reason} -> {domains, cache}
           end
       end
-    end)
+    else
+      {domains, cache}
+    end
+  end
+
+  defp cached_existing_normalization(value, cache) do
+    case Map.fetch(cache, value) do
+      {:ok, normalization} ->
+        {normalization, cache}
+
+      :error ->
+        normalization = Domain.normalize(value)
+        {normalization, Map.put(cache, value, normalization)}
+    end
+  end
+
+  defp next_line(binary) do
+    case :binary.match(binary, ["\r\n", "\n", "\r"]) do
+      {position, delimiter_size} ->
+        rest_offset = position + delimiter_size
+
+        {
+          binary_part(binary, 0, position),
+          binary_part(binary, rest_offset, byte_size(binary) - rest_offset)
+        }
+
+      :nomatch ->
+        {binary, :done}
+    end
   end
 
   defp append_domains(existing, []), do: existing
 
   defp append_domains(existing, domains) do
-    separator = if existing == "" or String.ends_with?(existing, "\n"), do: "", else: "\n"
+    separator = if existing == "" or :binary.last(existing) == ?\n, do: "", else: "\n"
     existing <> separator <> Enum.map_join(domains, "", &(&1 <> "\n"))
   end
 end
