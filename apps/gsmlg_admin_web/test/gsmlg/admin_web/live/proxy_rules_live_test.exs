@@ -80,8 +80,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     assert has_element?(view, "#proxy-rules-direct-count", "Not available")
     assert has_element?(view, "#proxy-rules-source-remote-gfwlist", "Not available")
     assert has_element?(view, "#proxy-rules-source-local-proxy-list", "Not available")
-    refute has_element?(view, "#proxy-rules-source-local-direct-list")
-    refute render(view) =~ "Local direct"
+    assert has_element?(view, "#proxy-rules-source-local-direct-list", "Not available")
     assert has_element?(view, "#proxy-rules-artifacts-empty", "No artifacts have been published.")
     refute has_element?(view, "#proxy-rules-artifacts a")
   end
@@ -128,15 +127,13 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
 
     for {id, label, source} <- [
           {"remote-gfwlist", "Remote GFWList", :gfwlist},
-          {"local-proxy-list", "Local proxy list", :local_proxy}
+          {"local-proxy-list", "Local proxy list", :local_proxy},
+          {"local-direct-list", "Local direct list", :local_direct}
         ] do
       version = snapshot.source_versions[source]
       assert has_element?(view, "#proxy-rules-source-#{id}", label)
       assert has_element?(view, "#proxy-rules-source-#{id} [title='#{version}']")
     end
-
-    refute has_element?(view, "#proxy-rules-source-local-direct-list")
-    refute render(view) =~ "Local direct"
 
     assert has_element?(view, "#proxy-rules-diagnostic-invalid", "1")
     assert has_element?(view, "#proxy-rules-diagnostic-unsupported", "2")
@@ -170,7 +167,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
            )
   end
 
-  test "renders the local proxy form and lazy source viewer without eager source content", %{
+  test "renders sibling local forms and a separate lazy full-width source viewer", %{
     conn: conn
   } do
     snapshot = fixture_snapshot()
@@ -198,7 +195,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
           :local_direct,
           snapshot.source_versions.local_direct,
           @compiled_at,
-          %{last_success_at: @compiled_at}
+          %{content: "direct-secret.example\n", last_success_at: @compiled_at}
         )
     })
 
@@ -207,6 +204,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
 
     assert has_element?(view, "#proxy-rules-add-local-proxy")
     assert has_element?(view, "form[phx-submit='add_local_proxy']")
+    assert has_element?(view, "#proxy-rules-add-local-direct")
+    assert has_element?(view, "form[phx-submit='add_local_direct']")
 
     assert has_element?(
              view,
@@ -215,13 +214,23 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
 
     assert has_element?(
              view,
+             "textarea[name='local_direct[domains]'][aria-describedby='proxy-rules-local-direct-help proxy-rules-local-direct-errors']"
+           )
+
+    assert has_element?(view, "#proxy-rules-local-source-forms.grid.lg\\:grid-cols-2")
+    assert has_element?(view, "#proxy-rules-source-viewer-section")
+
+    assert has_element?(
+             view,
              "#proxy-rules-source-viewer[phx-hook='ProxyRulesSourceViewer'][data-page-size='200']"
            )
 
     assert has_element?(view, "[data-source='gfwlist'][data-loaded='false']")
     assert has_element?(view, "[data-source='local-proxy'][data-loaded='false']")
+    assert has_element?(view, "[data-source='local-direct'][data-loaded='false']")
     assert has_element?(view, "#proxy-rules-viewer-gfwlist-status", "Ready")
     assert has_element?(view, "#proxy-rules-viewer-local-proxy-status", "Ready")
+    assert has_element?(view, "#proxy-rules-viewer-local-direct-status", "Ready")
     assert has_element?(view, "#proxy-rules-viewer-gfwlist-metadata", "2 lines")
     assert has_element?(view, "#proxy-rules-viewer-gfwlist-metadata", "2026-07-23 01:02:03Z")
 
@@ -231,7 +240,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
              "One domain per line"
            )
 
-    assert has_element?(view, "#proxy-rules-add-local-proxy-submit", "Add domains")
+    assert has_element?(view, "#proxy-rules-add-local-proxy-submit", "Add proxy domains")
+    assert has_element?(view, "#proxy-rules-add-local-direct-submit", "Add direct domains")
 
     assert has_element?(
              view,
@@ -239,9 +249,81 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
              "One leading . or *. prefix is accepted and removed"
            )
 
-    assert has_element?(view, "#proxy-rules-source-viewport[phx-update='ignore']")
+    assert has_element?(
+             view,
+             "#proxy-rules-source-viewer[data-local-direct-url='/proxy-rules/sources/local-direct']"
+           )
+
+    assert has_element?(view, "pre#proxy-rules-source-content[phx-update='ignore']")
+    refute has_element?(view, "#proxy-rules-source-spacer")
+    refute has_element?(view, "#proxy-rules-source-rows")
     refute html =~ "||remote-secret.example^"
     refute html =~ "local-secret.example"
+    refute html =~ "direct-secret.example"
+  end
+
+  @tag :tmp_dir
+  test "proxy and direct submissions preserve the other form and errors", %{
+    conn: conn,
+    tmp_dir: dir
+  } do
+    %{proxy: proxy_path, direct: direct_path} = install_both_local_mutation_states(dir)
+    replace_current(fixture_snapshot(), :ready, nil)
+    {:ok, view, _html} = live(conn, ~p"/proxy-rules")
+
+    proxy_invalid = "https://keep-proxy.example\n"
+
+    view
+    |> form("#proxy-rules-add-local-proxy", %{
+      "local_proxy" => %{"domains" => proxy_invalid}
+    })
+    |> render_submit()
+
+    view
+    |> form("#proxy-rules-add-local-direct", %{
+      "local_direct" => %{"domains" => "DIRECT.example\n"}
+    })
+    |> render_submit()
+
+    assert File.read!(direct_path) == "existing-direct.example\ndirect.example\n"
+    assert has_element?(view, "textarea[name='local_direct[domains]']", "")
+    assert view |> element("textarea[name='local_proxy[domains]']") |> render() =~ proxy_invalid
+    assert has_element?(view, "#proxy-rules-local-proxy-errors li", "URLs are not allowed")
+    assert_push_event(view, "proxy-rules:source-changed", %{source: "local-direct"})
+
+    direct_invalid = "https://keep-direct.example\n"
+
+    view
+    |> form("#proxy-rules-add-local-direct", %{
+      "local_direct" => %{"domains" => direct_invalid}
+    })
+    |> render_submit()
+
+    view
+    |> form("#proxy-rules-add-local-proxy", %{
+      "local_proxy" => %{"domains" => "PROXY.example\n"}
+    })
+    |> render_submit()
+
+    assert File.read!(proxy_path) == "existing-proxy.example\nproxy.example\n"
+    assert has_element?(view, "textarea[name='local_proxy[domains]']", "")
+    assert view |> element("textarea[name='local_direct[domains]']") |> render() =~ direct_invalid
+    assert has_element?(view, "#proxy-rules-local-direct-errors li", "URLs are not allowed")
+    assert_push_event(view, "proxy-rules:source-changed", %{source: "local-proxy"})
+
+    set_local_writer(fn _path, _content -> {:error, :permission_denied} end)
+    direct_operational = "keep-direct-operational.example\n"
+
+    view
+    |> form("#proxy-rules-add-local-direct", %{
+      "local_direct" => %{"domains" => direct_operational}
+    })
+    |> render_submit()
+
+    assert render(view) =~ "Local direct source could not be written: permission denied."
+
+    assert view |> element("textarea[name='local_direct[domains]']") |> render() =~
+             direct_operational
   end
 
   @tag :tmp_dir
@@ -478,11 +560,15 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
              "Last success Not available"
            )
 
-    refute has_element?(view, "#proxy-rules-source-local-direct-list")
-    refute render(view) =~ "Local direct"
+    assert has_element?(
+             view,
+             "#proxy-rules-source-local-direct-list",
+             "Last success 2026-07-23 01:02:03Z"
+           )
 
     assert has_element?(view, "#proxy-rules-viewer-gfwlist-status", "Missing")
     assert has_element?(view, "#proxy-rules-viewer-local-proxy-status", "Stale")
+    assert has_element?(view, "#proxy-rules-viewer-local-direct-status", "Stale")
   end
 
   test "accepted refresh immediately disables duplicate clicks", %{conn: conn} do
@@ -724,6 +810,59 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     end)
 
     proxy_path
+  end
+
+  defp install_both_local_mutation_states(dir) do
+    prior = :sys.get_state(Local)
+    proxy_path = Path.join(dir, "proxy.txt")
+    direct_path = Path.join(dir, "direct.txt")
+    File.write!(proxy_path, "existing-proxy.example\n")
+    File.write!(direct_path, "existing-direct.example\n")
+
+    on_exit(fn ->
+      if Process.whereis(Local) do
+        :sys.replace_state(Local, fn _state -> prior end)
+      end
+    end)
+
+    :sys.replace_state(Local, fn state ->
+      proxy_snapshot =
+        source_snapshot(
+          :local_proxy,
+          String.duplicate("e", 64),
+          @compiled_at,
+          %{content: "existing-proxy.example\n", path: proxy_path, last_success_at: @compiled_at}
+        )
+
+      direct_snapshot =
+        source_snapshot(
+          :local_direct,
+          String.duplicate("f", 64),
+          @compiled_at,
+          %{
+            content: "existing-direct.example\n",
+            path: direct_path,
+            last_success_at: @compiled_at
+          }
+        )
+
+      state
+      |> put_in([:targets, :proxy], %{kind: :local_proxy, action: :proxy, path: proxy_path})
+      |> put_in([:targets, :direct], %{kind: :local_direct, action: :direct, path: direct_path})
+      |> put_in([:entries, :proxy], %{
+        snapshot: proxy_snapshot,
+        has_valid_snapshot: true,
+        last_failure: nil
+      })
+      |> put_in([:entries, :direct], %{
+        snapshot: direct_snapshot,
+        has_valid_snapshot: true,
+        last_failure: nil
+      })
+      |> Map.put(:writer, &LocalSourceWriter.write/2)
+    end)
+
+    %{proxy: proxy_path, direct: direct_path}
   end
 
   defp set_local_writer(writer) do

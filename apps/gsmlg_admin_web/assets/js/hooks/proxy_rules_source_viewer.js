@@ -1,268 +1,7 @@
-export function visibleRange({
-  scrollTop,
-  viewportHeight,
-  rowHeight,
-  loadedCount,
-  overscan = 5,
-}) {
-  const count = Math.max(0, Math.floor(loadedCount));
-  const height = rowHeight > 0 ? rowHeight : 1;
-  const first = Math.min(count, Math.floor(Math.max(0, scrollTop) / height));
-  const visible = Math.ceil(Math.max(0, viewportHeight) / height);
-  const extra = Math.max(0, Math.floor(overscan));
-
-  return {
-    start: Math.max(0, first - extra),
-    end: Math.min(count, first + visible + extra),
-  };
-}
-
 export function sourcePageUrl(base, cursor, limit) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (cursor) params.set("cursor", cursor);
   return `${base}?${params.toString()}`;
-}
-
-const DEFAULT_MAX_CACHED_LINES = 2_000;
-const DEFAULT_MAX_CACHED_PAGES = 12;
-export const MAX_PHYSICAL_HEIGHT = 8_000_000;
-
-export function appendPage(state, page, options = {}) {
-  if (!validPage(page)) throw new Error("invalid_page");
-  if (state && state.version !== page.version)
-    throw new Error("source_changed");
-
-  const expectedStart = (state?.loadedThrough || 0) + 1;
-  if (page.start_line !== expectedStart) throw new Error("non_contiguous_page");
-
-  const loadedCount = expectedStart - 1 + page.lines.length;
-  const totalMatches = !state || state.totalLines === page.total_lines;
-  const cursorMatches = page.has_more
-    ? typeof page.next_cursor === "string" &&
-      page.next_cursor.length > 0 &&
-      page.lines.length > 0 &&
-      loadedCount < page.total_lines
-    : page.next_cursor === null && loadedCount === page.total_lines;
-
-  if (!totalMatches || loadedCount > page.total_lines || !cursorMatches) {
-    throw new Error("invalid_page");
-  }
-
-  const cursor = Object.hasOwn(options, "cursor")
-    ? options.cursor
-    : state?.nextCursor || null;
-  if (cursor !== null && typeof cursor !== "string")
-    throw new Error("invalid_page");
-  if (state && cursor !== state.nextCursor) throw new Error("invalid_page");
-
-  const descriptor = Object.freeze({
-    cursor,
-    startLine: page.start_line,
-    lineCount: page.lines.length,
-    nextCursor: page.next_cursor,
-    hasMore: page.has_more,
-    previous: state?.lastDescriptor || null,
-  });
-  const cache = addCachedPage(state?.pages || [], page, options);
-
-  return {
-    version: page.version,
-    pages: cache.pages,
-    loadedThrough: loadedCount,
-    lastDescriptor: descriptor,
-    nextCursor: page.next_cursor,
-    hasMore: page.has_more,
-    totalLines: page.total_lines,
-  };
-}
-
-export function cachedLine(state, lineIndex) {
-  if (!state || !Number.isSafeInteger(lineIndex) || lineIndex < 0)
-    return undefined;
-
-  for (const page of state.pages) {
-    const offset = lineIndex - (page.startLine - 1);
-    if (offset >= 0 && offset < page.lines.length) return page.lines[offset];
-  }
-
-  return undefined;
-}
-
-export function descriptorForLine(state, lineIndex, onVisit = null) {
-  if (!state || !Number.isSafeInteger(lineIndex) || lineIndex < 0) return null;
-
-  let descriptor = state.lastDescriptor;
-  while (descriptor) {
-    onVisit?.(descriptor);
-    const startIndex = descriptor.startLine - 1;
-    if (
-      lineIndex >= startIndex &&
-      lineIndex < startIndex + descriptor.lineCount
-    ) {
-      return descriptor;
-    }
-    descriptor = descriptor.previous;
-  }
-
-  return null;
-}
-
-export function restorePage(state, page, options = {}) {
-  if (!state || !validPage(page)) throw new Error("invalid_page");
-  if (state.version !== page.version) throw new Error("source_changed");
-  if (state.totalLines !== page.total_lines) throw new Error("invalid_page");
-
-  const cursor = Object.hasOwn(options, "cursor") ? options.cursor : null;
-  if (cursor !== null && typeof cursor !== "string")
-    throw new Error("invalid_page");
-  const descriptor = descriptorForLine(state, page.start_line - 1);
-  if (
-    !descriptor ||
-    descriptor.cursor !== cursor ||
-    descriptor.startLine !== page.start_line ||
-    descriptor.lineCount !== page.lines.length ||
-    descriptor.nextCursor !== page.next_cursor ||
-    descriptor.hasMore !== page.has_more
-  ) {
-    throw new Error("non_contiguous_page");
-  }
-
-  const cache = addCachedPage(state.pages, page, options);
-  return {
-    ...state,
-    pages: cache.pages,
-  };
-}
-
-export function physicalLayout({
-  totalLines,
-  rowHeight,
-  segmentStartLine = 0,
-  maxPhysicalHeight = MAX_PHYSICAL_HEIGHT,
-}) {
-  const safeRowHeight = positiveInteger(rowHeight, 1);
-  const safeTotal = nonNegativeInteger(totalLines);
-  const capacity = Math.max(
-    1,
-    Math.floor(
-      positiveInteger(maxPhysicalHeight, MAX_PHYSICAL_HEIGHT) / safeRowHeight,
-    ),
-  );
-  const maxStartLine = Math.max(0, safeTotal - capacity);
-  const startLine = Math.min(
-    maxStartLine,
-    Math.max(0, nonNegativeInteger(segmentStartLine)),
-  );
-  const lineCount = Math.min(capacity, safeTotal - startLine);
-
-  return {
-    capacity,
-    startLine,
-    lineCount,
-    height: lineCount * safeRowHeight,
-    maxStartLine,
-  };
-}
-
-export function rebaseScroll({
-  segmentStartLine,
-  scrollTop,
-  viewportHeight,
-  totalLines,
-  rowHeight,
-  maxPhysicalHeight = MAX_PHYSICAL_HEIGHT,
-}) {
-  const layout = physicalLayout({
-    totalLines,
-    rowHeight,
-    segmentStartLine,
-    maxPhysicalHeight,
-  });
-  const safeRowHeight = positiveInteger(rowHeight, 1);
-  const safeViewportHeight = Math.max(0, viewportHeight);
-  const maxScrollTop = Math.max(0, layout.height - safeViewportHeight);
-  const safeScrollTop = Math.min(maxScrollTop, Math.max(0, scrollTop));
-  const halfSegment = Math.max(1, Math.floor(layout.capacity / 2));
-  let nextStartLine = layout.startLine;
-  let nextScrollTop = safeScrollTop;
-
-  if (
-    safeScrollTop >= maxScrollTop * 0.75 &&
-    layout.startLine < layout.maxStartLine
-  ) {
-    const shift = Math.min(
-      halfSegment,
-      Math.floor(safeScrollTop / safeRowHeight),
-      layout.maxStartLine - layout.startLine,
-    );
-    nextStartLine += shift;
-    nextScrollTop -= shift * safeRowHeight;
-  } else if (safeScrollTop <= maxScrollTop * 0.25 && layout.startLine > 0) {
-    const shift = Math.min(halfSegment, layout.startLine);
-    nextStartLine -= shift;
-    nextScrollTop += shift * safeRowHeight;
-  }
-
-  return {
-    segmentStartLine: nextStartLine,
-    scrollTop: nextScrollTop,
-  };
-}
-
-function addCachedPage(pages, page, options) {
-  const maxCachedLines = positiveInteger(
-    options.maxCachedLines,
-    DEFAULT_MAX_CACHED_LINES,
-  );
-  const maxCachedPages = positiveInteger(
-    options.maxCachedPages,
-    DEFAULT_MAX_CACHED_PAGES,
-  );
-  const cachedPage = Object.freeze({
-    startLine: page.start_line,
-    lines: Object.freeze([...page.lines]),
-  });
-  const nextPages = pages.filter(
-    (existingPage) => existingPage.startLine !== cachedPage.startLine,
-  );
-  nextPages.push(cachedPage);
-  let cachedLines = nextPages.reduce(
-    (count, existingPage) => count + existingPage.lines.length,
-    0,
-  );
-
-  while (
-    nextPages.length > 1 &&
-    (nextPages.length > maxCachedPages || cachedLines > maxCachedLines)
-  ) {
-    cachedLines -= nextPages.shift().lines.length;
-  }
-
-  return { pages: Object.freeze(nextPages) };
-}
-
-function positiveInteger(value, fallback) {
-  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
-}
-
-function nonNegativeInteger(value) {
-  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
-}
-
-function validPage(page) {
-  return (
-    page !== null &&
-    typeof page === "object" &&
-    /^[0-9a-f]{64}$/.test(page.version) &&
-    Number.isSafeInteger(page.start_line) &&
-    page.start_line >= 1 &&
-    Array.isArray(page.lines) &&
-    page.lines.every((line) => typeof line === "string") &&
-    Number.isSafeInteger(page.total_lines) &&
-    page.total_lines >= 0 &&
-    typeof page.has_more === "boolean" &&
-    (page.next_cursor === null || typeof page.next_cursor === "string")
-  );
 }
 
 const ERROR_MESSAGES = {
@@ -274,33 +13,15 @@ const ERROR_MESSAGES = {
 
 const ProxyRulesSourceViewer = {
   mounted() {
-    this.rowHeight = 24;
-    this.overscan = 8;
-    this.maxPhysicalHeight = MAX_PHYSICAL_HEIGHT;
-    this.segmentStartLine = 0;
     this.pageSize = boundedPageSize(this.el.dataset.pageSize);
-    this.state = null;
     this.source = this.selectedSource();
+    this.cache = new Map();
     this.activated = false;
     this.loading = false;
-    this.loadBlocked = false;
-    this.conflictRetryUsed = false;
-    this.requestSerial = 0;
-    this.animationFrame = null;
+    this.requestGeneration = 0;
     this.abortController = null;
     this.statusMessage = "";
     this.errorMessage = "";
-
-    this.onScroll = () => {
-      if (this.animationFrame !== null) return;
-
-      this.animationFrame = requestAnimationFrame(() => {
-        this.animationFrame = null;
-        this.rebaseViewport();
-        this.renderWindow();
-        this.loadVisiblePage();
-      });
-    };
 
     this.onClick = (event) => {
       const sourceButton = event.target.closest?.("[data-source]");
@@ -312,125 +33,133 @@ const ProxyRulesSourceViewer = {
       const viewButton = event.target.closest?.("#proxy-rules-view-content");
       if (viewButton && this.el.contains(viewButton)) {
         this.activated = true;
-        this.loadBlocked = false;
-        this.conflictRetryUsed = false;
-        this.loadVisiblePage();
+        this.loadSource();
       }
     };
 
-    this.viewport().addEventListener("scroll", this.onScroll, {
-      passive: true,
-    });
     this.el.addEventListener("click", this.onClick);
     this.sourceChangedRef = this.handleEvent(
       "proxy-rules:source-changed",
-      ({ source }) => {
-        if (source !== this.source) return;
-
-        const reload = this.activated;
-        this.resetView({ preserveActivation: reload });
-        if (reload) this.loadVisiblePage();
-      },
+      ({ source }) => this.invalidateSource(source),
     );
 
     this.updateSourceButtons();
-    this.clearRenderedContent();
+    this.renderSelectedSource();
   },
 
   updated() {
     this.updateSourceButtons();
+    this.updateLoadingButton();
     this.renderMessages();
   },
 
   destroyed() {
     this.el.removeEventListener("click", this.onClick);
-    this.viewport().removeEventListener("scroll", this.onScroll);
-
-    if (this.animationFrame !== null) cancelAnimationFrame(this.animationFrame);
-    if (this.abortController) this.abortController.abort();
+    this.cancelRequest();
     if (this.sourceChangedRef !== undefined) {
       this.removeHandleEvent?.(this.sourceChangedRef);
     }
-
-    this.animationFrame = null;
-    this.abortController = null;
-    this.requestSerial += 1;
   },
 
   selectedSource() {
     const selected = this.el.querySelector('[data-source][aria-pressed="true"]')
       ?.dataset.source;
-
     return validSource(selected) ? selected : "gfwlist";
   },
 
   switchSource(source) {
     if (!validSource(source) || source === this.source) return;
 
-    this.resetView();
+    this.cancelRequest();
     this.source = source;
+    this.activated = false;
+    this.setError("");
+    this.setStatus("");
     this.updateSourceButtons();
+    this.renderSelectedSource();
+  },
+
+  invalidateSource(source) {
+    if (!validSource(source)) return;
+
+    this.cache.delete(source);
+    if (source !== this.source) {
+      this.updateSourceButtons();
+      return;
+    }
+
+    const reload = this.activated;
+    this.cancelRequest();
+    this.content().textContent = "";
+    this.updateSourceButtons();
+    if (reload) this.loadSource();
   },
 
   updateSourceButtons() {
     this.el.querySelectorAll("[data-source]").forEach((button) => {
-      const selected = button.dataset.source === this.source;
+      const source = button.dataset.source;
+      const selected = source === this.source;
       button.setAttribute("aria-pressed", String(selected));
       button.setAttribute("variant", selected ? "secondary" : "outline");
-      button.dataset.loaded = String(selected && this.state !== null);
+      button.dataset.loaded = String(this.cache.has(source));
     });
   },
 
-  resetView({
-    preserveActivation = false,
-    preserveConflictRetry = false,
-  } = {}) {
-    this.requestSerial += 1;
-    if (this.abortController) this.abortController.abort();
-
-    this.abortController = null;
-    this.loading = false;
-    this.loadBlocked = false;
-    if (!preserveConflictRetry) this.conflictRetryUsed = false;
-    this.state = null;
-    this.segmentStartLine = 0;
-    this.activated = preserveActivation;
-    this.clearRenderedContent();
-    this.updateSourceButtons();
+  renderSelectedSource() {
+    const cached = this.cache.get(this.source);
+    this.content().textContent = cached ? cached.content : "";
   },
 
-  clearRenderedContent() {
-    this.viewport().scrollTop = 0;
-    this.spacer().style.height = "0px";
-    this.rows().style.transform = "translateY(0px)";
-    this.rows().replaceChildren();
-    this.setStatus("");
-    this.setError("");
-  },
-
-  async loadNextPage({ descriptor = null } = {}) {
-    const restoring = descriptor !== null;
-    if (
-      !this.activated ||
-      this.loading ||
-      this.loadBlocked ||
-      (!restoring && this.state && !this.state.hasMore)
-    )
+  async loadSource({ conflictRetryUsed = false } = {}) {
+    if (!this.activated || this.loading || this.cache.has(this.source)) {
+      this.renderSelectedSource();
       return;
+    }
 
     const source = this.source;
-    const serial = this.requestSerial;
-    const cursor = restoring
-      ? descriptor.cursor
-      : this.state?.nextCursor || null;
+    const generation = this.requestGeneration;
     const controller = new AbortController();
     this.abortController = controller;
-    this.loading = true;
+    this.setLoading(true);
     this.setError("");
     this.setStatus("Loading source content…");
-    let pageAppended = false;
 
     try {
+      const complete = await this.fetchCompleteSource(
+        source,
+        generation,
+        controller,
+      );
+      if (!this.currentRequest(source, generation, controller)) return;
+
+      this.cache.set(source, complete);
+      this.renderSelectedSource();
+      this.updateSourceButtons();
+      this.setStatus(loadedMessage(complete.totalLines));
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      if (!this.currentRequest(source, generation, controller)) return;
+
+      if (error?.message === "source_changed" && !conflictRetryUsed) {
+        this.finishRequest(controller);
+        this.setStatus("Source content changed. Reloading…");
+        return this.loadSource({ conflictRetryUsed: true });
+      }
+
+      this.setStatus("");
+      this.setError(errorMessage(error));
+    } finally {
+      this.finishRequest(controller);
+    }
+  },
+
+  async fetchCompleteSource(source, generation, controller) {
+    let cursor = null;
+    let version = null;
+    let totalLines = null;
+    const lines = [];
+
+    do {
       const response = await fetch(
         sourcePageUrl(this.sourceUrl(source), cursor, this.pageSize),
         {
@@ -440,28 +169,14 @@ const ProxyRulesSourceViewer = {
         },
       );
 
-      if (serial !== this.requestSerial || source !== this.source) return;
-
-      if (response.status === 409 && !this.conflictRetryUsed) {
-        this.conflictRetryUsed = true;
-        this.loading = false;
-        this.abortController = null;
-        this.resetView({
-          preserveActivation: true,
-          preserveConflictRetry: true,
-        });
-        this.setStatus("Source content changed. Reloading…");
-        return this.loadNextPage();
+      if (!this.currentRequest(source, generation, controller)) {
+        throw abortError();
       }
-
+      if (response.status === 409) throw new Error("source_changed");
       if (!response.ok) {
-        this.loadBlocked = true;
-        this.setStatus("");
-        this.setError(
-          ERROR_MESSAGES[response.status] ||
-            "Source content could not be loaded.",
-        );
-        return;
+        const error = new Error("request_failed");
+        error.status = response.status;
+        throw error;
       }
 
       let page;
@@ -471,192 +186,61 @@ const ProxyRulesSourceViewer = {
         throw new Error("invalid_response");
       }
 
-      if (serial !== this.requestSerial || source !== this.source) return;
+      validatePage(page, { version, totalLines, loadedLines: lines.length });
+      version = page.version;
+      totalLines = page.total_lines;
+      lines.push(...page.lines);
+      cursor = page.next_cursor;
+    } while (cursor !== null);
 
-      try {
-        this.state = restoring
-          ? restorePage(this.state, page, { cursor })
-          : appendPage(this.state, page, { cursor });
-        pageAppended = true;
-      } catch (_error) {
-        throw new Error("invalid_response");
-      }
-
-      this.markCurrentSourceLoaded();
-      this.renderWindow();
-      this.setStatus(
-        `Loaded ${this.state.loadedThrough} of ${this.state.totalLines} lines.`,
-      );
-    } catch (error) {
-      if (error?.name === "AbortError") return;
-      if (serial !== this.requestSerial || source !== this.source) return;
-
-      this.loadBlocked = true;
-      this.setStatus("");
-      this.setError(
-        error?.message === "invalid_response"
-          ? "The source returned an invalid response."
-          : "Source content could not be loaded.",
-      );
-    } finally {
-      if (this.abortController === controller) {
-        this.abortController = null;
-        this.loading = false;
-
-        if (pageAppended) {
-          queueMicrotask(() => this.loadVisiblePage());
-        }
-      }
-    }
+    return { version, totalLines, content: lines.join("\n") };
   },
 
-  loadVisiblePage() {
-    if (!this.activated || this.loading || this.loadBlocked) return;
-    if (this.state === null) {
-      this.loadNextPage();
-      return;
-    }
+  currentRequest(source, generation, controller) {
+    return (
+      source === this.source &&
+      generation === this.requestGeneration &&
+      controller === this.abortController
+    );
+  },
 
-    const range = this.logicalVisibleRange();
-    for (let lineIndex = range.start; lineIndex < range.end; lineIndex += 1) {
-      if (lineIndex >= this.state.loadedThrough) {
-        if (this.state.hasMore) this.loadNextPage();
-        return;
-      }
+  finishRequest(controller) {
+    if (this.abortController !== controller) return;
+    this.abortController = null;
+    this.setLoading(false);
+  },
 
-      if (cachedLine(this.state, lineIndex) !== undefined) continue;
-
-      const descriptor = descriptorForLine(
-        this.state,
-        lineIndex,
-        this.onDescriptorVisit,
-      );
-      if (descriptor) {
-        this.loadNextPage({ descriptor });
-      } else if (this.state.hasMore) {
-        this.loadNextPage();
-      }
-      return;
-    }
-
-    if (this.state.hasMore && this.nearLoadedEnd()) {
-      this.loadNextPage();
-    }
+  cancelRequest() {
+    this.requestGeneration += 1;
+    this.abortController?.abort();
+    this.abortController = null;
+    this.setLoading(false);
   },
 
   sourceUrl(source) {
-    return source === "local-proxy"
-      ? this.el.dataset.localProxyUrl
-      : this.el.dataset.gfwlistUrl;
+    if (source === "local-proxy") return this.el.dataset.localProxyUrl;
+    if (source === "local-direct") return this.el.dataset.localDirectUrl;
+    return this.el.dataset.gfwlistUrl;
   },
 
-  renderWindow() {
-    if (this.state === null) return;
+  content() {
+    return this.el.querySelector("#proxy-rules-source-content");
+  },
 
-    const layout = this.physicalLayout();
-    const range = this.logicalVisibleRange();
-    const fragment = document.createDocumentFragment();
+  setLoading(loading) {
+    this.loading = loading;
+    this.updateLoadingButton();
+  },
 
-    for (let index = range.start; index < range.end; index += 1) {
-      const row = document.createElement("div");
-      const lineNumber = document.createElement("span");
-      const sourceText = document.createElement("span");
+  updateLoadingButton() {
+    const button = this.el.querySelector("#proxy-rules-view-content");
+    button.setAttribute("aria-disabled", String(this.loading));
 
-      row.className = "flex min-w-max items-start";
-      row.style.height = `${this.rowHeight}px`;
-      lineNumber.className =
-        "w-16 shrink-0 select-none pr-3 text-right text-on-surface-variant";
-      lineNumber.textContent = String(index + 1);
-      sourceText.className = "whitespace-pre pr-4";
-      sourceText.textContent = cachedLine(this.state, index) ?? "";
-      row.append(lineNumber, sourceText);
-      fragment.appendChild(row);
+    if (this.loading) {
+      button.setAttribute("disabled", "");
+    } else {
+      button.removeAttribute("disabled");
     }
-
-    this.spacer().style.height = `${layout.height}px`;
-    this.rows().style.transform = `translateY(${
-      (range.start - layout.startLine) * this.rowHeight
-    }px)`;
-    this.rows().replaceChildren(fragment);
-  },
-
-  physicalLayout() {
-    const layout = physicalLayout({
-      totalLines: this.state?.totalLines || 0,
-      rowHeight: this.rowHeight,
-      segmentStartLine: this.segmentStartLine,
-      maxPhysicalHeight: this.maxPhysicalHeight,
-    });
-    this.segmentStartLine = layout.startLine;
-    return layout;
-  },
-
-  logicalVisibleRange() {
-    const viewport = this.viewport();
-    const layout = this.physicalLayout();
-    const range = visibleRange({
-      scrollTop: viewport.scrollTop,
-      viewportHeight: viewport.clientHeight,
-      rowHeight: this.rowHeight,
-      loadedCount: layout.lineCount,
-      overscan: this.overscan,
-    });
-
-    return {
-      start: layout.startLine + range.start,
-      end: layout.startLine + range.end,
-    };
-  },
-
-  rebaseViewport() {
-    if (this.state === null) return;
-
-    const viewport = this.viewport();
-    const rebased = rebaseScroll({
-      segmentStartLine: this.segmentStartLine,
-      scrollTop: viewport.scrollTop,
-      viewportHeight: viewport.clientHeight,
-      totalLines: this.state.totalLines,
-      rowHeight: this.rowHeight,
-      maxPhysicalHeight: this.maxPhysicalHeight,
-    });
-
-    this.segmentStartLine = rebased.segmentStartLine;
-    if (viewport.scrollTop !== rebased.scrollTop) {
-      viewport.scrollTop = rebased.scrollTop;
-    }
-  },
-
-  nearLoadedEnd() {
-    if (!this.state?.hasMore) return false;
-
-    const viewport = this.viewport();
-    const lastVisible = Math.ceil(
-      (viewport.scrollTop + viewport.clientHeight) / this.rowHeight,
-    );
-
-    return (
-      this.segmentStartLine + lastVisible >=
-      this.state.loadedThrough - this.overscan
-    );
-  },
-
-  markCurrentSourceLoaded() {
-    this.el.querySelectorAll("[data-source]").forEach((button) => {
-      button.dataset.loaded = String(button.dataset.source === this.source);
-    });
-  },
-
-  viewport() {
-    return this.el.querySelector("#proxy-rules-source-viewport");
-  },
-
-  spacer() {
-    return this.el.querySelector("#proxy-rules-source-spacer");
-  },
-
-  rows() {
-    return this.el.querySelector("#proxy-rules-source-rows");
   },
 
   setStatus(message) {
@@ -679,17 +263,71 @@ const ProxyRulesSourceViewer = {
   },
 };
 
+function validatePage(page, { version, totalLines, loadedLines }) {
+  const validShape =
+    page !== null &&
+    typeof page === "object" &&
+    /^[0-9a-f]{64}$/.test(page.version) &&
+    Number.isSafeInteger(page.start_line) &&
+    page.start_line === loadedLines + 1 &&
+    Array.isArray(page.lines) &&
+    page.lines.every((line) => typeof line === "string") &&
+    Number.isSafeInteger(page.total_lines) &&
+    page.total_lines >= 0 &&
+    typeof page.has_more === "boolean" &&
+    (page.next_cursor === null ||
+      (typeof page.next_cursor === "string" && page.next_cursor.length > 0));
+
+  if (!validShape) throw new Error("invalid_response");
+  if (version !== null && version !== page.version) {
+    throw new Error("source_changed");
+  }
+  if (totalLines !== null && totalLines !== page.total_lines) {
+    throw new Error("invalid_response");
+  }
+
+  const nextLoaded = loadedLines + page.lines.length;
+  const validContinuation = page.has_more
+    ? page.next_cursor !== null &&
+      page.lines.length > 0 &&
+      nextLoaded < page.total_lines
+    : page.next_cursor === null && nextLoaded === page.total_lines;
+  if (!validContinuation) throw new Error("invalid_response");
+}
+
 function boundedPageSize(value) {
   const size = Number(value);
   return Number.isInteger(size) && size >= 1 && size <= 500 ? size : 200;
 }
 
 function validSource(source) {
-  return source === "gfwlist" || source === "local-proxy";
+  return ["gfwlist", "local-proxy", "local-direct"].includes(source);
 }
 
 function boundedMessage(message) {
   return typeof message === "string" ? message.slice(0, 160) : "";
+}
+
+function loadedMessage(count) {
+  return count === 1
+    ? "Loaded all 1 line."
+    : `Loaded all ${count} lines.`;
+}
+
+function errorMessage(error) {
+  if (error?.message === "invalid_response") {
+    return "The source returned an invalid response.";
+  }
+  if (error?.message === "source_changed") return ERROR_MESSAGES[409];
+  return (
+    ERROR_MESSAGES[error?.status] || "Source content could not be loaded."
+  );
+}
+
+function abortError() {
+  const error = new Error("aborted");
+  error.name = "AbortError";
+  return error;
 }
 
 export default ProxyRulesSourceViewer;

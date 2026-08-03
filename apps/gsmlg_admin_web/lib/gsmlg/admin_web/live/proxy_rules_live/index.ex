@@ -5,7 +5,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   alias GSMLG.ProxyRules
 
   @diagnostic_sample_limit 2
-  @local_proxy_error_limit 101
+  @local_error_limit 101
   @artifact_paths [
     {:proxy, "Proxy", :raw, "Raw", "proxy-list", "raw"},
     {:proxy, "Proxy", :squid, "Squid", "proxy-list", "squid"},
@@ -16,7 +16,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   ]
   @source_defaults [
     {:remote_gfwlist, "remote-gfwlist", "Remote GFWList"},
-    {:local_proxy, "local-proxy-list", "Local proxy list"}
+    {:local_proxy, "local-proxy-list", "Local proxy list"},
+    {:local_direct, "local-direct-list", "Local direct list"}
   ]
 
   @impl true
@@ -30,7 +31,9 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
        page_title: "Proxy Rules",
        state: load_state(ProxyRules.metadata()),
        local_proxy_form: to_form(%{"domains" => ""}, as: :local_proxy),
-       local_proxy_errors: []
+       local_proxy_errors: [],
+       local_direct_form: to_form(%{"domains" => ""}, as: :local_direct),
+       local_direct_errors: []
      )}
   end
 
@@ -51,43 +54,77 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
         socket
       )
       when is_binary(domains) do
-    case ProxyRules.add_local_proxy_domains(domains) do
+    handle_local_submission(socket, :proxy, domains)
+  end
+
+  def handle_event("add_local_proxy", _params, socket) do
+    invalid_local_submission(socket, :proxy)
+  end
+
+  def handle_event(
+        "add_local_direct",
+        %{"local_direct" => %{"domains" => domains}},
+        socket
+      )
+      when is_binary(domains) do
+    handle_local_submission(socket, :direct, domains)
+  end
+
+  def handle_event("add_local_direct", _params, socket) do
+    invalid_local_submission(socket, :direct)
+  end
+
+  defp handle_local_submission(socket, target, domains) do
+    case add_local_domains(target, domains) do
       {:ok, result} ->
         socket =
           socket
-          |> assign(
-            local_proxy_form: to_form(%{"domains" => ""}, as: :local_proxy),
-            local_proxy_errors: []
-          )
+          |> assign(%{
+            local_form_key(target) => to_form(%{"domains" => ""}, as: local_form_name(target)),
+            local_errors_key(target) => []
+          })
           |> put_flash(:info, add_result_message(result))
-          |> push_event("proxy-rules:source-changed", %{source: "local-proxy"})
+          |> push_event("proxy-rules:source-changed", %{source: local_source_name(target)})
 
         {:noreply, socket}
 
       {:error, {:invalid_batch, errors}} ->
         {:noreply,
-         assign(socket,
-           local_proxy_form: to_form(%{"domains" => domains}, as: :local_proxy),
-           local_proxy_errors: Enum.take(errors, @local_proxy_error_limit)
-         )}
+         assign(socket, %{
+           local_form_key(target) =>
+             to_form(%{"domains" => domains}, as: local_form_name(target)),
+           local_errors_key(target) => Enum.take(errors, @local_error_limit)
+         })}
 
       {:error, reason} ->
         {:noreply,
          socket
-         |> assign(
-           local_proxy_form: to_form(%{"domains" => domains}, as: :local_proxy),
-           local_proxy_errors: []
-         )
-         |> put_flash(:error, add_error_message(reason))}
+         |> assign(%{
+           local_form_key(target) =>
+             to_form(%{"domains" => domains}, as: local_form_name(target)),
+           local_errors_key(target) => []
+         })
+         |> put_flash(:error, add_error_message(target, reason))}
     end
   end
 
-  def handle_event("add_local_proxy", _params, socket) do
+  defp invalid_local_submission(socket, target) do
     {:noreply,
      socket
-     |> assign(local_proxy_errors: [])
+     |> assign(local_errors_key(target), [])
      |> put_flash(:error, "The domain submission is invalid. Enter one domain per line.")}
   end
+
+  defp add_local_domains(:proxy, domains), do: ProxyRules.add_local_proxy_domains(domains)
+  defp add_local_domains(:direct, domains), do: ProxyRules.add_local_direct_domains(domains)
+  defp local_form_key(:proxy), do: :local_proxy_form
+  defp local_form_key(:direct), do: :local_direct_form
+  defp local_errors_key(:proxy), do: :local_proxy_errors
+  defp local_errors_key(:direct), do: :local_direct_errors
+  defp local_form_name(:proxy), do: :local_proxy
+  defp local_form_name(:direct), do: :local_direct
+  defp local_source_name(:proxy), do: "local-proxy"
+  defp local_source_name(:direct), do: "local-direct"
 
   @impl true
   def handle_info({:proxy_rules_status_changed, _measurements, _metadata}, socket) do
@@ -192,179 +229,259 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
           </div>
         </section>
 
-        <section
+        <div
           id="proxy-rules-local-source-controls"
-          class="grid gap-4 lg:grid-cols-2"
-          aria-label="Local proxy controls and source viewer"
+          class="space-y-4"
         >
-          <.dm_card
-            id="proxy-rules-local-proxy-card"
-            variant="bordered"
-            body_class="space-y-4"
+          <section
+            id="proxy-rules-local-source-forms"
+            class="grid gap-4 lg:grid-cols-2"
+            aria-label="Local source controls"
           >
-            <:title>Add Local Proxy</:title>
-            <p class="text-sm text-on-surface-variant">
-              Add domains to the Local proxy source. The whole batch is rejected if any line is
-              invalid.
-            </p>
-
-            <.dm_form
-              for={@local_proxy_form}
-              id="proxy-rules-add-local-proxy"
-              class="space-y-3"
-              phx-submit="add_local_proxy"
+            <.dm_card
+              id="proxy-rules-local-proxy-card"
+              variant="bordered"
+              body_class="space-y-4"
             >
-              <.dm_textarea
-                field={@local_proxy_form[:domains]}
-                id="proxy-rules-local-proxy-domains"
-                name={@local_proxy_form[:domains].name}
-                label="One domain per line"
-                rows={8}
-                placeholder="example.com\nsubdomain.example.net"
-                aria-describedby="proxy-rules-local-proxy-help proxy-rules-local-proxy-errors"
-                aria-invalid={to_string(@local_proxy_errors != [])}
-              />
-              <p id="proxy-rules-local-proxy-help" class="text-sm text-on-surface-variant">
-                Enter one domain per line. One leading <code>.</code> or <code>*.</code> prefix is
-                accepted and removed. URLs, other wildcard forms, IP addresses, CIDRs, and comments
-                are not accepted.
+              <:title>Add Local Proxy</:title>
+              <p class="text-sm text-on-surface-variant">
+                Add domains to the Local proxy source. The whole batch is rejected if any line is
+                invalid.
               </p>
-              <ul
-                id="proxy-rules-local-proxy-errors"
-                role={@local_proxy_errors != [] && "alert"}
-                aria-live="polite"
-                class="space-y-1 text-sm text-error"
+
+              <.dm_form
+                for={@local_proxy_form}
+                id="proxy-rules-add-local-proxy"
+                class="space-y-3"
+                phx-submit="add_local_proxy"
               >
-                <li :for={error <- @local_proxy_errors}>
-                  Line {display_value(error.line)}: {local_proxy_error_label(error.reason)}
-                </li>
-              </ul>
-              <:actions>
-                <.dm_btn id="proxy-rules-add-local-proxy-submit" variant="primary" type="submit">
-                  Add domains
-                </.dm_btn>
-              </:actions>
-            </.dm_form>
-          </.dm_card>
-
-          <.dm_card
-            id="proxy-rules-source-viewer-card"
-            variant="bordered"
-            body_class="space-y-4"
-          >
-            <:title>Source viewer</:title>
-            <div
-              id="proxy-rules-source-viewer"
-              phx-hook="ProxyRulesSourceViewer"
-              data-page-size="200"
-              data-gfwlist-url={~p"/proxy-rules/sources/gfwlist"}
-              data-local-proxy-url={~p"/proxy-rules/sources/local-proxy"}
-              class="space-y-4"
-            >
-              <div class="grid gap-3 sm:grid-cols-2" aria-label="Source selection">
-                <div class="rounded-lg border border-outline-variant bg-surface-container p-3 text-on-surface">
-                  <.dm_btn
-                    id="proxy-rules-viewer-source-gfwlist"
-                    variant="secondary"
-                    size="sm"
-                    type="button"
-                    data-source="gfwlist"
-                    data-loaded="false"
-                    aria-controls="proxy-rules-source-viewport"
-                    aria-pressed="true"
-                  >
-                    GFWList
-                  </.dm_btn>
-                  <.dm_badge
-                    id="proxy-rules-viewer-gfwlist-status"
-                    variant={source_variant(@state.viewer_gfwlist.availability)}
-                    soft
-                  >
-                    {source_label(@state.viewer_gfwlist.availability)}
-                  </.dm_badge>
-                  <p
-                    id="proxy-rules-viewer-gfwlist-metadata"
-                    class="mt-2 text-xs text-on-surface-variant"
-                  >
-                    {source_line_count(@state.viewer_gfwlist)} · updated {display_datetime(
-                      @state.viewer_gfwlist.updated_at
-                    )}
-                  </p>
-                </div>
-                <div class="rounded-lg border border-outline-variant bg-surface-container p-3 text-on-surface">
-                  <.dm_btn
-                    id="proxy-rules-viewer-source-local-proxy"
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    data-source="local-proxy"
-                    data-loaded="false"
-                    aria-controls="proxy-rules-source-viewport"
-                    aria-pressed="false"
-                  >
-                    Local proxy
-                  </.dm_btn>
-                  <.dm_badge
-                    id="proxy-rules-viewer-local-proxy-status"
-                    variant={source_variant(@state.viewer_local_proxy.availability)}
-                    soft
-                  >
-                    {source_label(@state.viewer_local_proxy.availability)}
-                  </.dm_badge>
-                  <p
-                    id="proxy-rules-viewer-local-proxy-metadata"
-                    class="mt-2 text-xs text-on-surface-variant"
-                  >
-                    {source_line_count(@state.viewer_local_proxy)} · updated {display_datetime(
-                      @state.viewer_local_proxy.updated_at
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div class="flex flex-wrap items-center gap-3">
-                <.dm_btn
-                  id="proxy-rules-view-content"
-                  variant="outline"
-                  type="button"
-                  aria-controls="proxy-rules-source-viewport"
-                >
-                  View content
-                </.dm_btn>
-                <p
-                  id="proxy-rules-viewer-loading"
-                  role="status"
+                <.dm_textarea
+                  field={@local_proxy_form[:domains]}
+                  id="proxy-rules-local-proxy-domains"
+                  name={@local_proxy_form[:domains].name}
+                  label="One domain per line"
+                  rows={8}
+                  placeholder="example.com\nsubdomain.example.net"
+                  aria-describedby="proxy-rules-local-proxy-help proxy-rules-local-proxy-errors"
+                  aria-invalid={to_string(@local_proxy_errors != [])}
+                />
+                <p id="proxy-rules-local-proxy-help" class="text-sm text-on-surface-variant">
+                  Enter one domain per line. One leading <code>.</code> or <code>*.</code> prefix is
+                  accepted and removed. URLs, other wildcard forms, IP addresses, CIDRs, and comments
+                  are not accepted.
+                </p>
+                <ul
+                  id="proxy-rules-local-proxy-errors"
+                  role={@local_proxy_errors != [] && "alert"}
                   aria-live="polite"
-                  class="text-sm text-on-surface-variant"
+                  class="space-y-1 text-sm text-error"
                 >
-                </p>
-                <p
-                  id="proxy-rules-viewer-error"
-                  role="alert"
-                  aria-live="assertive"
-                  class="text-sm text-error"
-                >
-                </p>
-              </div>
+                  <li :for={error <- @local_proxy_errors}>
+                    Line {display_value(error.line)}: {local_proxy_error_label(error.reason)}
+                  </li>
+                </ul>
+                <:actions>
+                  <.dm_btn id="proxy-rules-add-local-proxy-submit" variant="primary" type="submit">
+                    Add proxy domains
+                  </.dm_btn>
+                </:actions>
+              </.dm_form>
+            </.dm_card>
 
-              <div
-                id="proxy-rules-source-viewport"
-                phx-update="ignore"
-                tabindex="0"
-                role="region"
-                aria-label="Proxy rule source content"
-                class="relative h-96 overflow-auto rounded-lg border border-outline-variant bg-surface-container-low text-on-surface"
+            <.dm_card
+              id="proxy-rules-local-direct-card"
+              variant="bordered"
+              body_class="space-y-4"
+            >
+              <:title>Add Local Direct</:title>
+              <p class="text-sm text-on-surface-variant">
+                Add domains to the Local direct source. The whole batch is rejected if any line is
+                invalid.
+              </p>
+
+              <.dm_form
+                for={@local_direct_form}
+                id="proxy-rules-add-local-direct"
+                class="space-y-3"
+                phx-submit="add_local_direct"
               >
-                <div id="proxy-rules-source-spacer" aria-hidden="true"></div>
-                <div
-                  id="proxy-rules-source-rows"
-                  class="absolute inset-x-0 top-0 font-mono text-sm"
+                <.dm_textarea
+                  field={@local_direct_form[:domains]}
+                  id="proxy-rules-local-direct-domains"
+                  name={@local_direct_form[:domains].name}
+                  label="One domain per line"
+                  rows={8}
+                  placeholder="example.com\nsubdomain.example.net"
+                  aria-describedby="proxy-rules-local-direct-help proxy-rules-local-direct-errors"
+                  aria-invalid={to_string(@local_direct_errors != [])}
+                />
+                <p id="proxy-rules-local-direct-help" class="text-sm text-on-surface-variant">
+                  Enter one domain per line. One leading <code>.</code> or <code>*.</code> prefix is
+                  accepted and removed. URLs, other wildcard forms, IP addresses, CIDRs, and comments
+                  are not accepted.
+                </p>
+                <ul
+                  id="proxy-rules-local-direct-errors"
+                  role={@local_direct_errors != [] && "alert"}
+                  aria-live="polite"
+                  class="space-y-1 text-sm text-error"
                 >
+                  <li :for={error <- @local_direct_errors}>
+                    Line {display_value(error.line)}: {local_proxy_error_label(error.reason)}
+                  </li>
+                </ul>
+                <:actions>
+                  <.dm_btn id="proxy-rules-add-local-direct-submit" variant="primary" type="submit">
+                    Add direct domains
+                  </.dm_btn>
+                </:actions>
+              </.dm_form>
+            </.dm_card>
+          </section>
+
+          <section id="proxy-rules-source-viewer-section" aria-label="Source viewer">
+            <.dm_card
+              id="proxy-rules-source-viewer-card"
+              variant="bordered"
+              body_class="space-y-4"
+            >
+              <:title>Source viewer</:title>
+              <div
+                id="proxy-rules-source-viewer"
+                phx-hook="ProxyRulesSourceViewer"
+                data-page-size="200"
+                data-gfwlist-url={~p"/proxy-rules/sources/gfwlist"}
+                data-local-proxy-url={~p"/proxy-rules/sources/local-proxy"}
+                data-local-direct-url={~p"/proxy-rules/sources/local-direct"}
+                class="space-y-4"
+              >
+                <div class="grid gap-3 sm:grid-cols-3" aria-label="Source selection">
+                  <div class="rounded-lg border border-outline-variant bg-surface-container p-3 text-on-surface">
+                    <.dm_btn
+                      id="proxy-rules-viewer-source-gfwlist"
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      data-source="gfwlist"
+                      data-loaded="false"
+                      aria-controls="proxy-rules-source-content"
+                      aria-pressed="true"
+                    >
+                      GFWList
+                    </.dm_btn>
+                    <.dm_badge
+                      id="proxy-rules-viewer-gfwlist-status"
+                      variant={source_variant(@state.viewer_gfwlist.availability)}
+                      soft
+                    >
+                      {source_label(@state.viewer_gfwlist.availability)}
+                    </.dm_badge>
+                    <p
+                      id="proxy-rules-viewer-gfwlist-metadata"
+                      class="mt-2 text-xs text-on-surface-variant"
+                    >
+                      {source_line_count(@state.viewer_gfwlist)} · updated {display_datetime(
+                        @state.viewer_gfwlist.updated_at
+                      )}
+                    </p>
+                  </div>
+                  <div class="rounded-lg border border-outline-variant bg-surface-container p-3 text-on-surface">
+                    <.dm_btn
+                      id="proxy-rules-viewer-source-local-proxy"
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      data-source="local-proxy"
+                      data-loaded="false"
+                      aria-controls="proxy-rules-source-content"
+                      aria-pressed="false"
+                    >
+                      Local proxy
+                    </.dm_btn>
+                    <.dm_badge
+                      id="proxy-rules-viewer-local-proxy-status"
+                      variant={source_variant(@state.viewer_local_proxy.availability)}
+                      soft
+                    >
+                      {source_label(@state.viewer_local_proxy.availability)}
+                    </.dm_badge>
+                    <p
+                      id="proxy-rules-viewer-local-proxy-metadata"
+                      class="mt-2 text-xs text-on-surface-variant"
+                    >
+                      {source_line_count(@state.viewer_local_proxy)} · updated {display_datetime(
+                        @state.viewer_local_proxy.updated_at
+                      )}
+                    </p>
+                  </div>
+                  <div class="rounded-lg border border-outline-variant bg-surface-container p-3 text-on-surface">
+                    <.dm_btn
+                      id="proxy-rules-viewer-source-local-direct"
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      data-source="local-direct"
+                      data-loaded="false"
+                      aria-controls="proxy-rules-source-content"
+                      aria-pressed="false"
+                    >
+                      Local direct
+                    </.dm_btn>
+                    <.dm_badge
+                      id="proxy-rules-viewer-local-direct-status"
+                      variant={source_variant(@state.viewer_local_direct.availability)}
+                      soft
+                    >
+                      {source_label(@state.viewer_local_direct.availability)}
+                    </.dm_badge>
+                    <p
+                      id="proxy-rules-viewer-local-direct-metadata"
+                      class="mt-2 text-xs text-on-surface-variant"
+                    >
+                      {source_line_count(@state.viewer_local_direct)} · updated {display_datetime(
+                        @state.viewer_local_direct.updated_at
+                      )}
+                    </p>
+                  </div>
                 </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                  <.dm_btn
+                    id="proxy-rules-view-content"
+                    variant="outline"
+                    type="button"
+                    aria-controls="proxy-rules-source-content"
+                  >
+                    View content
+                  </.dm_btn>
+                  <p
+                    id="proxy-rules-viewer-loading"
+                    role="status"
+                    aria-live="polite"
+                    class="text-sm text-on-surface-variant"
+                  >
+                  </p>
+                  <p
+                    id="proxy-rules-viewer-error"
+                    role="alert"
+                    aria-live="assertive"
+                    class="text-sm text-error"
+                  >
+                  </p>
+                </div>
+
+                <pre
+                  id="proxy-rules-source-content"
+                  phx-update="ignore"
+                  tabindex="0"
+                  role="region"
+                  aria-label="Proxy rule source content"
+                  class="h-96 overflow-auto whitespace-pre rounded-lg border border-outline-variant bg-surface-container-low p-4 font-mono text-sm text-on-surface"
+                ></pre>
               </div>
-            </div>
-          </.dm_card>
-        </section>
+            </.dm_card>
+          </section>
+        </div>
 
         <section class="space-y-4" aria-labelledby="proxy-rules-artifacts-heading">
           <h2 id="proxy-rules-artifacts-heading" class="text-2xl font-semibold">Artifacts</h2>
@@ -465,6 +582,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
       sources: sources,
       viewer_gfwlist: source_for_viewer(sources, :remote_gfwlist),
       viewer_local_proxy: source_for_viewer(sources, :local_proxy),
+      viewer_local_direct: source_for_viewer(sources, :local_direct),
       artifacts: artifact_rows(Map.get(metadata, :rendered_outputs, %{})),
       diagnostic_counts: diagnostic_counts(statistics, source_statistics),
       diagnostic_samples:
@@ -565,22 +683,24 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
 
   defp append_reconciliation_warning(message, _reconciliation), do: message
 
-  defp add_error_message(:empty_batch), do: "Enter at least one domain."
-  defp add_error_message(:body_too_large), do: "The submitted domains exceed the 8 MiB limit."
+  defp add_error_message(_target, :empty_batch), do: "Enter at least one domain."
 
-  defp add_error_message(:too_many_domains),
+  defp add_error_message(_target, :body_too_large),
+    do: "The submitted domains exceed the 8 MiB limit."
+
+  defp add_error_message(_target, :too_many_domains),
     do: "Submit at most 10,000 distinct domains at a time."
 
-  defp add_error_message(:not_available),
-    do: "Local proxy source is not available right now."
+  defp add_error_message(target, :not_available),
+    do: "#{local_target_label(target)} source is not available right now."
 
-  defp add_error_message(:outcome_unknown),
+  defp add_error_message(_target, :outcome_unknown),
     do: "The request timed out and its outcome is unknown. Check the source before retrying."
 
-  defp add_error_message(:permission_denied),
-    do: "Local proxy source could not be written: permission denied."
+  defp add_error_message(target, :permission_denied),
+    do: "#{local_target_label(target)} source could not be written: permission denied."
 
-  defp add_error_message(reason)
+  defp add_error_message(target, reason)
        when reason in [
               :open_failed,
               :write_failed,
@@ -591,9 +711,14 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
               :invalid_target,
               :target_probe_failed
             ],
-       do: "Local proxy source could not be written. The existing source was left unchanged."
+       do:
+         "#{local_target_label(target)} source could not be written. The existing source was left unchanged."
 
-  defp add_error_message(_reason), do: "Local proxy domains could not be added."
+  defp add_error_message(target, _reason),
+    do: "#{local_target_label(target)} domains could not be added."
+
+  defp local_target_label(:proxy), do: "Local proxy"
+  defp local_target_label(:direct), do: "Local direct"
 
   defp local_proxy_error_label(:leading_dot_not_allowed),
     do: "Only one optional leading dot is allowed"
