@@ -217,15 +217,44 @@ sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
 sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/proxy
 sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/direct
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
-sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt \
-  /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
-sudo install -o root -g gsmlg -m 0640 direct-list.txt \
-  /etc/gsmlg/proxy-rules/direct/direct-list.txt
+
+# Migrate legacy sources only when the separated destination is absent.
+if [ -e /etc/gsmlg/proxy-rules/proxy-list.txt ] && \
+   [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then
+  sudo mv /etc/gsmlg/proxy-rules/proxy-list.txt \
+    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+fi
+if [ -e /etc/gsmlg/proxy-rules/direct-list.txt ] && \
+   [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then
+  sudo mv /etc/gsmlg/proxy-rules/direct-list.txt \
+    /etc/gsmlg/proxy-rules/direct/direct-list.txt
+fi
+
+# Provision an empty source only when no existing or legacy source was found.
+if [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then
+  sudo install -o gsmlg -g gsmlg -m 0640 /dev/null \
+    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+fi
+if [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then
+  sudo install -o root -g gsmlg -m 0640 /dev/null \
+    /etc/gsmlg/proxy-rules/direct/direct-list.txt
+fi
+
+# Normalize ownership and modes without replacing or truncating source content.
+sudo chown gsmlg:gsmlg /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+sudo chmod 0640 /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+sudo chown root:gsmlg /etc/gsmlg/proxy-rules/direct/direct-list.txt
+sudo chmod 0640 /etc/gsmlg/proxy-rules/direct/direct-list.txt
 curl -L -o /tmp/gsmlg.tar.gz \
   "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/gsmlg.tar.gz"
 sudo tar -xzf /tmp/gsmlg.tar.gz -C /opt/gsmlg
 sudo install -o root -g gsmlg -m 0640 /path/to/gsmlg_umbrella.toml /etc/gsmlg/gsmlg_umbrella.toml
 ```
+
+The guarded migration preserves existing legacy rules and never replaces an
+already-migrated destination. The `/dev/null` installs run only for first
+provisioning; later deployments adjust ownership and modes without truncating
+either source.
 
 Run migrations before starting a new version:
 
@@ -254,6 +283,12 @@ with the `[proxy_rules]` paths above:
   temporary-file creation and rename can succeed.
 - Mount the configured Local direct directory read-only.
 - Do not mount the shared `/etc/gsmlg/proxy-rules` parent read/write.
+
+The current Docker images do not set `USER`, so the release runs as root in the
+container by default. The `gsmlg` ownership above applies to the tarball service.
+If an operator supplies a non-root container user, that identity must be able to
+create and rename sibling files in the Local proxy mount and read the Local
+direct mount; the proxy read/write and direct read-only mount modes still apply.
 
 ```bash
 VERSION=5.6.0

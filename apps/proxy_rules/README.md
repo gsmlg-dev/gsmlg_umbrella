@@ -42,11 +42,39 @@ sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
 sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/proxy
 sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/direct
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
-sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt \
-  /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
-sudo install -o root -g gsmlg -m 0640 direct-list.txt \
-  /etc/gsmlg/proxy-rules/direct/direct-list.txt
+
+# Migrate legacy sources only when the separated destination is absent.
+if [ -e /etc/gsmlg/proxy-rules/proxy-list.txt ] && \
+   [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then
+  sudo mv /etc/gsmlg/proxy-rules/proxy-list.txt \
+    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+fi
+if [ -e /etc/gsmlg/proxy-rules/direct-list.txt ] && \
+   [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then
+  sudo mv /etc/gsmlg/proxy-rules/direct-list.txt \
+    /etc/gsmlg/proxy-rules/direct/direct-list.txt
+fi
+
+# Provision an empty source only when no existing or legacy source was found.
+if [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then
+  sudo install -o gsmlg -g gsmlg -m 0640 /dev/null \
+    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+fi
+if [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then
+  sudo install -o root -g gsmlg -m 0640 /dev/null \
+    /etc/gsmlg/proxy-rules/direct/direct-list.txt
+fi
+
+# Normalize ownership and modes without replacing or truncating source content.
+sudo chown gsmlg:gsmlg /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+sudo chmod 0640 /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+sudo chown root:gsmlg /etc/gsmlg/proxy-rules/direct/direct-list.txt
+sudo chmod 0640 /etc/gsmlg/proxy-rules/direct/direct-list.txt
 ```
+
+These commands are safe to repeat during upgrades. If both a legacy source and
+its separated destination exist, they leave both untouched so an operator can
+resolve the conflict without losing rules.
 
 Point the service at those separated source paths:
 
@@ -73,9 +101,10 @@ invalid, no domains are written. Valid domains are canonicalized, and
 duplicates are automatically omitted both within the submission and against
 the current source.
 
-Source storage remains canonical bare-domain text; formatting is applied only
-when artifacts are rendered. Raw/DNS emits `baidu.com`, Squid emits
-`.baidu.com`, and Clash emits `DOMAIN-SUFFIX,baidu.com`.
+Admin-added entries are stored as canonical bare domains. Existing comments and
+accepted legacy entries are preserved byte-for-byte; renderers normalize the
+parsed rules for Raw/DNS, Squid, and Clash output. Raw/DNS emits `baidu.com`,
+Squid emits `.baidu.com`, and Clash emits `DOMAIN-SUFFIX,baidu.com`.
 
 GFWList content is decoded, lazy-loaded, authenticated, and virtualized. The
 viewer does not fetch GFWList content during the initial page render and keeps

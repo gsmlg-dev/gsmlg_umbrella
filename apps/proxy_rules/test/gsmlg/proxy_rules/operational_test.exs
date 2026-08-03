@@ -93,7 +93,7 @@ defmodule GSMLG.ProxyRules.OperationalTest do
     assert proxy_readme =~ "duplicates are automatically omitted"
 
     assert proxy_readme =~
-             ~r/Raw\/DNS emits `baidu\.com`, Squid emits\s+`\.baidu\.com`, and Clash emits `DOMAIN-SUFFIX,baidu\.com`\./
+             ~r/Raw\/DNS emits `baidu\.com`,\s+Squid emits `\.baidu\.com`, and Clash emits `DOMAIN-SUFFIX,baidu\.com`\./
 
     assert proxy_readme =~
              "GFWList content is decoded, lazy-loaded, authenticated, and virtualized."
@@ -120,12 +120,44 @@ defmodule GSMLG.ProxyRules.OperationalTest do
                  "/etc/gsmlg/proxy-rules/direct"
 
       assert document =~
-               "sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt \\\n" <>
-                 "  /etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
+               "if [ -e /etc/gsmlg/proxy-rules/proxy-list.txt ] && \\\n" <>
+                 "   [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then\n" <>
+                 "  sudo mv /etc/gsmlg/proxy-rules/proxy-list.txt \\\n" <>
+                 "    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt\n" <>
+                 "fi"
 
       assert document =~
-               "sudo install -o root -g gsmlg -m 0640 direct-list.txt \\\n" <>
-                 "  /etc/gsmlg/proxy-rules/direct/direct-list.txt"
+               "if [ -e /etc/gsmlg/proxy-rules/direct-list.txt ] && \\\n" <>
+                 "   [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then\n" <>
+                 "  sudo mv /etc/gsmlg/proxy-rules/direct-list.txt \\\n" <>
+                 "    /etc/gsmlg/proxy-rules/direct/direct-list.txt\n" <>
+                 "fi"
+
+      assert document =~
+               "if [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then\n" <>
+                 "  sudo install -o gsmlg -g gsmlg -m 0640 /dev/null \\\n" <>
+                 "    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt\n" <>
+                 "fi"
+
+      assert document =~
+               "if [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then\n" <>
+                 "  sudo install -o root -g gsmlg -m 0640 /dev/null \\\n" <>
+                 "    /etc/gsmlg/proxy-rules/direct/direct-list.txt\n" <>
+                 "fi"
+
+      assert document =~
+               "sudo chown gsmlg:gsmlg /etc/gsmlg/proxy-rules/proxy/proxy-list.txt\n" <>
+                 "sudo chmod 0640 /etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
+
+      assert document =~
+               "sudo chown root:gsmlg /etc/gsmlg/proxy-rules/direct/direct-list.txt\n" <>
+                 "sudo chmod 0640 /etc/gsmlg/proxy-rules/direct/direct-list.txt"
+
+      refute document =~
+               "sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt"
+
+      refute document =~
+               "sudo install -o root -g gsmlg -m 0640 direct-list.txt"
 
       assert document =~
                ~s(local_proxy_list_path = "/etc/gsmlg/proxy-rules/proxy/proxy-list.txt")
@@ -139,6 +171,12 @@ defmodule GSMLG.ProxyRules.OperationalTest do
 
     assert deploy_doc =~
              "Mount the configured Local direct directory read-only."
+
+    assert deploy_doc =~
+             ~r/The current Docker images do not set `USER`, so the release runs as root\s+in the\s+container by default\./
+
+    assert deploy_doc =~
+             ~r/The `gsmlg` ownership above applies to the tarball service\./
 
     assert deploy_doc =~
              "-v /etc/gsmlg/proxy-rules/proxy:" <>
@@ -156,6 +194,9 @@ defmodule GSMLG.ProxyRules.OperationalTest do
 
     refute deploy_doc =~
              "-v /etc/gsmlg/proxy-rules:/etc/gsmlg/proxy-rules"
+
+    assert proxy_readme =~
+             ~r/Admin-added entries are stored as canonical bare domains\. Existing comments and\s+accepted legacy entries are preserved byte-for-byte; renderers normalize the\s+parsed rules for Raw\/DNS, Squid, and Clash output\./
   end
 
   test "one benchmark compilation reports positive operational measurements" do
