@@ -389,6 +389,50 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     assert_raise ArgumentError, fn -> String.to_existing_atom(unique) end
   end
 
+  @tag :tmp_dir
+  test "rejects malformed add payloads without losing form state or crashing", %{
+    conn: conn,
+    tmp_dir: dir
+  } do
+    proxy_path = install_local_mutation_state(dir)
+    replace_current(fixture_snapshot(), :ready, nil)
+    {:ok, view, _html} = live(conn, ~p"/proxy-rules")
+    retained_domains = "https://keep-this-exact.example\n"
+
+    view
+    |> form("#proxy-rules-add-local-proxy", %{
+      "local_proxy" => %{"domains" => retained_domains}
+    })
+    |> render_submit()
+
+    assert has_element?(view, "#proxy-rules-local-proxy-errors li")
+
+    for payload <- [
+          %{},
+          %{"local_proxy" => %{}},
+          %{"local_proxy" => %{"domains" => ["malformed-secret"]}}
+        ] do
+      html = render_submit(view, "add_local_proxy", payload)
+
+      assert html =~ "The domain submission is invalid. Enter one domain per line."
+      refute html =~ "malformed-secret"
+      refute has_element?(view, "#proxy-rules-local-proxy-errors li")
+
+      assert view |> element("textarea[name='local_proxy[domains]']") |> render() =~
+               retained_domains
+
+      assert Process.alive?(view.pid)
+    end
+
+    html =
+      render_submit(view, "add_local_proxy", %{
+        "local_proxy" => %{"domains" => "after-malformed.example\n"}
+      })
+
+    assert html =~ "Added 1 domain"
+    assert File.read!(proxy_path) =~ "after-malformed.example\n"
+  end
+
   test "distinguishes never-successful and previously successful stale local sources", %{
     conn: conn
   } do

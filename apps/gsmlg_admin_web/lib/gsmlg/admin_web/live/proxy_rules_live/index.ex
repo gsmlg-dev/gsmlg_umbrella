@@ -83,6 +83,13 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
     end
   end
 
+  def handle_event("add_local_proxy", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(local_proxy_errors: [])
+     |> put_flash(:error, "The domain submission is invalid. Enter one domain per line.")}
+  end
+
   @impl true
   def handle_info({:proxy_rules_status_changed, _measurements, _metadata}, socket) do
     {:noreply, assign(socket, state: load_state(ProxyRules.metadata()))}
