@@ -129,6 +129,10 @@ port = 4111
 server = true
 user_register = false
 
+[proxy_rules]
+local_proxy_list_path = "/etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
+local_direct_list_path = "/etc/gsmlg/proxy-rules/direct/direct-list.txt"
+
 [commander]
 start = false
 name = "platform"
@@ -209,12 +213,14 @@ fi
 sudo mkdir -p /opt/gsmlg
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/mnesia /var/log/gsmlg
 sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg
-sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
+sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
+sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/proxy
+sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/direct
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
 sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt \
-  /etc/gsmlg/proxy-rules/proxy-list.txt
+  /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
 sudo install -o root -g gsmlg -m 0640 direct-list.txt \
-  /etc/gsmlg/proxy-rules/direct-list.txt
+  /etc/gsmlg/proxy-rules/direct/direct-list.txt
 curl -L -o /tmp/gsmlg.tar.gz \
   "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/gsmlg.tar.gz"
 sudo tar -xzf /tmp/gsmlg.tar.gz -C /opt/gsmlg
@@ -241,10 +247,13 @@ sudo --user=gsmlg --group=gsmlg -- \
 
 ### Docker Image
 
-The Docker image runs only the umbrella app. The running container needs write
-access only to the configured `local_proxy_list_path`. Bind-mount that file
-read/write and keep the configured Local direct file read-only; do not give the
-container write access to the entire host configuration directory.
+The Docker image runs only the umbrella app. Keep its source mounts aligned
+with the `[proxy_rules]` paths above:
+
+- Mount the configured Local proxy directory read/write so atomic sibling
+  temporary-file creation and rename can succeed.
+- Mount the configured Local direct directory read-only.
+- Do not mount the shared `/etc/gsmlg/proxy-rules` parent read/write.
 
 ```bash
 VERSION=5.6.0
@@ -256,8 +265,8 @@ docker run -d \
   -p 4110:4110 \
   -p 4111:4111 \
   -v /etc/gsmlg/gsmlg_umbrella.toml:/etc/gsmlg_umbrella.toml:ro \
-  -v /etc/gsmlg/proxy-rules/proxy-list.txt:/etc/gsmlg/proxy-rules/proxy-list.txt \
-  -v /etc/gsmlg/proxy-rules/direct-list.txt:/etc/gsmlg/proxy-rules/direct-list.txt:ro \
+  -v /etc/gsmlg/proxy-rules/proxy:/etc/gsmlg/proxy-rules/proxy \
+  -v /etc/gsmlg/proxy-rules/direct:/etc/gsmlg/proxy-rules/direct:ro \
   -v gsmlg-mnesia:/var/lib/mnesia \
   -v gsmlg-proxy-rules:/var/lib/gsmlg/proxy-rules \
   -e GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml \

@@ -107,22 +107,55 @@ defmodule GSMLG.ProxyRules.OperationalTest do
     assert proxy_readme =~
              "direct-list.txt remains operator-owned and read-only to the release service identity"
 
-    assert deploy_doc =~
-             "install -o gsmlg -g gsmlg -m 0640 proxy-list.txt"
+    for document <- [proxy_readme, deploy_doc] do
+      assert document =~
+               "sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules\n"
+
+      assert document =~
+               "sudo install -d -o gsmlg -g gsmlg -m 0750 " <>
+                 "/etc/gsmlg/proxy-rules/proxy"
+
+      assert document =~
+               "sudo install -d -o root -g gsmlg -m 0750 " <>
+                 "/etc/gsmlg/proxy-rules/direct"
+
+      assert document =~
+               "sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt \\\n" <>
+                 "  /etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
+
+      assert document =~
+               "sudo install -o root -g gsmlg -m 0640 direct-list.txt \\\n" <>
+                 "  /etc/gsmlg/proxy-rules/direct/direct-list.txt"
+
+      assert document =~
+               ~s(local_proxy_list_path = "/etc/gsmlg/proxy-rules/proxy/proxy-list.txt")
+
+      assert document =~
+               ~s(local_direct_list_path = "/etc/gsmlg/proxy-rules/direct/direct-list.txt")
+    end
 
     assert deploy_doc =~
-             "install -o root -g gsmlg -m 0640 direct-list.txt"
+             ~r/Mount the configured Local proxy directory read\/write so atomic sibling\s+temporary-file creation and rename can succeed\./
 
     assert deploy_doc =~
-             ~r/The running container needs write\s+access only to the configured `local_proxy_list_path`\./
+             "Mount the configured Local direct directory read-only."
 
     assert deploy_doc =~
-             "-v /etc/gsmlg/proxy-rules/proxy-list.txt:" <>
-               "/etc/gsmlg/proxy-rules/proxy-list.txt"
+             "-v /etc/gsmlg/proxy-rules/proxy:" <>
+               "/etc/gsmlg/proxy-rules/proxy \\\n"
 
     assert deploy_doc =~
-             "-v /etc/gsmlg/proxy-rules/direct-list.txt:" <>
-               "/etc/gsmlg/proxy-rules/direct-list.txt:ro"
+             "-v /etc/gsmlg/proxy-rules/direct:" <>
+               "/etc/gsmlg/proxy-rules/direct:ro \\\n"
+
+    refute deploy_doc =~
+             "-v /etc/gsmlg/proxy-rules/proxy-list.txt:"
+
+    refute deploy_doc =~
+             "sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules\n"
+
+    refute deploy_doc =~
+             "-v /etc/gsmlg/proxy-rules:/etc/gsmlg/proxy-rules"
   end
 
   test "one benchmark compilation reports positive operational measurements" do

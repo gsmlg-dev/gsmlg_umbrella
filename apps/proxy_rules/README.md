@@ -27,7 +27,10 @@ by `GSMLG_CONFIG_PATH`.
 | `cache_control` | `public, max-age=3600` | `Cache-Control` header returned with public artifacts. |
 | `unsupported_rule_sample_limit` | `20` | Maximum diagnostic samples retained; counts remain complete. |
 
-The configuration directory must be readable by the service user.
+The shared configuration parent must be readable but not writable by the
+service user. Give the release service identity a dedicated Local proxy
+subdirectory so it can create the sibling temporary file required for atomic
+replacement. Keep Local direct in a separate operator-owned subdirectory.
 proxy-list.txt must be writable by the release service identity so the
 authenticated admin can atomically add domains.
 direct-list.txt remains operator-owned and read-only to the release service identity.
@@ -35,12 +38,22 @@ Neither file should be writable by an untrusted account. The state directory
 must be private and read/write for the service user. A typical host setup is:
 
 ```bash
-sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
+sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
+sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/proxy
+sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/direct
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
 sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt \
-  /etc/gsmlg/proxy-rules/proxy-list.txt
+  /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
 sudo install -o root -g gsmlg -m 0640 direct-list.txt \
-  /etc/gsmlg/proxy-rules/direct-list.txt
+  /etc/gsmlg/proxy-rules/direct/direct-list.txt
+```
+
+Point the service at those separated source paths:
+
+```toml
+[proxy_rules]
+local_proxy_list_path = "/etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
+local_direct_list_path = "/etc/gsmlg/proxy-rules/direct/direct-list.txt"
 ```
 
 Each local file contains one domain per line. Blank lines and lines beginning
