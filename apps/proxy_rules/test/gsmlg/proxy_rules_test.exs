@@ -183,17 +183,33 @@ defmodule GSMLG.ProxyRulesTest do
   end
 
   test "reports local mutation unavailable instead of exiting with the source service" do
-    local = Process.whereis(Local)
-    assert Process.unregister(Local)
+    server = spawn(fn -> :ok end)
+    monitor = Process.monitor(server)
+    assert_receive {:DOWN, ^monitor, :process, ^server, :normal}
 
-    result =
-      try do
-        ProxyRules.add_local_proxy_domains("new.example\n")
-      after
-        Process.register(local, Local)
-      end
+    assert {:error, :not_available} =
+             ProxyRules.add_local_proxy_domains("new.example\n", server, 10)
+  end
 
-    assert {:error, :not_available} = result
+  test "preserves an unknown timeout outcome through the facade" do
+    test_process = self()
+
+    server =
+      spawn(fn ->
+        receive do
+          {:"$gen_call", from, {:add_proxy_domains, "new.example\n"}} ->
+            send(test_process, :mutation_received)
+            Process.sleep(50)
+            GenServer.reply(from, {:ok, %{added_count: 1}})
+        end
+      end)
+
+    assert {:error, :outcome_unknown} =
+             ProxyRules.add_local_proxy_domains("new.example\n", server, 10)
+
+    assert_receive :mutation_received
+    monitor = Process.monitor(server)
+    assert_receive {:DOWN, ^monitor, :process, ^server, :normal}
   end
 
   test "pages only remote GFWList and local proxy source snapshots through the facade" do

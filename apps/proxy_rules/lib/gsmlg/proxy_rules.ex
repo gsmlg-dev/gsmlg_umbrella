@@ -44,13 +44,18 @@ defmodule GSMLG.ProxyRules do
 
   @spec add_local_proxy_domains(binary()) ::
           {:ok, Local.mutation_result()} | {:error, Local.mutation_failure()}
-  def add_local_proxy_domains(text) when is_binary(text) do
-    Local.add_proxy_domains(Local, text)
+  def add_local_proxy_domains(text), do: add_local_proxy_domains(text, Local, 30_000)
+
+  @doc false
+  @spec add_local_proxy_domains(binary(), GenServer.server(), timeout()) ::
+          {:ok, Local.mutation_result()} | {:error, Local.mutation_failure()}
+  def add_local_proxy_domains(text, server, timeout) when is_binary(text) do
+    Local.add_proxy_domains(server, text, timeout)
   catch
     :exit, _reason -> {:error, :not_available}
   end
 
-  def add_local_proxy_domains(_text), do: {:error, {:invalid_batch, []}}
+  def add_local_proxy_domains(_text, _server, _timeout), do: {:error, {:invalid_batch, []}}
 
   @spec get_source_page(:remote_gfwlist | :local_proxy, binary() | nil, keyword()) ::
           {:ok, map()}

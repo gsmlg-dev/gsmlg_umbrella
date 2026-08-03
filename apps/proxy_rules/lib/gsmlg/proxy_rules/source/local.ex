@@ -51,7 +51,10 @@ defmodule GSMLG.ProxyRules.Source.Local do
           reconciliation: reconciliation()
         }
   @type mutation_failure ::
-          :not_available | LocalProxyBatch.error_reason() | LocalProxyWriter.error_reason()
+          :not_available
+          | :outcome_unknown
+          | LocalProxyBatch.error_reason()
+          | LocalProxyWriter.error_reason()
 
   @doc false
   @spec max_source_bytes() :: pos_integer()
@@ -78,10 +81,28 @@ defmodule GSMLG.ProxyRules.Source.Local do
   @spec reconcile(GenServer.server()) :: :ok | {:error, :watcher_failed}
   def reconcile(server), do: GenServer.call(server, :reconcile)
 
+  @doc """
+  Adds canonical domains through the serialized local-proxy mutation boundary.
+
+  A valid batch containing only existing domains is an idempotent success. It
+  returns confirmed durability and successful reconciliation without writing,
+  rereading sources, or notifying subscribers.
+  """
   @spec add_proxy_domains(GenServer.server(), binary()) ::
           {:ok, mutation_result()} | {:error, mutation_failure()}
   def add_proxy_domains(server, text) when is_binary(text),
-    do: GenServer.call(server, {:add_proxy_domains, text}, 30_000)
+    do: add_proxy_domains(server, text, 30_000)
+
+  @doc false
+  @spec add_proxy_domains(GenServer.server(), binary(), timeout()) ::
+          {:ok, mutation_result()} | {:error, mutation_failure()}
+  def add_proxy_domains(server, text, timeout)
+      when is_binary(text) and
+             (timeout == :infinity or (is_integer(timeout) and timeout >= 0)) do
+    GenServer.call(server, {:add_proxy_domains, text}, timeout)
+  catch
+    :exit, {:timeout, {GenServer, :call, _details}} -> {:error, :outcome_unknown}
+  end
 
   @impl true
   def init(options) do
@@ -131,22 +152,11 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
   def handle_call({:add_proxy_domains, text}, _from, state) do
     entry = state.entries.proxy
-    target = state.targets.proxy
 
     with :ok <- writable_snapshot?(entry),
          {:ok, result} <-
-           LocalProxyBatch.prepare(entry.snapshot.content, text, max_bytes: @max_source_bytes),
-         {:ok, durability} <- call_writer(state.writer, target.path, result.content) do
-      reconciled = reconcile_sources(state)
-      reconciliation = reconciliation_result(result.content, reconciled.entries.proxy)
-
-      summary =
-        result
-        |> Map.take([:added_domains, :added_count, :duplicate_count])
-        |> Map.put(:durability, durability)
-        |> Map.put(:reconciliation, reconciliation)
-
-      {:reply, {:ok, summary}, reconciled}
+           LocalProxyBatch.prepare(entry.snapshot.content, text, max_bytes: @max_source_bytes) do
+      persist_proxy_batch(result, state)
     else
       {:error, reason} -> {:reply, {:error, reason}, state}
     end
@@ -270,6 +280,31 @@ defmodule GSMLG.ProxyRules.Source.Local do
        do: :ok
 
   defp writable_snapshot?(_entry), do: {:error, :not_available}
+
+  defp persist_proxy_batch(%{added_count: 0} = result, state) do
+    {:reply, {:ok, mutation_summary(result, :confirmed, :ok)}, state}
+  end
+
+  defp persist_proxy_batch(result, state) do
+    target = state.targets.proxy
+
+    case call_writer(state.writer, target.path, result.content) do
+      {:ok, durability} ->
+        reconciled = reconcile_sources(state)
+        reconciliation = reconciliation_result(result.content, reconciled.entries.proxy)
+        {:reply, {:ok, mutation_summary(result, durability, reconciliation)}, reconciled}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  defp mutation_summary(result, durability, reconciliation) do
+    result
+    |> Map.take([:added_domains, :added_count, :duplicate_count])
+    |> Map.put(:durability, durability)
+    |> Map.put(:reconciliation, reconciliation)
+  end
 
   defp call_writer(writer, path, content) do
     case writer.(path, content) do

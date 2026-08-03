@@ -667,6 +667,42 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   end
 
   @tag :tmp_dir
+  test "an all-existing batch is a successful no-op without writing or reconciling", %{
+    tmp_dir: dir
+  } do
+    proxy = Path.join(dir, "proxy.txt")
+    existing = "existing.example\n"
+    File.write!(proxy, existing)
+    test_process = self()
+
+    server =
+      start_local(dir,
+        writer: fn _path, _content ->
+          send(test_process, :writer_called)
+          {:error, :write_failed}
+        end
+      )
+
+    before = Local.snapshots(server).proxy
+    flush_messages()
+
+    assert {:ok,
+            %{
+              added_domains: [],
+              added_count: 0,
+              duplicate_count: 1,
+              durability: :confirmed,
+              reconciliation: :ok
+            }} = Local.add_proxy_domains(server, "EXISTING.example\n")
+
+    refute_receive :writer_called, 30
+    refute_receive {:proxy_rules_source, :local_proxy, _snapshot}, 30
+    refute_receive {:proxy_rules_source_fresh, :local_proxy, _metadata}, 30
+    assert File.read!(proxy) == existing
+    assert Local.snapshots(server).proxy == before
+  end
+
+  @tag :tmp_dir
   test "precommit writer errors preserve the prior bytes and snapshot", %{tmp_dir: dir} do
     proxy = Path.join(dir, "proxy.txt")
     existing = "existing.example\n"
@@ -713,6 +749,39 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert File.read!(proxy)
            |> String.split("\n", trim: true)
            |> MapSet.new() == MapSet.new(["existing.example", "one.example", "two.example"])
+  end
+
+  @tag :tmp_dir
+  test "a call timeout reports an unknown outcome while the mutation later commits", %{
+    tmp_dir: dir
+  } do
+    proxy = Path.join(dir, "proxy.txt")
+    File.write!(proxy, "existing.example\n")
+    test_process = self()
+
+    server =
+      start_local(dir,
+        writer: fn path, content ->
+          send(test_process, :writer_started)
+
+          receive do
+            :continue_write -> File.write!(path, content)
+          end
+        end
+      )
+
+    flush_messages()
+
+    assert {:error, :outcome_unknown} =
+             Local.add_proxy_domains(server, "new.example\n", 10)
+
+    assert_receive :writer_started
+    send(server, :continue_write)
+    assert_eventually_snapshot(server, :proxy, "existing.example\nnew.example\n")
+    assert File.read!(proxy) == "existing.example\nnew.example\n"
+
+    assert_receive {:proxy_rules_source, :local_proxy,
+                    %SourceSnapshot{content: "existing.example\nnew.example\n"}}
   end
 
   @tag :tmp_dir
