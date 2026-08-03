@@ -20,6 +20,10 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
       source_snapshot(:local_proxy, "local-one.example\nlocal-two.example\n", %{
         path: "/private/proxy-list.txt",
         last_success_at: ~U[2026-08-03 00:01:00Z]
+      }),
+      source_snapshot(:local_direct, "direct-one.example\ndirect-two.example\n", %{
+        path: "/private/direct-list.txt",
+        last_success_at: ~U[2026-08-03 00:02:00Z]
       })
     )
 
@@ -143,10 +147,46 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
              |> json_response(200)
   end
 
+  test "returns local direct pages and passes an opaque cursor through", %{
+    authenticated_conn: conn
+  } do
+    first_conn = get(conn, ~p"/proxy-rules/sources/local-direct?limit=1")
+
+    assert get_resp_header(first_conn, "cache-control") == ["private, no-store"]
+
+    assert %{
+             "source" => "local_direct",
+             "lines" => ["direct-one.example"],
+             "start_line" => 1,
+             "has_more" => true,
+             "next_cursor" => cursor,
+             "version" => version
+           } = json_response(first_conn, 200)
+
+    assert is_binary(version)
+    assert is_binary(cursor)
+    assert :error == Integer.parse(cursor)
+
+    second_conn = get(conn, ~p"/proxy-rules/sources/local-direct?limit=1&cursor=#{cursor}")
+
+    assert get_resp_header(second_conn, "cache-control") == ["private, no-store"]
+
+    assert %{
+             "source" => "local_direct",
+             "lines" => ["direct-two.example"],
+             "start_line" => 2,
+             "has_more" => false,
+             "next_cursor" => nil,
+             "version" => ^version
+           } = second = json_response(second_conn, 200)
+
+    refute inspect(second) =~ "/private/direct-list.txt"
+  end
+
   test "rejects unsupported sources with a bounded not-found error", %{
     authenticated_conn: conn
   } do
-    conn = get(conn, ~p"/proxy-rules/sources/local-direct")
+    conn = get(conn, ~p"/proxy-rules/sources/unknown")
 
     assert json_response(conn, 404) == %{
              "error" => %{
@@ -275,9 +315,9 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
            }
   end
 
-  defp replace_sources(remote, local_proxy) do
+  defp replace_sources(remote, local_proxy, local_direct) do
     :sys.replace_state(Coordinator, fn state ->
-      %{state | remote: remote, local_proxy: local_proxy}
+      %{state | remote: remote, local_proxy: local_proxy, local_direct: local_direct}
     end)
   end
 

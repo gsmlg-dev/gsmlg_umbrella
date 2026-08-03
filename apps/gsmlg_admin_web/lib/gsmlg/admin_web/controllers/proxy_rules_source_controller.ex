@@ -18,6 +18,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceController do
 
   defp parse_source("gfwlist"), do: {:ok, :remote_gfwlist}
   defp parse_source("local-proxy"), do: {:ok, :local_proxy}
+  defp parse_source("local-direct"), do: {:ok, :local_direct}
   defp parse_source(_source), do: {:error, :not_found}
 
   defp parse_limit(nil), do: {:ok, 200}
