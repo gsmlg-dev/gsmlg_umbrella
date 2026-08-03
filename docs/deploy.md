@@ -201,6 +201,12 @@ The `--network host` flag is needed because the Scout agent serves a temporary l
 
 ### Tarball Release
 
+Separate Local proxy and Local direct target directories are recommended. Both
+must be searchable and writable by the release service identity, and both target
+files must be readable and writable by that identity. This permits
+same-directory temporary-file creation and atomic rename without making either
+source writable by untrusted users.
+
 ```bash
 VERSION=5.6.0
 if ! getent group gsmlg >/dev/null; then
@@ -282,33 +288,56 @@ else
   fi
 fi
 
-if [ -L "$direct_dir" ] || { [ -e "$direct_dir" ] && [ ! -d "$direct_dir" ]; }; then
-  echo "Manual repair required: Local direct directory is a symlink or non-directory" >&2
+if [ -L "$direct_dir" ]; then
+  echo "Manual repair required: Local direct directory is a symlink" >&2
   exit 1
-fi
-sudo install -d -o root -g gsmlg -m 0750 -- "$direct_dir"
+elif [ ! -e "$direct_dir" ]; then
+  # Initial provisioning: keep the directory root-controlled until the target is safe.
+  sudo install -d -o root -g gsmlg -m 0750 -- "$direct_dir"
 
-if [ -L "$legacy_direct" ] || { [ -e "$legacy_direct" ] && [ ! -f "$legacy_direct" ]; }; then
-  echo "Manual repair required: legacy Local direct source is a symlink or non-regular" >&2
-  exit 1
-fi
-if [ -L "$direct_target" ] || { [ -e "$direct_target" ] && [ ! -f "$direct_target" ]; }; then
-  echo "Manual repair required: Local direct source is a symlink or non-regular" >&2
-  exit 1
-fi
-if [ -e "$legacy_direct" ] && [ -e "$direct_target" ]; then
-  echo "Manual conflict: both legacy and separated Local direct sources exist" >&2
-  exit 1
-fi
-if [ ! -e "$direct_target" ]; then
+  if [ -L "$legacy_direct" ] || { [ -e "$legacy_direct" ] && [ ! -f "$legacy_direct" ]; }; then
+    echo "Manual repair required: legacy Local direct source is a symlink or non-regular" >&2
+    exit 1
+  fi
+
   if [ -e "$legacy_direct" ]; then
     sudo mv -- "$legacy_direct" "$direct_target"
   else
-    sudo install -o root -g gsmlg -m 0640 /dev/null "$direct_target"
+    sudo install -o root -g root -m 0600 /dev/null "$direct_target"
+  fi
+
+  if [ -L "$direct_target" ] || [ ! -f "$direct_target" ]; then
+    echo "Manual repair required: Local direct source is missing, a symlink, or non-regular" >&2
+    exit 1
+  fi
+
+  sudo chown gsmlg:gsmlg -- "$direct_target"
+  sudo chmod 0640 -- "$direct_target"
+  sudo chown gsmlg:gsmlg -- "$direct_dir"
+  sudo chmod 0750 -- "$direct_dir"
+elif [ ! -d "$direct_dir" ]; then
+  echo "Manual repair required: Local direct directory is non-regular" >&2
+  exit 1
+else
+  # Existing service-writable directory: validation only; no privileged entry mutation.
+  if [ -L "$direct_target" ] || [ ! -f "$direct_target" ]; then
+    echo "Manual repair required: Local direct source is missing, a symlink, or non-regular" >&2
+    exit 1
+  fi
+  if [ -e "$legacy_direct" ] || [ -L "$legacy_direct" ]; then
+    echo "Manual conflict: both legacy and separated Local direct sources exist" >&2
+    exit 1
+  fi
+  if ! sudo -u gsmlg sh -c '
+    test -x "$1" &&
+    test -w "$1" &&
+    test -r "$2" &&
+    test -w "$2"
+  ' proxy-rules-permission-probe "$direct_dir" "$direct_target"; then
+    echo "Manual repair required: Local direct directory/source permissions do not allow gsmlg atomic replacement" >&2
+    exit 1
   fi
 fi
-sudo chown root:gsmlg -- "$direct_target"
-sudo chmod 0640 -- "$direct_target"
 )
 curl -L -o /tmp/gsmlg.tar.gz \
   "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/gsmlg.tar.gz"
@@ -318,12 +347,43 @@ sudo install -o root -g gsmlg -m 0640 /path/to/gsmlg_umbrella.toml /etc/gsmlg/gs
 
 The guarded migration preserves existing legacy rules and never replaces an
 already-migrated destination. The `/dev/null` installs run only for first
-provisioning. Existing service-writable Local proxy directories are
+provisioning. Existing service-writable local source directories are
 validation-only: do not run privileged `chown`, `chmod`, copy, or move
 operations on their entries. Stop the service and rebuild an unsafe directory
 from root-controlled staging when manual repair is required. The
-repeat-deployment branch only probes, as `gsmlg`, that the directory is
-searchable/writable and the source is readable/writable.
+repeat-deployment branches probe, as `gsmlg`, that each directory is
+searchable/writable and each source is readable/writable.
+
+Stop the service before replacing either source externally, or otherwise
+serialize the edit with admin mutations. This prevents an external edit and an
+admin submission from overwriting each other. With the service stopped, replace
+one target at a time:
+
+```bash
+sudo systemctl stop gsmlg-umbrella.service
+target=/etc/gsmlg/proxy-rules/proxy/proxy-list.txt # or the configured direct-list target
+if sudo --user=gsmlg --group=gsmlg -- sh -c '
+  set -eu
+  source=$1
+  target=$2
+  target_dir=${target%/*}
+  tmp=$(mktemp "$target_dir/.proxy-rules.external.XXXXXX")
+  cleanup() { rm -f -- "$tmp"; }
+  trap cleanup EXIT HUP INT TERM
+  cat -- "$source" >"$tmp"
+  chmod 0640 -- "$tmp"
+  mv -f -- "$tmp" "$target"
+  trap - EXIT HUP INT TERM
+' proxy-rules-external-update /path/to/updated-list.txt "$target"; then
+  sudo systemctl start gsmlg-umbrella.service
+else
+  echo "Replacement failed; service remains stopped" >&2
+fi
+```
+
+Running the replacement as `gsmlg:gsmlg` and setting mode `0640` before the
+rename keeps the resulting target readable and writable by the service. Do not
+restart the service until the rename completes successfully.
 
 Run migrations before starting a new version:
 
@@ -348,16 +408,16 @@ sudo --user=gsmlg --group=gsmlg -- \
 The Docker image runs only the umbrella app. Keep its source mounts aligned
 with the `[proxy_rules]` paths above:
 
-- Mount the configured Local proxy directory read/write so atomic sibling
-  temporary-file creation and rename can succeed.
-- Mount the configured Local direct directory read-only.
+- Mount both configured local source directories read/write so same-directory
+  temporary-file creation and atomic rename can succeed.
+- Do not make either source writable by untrusted users.
 - Do not mount the shared `/etc/gsmlg/proxy-rules` parent read/write.
 
 The current Docker images do not set `USER`, so the release runs as root in the
 container by default. The `gsmlg` ownership above applies to the tarball service.
 If an operator supplies a non-root container user, that identity must be able to
-create and rename sibling files in the Local proxy mount and read the Local
-direct mount; the proxy read/write and direct read-only mount modes still apply.
+create and rename sibling files and read/write the target in both local source
+mounts; both mount modes remain read/write.
 
 ```bash
 VERSION=5.6.0
@@ -370,7 +430,7 @@ docker run -d \
   -p 4111:4111 \
   -v /etc/gsmlg/gsmlg_umbrella.toml:/etc/gsmlg_umbrella.toml:ro \
   -v /etc/gsmlg/proxy-rules/proxy:/etc/gsmlg/proxy-rules/proxy \
-  -v /etc/gsmlg/proxy-rules/direct:/etc/gsmlg/proxy-rules/direct:ro \
+  -v /etc/gsmlg/proxy-rules/direct:/etc/gsmlg/proxy-rules/direct \
   -v gsmlg-mnesia:/var/lib/mnesia \
   -v gsmlg-proxy-rules:/var/lib/gsmlg/proxy-rules \
   -e GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml \

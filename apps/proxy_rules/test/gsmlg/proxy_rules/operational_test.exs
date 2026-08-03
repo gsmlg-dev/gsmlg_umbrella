@@ -89,8 +89,10 @@ defmodule GSMLG.ProxyRules.OperationalTest do
     deploy_doc = File.read!(Path.join(@umbrella_root, "docs/deploy.md"))
 
     assert proxy_readme =~
-             "The admin textarea accepts one domain per line, with an optional\n" <>
-               "single `.` or `*.` prefix that is removed before storage."
+             ~r/independent \*\*Add Local Proxy\*\*\s+and \*\*Add Local Direct\*\* forms/
+
+    assert proxy_readme =~
+             ~r/Each textarea accepts one domain per line, with\s+an optional single `\.` or `\*\.` prefix that is removed before storage\./
 
     assert proxy_readme =~ "Validation is atomic"
     assert proxy_readme =~ ~r/duplicates are\s+automatically omitted/
@@ -99,16 +101,23 @@ defmodule GSMLG.ProxyRules.OperationalTest do
              ~r/Raw\/DNS emits `baidu\.com`,\s+Squid emits\s+`\.baidu\.com`, and Clash emits `DOMAIN-SUFFIX,baidu\.com`\./
 
     assert proxy_readme =~
-             "GFWList content is decoded, lazy-loaded, authenticated, and virtualized."
+             "The same domain may intentionally remain in both local sources."
 
     assert proxy_readme =~
-             ~r/Local direct remains outside the\s+admin interface: it cannot be viewed or edited\./
+             ~r/The compiler\s+counts and reports those conflicts, and downstream consumers must\s+continue to\s+evaluate Direct before Proxy\./
 
     assert proxy_readme =~
-             "proxy-list.txt must be writable by the release service identity"
+             ~r/GFWList, Local\s+Proxy, and Local Direct are all unloaded by default\./
+
+    assert proxy_readme =~ "Clicking **View content**"
+    assert proxy_readme =~ "fetches bounded, authenticated pages"
+    assert proxy_readme =~ ~r/displays the complete source\s+text in a scrollable `<pre>`\./
+
+    assert proxy_readme =~ "The viewer does not use a virtual list"
+    assert proxy_readme =~ "initial HTML does not contain any source body"
 
     assert proxy_readme =~
-             "direct-list.txt remains operator-owned and read-only to the release service identity"
+             ~r/Both proxy-list\.txt and direct-list\.txt must be\s+readable and writable by the release service identity\./
 
     for document <- [proxy_readme, deploy_doc] do
       assert document =~ "proxy_root=/etc/gsmlg/proxy-rules"
@@ -119,9 +128,6 @@ defmodule GSMLG.ProxyRules.OperationalTest do
 
       assert document =~
                "sudo install -d -o root -g gsmlg -m 0750 -- \"$proxy_root\""
-
-      assert document =~
-               "sudo install -d -o root -g gsmlg -m 0750 -- \"$direct_dir\""
 
       assert document =~ "sudo systemctl stop gsmlg-umbrella.service"
       assert document =~ "if [ -L \"$proxy_dir\" ]; then"
@@ -156,13 +162,33 @@ defmodule GSMLG.ProxyRules.OperationalTest do
                "Manual repair required: Local proxy directory/source permissions do not " <>
                  "allow gsmlg atomic replacement"
 
-      assert document =~
-               "if [ -L \"$direct_dir\" ] || " <>
-                 "{ [ -e \"$direct_dir\" ] && [ ! -d \"$direct_dir\" ]; }; then"
+      assert document =~ "if [ -L \"$direct_dir\" ]; then"
+      assert document =~ "elif [ ! -e \"$direct_dir\" ]; then"
 
       assert document =~
                "if [ -L \"$legacy_direct\" ] || " <>
                  "{ [ -e \"$legacy_direct\" ] && [ ! -f \"$legacy_direct\" ]; }; then"
+
+      assert document =~
+               "if [ -L \"$direct_target\" ] || [ ! -f \"$direct_target\" ]; then"
+
+      assert document =~
+               "Manual repair required: Local direct source is missing, a symlink, or non-regular"
+
+      assert document =~
+               "Manual conflict: both legacy and separated Local direct sources exist"
+
+      assert document =~
+               "if ! sudo -u gsmlg sh -c '\n" <>
+                 "    test -x \"$1\" &&\n" <>
+                 "    test -w \"$1\" &&\n" <>
+                 "    test -r \"$2\" &&\n" <>
+                 "    test -w \"$2\"\n" <>
+                 "  ' proxy-rules-permission-probe \"$direct_dir\" \"$direct_target\"; then"
+
+      assert document =~
+               "Manual repair required: Local direct directory/source permissions do not " <>
+                 "allow gsmlg atomic replacement"
 
       root_dir_setup =
         :binary.match(document, "sudo install -d -o root -g gsmlg -m 0750 -- \"$proxy_dir\"")
@@ -176,11 +202,23 @@ defmodule GSMLG.ProxyRules.OperationalTest do
       assert root_dir_offset < file_owner_offset
       assert file_owner_offset < service_dir_offset
 
-      refute document =~
-               "sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt"
+      direct_root_dir_setup =
+        :binary.match(document, "sudo install -d -o root -g gsmlg -m 0750 -- \"$direct_dir\"")
+
+      direct_file_owner_setup =
+        :binary.match(document, "sudo chown gsmlg:gsmlg -- \"$direct_target\"")
+
+      direct_service_dir_setup =
+        :binary.match(document, "sudo chown gsmlg:gsmlg -- \"$direct_dir\"")
+
+      assert {direct_root_dir_offset, _length} = direct_root_dir_setup
+      assert {direct_file_owner_offset, _length} = direct_file_owner_setup
+      assert {direct_service_dir_offset, _length} = direct_service_dir_setup
+      assert direct_root_dir_offset < direct_file_owner_offset
+      assert direct_file_owner_offset < direct_service_dir_offset
 
       refute document =~
-               "sudo install -o root -g gsmlg -m 0640 direct-list.txt"
+               "sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt"
 
       refute document =~
                "sudo chown gsmlg:gsmlg /etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
@@ -193,13 +231,37 @@ defmodule GSMLG.ProxyRules.OperationalTest do
 
       assert document =~
                ~s(local_direct_list_path = "/etc/gsmlg/proxy-rules/direct/direct-list.txt")
+
+      assert document =~
+               ~r/Stop the service before replacing either source externally, or otherwise\s+serialize the edit with admin mutations\./
+
+      assert document =~
+               "if sudo --user=gsmlg --group=gsmlg -- sh -c '\n" <>
+                 "  set -eu\n" <>
+                 "  source=$1\n" <>
+                 "  target=$2\n" <>
+                 "  target_dir=${target%/*}\n" <>
+                 "  tmp=$(mktemp \"$target_dir/.proxy-rules.external.XXXXXX\")\n" <>
+                 "  cleanup() { rm -f -- \"$tmp\"; }\n" <>
+                 "  trap cleanup EXIT HUP INT TERM\n" <>
+                 "  cat -- \"$source\" >\"$tmp\"\n" <>
+                 "  chmod 0640 -- \"$tmp\"\n" <>
+                 "  mv -f -- \"$tmp\" \"$target\"\n" <>
+                 "  trap - EXIT HUP INT TERM\n" <>
+                 "' proxy-rules-external-update /path/to/updated-list.txt \"$target\"; then\n" <>
+                 "  sudo systemctl start gsmlg-umbrella.service\n" <>
+                 "else\n" <>
+                 "  echo \"Replacement failed; service remains stopped\" >&2\n" <>
+                 "fi"
+
+      assert document =~
+               ~r/Running the replacement as `gsmlg:gsmlg` and setting mode `0640` before\s+the\s+rename keeps the resulting target readable and writable by the service\./
     end
 
     assert deploy_doc =~
-             ~r/Mount the configured Local proxy directory read\/write so atomic sibling\s+temporary-file creation and rename can succeed\./
+             ~r/Mount both configured local source directories read\/write so same-directory\s+temporary-file creation and atomic rename can succeed\./
 
-    assert deploy_doc =~
-             "Mount the configured Local direct directory read-only."
+    assert deploy_doc =~ "Do not make either source writable by untrusted users."
 
     assert deploy_doc =~
              ~r/The current Docker images do not set `USER`, so the release runs as root\s+in the\s+container by default\./
@@ -213,7 +275,7 @@ defmodule GSMLG.ProxyRules.OperationalTest do
 
     assert deploy_doc =~
              "-v /etc/gsmlg/proxy-rules/direct:" <>
-               "/etc/gsmlg/proxy-rules/direct:ro \\\n"
+               "/etc/gsmlg/proxy-rules/direct \\\n"
 
     refute deploy_doc =~
              "-v /etc/gsmlg/proxy-rules/proxy-list.txt:"

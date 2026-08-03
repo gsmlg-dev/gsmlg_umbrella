@@ -28,14 +28,13 @@ by `GSMLG_CONFIG_PATH`.
 | `unsupported_rule_sample_limit` | `20` | Maximum diagnostic samples retained; counts remain complete. |
 
 The shared configuration parent must be readable but not writable by the
-service user. Give the release service identity a dedicated Local proxy
-subdirectory so it can create the sibling temporary file required for atomic
-replacement. Keep Local direct in a separate operator-owned subdirectory.
-proxy-list.txt must be writable by the release service identity so the
-authenticated admin can atomically add domains.
-direct-list.txt remains operator-owned and read-only to the release service identity.
-Neither file should be writable by an untrusted account. The state directory
-must be private and read/write for the service user. A typical host setup is:
+service user. Separate Local proxy and Local direct subdirectories are
+recommended. Both directories must be searchable and writable by the release
+service identity so it can create a same-directory temporary file and atomically
+rename it over the target. Both proxy-list.txt and direct-list.txt must be
+readable and writable by the release service identity. Neither source should be
+writable by an untrusted account. The state directory must be private and
+read/write for the service user. A typical host setup is:
 
 ```bash
 # Stop the service before provisioning or migration.
@@ -107,44 +106,98 @@ else
   fi
 fi
 
-if [ -L "$direct_dir" ] || { [ -e "$direct_dir" ] && [ ! -d "$direct_dir" ]; }; then
-  echo "Manual repair required: Local direct directory is a symlink or non-directory" >&2
+if [ -L "$direct_dir" ]; then
+  echo "Manual repair required: Local direct directory is a symlink" >&2
   exit 1
-fi
-sudo install -d -o root -g gsmlg -m 0750 -- "$direct_dir"
+elif [ ! -e "$direct_dir" ]; then
+  # Initial provisioning: keep the directory root-controlled until the target is safe.
+  sudo install -d -o root -g gsmlg -m 0750 -- "$direct_dir"
 
-if [ -L "$legacy_direct" ] || { [ -e "$legacy_direct" ] && [ ! -f "$legacy_direct" ]; }; then
-  echo "Manual repair required: legacy Local direct source is a symlink or non-regular" >&2
-  exit 1
-fi
-if [ -L "$direct_target" ] || { [ -e "$direct_target" ] && [ ! -f "$direct_target" ]; }; then
-  echo "Manual repair required: Local direct source is a symlink or non-regular" >&2
-  exit 1
-fi
-if [ -e "$legacy_direct" ] && [ -e "$direct_target" ]; then
-  echo "Manual conflict: both legacy and separated Local direct sources exist" >&2
-  exit 1
-fi
-if [ ! -e "$direct_target" ]; then
+  if [ -L "$legacy_direct" ] || { [ -e "$legacy_direct" ] && [ ! -f "$legacy_direct" ]; }; then
+    echo "Manual repair required: legacy Local direct source is a symlink or non-regular" >&2
+    exit 1
+  fi
+
   if [ -e "$legacy_direct" ]; then
     sudo mv -- "$legacy_direct" "$direct_target"
   else
-    sudo install -o root -g gsmlg -m 0640 /dev/null "$direct_target"
+    sudo install -o root -g root -m 0600 /dev/null "$direct_target"
+  fi
+
+  if [ -L "$direct_target" ] || [ ! -f "$direct_target" ]; then
+    echo "Manual repair required: Local direct source is missing, a symlink, or non-regular" >&2
+    exit 1
+  fi
+
+  sudo chown gsmlg:gsmlg -- "$direct_target"
+  sudo chmod 0640 -- "$direct_target"
+  sudo chown gsmlg:gsmlg -- "$direct_dir"
+  sudo chmod 0750 -- "$direct_dir"
+elif [ ! -d "$direct_dir" ]; then
+  echo "Manual repair required: Local direct directory is non-regular" >&2
+  exit 1
+else
+  # Existing service-writable directory: validation only; no privileged entry mutation.
+  if [ -L "$direct_target" ] || [ ! -f "$direct_target" ]; then
+    echo "Manual repair required: Local direct source is missing, a symlink, or non-regular" >&2
+    exit 1
+  fi
+  if [ -e "$legacy_direct" ] || [ -L "$legacy_direct" ]; then
+    echo "Manual conflict: both legacy and separated Local direct sources exist" >&2
+    exit 1
+  fi
+  if ! sudo -u gsmlg sh -c '
+    test -x "$1" &&
+    test -w "$1" &&
+    test -r "$2" &&
+    test -w "$2"
+  ' proxy-rules-permission-probe "$direct_dir" "$direct_target"; then
+    echo "Manual repair required: Local direct directory/source permissions do not allow gsmlg atomic replacement" >&2
+    exit 1
   fi
 fi
-sudo chown root:gsmlg -- "$direct_target"
-sudo chmod 0640 -- "$direct_target"
 )
 ```
 
 These commands are safe to repeat during upgrades. If both a legacy source and
 its separated destination exist, they leave both untouched so an operator can
-resolve the conflict without losing rules. Existing service-writable Local
-proxy directories are validation-only: never run privileged `chown`, `chmod`,
+resolve the conflict without losing rules. Existing service-writable local
+source directories are validation-only: never run privileged `chown`, `chmod`,
 copy, or move operations on their entries. Stop the service and rebuild an
 unsafe directory from root-controlled staging when manual repair is required.
-The repeat-deployment branch only probes, as `gsmlg`, that the directory is
-searchable/writable and the source is readable/writable.
+The repeat-deployment branches probe, as `gsmlg`, that each directory is
+searchable/writable and each source is readable/writable.
+
+Stop the service before replacing either source externally, or otherwise
+serialize the edit with admin mutations. This prevents an external edit and an
+admin submission from overwriting each other. With the service stopped, replace
+one target at a time:
+
+```bash
+sudo systemctl stop gsmlg-umbrella.service
+target=/etc/gsmlg/proxy-rules/proxy/proxy-list.txt # or the configured direct-list target
+if sudo --user=gsmlg --group=gsmlg -- sh -c '
+  set -eu
+  source=$1
+  target=$2
+  target_dir=${target%/*}
+  tmp=$(mktemp "$target_dir/.proxy-rules.external.XXXXXX")
+  cleanup() { rm -f -- "$tmp"; }
+  trap cleanup EXIT HUP INT TERM
+  cat -- "$source" >"$tmp"
+  chmod 0640 -- "$tmp"
+  mv -f -- "$tmp" "$target"
+  trap - EXIT HUP INT TERM
+' proxy-rules-external-update /path/to/updated-list.txt "$target"; then
+  sudo systemctl start gsmlg-umbrella.service
+else
+  echo "Replacement failed; service remains stopped" >&2
+fi
+```
+
+Running the replacement as `gsmlg:gsmlg` and setting mode `0640` before the
+rename keeps the resulting target readable and writable by the service. Do not
+restart the service until the rename completes successfully.
 
 Point the service at those separated source paths:
 
@@ -163,13 +216,15 @@ retains the last valid snapshot.
 
 ## Authenticated Admin Source Management
 
-The `/proxy-rules` admin page can add domains only to the configured local
-proxy source. The admin textarea accepts one domain per line, with an optional
-single `.` or `*.` prefix that is removed before storage. It rejects URLs,
-comments, other wildcard forms, regular expressions, IP addresses, CIDRs, and
-arbitrary GFWList syntax. Validation is atomic: if any non-empty line is invalid,
-no domains are written. Valid domains are canonicalized, and duplicates are
-automatically omitted both within the submission and against the current source.
+The authenticated `/proxy-rules` admin page has independent **Add Local Proxy**
+and **Add Local Direct** forms. Each textarea accepts one domain per line, with
+an optional single `.` or `*.` prefix that is removed before storage. Both forms
+apply the same normalization, atomic batch validation, and deduplication
+semantics. They reject URLs, comments, other wildcard forms, regular expressions,
+IP addresses, CIDRs, and arbitrary GFWList syntax. Validation is atomic: if any
+non-empty line is invalid, no domains are written. Valid domains are
+canonicalized, and duplicates are automatically omitted both within the
+submission and against the selected local source.
 
 Admin-added entries are stored as canonical bare domains. Existing semantic
 entries and comments are retained, while mutation normalizes line endings,
@@ -177,11 +232,15 @@ trailing spaces, and trailing blank lines. Renderers normalize parsed rules for
 Raw/DNS, Squid, and Clash output. Raw/DNS emits `baidu.com`, Squid emits
 `.baidu.com`, and Clash emits `DOMAIN-SUFFIX,baidu.com`.
 
-GFWList content is decoded, lazy-loaded, authenticated, and virtualized. The
-viewer does not fetch GFWList content during the initial page render and keeps
-only a bounded set of visible rows in the DOM. Authenticated administrators can
-also view the validated Local proxy source. Local direct remains outside the
-admin interface: it cannot be viewed or edited.
+The same domain may intentionally remain in both local sources. The compiler
+counts and reports those conflicts, and downstream consumers must continue to
+evaluate Direct before Proxy. This routes the domain directly.
+
+The source viewer offers GFWList, Local Proxy, and Local Direct. GFWList, Local
+Proxy, and Local Direct are all unloaded by default. Clicking **View content**
+fetches bounded, authenticated pages and directly displays the complete source
+text in a scrollable `<pre>`. The viewer does not use a virtual list, and the
+initial HTML does not contain any source body.
 
 ## Startup, Refresh, and Diagnosis
 
