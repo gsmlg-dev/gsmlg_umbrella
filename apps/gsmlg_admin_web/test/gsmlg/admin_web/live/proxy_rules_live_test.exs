@@ -7,8 +7,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
   alias GSMLG.ProxyRules.{
     Compiler,
     Diagnostic,
-    LocalProxyBatch,
-    LocalProxyWriter,
+    LocalDomainBatch,
+    LocalSourceWriter,
     Snapshot,
     SourceSnapshot,
     Store
@@ -327,10 +327,10 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     assert view |> element("textarea[name='local_proxy[domains]']") |> render() =~
              "private.example\n"
 
-    set_local_writer(&LocalProxyWriter.write/2)
+    set_local_writer(&LocalSourceWriter.write/2)
 
     too_many =
-      1..(LocalProxyBatch.max_distinct_domains() + 1)
+      1..(LocalDomainBatch.max_distinct_domains() + 1)
       |> Enum.map_join("\n", &"domain#{&1}.example")
 
     view
@@ -720,7 +720,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
         has_valid_snapshot: true,
         last_failure: nil
       })
-      |> Map.put(:writer, &LocalProxyWriter.write/2)
+      |> Map.put(:writer, &LocalSourceWriter.write/2)
     end)
 
     proxy_path

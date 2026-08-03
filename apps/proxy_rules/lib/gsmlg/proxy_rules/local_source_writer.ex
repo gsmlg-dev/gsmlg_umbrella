@@ -1,6 +1,6 @@
-defmodule GSMLG.ProxyRules.LocalProxyWriter do
+defmodule GSMLG.ProxyRules.LocalSourceWriter do
   @moduledoc """
-  Atomically replaces the local proxy source with synced content.
+  Atomically replaces a selected local domain source with synced content.
 
   An exclusive temporary file is opened in the target directory, assigned its
   final mode, written, synced, closed, renamed over the target, and committed

@@ -1,7 +1,7 @@
-defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
+defmodule GSMLG.ProxyRules.LocalDomainBatchTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.ProxyRules.LocalProxyBatch
+  alias GSMLG.ProxyRules.LocalDomainBatch
 
   describe "prepare/3" do
     test "normalizes and appends only unique submitted domains" do
@@ -16,7 +16,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_domains: ["baidu.com", "xn--fsqu00a.xn--0zwm56d"],
                 added_count: 2,
                 duplicate_count: 2
-              }} = LocalProxyBatch.prepare(existing, input, max_bytes: 8 * 1024 * 1024)
+              }} = LocalDomainBatch.prepare(existing, input, max_bytes: 8 * 1024 * 1024)
     end
 
     test "accepts one optional Squid-style leading dot and stores bare domains" do
@@ -28,7 +28,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_domains: ["tv", "io", "jsdelivr.net"],
                 added_count: 3,
                 duplicate_count: 1
-              }} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+              }} = LocalDomainBatch.prepare("", input, max_bytes: 1_024)
     end
 
     test "accepts one optional wildcard prefix and deduplicates canonical domains" do
@@ -40,7 +40,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_domains: ["openai.com", "chatgpt.com"],
                 added_count: 2,
                 duplicate_count: 2
-              }} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+              }} = LocalDomainBatch.prepare("", input, max_bytes: 1_024)
     end
 
     test "rejects wildcard syntax outside the single optional prefix" do
@@ -52,7 +52,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                  %{line: 1, reason: :wildcard_not_allowed},
                  %{line: 2, reason: :wildcard_not_allowed},
                  %{line: 3, reason: :wildcard_not_allowed}
-               ]}} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+               ]}} = LocalDomainBatch.prepare("", input, max_bytes: 1_024)
     end
 
     test "returns every invalid line without preparing partial content" do
@@ -62,7 +62,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                  %{line: 2, reason: :url_not_allowed},
                  %{line: 3, reason: :ip_literal}
                ]}} =
-               LocalProxyBatch.prepare(
+               LocalDomainBatch.prepare(
                  "",
                  "ok.example\nhttps://bad.example\n127.0.0.1\n",
                  max_bytes: 8 * 1024 * 1024
@@ -77,15 +77,15 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                [
                  %{line: 2, reason: :url_not_allowed},
                  %{line: 4, reason: :ip_literal}
-               ]}} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+               ]}} = LocalDomainBatch.prepare("", input, max_bytes: 1_024)
     end
 
     test "rejects an empty or whitespace-only batch" do
       assert {:error, :empty_batch} =
-               LocalProxyBatch.prepare("existing.example\n", "", max_bytes: 1_024)
+               LocalDomainBatch.prepare("existing.example\n", "", max_bytes: 1_024)
 
       assert {:error, :empty_batch} =
-               LocalProxyBatch.prepare("existing.example\n", " \n\t\r\n", max_bytes: 1_024)
+               LocalDomainBatch.prepare("existing.example\n", " \n\t\r\n", max_bytes: 1_024)
     end
 
     test "rejects non-domain input forms before domain normalization" do
@@ -112,12 +112,12 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                  %{line: 7, reason: :path_not_allowed},
                  %{line: 8, reason: :ip_literal},
                  %{line: 9, reason: :invalid_idna}
-               ]}} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+               ]}} = LocalDomainBatch.prepare("", input, max_bytes: 1_024)
     end
 
     test "rejects a trailing dot in submitted domains" do
       assert {:error, {:invalid_batch, [%{line: 1, reason: :trailing_dot_not_allowed}]}} =
-               LocalProxyBatch.prepare("", "example.com.", max_bytes: 1_024)
+               LocalDomainBatch.prepare("", "example.com.", max_bytes: 1_024)
     end
 
     test "accepts CRLF input and treats legacy leading-dot entries as existing domains" do
@@ -130,7 +130,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_count: 0,
                 duplicate_count: 2
               }} =
-               LocalProxyBatch.prepare(
+               LocalDomainBatch.prepare(
                  existing,
                  " Existing.com \r\n\r\nEXISTING.COM\r\n",
                  max_bytes: 1_024
@@ -147,7 +147,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_count: 1,
                 duplicate_count: 1
               }} =
-               LocalProxyBatch.prepare(
+               LocalDomainBatch.prepare(
                  existing,
                  "legacy.example\r\nnew.example\r\n",
                  max_bytes: 1_024
@@ -159,12 +159,12 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
       final_content = existing <> "new.example\n"
 
       assert {:ok, %{content: ^final_content}} =
-               LocalProxyBatch.prepare(existing, "new.example",
+               LocalDomainBatch.prepare(existing, "new.example",
                  max_bytes: byte_size(final_content)
                )
 
       assert {:error, :body_too_large} =
-               LocalProxyBatch.prepare(existing, "new.example",
+               LocalDomainBatch.prepare(existing, "new.example",
                  max_bytes: byte_size(final_content) - 1
                )
     end
@@ -172,12 +172,12 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
     test "requires max_bytes to be a non-negative integer" do
       for invalid <- [-1, 1.5, "5", nil] do
         assert_raise ArgumentError, ~r/max_bytes/, fn ->
-          LocalProxyBatch.prepare("", "new.example", max_bytes: invalid)
+          LocalDomainBatch.prepare("", "new.example", max_bytes: invalid)
         end
       end
 
       assert {:error, :body_too_large} =
-               LocalProxyBatch.prepare("", "new.example", max_bytes: 0)
+               LocalDomainBatch.prepare("", "new.example", max_bytes: 0)
     end
 
     test "bounds textarea bytes before validation or duplicate shrinking" do
@@ -186,17 +186,17 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
       assert byte_size(duplicate_input) > 5
 
       assert {:error, :body_too_large} =
-               LocalProxyBatch.prepare("", duplicate_input, max_bytes: 5)
+               LocalDomainBatch.prepare("", duplicate_input, max_bytes: 5)
 
       assert {:error, :body_too_large} =
-               LocalProxyBatch.prepare("", <<255, 255>>, max_bytes: 1)
+               LocalDomainBatch.prepare("", <<255, 255>>, max_bytes: 1)
     end
 
     test "returns a bounded line error for invalid UTF-8 input" do
       input = <<"ok.example\n", 255, "\nnext.example\n">>
 
       assert {:error, {:invalid_batch, [%{line: 2, reason: :invalid_utf8}]}} =
-               LocalProxyBatch.prepare("", input, max_bytes: 1_024)
+               LocalDomainBatch.prepare("", input, max_bytes: 1_024)
     end
 
     test "ignores invalid UTF-8 legacy lines while preserving the existing body" do
@@ -209,7 +209,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_count: 1,
                 duplicate_count: 1
               }} =
-               LocalProxyBatch.prepare(existing, "existing.com\nnew.example", max_bytes: 1_024)
+               LocalDomainBatch.prepare(existing, "existing.com\nnew.example", max_bytes: 1_024)
     end
 
     test "retains 100 concrete errors then marks the first omitted error" do
@@ -221,13 +221,13 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
         |> Enum.map_join("\n", &"https://bad#{&1}.example")
 
       assert {:error, {:invalid_batch, ^concrete_errors}} =
-               LocalProxyBatch.prepare("", one_hundred, max_bytes: 8 * 1024 * 1024)
+               LocalDomainBatch.prepare("", one_hundred, max_bytes: 8 * 1024 * 1024)
 
       one_hundred_and_one = one_hundred <> "\nhttps://bad101.example"
       capped_errors = concrete_errors ++ [%{line: 101, reason: :too_many_errors}]
 
       assert {:error, {:invalid_batch, ^capped_errors}} =
-               LocalProxyBatch.prepare("", one_hundred_and_one, max_bytes: 8 * 1024 * 1024)
+               LocalDomainBatch.prepare("", one_hundred_and_one, max_bytes: 8 * 1024 * 1024)
     end
 
     @tag timeout: 60_000
@@ -264,7 +264,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
       assert byte_size(input) <= max_bytes
 
       assert {:error, {:invalid_batch, [%{line: 2, reason: :url_not_allowed}]}} =
-               LocalProxyBatch.prepare(existing, input, max_bytes: max_bytes)
+               LocalDomainBatch.prepare(existing, input, max_bytes: max_bytes)
     end
 
     @tag timeout: 60_000
@@ -273,7 +273,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
       domains = Enum.map(1..max_distinct_domains, &"unique#{&1}.example")
       input = Enum.join(domains, "\n")
 
-      assert LocalProxyBatch.max_distinct_domains() == max_distinct_domains
+      assert LocalDomainBatch.max_distinct_domains() == max_distinct_domains
 
       assert {:ok,
               %{
@@ -293,7 +293,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
       input = Enum.map_join(1..10_001, "\n", &"unique#{&1}.example")
 
       assert {:error, :too_many_domains} =
-               LocalProxyBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
+               LocalDomainBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
     end
 
     test "invalid lines win after the distinct submitted domain limit for an in-limit input" do
@@ -302,7 +302,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
           "\nhttps://bad.example"
 
       assert {:error, {:invalid_batch, [%{line: 10_002, reason: :url_not_allowed}]}} =
-               LocalProxyBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
+               LocalDomainBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
     end
 
     test "counts an existing match within the 10,000 distinct submitted domains" do
@@ -314,7 +314,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_domains: ^new_domains,
                 added_count: 9_999,
                 duplicate_count: 1
-              }} = LocalProxyBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
+              }} = LocalDomainBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
     end
 
     test "rejects one existing match plus 10,000 new submitted domains" do
@@ -325,7 +325,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
         )
 
       assert {:error, :too_many_domains} =
-               LocalProxyBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
+               LocalDomainBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
     end
 
     test "rejects more than 10,000 distinct submitted domains even when all already exist" do
@@ -334,7 +334,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
       input = Enum.join(domains, "\n")
 
       assert {:error, :too_many_domains} =
-               LocalProxyBatch.prepare(existing, input, max_bytes: 1_000_000)
+               LocalDomainBatch.prepare(existing, input, max_bytes: 1_000_000)
     end
 
     test "allows repeated lines for one existing domain and counts every duplicate" do
@@ -348,7 +348,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_count: 0,
                 duplicate_count: ^repetitions
               }} =
-               LocalProxyBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
+               LocalDomainBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
     end
 
     test "counts an existing match once per unique submitted domain" do
@@ -361,7 +361,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_domains: ["new.example"],
                 added_count: 1,
                 duplicate_count: 2
-              }} = LocalProxyBatch.prepare(existing, input, max_bytes: 1_024)
+              }} = LocalDomainBatch.prepare(existing, input, max_bytes: 1_024)
     end
 
     @tag timeout: 120_000
@@ -420,7 +420,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                 added_domains: ["a.co"],
                 added_count: 1,
                 duplicate_count: ^expected_duplicates
-              }} = LocalProxyBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
+              }} = LocalDomainBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
     end
   end
 
@@ -429,7 +429,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
 
     {pid, monitor} =
       :erlang.spawn_opt(
-        fn -> send(caller, {self(), LocalProxyBatch.prepare(existing, input, options)}) end,
+        fn -> send(caller, {self(), LocalDomainBatch.prepare(existing, input, options)}) end,
         [:monitor, {:max_heap_size, %{size: heap_words, kill: true, error_logger: false}}]
       )
 

@@ -1,6 +1,6 @@
-defmodule GSMLG.ProxyRules.LocalProxyBatch do
+defmodule GSMLG.ProxyRules.LocalDomainBatch do
   @moduledoc """
-  Validates and prepares bare domains for appending to the local proxy source.
+  Validates and prepares bare domains for appending to a selected local domain source.
 
   Submitted domains may include one optional Squid-style leading dot or
   wildcard prefix. The `.` or `*.` prefix is removed before canonicalization
@@ -46,7 +46,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   @type option :: {:max_bytes, non_neg_integer()}
 
   @doc """
-  Validates a textarea batch and prepares the complete local proxy source body.
+  Validates a textarea batch and prepares the complete selected local domain source body.
   """
   @spec prepare(binary(), binary(), [option()]) ::
           {:ok, result()} | {:error, error_reason()}

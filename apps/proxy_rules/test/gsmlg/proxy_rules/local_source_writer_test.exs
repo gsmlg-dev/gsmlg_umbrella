@@ -1,7 +1,7 @@
-defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
+defmodule GSMLG.ProxyRules.LocalSourceWriterTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.ProxyRules.LocalProxyWriter
+  alias GSMLG.ProxyRules.LocalSourceWriter
 
   describe "write/2" do
     @tag :tmp_dir
@@ -12,7 +12,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       File.write!(path, "old.example\n")
       File.chmod!(path, 0o640)
 
-      assert :ok = LocalProxyWriter.write(path, "new.example\n")
+      assert :ok = LocalSourceWriter.write(path, "new.example\n")
       assert File.read!(path) == "new.example\n"
       assert file_mode(path) == 0o640
       assert temporary_files(tmp_dir) == []
@@ -23,7 +23,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       path = Path.join(tmp_dir, "proxy-list.txt")
 
       refute File.exists?(path)
-      assert :ok = LocalProxyWriter.write(path, "new.example\n")
+      assert :ok = LocalSourceWriter.write(path, "new.example\n")
       assert File.read!(path) == "new.example\n"
       assert file_mode(path) == 0o600
       assert temporary_files(tmp_dir) == []
@@ -38,7 +38,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       parent = self()
 
       assert :ok =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  open: fn temporary ->
                    send(parent, {:temporary_opened, List.to_string(temporary)})
                    :file.open(temporary, [:write, :binary, :raw, :exclusive])
@@ -63,7 +63,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       parent = self()
 
       assert {:error, :mode_failed} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  chmod: fn temporary, _mode ->
                    send(parent, {:mode_failed_for, temporary})
                    {:error, :eio}
@@ -94,7 +94,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
 
       for reason <- [:eacces, :eperm] do
         assert {:error, :permission_denied} =
-                 LocalProxyWriter.write(path, "new.example\n",
+                 LocalSourceWriter.write(path, "new.example\n",
                    open: fn temporary ->
                      temporary = List.to_string(temporary)
                      send(parent, {:temporary, temporary})
@@ -109,7 +109,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       end
 
       assert {:error, :open_failed} =
-               LocalProxyWriter.write(path, "new.example\n", open: fn _ -> {:error, :eio} end)
+               LocalSourceWriter.write(path, "new.example\n", open: fn _ -> {:error, :eio} end)
 
       assert_original_and_clean(path, tmp_dir)
     end
@@ -135,7 +135,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
         end
       end
 
-      assert :ok = LocalProxyWriter.write(path, "new.example\n", open: open)
+      assert :ok = LocalSourceWriter.write(path, "new.example\n", open: open)
       assert_received {:open_attempt, 1, collision}
       assert_received {:open_attempt, 2, owned}
       refute collision == owned
@@ -161,7 +161,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       end
 
       assert {:error, :open_failed} =
-               LocalProxyWriter.write(path, "new.example\n", open: open)
+               LocalSourceWriter.write(path, "new.example\n", open: open)
 
       assert_received {:collision, 1, first}
       assert_received {:collision, 2, second}
@@ -183,7 +183,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       path = existing_target(tmp_dir)
 
       assert {:error, :write_failed} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  write: fn _io, _content -> {:error, :eio} end
                )
 
@@ -197,7 +197,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       path = existing_target(tmp_dir)
 
       assert {:error, :sync_failed} =
-               LocalProxyWriter.write(path, "new.example\n", sync: fn _io -> {:error, :eio} end)
+               LocalSourceWriter.write(path, "new.example\n", sync: fn _io -> {:error, :eio} end)
 
       assert_original_and_clean(path, tmp_dir)
     end
@@ -208,7 +208,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       parent = self()
 
       assert {:error, :write_failed} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  write: fn _io, _content -> {:error, :eio} end,
                  close: fn io ->
                    send(parent, :close_after_write_failure)
@@ -228,7 +228,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       parent = self()
 
       assert {:error, :sync_failed} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  sync: fn _io -> raise "sync crashed" end,
                  close: fn io ->
                    send(parent, :close_after_sync_failure)
@@ -248,7 +248,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       parent = self()
 
       assert {:error, :close_failed} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  close: fn io ->
                    send(parent, :close_called)
                    assert :ok = :file.close(io)
@@ -273,7 +273,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       path = existing_target(tmp_dir)
 
       assert {:error, :rename_failed} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  rename: fn _temporary, _target -> {:error, :exdev} end
                )
 
@@ -286,7 +286,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       parent = self()
 
       assert :ok =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  rename: fn temporary, target ->
                    assert :ok = File.rename(temporary, target)
                    send(parent, :rename_finished)
@@ -311,7 +311,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       path = existing_target(tmp_dir)
 
       assert {:ok, :durability_unknown} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  directory_sync: fn _directory -> {:error, :eio} end
                )
 
@@ -319,7 +319,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       assert temporary_files(tmp_dir) == []
 
       assert {:ok, :durability_unknown} =
-               LocalProxyWriter.write(path, "newer.example\n",
+               LocalSourceWriter.write(path, "newer.example\n",
                  directory_sync: fn _directory -> raise "directory sync crashed" end
                )
 
@@ -333,7 +333,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       parent = self()
 
       assert {:error, :rename_failed} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  rename: fn _temporary, _target -> {:error, :exdev} end,
                  remove: fn temporary ->
                    send(parent, {:remove_called, temporary})
@@ -353,7 +353,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       parent = self()
 
       assert {:error, :write_failed} =
-               LocalProxyWriter.write(path, "new.example\n",
+               LocalSourceWriter.write(path, "new.example\n",
                  write: fn _io, _content -> raise "write crashed" end,
                  close: fn io ->
                    send(parent, :close_called_after_raise)
@@ -376,7 +376,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       File.write!(destination, "old.example\n")
       File.ln_s!(destination, path)
 
-      assert {:error, :invalid_target} = LocalProxyWriter.write(path, "new.example\n")
+      assert {:error, :invalid_target} = LocalSourceWriter.write(path, "new.example\n")
       assert File.read_link!(path) == destination
       assert File.read!(destination) == "old.example\n"
       assert temporary_files(tmp_dir) == []

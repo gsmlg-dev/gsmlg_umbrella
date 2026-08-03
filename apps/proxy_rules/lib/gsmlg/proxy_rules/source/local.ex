@@ -11,8 +11,8 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
   alias GSMLG.ProxyRules.{
     Configuration,
-    LocalProxyBatch,
-    LocalProxyWriter,
+    LocalDomainBatch,
+    LocalSourceWriter,
     SourceSnapshot,
     Store,
     Telemetry
@@ -53,8 +53,8 @@ defmodule GSMLG.ProxyRules.Source.Local do
   @type mutation_failure ::
           :not_available
           | :outcome_unknown
-          | LocalProxyBatch.error_reason()
-          | LocalProxyWriter.error_reason()
+          | LocalDomainBatch.error_reason()
+          | LocalSourceWriter.error_reason()
 
   @doc false
   @spec max_source_bytes() :: pos_integer()
@@ -117,7 +117,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
       scheduler: Keyword.get(options, :scheduler, &default_schedule/3),
       cancel_timer: Keyword.get(options, :cancel_timer, &Process.cancel_timer/1),
       now: Keyword.get(options, :now, &DateTime.utc_now/0),
-      writer: Keyword.get(options, :writer, &LocalProxyWriter.write/2),
+      writer: Keyword.get(options, :writer, &LocalSourceWriter.write/2),
       watcher: nil,
       watch_directories: [],
       debounce_timer: nil,
@@ -155,7 +155,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
     with :ok <- writable_snapshot?(entry),
          {:ok, result} <-
-           LocalProxyBatch.prepare(entry.snapshot.content, text, max_bytes: @max_source_bytes) do
+           LocalDomainBatch.prepare(entry.snapshot.content, text, max_bytes: @max_source_bytes) do
       persist_proxy_batch(result, state)
     else
       {:error, reason} -> {:reply, {:error, reason}, state}
@@ -231,7 +231,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
       scheduler: &default_schedule/3,
       cancel_timer: &Process.cancel_timer/1,
       now: &DateTime.utc_now/0,
-      writer: &LocalProxyWriter.write/2
+      writer: &LocalSourceWriter.write/2
     }
 
     Enum.reduce_while(validators, :ok, fn {key, validator}, :ok ->

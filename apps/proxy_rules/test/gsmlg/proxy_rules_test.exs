@@ -6,8 +6,8 @@ defmodule GSMLG.ProxyRulesTest do
   alias GSMLG.ProxyRules.{
     Compiler,
     Coordinator,
-    LocalProxyBatch,
-    LocalProxyWriter,
+    LocalDomainBatch,
+    LocalSourceWriter,
     Output,
     SourceSnapshot,
     Store
@@ -152,7 +152,7 @@ defmodule GSMLG.ProxyRulesTest do
              ProxyRules.add_local_proxy_domains("bad.example.\n")
 
     too_many =
-      1..(LocalProxyBatch.max_distinct_domains() + 1)
+      1..(LocalDomainBatch.max_distinct_domains() + 1)
       |> Enum.map_join("\n", &"domain#{&1}.example")
 
     assert {:error, :too_many_domains} = ProxyRules.add_local_proxy_domains(too_many)
@@ -306,7 +306,7 @@ defmodule GSMLG.ProxyRulesTest do
         has_valid_snapshot: true,
         last_failure: nil
       })
-      |> Map.put(:writer, &LocalProxyWriter.write/2)
+      |> Map.put(:writer, &LocalSourceWriter.write/2)
     end)
 
     proxy_path
