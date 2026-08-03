@@ -79,6 +79,11 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                ]}} = LocalProxyBatch.prepare("", input, max_bytes: 1_024)
     end
 
+    test "rejects a trailing dot in submitted domains" do
+      assert {:error, {:invalid_batch, [%{line: 1, reason: :trailing_dot_not_allowed}]}} =
+               LocalProxyBatch.prepare("", "example.com.", max_bytes: 1_024)
+    end
+
     test "accepts CRLF input and treats legacy leading-dot entries as existing domains" do
       existing = "# keep this comment\r\n.Existing.COM.\r\nlegacy/path"
 

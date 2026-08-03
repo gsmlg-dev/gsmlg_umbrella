@@ -19,6 +19,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
 
   @type rejection_reason ::
           :leading_dot_not_allowed
+          | :trailing_dot_not_allowed
           | :comment_not_allowed
           | :url_not_allowed
           | :path_not_allowed
@@ -250,6 +251,9 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     cond do
       String.starts_with?(value, ".") ->
         {:error, :leading_dot_not_allowed}
+
+      String.ends_with?(value, ".") ->
+        {:error, :trailing_dot_not_allowed}
 
       String.starts_with?(value, ["#", "!"]) ->
         {:error, :comment_not_allowed}
