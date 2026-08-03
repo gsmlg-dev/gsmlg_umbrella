@@ -10,7 +10,7 @@ defmodule GSMLG.ProxyRules.SourcePage do
   @default_byte_limit 256 * 1024
   @max_byte_limit 256 * 1024
   @cursor_pattern ~r/\A([0-9a-f]{64}):(\d+):(\d+)\z/
-  @sources [:remote_gfwlist, :local_proxy]
+  @sources [:remote_gfwlist, :local_proxy, :local_direct]
 
   @type error :: :invalid_cursor | :source_changed | :page_too_large | :not_found
 

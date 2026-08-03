@@ -133,7 +133,7 @@ defmodule GSMLG.ProxyRulesTest do
   test "adds local proxy domains through the facade and returns bounded validation failures", %{
     tmp_dir: dir
   } do
-    proxy_path = install_local_mutation_state(dir)
+    %{proxy: proxy_path} = install_local_mutation_state(dir)
 
     assert {:ok,
             %{
@@ -161,7 +161,7 @@ defmodule GSMLG.ProxyRulesTest do
 
   @tag :tmp_dir
   test "forwards only bounded writer failures through the facade", %{tmp_dir: dir} do
-    _proxy_path = install_local_mutation_state(dir)
+    _paths = install_local_mutation_state(dir)
 
     for reason <- [
           :permission_denied,
@@ -182,6 +182,53 @@ defmodule GSMLG.ProxyRulesTest do
     end
   end
 
+  @tag :tmp_dir
+  test "forwards bounded direct writer failures through the facade", %{tmp_dir: dir} do
+    %{proxy: proxy_path, direct: direct_path} = install_local_mutation_state(dir)
+
+    for reason <- [
+          :permission_denied,
+          :open_failed,
+          :write_failed,
+          :sync_failed,
+          :close_failed,
+          :mode_failed,
+          :rename_failed,
+          :invalid_target,
+          :target_probe_failed
+        ] do
+      :sys.replace_state(Local, fn state ->
+        %{state | writer: fn _path, _content -> {:error, reason} end}
+      end)
+
+      assert {:error, ^reason} = ProxyRules.add_local_direct_domains("new.example\n")
+      assert File.read!(proxy_path) == "existing.example\n"
+      assert File.read!(direct_path) == "direct.example\n"
+      assert Process.alive?(Process.whereis(Local))
+    end
+  end
+
+  @tag :tmp_dir
+  test "adds local direct domains through the facade with bounded validation", %{tmp_dir: dir} do
+    %{proxy: proxy_path, direct: direct_path} = install_local_mutation_state(dir)
+
+    assert {:ok,
+            %{
+              added_count: 1,
+              added_domains: ["new.example"],
+              durability: :confirmed,
+              reconciliation: :ok
+            }} = ProxyRules.add_local_direct_domains("*.new.example\n")
+
+    assert File.read!(direct_path) == "direct.example\nnew.example\n"
+    assert File.read!(proxy_path) == "existing.example\n"
+
+    assert {:error, {:invalid_batch, [%{line: 1, reason: :url_not_allowed}]}} =
+             ProxyRules.add_local_direct_domains("https://bad.example\n")
+
+    assert {:error, {:invalid_batch, []}} = ProxyRules.add_local_direct_domains(:not_binary)
+  end
+
   test "reports local mutation unavailable instead of exiting with the source service" do
     {server, monitor} =
       spawn_monitor(fn ->
@@ -195,6 +242,9 @@ defmodule GSMLG.ProxyRulesTest do
 
     assert {:error, :not_available} =
              ProxyRules.add_local_proxy_domains("new.example\n", server, 10)
+
+    assert {:error, :not_available} =
+             ProxyRules.add_local_direct_domains("new.example\n", server, 10)
   end
 
   test "preserves an unknown timeout outcome through the facade" do
@@ -203,7 +253,7 @@ defmodule GSMLG.ProxyRulesTest do
     server =
       spawn(fn ->
         receive do
-          {:"$gen_call", from, {:add_proxy_domains, "new.example\n"}} ->
+          {:"$gen_call", from, {:add_domains, :proxy, "new.example\n"}} ->
             send(test_process, :mutation_received)
             Process.sleep(50)
             GenServer.reply(from, {:ok, %{added_count: 1}})
@@ -218,7 +268,28 @@ defmodule GSMLG.ProxyRulesTest do
     assert_receive {:DOWN, ^monitor, :process, ^server, :normal}
   end
 
-  test "pages only remote GFWList and local proxy source snapshots through the facade" do
+  test "preserves an unknown direct timeout outcome through the facade" do
+    test_process = self()
+
+    server =
+      spawn(fn ->
+        receive do
+          {:"$gen_call", from, {:add_domains, :direct, "new.example\n"}} ->
+            send(test_process, :mutation_received)
+            Process.sleep(50)
+            GenServer.reply(from, {:ok, %{added_count: 1}})
+        end
+      end)
+
+    assert {:error, :outcome_unknown} =
+             ProxyRules.add_local_direct_domains("new.example\n", server, 10)
+
+    assert_receive :mutation_received
+    monitor = Process.monitor(server)
+    assert_receive {:DOWN, ^monitor, :process, ^server, :normal}
+  end
+
+  test "pages remote GFWList and both local source snapshots through the facade" do
     prior = :sys.get_state(Coordinator)
 
     on_exit(fn ->
@@ -229,7 +300,8 @@ defmodule GSMLG.ProxyRulesTest do
       %{
         state
         | remote: source(:remote, "||example.com^\n"),
-          local_proxy: source(:local_proxy, "proxy.example\n")
+          local_proxy: source(:local_proxy, "proxy.example\n"),
+          local_direct: source(:local_direct, "direct.example\n")
       }
     end)
 
@@ -239,8 +311,8 @@ defmodule GSMLG.ProxyRulesTest do
     assert {:ok, %{source: :local_proxy, total_lines: 1, lines: ["proxy.example"]}} =
              ProxyRules.get_source_page(:local_proxy, nil, line_limit: 10)
 
-    assert {:error, :not_found} =
-             ProxyRules.get_source_page(:local_direct, nil, [])
+    assert {:ok, %{source: :local_direct, total_lines: 1, lines: ["direct.example"]}} =
+             ProxyRules.get_source_page(:local_direct, nil, line_limit: 10)
   end
 
   test "reports refresh unavailable while the coordinator is unavailable" do
@@ -282,7 +354,9 @@ defmodule GSMLG.ProxyRulesTest do
   defp install_local_mutation_state(dir) do
     prior = :sys.get_state(Local)
     proxy_path = Path.join(dir, "proxy.txt")
+    direct_path = Path.join(dir, "direct.txt")
     File.write!(proxy_path, "existing.example\n")
+    File.write!(direct_path, "direct.example\n")
 
     on_exit(fn ->
       if Process.whereis(Local) do
@@ -299,16 +373,34 @@ defmodule GSMLG.ProxyRulesTest do
           last_success_at: ~U[2026-07-31 00:00:00Z]
         })
 
+      direct_snapshot =
+        :local_direct
+        |> source("direct.example\n")
+        |> Map.put(:metadata, %{
+          path: direct_path,
+          last_success_at: ~U[2026-07-31 00:00:00Z]
+        })
+
       state
       |> put_in([:targets, :proxy], %{kind: :local_proxy, action: :proxy, path: proxy_path})
+      |> put_in([:targets, :direct], %{
+        kind: :local_direct,
+        action: :direct,
+        path: direct_path
+      })
       |> put_in([:entries, :proxy], %{
         snapshot: proxy_snapshot,
+        has_valid_snapshot: true,
+        last_failure: nil
+      })
+      |> put_in([:entries, :direct], %{
+        snapshot: direct_snapshot,
         has_valid_snapshot: true,
         last_failure: nil
       })
       |> Map.put(:writer, &LocalSourceWriter.write/2)
     end)
 
-    proxy_path
+    %{proxy: proxy_path, direct: direct_path}
   end
 end

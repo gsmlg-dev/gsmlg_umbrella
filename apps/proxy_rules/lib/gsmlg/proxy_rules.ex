@@ -57,7 +57,22 @@ defmodule GSMLG.ProxyRules do
 
   def add_local_proxy_domains(_text, _server, _timeout), do: {:error, {:invalid_batch, []}}
 
-  @spec get_source_page(:remote_gfwlist | :local_proxy, binary() | nil, keyword()) ::
+  @spec add_local_direct_domains(binary()) ::
+          {:ok, Local.mutation_result()} | {:error, Local.mutation_failure()}
+  def add_local_direct_domains(text), do: add_local_direct_domains(text, Local, 30_000)
+
+  @doc false
+  @spec add_local_direct_domains(binary(), GenServer.server(), timeout()) ::
+          {:ok, Local.mutation_result()} | {:error, Local.mutation_failure()}
+  def add_local_direct_domains(text, server, timeout) when is_binary(text) do
+    Local.add_domains(server, :direct, text, timeout)
+  catch
+    :exit, _reason -> {:error, :not_available}
+  end
+
+  def add_local_direct_domains(_text, _server, _timeout), do: {:error, {:invalid_batch, []}}
+
+  @spec get_source_page(:remote_gfwlist | :local_proxy | :local_direct, binary() | nil, keyword()) ::
           {:ok, map()}
           | {:error,
              :invalid_cursor
@@ -68,7 +83,7 @@ defmodule GSMLG.ProxyRules do
   def get_source_page(source, cursor \\ nil, options \\ [])
 
   def get_source_page(source, cursor, options)
-      when source in [:remote_gfwlist, :local_proxy] and is_list(options) do
+      when source in [:remote_gfwlist, :local_proxy, :local_direct] and is_list(options) do
     with {:ok, snapshot} <- Coordinator.source_snapshot(source) do
       SourcePage.page(source, snapshot, cursor, options)
     end

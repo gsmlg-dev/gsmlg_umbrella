@@ -613,6 +613,123 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   end
 
   @tag :tmp_dir
+  test "serializes canonical direct additions and preserves the proxy source", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    direct = Path.join(dir, "direct.txt")
+    File.write!(proxy, "proxy.example\n")
+    File.write!(direct, "existing.example\n")
+    server = start_local(dir)
+    proxy_snapshot = Local.snapshots(server).proxy
+    flush_messages()
+
+    assert {:ok,
+            %{
+              added_count: 2,
+              duplicate_count: 1,
+              added_domains: ["baidu.com", "xn--fsqu00a.xn--0zwm56d"],
+              durability: :confirmed,
+              reconciliation: :ok
+            }} = Local.add_domains(server, :direct, "Baidu.com\n例子.测试\nbaidu.com\n")
+
+    assert File.read!(direct) ==
+             "existing.example\nbaidu.com\nxn--fsqu00a.xn--0zwm56d\n"
+
+    assert File.read!(proxy) == "proxy.example\n"
+    assert Local.snapshots(server).proxy == proxy_snapshot
+
+    assert_receive {:proxy_rules_source, :local_direct,
+                    %SourceSnapshot{
+                      content: "existing.example\nbaidu.com\nxn--fsqu00a.xn--0zwm56d\n",
+                      availability: :ready
+                    }}
+
+    refute_receive {:proxy_rules_source, :local_proxy, _snapshot}, 30
+  end
+
+  @tag :tmp_dir
+  test "allows a proxy domain to be added independently to direct", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    direct = Path.join(dir, "direct.txt")
+    File.write!(proxy, "shared.example\n")
+    File.write!(direct, "direct.example\n")
+    server = start_local(dir)
+
+    assert {:ok, %{added_domains: ["shared.example"], added_count: 1, duplicate_count: 0}} =
+             Local.add_domains(server, :direct, "SHARED.example\n")
+
+    assert File.read!(proxy) == "shared.example\n"
+    assert File.read!(direct) == "direct.example\nshared.example\n"
+  end
+
+  @tag :tmp_dir
+  test "an all-existing direct batch is an idempotent no-op", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    direct = Path.join(dir, "direct.txt")
+    File.write!(proxy, "proxy.example\n")
+    File.write!(direct, "existing.example\n")
+    test_process = self()
+
+    server =
+      start_local(dir,
+        writer: fn _path, _content ->
+          send(test_process, :writer_called)
+          {:error, :write_failed}
+        end
+      )
+
+    before = Local.snapshots(server)
+    flush_messages()
+
+    assert {:ok,
+            %{
+              added_domains: [],
+              added_count: 0,
+              duplicate_count: 1,
+              durability: :confirmed,
+              reconciliation: :ok
+            }} = Local.add_domains(server, :direct, "EXISTING.example\n")
+
+    refute_receive :writer_called, 30
+    refute_receive {:proxy_rules_source, _, _snapshot}, 30
+    assert File.read!(proxy) == "proxy.example\n"
+    assert File.read!(direct) == "existing.example\n"
+    assert Local.snapshots(server) == before
+  end
+
+  @tag :tmp_dir
+  test "an invalid direct batch preserves both local sources", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    direct = Path.join(dir, "direct.txt")
+    File.write!(proxy, "proxy.example\n")
+    File.write!(direct, "direct.example\n")
+    server = start_local(dir)
+    before = Local.snapshots(server)
+
+    assert {:error, {:invalid_batch, [%{line: 1, reason: :url_not_allowed}]}} =
+             Local.add_domains(server, :direct, "https://bad.example\n")
+
+    assert File.read!(proxy) == "proxy.example\n"
+    assert File.read!(direct) == "direct.example\n"
+    assert Local.snapshots(server) == before
+  end
+
+  test "rejects an unsupported mutation source without contacting the server" do
+    test_process = self()
+
+    server =
+      spawn(fn ->
+        receive do
+          message -> send(test_process, {:unexpected_call, message})
+        end
+      end)
+
+    on_exit(fn -> Process.exit(server, :kill) end)
+
+    assert {:error, :not_found} = Local.add_domains(server, :remote, "new.example\n", 10)
+    refute_receive {:unexpected_call, _message}, 30
+  end
+
+  @tag :tmp_dir
   test "rejects stale sources without invoking the writer", %{tmp_dir: dir} do
     proxy = Path.join(dir, "proxy.txt")
     File.write!(proxy, "existing.example\n")
@@ -733,6 +850,41 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   end
 
   @tag :tmp_dir
+  test "direct precommit writer errors preserve both local sources and keep the server alive", %{
+    tmp_dir: dir
+  } do
+    proxy = Path.join(dir, "proxy.txt")
+    direct = Path.join(dir, "direct.txt")
+    proxy_content = "proxy.example\n"
+    direct_content = "direct.example\n"
+    File.write!(proxy, proxy_content)
+    File.write!(direct, direct_content)
+
+    for reason <- [
+          :permission_denied,
+          :open_failed,
+          :write_failed,
+          :sync_failed,
+          :close_failed,
+          :mode_failed,
+          :rename_failed,
+          :invalid_target,
+          :target_probe_failed
+        ] do
+      server = start_local(dir, writer: fn _path, _content -> {:error, reason} end)
+      before = Local.snapshots(server)
+
+      assert {:error, ^reason} = Local.add_domains(server, :direct, "new.example\n")
+      assert File.read!(proxy) == proxy_content
+      assert File.read!(direct) == direct_content
+      assert Local.snapshots(server) == before
+      assert Process.alive?(server)
+
+      stop_supervised!(Local)
+    end
+  end
+
+  @tag :tmp_dir
   test "two concurrent proxy additions both survive in the final source", %{tmp_dir: dir} do
     proxy = Path.join(dir, "proxy.txt")
     File.write!(proxy, "existing.example\n")
@@ -751,6 +903,48 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert File.read!(proxy)
            |> String.split("\n", trim: true)
            |> MapSet.new() == MapSet.new(["existing.example", "one.example", "two.example"])
+  end
+
+  @tag :tmp_dir
+  test "concurrent proxy and direct additions remain isolated without lost updates", %{
+    tmp_dir: dir
+  } do
+    proxy = Path.join(dir, "proxy.txt")
+    direct = Path.join(dir, "direct.txt")
+    File.write!(proxy, "proxy-existing.example\nshared.example\n")
+    File.write!(direct, "direct-existing.example\nshared.example\n")
+    server = start_local(dir)
+
+    tasks = [
+      Task.async(fn ->
+        Local.add_domains(server, :proxy, "proxy-one.example\nshared.example\n")
+      end),
+      Task.async(fn -> Local.add_domains(server, :direct, "direct-one.example\n") end),
+      Task.async(fn -> Local.add_domains(server, :proxy, "proxy-two.example\n") end),
+      Task.async(fn ->
+        Local.add_domains(server, :direct, "direct-two.example\nshared.example\n")
+      end)
+    ]
+
+    assert Enum.all?(tasks, fn task ->
+             match?({:ok, %{reconciliation: :ok}}, Task.await(task, 5_000))
+           end)
+
+    assert file_domains(proxy) ==
+             MapSet.new([
+               "proxy-existing.example",
+               "shared.example",
+               "proxy-one.example",
+               "proxy-two.example"
+             ])
+
+    assert file_domains(direct) ==
+             MapSet.new([
+               "direct-existing.example",
+               "shared.example",
+               "direct-one.example",
+               "direct-two.example"
+             ])
   end
 
   @tag :tmp_dir
@@ -783,6 +977,39 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
     assert File.read!(proxy) == "existing.example\nnew.example\n"
 
     assert_receive {:proxy_rules_source, :local_proxy,
+                    %SourceSnapshot{content: "existing.example\nnew.example\n"}}
+  end
+
+  @tag :tmp_dir
+  test "a direct call timeout reports an unknown outcome while the mutation later commits", %{
+    tmp_dir: dir
+  } do
+    direct = Path.join(dir, "direct.txt")
+    File.write!(direct, "existing.example\n")
+    test_process = self()
+
+    server =
+      start_local(dir,
+        writer: fn path, content ->
+          send(test_process, :writer_started)
+
+          receive do
+            :continue_write -> File.write!(path, content)
+          end
+        end
+      )
+
+    flush_messages()
+
+    assert {:error, :outcome_unknown} =
+             Local.add_domains(server, :direct, "new.example\n", 10)
+
+    assert_receive :writer_started
+    send(server, :continue_write)
+    assert_eventually_snapshot(server, :direct, "existing.example\nnew.example\n")
+    assert File.read!(direct) == "existing.example\nnew.example\n"
+
+    assert_receive {:proxy_rules_source, :local_direct,
                     %SourceSnapshot{content: "existing.example\nnew.example\n"}}
   end
 
@@ -906,6 +1133,13 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
       {Local, local_options(dir, Keyword.merge(defaults, extra), config_overrides)},
       restart: :temporary
     )
+  end
+
+  defp file_domains(path) do
+    path
+    |> File.read!()
+    |> String.split("\n", trim: true)
+    |> MapSet.new()
   end
 
   defp local_options(dir, extra, config_overrides \\ %{}) do

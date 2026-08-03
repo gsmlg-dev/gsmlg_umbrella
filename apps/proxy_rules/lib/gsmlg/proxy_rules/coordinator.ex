@@ -32,11 +32,12 @@ defmodule GSMLG.ProxyRules.Coordinator do
   @spec source_metadata(GenServer.server()) :: map() | {:error, :not_available}
   def source_metadata(server \\ __MODULE__), do: safe_call(server, :source_metadata)
 
-  @spec source_snapshot(:remote_gfwlist | :local_proxy, GenServer.server()) ::
+  @spec source_snapshot(:remote_gfwlist | :local_proxy | :local_direct, GenServer.server()) ::
           {:ok, SourceSnapshot.t()} | {:error, :not_found | :not_available}
   def source_snapshot(source, server \\ __MODULE__)
 
-  def source_snapshot(source, server) when source in [:remote_gfwlist, :local_proxy] do
+  def source_snapshot(source, server)
+      when source in [:remote_gfwlist, :local_proxy, :local_direct] do
     safe_call(server, {:source_snapshot, source})
   end
 
@@ -138,6 +139,7 @@ defmodule GSMLG.ProxyRules.Coordinator do
       case source do
         :remote_gfwlist -> state.remote
         :local_proxy -> state.local_proxy
+        :local_direct -> state.local_direct
       end
 
     result =
