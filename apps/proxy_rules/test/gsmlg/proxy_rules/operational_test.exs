@@ -142,6 +142,18 @@ defmodule GSMLG.ProxyRules.OperationalTest do
                "Manual conflict: both legacy and separated Local proxy sources exist"
 
       assert document =~
+               "if ! sudo -u gsmlg sh -c '\n" <>
+                 "    test -x \"$1\" &&\n" <>
+                 "    test -w \"$1\" &&\n" <>
+                 "    test -r \"$2\" &&\n" <>
+                 "    test -w \"$2\"\n" <>
+                 "  ' proxy-rules-permission-probe \"$proxy_dir\" \"$proxy_target\"; then"
+
+      assert document =~
+               "Manual repair required: Local proxy directory/source permissions do not " <>
+                 "allow gsmlg atomic replacement"
+
+      assert document =~
                "if [ -L \"$direct_dir\" ] || " <>
                  "{ [ -e \"$direct_dir\" ] && [ ! -d \"$direct_dir\" ]; }; then"
 
@@ -214,7 +226,9 @@ defmodule GSMLG.ProxyRules.OperationalTest do
   end
 
   @tag :tmp_dir
-  test "documented upgrade guard rejects a hostile source symlink", %{tmp_dir: tmp_dir} do
+  test "documented upgrade guards reject hostile links and insufficient permissions", %{
+    tmp_dir: tmp_dir
+  } do
     sentinel = "/etc/hosts"
     sentinel_before = File.stat!(sentinel)
     contents_before = File.read!(sentinel)
@@ -248,6 +262,39 @@ defmodule GSMLG.ProxyRules.OperationalTest do
     assert sentinel_after.uid == sentinel_before.uid
     assert sentinel_after.gid == sentinel_before.gid
     assert Bitwise.band(sentinel_after.mode, 0o7777) == Bitwise.band(sentinel_before.mode, 0o7777)
+
+    permission_dir = Path.join(tmp_dir, "permission-probe")
+    permission_target = Path.join(permission_dir, "proxy-list.txt")
+    File.mkdir!(permission_dir)
+    File.write!(permission_target, "example.com\n")
+    File.chmod!(permission_dir, 0o700)
+    File.chmod!(permission_target, 0o600)
+
+    probe = "test -x \"$1\" && test -w \"$1\" && test -r \"$2\" && test -w \"$2\""
+
+    assert {_output, 0} =
+             System.cmd("sh", [
+               "-c",
+               probe,
+               "proxy-rules-permission-probe",
+               permission_dir,
+               permission_target
+             ])
+
+    try do
+      File.chmod!(permission_dir, 0o500)
+
+      assert {_output, 1} =
+               System.cmd("sh", [
+                 "-c",
+                 probe,
+                 "proxy-rules-permission-probe",
+                 permission_dir,
+                 permission_target
+               ])
+    after
+      File.chmod!(permission_dir, 0o700)
+    end
   end
 
   test "one benchmark compilation reports positive operational measurements" do

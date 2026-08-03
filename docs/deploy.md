@@ -271,6 +271,15 @@ else
     echo "Manual conflict: both legacy and separated Local proxy sources exist" >&2
     exit 1
   fi
+  if ! sudo -u gsmlg sh -c '
+    test -x "$1" &&
+    test -w "$1" &&
+    test -r "$2" &&
+    test -w "$2"
+  ' proxy-rules-permission-probe "$proxy_dir" "$proxy_target"; then
+    echo "Manual repair required: Local proxy directory/source permissions do not allow gsmlg atomic replacement" >&2
+    exit 1
+  fi
 fi
 
 if [ -L "$direct_dir" ] || { [ -e "$direct_dir" ] && [ ! -d "$direct_dir" ]; }; then
@@ -312,7 +321,9 @@ already-migrated destination. The `/dev/null` installs run only for first
 provisioning. Existing service-writable Local proxy directories are
 validation-only: do not run privileged `chown`, `chmod`, copy, or move
 operations on their entries. Stop the service and rebuild an unsafe directory
-from root-controlled staging when manual repair is required.
+from root-controlled staging when manual repair is required. The
+repeat-deployment branch only probes, as `gsmlg`, that the directory is
+searchable/writable and the source is readable/writable.
 
 Run migrations before starting a new version:
 
