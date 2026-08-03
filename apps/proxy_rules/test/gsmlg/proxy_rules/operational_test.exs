@@ -84,6 +84,47 @@ defmodule GSMLG.ProxyRules.OperationalTest do
              ~r/sudo GSMLG_CONFIG_PATH=.*\n(?:.*\\\n){0,5}\s*\/opt\/gsmlg\/gsmlg\/bin\/gsmlg_umbrella (?:start|daemon)/
   end
 
+  test "documentation defines the authenticated admin source-management boundary" do
+    proxy_readme = File.read!(Path.join(@application_root, "README.md"))
+    deploy_doc = File.read!(Path.join(@umbrella_root, "docs/deploy.md"))
+
+    assert proxy_readme =~ "The admin textarea accepts bare domains only, one per line."
+    assert proxy_readme =~ "Validation is atomic"
+    assert proxy_readme =~ "duplicates are automatically omitted"
+
+    assert proxy_readme =~
+             ~r/Raw\/DNS emits `baidu\.com`, Squid emits\s+`\.baidu\.com`, and Clash emits `DOMAIN-SUFFIX,baidu\.com`\./
+
+    assert proxy_readme =~
+             "GFWList content is decoded, lazy-loaded, authenticated, and virtualized."
+
+    assert proxy_readme =~
+             ~r/Local direct remains outside the\s+admin interface: it cannot be viewed or edited\./
+
+    assert proxy_readme =~
+             "proxy-list.txt must be writable by the release service identity"
+
+    assert proxy_readme =~
+             "direct-list.txt remains operator-owned and read-only to the release service identity"
+
+    assert deploy_doc =~
+             "install -o gsmlg -g gsmlg -m 0640 proxy-list.txt"
+
+    assert deploy_doc =~
+             "install -o root -g gsmlg -m 0640 direct-list.txt"
+
+    assert deploy_doc =~
+             ~r/The running container needs write\s+access only to the configured `local_proxy_list_path`\./
+
+    assert deploy_doc =~
+             "-v /etc/gsmlg/proxy-rules/proxy-list.txt:" <>
+               "/etc/gsmlg/proxy-rules/proxy-list.txt"
+
+    assert deploy_doc =~
+             "-v /etc/gsmlg/proxy-rules/direct-list.txt:" <>
+               "/etc/gsmlg/proxy-rules/direct-list.txt:ro"
+  end
+
   test "one benchmark compilation reports positive operational measurements" do
     Code.require_file(Path.join(@application_root, "bench/proxy_rules_benchmark.exs"))
 

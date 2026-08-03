@@ -27,16 +27,20 @@ by `GSMLG_CONFIG_PATH`.
 | `cache_control` | `public, max-age=3600` | `Cache-Control` header returned with public artifacts. |
 | `unsupported_rule_sample_limit` | `20` | Maximum diagnostic samples retained; counts remain complete. |
 
-The configuration directory must be readable by the service user. Local list
-files should be owned by the operator, readable by the service user, and not
-writable by an untrusted account. The state directory must be private and
-read/write for the service user. A typical host setup is:
+The configuration directory must be readable by the service user.
+proxy-list.txt must be writable by the release service identity so the
+authenticated admin can atomically add domains.
+direct-list.txt remains operator-owned and read-only to the release service identity.
+Neither file should be writable by an untrusted account. The state directory
+must be private and read/write for the service user. A typical host setup is:
 
 ```bash
-sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
+sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
-sudo install -o root -g gsmlg -m 0640 proxy-list.txt /etc/gsmlg/proxy-rules/
-sudo install -o root -g gsmlg -m 0640 direct-list.txt /etc/gsmlg/proxy-rules/
+sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt \
+  /etc/gsmlg/proxy-rules/proxy-list.txt
+sudo install -o root -g gsmlg -m 0640 direct-list.txt \
+  /etc/gsmlg/proxy-rules/direct-list.txt
 ```
 
 Each local file contains one domain per line. Blank lines and lines beginning
@@ -45,6 +49,26 @@ accepted. URLs, GFWList/Adblock syntax, wildcards, regular expressions, IP
 literals, and CIDRs are not accepted in local files. Missing files are valid
 empty sources on first startup; after a valid read, a temporary disappearance
 retains the last valid snapshot.
+
+## Authenticated Admin Source Management
+
+The `/proxy-rules` admin page can add domains only to the configured local
+proxy source. The admin textarea accepts bare domains only, one per line. It
+rejects URLs, comments, wildcards, regular expressions, IP addresses, CIDRs,
+and arbitrary GFWList syntax. Validation is atomic: if any non-empty line is
+invalid, no domains are written. Valid domains are canonicalized, and
+duplicates are automatically omitted both within the submission and against
+the current source.
+
+Source storage remains canonical bare-domain text; formatting is applied only
+when artifacts are rendered. Raw/DNS emits `baidu.com`, Squid emits
+`.baidu.com`, and Clash emits `DOMAIN-SUFFIX,baidu.com`.
+
+GFWList content is decoded, lazy-loaded, authenticated, and virtualized. The
+viewer does not fetch GFWList content during the initial page render and keeps
+only a bounded set of visible rows in the DOM. Authenticated administrators can
+also view the validated Local proxy source. Local direct remains outside the
+admin interface: it cannot be viewed or edited.
 
 ## Startup, Refresh, and Diagnosis
 
