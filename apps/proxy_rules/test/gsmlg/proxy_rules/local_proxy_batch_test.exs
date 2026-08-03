@@ -227,17 +227,17 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
     end
 
     @tag timeout: 60_000
-    test "accepts exactly the maximum number of newly added domains" do
-      max_added_domains = 10_000
-      domains = Enum.map(1..max_added_domains, &"unique#{&1}.example")
+    test "accepts exactly the maximum number of distinct submitted domains" do
+      max_distinct_domains = 10_000
+      domains = Enum.map(1..max_distinct_domains, &"unique#{&1}.example")
       input = Enum.join(domains, "\n")
 
-      assert LocalProxyBatch.max_added_domains() == max_added_domains
+      assert LocalProxyBatch.max_distinct_domains() == max_distinct_domains
 
       assert {:ok,
               %{
                 added_domains: ^domains,
-                added_count: ^max_added_domains,
+                added_count: ^max_distinct_domains,
                 duplicate_count: 0
               }} =
                prepare_under_heap_limit(
@@ -248,20 +248,66 @@ defmodule GSMLG.ProxyRules.LocalProxyBatchTest do
                )
     end
 
-    test "rejects the 10,001st distinct newly added domain without partial content" do
+    test "rejects the 10,001st distinct submitted domain without partial content" do
       input = Enum.map_join(1..10_001, "\n", &"unique#{&1}.example")
 
       assert {:error, :too_many_domains} =
                LocalProxyBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
     end
 
-    test "invalid lines win after the newly added domain limit for an in-limit input" do
+    test "invalid lines win after the distinct submitted domain limit for an in-limit input" do
       input =
         Enum.map_join(1..10_001, "\n", &"unique#{&1}.example") <>
           "\nhttps://bad.example"
 
       assert {:error, {:invalid_batch, [%{line: 10_002, reason: :url_not_allowed}]}} =
                LocalProxyBatch.prepare("", input, max_bytes: 8 * 1024 * 1024)
+    end
+
+    test "counts an existing match within the 10,000 distinct submitted domains" do
+      new_domains = Enum.map(1..9_999, &"unique#{&1}.example")
+      input = Enum.join(["existing.example" | new_domains], "\n")
+
+      assert {:ok,
+              %{
+                added_domains: ^new_domains,
+                added_count: 9_999,
+                duplicate_count: 1
+              }} = LocalProxyBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
+    end
+
+    test "rejects one existing match plus 10,000 new submitted domains" do
+      input =
+        Enum.join(
+          ["existing.example" | Enum.map(1..10_000, &"unique#{&1}.example")],
+          "\n"
+        )
+
+      assert {:error, :too_many_domains} =
+               LocalProxyBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
+    end
+
+    test "rejects more than 10,000 distinct submitted domains even when all already exist" do
+      domains = Enum.map(1..10_001, &"existing#{&1}.example")
+      existing = Enum.join(domains, "\n") <> "\n"
+      input = Enum.join(domains, "\n")
+
+      assert {:error, :too_many_domains} =
+               LocalProxyBatch.prepare(existing, input, max_bytes: 1_000_000)
+    end
+
+    test "allows repeated lines for one existing domain and counts every duplicate" do
+      repetitions = 10_001
+      input = :binary.copy("existing.example\n", repetitions)
+
+      assert {:ok,
+              %{
+                content: "existing.example\n",
+                added_domains: [],
+                added_count: 0,
+                duplicate_count: ^repetitions
+              }} =
+               LocalProxyBatch.prepare("existing.example\n", input, max_bytes: 1_000_000)
     end
 
     test "counts an existing match once per unique submitted domain" do

@@ -6,15 +6,16 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
   found, the result appends one `:too_many_errors` marker at the first omitted
   error line. Textarea input larger than `:max_bytes` is rejected before line
   validation, even when duplicate removal could make the final body smaller.
-  A batch may add at most 10,000 distinct canonical domains; duplicates do not
-  count toward that limit.
+  A batch may submit at most 10,000 distinct canonical domains after
+  within-batch deduplication. Matches already present in the existing source
+  still count toward this safety limit; repeated input lines do not.
   """
 
   alias GSMLG.ProxyRules.Domain
 
   @max_line_errors 100
   @max_cache_entries 1_024
-  @max_added_domains 10_000
+  @max_distinct_domains 10_000
 
   @type rejection_reason ::
           :leading_dot_not_allowed
@@ -57,9 +58,9 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     end
   end
 
-  @doc "Returns the maximum number of distinct domains one batch may add."
-  @spec max_added_domains() :: pos_integer()
-  def max_added_domains, do: @max_added_domains
+  @doc "Returns the maximum number of distinct canonical domains one batch may submit."
+  @spec max_distinct_domains() :: pos_integer()
+  def max_distinct_domains, do: @max_distinct_domains
 
   defp initial_state(existing, max_bytes) do
     existing_bytes = byte_size(existing)
@@ -70,7 +71,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
       seen: if(oversized?, do: nil, else: MapSet.new()),
       cache: %{},
       added_domains: [],
-      added_count: 0,
+      distinct_count: 0,
       duplicate_count: 0,
       nonblank?: false,
       errors: [],
@@ -156,7 +157,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
     end
   end
 
-  defp add_distinct_domain(%{added_count: @max_added_domains} = state, _domain),
+  defp add_distinct_domain(%{distinct_count: @max_distinct_domains} = state, _domain),
     do: discard_valid_result(state, :too_many_domains)
 
   defp add_distinct_domain(state, domain) do
@@ -164,7 +165,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
       state
       | seen: MapSet.put(state.seen, domain),
         added_domains: [domain | state.added_domains],
-        added_count: state.added_count + 1
+        distinct_count: state.distinct_count + 1
     }
   end
 
@@ -191,7 +192,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
         seen: nil,
         cache: %{},
         added_domains: [],
-        added_count: 0,
+        distinct_count: 0,
         duplicate_count: 0
     }
   end
@@ -225,7 +226,7 @@ defmodule GSMLG.ProxyRules.LocalProxyBatch do
        %{
          content: content,
          added_domains: added_domains,
-         added_count: state.added_count - existing_duplicate_count,
+         added_count: state.distinct_count - existing_duplicate_count,
          duplicate_count: state.duplicate_count + existing_duplicate_count
        }}
     else
