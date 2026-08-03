@@ -217,8 +217,18 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
 
     assert has_element?(view, "[data-source='gfwlist'][data-loaded='false']")
     assert has_element?(view, "[data-source='local-proxy'][data-loaded='false']")
+    assert has_element?(view, "#proxy-rules-viewer-gfwlist-status", "Ready")
+    assert has_element?(view, "#proxy-rules-viewer-local-proxy-status", "Ready")
     assert has_element?(view, "#proxy-rules-viewer-gfwlist-metadata", "2 lines")
     assert has_element?(view, "#proxy-rules-viewer-gfwlist-metadata", "2026-07-23 01:02:03Z")
+
+    assert has_element?(
+             view,
+             "label[for='proxy-rules-local-proxy-domains']",
+             "One domain per line"
+           )
+
+    assert has_element?(view, "#proxy-rules-add-local-proxy-submit", "Add domains")
     assert has_element?(view, "#proxy-rules-source-viewport[phx-update='ignore']")
     refute html =~ "||remote-secret.example^"
     refute html =~ "local-secret.example"
@@ -259,7 +269,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     assert html =~ "ignored 1 duplicate"
     assert has_element?(view, "textarea[name='local_proxy[domains]']", "")
     assert File.read!(proxy_path) == "existing.example\nbaidu.com\n"
-    refute_push_event(view, "proxy-rules:source-changed", %{source: "local-proxy"})
+    assert_push_event(view, "proxy-rules:source-changed", %{source: "local-proxy"})
   end
 
   @tag :tmp_dir
@@ -419,6 +429,9 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
              "#proxy-rules-source-local-direct-list",
              "Last success 2026-07-23 01:02:03Z"
            )
+
+    assert has_element?(view, "#proxy-rules-viewer-gfwlist-status", "Missing")
+    assert has_element?(view, "#proxy-rules-viewer-local-proxy-status", "Stale")
   end
 
   test "accepted refresh immediately disables duplicate clicks", %{conn: conn} do

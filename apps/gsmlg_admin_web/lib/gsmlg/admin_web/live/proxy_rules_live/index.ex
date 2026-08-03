@@ -61,7 +61,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
             local_proxy_errors: []
           )
           |> put_flash(:info, add_result_message(result))
-          |> maybe_push_local_source_changed(result)
+          |> push_event("proxy-rules:source-changed", %{source: "local-proxy"})
 
         {:noreply, socket}
 
@@ -212,7 +212,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
                 field={@local_proxy_form[:domains]}
                 id="proxy-rules-local-proxy-domains"
                 name={@local_proxy_form[:domains].name}
-                label="Domains"
+                label="One domain per line"
                 rows={8}
                 placeholder="example.com\nsubdomain.example.net"
                 aria-describedby="proxy-rules-local-proxy-help proxy-rules-local-proxy-errors"
@@ -234,7 +234,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
               </ul>
               <:actions>
                 <.dm_btn id="proxy-rules-add-local-proxy-submit" variant="primary" type="submit">
-                  Add Local Proxy
+                  Add domains
                 </.dm_btn>
               </:actions>
             </.dm_form>
@@ -268,6 +268,13 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
                   >
                     GFWList
                   </.dm_btn>
+                  <.dm_badge
+                    id="proxy-rules-viewer-gfwlist-status"
+                    variant={source_variant(@state.viewer_gfwlist.availability)}
+                    soft
+                  >
+                    {source_label(@state.viewer_gfwlist.availability)}
+                  </.dm_badge>
                   <p
                     id="proxy-rules-viewer-gfwlist-metadata"
                     class="mt-2 text-xs text-on-surface-variant"
@@ -290,6 +297,13 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
                   >
                     Local proxy
                   </.dm_btn>
+                  <.dm_badge
+                    id="proxy-rules-viewer-local-proxy-status"
+                    variant={source_variant(@state.viewer_local_proxy.availability)}
+                    soft
+                  >
+                    {source_label(@state.viewer_local_proxy.availability)}
+                  </.dm_badge>
                   <p
                     id="proxy-rules-viewer-local-proxy-metadata"
                     class="mt-2 text-xs text-on-surface-variant"
@@ -503,15 +517,12 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   end
 
   defp source_for_viewer(sources, key) do
-    Enum.find(sources, %{line_count: 0, updated_at: nil}, &(&1.key == key))
+    Enum.find(
+      sources,
+      %{availability: :missing, line_count: 0, updated_at: nil},
+      &(&1.key == key)
+    )
   end
-
-  defp maybe_push_local_source_changed(socket, %{added_count: count})
-       when is_integer(count) and count > 0 do
-    push_event(socket, "proxy-rules:source-changed", %{source: "local-proxy"})
-  end
-
-  defp maybe_push_local_source_changed(socket, _result), do: socket
 
   defp add_result_message(result) do
     added_count = Map.get(result, :added_count, 0)
