@@ -2,6 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import ProxyRulesSourceViewer, {
   appendPage,
+  cachedLine,
+  descriptorForLine,
+  physicalLayout,
+  rebaseScroll,
+  restorePage,
   sourcePageUrl,
   visibleRange,
 } from "./proxy_rules_source_viewer.js";
@@ -50,7 +55,10 @@ describe("proxy rule source viewer state", () => {
       total_lines: 3,
     });
 
-    expect(first.lines).toEqual(["one", "two"]);
+    expect([cachedLine(first, 0), cachedLine(first, 1)]).toEqual([
+      "one",
+      "two",
+    ]);
     expect(() =>
       appendPage(first, {
         version: "b".repeat(64),
@@ -122,14 +130,13 @@ describe("proxy rule source viewer state", () => {
       total_lines: 1,
     });
 
-    expect(empty).toEqual({
+    expect(empty).toMatchObject({
       version: "a".repeat(64),
-      lines: [],
       nextCursor: null,
       hasMore: false,
       totalLines: 0,
     });
-    expect(reset.lines).toEqual(["fresh"]);
+    expect(cachedLine(reset, 0)).toBe("fresh");
   });
 
   test("immutably appends pages and preserves has_more", () => {
@@ -151,13 +158,165 @@ describe("proxy rule source viewer state", () => {
       total_lines: 2,
     });
 
-    expect(first.lines).toEqual(["one"]);
+    expect(cachedLine(first, 0)).toBe("one");
     expect(first.hasMore).toBe(true);
-    expect(second.lines).toEqual(["one", "two"]);
+    expect([cachedLine(second, 0), cachedLine(second, 1)]).toEqual([
+      "one",
+      "two",
+    ]);
     expect(second.hasMore).toBe(false);
     expect(second).not.toBe(first);
-    expect(second.lines).not.toBe(first.lines);
+    expect(second.pages).not.toBe(first.pages);
+    expect(second.pages[0]).toBe(first.pages[0]);
     expect(firstPage.lines).toEqual(["one"]);
+  });
+
+  test("keeps a fixed page and line cache while appending cursor descriptors", () => {
+    let state = null;
+
+    for (let pageIndex = 0; pageIndex < 20; pageIndex += 1) {
+      const startLine = pageIndex * 100 + 1;
+      const hasMore = pageIndex < 19;
+      state = appendPage(
+        state,
+        {
+          version: "a".repeat(64),
+          start_line: startLine,
+          lines: Array.from(
+            { length: 100 },
+            (_value, index) => `line-${startLine + index}`,
+          ),
+          next_cursor: hasMore ? `cursor-${pageIndex + 1}` : null,
+          has_more: hasMore,
+          total_lines: 2_000,
+        },
+        {
+          cursor: pageIndex === 0 ? null : `cursor-${pageIndex}`,
+          maxCachedLines: 300,
+          maxCachedPages: 3,
+        },
+      );
+    }
+
+    expect(state.pages).toHaveLength(3);
+    expect(
+      state.pages.reduce((count, page) => count + page.lines.length, 0),
+    ).toBe(300);
+    expect(state.loadedThrough).toBe(2_000);
+    expect(cachedLine(state, 0)).toBeUndefined();
+    expect(cachedLine(state, 1_999)).toBe("line-2000");
+    expect(descriptorForLine(state, 50).startLine).toBe(1);
+    expect(descriptorForLine(state, 1_950).startLine).toBe(1_901);
+  });
+
+  test("keeps million-line physical height bounded and rebases to the final line", () => {
+    const totalLines = 4_000_000;
+    const rowHeight = 24;
+    const maxPhysicalHeight = 8_000_000;
+    let segmentStartLine = 0;
+    let iterations = 0;
+
+    while (iterations < 40) {
+      const layout = physicalLayout({
+        totalLines,
+        rowHeight,
+        segmentStartLine,
+        maxPhysicalHeight,
+      });
+      expect(layout.height).toBeLessThanOrEqual(maxPhysicalHeight);
+      if (segmentStartLine === layout.maxStartLine) break;
+
+      const scrollTop = Math.floor(layout.height * 0.8);
+      const logicalLine = segmentStartLine + Math.floor(scrollTop / rowHeight);
+      const rebased = rebaseScroll({
+        segmentStartLine,
+        scrollTop,
+        viewportHeight: 384,
+        totalLines,
+        rowHeight,
+        maxPhysicalHeight,
+      });
+
+      expect(
+        rebased.segmentStartLine + Math.floor(rebased.scrollTop / rowHeight),
+      ).toBe(logicalLine);
+      expect(rebased.segmentStartLine).toBeGreaterThan(segmentStartLine);
+      segmentStartLine = rebased.segmentStartLine;
+      iterations += 1;
+    }
+
+    const finalLayout = physicalLayout({
+      totalLines,
+      rowHeight,
+      segmentStartLine,
+      maxPhysicalHeight,
+    });
+    const finalScrollTop = (totalLines - segmentStartLine - 1) * rowHeight;
+
+    expect(segmentStartLine).toBe(finalLayout.maxStartLine);
+    expect(finalScrollTop).toBeLessThan(maxPhysicalHeight);
+    expect(segmentStartLine + Math.floor(finalScrollTop / rowHeight)).toBe(
+      totalLines - 1,
+    );
+
+    const backwardScrollTop = Math.floor(finalLayout.height * 0.1);
+    const backwardLogicalLine =
+      segmentStartLine + Math.floor(backwardScrollTop / rowHeight);
+    const backward = rebaseScroll({
+      segmentStartLine,
+      scrollTop: backwardScrollTop,
+      viewportHeight: 384,
+      totalLines,
+      rowHeight,
+      maxPhysicalHeight,
+    });
+
+    expect(backward.segmentStartLine).toBeLessThan(segmentStartLine);
+    expect(
+      backward.segmentStartLine + Math.floor(backward.scrollTop / rowHeight),
+    ).toBe(backwardLogicalLine);
+  });
+
+  test("restores an evicted page by its cursor without changing the tail", () => {
+    let state = null;
+
+    for (let pageIndex = 0; pageIndex < 5; pageIndex += 1) {
+      state = appendPage(state, sourcePage(pageIndex, 5, 100), {
+        cursor: pageIndex === 0 ? null : `cursor-${pageIndex}`,
+        maxCachedLines: 200,
+        maxCachedPages: 2,
+      });
+    }
+
+    const tailDescriptor = state.lastDescriptor;
+    expect(cachedLine(state, 0)).toBeUndefined();
+
+    const restored = restorePage(state, sourcePage(0, 5, 100), {
+      cursor: null,
+      maxCachedLines: 200,
+      maxCachedPages: 2,
+    });
+
+    expect(cachedLine(restored, 0)).toBe("line-1");
+    expect(restored.pages).toHaveLength(2);
+    expect(restored.loadedThrough).toBe(500);
+    expect(restored.lastDescriptor).toBe(tailDescriptor);
+  });
+
+  test("appends 100k, 200k, and 400k lines with bounded near-linear work", () => {
+    const results = [100_000, 200_000, 400_000].map((lineCount) =>
+      buildLargeState(lineCount),
+    );
+
+    for (const result of results) {
+      expect(result.state.loadedThrough).toBe(result.lineCount);
+      expect(cachedLineCount(result.state)).toBeLessThanOrEqual(2_000);
+      expect(result.state.pages.length).toBeLessThanOrEqual(12);
+      expect(result.linkedDescriptors).toBe(result.pageCount - 1);
+    }
+
+    expect(results[2].duration).toBeLessThan(results[0].duration * 8 + 100);
+    expect(results[2].duration).toBeLessThan(results[1].duration * 4 + 100);
   });
 });
 
@@ -234,6 +393,125 @@ describe("ProxyRulesSourceViewer hook", () => {
     });
   });
 
+  test("caps the physical spacer for a multi-million-line source", async () => {
+    await withFakeDom(async ({ root, viewer }) => {
+      globalThis.fetch = async () =>
+        jsonResponse(200, {
+          version: "a".repeat(64),
+          start_line: 1,
+          lines: Array.from(
+            { length: 200 },
+            (_value, index) => `line-${index + 1}`,
+          ),
+          next_cursor: "cursor-1",
+          has_more: true,
+          total_lines: 4_000_000,
+        });
+
+      viewer.mounted();
+      viewer.activated = true;
+      await viewer.loadNextPage();
+
+      expect(Number.parseInt(root.spacer.style.height, 10)).toBeLessThanOrEqual(
+        8_000_000,
+      );
+      viewer.destroyed();
+    });
+  });
+
+  test("refetches an evicted page when navigating backward", async () => {
+    await withFakeDom(async ({ root, viewer, frames }) => {
+      const requests = [];
+      globalThis.fetch = async (url) => {
+        requests.push(url);
+        const cursor = new URL(url, "https://example.test").searchParams.get(
+          "cursor",
+        );
+        const pageIndex = cursor ? Number(cursor.slice("cursor-".length)) : 0;
+        return jsonResponse(200, sourcePage(pageIndex, 13, 200));
+      };
+
+      viewer.mounted();
+      viewer.activated = true;
+      for (let pageIndex = 0; pageIndex < 13; pageIndex += 1) {
+        root.viewport.scrollTop = Math.max(0, pageIndex * 200 - 4) * 24;
+        await viewer.loadNextPage();
+      }
+
+      expect(requests).toHaveLength(13);
+      expect(cachedLine(viewer.state, 0)).toBeUndefined();
+      expect(viewer.state.loadedThrough).toBe(2_600);
+
+      root.viewport.scrollTop = 0;
+      root.viewport.listeners.get("scroll")();
+      const [[frameId, renderFrame]] = frames;
+      frames.delete(frameId);
+      renderFrame();
+      await flushPromises();
+
+      expect(requests).toHaveLength(14);
+      expect(requests[13]).toBe("/proxy-rules/sources/gfwlist?limit=200");
+      expect(cachedLine(viewer.state, 0)).toBe("line-1");
+      expect(viewer.state.loadedThrough).toBe(2_600);
+      viewer.destroyed();
+    });
+  });
+
+  test("rebases forward to the final logical rows with bounded fetches", async () => {
+    await withFakeDom(async ({ root, viewer, frames }) => {
+      let requestCount = 0;
+      globalThis.fetch = async (_url, options) => {
+        requestCount += 1;
+        if (requestCount === 1) {
+          return jsonResponse(200, {
+            version: "a".repeat(64),
+            start_line: 1,
+            lines: Array.from(
+              { length: 200 },
+              (_value, index) => `line-${index + 1}`,
+            ),
+            next_cursor: "cursor-1",
+            has_more: true,
+            total_lines: 4_000_000,
+          });
+        }
+
+        return new Promise((_resolve, reject) => {
+          options.signal.addEventListener("abort", () => {
+            const error = new Error("aborted");
+            error.name = "AbortError";
+            reject(error);
+          });
+        });
+      };
+
+      viewer.mounted();
+      viewer.activated = true;
+      await viewer.loadNextPage();
+
+      for (let iteration = 0; iteration < 40; iteration += 1) {
+        const layout = viewer.physicalLayout();
+        if (viewer.segmentStartLine === layout.maxStartLine) break;
+        root.viewport.scrollTop = Math.floor(layout.height * 0.8);
+        root.viewport.listeners.get("scroll")();
+        const [[frameId, renderFrame]] = frames;
+        frames.delete(frameId);
+        renderFrame();
+      }
+
+      const finalLayout = viewer.physicalLayout();
+      root.viewport.scrollTop = finalLayout.height - root.viewport.clientHeight;
+      viewer.renderWindow();
+      const finalRow = root.rows.children.at(-1);
+
+      expect(viewer.segmentStartLine).toBe(finalLayout.maxStartLine);
+      expect(finalRow.children[0].textContent).toBe("4000000");
+      expect(requestCount).toBe(2);
+      viewer.destroyed();
+      await flushPromises();
+    });
+  });
+
   test("reloads once after a 409 and on a matching viewed-source change", async () => {
     await withFakeDom(async ({ root, viewer }) => {
       const responses = [
@@ -258,7 +536,7 @@ describe("ProxyRulesSourceViewer hook", () => {
       await viewer.loadNextPage();
 
       expect(requests).toHaveLength(2);
-      expect(viewer.state.lines).toEqual(["fresh"]);
+      expect(cachedLine(viewer.state, 0)).toBe("fresh");
 
       let resolveReload;
       globalThis.fetch = (url, options) => {
@@ -333,7 +611,7 @@ describe("ProxyRulesSourceViewer hook", () => {
       await flushPromises();
 
       expect(requestCount).toBe(2);
-      expect(viewer.state.lines).toHaveLength(21);
+      expect(viewer.state.loadedThrough).toBe(21);
       viewer.destroyed();
     });
   });
@@ -393,7 +671,7 @@ describe("ProxyRulesSourceViewer hook", () => {
       root.click(root.viewButton);
       await flushPromises();
       expect(requests).toHaveLength(3);
-      expect(viewer.state.lines).toHaveLength(21);
+      expect(viewer.state.loadedThrough).toBe(21);
       viewer.destroyed();
     });
   });
@@ -447,7 +725,7 @@ describe("ProxyRulesSourceViewer hook", () => {
       root.click(root.viewButton);
       await flushPromises();
       expect(requestCount).toBe(5);
-      expect(viewer.state.lines).toHaveLength(21);
+      expect(viewer.state.loadedThrough).toBe(21);
       viewer.destroyed();
     });
   });
@@ -543,7 +821,7 @@ describe("ProxyRulesSourceViewer hook", () => {
         await scrollNearEnd(root, frames);
 
         expect(requestCount).toBe(2);
-        expect(viewer.state.lines).toHaveLength(20);
+        expect(viewer.state.loadedThrough).toBe(20);
         viewer.destroyed();
       });
     }
@@ -824,4 +1102,64 @@ async function scrollNearEnd(root, frames) {
   frames.delete(frameId);
   renderFrame();
   await flushPromises();
+}
+
+function sourcePage(pageIndex, pageCount, pageSize) {
+  const startLine = pageIndex * pageSize + 1;
+  const hasMore = pageIndex < pageCount - 1;
+  return {
+    version: "a".repeat(64),
+    start_line: startLine,
+    lines: Array.from(
+      { length: pageSize },
+      (_value, index) => `line-${startLine + index}`,
+    ),
+    next_cursor: hasMore ? `cursor-${pageIndex + 1}` : null,
+    has_more: hasMore,
+    total_lines: pageCount * pageSize,
+  };
+}
+
+function buildLargeState(lineCount) {
+  const pageSize = 500;
+  const pageCount = lineCount / pageSize;
+  const lines = Array.from({ length: pageSize }, () => "x");
+  let state = null;
+  let linkedDescriptors = 0;
+  const startedAt = performance.now();
+
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    const previousDescriptor = state?.lastDescriptor || null;
+    const hasMore = pageIndex < pageCount - 1;
+    state = appendPage(
+      state,
+      {
+        version: "a".repeat(64),
+        start_line: pageIndex * pageSize + 1,
+        lines,
+        next_cursor: hasMore ? `cursor-${pageIndex + 1}` : null,
+        has_more: hasMore,
+        total_lines: lineCount,
+      },
+      { cursor: pageIndex === 0 ? null : `cursor-${pageIndex}` },
+    );
+    if (
+      state.lastDescriptor.previous === previousDescriptor &&
+      previousDescriptor
+    ) {
+      linkedDescriptors += 1;
+    }
+  }
+
+  return {
+    duration: performance.now() - startedAt,
+    lineCount,
+    linkedDescriptors,
+    pageCount,
+    state,
+  };
+}
+
+function cachedLineCount(state) {
+  return state.pages.reduce((count, page) => count + page.lines.length, 0);
 }

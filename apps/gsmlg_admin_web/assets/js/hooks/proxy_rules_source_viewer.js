@@ -23,12 +23,16 @@ export function sourcePageUrl(base, cursor, limit) {
   return `${base}?${params.toString()}`;
 }
 
-export function appendPage(state, page) {
+const DEFAULT_MAX_CACHED_LINES = 2_000;
+const DEFAULT_MAX_CACHED_PAGES = 12;
+export const MAX_PHYSICAL_HEIGHT = 8_000_000;
+
+export function appendPage(state, page, options = {}) {
   if (!validPage(page)) throw new Error("invalid_page");
   if (state && state.version !== page.version)
     throw new Error("source_changed");
 
-  const expectedStart = (state?.lines.length || 0) + 1;
+  const expectedStart = (state?.loadedThrough || 0) + 1;
   if (page.start_line !== expectedStart) throw new Error("non_contiguous_page");
 
   const loadedCount = expectedStart - 1 + page.lines.length;
@@ -44,13 +48,204 @@ export function appendPage(state, page) {
     throw new Error("invalid_page");
   }
 
+  const cursor = Object.hasOwn(options, "cursor")
+    ? options.cursor
+    : state?.nextCursor || null;
+  if (cursor !== null && typeof cursor !== "string")
+    throw new Error("invalid_page");
+  if (state && cursor !== state.nextCursor) throw new Error("invalid_page");
+
+  const descriptor = Object.freeze({
+    cursor,
+    startLine: page.start_line,
+    lineCount: page.lines.length,
+    nextCursor: page.next_cursor,
+    hasMore: page.has_more,
+    previous: state?.lastDescriptor || null,
+  });
+  const cache = addCachedPage(state?.pages || [], page, options);
+
   return {
     version: page.version,
-    lines: [...(state?.lines || []), ...page.lines],
+    pages: cache.pages,
+    loadedThrough: loadedCount,
+    lastDescriptor: descriptor,
     nextCursor: page.next_cursor,
     hasMore: page.has_more,
     totalLines: page.total_lines,
   };
+}
+
+export function cachedLine(state, lineIndex) {
+  if (!state || !Number.isSafeInteger(lineIndex) || lineIndex < 0)
+    return undefined;
+
+  for (const page of state.pages) {
+    const offset = lineIndex - (page.startLine - 1);
+    if (offset >= 0 && offset < page.lines.length) return page.lines[offset];
+  }
+
+  return undefined;
+}
+
+export function descriptorForLine(state, lineIndex) {
+  if (!state || !Number.isSafeInteger(lineIndex) || lineIndex < 0) return null;
+
+  let descriptor = state.lastDescriptor;
+  while (descriptor) {
+    const startIndex = descriptor.startLine - 1;
+    if (
+      lineIndex >= startIndex &&
+      lineIndex < startIndex + descriptor.lineCount
+    ) {
+      return descriptor;
+    }
+    descriptor = descriptor.previous;
+  }
+
+  return null;
+}
+
+export function restorePage(state, page, options = {}) {
+  if (!state || !validPage(page)) throw new Error("invalid_page");
+  if (state.version !== page.version) throw new Error("source_changed");
+  if (state.totalLines !== page.total_lines) throw new Error("invalid_page");
+
+  const cursor = Object.hasOwn(options, "cursor") ? options.cursor : null;
+  if (cursor !== null && typeof cursor !== "string")
+    throw new Error("invalid_page");
+  const descriptor = descriptorForLine(state, page.start_line - 1);
+  if (
+    !descriptor ||
+    descriptor.cursor !== cursor ||
+    descriptor.startLine !== page.start_line ||
+    descriptor.lineCount !== page.lines.length ||
+    descriptor.nextCursor !== page.next_cursor ||
+    descriptor.hasMore !== page.has_more
+  ) {
+    throw new Error("non_contiguous_page");
+  }
+
+  const cache = addCachedPage(state.pages, page, options);
+  return {
+    ...state,
+    pages: cache.pages,
+  };
+}
+
+export function physicalLayout({
+  totalLines,
+  rowHeight,
+  segmentStartLine = 0,
+  maxPhysicalHeight = MAX_PHYSICAL_HEIGHT,
+}) {
+  const safeRowHeight = positiveInteger(rowHeight, 1);
+  const safeTotal = nonNegativeInteger(totalLines);
+  const capacity = Math.max(
+    1,
+    Math.floor(
+      positiveInteger(maxPhysicalHeight, MAX_PHYSICAL_HEIGHT) / safeRowHeight,
+    ),
+  );
+  const maxStartLine = Math.max(0, safeTotal - capacity);
+  const startLine = Math.min(
+    maxStartLine,
+    Math.max(0, nonNegativeInteger(segmentStartLine)),
+  );
+  const lineCount = Math.min(capacity, safeTotal - startLine);
+
+  return {
+    capacity,
+    startLine,
+    lineCount,
+    height: lineCount * safeRowHeight,
+    maxStartLine,
+  };
+}
+
+export function rebaseScroll({
+  segmentStartLine,
+  scrollTop,
+  viewportHeight,
+  totalLines,
+  rowHeight,
+  maxPhysicalHeight = MAX_PHYSICAL_HEIGHT,
+}) {
+  const layout = physicalLayout({
+    totalLines,
+    rowHeight,
+    segmentStartLine,
+    maxPhysicalHeight,
+  });
+  const safeRowHeight = positiveInteger(rowHeight, 1);
+  const safeViewportHeight = Math.max(0, viewportHeight);
+  const maxScrollTop = Math.max(0, layout.height - safeViewportHeight);
+  const safeScrollTop = Math.min(maxScrollTop, Math.max(0, scrollTop));
+  const halfSegment = Math.max(1, Math.floor(layout.capacity / 2));
+  let nextStartLine = layout.startLine;
+  let nextScrollTop = safeScrollTop;
+
+  if (
+    safeScrollTop >= maxScrollTop * 0.75 &&
+    layout.startLine < layout.maxStartLine
+  ) {
+    const shift = Math.min(
+      halfSegment,
+      Math.floor(safeScrollTop / safeRowHeight),
+      layout.maxStartLine - layout.startLine,
+    );
+    nextStartLine += shift;
+    nextScrollTop -= shift * safeRowHeight;
+  } else if (safeScrollTop <= maxScrollTop * 0.25 && layout.startLine > 0) {
+    const shift = Math.min(halfSegment, layout.startLine);
+    nextStartLine -= shift;
+    nextScrollTop += shift * safeRowHeight;
+  }
+
+  return {
+    segmentStartLine: nextStartLine,
+    scrollTop: nextScrollTop,
+  };
+}
+
+function addCachedPage(pages, page, options) {
+  const maxCachedLines = positiveInteger(
+    options.maxCachedLines,
+    DEFAULT_MAX_CACHED_LINES,
+  );
+  const maxCachedPages = positiveInteger(
+    options.maxCachedPages,
+    DEFAULT_MAX_CACHED_PAGES,
+  );
+  const cachedPage = Object.freeze({
+    startLine: page.start_line,
+    lines: Object.freeze([...page.lines]),
+  });
+  const nextPages = pages.filter(
+    (existingPage) => existingPage.startLine !== cachedPage.startLine,
+  );
+  nextPages.push(cachedPage);
+  let cachedLines = nextPages.reduce(
+    (count, existingPage) => count + existingPage.lines.length,
+    0,
+  );
+
+  while (
+    nextPages.length > 1 &&
+    (nextPages.length > maxCachedPages || cachedLines > maxCachedLines)
+  ) {
+    cachedLines -= nextPages.shift().lines.length;
+  }
+
+  return { pages: Object.freeze(nextPages) };
+}
+
+function positiveInteger(value, fallback) {
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function nonNegativeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
 function validPage(page) {
@@ -80,6 +275,8 @@ const ProxyRulesSourceViewer = {
   mounted() {
     this.rowHeight = 24;
     this.overscan = 8;
+    this.maxPhysicalHeight = MAX_PHYSICAL_HEIGHT;
+    this.segmentStartLine = 0;
     this.pageSize = boundedPageSize(this.el.dataset.pageSize);
     this.state = null;
     this.source = this.selectedSource();
@@ -98,8 +295,9 @@ const ProxyRulesSourceViewer = {
 
       this.animationFrame = requestAnimationFrame(() => {
         this.animationFrame = null;
+        this.rebaseViewport();
         this.renderWindow();
-        if (this.nearLoadedEnd()) this.loadNextPage();
+        this.loadVisiblePage();
       });
     };
 
@@ -115,7 +313,7 @@ const ProxyRulesSourceViewer = {
         this.activated = true;
         this.loadBlocked = false;
         this.conflictRetryUsed = false;
-        if (this.state === null || this.state.hasMore) this.loadNextPage();
+        this.loadVisiblePage();
       }
     };
 
@@ -130,7 +328,7 @@ const ProxyRulesSourceViewer = {
 
         const reload = this.activated;
         this.resetView({ preserveActivation: reload });
-        if (reload) this.loadNextPage();
+        if (reload) this.loadVisiblePage();
       },
     );
 
@@ -193,6 +391,7 @@ const ProxyRulesSourceViewer = {
     this.loadBlocked = false;
     if (!preserveConflictRetry) this.conflictRetryUsed = false;
     this.state = null;
+    this.segmentStartLine = 0;
     this.activated = preserveActivation;
     this.clearRenderedContent();
     this.updateSourceButtons();
@@ -207,18 +406,21 @@ const ProxyRulesSourceViewer = {
     this.setError("");
   },
 
-  async loadNextPage() {
+  async loadNextPage({ descriptor = null } = {}) {
+    const restoring = descriptor !== null;
     if (
       !this.activated ||
       this.loading ||
       this.loadBlocked ||
-      (this.state && !this.state.hasMore)
+      (!restoring && this.state && !this.state.hasMore)
     )
       return;
 
     const source = this.source;
     const serial = this.requestSerial;
-    const cursor = this.state?.nextCursor || null;
+    const cursor = restoring
+      ? descriptor.cursor
+      : this.state?.nextCursor || null;
     const controller = new AbortController();
     this.abortController = controller;
     this.loading = true;
@@ -270,7 +472,9 @@ const ProxyRulesSourceViewer = {
       if (serial !== this.requestSerial || source !== this.source) return;
 
       try {
-        this.state = appendPage(this.state, page);
+        this.state = restoring
+          ? restorePage(this.state, page, { cursor })
+          : appendPage(this.state, page, { cursor });
         pageAppended = true;
       } catch (_error) {
         throw new Error("invalid_response");
@@ -279,7 +483,7 @@ const ProxyRulesSourceViewer = {
       this.markCurrentSourceLoaded();
       this.renderWindow();
       this.setStatus(
-        `Loaded ${this.state.lines.length} of ${this.state.totalLines} lines.`,
+        `Loaded ${this.state.loadedThrough} of ${this.state.totalLines} lines.`,
       );
     } catch (error) {
       if (error?.name === "AbortError") return;
@@ -297,10 +501,35 @@ const ProxyRulesSourceViewer = {
         this.abortController = null;
         this.loading = false;
 
-        if (pageAppended && this.state?.hasMore && this.nearLoadedEnd()) {
-          queueMicrotask(() => this.loadNextPage());
+        if (pageAppended) {
+          queueMicrotask(() => this.loadVisiblePage());
         }
       }
+    }
+  },
+
+  loadVisiblePage() {
+    if (!this.activated || this.loading || this.loadBlocked) return;
+    if (this.state === null) {
+      this.loadNextPage();
+      return;
+    }
+
+    const range = this.logicalVisibleRange();
+    for (let lineIndex = range.start; lineIndex < range.end; lineIndex += 1) {
+      if (cachedLine(this.state, lineIndex) !== undefined) continue;
+
+      const descriptor = descriptorForLine(this.state, lineIndex);
+      if (descriptor) {
+        this.loadNextPage({ descriptor });
+      } else if (this.state.hasMore) {
+        this.loadNextPage();
+      }
+      return;
+    }
+
+    if (this.state.hasMore && this.nearLoadedEnd()) {
+      this.loadNextPage();
     }
   },
 
@@ -313,14 +542,8 @@ const ProxyRulesSourceViewer = {
   renderWindow() {
     if (this.state === null) return;
 
-    const viewport = this.viewport();
-    const range = visibleRange({
-      scrollTop: viewport.scrollTop,
-      viewportHeight: viewport.clientHeight,
-      rowHeight: this.rowHeight,
-      loadedCount: this.state.lines.length,
-      overscan: this.overscan,
-    });
+    const layout = this.physicalLayout();
+    const range = this.logicalVisibleRange();
     const fragment = document.createDocumentFragment();
 
     for (let index = range.start; index < range.end; index += 1) {
@@ -334,14 +557,63 @@ const ProxyRulesSourceViewer = {
         "w-16 shrink-0 select-none pr-3 text-right text-on-surface-variant";
       lineNumber.textContent = String(index + 1);
       sourceText.className = "whitespace-pre pr-4";
-      sourceText.textContent = this.state.lines[index];
+      sourceText.textContent = cachedLine(this.state, index) ?? "";
       row.append(lineNumber, sourceText);
       fragment.appendChild(row);
     }
 
-    this.spacer().style.height = `${this.state.totalLines * this.rowHeight}px`;
-    this.rows().style.transform = `translateY(${range.start * this.rowHeight}px)`;
+    this.spacer().style.height = `${layout.height}px`;
+    this.rows().style.transform = `translateY(${
+      (range.start - layout.startLine) * this.rowHeight
+    }px)`;
     this.rows().replaceChildren(fragment);
+  },
+
+  physicalLayout() {
+    const layout = physicalLayout({
+      totalLines: this.state?.totalLines || 0,
+      rowHeight: this.rowHeight,
+      segmentStartLine: this.segmentStartLine,
+      maxPhysicalHeight: this.maxPhysicalHeight,
+    });
+    this.segmentStartLine = layout.startLine;
+    return layout;
+  },
+
+  logicalVisibleRange() {
+    const viewport = this.viewport();
+    const layout = this.physicalLayout();
+    const range = visibleRange({
+      scrollTop: viewport.scrollTop,
+      viewportHeight: viewport.clientHeight,
+      rowHeight: this.rowHeight,
+      loadedCount: layout.lineCount,
+      overscan: this.overscan,
+    });
+
+    return {
+      start: layout.startLine + range.start,
+      end: layout.startLine + range.end,
+    };
+  },
+
+  rebaseViewport() {
+    if (this.state === null) return;
+
+    const viewport = this.viewport();
+    const rebased = rebaseScroll({
+      segmentStartLine: this.segmentStartLine,
+      scrollTop: viewport.scrollTop,
+      viewportHeight: viewport.clientHeight,
+      totalLines: this.state.totalLines,
+      rowHeight: this.rowHeight,
+      maxPhysicalHeight: this.maxPhysicalHeight,
+    });
+
+    this.segmentStartLine = rebased.segmentStartLine;
+    if (viewport.scrollTop !== rebased.scrollTop) {
+      viewport.scrollTop = rebased.scrollTop;
+    }
   },
 
   nearLoadedEnd() {
@@ -352,7 +624,10 @@ const ProxyRulesSourceViewer = {
       (viewport.scrollTop + viewport.clientHeight) / this.rowHeight,
     );
 
-    return lastVisible >= this.state.lines.length - this.overscan;
+    return (
+      this.segmentStartLine + lastVisible >=
+      this.state.loadedThrough - this.overscan
+    );
   },
 
   markCurrentSourceLoaded() {
