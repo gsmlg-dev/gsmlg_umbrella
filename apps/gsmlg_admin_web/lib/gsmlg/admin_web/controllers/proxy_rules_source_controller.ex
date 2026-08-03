@@ -8,7 +8,9 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceController do
          {:ok, limit} <- parse_limit(Map.get(params, "limit")),
          {:ok, page} <-
            ProxyRules.get_source_page(source, Map.get(params, "cursor"), line_limit: limit) do
-      json(conn, page)
+      conn
+      |> put_resp_header("cache-control", "private, no-store")
+      |> json(page)
     else
       {:error, reason} -> render_error(conn, reason)
     end
@@ -27,6 +29,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceController do
     end
   end
 
+  defp parse_limit(_limit), do: {:error, :invalid_limit}
+
   defp render_error(conn, reason)
        when reason in [
               :not_found,
@@ -37,6 +41,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceController do
               :page_too_large
             ] do
     conn
+    |> put_resp_header("cache-control", "private, no-store")
     |> put_status(status(reason))
     |> json(%{
       error: %{

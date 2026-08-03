@@ -37,6 +37,17 @@ defmodule GSMLG.AdminWeb.Router do
     plug(GSMLG.AdminWeb.Plugs.FetchCurrentScope)
   end
 
+  pipeline :browser_json do
+    plug(:accepts, ["json"])
+    plug(:fetch_session)
+    plug(Phoenix.SessionProcess.SessionId)
+    plug(:fetch_live_flash)
+    plug(:put_root_layout, {GSMLG.AdminWeb.Layouts, :root})
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
+    plug(GSMLG.AdminWeb.Plugs.FetchCurrentScope)
+  end
+
   pipeline :api do
     plug(:accepts, ["json"])
   end
@@ -140,7 +151,6 @@ defmodule GSMLG.AdminWeb.Router do
 
     live("/scout", ScoutLive.DashboardLive, :index)
     live("/proxy-rules", ProxyRulesLive.Index, :index)
-    get("/proxy-rules/sources/:source", ProxyRulesSourceController, :show)
 
     live("/github", GithubLive.Index, :index)
 
@@ -173,6 +183,12 @@ defmodule GSMLG.AdminWeb.Router do
       ecto_repos: [GSMLG.Repo],
       ecto_psql_extras_options: [{GSMLG.Repo, [lang: :en]}]
     )
+  end
+
+  scope "/", GSMLG.AdminWeb do
+    pipe_through([:browser_json, :maybe_browser_auth, :ensure_authed_access])
+
+    get("/proxy-rules/sources/:source", ProxyRulesSourceController, :show)
   end
 
   scope "/api", GSMLG.AdminWeb do

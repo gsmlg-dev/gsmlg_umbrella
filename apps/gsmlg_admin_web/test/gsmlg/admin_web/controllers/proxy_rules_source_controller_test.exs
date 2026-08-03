@@ -43,13 +43,21 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
   end
 
   test "redirects an unauthenticated browser request", %{conn: conn} do
-    conn = get(conn, ~p"/proxy-rules/sources/gfwlist")
+    conn =
+      conn
+      |> put_req_header("accept", "application/json")
+      |> get(~p"/proxy-rules/sources/gfwlist")
 
     assert redirected_to(conn) == "/sign_in"
   end
 
   test "returns a bounded decoded GFWList page", %{authenticated_conn: conn} do
-    conn = get(conn, ~p"/proxy-rules/sources/gfwlist?limit=2")
+    conn =
+      conn
+      |> put_req_header("accept", "application/json")
+      |> get(~p"/proxy-rules/sources/gfwlist?limit=2")
+
+    assert get_resp_header(conn, "cache-control") == ["private, no-store"]
 
     assert %{
              "source" => "remote_gfwlist",
@@ -156,6 +164,29 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
         conn
         |> get(~p"/proxy-rules/sources/gfwlist?limit=#{limit}")
         |> json_response(422)
+
+      assert response == %{
+               "error" => %{
+                 "code" => "invalid_limit",
+                 "message" => "Limit must be an integer from 1 through 500"
+               }
+             }
+    end
+  end
+
+  test "rejects nested and array limit parameters", %{authenticated_conn: conn} do
+    for path <- [
+          "/proxy-rules/sources/gfwlist?limit[x]=1",
+          "/proxy-rules/sources/gfwlist?limit[]=1&limit[]=2"
+        ] do
+      error_conn =
+        conn
+        |> put_req_header("accept", "application/json")
+        |> get(path)
+
+      assert get_resp_header(error_conn, "cache-control") == ["private, no-store"]
+
+      response = json_response(error_conn, 422)
 
       assert response == %{
                "error" => %{
