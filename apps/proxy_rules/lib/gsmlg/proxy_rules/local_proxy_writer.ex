@@ -3,8 +3,13 @@ defmodule GSMLG.ProxyRules.LocalProxyWriter do
   Atomically replaces the local proxy source with synced content.
 
   Content is written to an exclusive temporary file in the target directory,
-  synced, closed, and then renamed over the target.
+  synced, closed, renamed over the target, and committed by syncing the parent
+  directory. A target must be absent or a regular file; symlinks and other file
+  types are rejected. Existing permission bits are preserved, while a new
+  target is created with mode `0600`.
   """
+
+  @max_open_attempts 4
 
   @type error_reason ::
           :permission_denied
@@ -12,7 +17,11 @@ defmodule GSMLG.ProxyRules.LocalProxyWriter do
           | :write_failed
           | :sync_failed
           | :close_failed
+          | :mode_failed
           | :rename_failed
+          | :directory_sync_failed
+          | :invalid_target
+          | :target_probe_failed
 
   @doc "Atomically replaces `path` with `content`."
   @spec write(binary(), binary()) :: :ok | {:error, error_reason()}
@@ -21,42 +30,114 @@ defmodule GSMLG.ProxyRules.LocalProxyWriter do
   @doc false
   @spec write(binary(), binary(), keyword()) :: :ok | {:error, error_reason()}
   def write(path, content, overrides) when is_binary(path) and is_binary(content) do
-    temporary = temporary_path(path)
-    open = Keyword.get(overrides, :open, &:file.open(&1, [:write, :binary, :raw, :exclusive]))
-    write = Keyword.get(overrides, :write, &:file.write/2)
-    sync = Keyword.get(overrides, :sync, &:file.sync/1)
-    close = Keyword.get(overrides, :close, &:file.close/1)
-    rename = Keyword.get(overrides, :rename, &File.rename/2)
-    remove = Keyword.get(overrides, :remove, &File.rm/1)
+    operations = operations(overrides)
 
+    with {:ok, mode} <- probe_target(fn -> operations.lstat.(path) end),
+         {:ok, temporary, io} <- open_temporary(path, operations.open, @max_open_attempts) do
+      write_owned(temporary, io, path, content, mode, operations)
+    end
+  end
+
+  defp operations(overrides) do
+    %{
+      open: Keyword.get(overrides, :open, &:file.open(&1, [:write, :binary, :raw, :exclusive])),
+      write: Keyword.get(overrides, :write, &:file.write/2),
+      sync: Keyword.get(overrides, :sync, &:file.sync/1),
+      close: Keyword.get(overrides, :close, &:file.close/1),
+      chmod: Keyword.get(overrides, :chmod, &File.chmod/2),
+      rename: Keyword.get(overrides, :rename, &File.rename/2),
+      directory_sync: Keyword.get(overrides, :directory_sync, &sync_directory/1),
+      remove: Keyword.get(overrides, :remove, &File.rm/1),
+      lstat: Keyword.get(overrides, :lstat, &File.lstat/1)
+    }
+  end
+
+  defp open_temporary(path, open, attempts_left) do
+    temporary = temporary_path(path)
+
+    case call_open(fn -> open.(String.to_charlist(temporary)) end) do
+      {:ok, io} ->
+        {:ok, temporary, io}
+
+      {:error, :eexist} when attempts_left > 1 ->
+        open_temporary(path, open, attempts_left - 1)
+
+      result ->
+        open_result(result)
+    end
+  end
+
+  defp write_owned(temporary, io, path, content, mode, operations) do
     try do
-      with {:ok, io} <- open_result(open.(String.to_charlist(temporary))),
-           :ok <- write_and_close(io, content, write, sync, close),
-           :ok <- operation_result(:rename, rename.(temporary, path)) do
+      with :ok <-
+             write_and_close(io, content, operations.write, operations.sync, operations.close),
+           :ok <- call_operation(:mode, fn -> operations.chmod.(temporary, mode) end),
+           :ok <- call_operation(:rename, fn -> operations.rename.(temporary, path) end),
+           :ok <-
+             call_operation(
+               :directory_sync,
+               fn -> operations.directory_sync.(Path.dirname(path)) end
+             ) do
         :ok
       end
     after
-      _ = remove.(temporary)
+      safely_remove(fn -> operations.remove.(temporary) end)
     end
   end
 
   defp write_and_close(io, content, write, sync, close) do
-    close_failure = make_ref()
-
-    try do
-      try do
-        with :ok <- operation_result(:write, write.(io, content)),
-             :ok <- operation_result(:sync, sync.(io)) do
-          :ok
-        end
-      after
-        case operation_result(:close, close.(io)) do
-          :ok -> :ok
-          failure -> throw({close_failure, failure})
-        end
+    primary_result =
+      case call_operation(:write, fn -> write.(io, content) end) do
+        :ok -> call_operation(:sync, fn -> sync.(io) end)
+        failure -> failure
       end
+
+    close_result = call_operation(:close, fn -> close.(io) end)
+
+    case primary_result do
+      :ok -> close_result
+      failure -> failure
+    end
+  end
+
+  defp call_operation(stage, operation) do
+    try do
+      operation_result(stage, operation.())
+    rescue
+      _error -> stage_failure(stage, :exception)
     catch
-      :throw, {^close_failure, failure} -> failure
+      _kind, _reason -> stage_failure(stage, :exception)
+    end
+  end
+
+  defp call_open(operation) do
+    try do
+      operation.()
+    rescue
+      _error -> {:error, :open_failed}
+    catch
+      _kind, _reason -> {:error, :open_failed}
+    end
+  end
+
+  defp probe_target(operation) do
+    try do
+      target_mode(operation.())
+    rescue
+      _error -> {:error, :target_probe_failed}
+    catch
+      _kind, _reason -> {:error, :target_probe_failed}
+    end
+  end
+
+  defp safely_remove(operation) do
+    try do
+      _ = operation.()
+      :ok
+    rescue
+      _error -> :ok
+    catch
+      _kind, _reason -> :ok
     end
   end
 
@@ -75,11 +156,39 @@ defmodule GSMLG.ProxyRules.LocalProxyWriter do
   defp stage_failure(:write, _reason), do: {:error, :write_failed}
   defp stage_failure(:sync, _reason), do: {:error, :sync_failed}
   defp stage_failure(:close, _reason), do: {:error, :close_failed}
+  defp stage_failure(:mode, _reason), do: {:error, :mode_failed}
   defp stage_failure(:rename, _reason), do: {:error, :rename_failed}
+  defp stage_failure(:directory_sync, _reason), do: {:error, :directory_sync_failed}
+
+  defp target_mode({:ok, %File.Stat{type: :regular, mode: mode}}),
+    do: {:ok, Bitwise.band(mode, 0o7777)}
+
+  defp target_mode({:ok, %File.Stat{}}), do: {:error, :invalid_target}
+  defp target_mode({:error, :enoent}), do: {:ok, 0o600}
+
+  defp target_mode({:error, reason}) when reason in [:eacces, :eperm],
+    do: {:error, :permission_denied}
+
+  defp target_mode({:error, _reason}), do: {:error, :target_probe_failed}
+  defp target_mode(_other), do: {:error, :target_probe_failed}
+
+  defp sync_directory(directory) do
+    case :file.open(String.to_charlist(directory), [:read, :raw, :directory]) do
+      {:ok, io} ->
+        try do
+          :file.sync(io)
+        after
+          _ = :file.close(io)
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
   defp temporary_path(path) do
     basename = Path.basename(path)
-    unique = System.unique_integer([:positive, :monotonic])
+    unique = :crypto.strong_rand_bytes(16) |> :binary.decode_unsigned() |> max(1)
 
     Path.join(Path.dirname(path), ".#{basename}.tmp-#{unique}")
   end
