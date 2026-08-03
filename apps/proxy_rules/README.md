@@ -174,30 +174,45 @@ admin submission from overwriting each other. With the service stopped, replace
 one target at a time:
 
 ```bash
-sudo systemctl stop gsmlg-umbrella.service
+if ! sudo systemctl stop gsmlg-umbrella.service; then
+  echo "Cannot stop gsmlg-umbrella.service; replacement aborted" >&2
+  exit 1
+fi
 target=/etc/gsmlg/proxy-rules/proxy/proxy-list.txt # or the configured direct-list target
-if sudo --user=gsmlg --group=gsmlg -- sh -c '
+source=/path/to/updated-list.txt
+if sudo sh -c '
   set -eu
   source=$1
   target=$2
+  if [ -L "$target" ] || [ ! -f "$target" ]; then
+    echo "Replacement target is a symlink or non-regular file" >&2
+    exit 1
+  fi
+  owner_uid=$(stat -c %u -- "$target")
+  group_gid=$(stat -c %g -- "$target")
+  mode=$(stat -c %a -- "$target")
   target_dir=${target%/*}
-  tmp=$(mktemp "$target_dir/.proxy-rules.external.XXXXXX")
+  tmp=$(mktemp -- "$target_dir/.proxy-rules.external.XXXXXX")
   cleanup() { rm -f -- "$tmp"; }
   trap cleanup EXIT HUP INT TERM
   cat -- "$source" >"$tmp"
-  chmod 0640 -- "$tmp"
-  mv -f -- "$tmp" "$target"
+  chown "$owner_uid:$group_gid" -- "$tmp"
+  chmod "$mode" -- "$tmp"
+  mv -fT -- "$tmp" "$target"
   trap - EXIT HUP INT TERM
-' proxy-rules-external-update /path/to/updated-list.txt "$target"; then
+' proxy-rules-external-update "$source" "$target"; then
   sudo systemctl start gsmlg-umbrella.service
 else
   echo "Replacement failed; service remains stopped" >&2
 fi
 ```
 
-Running the replacement as `gsmlg:gsmlg` and setting mode `0640` before the
-rename keeps the resulting target readable and writable by the service. Do not
-restart the service until the rename completes successfully.
+The recipe preserves the target's numeric owner UID, group GID, and permission
+mode. The provisioning preflight already guarantees that the preserved metadata
+lets the `gsmlg` service identity read and write the target. The guarded `sudo`
+block is needed to access protected source directories and restore arbitrary
+numeric ownership; no privileged operation runs before the service is confirmed
+stopped. Do not restart the service until the rename completes successfully.
 
 Point the service at those separated source paths:
 

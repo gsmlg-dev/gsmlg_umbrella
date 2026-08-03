@@ -236,26 +236,47 @@ defmodule GSMLG.ProxyRules.OperationalTest do
                ~r/Stop the service before replacing either source externally, or otherwise\s+serialize the edit with admin mutations\./
 
       assert document =~
-               "if sudo --user=gsmlg --group=gsmlg -- sh -c '\n" <>
+               "if ! sudo systemctl stop gsmlg-umbrella.service; then\n" <>
+                 "  echo \"Cannot stop gsmlg-umbrella.service; replacement aborted\" >&2\n" <>
+                 "  exit 1\n" <>
+                 "fi\n" <>
+                 "target=/etc/gsmlg/proxy-rules/proxy/proxy-list.txt # or the configured direct-list target\n" <>
+                 "source=/path/to/updated-list.txt\n" <>
+                 "if sudo sh -c '\n" <>
                  "  set -eu\n" <>
                  "  source=$1\n" <>
                  "  target=$2\n" <>
+                 "  if [ -L \"$target\" ] || [ ! -f \"$target\" ]; then\n" <>
+                 "    echo \"Replacement target is a symlink or non-regular file\" >&2\n" <>
+                 "    exit 1\n" <>
+                 "  fi\n" <>
+                 "  owner_uid=$(stat -c %u -- \"$target\")\n" <>
+                 "  group_gid=$(stat -c %g -- \"$target\")\n" <>
+                 "  mode=$(stat -c %a -- \"$target\")\n" <>
                  "  target_dir=${target%/*}\n" <>
-                 "  tmp=$(mktemp \"$target_dir/.proxy-rules.external.XXXXXX\")\n" <>
+                 "  tmp=$(mktemp -- \"$target_dir/.proxy-rules.external.XXXXXX\")\n" <>
                  "  cleanup() { rm -f -- \"$tmp\"; }\n" <>
                  "  trap cleanup EXIT HUP INT TERM\n" <>
                  "  cat -- \"$source\" >\"$tmp\"\n" <>
-                 "  chmod 0640 -- \"$tmp\"\n" <>
-                 "  mv -f -- \"$tmp\" \"$target\"\n" <>
+                 "  chown \"$owner_uid:$group_gid\" -- \"$tmp\"\n" <>
+                 "  chmod \"$mode\" -- \"$tmp\"\n" <>
+                 "  mv -fT -- \"$tmp\" \"$target\"\n" <>
                  "  trap - EXIT HUP INT TERM\n" <>
-                 "' proxy-rules-external-update /path/to/updated-list.txt \"$target\"; then\n" <>
+                 "' proxy-rules-external-update \"$source\" \"$target\"; then\n" <>
                  "  sudo systemctl start gsmlg-umbrella.service\n" <>
                  "else\n" <>
                  "  echo \"Replacement failed; service remains stopped\" >&2\n" <>
                  "fi"
 
       assert document =~
-               ~r/Running the replacement as `gsmlg:gsmlg` and setting mode `0640` before\s+the\s+rename keeps the resulting target readable and writable by the service\./
+               ~r/The recipe preserves the target's numeric owner UID, group GID, and permission\s+mode\./
+
+      assert document =~
+               ~r/The provisioning preflight already guarantees that the preserved metadata\s+lets\s+the `gsmlg` service identity read and write the target\./
+
+      refute document =~ "sudo --user=gsmlg --group=gsmlg -- sh -c"
+      refute document =~ "chmod 0640 -- \"$tmp\""
+      refute document =~ "Running the replacement as `gsmlg:gsmlg`"
     end
 
     assert deploy_doc =~
