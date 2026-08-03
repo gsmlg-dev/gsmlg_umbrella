@@ -20,8 +20,8 @@ Proxy and Local Direct domain sources from `/proxy-rules`:
 - Add domains to either source with independent forms.
 - Apply the same normalization, validation, deduplication, size limits, and
   atomic durability guarantees to both sources.
-- Inspect both validated local sources through the existing lazy, virtualized
-  source viewer.
+- Inspect both validated local sources through a lazy, full-content source
+  viewer.
 
 The change does not add removal, replacement, file uploads, GFWList editing, or
 automatic movement of domains between lists.
@@ -110,8 +110,8 @@ Success clears only that form, reports added and duplicate counts, and emits a
 source-specific viewer invalidation event.
 
 The page places the Add Local Proxy and Add Local Direct cards side by side on
-large screens and stacks them on smaller screens. The Source Viewer remains a
-separate full-width card below the forms.
+large screens and stacks them on smaller screens. The Source Viewer occupies a
+separate full-width row below the forms.
 
 The viewer presents three selectors:
 
@@ -119,10 +119,12 @@ The viewer presents three selectors:
 2. Local Proxy
 3. Local Direct
 
-Local Direct uses the existing lazy fetch, opaque version-bound cursor,
-line/byte limits, fixed-row virtualization, text-only rendering, copy behavior,
-and source-changed recovery. No source body is stored in LiveView assigns or
-included in the initial HTML.
+Each source remains unloaded by default. Clicking View content follows the
+opaque version-bound cursors until the selected source is complete, then
+renders its full text content directly in a scrollable `<pre>` region. The
+viewer keeps the existing line/byte limits, text-only rendering, copy behavior,
+and source-changed recovery, but does not virtualize or window rows. No source
+body is stored in LiveView assigns or included in the initial HTML.
 
 ## Error and State Behavior
 
@@ -174,7 +176,7 @@ boundary:
 - LiveView tests cover independent forms, retained errors, Direct success,
   source-specific invalidation, and three-source viewer metadata.
 - JavaScript hook tests cover Local Direct selection, URL routing, invalidation,
-  lazy loading, and virtualization without increasing the DOM row bound.
+  lazy loading of every page, full-content rendering, and stale-response safety.
 - Operational tests assert the updated documentation and writable permission
   contract for both local sources.
 

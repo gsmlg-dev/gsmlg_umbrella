@@ -4,7 +4,7 @@
 
 **Goal:** Add an independent Local Direct domain form and lazy source viewer to the authenticated `/proxy-rules` admin page while sharing the existing bounded, atomic local-source mutation boundary.
 
-**Architecture:** Generalize the Proxy-only domain batch and atomic writer names, then teach `GSMLG.ProxyRules.Source.Local` to mutate either `:proxy` or `:direct` by selecting the matching snapshot and target. Keep explicit public facade functions and independent LiveView forms. Extend the existing paginated controller and virtual-list hook with `local-direct`; do not expose source bodies in LiveView state or initial HTML.
+**Architecture:** Generalize the Proxy-only domain batch and atomic writer names, then teach `GSMLG.ProxyRules.Source.Local` to mutate either `:proxy` or `:direct` by selecting the matching snapshot and target. Keep explicit public facade functions and independent LiveView forms. Extend the existing paginated controller and lazy full-content viewer hook with `local-direct`; do not expose source bodies in LiveView state or initial HTML.
 
 **Tech Stack:** Elixir 1.18, OTP 28, Phoenix LiveView, ExUnit, JavaScript/Bun, DuskMoon components.
 
@@ -168,7 +168,7 @@ git add apps/gsmlg_admin_web
 git commit -m "feat(admin): expose local direct source pages"
 ```
 
-## Task 4: Add the independent LiveView form and three-source virtual viewer
+## Task 4: Add the independent LiveView form and three-source full-content viewer
 
 **Files:**
 
@@ -182,7 +182,7 @@ git commit -m "feat(admin): expose local direct source pages"
 Add tests that assert:
 
 - `#proxy-rules-add-local-direct` and its textarea/submit controls render;
-- the two forms are side by side at large widths and the viewer is full width below them;
+- the two forms are side by side at large widths and the viewer occupies a separate full-width row below them;
 - a successful Direct submission writes only Direct, clears only Direct, retains Proxy form state, and pushes `%{source: "local-direct"}`;
 - invalid Direct input retains only Direct input and shows bounded line errors;
 - Direct operational failures retain Direct input and do not alter Proxy errors;
@@ -209,7 +209,7 @@ Render Add Local Proxy and Add Local Direct as sibling cards in a two-column res
 Extend the fake root with `localDirectUrl` and a Local Direct button. Add tests proving:
 
 - selecting Local Direct fetches only `/proxy-rules/sources/local-direct` on demand;
-- version-bound pagination and virtualization keep the existing DOM row limit;
+- version-bound pagination fetches every page and renders the complete selected source;
 - `proxy-rules:source-changed` invalidates only the named Direct cache;
 - source switching never renders stale Direct rows under another selector.
 
@@ -221,7 +221,7 @@ devenv shell -- bun test apps/gsmlg_admin_web/assets/js/hooks/proxy_rules_source
 
 ### Step 5: Implement the third hook source
 
-Read `this.el.dataset.localDirectUrl`, include `local-direct` in source validation, and route it through `sourceUrl/1`. Reuse all existing fetch, invalidation, cursor, text rendering, and virtual-row behavior.
+Read `this.el.dataset.localDirectUrl`, include `local-direct` in source validation, and route it through `sourceUrl/1`. Remove virtual-row calculations and fetch successive bounded pages until `next_cursor` is absent, then assign the complete text with `textContent`. Preserve invalidation, cursor version checks, copy behavior, and stale-response guards.
 
 ### Step 6: Verify and commit
 
