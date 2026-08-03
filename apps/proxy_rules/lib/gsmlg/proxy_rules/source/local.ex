@@ -9,11 +9,30 @@ defmodule GSMLG.ProxyRules.Source.Local do
 
   use GenServer
 
-  alias GSMLG.ProxyRules.{Configuration, SourceSnapshot, Store, Telemetry}
+  alias GSMLG.ProxyRules.{
+    Configuration,
+    LocalProxyBatch,
+    LocalProxyWriter,
+    SourceSnapshot,
+    Store,
+    Telemetry
+  }
+
   alias GSMLG.ProxyRules.Parser.Local, as: LocalParser
 
   @max_source_bytes 8 * 1024 * 1024
   @read_timeout 250
+  @writer_errors [
+    :permission_denied,
+    :open_failed,
+    :write_failed,
+    :sync_failed,
+    :close_failed,
+    :mode_failed,
+    :rename_failed,
+    :invalid_target,
+    :target_probe_failed
+  ]
 
   @type failure ::
           :not_found
@@ -22,6 +41,17 @@ defmodule GSMLG.ProxyRules.Source.Local do
           | :invalid_replacement
           | :body_too_large
           | :read_failed
+  @type durability :: :confirmed | :unknown
+  @type reconciliation :: :ok | {:error, failure()}
+  @type mutation_result :: %{
+          added_domains: [binary()],
+          added_count: non_neg_integer(),
+          duplicate_count: non_neg_integer(),
+          durability: durability(),
+          reconciliation: reconciliation()
+        }
+  @type mutation_failure ::
+          :not_available | LocalProxyBatch.error_reason() | LocalProxyWriter.error_reason()
 
   @doc false
   @spec max_source_bytes() :: pos_integer()
@@ -48,6 +78,11 @@ defmodule GSMLG.ProxyRules.Source.Local do
   @spec reconcile(GenServer.server()) :: :ok | {:error, :watcher_failed}
   def reconcile(server), do: GenServer.call(server, :reconcile)
 
+  @spec add_proxy_domains(GenServer.server(), binary()) ::
+          {:ok, mutation_result()} | {:error, mutation_failure()}
+  def add_proxy_domains(server, text) when is_binary(text),
+    do: GenServer.call(server, {:add_proxy_domains, text}, 30_000)
+
   @impl true
   def init(options) do
     Process.flag(:trap_exit, true)
@@ -61,6 +96,7 @@ defmodule GSMLG.ProxyRules.Source.Local do
       scheduler: Keyword.get(options, :scheduler, &default_schedule/3),
       cancel_timer: Keyword.get(options, :cancel_timer, &Process.cancel_timer/1),
       now: Keyword.get(options, :now, &DateTime.utc_now/0),
+      writer: Keyword.get(options, :writer, &LocalProxyWriter.write/2),
       watcher: nil,
       watch_directories: [],
       debounce_timer: nil,
@@ -90,6 +126,29 @@ defmodule GSMLG.ProxyRules.Source.Local do
       {:error, reason} ->
         emit_watcher_failure()
         {:stop, {:watcher_failed, reason}, {:error, :watcher_failed}, state}
+    end
+  end
+
+  def handle_call({:add_proxy_domains, text}, _from, state) do
+    entry = state.entries.proxy
+    target = state.targets.proxy
+
+    with :ok <- writable_snapshot?(entry),
+         {:ok, result} <-
+           LocalProxyBatch.prepare(entry.snapshot.content, text, max_bytes: @max_source_bytes),
+         {:ok, durability} <- call_writer(state.writer, target.path, result.content) do
+      reconciled = reconcile_sources(state)
+      reconciliation = reconciliation_result(result.content, reconciled.entries.proxy)
+
+      summary =
+        result
+        |> Map.take([:added_domains, :added_count, :duplicate_count])
+        |> Map.put(:durability, durability)
+        |> Map.put(:reconciliation, reconciliation)
+
+      {:reply, {:ok, summary}, reconciled}
+    else
+      {:error, reason} -> {:reply, {:error, reason}, state}
     end
   end
 
@@ -152,7 +211,8 @@ defmodule GSMLG.ProxyRules.Source.Local do
       {:file_system_options, &Keyword.keyword?/1},
       {:scheduler, &is_function(&1, 3)},
       {:cancel_timer, &is_function(&1, 1)},
-      {:now, &is_function(&1, 0)}
+      {:now, &is_function(&1, 0)},
+      {:writer, &is_function(&1, 2)}
     ]
 
     defaults = %{
@@ -160,7 +220,8 @@ defmodule GSMLG.ProxyRules.Source.Local do
       file_system_options: [],
       scheduler: &default_schedule/3,
       cancel_timer: &Process.cancel_timer/1,
-      now: &DateTime.utc_now/0
+      now: &DateTime.utc_now/0,
+      writer: &LocalProxyWriter.write/2
     }
 
     Enum.reduce_while(validators, :ok, fn {key, validator}, :ok ->
@@ -200,6 +261,38 @@ defmodule GSMLG.ProxyRules.Source.Local do
   end
 
   defp valid_file_system?(_module), do: false
+
+  defp writable_snapshot?(%{
+         has_valid_snapshot: true,
+         snapshot: %SourceSnapshot{availability: availability}
+       })
+       when availability in [:ready, :missing],
+       do: :ok
+
+  defp writable_snapshot?(_entry), do: {:error, :not_available}
+
+  defp call_writer(writer, path, content) do
+    case writer.(path, content) do
+      :ok -> {:ok, :confirmed}
+      {:ok, :durability_unknown} -> {:ok, :unknown}
+      {:error, reason} when reason in @writer_errors -> {:error, reason}
+      _unexpected -> {:error, :write_failed}
+    end
+  rescue
+    _error -> {:error, :write_failed}
+  catch
+    _kind, _reason -> {:error, :write_failed}
+  end
+
+  defp reconciliation_result(expected_content, entry) do
+    expected_hash = sha256(expected_content)
+
+    case entry do
+      %{snapshot: %SourceSnapshot{content_sha256: ^expected_hash}, last_failure: nil} -> :ok
+      %{last_failure: reason} when is_atom(reason) -> {:error, reason}
+      _entry -> {:error, :read_failed}
+    end
+  end
 
   defp refresh_watcher(state) do
     directories = desired_watch_directories(state.targets)

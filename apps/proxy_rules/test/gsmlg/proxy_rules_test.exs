@@ -2,7 +2,18 @@ defmodule GSMLG.ProxyRulesTest do
   use ExUnit.Case, async: false
 
   alias GSMLG.ProxyRules
-  alias GSMLG.ProxyRules.{Compiler, Coordinator, Output, SourceSnapshot, Store}
+
+  alias GSMLG.ProxyRules.{
+    Compiler,
+    Coordinator,
+    LocalProxyBatch,
+    LocalProxyWriter,
+    Output,
+    SourceSnapshot,
+    Store
+  }
+
+  alias GSMLG.ProxyRules.Source.Local
 
   test "returns not-ready for every valid artifact lookup before publication" do
     for list <- [:proxy, :direct], format <- [:raw, :squid, :clash] do
@@ -118,6 +129,73 @@ defmodule GSMLG.ProxyRulesTest do
     assert {:ok, :accepted} == ProxyRules.refresh()
   end
 
+  @tag :tmp_dir
+  test "adds local proxy domains through the facade and returns bounded validation failures", %{
+    tmp_dir: dir
+  } do
+    proxy_path = install_local_mutation_state(dir)
+
+    assert {:ok,
+            %{
+              added_count: 1,
+              added_domains: ["new.example"],
+              durability: :confirmed,
+              reconciliation: :ok
+            }} = ProxyRules.add_local_proxy_domains("new.example\n")
+
+    assert File.read!(proxy_path) == "existing.example\nnew.example\n"
+
+    assert {:error, {:invalid_batch, [%{line: 1, reason: :url_not_allowed}]}} =
+             ProxyRules.add_local_proxy_domains("https://bad.example\n")
+
+    assert {:error, {:invalid_batch, [%{line: 1, reason: :trailing_dot_not_allowed}]}} =
+             ProxyRules.add_local_proxy_domains("bad.example.\n")
+
+    too_many =
+      1..(LocalProxyBatch.max_distinct_domains() + 1)
+      |> Enum.map_join("\n", &"domain#{&1}.example")
+
+    assert {:error, :too_many_domains} = ProxyRules.add_local_proxy_domains(too_many)
+    assert {:error, {:invalid_batch, []}} = ProxyRules.add_local_proxy_domains(:not_binary)
+  end
+
+  @tag :tmp_dir
+  test "forwards only bounded writer failures through the facade", %{tmp_dir: dir} do
+    _proxy_path = install_local_mutation_state(dir)
+
+    for reason <- [
+          :permission_denied,
+          :open_failed,
+          :write_failed,
+          :sync_failed,
+          :close_failed,
+          :mode_failed,
+          :rename_failed,
+          :invalid_target,
+          :target_probe_failed
+        ] do
+      :sys.replace_state(Local, fn state ->
+        %{state | writer: fn _path, _content -> {:error, reason} end}
+      end)
+
+      assert {:error, ^reason} = ProxyRules.add_local_proxy_domains("new.example\n")
+    end
+  end
+
+  test "reports local mutation unavailable instead of exiting with the source service" do
+    local = Process.whereis(Local)
+    assert Process.unregister(Local)
+
+    result =
+      try do
+        ProxyRules.add_local_proxy_domains("new.example\n")
+      after
+        Process.register(local, Local)
+      end
+
+    assert {:error, :not_available} = result
+  end
+
   test "pages only remote GFWList and local proxy source snapshots through the facade" do
     prior = :sys.get_state(Coordinator)
 
@@ -177,5 +255,38 @@ defmodule GSMLG.ProxyRulesTest do
       metadata: %{},
       availability: :ready
     }
+  end
+
+  defp install_local_mutation_state(dir) do
+    prior = :sys.get_state(Local)
+    proxy_path = Path.join(dir, "proxy.txt")
+    File.write!(proxy_path, "existing.example\n")
+
+    on_exit(fn ->
+      if Process.whereis(Local) do
+        :sys.replace_state(Local, fn _state -> prior end)
+      end
+    end)
+
+    :sys.replace_state(Local, fn state ->
+      proxy_snapshot =
+        :local_proxy
+        |> source("existing.example\n")
+        |> Map.put(:metadata, %{
+          path: proxy_path,
+          last_success_at: ~U[2026-07-31 00:00:00Z]
+        })
+
+      state
+      |> put_in([:targets, :proxy], %{kind: :local_proxy, action: :proxy, path: proxy_path})
+      |> put_in([:entries, :proxy], %{
+        snapshot: proxy_snapshot,
+        has_valid_snapshot: true,
+        last_failure: nil
+      })
+      |> Map.put(:writer, &LocalProxyWriter.write/2)
+    end)
+
+    proxy_path
   end
 end

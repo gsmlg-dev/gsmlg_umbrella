@@ -569,6 +569,256 @@ defmodule GSMLG.ProxyRules.Source.LocalTest do
   end
 
   @tag :tmp_dir
+  test "serializes canonical proxy additions and publishes the reconciled proxy snapshot", %{
+    tmp_dir: dir
+  } do
+    proxy = Path.join(dir, "proxy.txt")
+    File.write!(proxy, "existing.com\n")
+    server = start_local(dir)
+    flush_messages()
+
+    assert {:ok,
+            %{
+              added_count: 2,
+              duplicate_count: 1,
+              added_domains: ["baidu.com", "xn--fsqu00a.xn--0zwm56d"],
+              durability: :confirmed,
+              reconciliation: :ok
+            }} = Local.add_proxy_domains(server, "Baidu.com\n例子.测试\nbaidu.com\n")
+
+    assert File.read!(proxy) ==
+             "existing.com\nbaidu.com\nxn--fsqu00a.xn--0zwm56d\n"
+
+    assert_receive {:proxy_rules_source, :local_proxy,
+                    %SourceSnapshot{
+                      content: "existing.com\nbaidu.com\nxn--fsqu00a.xn--0zwm56d\n",
+                      availability: :ready
+                    }}
+  end
+
+  @tag :tmp_dir
+  test "creates an initially missing proxy source in an existing parent", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    server = start_local(dir)
+    assert %{proxy: %SourceSnapshot{availability: :missing}} = Local.snapshots(server)
+    flush_messages()
+
+    assert {:ok, %{added_count: 1, durability: :confirmed, reconciliation: :ok}} =
+             Local.add_proxy_domains(server, "new.example\n")
+
+    assert File.read!(proxy) == "new.example\n"
+
+    assert_receive {:proxy_rules_source, :local_proxy,
+                    %SourceSnapshot{content: "new.example\n", availability: :ready}}
+  end
+
+  @tag :tmp_dir
+  test "rejects stale sources without invoking the writer", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    File.write!(proxy, "existing.example\n")
+    test_process = self()
+
+    server =
+      start_local(dir,
+        writer: fn _path, _content ->
+          send(test_process, :writer_called)
+          :ok
+        end
+      )
+
+    assert %{proxy: %SourceSnapshot{availability: :ready}} = Local.snapshots(server)
+    File.rm!(proxy)
+    assert :ok = Local.reconcile(server)
+    assert %{proxy: %SourceSnapshot{availability: :stale}} = Local.snapshots(server)
+    flush_messages()
+
+    assert {:error, :not_available} = Local.add_proxy_domains(server, "new.example\n")
+    refute_receive :writer_called, 30
+  end
+
+  @tag :tmp_dir
+  test "invalid and oversized batches do not call the writer or change bytes and snapshots", %{
+    tmp_dir: dir
+  } do
+    proxy = Path.join(dir, "proxy.txt")
+    existing = "existing.example\n"
+    File.write!(proxy, existing)
+    test_process = self()
+
+    server =
+      start_local(dir,
+        writer: fn _path, _content ->
+          send(test_process, :writer_called)
+          :ok
+        end
+      )
+
+    before = Local.snapshots(server).proxy
+
+    assert {:error, {:invalid_batch, [%{line: 1, reason: :url_not_allowed}]}} =
+             Local.add_proxy_domains(server, "https://bad.example\n")
+
+    assert {:error, :body_too_large} =
+             Local.add_proxy_domains(server, :binary.copy("x", Local.max_source_bytes() + 1))
+
+    refute_receive :writer_called, 30
+    assert File.read!(proxy) == existing
+    assert Local.snapshots(server).proxy == before
+  end
+
+  @tag :tmp_dir
+  test "precommit writer errors preserve the prior bytes and snapshot", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    existing = "existing.example\n"
+    File.write!(proxy, existing)
+
+    for reason <- [
+          :permission_denied,
+          :open_failed,
+          :write_failed,
+          :sync_failed,
+          :close_failed,
+          :mode_failed,
+          :rename_failed,
+          :invalid_target,
+          :target_probe_failed
+        ] do
+      server = start_local(dir, writer: fn _path, _content -> {:error, reason} end)
+      before = Local.snapshots(server).proxy
+
+      assert {:error, ^reason} = Local.add_proxy_domains(server, "new.example\n")
+      assert File.read!(proxy) == existing
+      assert Local.snapshots(server).proxy == before
+
+      stop_supervised!(Local)
+    end
+  end
+
+  @tag :tmp_dir
+  test "two concurrent proxy additions both survive in the final source", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    File.write!(proxy, "existing.example\n")
+    server = start_local(dir)
+
+    tasks =
+      for domain <- ["one.example", "two.example"] do
+        Task.async(fn -> Local.add_proxy_domains(server, domain <> "\n") end)
+      end
+
+    assert [
+             {:ok, %{added_count: 1, reconciliation: :ok}},
+             {:ok, %{added_count: 1, reconciliation: :ok}}
+           ] = Enum.map(tasks, &Task.await(&1, 5_000))
+
+    assert File.read!(proxy)
+           |> String.split("\n", trim: true)
+           |> MapSet.new() == MapSet.new(["existing.example", "one.example", "two.example"])
+  end
+
+  @tag :tmp_dir
+  test "durability uncertainty remains a committed success and still reconciles", %{tmp_dir: dir} do
+    proxy = Path.join(dir, "proxy.txt")
+    File.write!(proxy, "existing.example\n")
+
+    server =
+      start_local(dir,
+        writer: fn path, content ->
+          File.write!(path, content)
+          {:ok, :durability_unknown}
+        end
+      )
+
+    flush_messages()
+
+    assert {:ok,
+            %{
+              added_count: 1,
+              durability: :unknown,
+              reconciliation: :ok
+            }} = Local.add_proxy_domains(server, "new.example\n")
+
+    assert File.read!(proxy) == "existing.example\nnew.example\n"
+
+    assert_receive {:proxy_rules_source, :local_proxy,
+                    %SourceSnapshot{content: "existing.example\nnew.example\n"}}
+  end
+
+  @tag :tmp_dir
+  test "a committed write remains successful when proxy reconciliation cannot reread it", %{
+    tmp_dir: dir
+  } do
+    proxy = Path.join(dir, "proxy.txt")
+    File.write!(proxy, "existing.example\n")
+
+    server =
+      start_local(dir,
+        writer: fn path, content ->
+          File.write!(path, content)
+          File.rm!(path)
+          File.ln_s!(Path.basename(path), path)
+          :ok
+        end
+      )
+
+    before = Local.snapshots(server).proxy
+    flush_messages()
+
+    assert {:ok,
+            %{
+              added_count: 1,
+              durability: :confirmed,
+              reconciliation: {:error, :read_failed}
+            }} = Local.add_proxy_domains(server, "new.example\n")
+
+    assert %SourceSnapshot{
+             content: before_content,
+             content_sha256: before_hash,
+             availability: :stale
+           } = Local.snapshots(server).proxy
+
+    assert before_content == before.content
+    assert before_hash == before.content_sha256
+    refute_receive {:proxy_rules_source, :local_proxy, _snapshot}, 30
+  end
+
+  @tag :tmp_dir
+  test "proxy reconciliation success ignores a simultaneous direct-source read failure", %{
+    tmp_dir: dir
+  } do
+    proxy = Path.join(dir, "proxy.txt")
+    direct = Path.join(dir, "direct.txt")
+    File.write!(proxy, "existing.example\n")
+    File.write!(direct, "direct.example\n")
+
+    server =
+      start_local(dir,
+        writer: fn path, content ->
+          File.write!(path, content)
+          File.rm!(direct)
+          File.mkdir!(direct)
+          :ok
+        end
+      )
+
+    assert {:ok, %{added_count: 1, reconciliation: :ok}} =
+             Local.add_proxy_domains(server, "new.example\n")
+
+    assert %{
+             proxy: %SourceSnapshot{
+               content: "existing.example\nnew.example\n",
+               availability: :ready
+             },
+             direct: %SourceSnapshot{content: "direct.example\n", availability: :stale}
+           } = Local.snapshots(server)
+  end
+
+  @tag :tmp_dir
+  test "rejects an invalid injected writer", %{tmp_dir: dir} do
+    assert {:error, {:invalid_option, :writer}} =
+             Local.start_link(local_options(dir, writer: fn _path -> :ok end))
+  end
+
+  @tag :tmp_dir
   test "normal stop explicitly terminates the watcher", %{tmp_dir: dir} do
     server = start_local(dir)
     watcher = :sys.get_state(server).watcher

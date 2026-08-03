@@ -1,5 +1,6 @@
 defmodule GSMLG.ProxyRules do
   alias GSMLG.ProxyRules.{Coordinator, Output, SourcePage, Store}
+  alias GSMLG.ProxyRules.Source.Local
 
   @type list_name :: :proxy | :direct
   @type renderer :: :raw | :squid | :clash
@@ -40,6 +41,16 @@ defmodule GSMLG.ProxyRules do
 
   @spec refresh() :: {:ok, :accepted} | {:error, :not_available}
   def refresh, do: Coordinator.refresh()
+
+  @spec add_local_proxy_domains(binary()) ::
+          {:ok, Local.mutation_result()} | {:error, Local.mutation_failure()}
+  def add_local_proxy_domains(text) when is_binary(text) do
+    Local.add_proxy_domains(Local, text)
+  catch
+    :exit, _reason -> {:error, :not_available}
+  end
+
+  def add_local_proxy_domains(_text), do: {:error, {:invalid_batch, []}}
 
   @spec get_source_page(:remote_gfwlist | :local_proxy, binary() | nil, keyword()) ::
           {:ok, map()}
