@@ -38,43 +38,102 @@ Neither file should be writable by an untrusted account. The state directory
 must be private and read/write for the service user. A typical host setup is:
 
 ```bash
-sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
-sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/proxy
-sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/direct
+# Stop the service before provisioning or migration.
+if systemctl is-active --quiet gsmlg-umbrella.service; then
+  sudo systemctl stop gsmlg-umbrella.service
+fi
+
+(
+set -eu
+proxy_root=/etc/gsmlg/proxy-rules
+proxy_dir="$proxy_root/proxy"
+proxy_target="$proxy_dir/proxy-list.txt"
+legacy_proxy="$proxy_root/proxy-list.txt"
+direct_dir="$proxy_root/direct"
+direct_target="$direct_dir/direct-list.txt"
+legacy_direct="$proxy_root/direct-list.txt"
+
+sudo install -d -o root -g gsmlg -m 0750 -- "$proxy_root"
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
 
-# Migrate legacy sources only when the separated destination is absent.
-if [ -e /etc/gsmlg/proxy-rules/proxy-list.txt ] && \
-   [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then
-  sudo mv /etc/gsmlg/proxy-rules/proxy-list.txt \
-    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
-fi
-if [ -e /etc/gsmlg/proxy-rules/direct-list.txt ] && \
-   [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then
-  sudo mv /etc/gsmlg/proxy-rules/direct-list.txt \
-    /etc/gsmlg/proxy-rules/direct/direct-list.txt
+if [ -L "$proxy_dir" ]; then
+  echo "Manual repair required: Local proxy directory is a symlink" >&2
+  exit 1
+elif [ ! -e "$proxy_dir" ]; then
+  # Initial provisioning: keep the directory root-controlled until the target is safe.
+  sudo install -d -o root -g gsmlg -m 0750 -- "$proxy_dir"
+
+  if [ -L "$legacy_proxy" ] || { [ -e "$legacy_proxy" ] && [ ! -f "$legacy_proxy" ]; }; then
+    echo "Manual repair required: legacy Local proxy source is a symlink or non-regular" >&2
+    exit 1
+  fi
+
+  if [ -e "$legacy_proxy" ]; then
+    sudo mv -- "$legacy_proxy" "$proxy_target"
+  else
+    sudo install -o root -g root -m 0600 /dev/null "$proxy_target"
+  fi
+
+  if [ -L "$proxy_target" ] || [ ! -f "$proxy_target" ]; then
+    echo "Manual repair required: Local proxy source is missing, a symlink, or non-regular" >&2
+    exit 1
+  fi
+
+  sudo chown gsmlg:gsmlg -- "$proxy_target"
+  sudo chmod 0640 -- "$proxy_target"
+  sudo chown gsmlg:gsmlg -- "$proxy_dir"
+  sudo chmod 0750 -- "$proxy_dir"
+elif [ ! -d "$proxy_dir" ]; then
+  echo "Manual repair required: Local proxy directory is non-regular" >&2
+  exit 1
+else
+  # Existing service-writable directory: validation only; no privileged entry mutation.
+  if [ -L "$proxy_target" ] || [ ! -f "$proxy_target" ]; then
+    echo "Manual repair required: Local proxy source is missing, a symlink, or non-regular" >&2
+    exit 1
+  fi
+  if [ -e "$legacy_proxy" ] || [ -L "$legacy_proxy" ]; then
+    echo "Manual conflict: both legacy and separated Local proxy sources exist" >&2
+    exit 1
+  fi
 fi
 
-# Provision an empty source only when no existing or legacy source was found.
-if [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then
-  sudo install -o gsmlg -g gsmlg -m 0640 /dev/null \
-    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+if [ -L "$direct_dir" ] || { [ -e "$direct_dir" ] && [ ! -d "$direct_dir" ]; }; then
+  echo "Manual repair required: Local direct directory is a symlink or non-directory" >&2
+  exit 1
 fi
-if [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then
-  sudo install -o root -g gsmlg -m 0640 /dev/null \
-    /etc/gsmlg/proxy-rules/direct/direct-list.txt
-fi
+sudo install -d -o root -g gsmlg -m 0750 -- "$direct_dir"
 
-# Normalize ownership and modes without replacing or truncating source content.
-sudo chown gsmlg:gsmlg /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
-sudo chmod 0640 /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
-sudo chown root:gsmlg /etc/gsmlg/proxy-rules/direct/direct-list.txt
-sudo chmod 0640 /etc/gsmlg/proxy-rules/direct/direct-list.txt
+if [ -L "$legacy_direct" ] || { [ -e "$legacy_direct" ] && [ ! -f "$legacy_direct" ]; }; then
+  echo "Manual repair required: legacy Local direct source is a symlink or non-regular" >&2
+  exit 1
+fi
+if [ -L "$direct_target" ] || { [ -e "$direct_target" ] && [ ! -f "$direct_target" ]; }; then
+  echo "Manual repair required: Local direct source is a symlink or non-regular" >&2
+  exit 1
+fi
+if [ -e "$legacy_direct" ] && [ -e "$direct_target" ]; then
+  echo "Manual conflict: both legacy and separated Local direct sources exist" >&2
+  exit 1
+fi
+if [ ! -e "$direct_target" ]; then
+  if [ -e "$legacy_direct" ]; then
+    sudo mv -- "$legacy_direct" "$direct_target"
+  else
+    sudo install -o root -g gsmlg -m 0640 /dev/null "$direct_target"
+  fi
+fi
+sudo chown root:gsmlg -- "$direct_target"
+sudo chmod 0640 -- "$direct_target"
+)
 ```
 
 These commands are safe to repeat during upgrades. If both a legacy source and
 its separated destination exist, they leave both untouched so an operator can
-resolve the conflict without losing rules.
+resolve the conflict without losing rules. Existing service-writable Local
+proxy directories are validation-only: never run privileged `chown`, `chmod`,
+copy, or move operations on their entries. Stop the service and rebuild an
+unsafe directory from root-controlled staging when manual repair is required.
 
 Point the service at those separated source paths:
 
@@ -101,10 +160,11 @@ invalid, no domains are written. Valid domains are canonicalized, and
 duplicates are automatically omitted both within the submission and against
 the current source.
 
-Admin-added entries are stored as canonical bare domains. Existing comments and
-accepted legacy entries are preserved byte-for-byte; renderers normalize the
-parsed rules for Raw/DNS, Squid, and Clash output. Raw/DNS emits `baidu.com`,
-Squid emits `.baidu.com`, and Clash emits `DOMAIN-SUFFIX,baidu.com`.
+Admin-added entries are stored as canonical bare domains. Existing semantic
+entries and comments are retained, while mutation normalizes line endings,
+trailing spaces, and trailing blank lines. Renderers normalize parsed rules for
+Raw/DNS, Squid, and Clash output. Raw/DNS emits `baidu.com`, Squid emits
+`.baidu.com`, and Clash emits `DOMAIN-SUFFIX,baidu.com`.
 
 GFWList content is decoded, lazy-loaded, authenticated, and virtualized. The
 viewer does not fetch GFWList content during the initial page render and keeps

@@ -93,7 +93,7 @@ defmodule GSMLG.ProxyRules.OperationalTest do
     assert proxy_readme =~ "duplicates are automatically omitted"
 
     assert proxy_readme =~
-             ~r/Raw\/DNS emits `baidu\.com`,\s+Squid emits `\.baidu\.com`, and Clash emits `DOMAIN-SUFFIX,baidu\.com`\./
+             ~r/Raw\/DNS emits `baidu\.com`,\s+Squid emits\s+`\.baidu\.com`, and Clash emits `DOMAIN-SUFFIX,baidu\.com`\./
 
     assert proxy_readme =~
              "GFWList content is decoded, lazy-loaded, authenticated, and virtualized."
@@ -108,56 +108,70 @@ defmodule GSMLG.ProxyRules.OperationalTest do
              "direct-list.txt remains operator-owned and read-only to the release service identity"
 
     for document <- [proxy_readme, deploy_doc] do
-      assert document =~
-               "sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules\n"
+      assert document =~ "proxy_root=/etc/gsmlg/proxy-rules"
+      assert document =~ "proxy_dir=\"$proxy_root/proxy\""
+      assert document =~ "proxy_target=\"$proxy_dir/proxy-list.txt\""
+      assert document =~ "direct_dir=\"$proxy_root/direct\""
+      assert document =~ "direct_target=\"$direct_dir/direct-list.txt\""
 
       assert document =~
-               "sudo install -d -o gsmlg -g gsmlg -m 0750 " <>
-                 "/etc/gsmlg/proxy-rules/proxy"
+               "sudo install -d -o root -g gsmlg -m 0750 -- \"$proxy_root\""
 
       assert document =~
-               "sudo install -d -o root -g gsmlg -m 0750 " <>
-                 "/etc/gsmlg/proxy-rules/direct"
+               "sudo install -d -o root -g gsmlg -m 0750 -- \"$direct_dir\""
+
+      assert document =~ "sudo systemctl stop gsmlg-umbrella.service"
+      assert document =~ "if [ -L \"$proxy_dir\" ]; then"
+      assert document =~ "elif [ ! -e \"$proxy_dir\" ]; then"
 
       assert document =~
-               "if [ -e /etc/gsmlg/proxy-rules/proxy-list.txt ] && \\\n" <>
-                 "   [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then\n" <>
-                 "  sudo mv /etc/gsmlg/proxy-rules/proxy-list.txt \\\n" <>
-                 "    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt\n" <>
-                 "fi"
+               "if [ -L \"$legacy_proxy\" ] || " <>
+                 "{ [ -e \"$legacy_proxy\" ] && [ ! -f \"$legacy_proxy\" ]; }; then"
 
       assert document =~
-               "if [ -e /etc/gsmlg/proxy-rules/direct-list.txt ] && \\\n" <>
-                 "   [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then\n" <>
-                 "  sudo mv /etc/gsmlg/proxy-rules/direct-list.txt \\\n" <>
-                 "    /etc/gsmlg/proxy-rules/direct/direct-list.txt\n" <>
-                 "fi"
+               "if [ -L \"$proxy_target\" ] || [ ! -f \"$proxy_target\" ]; then"
 
       assert document =~
-               "if [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then\n" <>
-                 "  sudo install -o gsmlg -g gsmlg -m 0640 /dev/null \\\n" <>
-                 "    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt\n" <>
-                 "fi"
+               "# Existing service-writable directory: validation only; " <>
+                 "no privileged entry mutation."
 
       assert document =~
-               "if [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then\n" <>
-                 "  sudo install -o root -g gsmlg -m 0640 /dev/null \\\n" <>
-                 "    /etc/gsmlg/proxy-rules/direct/direct-list.txt\n" <>
-                 "fi"
+               "Manual repair required: Local proxy source is missing, a symlink, or non-regular"
 
       assert document =~
-               "sudo chown gsmlg:gsmlg /etc/gsmlg/proxy-rules/proxy/proxy-list.txt\n" <>
-                 "sudo chmod 0640 /etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
+               "Manual conflict: both legacy and separated Local proxy sources exist"
 
       assert document =~
-               "sudo chown root:gsmlg /etc/gsmlg/proxy-rules/direct/direct-list.txt\n" <>
-                 "sudo chmod 0640 /etc/gsmlg/proxy-rules/direct/direct-list.txt"
+               "if [ -L \"$direct_dir\" ] || " <>
+                 "{ [ -e \"$direct_dir\" ] && [ ! -d \"$direct_dir\" ]; }; then"
+
+      assert document =~
+               "if [ -L \"$legacy_direct\" ] || " <>
+                 "{ [ -e \"$legacy_direct\" ] && [ ! -f \"$legacy_direct\" ]; }; then"
+
+      root_dir_setup =
+        :binary.match(document, "sudo install -d -o root -g gsmlg -m 0750 -- \"$proxy_dir\"")
+
+      file_owner_setup = :binary.match(document, "sudo chown gsmlg:gsmlg -- \"$proxy_target\"")
+      service_dir_setup = :binary.match(document, "sudo chown gsmlg:gsmlg -- \"$proxy_dir\"")
+
+      assert {root_dir_offset, _length} = root_dir_setup
+      assert {file_owner_offset, _length} = file_owner_setup
+      assert {service_dir_offset, _length} = service_dir_setup
+      assert root_dir_offset < file_owner_offset
+      assert file_owner_offset < service_dir_offset
 
       refute document =~
                "sudo install -o gsmlg -g gsmlg -m 0640 proxy-list.txt"
 
       refute document =~
                "sudo install -o root -g gsmlg -m 0640 direct-list.txt"
+
+      refute document =~
+               "sudo chown gsmlg:gsmlg /etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
+
+      refute document =~
+               "sudo chmod 0640 /etc/gsmlg/proxy-rules/proxy/proxy-list.txt"
 
       assert document =~
                ~s(local_proxy_list_path = "/etc/gsmlg/proxy-rules/proxy/proxy-list.txt")
@@ -196,7 +210,44 @@ defmodule GSMLG.ProxyRules.OperationalTest do
              "-v /etc/gsmlg/proxy-rules:/etc/gsmlg/proxy-rules"
 
     assert proxy_readme =~
-             ~r/Admin-added entries are stored as canonical bare domains\. Existing comments and\s+accepted legacy entries are preserved byte-for-byte; renderers normalize the\s+parsed rules for Raw\/DNS, Squid, and Clash output\./
+             ~r/Admin-added entries are stored as canonical bare domains\. Existing semantic\s+entries and comments are retained, while mutation normalizes line endings,\s+trailing\s+spaces, and trailing blank lines\. Renderers normalize parsed rules for\s+Raw\/DNS,\s+Squid, and Clash output\./
+  end
+
+  @tag :tmp_dir
+  test "documented upgrade guard rejects a hostile source symlink", %{tmp_dir: tmp_dir} do
+    sentinel = "/etc/hosts"
+    sentinel_before = File.stat!(sentinel)
+    contents_before = File.read!(sentinel)
+    target = Path.join(tmp_dir, "proxy-list.txt")
+
+    assert sentinel_before.uid == 0
+    File.ln_s!(sentinel, target)
+
+    {_output, exit_status} =
+      System.cmd(
+        "sh",
+        [
+          "-c",
+          """
+          target=$1
+          if [ -L "$target" ] || [ ! -f "$target" ]; then
+            exit 73
+          fi
+          chmod 0640 "$target"
+          """,
+          "proxy-rules-upgrade-guard",
+          target
+        ],
+        stderr_to_stdout: true
+      )
+
+    assert exit_status == 73
+    assert File.read!(sentinel) == contents_before
+
+    sentinel_after = File.stat!(sentinel)
+    assert sentinel_after.uid == sentinel_before.uid
+    assert sentinel_after.gid == sentinel_before.gid
+    assert Bitwise.band(sentinel_after.mode, 0o7777) == Bitwise.band(sentinel_before.mode, 0o7777)
   end
 
   test "one benchmark compilation reports positive operational measurements" do

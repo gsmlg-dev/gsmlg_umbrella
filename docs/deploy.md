@@ -213,38 +213,94 @@ fi
 sudo mkdir -p /opt/gsmlg
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/mnesia /var/log/gsmlg
 sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg
-sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules
-sudo install -d -o gsmlg -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/proxy
-sudo install -d -o root -g gsmlg -m 0750 /etc/gsmlg/proxy-rules/direct
+# Stop the service before provisioning or migration.
+if systemctl is-active --quiet gsmlg-umbrella.service; then
+  sudo systemctl stop gsmlg-umbrella.service
+fi
+
+(
+set -eu
+proxy_root=/etc/gsmlg/proxy-rules
+proxy_dir="$proxy_root/proxy"
+proxy_target="$proxy_dir/proxy-list.txt"
+legacy_proxy="$proxy_root/proxy-list.txt"
+direct_dir="$proxy_root/direct"
+direct_target="$direct_dir/direct-list.txt"
+legacy_direct="$proxy_root/direct-list.txt"
+
+sudo install -d -o root -g gsmlg -m 0750 -- "$proxy_root"
 sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/gsmlg/proxy-rules
 
-# Migrate legacy sources only when the separated destination is absent.
-if [ -e /etc/gsmlg/proxy-rules/proxy-list.txt ] && \
-   [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then
-  sudo mv /etc/gsmlg/proxy-rules/proxy-list.txt \
-    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
-fi
-if [ -e /etc/gsmlg/proxy-rules/direct-list.txt ] && \
-   [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then
-  sudo mv /etc/gsmlg/proxy-rules/direct-list.txt \
-    /etc/gsmlg/proxy-rules/direct/direct-list.txt
+if [ -L "$proxy_dir" ]; then
+  echo "Manual repair required: Local proxy directory is a symlink" >&2
+  exit 1
+elif [ ! -e "$proxy_dir" ]; then
+  # Initial provisioning: keep the directory root-controlled until the target is safe.
+  sudo install -d -o root -g gsmlg -m 0750 -- "$proxy_dir"
+
+  if [ -L "$legacy_proxy" ] || { [ -e "$legacy_proxy" ] && [ ! -f "$legacy_proxy" ]; }; then
+    echo "Manual repair required: legacy Local proxy source is a symlink or non-regular" >&2
+    exit 1
+  fi
+
+  if [ -e "$legacy_proxy" ]; then
+    sudo mv -- "$legacy_proxy" "$proxy_target"
+  else
+    sudo install -o root -g root -m 0600 /dev/null "$proxy_target"
+  fi
+
+  if [ -L "$proxy_target" ] || [ ! -f "$proxy_target" ]; then
+    echo "Manual repair required: Local proxy source is missing, a symlink, or non-regular" >&2
+    exit 1
+  fi
+
+  sudo chown gsmlg:gsmlg -- "$proxy_target"
+  sudo chmod 0640 -- "$proxy_target"
+  sudo chown gsmlg:gsmlg -- "$proxy_dir"
+  sudo chmod 0750 -- "$proxy_dir"
+elif [ ! -d "$proxy_dir" ]; then
+  echo "Manual repair required: Local proxy directory is non-regular" >&2
+  exit 1
+else
+  # Existing service-writable directory: validation only; no privileged entry mutation.
+  if [ -L "$proxy_target" ] || [ ! -f "$proxy_target" ]; then
+    echo "Manual repair required: Local proxy source is missing, a symlink, or non-regular" >&2
+    exit 1
+  fi
+  if [ -e "$legacy_proxy" ] || [ -L "$legacy_proxy" ]; then
+    echo "Manual conflict: both legacy and separated Local proxy sources exist" >&2
+    exit 1
+  fi
 fi
 
-# Provision an empty source only when no existing or legacy source was found.
-if [ ! -e /etc/gsmlg/proxy-rules/proxy/proxy-list.txt ]; then
-  sudo install -o gsmlg -g gsmlg -m 0640 /dev/null \
-    /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
+if [ -L "$direct_dir" ] || { [ -e "$direct_dir" ] && [ ! -d "$direct_dir" ]; }; then
+  echo "Manual repair required: Local direct directory is a symlink or non-directory" >&2
+  exit 1
 fi
-if [ ! -e /etc/gsmlg/proxy-rules/direct/direct-list.txt ]; then
-  sudo install -o root -g gsmlg -m 0640 /dev/null \
-    /etc/gsmlg/proxy-rules/direct/direct-list.txt
-fi
+sudo install -d -o root -g gsmlg -m 0750 -- "$direct_dir"
 
-# Normalize ownership and modes without replacing or truncating source content.
-sudo chown gsmlg:gsmlg /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
-sudo chmod 0640 /etc/gsmlg/proxy-rules/proxy/proxy-list.txt
-sudo chown root:gsmlg /etc/gsmlg/proxy-rules/direct/direct-list.txt
-sudo chmod 0640 /etc/gsmlg/proxy-rules/direct/direct-list.txt
+if [ -L "$legacy_direct" ] || { [ -e "$legacy_direct" ] && [ ! -f "$legacy_direct" ]; }; then
+  echo "Manual repair required: legacy Local direct source is a symlink or non-regular" >&2
+  exit 1
+fi
+if [ -L "$direct_target" ] || { [ -e "$direct_target" ] && [ ! -f "$direct_target" ]; }; then
+  echo "Manual repair required: Local direct source is a symlink or non-regular" >&2
+  exit 1
+fi
+if [ -e "$legacy_direct" ] && [ -e "$direct_target" ]; then
+  echo "Manual conflict: both legacy and separated Local direct sources exist" >&2
+  exit 1
+fi
+if [ ! -e "$direct_target" ]; then
+  if [ -e "$legacy_direct" ]; then
+    sudo mv -- "$legacy_direct" "$direct_target"
+  else
+    sudo install -o root -g gsmlg -m 0640 /dev/null "$direct_target"
+  fi
+fi
+sudo chown root:gsmlg -- "$direct_target"
+sudo chmod 0640 -- "$direct_target"
+)
 curl -L -o /tmp/gsmlg.tar.gz \
   "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/gsmlg.tar.gz"
 sudo tar -xzf /tmp/gsmlg.tar.gz -C /opt/gsmlg
@@ -253,8 +309,10 @@ sudo install -o root -g gsmlg -m 0640 /path/to/gsmlg_umbrella.toml /etc/gsmlg/gs
 
 The guarded migration preserves existing legacy rules and never replaces an
 already-migrated destination. The `/dev/null` installs run only for first
-provisioning; later deployments adjust ownership and modes without truncating
-either source.
+provisioning. Existing service-writable Local proxy directories are
+validation-only: do not run privileged `chown`, `chmod`, copy, or move
+operations on their entries. Stop the service and rebuild an unsafe directory
+from root-controlled staging when manual repair is required.
 
 Run migrations before starting a new version:
 
