@@ -140,6 +140,7 @@ defmodule GSMLG.AdminWeb.Router do
 
     live("/scout", ScoutLive.DashboardLive, :index)
     live("/proxy-rules", ProxyRulesLive.Index, :index)
+    get("/proxy-rules/sources/:source", ProxyRulesSourceController, :show)
 
     live("/github", GithubLive.Index, :index)
 
