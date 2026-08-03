@@ -32,6 +32,60 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
 
   describe "write/3" do
     @tag :tmp_dir
+    test "applies the target mode before writing temporary content", %{tmp_dir: tmp_dir} do
+      path = existing_target(tmp_dir)
+      File.chmod!(path, 0o640)
+      parent = self()
+
+      assert :ok =
+               LocalProxyWriter.write(path, "new.example\n",
+                 open: fn temporary ->
+                   send(parent, {:temporary_opened, List.to_string(temporary)})
+                   :file.open(temporary, [:write, :binary, :raw, :exclusive])
+                 end,
+                 write: fn io, content ->
+                   assert_received {:temporary_opened, temporary}
+                   send(parent, {:mode_during_write, file_mode(temporary)})
+                   :file.write(io, content)
+                 end
+               )
+
+      assert_received {:mode_during_write, 0o640}
+      assert File.read!(path) == "new.example\n"
+      assert file_mode(path) == 0o640
+    end
+
+    @tag :tmp_dir
+    test "bounds a pre-write mode failure and cleans the owned temporary file", %{
+      tmp_dir: tmp_dir
+    } do
+      path = existing_target(tmp_dir)
+      parent = self()
+
+      assert {:error, :mode_failed} =
+               LocalProxyWriter.write(path, "new.example\n",
+                 chmod: fn temporary, _mode ->
+                   send(parent, {:mode_failed_for, temporary})
+                   {:error, :eio}
+                 end,
+                 write: fn _io, _content ->
+                   send(parent, :write_called_after_mode_failure)
+                   :ok
+                 end,
+                 close: fn io ->
+                   send(parent, :close_after_mode_failure)
+                   :file.close(io)
+                 end
+               )
+
+      assert_received {:mode_failed_for, temporary}
+      assert_received :close_after_mode_failure
+      refute_received :write_called_after_mode_failure
+      refute File.exists?(temporary)
+      assert_original_and_clean(path, tmp_dir)
+    end
+
+    @tag :tmp_dir
     test "maps only access errors to permission denied and cleans partial open output", %{
       tmp_dir: tmp_dir
     } do
@@ -251,10 +305,12 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
     end
 
     @tag :tmp_dir
-    test "bounds a parent-directory sync failure after the rename", %{tmp_dir: tmp_dir} do
+    test "reports committed bytes with unknown durability when parent sync fails", %{
+      tmp_dir: tmp_dir
+    } do
       path = existing_target(tmp_dir)
 
-      assert {:error, :directory_sync_failed} =
+      assert {:ok, :durability_unknown} =
                LocalProxyWriter.write(path, "new.example\n",
                  directory_sync: fn _directory -> {:error, :eio} end
                )
@@ -262,7 +318,7 @@ defmodule GSMLG.ProxyRules.LocalProxyWriterTest do
       assert File.read!(path) == "new.example\n"
       assert temporary_files(tmp_dir) == []
 
-      assert {:error, :directory_sync_failed} =
+      assert {:ok, :durability_unknown} =
                LocalProxyWriter.write(path, "newer.example\n",
                  directory_sync: fn _directory -> raise "directory sync crashed" end
                )
