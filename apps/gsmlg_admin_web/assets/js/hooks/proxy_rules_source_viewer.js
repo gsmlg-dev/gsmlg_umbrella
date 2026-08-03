@@ -22,6 +22,8 @@ const ProxyRulesSourceViewer = {
     this.abortController = null;
     this.statusMessage = "";
     this.errorMessage = "";
+    this.sourceVersions = this.currentSourceVersions();
+    this.requestVersion = null;
 
     this.onClick = (event) => {
       const sourceButton = event.target.closest?.("[data-source]");
@@ -48,6 +50,7 @@ const ProxyRulesSourceViewer = {
   },
 
   updated() {
+    this.reconcileSourceVersions();
     this.updateSourceButtons();
     this.updateLoadingButton();
     this.renderMessages();
@@ -72,7 +75,7 @@ const ProxyRulesSourceViewer = {
 
     this.cancelRequest();
     this.source = source;
-    this.activated = false;
+    this.activated = this.cache.has(source);
     this.setError("");
     this.setStatus("");
     this.updateSourceButtons();
@@ -105,6 +108,61 @@ const ProxyRulesSourceViewer = {
     });
   },
 
+  currentSourceVersions() {
+    return new Map(
+      [...this.el.querySelectorAll("[data-source]")].map((button) => [
+        button.dataset.source,
+        button.dataset.version || "",
+      ]),
+    );
+  },
+
+  sourceVersion(source) {
+    const button = [...this.el.querySelectorAll("[data-source]")].find(
+      (candidate) => candidate.dataset.source === source,
+    );
+    return button?.dataset.version || "";
+  },
+
+  reconcileSourceVersions() {
+    let selectedMismatch = false;
+    let reloadSelected = false;
+
+    this.el.querySelectorAll("[data-source]").forEach((button) => {
+      const source = button.dataset.source;
+      const version = button.dataset.version || "";
+      const versionChanged = this.sourceVersions.get(source) !== version;
+      const cached = this.cache.get(source);
+      const cachedMismatch = cached && cached.version !== version;
+      const requestMismatch =
+        source === this.source &&
+        this.loading &&
+        this.requestVersion !== version;
+
+      if (cachedMismatch) this.cache.delete(source);
+      if (
+        source === this.source &&
+        (cachedMismatch || requestMismatch || (versionChanged && this.activated))
+      ) {
+        selectedMismatch = true;
+        reloadSelected = this.activated;
+      }
+
+      this.sourceVersions.set(source, version);
+    });
+
+    if (!selectedMismatch) {
+      this.renderSelectedSource();
+      return;
+    }
+
+    this.cancelRequest();
+    this.content().textContent = "";
+    this.setStatus("");
+    this.setError("");
+    if (reloadSelected) this.loadSource();
+  },
+
   renderSelectedSource() {
     const cached = this.cache.get(this.source);
     this.content().textContent = cached ? cached.content : "";
@@ -120,6 +178,7 @@ const ProxyRulesSourceViewer = {
     const generation = this.requestGeneration;
     const controller = new AbortController();
     this.abortController = controller;
+    this.requestVersion = this.sourceVersion(source);
     this.setLoading(true);
     this.setError("");
     this.setStatus("Loading source content…");
@@ -131,6 +190,9 @@ const ProxyRulesSourceViewer = {
         controller,
       );
       if (!this.currentRequest(source, generation, controller)) return;
+      if (!this.versionMatchesMetadata(source, complete.version)) {
+        throw new Error("source_changed");
+      }
 
       this.cache.set(source, complete);
       this.renderSelectedSource();
@@ -157,6 +219,7 @@ const ProxyRulesSourceViewer = {
     let cursor = null;
     let version = null;
     let totalLines = null;
+    let endsWithNewline = null;
     const lines = [];
 
     do {
@@ -186,14 +249,29 @@ const ProxyRulesSourceViewer = {
         throw new Error("invalid_response");
       }
 
-      validatePage(page, { version, totalLines, loadedLines: lines.length });
+      validatePage(page, {
+        version,
+        totalLines,
+        endsWithNewline,
+        loadedLines: lines.length,
+      });
       version = page.version;
       totalLines = page.total_lines;
+      endsWithNewline = page.ends_with_newline;
       lines.push(...page.lines);
       cursor = page.next_cursor;
     } while (cursor !== null);
 
-    return { version, totalLines, content: lines.join("\n") };
+    return {
+      version,
+      totalLines,
+      content: lines.join("\n") + (endsWithNewline ? "\n" : ""),
+    };
+  },
+
+  versionMatchesMetadata(source, version) {
+    const metadataVersion = this.sourceVersion(source);
+    return metadataVersion === "" || metadataVersion === version;
   },
 
   currentRequest(source, generation, controller) {
@@ -207,6 +285,7 @@ const ProxyRulesSourceViewer = {
   finishRequest(controller) {
     if (this.abortController !== controller) return;
     this.abortController = null;
+    this.requestVersion = null;
     this.setLoading(false);
   },
 
@@ -214,6 +293,7 @@ const ProxyRulesSourceViewer = {
     this.requestGeneration += 1;
     this.abortController?.abort();
     this.abortController = null;
+    this.requestVersion = null;
     this.setLoading(false);
   },
 
@@ -263,7 +343,10 @@ const ProxyRulesSourceViewer = {
   },
 };
 
-function validatePage(page, { version, totalLines, loadedLines }) {
+function validatePage(
+  page,
+  { version, totalLines, endsWithNewline, loadedLines },
+) {
   const validShape =
     page !== null &&
     typeof page === "object" &&
@@ -274,6 +357,7 @@ function validatePage(page, { version, totalLines, loadedLines }) {
     page.lines.every((line) => typeof line === "string") &&
     Number.isSafeInteger(page.total_lines) &&
     page.total_lines >= 0 &&
+    typeof page.ends_with_newline === "boolean" &&
     typeof page.has_more === "boolean" &&
     (page.next_cursor === null ||
       (typeof page.next_cursor === "string" && page.next_cursor.length > 0));
@@ -283,6 +367,12 @@ function validatePage(page, { version, totalLines, loadedLines }) {
     throw new Error("source_changed");
   }
   if (totalLines !== null && totalLines !== page.total_lines) {
+    throw new Error("invalid_response");
+  }
+  if (
+    endsWithNewline !== null &&
+    endsWithNewline !== page.ends_with_newline
+  ) {
     throw new Error("invalid_response");
   }
 

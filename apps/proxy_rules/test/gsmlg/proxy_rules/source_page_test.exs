@@ -17,6 +17,7 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
               observed_at: @observed_at,
               last_success_at: @fetched_at,
               total_lines: 3,
+              ends_with_newline: true,
               start_line: 1,
               lines: ["one", "two"],
               next_cursor: cursor,
@@ -34,6 +35,7 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
               version: ^version,
               start_line: 3,
               lines: ["three"],
+              ends_with_newline: true,
               next_cursor: nil,
               has_more: false
             }} =
@@ -44,11 +46,47 @@ defmodule GSMLG.ProxyRules.SourcePageTest do
   end
 
   test "handles empty content and a final line without a newline" do
-    assert {:ok, %{total_lines: 0, start_line: 1, lines: [], next_cursor: nil, has_more: false}} =
+    assert {:ok,
+            %{
+              total_lines: 0,
+              start_line: 1,
+              lines: [],
+              ends_with_newline: false,
+              next_cursor: nil,
+              has_more: false
+            }} =
              SourcePage.page(:local_proxy, snapshot(""), nil, [])
 
-    assert {:ok, %{total_lines: 2, lines: ["one", "two"], has_more: false}} =
+    assert {:ok,
+            %{total_lines: 2, lines: ["one", "two"], ends_with_newline: false, has_more: false}} =
              SourcePage.page(:local_proxy, snapshot("one\ntwo"), nil, [])
+  end
+
+  test "reports exact terminal newline fidelity across pages" do
+    for {content, expected_lines, ends_with_newline} <- [
+          {"a", ["a"], false},
+          {"a\n", ["a"], true},
+          {"a\n\n", ["a", ""], true}
+        ] do
+      snapshot = snapshot(content)
+
+      assert {:ok,
+              %{
+                lines: first_lines,
+                ends_with_newline: ^ends_with_newline,
+                next_cursor: cursor
+              }} = SourcePage.page(:local_direct, snapshot, nil, line_limit: 1)
+
+      if cursor do
+        assert {:ok,
+                %{lines: second_lines, ends_with_newline: ^ends_with_newline, next_cursor: nil}} =
+                 SourcePage.page(:local_direct, snapshot, cursor, line_limit: 1)
+
+        assert first_lines ++ second_lines == expected_lines
+      else
+        assert first_lines == expected_lines
+      end
+    end
   end
 
   test "preserves carriage returns as source text while using LF as the line boundary" do

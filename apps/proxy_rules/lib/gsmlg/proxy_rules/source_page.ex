@@ -43,6 +43,7 @@ defmodule GSMLG.ProxyRules.SourcePage do
            Map.get(snapshot.metadata, :last_success_at) ||
              Map.get(snapshot.metadata, :fetched_at),
          total_lines: snapshot.line_count,
+         ends_with_newline: ends_with_newline?(snapshot.content),
          start_line: start_line,
          lines: lines,
          next_cursor:
@@ -297,6 +298,8 @@ defmodule GSMLG.ProxyRules.SourcePage do
       observed_at: json_value_size(snapshot.observed_at),
       last_success_at: json_value_size(last_success_at),
       total_lines: integer_size(snapshot.line_count),
+      ends_with_newline:
+        if(ends_with_newline?(snapshot.content), do: byte_size("true"), else: byte_size("false")),
       start_line: integer_size(start_line),
       lines: encoded_lines_size,
       next_cursor: next_cursor_size,
@@ -314,6 +317,9 @@ defmodule GSMLG.ProxyRules.SourcePage do
 
   defp json_value_size(%DateTime{} = datetime),
     do: datetime |> DateTime.to_iso8601() |> json_string_size()
+
+  defp ends_with_newline?(<<>>), do: false
+  defp ends_with_newline?(content), do: :binary.last(content) == ?\n
 
   defp integer_size(value) when is_integer(value),
     do: value |> Integer.to_string() |> byte_size()

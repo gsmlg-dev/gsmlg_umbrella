@@ -364,6 +364,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
                       type="button"
                       data-source="gfwlist"
                       data-loaded="false"
+                      data-version={@state.viewer_gfwlist.version || ""}
                       aria-controls="proxy-rules-source-content"
                       aria-pressed="true"
                     >
@@ -393,6 +394,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
                       type="button"
                       data-source="local-proxy"
                       data-loaded="false"
+                      data-version={@state.viewer_local_proxy.version || ""}
                       aria-controls="proxy-rules-source-content"
                       aria-pressed="false"
                     >
@@ -422,6 +424,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
                       type="button"
                       data-source="local-direct"
                       data-loaded="false"
+                      data-version={@state.viewer_local_direct.version || ""}
                       aria-controls="proxy-rules-source-content"
                       aria-pressed="false"
                     >
@@ -644,7 +647,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
   defp source_for_viewer(sources, key) do
     Enum.find(
       sources,
-      %{availability: :missing, line_count: 0, updated_at: nil},
+      %{availability: :missing, version: nil, line_count: 0, updated_at: nil},
       &(&1.key == key)
     )
   end

@@ -67,6 +67,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
              "source" => "remote_gfwlist",
              "availability" => "ready",
              "lines" => ["one.example", "two.example"],
+             "ends_with_newline" => true,
              "total_lines" => 3,
              "start_line" => 1,
              "has_more" => true,
@@ -76,7 +77,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
     assert is_binary(cursor)
 
     assert Map.keys(response) |> Enum.sort() ==
-             ~w(availability has_more last_success_at lines next_cursor observed_at source start_line total_lines version)
+             ~w(availability ends_with_newline has_more last_success_at lines next_cursor observed_at source start_line total_lines version)
 
     refute inspect(response) =~ "source_url"
     refute inspect(response) =~ "/private/"
@@ -157,6 +158,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
     assert %{
              "source" => "local_direct",
              "lines" => ["direct-one.example"],
+             "ends_with_newline" => true,
              "start_line" => 1,
              "has_more" => true,
              "next_cursor" => cursor,
@@ -174,6 +176,7 @@ defmodule GSMLG.AdminWeb.ProxyRulesSourceControllerTest do
     assert %{
              "source" => "local_direct",
              "lines" => ["direct-two.example"],
+             "ends_with_newline" => true,
              "start_line" => 2,
              "has_more" => false,
              "next_cursor" => nil,

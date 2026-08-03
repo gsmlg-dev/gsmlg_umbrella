@@ -228,6 +228,22 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     assert has_element?(view, "[data-source='gfwlist'][data-loaded='false']")
     assert has_element?(view, "[data-source='local-proxy'][data-loaded='false']")
     assert has_element?(view, "[data-source='local-direct'][data-loaded='false']")
+
+    assert has_element?(
+             view,
+             "[data-source='gfwlist'][data-version='#{snapshot.source_versions.gfwlist}']"
+           )
+
+    assert has_element?(
+             view,
+             "[data-source='local-proxy'][data-version='#{snapshot.source_versions.local_proxy}']"
+           )
+
+    assert has_element?(
+             view,
+             "[data-source='local-direct'][data-version='#{snapshot.source_versions.local_direct}']"
+           )
+
     assert has_element?(view, "#proxy-rules-viewer-gfwlist-status", "Ready")
     assert has_element?(view, "#proxy-rules-viewer-local-proxy-status", "Ready")
     assert has_element?(view, "#proxy-rules-viewer-local-direct-status", "Ready")

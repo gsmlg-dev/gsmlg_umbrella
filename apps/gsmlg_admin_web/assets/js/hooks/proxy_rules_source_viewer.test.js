@@ -84,6 +84,87 @@ describe("proxy rule source viewer", () => {
     });
   });
 
+  test("preserves no newline, one terminal newline, and a trailing blank line", async () => {
+    const cases = [
+      {
+        pages: [page({ version: "a", lines: ["a"], endsWithNewline: false })],
+        content: "a",
+      },
+      {
+        pages: [page({ version: "a", lines: ["a"], endsWithNewline: true })],
+        content: "a\n",
+      },
+      {
+        pages: [
+          page({
+            version: "a",
+            lines: ["a"],
+            nextCursor: "next",
+            totalLines: 2,
+            endsWithNewline: true,
+          }),
+          page({
+            version: "a",
+            startLine: 2,
+            lines: [""],
+            totalLines: 2,
+            endsWithNewline: true,
+          }),
+        ],
+        content: "a\n\n",
+      },
+    ];
+
+    for (const testCase of cases) {
+      await withViewer(async ({ root, viewer }) => {
+        let requestCount = 0;
+        globalThis.fetch = async () =>
+          response(testCase.pages[requestCount++]);
+
+        viewer.mounted();
+        root.click(root.viewButton);
+        await settle();
+
+        expect(root.content.textContent).toBe(testCase.content);
+        expect(viewer.cache.get("gfwlist").content).toBe(testCase.content);
+      });
+    }
+  });
+
+  test("rejects inconsistent terminal newline metadata across pages", async () => {
+    await withViewer(async ({ root, viewer }) => {
+      let requestCount = 0;
+      globalThis.fetch = async () => {
+        requestCount += 1;
+        return response(
+          requestCount === 1
+            ? page({
+                version: "a",
+                lines: ["a"],
+                nextCursor: "next",
+                totalLines: 2,
+                endsWithNewline: false,
+              })
+            : page({
+                version: "a",
+                startLine: 2,
+                lines: ["b"],
+                totalLines: 2,
+                endsWithNewline: true,
+              }),
+        );
+      };
+
+      viewer.mounted();
+      root.click(root.viewButton);
+      await settle();
+
+      expect(root.error.textContent).toBe("The source returned an invalid response.");
+      expect(root.content.textContent).toBe("");
+      expect(viewer.cache.has("gfwlist")).toBe(false);
+    });
+  });
+
   test("ignores stale responses when switching and restores complete cached text", async () => {
     await withViewer(async ({ root, viewer }) => {
       const remote = deferred();
@@ -135,6 +216,117 @@ describe("proxy rule source viewer", () => {
 
       root.click(root.proxyButton);
       expect(root.content.textContent).toBe("proxy.example");
+    });
+  });
+
+  test("updated reloads a selected cached source whose metadata version changed", async () => {
+    await withViewer(async ({ root, viewer }) => {
+      root.gfwlistButton.dataset.version = "a".repeat(64);
+      let requestCount = 0;
+      globalThis.fetch = async () => {
+        requestCount += 1;
+        return response(
+          page({
+            version: requestCount === 1 ? "a" : "b",
+            lines: [requestCount === 1 ? "stale.example" : "fresh.example"],
+          }),
+        );
+      };
+
+      viewer.mounted();
+      root.click(root.viewButton);
+      await settle();
+      expect(root.content.textContent).toBe("stale.example");
+
+      root.gfwlistButton.dataset.version = "b".repeat(64);
+      viewer.updated();
+      await settle();
+
+      expect(requestCount).toBe(2);
+      expect(root.content.textContent).toBe("fresh.example");
+      expect(viewer.cache.get("gfwlist").version).toBe("b".repeat(64));
+    });
+  });
+
+  test("updated invalidates only an inactive cached source with a changed version", async () => {
+    await withViewer(async ({ root, viewer }) => {
+      root.proxyButton.dataset.version = "b".repeat(64);
+      root.directButton.dataset.version = "d".repeat(64);
+      globalThis.fetch = async (url) =>
+        response(
+          url.includes("local-direct")
+            ? page({ version: "d", lines: ["direct.example"] })
+            : page({ version: "b", lines: ["proxy.example"] }),
+        );
+
+      viewer.mounted();
+      root.click(root.proxyButton);
+      root.click(root.viewButton);
+      await settle();
+      root.click(root.directButton);
+      root.click(root.viewButton);
+      await settle();
+
+      root.proxyButton.dataset.version = "c".repeat(64);
+      viewer.updated();
+
+      expect(viewer.cache.has("local-proxy")).toBe(false);
+      expect(viewer.cache.has("local-direct")).toBe(true);
+      expect(root.content.textContent).toBe("direct.example");
+    });
+  });
+
+  test("never caches an in-flight response after selector metadata changes", async () => {
+    await withViewer(async ({ root, viewer }) => {
+      root.gfwlistButton.dataset.version = "a".repeat(64);
+      const stale = deferred();
+      let requestCount = 0;
+      globalThis.fetch = () => {
+        requestCount += 1;
+        return requestCount === 1
+          ? stale.promise
+          : Promise.resolve(
+              response(page({ version: "b", lines: ["fresh.example"] })),
+            );
+      };
+
+      viewer.mounted();
+      root.click(root.viewButton);
+      root.gfwlistButton.dataset.version = "b".repeat(64);
+      viewer.updated();
+      stale.resolve(response(page({ version: "a", lines: ["stale.example"] })));
+      await settle();
+
+      expect(requestCount).toBe(2);
+      expect(root.content.textContent).toBe("fresh.example");
+      expect(viewer.cache.get("gfwlist").version).toBe("b".repeat(64));
+      expect(root.content.textContent).not.toContain("stale.example");
+    });
+  });
+
+  test("updated reloads an active uncached source when metadata advances", async () => {
+    await withViewer(async ({ root, viewer }) => {
+      root.gfwlistButton.dataset.version = "a".repeat(64);
+      let requestCount = 0;
+      globalThis.fetch = async () => {
+        requestCount += 1;
+        return requestCount === 1
+          ? response({}, 503)
+          : response(page({ version: "b", lines: ["recovered.example"] }));
+      };
+
+      viewer.mounted();
+      root.click(root.viewButton);
+      await settle();
+      expect(viewer.cache.has("gfwlist")).toBe(false);
+
+      root.gfwlistButton.dataset.version = "b".repeat(64);
+      viewer.updated();
+      await settle();
+
+      expect(requestCount).toBe(2);
+      expect(root.error.textContent).toBe("");
+      expect(root.content.textContent).toBe("recovered.example");
     });
   });
 
@@ -454,6 +646,7 @@ function page({
   lines,
   nextCursor = null,
   totalLines = lines.length,
+  endsWithNewline = false,
 }) {
   return {
     version: version.repeat(64),
@@ -462,6 +655,7 @@ function page({
     next_cursor: nextCursor,
     has_more: nextCursor !== null,
     total_lines: totalLines,
+    ends_with_newline: endsWithNewline,
   };
 }
 
@@ -582,7 +776,9 @@ class FakeRoot extends FakeElement {
 }
 
 function sourceButton(source, selected) {
-  const button = new FakeElement({ dataset: { source, loaded: "false" } });
+  const button = new FakeElement({
+    dataset: { source, loaded: "false", version: "" },
+  });
   button.setAttribute("aria-pressed", String(selected));
   return button;
 }

@@ -305,13 +305,31 @@ defmodule GSMLG.ProxyRulesTest do
       }
     end)
 
-    assert {:ok, %{source: :remote_gfwlist, total_lines: 1, lines: ["||example.com^"]}} =
+    assert {:ok,
+            %{
+              source: :remote_gfwlist,
+              total_lines: 1,
+              lines: ["||example.com^"],
+              ends_with_newline: true
+            }} =
              ProxyRules.get_source_page(:remote_gfwlist, nil, line_limit: 10)
 
-    assert {:ok, %{source: :local_proxy, total_lines: 1, lines: ["proxy.example"]}} =
+    assert {:ok,
+            %{
+              source: :local_proxy,
+              total_lines: 1,
+              lines: ["proxy.example"],
+              ends_with_newline: true
+            }} =
              ProxyRules.get_source_page(:local_proxy, nil, line_limit: 10)
 
-    assert {:ok, %{source: :local_direct, total_lines: 1, lines: ["direct.example"]}} =
+    assert {:ok,
+            %{
+              source: :local_direct,
+              total_lines: 1,
+              lines: ["direct.example"],
+              ends_with_newline: true
+            }} =
              ProxyRules.get_source_page(:local_direct, nil, line_limit: 10)
   end
 
