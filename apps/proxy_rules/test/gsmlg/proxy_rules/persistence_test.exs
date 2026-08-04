@@ -228,13 +228,16 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     payload = :erlang.term_to_binary(snapshot)
     hash = :crypto.hash(:sha256, payload)
 
-    write_envelope(path, :artifact_snapshot, 1, <<0::256>>, payload)
+    write_envelope(path, :artifact_snapshot, 2, <<0::256>>, payload)
     assert {:error, :checksum_mismatch} = Persistence.read_artifact(dir)
 
     write_envelope(path, :remote_metadata, 1, hash, payload)
     assert {:error, :incompatible_snapshot} = Persistence.read_artifact(dir)
 
-    write_envelope(path, :artifact_snapshot, 2, hash, payload)
+    write_envelope(path, :artifact_snapshot, 1, hash, payload)
+    assert {:error, :incompatible_snapshot} = Persistence.read_artifact(dir)
+
+    write_envelope(path, :artifact_snapshot, 3, hash, payload)
     assert {:error, :incompatible_snapshot} = Persistence.read_artifact(dir)
   end
 
@@ -244,7 +247,7 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     payload = :erlang.term_to_binary(%{generation: 1})
     hash = :crypto.hash(:sha256, payload)
 
-    write_envelope(path, :artifact_snapshot, 1, hash, payload)
+    write_envelope(path, :artifact_snapshot, 2, hash, payload)
     assert {:error, :invalid_snapshot} = Persistence.read_artifact(dir)
   end
 
@@ -256,7 +259,7 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     write_envelope(
       path,
       :artifact_snapshot,
-      1,
+      2,
       :crypto.hash(:sha256, executable_payload),
       executable_payload
     )
@@ -268,7 +271,7 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     invalid_snapshot = put_in(snapshot.rendered_outputs.proxy.raw, raw)
     payload = :erlang.term_to_binary(invalid_snapshot)
 
-    write_envelope(path, :artifact_snapshot, 1, :crypto.hash(:sha256, payload), payload)
+    write_envelope(path, :artifact_snapshot, 2, :crypto.hash(:sha256, payload), payload)
     assert {:error, :invalid_snapshot} = Persistence.read_artifact(dir)
   end
 
@@ -283,7 +286,7 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
     write_envelope(
       path,
       :artifact_snapshot,
-      1,
+      2,
       :crypto.hash(:sha256, compressed_payload),
       compressed_payload
     )
@@ -684,7 +687,7 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
   defp assert_rejected_snapshot(dir, snapshot) do
     path = Path.join(dir, "artifact.snapshot")
     payload = :erlang.term_to_binary(snapshot)
-    write_envelope(path, :artifact_snapshot, 1, :crypto.hash(:sha256, payload), payload)
+    write_envelope(path, :artifact_snapshot, 2, :crypto.hash(:sha256, payload), payload)
     assert {:error, :invalid_snapshot} = Persistence.read_artifact(dir)
   end
 
@@ -732,7 +735,7 @@ defmodule GSMLG.ProxyRules.PersistenceTest do
 
     :erlang.term_to_binary(%{
       type: :artifact_snapshot,
-      version: 1,
+      version: 2,
       sha256: :crypto.hash(:sha256, payload),
       payload: payload
     })

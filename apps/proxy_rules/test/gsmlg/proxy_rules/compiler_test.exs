@@ -62,11 +62,11 @@ defmodule GSMLG.ProxyRules.CompilerTest do
     assert snapshot.rendered_outputs.proxy.squid.body == ".example.com\n.other.test\n"
 
     assert snapshot.rendered_outputs.proxy.clash.body ==
-             "DOMAIN-SUFFIX,example.com\nDOMAIN-SUFFIX,other.test\n"
+             "payload:\n- '+.example.com'\n- '+.other.test'\n"
 
     assert snapshot.rendered_outputs.direct.squid.body == ".example.com\n"
 
-    assert snapshot.rendered_outputs.direct.clash.body == "DOMAIN-SUFFIX,example.com\n"
+    assert snapshot.rendered_outputs.direct.clash.body == "payload:\n- '+.example.com'\n"
   end
 
   test "counts exact cross-list conflicts before hierarchy folding" do

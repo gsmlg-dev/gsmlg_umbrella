@@ -22,7 +22,8 @@ defmodule GSMLG.ProxyRules.Persistence do
   @remote_transaction_file ".remote.transaction"
   @remote_body_backup ".remote.body.backup"
   @remote_metadata_backup ".remote.metadata.backup"
-  @version 1
+  @artifact_version 2
+  @remote_version 1
   @max_marker_bytes 1_024
   @max_envelope_bytes 64 * 1024 * 1024
   @max_output_bytes 64 * 1024 * 1024
@@ -76,7 +77,7 @@ defmodule GSMLG.ProxyRules.Persistence do
       envelope =
         :erlang.term_to_binary(%{
           type: @remote_type,
-          version: @version,
+          version: @remote_version,
           sha256: :crypto.hash(:sha256, payload),
           payload: payload
         })
@@ -227,7 +228,7 @@ defmodule GSMLG.ProxyRules.Persistence do
       envelope =
         :erlang.term_to_binary(%{
           type: @artifact_type,
-          version: @version,
+          version: @artifact_version,
           sha256: :crypto.hash(:sha256, payload),
           payload: payload
         })
@@ -414,7 +415,12 @@ defmodule GSMLG.ProxyRules.Persistence do
   defp safe_decode(_binary), do: {:error, :corrupt_snapshot}
 
   defp validate_envelope(
-         %{type: @artifact_type, version: @version, sha256: hash, payload: payload} = envelope
+         %{
+           type: @artifact_type,
+           version: @artifact_version,
+           sha256: hash,
+           payload: payload
+         } = envelope
        )
        when map_size(envelope) == 4 and is_binary(hash) and byte_size(hash) == 32 and
               is_binary(payload) do
@@ -962,7 +968,8 @@ defmodule GSMLG.ProxyRules.Persistence do
   end
 
   defp validate_remote_envelope(
-         %{type: @remote_type, version: @version, sha256: hash, payload: payload} = envelope
+         %{type: @remote_type, version: @remote_version, sha256: hash, payload: payload} =
+           envelope
        )
        when map_size(envelope) == 4 and is_binary(hash) and byte_size(hash) == 32 and
               is_binary(payload) do

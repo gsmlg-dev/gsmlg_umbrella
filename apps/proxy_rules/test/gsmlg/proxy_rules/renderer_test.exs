@@ -10,13 +10,13 @@ defmodule GSMLG.ProxyRules.RendererTest do
     assert Renderer.render(rules, :squid) == ".example.com\n.google.com\n"
 
     assert Renderer.render(rules, :clash) ==
-             "DOMAIN-SUFFIX,example.com\nDOMAIN-SUFFIX,google.com\n"
+             "payload:\n- '+.example.com'\n- '+.google.com'\n"
   end
 
   test "renders an empty list as an empty binary" do
     assert Renderer.render([], :raw) == ""
     assert Renderer.render([], :squid) == ""
-    assert Renderer.render([], :clash) == ""
+    assert Renderer.render([], :clash) == "payload: []\n"
   end
 
   defp rules(domains) do
