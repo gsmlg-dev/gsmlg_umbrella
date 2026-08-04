@@ -25,7 +25,11 @@ defmodule GSMLG.AdminWeb.Guardian.WebAuthErrorHandler do
 
     conn
     |> GSMLG.AdminWeb.Guardian.Plug.sign_out()
-    |> put_flash(:error, "#{type}: #{reason}")
+    |> put_flash(:error, "#{type}: #{format_reason(reason)}")
     |> redirect(to: ~p"/sign_in")
+  end
+
+  defp format_reason(reason) do
+    if is_exception(reason), do: Exception.message(reason), else: to_string(reason)
   end
 end
