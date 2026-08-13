@@ -36,11 +36,22 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply,
-         assign(socket, :form, to_form(%{changeset | action: :insert}, as: :gao_note_label_setting))}
+         assign(
+           socket,
+           :form,
+           to_form(%{changeset | action: :insert},
+             as: :gao_note_label_setting,
+             id: "gao-note-label-setting-create"
+           )
+         )}
     end
   end
 
-  def handle_event("update", %{"id" => id, "gao_note_label_setting" => params}, socket) do
+  def handle_event(
+        "update",
+        %{"label_setting_id" => id, "gao_note_label_setting" => params},
+        socket
+      ) do
     label_setting = GaoNote.get_label_setting!(id)
 
     case GaoNote.update_label_setting(label_setting, params) do
@@ -86,9 +97,15 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
   end
 
   defp label_setting_form(%LabelSetting{} = label_setting) do
+    form_id =
+      case label_setting.id do
+        nil -> "gao-note-label-setting-create"
+        id -> "gao-note-label-setting-edit-#{id}"
+      end
+
     label_setting
     |> GaoNote.change_label_setting()
-    |> to_form(as: :gao_note_label_setting)
+    |> to_form(as: :gao_note_label_setting, id: form_id)
   end
 
   defp edit_modal_id(id), do: "gao-note-label-setting-edit-modal-#{id}"
@@ -260,7 +277,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
                     phx-submit="update"
                     class="grid gap-3"
                   >
-                    <input type="hidden" name="id" value={label_setting.id} />
+                    <input
+                      type="hidden"
+                      name="label_setting_id"
+                      value={label_setting.id}
+                    />
                     <.dm_input field={edit_form[:name]} label="Key" />
                     <.dm_input
                       field={edit_form[:color]}

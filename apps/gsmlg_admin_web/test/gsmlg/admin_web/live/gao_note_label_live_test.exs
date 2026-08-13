@@ -5,6 +5,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLabelLiveTest do
   import Phoenix.LiveViewTest
 
   alias GSMLG.GaoNote
+  alias GSMLG.GaoNote.LabelSetting
+  alias GSMLG.Repo
 
   @secret_key_base String.duplicate("a", 64)
 
@@ -20,6 +22,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLabelLiveTest do
     on_exit(fn ->
       Application.put_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint, endpoint_config)
     end)
+
+    Repo.delete_all(LabelSetting)
 
     user = user_fixture()
 
@@ -54,6 +58,42 @@ defmodule GSMLG.AdminWeb.GaoNoteLabelLiveTest do
     html = html <> render_async(view)
 
     assert html =~ "topic=ecto"
+  end
+
+  test "label setting forms keep unique controls after the connected render", %{conn: conn} do
+    label_settings =
+      for name <- ["topic", "project"] do
+        assert {:ok, label_setting} = GaoNote.create_label_setting(%{name: name})
+        label_setting
+      end
+
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/label_settings")
+    html = render_async(view)
+
+    control_ids =
+      html
+      |> Floki.parse_fragment!()
+      |> Floki.find(
+        "#gao-note-label-setting-create-modal input.input[id], " <>
+          "#gao-note-label-setting-create-modal select.select[id], " <>
+          "[id^='gao-note-label-setting-edit-modal-'] input.input[id], " <>
+          "[id^='gao-note-label-setting-edit-modal-'] select.select[id]"
+      )
+      |> Floki.attribute("id")
+
+    assert length(control_ids) == 12
+    assert MapSet.size(MapSet.new(control_ids)) == length(control_ids)
+    refute has_element?(view, "[id^='gao-note-label-setting-edit-form-'] input[name='id']")
+
+    topic = Enum.find(label_settings, &(&1.name == "topic"))
+
+    view
+    |> form("#gao-note-label-setting-edit-form-#{topic.id}", %{
+      "gao_note_label_setting" => %{"name" => "topic-updated"}
+    })
+    |> render_submit()
+
+    assert %LabelSetting{name: "topic-updated"} = GaoNote.get_label_setting!(topic.id)
   end
 
   defp note_fixture(user, title, labels) do
