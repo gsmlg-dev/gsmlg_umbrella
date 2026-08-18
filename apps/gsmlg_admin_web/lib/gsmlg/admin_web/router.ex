@@ -114,6 +114,7 @@ defmodule GSMLG.AdminWeb.Router do
     live("/blogs/:id/edit", BlogLive.Index, :edit)
     live("/blogs/:id/translations", BlogLive.TranslationLive.Index, :index)
 
+    live("/gao_notes", GaoNoteLive.DashboardLive, :index)
     live("/gao_notes/notes", GaoNoteLive.Index, :index)
     live("/gao_notes/notes/new", GaoNoteLive.Index, :new)
     live("/gao_notes/notes/:id/show", GaoNoteLive.Index, :show)

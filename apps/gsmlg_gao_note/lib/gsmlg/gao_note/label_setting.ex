@@ -2,7 +2,7 @@ defmodule GSMLG.GaoNote.LabelSetting do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias GSMLG.GaoNote.Label
+  alias GSMLG.GaoNote.{CategorySetting, Label}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -16,8 +16,10 @@ defmodule GSMLG.GaoNote.LabelSetting do
     field(:value_type, :string, default: "text")
     field(:metadata, :map, default: %{})
     field(:note_count, :integer, virtual: true, default: 0)
+    field(:category_count, :integer, virtual: true, default: 0)
 
     has_many(:labels, Label, foreign_key: :label_setting_id)
+    has_many(:category_settings, CategorySetting, foreign_key: :label_setting_id)
 
     timestamps()
   end

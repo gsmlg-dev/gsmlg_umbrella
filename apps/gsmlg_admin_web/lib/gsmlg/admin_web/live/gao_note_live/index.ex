@@ -2,6 +2,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
   alias GSMLG.AdminWeb.{GaoNoteAttachmentTemp, GaoNoteMarkdown}
+  alias GSMLG.AdminWeb.GaoNoteLive.NotesPath
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Note, Presenter}
   alias GSMLG.Storage.ContentType
@@ -1531,16 +1532,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   defp note_filter_path(filters) do
-    query =
-      []
-      |> maybe_put_query(:search, blank_to_nil(filters["search"]))
-      |> maybe_put_query(:labels, filters["labels"])
-
-    ~p"/gao_notes/notes?#{query}"
+    NotesPath.index(filters)
   end
-
-  defp maybe_put_query(query, _key, value) when value in [nil, "", []], do: query
-  defp maybe_put_query(query, key, value), do: Keyword.put(query, key, value)
 
   defp normalize_label_filters(filters) do
     filters

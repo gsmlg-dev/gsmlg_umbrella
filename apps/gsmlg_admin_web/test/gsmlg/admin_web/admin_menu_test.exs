@@ -37,6 +37,12 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
                Enum.find(content.groups, &(&1.id == "gao_notes"))
 
       assert [
+               %{
+                 id: "gao_note_dashboard",
+                 label: "Dashboard",
+                 path: "/gao_notes",
+                 exact: true
+               },
                %{id: "gao_note_list", label: "Note List", path: "/gao_notes/notes"},
                %{
                  id: "gao_note_label_settings",
@@ -100,6 +106,7 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
     end
 
     test "matches GaoNote routes to their content menu items" do
+      assert AdminMenu.active_id(nil, "/gao_notes") == "gao_note_dashboard"
       assert AdminMenu.active_id(nil, "/gao_notes/notes") == "gao_note_list"
       assert AdminMenu.active_id(nil, "/gao_notes/notes/new") == "gao_note_list"
       assert AdminMenu.active_id(nil, "/gao_notes/label_settings") == "gao_note_label_settings"
@@ -114,6 +121,7 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       assert AdminMenu.active_id(nil, "/gao_notes/references") == nil
       assert AdminMenu.active_id(nil, "/gao_notes/assets") == nil
       assert AdminMenu.group_open?(AdminMenu.find_group!("gao_notes"), "gao_note_list")
+      assert AdminMenu.group_open?(AdminMenu.find_group!("gao_notes"), "gao_note_dashboard")
     end
 
     test "matches Scout routes to the service menu item" do
@@ -140,6 +148,7 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
       paths = Enum.map(gao_note_routes, & &1.path)
 
       assert "/gao_notes/notes/:note_id/attachments/*path" in paths
+      assert "/gao_notes" in paths
       assert "/gao_notes/notes" in paths
       assert "/gao_notes/notes/new" in paths
       assert "/gao_notes/notes/:id/edit" in paths

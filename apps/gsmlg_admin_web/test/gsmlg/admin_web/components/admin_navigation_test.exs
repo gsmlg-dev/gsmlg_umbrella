@@ -43,12 +43,14 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
 
       assert html =~ "Content"
       assert html =~ "GaoNote"
+      assert html =~ "Dashboard"
       assert html =~ "Note List"
       refute html =~ "New Note"
       assert html =~ "Label Settings"
       assert html =~ "Recycle Bin"
       assert html =~ "Log"
       assert html =~ "MCP"
+      assert html =~ ~s(href="/gao_notes")
       assert html =~ ~s(href="/gao_notes/notes")
       refute html =~ ~s(href="/gao_notes/notes/new")
       assert html =~ ~s(href="/gao_notes/label_settings")
