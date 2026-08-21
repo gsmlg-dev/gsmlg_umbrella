@@ -143,6 +143,15 @@ defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
           error: nil
         )
 
+      recycle_toolbar =
+        render_component(&BatchActionComponents.recycle_toolbar/1,
+          selected_count: 2,
+          clear_event: "clear_recycle_selection",
+          purge_modal_id: "gao-note-recycle-purge-modal"
+        )
+
+      purge_modal = render_purge_modal("")
+
       assert [_] =
                notes_toolbar
                |> fragment()
@@ -162,6 +171,16 @@ defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
                soft_delete
                |> fragment()
                |> Floki.find(~s([phx-click="cancel_batch_delete_modal"][onclick]))
+
+      assert [_] =
+               recycle_toolbar
+               |> fragment()
+               |> Floki.find(~s([phx-click="open_batch_purge_modal"][onclick]))
+
+      assert [_] =
+               purge_modal
+               |> fragment()
+               |> Floki.find(~s([phx-click="cancel_batch_purge_modal"][onclick]))
     end
 
     test "every modal preserves client state and installs the accessible dialog workaround" do

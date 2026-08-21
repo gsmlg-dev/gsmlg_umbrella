@@ -250,6 +250,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
           type="button"
           size="sm"
           variant="error"
+          phx-click="open_batch_purge_modal"
           onclick={show_dialog(@purge_modal_id)}
         >
           Delete selected permanently
@@ -307,6 +308,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
               <.dm_btn
                 type="button"
                 variant="ghost"
+                phx-click="cancel_batch_purge_modal"
                 onclick={close_dialog("gao-note-recycle-purge-modal")}
                 data-dialog-initial-focus
               >

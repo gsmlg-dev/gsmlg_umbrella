@@ -1204,6 +1204,344 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     refute html =~ ~s(id="gao-note-log-loading")
   end
 
+  describe "Recycle Bin batch purge" do
+    @describetag :gao_note_recycle_batch_actions
+
+    test "selection moves from none to mixed to all, ignores unloaded ids, and clears", %{
+      conn: conn,
+      user: user
+    } do
+      first = deleted_note_fixture(user, "Recycle Select First")
+      second = deleted_note_fixture(user, "Recycle Select Second")
+      active = note_fixture(user, "Recycle Select Active")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+
+      assert has_element?(view, "#gao-note-recycle-select-all[data-state='none']")
+      refute has_element?(view, "#gao-note-recycle-batch-toolbar")
+
+      render_click(view, "toggle_recycle_note", %{"id" => active.id})
+      assert :sys.get_state(view.pid).socket.assigns.batch_selected == MapSet.new()
+
+      render_click(view, "toggle_recycle_note", %{"id" => first.id})
+
+      assert has_element?(
+               view,
+               "#gao-note-recycle-select-all[data-state='mixed'][aria-checked='mixed']"
+             )
+
+      assert has_element?(view, "#gao-note-recycle-batch-toolbar", "1 selected")
+
+      render_click(view, "toggle_all_recycle_notes")
+      assert has_element?(view, "#gao-note-recycle-select-all[data-state='all']")
+      assert has_element?(view, "#gao-note-recycle-select-#{first.id}[checked]")
+      assert has_element?(view, "#gao-note-recycle-select-#{second.id}[checked]")
+      assert has_element?(view, "#gao-note-recycle-batch-toolbar", "2 selected")
+
+      render_click(view, "clear_recycle_selection")
+      assert has_element?(view, "#gao-note-recycle-select-all[data-state='none']")
+      refute has_element?(view, "#gao-note-recycle-batch-toolbar")
+    end
+
+    test "refresh clears selection confirmation and error before reloading", %{
+      conn: conn,
+      user: user
+    } do
+      note = deleted_note_fixture(user, "Recycle Refresh Reset")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+      select_recycle_notes(view, [note])
+
+      render_change(view, "change_batch_purge_confirmation", %{
+        "batch_purge" => %{"confirmation" => %{}}
+      })
+
+      assert :sys.get_state(view.pid).socket.assigns.purge_error
+
+      render_click(view, "refresh")
+      assigns = :sys.get_state(view.pid).socket.assigns
+      assert assigns.batch_selected == MapSet.new()
+      assert assigns.purge_error == nil
+      assert Phoenix.HTML.Form.input_value(assigns.purge_form, :confirmation) == ""
+      assert has_element?(view, "#gao-note-recycle-refresh")
+      render_async(view)
+    end
+
+    test "purge modal resets and requires exact DELETE without crashing on malformed input", %{
+      conn: conn,
+      user: user
+    } do
+      note = deleted_note_fixture(user, "Recycle Confirmation Gate")
+      Repo.delete_all(Log)
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+      select_recycle_notes(view, [note])
+      render_click(view, "open_batch_purge_modal")
+
+      assert has_element?(view, "#gao-note-recycle-purge-confirm[disabled]")
+
+      for confirmation <- ["delete", "DELETE "] do
+        change_batch_purge(view, confirmation)
+        assert has_element?(view, "#gao-note-recycle-purge-confirm[disabled]")
+      end
+
+      html = submit_batch_purge(view, "delete")
+      assert html =~ "Type DELETE exactly"
+      assert %Note{} = GaoNote.get_deleted_note(note.id)
+      assert GaoNote.list_logs() == []
+
+      html =
+        render_change(view, "change_batch_purge_confirmation", %{
+          "batch_purge" => %{"confirmation" => %{}}
+        })
+
+      assert html =~ "Purge confirmation is invalid"
+      assert has_element?(view, "#gao-note-recycle-purge-modal")
+
+      render_click(view, "open_batch_purge_modal")
+      assigns = :sys.get_state(view.pid).socket.assigns
+      assert assigns.purge_error == nil
+      assert Phoenix.HTML.Form.input_value(assigns.purge_form, :confirmation) == ""
+
+      change_batch_purge(view, "DELETE")
+      refute has_element?(view, "#gao-note-recycle-purge-confirm[disabled]")
+
+      render_click(view, "cancel_batch_purge_modal")
+      assert_push_event(view, "close-dialog", %{id: "gao-note-recycle-purge-modal"})
+      assigns = :sys.get_state(view.pid).socket.assigns
+      assert assigns.purge_error == nil
+      assert Phoenix.HTML.Form.input_value(assigns.purge_form, :confirmation) == ""
+    end
+
+    test "exact confirmation purges two deleted notes and audits the current admin", %{
+      conn: conn,
+      user: user
+    } do
+      first = deleted_note_fixture(user, "Recycle Batch Purge First")
+      second = deleted_note_fixture(user, "Recycle Batch Purge Second")
+      Repo.delete_all(Log)
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+      select_recycle_notes(view, [first, second])
+      render_click(view, "open_batch_purge_modal")
+      change_batch_purge(view, "DELETE")
+      submit_batch_purge(view, "DELETE")
+
+      assert_push_event(view, "close-dialog", %{
+        id: "gao-note-recycle-purge-modal",
+        focus: "#gao-note-recycle-refresh"
+      })
+
+      render_async(view)
+      assert GaoNote.get_deleted_note(first.id) == nil
+      assert GaoNote.get_deleted_note(second.id) == nil
+
+      assert [first_log, second_log] =
+               GaoNote.list_logs()
+               |> Enum.filter(&(&1.action == "purge"))
+               |> Enum.sort_by(& &1.entity_id)
+
+      assert [first_log.entity_id, second_log.entity_id] == Enum.sort([first.id, second.id])
+      assert first_log.actor_id == user.id
+      assert second_log.actor_id == user.id
+
+      assert first_log.details == %{
+               "title" =>
+                 if(first_log.entity_id == first.id, do: first.title, else: second.title),
+               "batch" => %{"operation" => "purge"}
+             }
+
+      assert second_log.details == %{
+               "title" =>
+                 if(second_log.entity_id == second.id, do: second.title, else: first.title),
+               "batch" => %{"operation" => "purge"}
+             }
+
+      assert :sys.get_state(view.pid).socket.assigns.batch_selected == MapSet.new()
+      refute has_element?(view, "#gao-note-recycle-batch-toolbar")
+      assert render(view) =~ "2 notes permanently deleted"
+    end
+
+    test "purging an attachment removes metadata and enqueues storage cleanup", %{
+      conn: conn,
+      user: user
+    } do
+      assert {:ok, note} =
+               GaoNote.create_note(
+                 %{
+                   title: "Recycle Attached Purge",
+                   content: "Attached body",
+                   attachments: [
+                     text_attachment(
+                       "recycle-purge-file",
+                       "./recycle-purge.txt",
+                       "private bytes",
+                       "Purge me"
+                     )
+                   ]
+                 },
+                 user
+               )
+
+      attachment = attachment_by_id(note, "recycle-purge-file")
+      assert {:ok, %Note{}} = GaoNote.delete_note(note, user)
+      Repo.delete_all(Log)
+      Repo.delete_all(Oban.Job)
+
+      Oban.Testing.with_testing_mode(:manual, fn ->
+        {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+        render_async(view)
+        put_live_testing_mode(view, :manual)
+        select_recycle_notes(view, [note])
+        render_click(view, "open_batch_purge_modal")
+        change_batch_purge(view, "DELETE")
+        submit_batch_purge(view, "DELETE")
+        render_async(view)
+
+        assert [%Oban.Job{}] =
+                 Oban.Testing.all_enqueued(GSMLG.Repo,
+                   worker: GSMLG.GaoNote.Workers.StorageFilePurgeWorker,
+                   args: %{storage_file_id: attachment.storage_file_id}
+                 )
+      end)
+
+      assert Repo.get(Attachment, attachment.id) == nil
+      assert %StorageFile{id: storage_file_id} = Repo.get(StorageFile, attachment.storage_file_id)
+      assert storage_file_id == attachment.storage_file_id
+    end
+
+    test "an active stale selection fails atomically and retains the modal and selection", %{
+      conn: conn,
+      user: user
+    } do
+      valid = deleted_note_fixture(user, "Recycle Atomic Valid")
+      stale = deleted_note_fixture(user, "Recycle Atomic Restored")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+      select_recycle_notes(view, [valid, stale])
+      render_click(view, "open_batch_purge_modal")
+      change_batch_purge(view, "DELETE")
+      assert {:ok, %Note{}} = GaoNote.restore_note(stale, user)
+      Repo.delete_all(Log)
+      Repo.delete_all(Oban.Job)
+
+      html = submit_batch_purge(view, "DELETE")
+
+      assert html =~ "Some selected notes changed or disappeared"
+      assert %Note{} = GaoNote.get_deleted_note(valid.id)
+      assert %Note{} = GaoNote.get_note(stale.id)
+      assert GaoNote.list_logs() == []
+
+      assert Oban.Testing.all_enqueued(GSMLG.Repo,
+               worker: GSMLG.GaoNote.Workers.StorageFilePurgeWorker
+             ) == []
+
+      assert has_element?(view, "#gao-note-recycle-purge-modal")
+      assert has_element?(view, "#gao-note-recycle-batch-toolbar", "2 selected")
+
+      assert :sys.get_state(view.pid).socket.assigns.batch_selected ==
+               MapSet.new([valid.id, stale.id])
+    end
+
+    test "forged hidden selection is intersected out without a domain call", %{
+      conn: conn,
+      user: user
+    } do
+      note = deleted_note_fixture(user, "Recycle Forged Selection")
+      Repo.delete_all(Log)
+      Repo.delete_all(Oban.Job)
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+      put_live_assign(view, :batch_selected, MapSet.new([Ecto.UUID.generate()]))
+      change_batch_purge(view, "DELETE")
+
+      html = submit_batch_purge(view, "DELETE")
+
+      assert html =~ "Select at least one loaded deleted note"
+      assert %Note{} = GaoNote.get_deleted_note(note.id)
+      assert GaoNote.list_logs() == []
+
+      assert Oban.Testing.all_enqueued(GSMLG.Repo,
+               worker: GSMLG.GaoNote.Workers.StorageFilePurgeWorker
+             ) == []
+
+      assert :sys.get_state(view.pid).socket.assigns.batch_selected == MapSet.new()
+      assert has_element?(view, "#gao-note-recycle-purge-modal")
+      refute has_element?(view, "#gao-note-recycle-batch-toolbar")
+    end
+
+    test "table has semantic selection IDs empty colspan and no duplicate IDs", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+      assert has_element?(view, "table#gao-note-recycle-table")
+      assert has_element?(view, "#gao-note-recycle-table tbody td[colspan='5']")
+
+      note = deleted_note_fixture(user, "Recycle Accessible Row")
+      render_click(view, "refresh")
+      render_async(view)
+
+      assert has_element?(
+               view,
+               "#gao-note-recycle-select-all[aria-label='Select all loaded deleted notes']"
+             )
+
+      assert has_element?(view, "#deleted-note-#{note.id}")
+
+      assert has_element?(
+               view,
+               "#gao-note-recycle-select-#{note.id}[aria-label='Select Recycle Accessible Row']"
+             )
+
+      for heading <- ["Note", "Labels", "Deleted", "Actions"] do
+        assert has_element?(view, "#gao-note-recycle-table thead th", heading)
+      end
+
+      select_recycle_notes(view, [note])
+      render_click(view, "open_batch_purge_modal")
+
+      ids =
+        view
+        |> render()
+        |> Floki.parse_fragment!()
+        |> Floki.find("[id]")
+        |> Floki.attribute("id")
+
+      assert ids -- Enum.uniq(ids) == []
+    end
+
+    test "audit failure uses safe actionable text and retains the deleted note and selection", %{
+      conn: conn,
+      user: user
+    } do
+      note = deleted_note_fixture(user, "Recycle Safe Audit Failure")
+      Repo.delete_all(Log)
+      Repo.delete_all(Oban.Job)
+      constraint = "gao_note_live_batch_purge_#{System.unique_integer([:positive])}"
+
+      Repo.query!(
+        "ALTER TABLE gao_note_logs ADD CONSTRAINT #{constraint} CHECK (NOT (details ? 'batch'))",
+        []
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+      select_recycle_notes(view, [note])
+      render_click(view, "open_batch_purge_modal")
+      change_batch_purge(view, "DELETE")
+      html = submit_batch_purge(view, "DELETE")
+
+      assert html =~ "purge audit could not be saved"
+      refute html =~ constraint
+      assert %Note{} = GaoNote.get_deleted_note(note.id)
+      assert GaoNote.list_logs() == []
+      assert has_element?(view, "#gao-note-recycle-purge-modal")
+      assert has_element?(view, "#gao-note-recycle-batch-toolbar", "1 selected")
+      assert :sys.get_state(view.pid).socket.assigns.batch_selected == MapSet.new([note.id])
+    end
+  end
 
   test "recycle bin remains wrapped in the admin layout", %{conn: conn, user: user} do
     assert {:ok, note} =
@@ -1335,9 +1673,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ "MCP Console Note"
   end
 
-  test "create persists padded Base64 text and real Plug.Upload attachment payloads only on save", %{
-    conn: conn
-  } do
+  test "create persists padded Base64 text and real Plug.Upload attachment payloads only on save",
+       %{
+         conn: conn
+       } do
     {:ok, view, html} = live(conn, ~p"/gao_notes/notes/new")
     render_async(view)
 
@@ -1562,6 +1901,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     render_click(view, "cancel_note")
 
     assert_patch(view, ~p"/gao_notes/notes")
+
     assert %Attachment{storage_file_id: storage_file_id} =
              reload_attachment(note.id, "stable-id")
 
@@ -1961,6 +2301,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert [generated_id] = Floki.attribute(document, "#attachment_id", "value")
     assert String.starts_with?(generated_id, "attachment-")
     assert Floki.attribute(document, "#attachment_path", "value") == ["./client name.txt"]
+
     assert Floki.attribute(document, "#gao-note-attachment-mime", "value") == [
              "Detected from staged bytes"
            ]
@@ -2284,6 +2625,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ "./docs/inventory file.txt"
     assert html =~ "text/plain"
     assert html =~ "Inventory"
+
     assert has_element?(
              view,
              ~s(#note-attachments a[href="/gao_notes/notes/#{note.id}/attachments/docs/inventory%20file.txt"][download="inventory file.txt"]),
@@ -2319,6 +2661,30 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     end)
   end
 
+  defp deleted_note_fixture(user, title) do
+    note = note_fixture(user, title)
+    assert {:ok, %Note{}} = GaoNote.delete_note(note, user)
+    note
+  end
+
+  defp select_recycle_notes(view, notes) do
+    Enum.each(notes, fn note ->
+      render_click(view, "toggle_recycle_note", %{"id" => note.id})
+    end)
+  end
+
+  defp change_batch_purge(view, confirmation) do
+    render_change(view, "change_batch_purge_confirmation", %{
+      "batch_purge" => %{"confirmation" => confirmation}
+    })
+  end
+
+  defp submit_batch_purge(view, confirmation) do
+    render_submit(view, "batch_purge_notes", %{
+      "batch_purge" => %{"confirmation" => confirmation}
+    })
+  end
+
   defp change_batch_label(view, params) do
     render_change(view, "change_batch_label_action", %{"batch_label" => params})
   end
@@ -2342,6 +2708,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
   defp put_live_assign(view, key, value) do
     :sys.replace_state(view.pid, fn state ->
       put_in(state.socket.assigns[key], value)
+    end)
+  end
+
+  defp put_live_testing_mode(view, mode) do
+    :sys.replace_state(view.pid, fn state ->
+      Process.put(:oban_testing, mode)
+      state
     end)
   end
 
@@ -2409,7 +2782,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
         end)
         |> MapSet.new()
 
-      {:error, :enoent} -> MapSet.new()
+      {:error, :enoent} ->
+        MapSet.new()
     end
   end
 
