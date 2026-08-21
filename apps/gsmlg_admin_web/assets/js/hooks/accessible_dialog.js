@@ -17,6 +17,21 @@ const FOCUSABLE_SELECTOR = [
   "el-dm-button:not([disabled])",
 ].join(", ");
 
+export function closeDialogAndFocus(
+  detail,
+  documentRoot = document,
+  schedule = requestAnimationFrame,
+) {
+  const dialogId = typeof detail?.id === "string" ? detail.id : "";
+  if (dialogId) documentRoot.getElementById?.(dialogId)?.close?.();
+
+  const focusSelector =
+    typeof detail?.focus === "string" ? detail.focus.trim() : "";
+  if (!focusSelector) return;
+
+  schedule(() => documentRoot.querySelector?.(focusSelector)?.focus?.());
+}
+
 const AccessibleDialog = {
   mounted() {
     this._accessibleDialogDestroyed = false;

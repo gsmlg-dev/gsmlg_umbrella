@@ -25,15 +25,15 @@ defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
                BatchSelection.toggle_all(MapSet.new(loaded_ids), loaded_ids)
     end
 
-    test "toggle_all/2 preserves an existing hidden selection" do
+    test "toggle_all/2 drops hidden selections at the loaded-only boundary" do
       selected = MapSet.new(["hidden-note"])
 
-      assert MapSet.new(["hidden-note", "note-1", "note-2"]) ==
+      assert MapSet.new(["note-1", "note-2"]) ==
                BatchSelection.toggle_all(selected, ["note-1", "note-2"])
 
       selected = MapSet.new(["hidden-note", "note-1", "note-2"])
 
-      assert MapSet.new(["hidden-note"]) ==
+      assert MapSet.new() ==
                BatchSelection.toggle_all(selected, ["note-1", "note-2"])
     end
 

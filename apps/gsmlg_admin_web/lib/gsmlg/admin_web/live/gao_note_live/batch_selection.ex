@@ -15,9 +15,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchSelection do
     loaded = MapSet.new(loaded_ids)
 
     if MapSet.subset?(loaded, selected) do
-      MapSet.difference(selected, loaded)
+      MapSet.new()
     else
-      MapSet.union(selected, loaded)
+      loaded
     end
   end
 

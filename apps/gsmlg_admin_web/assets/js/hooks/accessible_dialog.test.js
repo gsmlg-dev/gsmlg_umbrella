@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import AccessibleDialog from "./accessible_dialog.js";
+import AccessibleDialog, {
+  closeDialogAndFocus,
+} from "./accessible_dialog.js";
 
 let animationFrames;
 let documentFake;
@@ -292,6 +294,54 @@ describe("accessible dialog hook", () => {
     expect(trigger.focusCount).toBe(1);
     expect(cancelTarget.focusCount).toBe(0);
     expect(host.closeCalls).toBe(0);
+  });
+});
+
+describe("close dialog event helper", () => {
+  test("closes the requested dialog without changing legacy focus behavior", () => {
+    const dialog = {
+      closeCalls: 0,
+      close() {
+        this.closeCalls += 1;
+      },
+    };
+    documentFake.getElementById = (id) =>
+      id === "dialog-id" ? dialog : null;
+
+    closeDialogAndFocus({ id: "dialog-id" });
+
+    expect(dialog.closeCalls).toBe(1);
+    expect(animationFrames.size).toBe(0);
+  });
+
+  test("focuses the requested fallback after the LiveView patch removes the trigger", () => {
+    const dialog = {
+      closeCalls: 0,
+      close() {
+        this.closeCalls += 1;
+      },
+    };
+    const fallback = element(documentFake);
+    const removedTrigger = element(documentFake);
+    removedTrigger.isConnected = false;
+    documentFake.activeElement = removedTrigger;
+    documentFake.getElementById = (id) =>
+      id === "dialog-id" ? dialog : null;
+    documentFake.querySelector = (selector) =>
+      selector === "#gao-note-search-input" ? fallback : null;
+
+    closeDialogAndFocus({
+      id: "dialog-id",
+      focus: "#gao-note-search-input",
+    });
+
+    expect(dialog.closeCalls).toBe(1);
+    expect(fallback.focusCount).toBe(0);
+
+    flushAnimationFrames();
+
+    expect(fallback.focusCount).toBe(1);
+    expect(documentFake.activeElement).toBe(fallback);
   });
 });
 

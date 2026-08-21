@@ -8,6 +8,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   alias GSMLG.Storage.ContentType
   alias Phoenix.LiveView.AsyncResult
 
+  @batch_label_fields ~w(action match_label_setting_id match_value target_label_setting_id target_value)
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket), do: GaoNoteAttachmentTemp.sweep_stale()
@@ -102,6 +104,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     changeset = GaoNote.change_note(%Note{})
 
     socket
+    |> leave_batch_index()
     |> assign(:page_title, "New GaoNote")
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, %Note{})
@@ -115,6 +118,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     selected_labels = Enum.map(note.labels, &label_input_value/1)
 
     socket
+    |> leave_batch_index()
     |> assign(:page_title, "Edit GaoNote")
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, note)
@@ -127,6 +131,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     note = GaoNote.get_note!(id)
 
     socket
+    |> leave_batch_index()
     |> assign(:page_title, note.title)
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, note)
@@ -250,37 +255,36 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
      |> push_event("close-dialog", %{id: "gao-note-batch-label-modal"})}
   end
 
-  def handle_event("change_batch_label_action", %{"batch_label" => params}, socket) do
-    {socket, _operation} = validate_batch_label(socket, params)
-    {:noreply, socket}
+  def handle_event("change_batch_label_action", %{"batch_label" => params}, socket)
+      when is_map(params) do
+    case normalize_batch_label_payload(params) do
+      {:ok, params} ->
+        {socket, _operation} = validate_batch_label(socket, params)
+        {:noreply, socket}
+
+      :error ->
+        {:noreply, assign_malformed_batch_label(socket)}
+    end
   end
 
-  def handle_event("submit_batch_label", %{"batch_label" => params}, socket) do
-    {socket, operation} = validate_batch_label(socket, params)
+  def handle_event("change_batch_label_action", _params, socket),
+    do: {:noreply, assign_malformed_batch_label(socket)}
 
-    if socket.assigns.batch_label_valid? and operation do
-      note_ids = socket.assigns.batch_selected |> MapSet.to_list() |> Enum.sort()
+  def handle_event("submit_batch_label", %{"batch_label" => params}, socket)
+      when is_map(params) do
+    socket = reconcile_batch_selection(socket)
 
-      case GaoNote.batch_mutate_note_labels(note_ids, operation, current_actor(socket)) do
-        {:ok, summary} ->
-          message = batch_label_success_message(summary)
-
-          {:noreply,
-           socket
-           |> put_flash(:info, message)
-           |> push_event("close-dialog", %{id: "gao-note-batch-label-modal"})
-           |> reset_batch_state()
-           |> assign_notes_async(
-             filter_opts(socket.assigns.active_filters),
-             socket.assigns.active_filters
-           )}
-
-        {:error, reason} ->
-          {:noreply, assign(socket, :batch_label_error, batch_label_error(reason))}
-      end
-    else
-      {:noreply, socket}
+    case normalize_batch_label_payload(params) do
+      {:ok, params} -> submit_batch_label(socket, params)
+      :error -> {:noreply, assign_malformed_batch_label(socket)}
     end
+  end
+
+  def handle_event("submit_batch_label", _params, socket) do
+    {:noreply,
+     socket
+     |> reconcile_batch_selection()
+     |> assign_malformed_batch_label()}
   end
 
   def handle_event("open_batch_delete_modal", _params, socket) do
@@ -295,22 +299,33 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   def handle_event("batch_delete_notes", _params, socket) do
-    note_ids = socket.assigns.batch_selected |> MapSet.to_list() |> Enum.sort()
+    socket = reconcile_batch_selection(socket)
 
-    case GaoNote.batch_delete_notes(note_ids, current_actor(socket)) do
-      {:ok, %{deleted: deleted}} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "#{deleted} notes moved to the Recycle Bin")
-         |> push_event("close-dialog", %{id: "gao-note-batch-delete-modal"})
-         |> reset_batch_state()
-         |> assign_notes_async(
-           filter_opts(socket.assigns.active_filters),
-           socket.assigns.active_filters
-         )}
+    case validate_batch_selection(socket.assigns.batch_selected) do
+      :ok ->
+        note_ids = socket.assigns.batch_selected |> MapSet.to_list() |> Enum.sort()
 
-      {:error, reason} ->
-        {:noreply, assign(socket, :batch_delete_error, batch_delete_error(reason))}
+        case GaoNote.batch_delete_notes(note_ids, current_actor(socket)) do
+          {:ok, %{deleted: deleted}} ->
+            {:noreply,
+             socket
+             |> put_flash(:info, "#{deleted} notes moved to the Recycle Bin")
+             |> push_event("close-dialog", %{
+               id: "gao-note-batch-delete-modal",
+               focus: "#gao-note-search-input"
+             })
+             |> reset_batch_state()
+             |> assign_notes_async(
+               filter_opts(socket.assigns.active_filters),
+               socket.assigns.active_filters
+             )}
+
+          {:error, reason} ->
+            {:noreply, assign(socket, :batch_delete_error, batch_delete_error(reason))}
+        end
+
+      {:error, message} ->
+        {:noreply, assign(socket, :batch_delete_error, message)}
     end
   end
 
@@ -1750,6 +1765,20 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     |> reset_batch_label_state()
   end
 
+  defp leave_batch_index(socket) do
+    socket
+    |> cancel_async(:load_batch_index)
+    |> reset_batch_state()
+  end
+
+  defp reconcile_batch_selection(socket) do
+    assign(
+      socket,
+      :batch_selected,
+      BatchSelection.reconcile(socket.assigns.batch_selected, loaded_note_ids(socket))
+    )
+  end
+
   defp reset_batch_label_state(socket) do
     assign(socket,
       batch_label_form: batch_label_form(),
@@ -1757,6 +1786,59 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
       batch_label_error: nil,
       batch_label_valid?: false
     )
+  end
+
+  defp normalize_batch_label_payload(params) do
+    params = Map.take(params, @batch_label_fields)
+
+    valid? =
+      is_binary(params["action"]) and
+        Enum.all?(params, fn {_key, value} -> is_binary(value) end)
+
+    if valid? do
+      {:ok, params}
+    else
+      :error
+    end
+  end
+
+  defp assign_malformed_batch_label(socket) do
+    assign(socket,
+      batch_label_preview: nil,
+      batch_label_error: "Batch label form is invalid. Review the fields and try again.",
+      batch_label_valid?: false
+    )
+  end
+
+  defp submit_batch_label(socket, params) do
+    {socket, operation} = validate_batch_label(socket, params)
+
+    if socket.assigns.batch_label_valid? and operation do
+      note_ids = socket.assigns.batch_selected |> MapSet.to_list() |> Enum.sort()
+
+      case GaoNote.batch_mutate_note_labels(note_ids, operation, current_actor(socket)) do
+        {:ok, summary} ->
+          message = batch_label_success_message(summary)
+
+          {:noreply,
+           socket
+           |> put_flash(:info, message)
+           |> push_event("close-dialog", %{
+             id: "gao-note-batch-label-modal",
+             focus: "#gao-note-search-input"
+           })
+           |> reset_batch_state()
+           |> assign_notes_async(
+             filter_opts(socket.assigns.active_filters),
+             socket.assigns.active_filters
+           )}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, :batch_label_error, batch_label_error(reason))}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   defp validate_batch_label(socket, submitted_params) do
@@ -2304,8 +2386,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           delete_modal_id="gao-note-batch-delete-modal"
         />
 
-        <div :if={MapSet.size(@batch_selected) > 0}>
+        <div>
           <BatchActionComponents.label_modal
+            :if={MapSet.size(@batch_selected) > 0 or @batch_label_error}
             form={@batch_label_form}
             label_options={@batch_label_options}
             selected_count={MapSet.size(@batch_selected)}
@@ -2314,6 +2397,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
             valid?={@batch_label_valid?}
           />
           <BatchActionComponents.soft_delete_modal
+            :if={MapSet.size(@batch_selected) > 0 or @batch_delete_error}
             selected_count={MapSet.size(@batch_selected)}
             error={@batch_delete_error}
           />
