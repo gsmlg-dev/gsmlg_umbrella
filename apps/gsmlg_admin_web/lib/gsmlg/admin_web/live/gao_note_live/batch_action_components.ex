@@ -3,6 +3,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
 
   use GSMLG.AdminWeb, :html
 
+  # Task 5 must browser-verify dialog open persistence, uninterrupted DELETE typing,
+  # Tab/Shift+Tab containment, Escape/Cancel, focus return, and duplicate IDs once routed.
+
   attr :id, :string, required: true
   attr :checked, :boolean, default: false
   attr :state, :atom, default: :none, values: [:none, :mixed, :all]
@@ -37,9 +40,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
     <section
       id="gao-note-batch-toolbar"
       class="flex flex-wrap items-center gap-3 rounded-xl bg-surface-container-high p-3 text-on-surface"
-      aria-live="polite"
     >
-      <span class="text-sm font-medium">{@selected_count} selected</span>
+      <span class="text-sm font-medium" role="status" aria-live="polite">
+        {@selected_count} selected
+      </span>
       <div class="flex flex-wrap items-center gap-2">
         <.dm_btn type="button" size="sm" variant="ghost" phx-click={@clear_event}>
           Clear
@@ -66,7 +70,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
   end
 
   attr :form, :any, required: true
-  attr :action, :string, required: true
   attr :label_options, :list, required: true
   attr :selected_count, :integer, required: true
   attr :preview, :map, default: nil
@@ -76,26 +79,39 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
   def label_modal(assigns) do
     assigns =
       assigns
-      |> assign(:normalized_action, normalize_action(assigns.action))
+      |> assign(
+        :normalized_action,
+        normalize_action(Phoenix.HTML.Form.input_value(assigns.form, :action) || "add")
+      )
       |> assign(:select_options, label_select_options(assigns.label_options))
 
     ~H"""
+    <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#150 --%>
+    <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#143 --%>
     <.dm_modal
       id="gao-note-batch-label-modal"
       size="md"
       class="bg-surface-container-highest text-on-surface"
       dialog_label="Edit selected note labels"
+      phx-mounted={
+        JS.ignore_attributes(["open", "role", "aria-modal", "aria-labelledby", "aria-label"])
+      }
+      phx-hook="AccessibleDialog"
     >
       <:title>Edit labels for {@selected_count} selected notes</:title>
       <:body class="grid gap-4">
         <.dm_alert :if={@error} variant="error">{@error}</.dm_alert>
 
-        <div :if={@preview} class="grid grid-cols-2 gap-3 sm:grid-cols-5" aria-label="Batch preview">
+        <dl
+          :if={@preview}
+          class="grid grid-cols-2 gap-3 sm:grid-cols-5"
+          aria-label="Batch preview"
+        >
           <div :for={{label, value, class} <- preview_items(@preview)} class="grid gap-1">
-            <span class="text-xs text-on-surface-variant">{label}</span>
-            <span class={["text-sm font-semibold", class]}>{value}</span>
+            <dt class="text-xs text-on-surface-variant">{label}</dt>
+            <dd class={["text-sm font-semibold", class]}>{value}</dd>
           </div>
-        </div>
+        </dl>
 
         <.dm_form
           id="gao-note-batch-label-form"
@@ -140,6 +156,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
                 type="button"
                 variant="ghost"
                 onclick={close_dialog("gao-note-batch-label-modal")}
+                data-dialog-initial-focus
               >
                 Cancel
               </.dm_btn>
@@ -164,11 +181,17 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
 
   def soft_delete_modal(assigns) do
     ~H"""
+    <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#150 --%>
+    <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#143 --%>
     <.dm_modal
       id="gao-note-batch-delete-modal"
       size="sm"
       class="bg-surface-container-highest text-on-surface"
       dialog_label="Move selected notes to the Recycle Bin"
+      phx-mounted={
+        JS.ignore_attributes(["open", "role", "aria-modal", "aria-labelledby", "aria-label"])
+      }
+      phx-hook="AccessibleDialog"
     >
       <:title>Move selected notes?</:title>
       <:body class="grid gap-3">
@@ -184,6 +207,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
             type="button"
             variant="ghost"
             onclick={close_dialog("gao-note-batch-delete-modal")}
+            data-dialog-initial-focus
           >
             Cancel
           </.dm_btn>
@@ -210,9 +234,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
     <section
       id="gao-note-recycle-batch-toolbar"
       class="flex flex-wrap items-center gap-3 rounded-xl bg-surface-container-high p-3 text-on-surface"
-      aria-live="polite"
     >
-      <span class="text-sm font-medium">{@selected_count} selected</span>
+      <span class="text-sm font-medium" role="status" aria-live="polite">
+        {@selected_count} selected
+      </span>
       <div class="flex flex-wrap items-center gap-2">
         <.dm_btn type="button" size="sm" variant="ghost" phx-click={@clear_event}>
           Clear
@@ -238,11 +263,17 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
     assigns = assign(assigns, :confirmation_valid?, purge_confirmation_valid?(assigns.form))
 
     ~H"""
+    <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#150 --%>
+    <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#143 --%>
     <.dm_modal
       id="gao-note-recycle-purge-modal"
       size="sm"
       class="bg-surface-container-highest text-on-surface"
       dialog_label="Permanently delete selected notes"
+      phx-mounted={
+        JS.ignore_attributes(["open", "role", "aria-modal", "aria-labelledby", "aria-label"])
+      }
+      phx-hook="AccessibleDialog"
     >
       <:title>Permanently delete selected notes?</:title>
       <:body class="grid gap-4">
@@ -273,6 +304,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
                 type="button"
                 variant="ghost"
                 onclick={close_dialog("gao-note-recycle-purge-modal")}
+                data-dialog-initial-focus
               >
                 Cancel
               </.dm_btn>

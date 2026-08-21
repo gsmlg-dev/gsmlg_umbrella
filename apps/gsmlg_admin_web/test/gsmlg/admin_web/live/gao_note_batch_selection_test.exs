@@ -1,6 +1,9 @@
 defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
   use ExUnit.Case, async: true
 
+  # Task 5 must browser-verify dialog open persistence, uninterrupted DELETE typing,
+  # Tab/Shift+Tab containment, Escape/Cancel, focus return, and duplicate IDs once routed.
+
   import Phoenix.LiveViewTest
 
   alias GSMLG.AdminWeb.GaoNoteLive.{BatchActionComponents, BatchSelection}
@@ -123,6 +126,59 @@ defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
       assert_one_id(purge, "gao-note-recycle-purge-confirm")
     end
 
+    test "every modal preserves client state and installs the accessible dialog workaround" do
+      modal_html = [
+        {render_label_modal("add"), "gao-note-batch-label-modal"},
+        {
+          render_component(&BatchActionComponents.soft_delete_modal/1,
+            selected_count: 2,
+            error: nil
+          ),
+          "gao-note-batch-delete-modal"
+        },
+        {render_purge_modal(""), "gao-note-recycle-purge-modal"}
+      ]
+
+      for {html, id} <- modal_html do
+        document = fragment(html)
+
+        assert [modal] = Floki.find(document, "##{id}")
+        assert Floki.attribute(modal, "phx-hook") == ["AccessibleDialog"]
+        assert [mounted] = Floki.attribute(modal, "phx-mounted")
+        assert mounted =~ "ignore_attrs"
+
+        for attribute <- ~w(open role aria-modal aria-labelledby aria-label) do
+          assert mounted =~ attribute
+        end
+
+        assert [_] = Floki.find(modal, "[data-dialog-initial-focus]")
+      end
+    end
+
+    test "toolbars announce only the changing selected count" do
+      toolbar_html = [
+        render_component(&BatchActionComponents.notes_toolbar/1,
+          selected_count: 2,
+          clear_event: "clear_note_selection",
+          label_modal_id: "gao-note-batch-label-modal",
+          delete_modal_id: "gao-note-batch-delete-modal"
+        ),
+        render_component(&BatchActionComponents.recycle_toolbar/1,
+          selected_count: 2,
+          clear_event: "clear_recycle_selection",
+          purge_modal_id: "gao-note-recycle-purge-modal"
+        )
+      ]
+
+      for html <- toolbar_html do
+        document = fragment(html)
+
+        assert [] = Floki.find(document, "section[aria-live], section[role]")
+        assert [status] = Floki.find(document, ~s(span[role="status"][aria-live="polite"]))
+        assert status |> Floki.text() |> String.trim() == "2 selected"
+      end
+    end
+
     test "label_modal/1 renders only Add fields and a catalog-backed target selector" do
       html = render_label_modal("add")
       document = fragment(html)
@@ -140,6 +196,54 @@ defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
       assert html =~ "Unchanged"
       assert html =~ "Conflict"
       assert html =~ "Preview unavailable"
+    end
+
+    test "label_modal/1 renders its preview as a labelled description list" do
+      document = "add" |> render_label_modal() |> fragment()
+
+      assert [preview] = Floki.find(document, ~s(dl[aria-label="Batch preview"]))
+      assert 5 = preview |> Floki.find("div") |> length()
+
+      assert ["Selected", "Matched", "Changed", "Unchanged", "Conflict"] =
+               preview
+               |> Floki.find("dt")
+               |> Enum.map(&(Floki.text(&1) |> String.trim()))
+
+      assert 5 = preview |> Floki.find("dd") |> length()
+    end
+
+    test "label_modal/1 derives its action from the form instead of a separate assign" do
+      html =
+        render_component(&BatchActionComponents.label_modal/1,
+          form: batch_label_form("delete"),
+          label_options: [{"Project", "label-project"}],
+          selected_count: 1,
+          preview: nil,
+          error: nil,
+          valid?: true
+        )
+
+      document = fragment(html)
+
+      assert [_] = Floki.find(document, ~s(select[name="batch_label[match_label_setting_id]"]))
+      assert [] = Floki.find(document, ~s(select[name="batch_label[target_label_setting_id]"]))
+    end
+
+    test "label_modal/1 defaults a missing form action to Add" do
+      html =
+        render_component(&BatchActionComponents.label_modal/1,
+          form: batch_label_form(nil),
+          label_options: [{"Project", "label-project"}],
+          selected_count: 1,
+          preview: nil,
+          error: nil,
+          valid?: true
+        )
+
+      document = fragment(html)
+
+      assert [] = Floki.find(document, ~s(select[name="batch_label[match_label_setting_id]"]))
+      assert [_] = Floki.find(document, ~s(select[name="batch_label[target_label_setting_id]"]))
     end
 
     test "label_modal/1 renders only Edit fields" do
@@ -196,26 +300,28 @@ defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
   end
 
   defp render_label_modal(action) do
-    form =
-      Phoenix.Component.to_form(
-        %{
-          "action" => action,
-          "match_label_setting_id" => "",
-          "match_value" => "",
-          "target_label_setting_id" => "",
-          "target_value" => ""
-        },
-        as: :batch_label
-      )
+    form = batch_label_form(action)
 
     render_component(&BatchActionComponents.label_modal/1,
       form: form,
-      action: action,
       label_options: [{"Project", "label-project"}, {"Type", "label-type"}],
       selected_count: 3,
       preview: %{selected: 3, matched: 2, changed: 1, unchanged: 1, conflict: 0},
       error: "Preview unavailable",
       valid?: true
+    )
+  end
+
+  defp batch_label_form(action) do
+    Phoenix.Component.to_form(
+      %{
+        "action" => action,
+        "match_label_setting_id" => "",
+        "match_value" => "",
+        "target_label_setting_id" => "",
+        "target_value" => ""
+      },
+      as: :batch_label
     )
   end
 
