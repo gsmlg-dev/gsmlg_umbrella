@@ -6,7 +6,19 @@ defmodule GSMLG.GaoNote do
   import Ecto.Query, warn: false
 
   alias Ecto.Multi
-  alias GSMLG.GaoNote.{Attachments, CategorySetting, Label, LabelSetting, Log, MCPSetting, Note}
+
+  alias GSMLG.GaoNote.{
+    Attachments,
+    Audit,
+    CategorySetting,
+    Label,
+    LabelSetting,
+    LabelValue,
+    Log,
+    MCPSetting,
+    Note
+  }
+
   alias GSMLG.Repo
 
   @default_limit 50
@@ -720,7 +732,7 @@ defmodule GSMLG.GaoNote do
   defp validate_category_value(_label_setting, nil), do: :ok
 
   defp validate_category_value(label_setting, value) do
-    case validate_label_value(label_setting, value) do
+    case LabelValue.classify(label_setting, value) do
       {"valid", []} -> :ok
       {"invalid", errors} -> {:error, {:invalid_category_value, label_setting.id, errors}}
     end
@@ -936,7 +948,7 @@ defmodule GSMLG.GaoNote do
 
       Enum.reduce_while(labels, {:ok, []}, fn label, {:ok, labels} ->
         label_setting = Map.fetch!(label_setting_by_key, label.normalized_key)
-        {status, errors} = validate_label_value(label_setting, label.value)
+        {status, errors} = LabelValue.classify(label_setting, label.value)
 
         attrs = %{
           note_id: note.id,
@@ -1097,73 +1109,6 @@ defmodule GSMLG.GaoNote do
     )
   end
 
-  defp validate_label_value(%LabelSetting{value_type: value_type}, value) do
-    value = value_to_string(value)
-    value_type = value_type || "text"
-
-    case value_type do
-      "text" -> valid_label()
-      "number" -> validate_number_label(value)
-      "version" -> validate_version_label(value)
-      "date" -> validate_date_label(value)
-      "date-time" -> validate_datetime_label(value)
-      "time" -> validate_time_label(value)
-      "year" -> validate_regex_label(value, ~r/^\d{4}$/, "must be YYYY")
-      "year-month" -> validate_regex_label(value, ~r/^\d{4}-(0[1-9]|1[0-2])$/, "must be YYYY-MM")
-      "year-season" -> validate_regex_label(value, ~r/^\d{4}-Q[1-4]$/, "must be YYYY-Q1..YYYY-Q4")
-      _other -> invalid_label("unsupported value type #{value_type}")
-    end
-  end
-
-  defp validate_number_label(value) do
-    case Float.parse(value) do
-      {_number, ""} -> valid_label()
-      _other -> invalid_label("must be a number")
-    end
-  end
-
-  defp validate_version_label(value) do
-    if Regex.match?(~r/^v?\d+(\.\d+){0,3}([+-][0-9A-Za-z.-]+)?$/, value) do
-      valid_label()
-    else
-      invalid_label("must be a version")
-    end
-  end
-
-  defp validate_date_label(value) do
-    case Date.from_iso8601(value) do
-      {:ok, _date} -> valid_label()
-      {:error, _reason} -> invalid_label("must be YYYY-MM-DD")
-    end
-  end
-
-  defp validate_datetime_label(value) do
-    cond do
-      match?({:ok, _datetime, _offset}, DateTime.from_iso8601(value)) ->
-        valid_label()
-
-      match?({:ok, _datetime}, NaiveDateTime.from_iso8601(value)) ->
-        valid_label()
-
-      true ->
-        invalid_label("must be ISO8601 date-time")
-    end
-  end
-
-  defp validate_time_label(value) do
-    case Time.from_iso8601(value) do
-      {:ok, _time} -> valid_label()
-      {:error, _reason} -> invalid_label("must be ISO8601 time")
-    end
-  end
-
-  defp validate_regex_label(value, regex, message) do
-    if Regex.match?(regex, value), do: valid_label(), else: invalid_label(message)
-  end
-
-  defp valid_label, do: {"valid", []}
-  defp invalid_label(message), do: {"invalid", [message]}
-
   defp async_revalidate_labels(%LabelSetting{} = label_setting) do
     fun = fn -> revalidate_labels(label_setting.id) end
 
@@ -1179,7 +1124,7 @@ defmodule GSMLG.GaoNote do
     |> preload(:label_setting)
     |> Repo.all()
     |> Enum.each(fn %Label{label_setting: label_setting, value: value} = label ->
-      {status, errors} = validate_label_value(label_setting, value)
+      {status, errors} = LabelValue.classify(label_setting, value)
 
       label
       |> Label.changeset(%{status: status, errors: errors})
@@ -1187,9 +1132,7 @@ defmodule GSMLG.GaoNote do
     end)
   end
 
-  defp value_to_string(nil), do: ""
-  defp value_to_string(value) when is_binary(value), do: String.trim(value)
-  defp value_to_string(value), do: value |> to_string() |> String.trim()
+  defp value_to_string(value), do: LabelValue.normalize(value)
 
   defp normalize_opts(opts) when is_map(opts) do
     opts
@@ -1236,17 +1179,7 @@ defmodule GSMLG.GaoNote do
 
   defp attachment_update_content(_attrs), do: false
 
-  defp actor_id(%{id: id}) when is_binary(id), do: id
-  defp actor_id(%{id: id}), do: to_string(id)
-  defp actor_id(_actor), do: nil
-
-  defp actor_source(actor) do
-    case actor do
-      %{source: source} when is_binary(source) and source != "" -> source
-      %{"source" => source} when is_binary(source) and source != "" -> source
-      _ -> "admin"
-    end
-  end
+  defp actor_id(actor), do: Audit.actor_id(actor)
 
   defp preload_note(%Note{} = note),
     do: Repo.preload(note, [labels: :label_setting, attachments: :storage_file], force: true)
@@ -1374,19 +1307,8 @@ defmodule GSMLG.GaoNote do
     end
   end
 
-  defp log_action(action, entity_type, entity_id, note_id, actor, details) do
-    %Log{}
-    |> Log.changeset(%{
-      action: action,
-      entity_type: entity_type,
-      entity_id: entity_id,
-      note_id: note_id,
-      actor_id: actor_id(actor),
-      source: actor_source(actor),
-      details: details || %{}
-    })
-    |> Repo.insert()
-  end
+  defp log_action(action, entity_type, entity_id, note_id, actor, details),
+    do: Audit.log(action, entity_type, entity_id, note_id, actor, details)
 
   defp tap_success({:ok, value} = result, fun) do
     _ = fun.(value)
