@@ -37,8 +37,8 @@ beforeEach(() => {
       this.disconnected = true;
     }
 
-    trigger(attributeName = "open") {
-      this.callback([{ attributeName }]);
+    trigger(record = { attributeName: "open" }) {
+      this.callback([typeof record === "string" ? { attributeName: record } : record]);
     }
   };
 
@@ -129,16 +129,25 @@ describe("accessible dialog hook", () => {
 
   test("returns focus and removes containment when the upstream dialog closes", () => {
     const { host, hook, trigger } = mountedDialog();
+    const hostObserver = observerFor(host);
+    const shadowObserver = observerFor(host.shadowRoot);
 
     host.setAttribute("open", "");
-    mutationObservers[0].trigger();
+    hostObserver.trigger();
     flushAnimationFrames();
     host.removeAttribute("open");
-    mutationObservers[0].trigger();
+    hostObserver.trigger();
 
     expect(documentFake.listenerCount("keydown")).toBe(0);
     expect(trigger.focusCount).toBe(1);
     expect(documentFake.activeElement).toBe(trigger);
+    expect(hostObserver.disconnected).toBe(true);
+    expect(shadowObserver.disconnected).toBe(true);
+    expect(observerFor(host)).not.toBe(hostObserver);
+
+    shadowObserver.trigger({ type: "childList" });
+    expect(animationFrames.size).toBe(0);
+    expect(trigger.focusCount).toBe(1);
 
     hook.destroyed();
   });
@@ -157,6 +166,113 @@ describe("accessible dialog hook", () => {
     hook.destroyed();
   });
 
+  test("open synchronization uses replacement shadow semantics and focus targets", () => {
+    const {
+      cancelHost,
+      cancelTarget: oldCancelTarget,
+      host,
+      hostShadow,
+      hook,
+      lastHost,
+    } = mountedDialog();
+    const replacementDialog = element(documentFake);
+    const replacementClose = element(documentFake, { documentActiveHost: host });
+    const replacementCancel = element(documentFake, {
+      documentActiveHost: cancelHost,
+    });
+    const replacementLast = element(documentFake, {
+      documentActiveHost: lastHost,
+    });
+
+    host.setAttribute("open", "");
+    observerFor(host).trigger();
+    replaceShadow({
+      cancelHost,
+      cancelTarget: replacementCancel,
+      closeTarget: replacementClose,
+      dialog: replacementDialog,
+      host,
+      hostShadow,
+      lastHost,
+      lastTarget: replacementLast,
+    });
+
+    const shadowObserver = observerFor(hostShadow);
+    expect(shadowObserver).toBeDefined();
+    shadowObserver?.trigger({ type: "childList" });
+    flushAnimationFrames();
+
+    expect(replacementDialog.getAttribute("role")).toBe("dialog");
+    expect(replacementDialog.getAttribute("aria-modal")).toBe("true");
+    expect(replacementDialog.getAttribute("aria-label")).toBe(
+      "Edit selected labels",
+    );
+    expect(oldCancelTarget.focusCount).toBe(0);
+    expect(replacementCancel.focusCount).toBe(1);
+
+    documentFake.activeElement = lastHost;
+    const tab = keyEvent({ key: "Tab" });
+    documentFake.dispatch("keydown", tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(replacementClose.focusCount).toBe(1);
+
+    documentFake.activeElement = host;
+    hostShadow.activeElement = replacementClose;
+    const shiftTab = keyEvent({ key: "Tab", shiftKey: true });
+    documentFake.dispatch("keydown", shiftTab);
+    expect(shiftTab.defaultPrevented).toBe(true);
+    expect(replacementLast.focusCount).toBe(1);
+
+    hook.destroyed();
+  });
+
+  test("an open shadow replacement refreshes semantics without refocusing Cancel", () => {
+    const {
+      cancelHost,
+      cancelTarget: oldCancelTarget,
+      host,
+      hostShadow,
+      hook,
+      lastHost,
+    } = mountedDialog();
+
+    host.setAttribute("open", "");
+    observerFor(host).trigger();
+    flushAnimationFrames();
+    expect(oldCancelTarget.focusCount).toBe(1);
+
+    const replacementDialog = element(documentFake);
+    const replacementCancel = element(documentFake, {
+      documentActiveHost: cancelHost,
+    });
+    const replacementLast = element(documentFake, {
+      documentActiveHost: lastHost,
+    });
+    replaceShadow({
+      cancelHost,
+      cancelTarget: replacementCancel,
+      closeTarget: element(documentFake, { documentActiveHost: host }),
+      dialog: replacementDialog,
+      host,
+      hostShadow,
+      lastHost,
+      lastTarget: replacementLast,
+    });
+
+    const shadowObserver = observerFor(hostShadow);
+    expect(shadowObserver).toBeDefined();
+    shadowObserver?.trigger({ type: "childList" });
+    flushAnimationFrames();
+
+    expect(replacementDialog.getAttribute("aria-label")).toBe(
+      "Edit selected labels",
+    );
+    expect(oldCancelTarget.focusCount).toBe(1);
+    expect(replacementCancel.focusCount).toBe(0);
+
+    hook.destroyed();
+  });
+
   test("destroyed cancels pending focus, disconnects listeners, restores focus, and clears scroll lock", () => {
     const { cancelTarget, host, hook, trigger } = mountedDialog();
     host.close = () => {
@@ -170,7 +286,7 @@ describe("accessible dialog hook", () => {
     hook.destroyed();
     flushAnimationFrames();
 
-    expect(mutationObservers[0].disconnected).toBe(true);
+    expect(mutationObservers.every(({ disconnected }) => disconnected)).toBe(true);
     expect(documentFake.listenerCount("keydown")).toBe(0);
     expect(documentFake.body.style.overflow).toBe("");
     expect(trigger.focusCount).toBe(1);
@@ -204,7 +320,8 @@ function mountedDialog() {
       "aria-label": "Fallback dialog name",
     },
   });
-  host.shadowRoot = shadowRoot({ dialog: shadowDialog });
+  const hostShadow = shadowRoot({ dialog: shadowDialog });
+  host.shadowRoot = hostShadow;
   host.querySelector = (selector) => {
     if (selector === '[slot="header"]') return title;
     if (selector === "[data-dialog-initial-focus]") return cancelHost;
@@ -223,6 +340,7 @@ function mountedDialog() {
     cancelHost,
     cancelTarget,
     host,
+    hostShadow,
     hook,
     lastHost,
     lastTarget,
@@ -265,9 +383,10 @@ function element(document, options = {}) {
     textContent: options.textContent || "",
     focus() {
       this.focusCount += 1;
-      document.activeElement = options.documentActiveHost || this;
-      if (options.documentActiveHost?.shadowRoot) {
-        options.documentActiveHost.shadowRoot.activeElement = this;
+      document.activeElement = this.documentActiveHost || this;
+      if (this.ownerShadowRoot) this.ownerShadowRoot.activeElement = this;
+      if (this.documentActiveHost?.shadowRoot) {
+        this.documentActiveHost.shadowRoot.activeElement = this;
       }
     },
     getAttribute(name) {
@@ -282,17 +401,58 @@ function element(document, options = {}) {
     setAttribute(name, value) {
       attributes.set(name, String(value));
     },
+    documentActiveHost: options.documentActiveHost || null,
   };
 }
 
 function shadowRoot(options = {}) {
+  const state = { ...options };
+
   return {
     activeElement: null,
     querySelector(selector) {
-      if (selector === '[part="dialog"]') return options.dialog || null;
-      return options.focusTarget || null;
+      if (selector === '[part="dialog"]') return state.dialog || null;
+      return state.focusTarget || null;
+    },
+    querySelectorAll() {
+      return state.focusables || [];
+    },
+    replace(replacement) {
+      Object.assign(state, replacement);
     },
   };
+}
+
+function observerFor(target) {
+  return (
+    [...mutationObservers]
+      .reverse()
+      .find((observer) => observer.target === target && !observer.disconnected) ||
+    [...mutationObservers].reverse().find((observer) => observer.target === target)
+  );
+}
+
+function replaceShadow({
+  cancelHost,
+  cancelTarget,
+  closeTarget,
+  dialog,
+  host,
+  hostShadow,
+  lastHost,
+  lastTarget,
+}) {
+  closeTarget.documentActiveHost = host;
+  closeTarget.ownerShadowRoot = hostShadow;
+  hostShadow.replace({ dialog, focusables: [closeTarget] });
+
+  cancelTarget.documentActiveHost = cancelHost;
+  cancelTarget.ownerShadowRoot = cancelHost.shadowRoot;
+  cancelHost.shadowRoot.replace({ focusTarget: cancelTarget });
+
+  lastTarget.documentActiveHost = lastHost;
+  lastTarget.ownerShadowRoot = lastHost.shadowRoot;
+  lastHost.shadowRoot.replace({ focusTarget: lastTarget });
 }
 
 function keyEvent({ key, shiftKey = false }) {

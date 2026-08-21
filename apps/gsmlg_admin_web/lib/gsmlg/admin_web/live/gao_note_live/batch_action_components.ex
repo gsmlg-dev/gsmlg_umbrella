@@ -329,7 +329,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
 
   defp normalize_action(action) when is_binary(action) do
     case String.downcase(action) do
-      "add" -> :add
+      action when action in ["", "add"] -> :add
       "edit" -> :edit
       "delete" -> :delete
       _other -> :unknown

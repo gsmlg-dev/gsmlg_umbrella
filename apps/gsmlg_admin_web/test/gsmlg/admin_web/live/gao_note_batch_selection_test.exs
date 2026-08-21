@@ -246,6 +246,15 @@ defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
       assert [_] = Floki.find(document, ~s(select[name="batch_label[target_label_setting_id]"]))
     end
 
+    test "label_modal/1 defaults an empty form action to Add" do
+      document = "" |> render_label_modal() |> fragment()
+
+      assert [] = Floki.find(document, ~s(select[name="batch_label[match_label_setting_id]"]))
+      assert [_] = Floki.find(document, ~s(select[name="batch_label[target_label_setting_id]"]))
+      assert [submit] = Floki.find(document, "#gao-note-batch-label-submit")
+      assert submit |> Floki.text() |> String.trim() == "Add label"
+    end
+
     test "label_modal/1 renders only Edit fields" do
       document = "edit" |> render_label_modal() |> fragment()
 

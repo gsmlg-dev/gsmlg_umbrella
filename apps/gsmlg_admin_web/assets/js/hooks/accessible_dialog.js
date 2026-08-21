@@ -23,6 +23,7 @@ const AccessibleDialog = {
     this._accessibleDialogOpen = false;
     this._accessibleDialogInvoker = null;
     this._accessibleDialogFocusFrame = null;
+    this._accessibleDialogFocusOnSync = false;
     this._accessibleDialogKeyListenerInstalled = false;
     this._accessibleDialogFallbackLabel =
       this.el.getAttribute("aria-label")?.trim() || "";
@@ -31,17 +32,8 @@ const AccessibleDialog = {
     this._configureDialogSemantics();
     this._refreshDialogFocusables();
 
-    this._accessibleDialogObserver = new MutationObserver((mutations) => {
-      if (mutations.some(({ attributeName }) => attributeName === "open")) {
-        this._configureDialogSemantics();
-        this._syncDialogOpenState();
-      }
-    });
-    this._accessibleDialogObserver.observe(this.el, {
-      attributes: true,
-      attributeFilter: ["open"],
-    });
-
+    this._observeDialogHost();
+    this._observeDialogShadow();
     this._syncDialogOpenState();
   },
 
@@ -50,13 +42,14 @@ const AccessibleDialog = {
 
     this._configureDialogSemantics();
     this._refreshDialogFocusables();
+    this._observeDialogShadow();
     this._syncDialogOpenState();
   },
 
   destroyed() {
     this._accessibleDialogDestroyed = true;
-    this._accessibleDialogObserver?.disconnect();
-    this._accessibleDialogObserver = null;
+    this._disconnectDialogHostObserver();
+    this._disconnectDialogShadowObserver();
     this._cancelDialogFocusFrame();
     this._removeDialogKeyListener();
 
@@ -114,25 +107,104 @@ const AccessibleDialog = {
     }
 
     this._accessibleDialogOpen = true;
-    this._refreshDialogFocusables();
+    this._observeDialogShadow();
     this._installDialogKeyListener();
-    this._cancelDialogFocusFrame();
-    this._accessibleDialogFocusFrame = requestAnimationFrame(() => {
-      this._accessibleDialogFocusFrame = null;
-      if (this._accessibleDialogDestroyed || !this._accessibleDialogOpen) return;
-
-      this._focusDialogItem(
-        this._accessibleDialogInitialFocusable ||
-          this._accessibleDialogFocusables[0],
-      );
-    });
+    this._scheduleDialogSynchronization(true);
   },
 
   _closeAccessibleDialog() {
     this._accessibleDialogOpen = false;
     this._cancelDialogFocusFrame();
+    this._disconnectDialogHostObserver();
+    this._disconnectDialogShadowObserver();
     this._removeDialogKeyListener();
     this._restoreDialogFocus();
+    if (!this._accessibleDialogDestroyed) this._observeDialogHost();
+  },
+
+  _scheduleDialogSynchronization(focusInitial = false) {
+    this._accessibleDialogFocusOnSync ||= focusInitial;
+    if (this._accessibleDialogFocusFrame !== null) return;
+
+    this._accessibleDialogFocusFrame = requestAnimationFrame(() => {
+      this._accessibleDialogFocusFrame = null;
+      if (this._accessibleDialogDestroyed) return;
+
+      const shouldFocusInitial = this._accessibleDialogFocusOnSync;
+      this._accessibleDialogFocusOnSync = false;
+      this._configureDialogSemantics();
+      this._refreshDialogFocusables();
+      this._observeDialogShadow();
+
+      if (shouldFocusInitial && this._accessibleDialogOpen) {
+        this._focusDialogItem(
+          this._accessibleDialogInitialFocusable ||
+            this._accessibleDialogFocusables[0],
+        );
+      }
+    });
+  },
+
+  _observeDialogShadow() {
+    const shadowRoot = this.el.shadowRoot;
+    if (!shadowRoot) return;
+    if (
+      this._accessibleDialogShadowObserver &&
+      this._accessibleDialogObservedShadow === shadowRoot
+    ) {
+      return;
+    }
+
+    this._disconnectDialogShadowObserver();
+    this._accessibleDialogObservedShadow = shadowRoot;
+    const observer = new MutationObserver(() => {
+      if (
+        this._accessibleDialogDestroyed ||
+        this._accessibleDialogShadowObserver !== observer
+      ) {
+        return;
+      }
+
+      this._scheduleDialogSynchronization(false);
+    });
+    this._accessibleDialogShadowObserver = observer;
+    observer.observe(shadowRoot, {
+      childList: true,
+      subtree: true,
+    });
+  },
+
+  _observeDialogHost() {
+    if (this._accessibleDialogObserver) return;
+
+    const observer = new MutationObserver((mutations) => {
+      if (
+        this._accessibleDialogDestroyed ||
+        this._accessibleDialogObserver !== observer
+      ) {
+        return;
+      }
+
+      if (mutations.some(({ attributeName }) => attributeName === "open")) {
+        this._syncDialogOpenState();
+      }
+    });
+    this._accessibleDialogObserver = observer;
+    observer.observe(this.el, {
+      attributes: true,
+      attributeFilter: ["open"],
+    });
+  },
+
+  _disconnectDialogHostObserver() {
+    this._accessibleDialogObserver?.disconnect();
+    this._accessibleDialogObserver = null;
+  },
+
+  _disconnectDialogShadowObserver() {
+    this._accessibleDialogShadowObserver?.disconnect();
+    this._accessibleDialogShadowObserver = null;
+    this._accessibleDialogObservedShadow = null;
   },
 
   _refreshDialogFocusables() {
@@ -166,6 +238,7 @@ const AccessibleDialog = {
   _containDialogFocus(event) {
     if (event.key !== "Tab" || event.defaultPrevented) return;
 
+    this._refreshDialogFocusables();
     const focusables = this._accessibleDialogFocusables || [];
     if (focusables.length === 0) return;
 
@@ -235,6 +308,7 @@ const AccessibleDialog = {
 
     cancelAnimationFrame(this._accessibleDialogFocusFrame);
     this._accessibleDialogFocusFrame = null;
+    this._accessibleDialogFocusOnSync = false;
   },
 
   _restoreDialogFocus() {
