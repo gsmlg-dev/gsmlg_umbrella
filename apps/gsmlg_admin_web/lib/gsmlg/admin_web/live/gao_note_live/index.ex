@@ -78,7 +78,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
       {:noreply,
        assign(socket,
          notes: AsyncResult.failed(socket.assigns.notes, :load_failed),
-         batch_label_settings: AsyncResult.failed(socket.assigns.batch_label_settings, :load_failed)
+         batch_label_settings:
+           AsyncResult.failed(socket.assigns.batch_label_settings, :load_failed)
        )}
     else
       {:noreply, socket}
@@ -2091,6 +2092,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   defp loaded_notes(socket), do: async_value(socket.assigns.notes, [])
+
   defp loaded_note_ids(%{assigns: %{live_action: :index, notes: %AsyncResult{ok?: true} = notes}}),
     do: notes.result |> List.wrap() |> Enum.map(& &1.id)
 
