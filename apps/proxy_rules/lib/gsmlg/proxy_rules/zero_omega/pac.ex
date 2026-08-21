@@ -4,7 +4,7 @@ defmodule GSMLG.ProxyRules.ZeroOmega.PAC do
   """
 
   alias GSMLG.ProxyRules.Domain
-  alias GSMLG.ProxyRules.ZeroOmega.{Diagnostic, Policy, Rule}
+  alias GSMLG.ProxyRules.ZeroOmega.{Diagnostic, Policy, Rule, Text}
 
   @spec normalize_proxy(binary()) :: {:ok, binary()} | {:error, Diagnostic.t()}
   def normalize_proxy(proxy) when is_binary(proxy) do
@@ -50,10 +50,9 @@ defmodule GSMLG.ProxyRules.ZeroOmega.PAC do
   end
 
   defp valid_proxy_text?(proxy) do
-    proxy != "" and String.valid?(proxy) and
+    proxy != "" and Text.safe_line?(proxy) and
       not Regex.match?(~r/\s/u, proxy) and
-      not String.contains?(proxy, ["'", "\"", "\\", "/", "@", "?", "#"]) and
-      not Enum.any?(:binary.bin_to_list(proxy), &(&1 < 32 or &1 == 127))
+      not String.contains?(proxy, ["'", "\"", "\\", "/", "@", "?", "#"])
   end
 
   defp parse_proxy(proxy) do

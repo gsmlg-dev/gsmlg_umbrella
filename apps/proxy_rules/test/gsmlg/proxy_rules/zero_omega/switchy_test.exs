@@ -118,6 +118,7 @@ defmodule GSMLG.ProxyRules.ZeroOmega.SwitchyTest do
           [match_profile: ""],
           [match_profile: "bad+profile"],
           [default_profile: "bad\nprofile"],
+          [default_profile: "bad\u2028profile"],
           [match_profile: "same", default_profile: "same"]
         ] do
       assert {:error, [%Diagnostic{code: :ambiguous_profile_name}]} =

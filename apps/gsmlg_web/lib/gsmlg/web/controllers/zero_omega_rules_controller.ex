@@ -31,7 +31,11 @@ defmodule GSMLG.Web.ZeroOmegaRulesController do
   end
 
   defp decode_query_pairs(query_string) do
-    {:ok, query_string |> URI.query_decoder() |> Enum.to_list()}
+    if String.contains?(query_string, "+") do
+      {:error, :ambiguous_plus}
+    else
+      {:ok, query_string |> URI.query_decoder() |> Enum.to_list()}
+    end
   rescue
     _error -> {:error, :invalid_query}
   end

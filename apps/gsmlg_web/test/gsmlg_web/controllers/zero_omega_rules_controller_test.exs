@@ -52,6 +52,16 @@ defmodule GSMLG.Web.ZeroOmegaRulesControllerTest do
     assert String.ends_with?(body, "* +local\r\n")
   end
 
+  test "distinguishes encoded profile spaces from ambiguous plus signs", %{conn: conn} do
+    conn =
+      get(
+        conn,
+        "/rules/zeroomega/switchy?mode=result&match_profile=foo%20bar&default_profile=local"
+      )
+
+    assert response(conn, 200) =~ "*.proxy.example +foo bar\r\n"
+  end
+
   test "serves a parameterized PAC document", %{conn: conn} do
     conn = get(conn, "/rules/zeroomega/pac?proxy=10.100.0.1%3A3128")
     body = response(conn, 200)
@@ -119,6 +129,7 @@ defmodule GSMLG.Web.ZeroOmegaRulesControllerTest do
       "/rules/zeroomega/pac?proxy=proxy.example%3A3128&unknown=value",
       "/rules/zeroomega/pac?proxy=user%40proxy.example%3A3128",
       "/rules/zeroomega/switchy?mode=unknown",
+      "/rules/zeroomega/switchy?match_profile=foo+bar",
       "/rules/zeroomega/switchy?match_profile=bad%2Bprofile",
       "/rules/zeroomega/switchy?mode=binary&mode=result"
     ]

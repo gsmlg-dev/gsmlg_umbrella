@@ -15,7 +15,7 @@ defmodule GSMLG.ProxyRules.Compiler do
   }
 
   alias GSMLG.ProxyRules.Parser.{GFWList, Local}
-  alias GSMLG.ProxyRules.ZeroOmega.{Normalizer, PAC, PublishedPolicy, Switchy}
+  alias GSMLG.ProxyRules.ZeroOmega.{PAC, PublishedPolicy, Switchy}
 
   @type input :: %{
           required(:remote) => binary(),
@@ -151,9 +151,8 @@ defmodule GSMLG.ProxyRules.Compiler do
       )
 
     with {:ok, policy} <- PublishedPolicy.to_policy(published),
-         {:ok, normalized} <- Normalizer.normalize_policy(policy),
-         {:ok, _body} <- Switchy.render(normalized),
-         :ok <- PAC.validate_policy(normalized) do
+         {:ok, _body} <- Switchy.render(policy),
+         :ok <- PAC.validate_policy(policy) do
       {:ok, published}
     end
   end

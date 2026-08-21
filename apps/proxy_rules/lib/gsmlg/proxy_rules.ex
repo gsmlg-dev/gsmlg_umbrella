@@ -48,8 +48,7 @@ defmodule GSMLG.ProxyRules do
     with {:ok, snapshot} <- Store.current(),
          {:ok, policy} <- PublishedPolicy.to_policy(snapshot.zeroomega_policy),
          {:ok, output} <-
-           policy
-           |> Export.normalize()
+           {:ok, policy}
            |> Export.validate_for(format, options)
            |> Export.render() do
       {:ok,

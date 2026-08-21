@@ -8,6 +8,8 @@ defmodule GSMLG.ProxyRules.ZeroOmega.PublishedPolicy do
 
   alias GSMLG.ProxyRules.ZeroOmega.{Diagnostic, Normalizer, Policy, Rule}
 
+  @default_max_rules 100_000
+
   @enforce_keys [:revision, :direct_domains, :proxy_domains]
   defstruct @enforce_keys
 
@@ -27,21 +29,34 @@ defmodule GSMLG.ProxyRules.ZeroOmega.PublishedPolicy do
     }
   end
 
-  @spec to_policy(t()) :: {:ok, Policy.t()} | {:error, [Diagnostic.t()]}
-  def to_policy(%__MODULE__{direct_domains: direct, proxy_domains: proxy} = published)
-      when is_binary(direct) and is_binary(proxy) do
-    direct = decode_rules(published.direct_domains, :default, 0)
-    proxy = decode_rules(published.proxy_domains, :match, length(direct))
+  @spec to_policy(t(), keyword()) :: {:ok, Policy.t()} | {:error, [Diagnostic.t()]}
+  def to_policy(published, options \\ [])
 
-    %Policy{
-      revision: published.revision,
-      default_action: :default,
-      rules: direct ++ proxy
-    }
-    |> Normalizer.normalize_policy()
+  def to_policy(
+        %__MODULE__{direct_domains: direct_body, proxy_domains: proxy_body} = published,
+        options
+      )
+      when is_binary(direct_body) and is_binary(proxy_body) and is_list(options) do
+    max_rules = Keyword.get(options, :max_rules, @default_max_rules)
+
+    with true <- is_integer(max_rules) and max_rules >= 0,
+         {:ok, direct_count} <- bounded_line_count(direct_body, max_rules),
+         {:ok, _total_count} <- bounded_line_count(proxy_body, max_rules, direct_count) do
+      direct = decode_rules(direct_body, :default, 0)
+      proxy = decode_rules(proxy_body, :match, direct_count)
+
+      %Policy{
+        revision: published.revision,
+        default_action: :default,
+        rules: direct ++ proxy
+      }
+      |> Normalizer.normalize_policy()
+    else
+      _invalid -> too_many_rules()
+    end
   end
 
-  def to_policy(_published) do
+  def to_policy(_published, _options) do
     {:error, [Diagnostic.error(:invalid_rule, "Published policy has an invalid shape")]}
   end
 
@@ -78,6 +93,28 @@ defmodule GSMLG.ProxyRules.ZeroOmega.PublishedPolicy do
     end)
   end
 
+  defp bounded_line_count(body, limit, count \\ 0)
+
+  defp bounded_line_count(_body, limit, count) when count > limit,
+    do: {:error, :too_many_rules}
+
+  defp bounded_line_count(<<>>, _limit, count), do: {:ok, count}
+
+  defp bounded_line_count(body, limit, count) do
+    case :binary.match(body, "\n") do
+      {index, 1} when count < limit ->
+        rest_start = index + 1
+        rest = binary_part(body, rest_start, byte_size(body) - rest_start)
+        bounded_line_count(rest, limit, count + 1)
+
+      {_index, 1} ->
+        {:error, :too_many_rules}
+
+      :nomatch ->
+        if body == "", do: {:ok, count}, else: bounded_line_count(<<>>, limit, count + 1)
+    end
+  end
+
   defp validate_operational_rules(rules) when is_list(rules) do
     if Enum.all?(rules, fn
          %Rule{condition: {:domain_suffix, domain}, action: action}
@@ -100,5 +137,10 @@ defmodule GSMLG.ProxyRules.ZeroOmega.PublishedPolicy do
 
   defp domains_for(rules, action) do
     for %Rule{condition: {:domain_suffix, domain}, action: ^action} <- rules, do: domain
+  end
+
+  defp too_many_rules do
+    {:error,
+     [Diagnostic.error(:invalid_rule, "Published policy has too many rules", field: :rules)]}
   end
 end

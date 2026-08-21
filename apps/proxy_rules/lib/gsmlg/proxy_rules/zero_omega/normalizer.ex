@@ -4,7 +4,7 @@ defmodule GSMLG.ProxyRules.ZeroOmega.Normalizer do
   """
 
   alias GSMLG.ProxyRules.Domain
-  alias GSMLG.ProxyRules.ZeroOmega.{Diagnostic, Policy, Rule}
+  alias GSMLG.ProxyRules.ZeroOmega.{Diagnostic, Policy, Rule, Text}
 
   @supported_conditions [
     :domain_suffix,
@@ -391,8 +391,7 @@ defmodule GSMLG.ProxyRules.ZeroOmega.Normalizer do
   end
 
   defp validate_text(value, rule_id, field) do
-    if String.valid?(value) and
-         not Enum.any?(:binary.bin_to_list(value), &(&1 < 32 or &1 == 127)) do
+    if Text.safe_line?(value) do
       :ok
     else
       {:error,

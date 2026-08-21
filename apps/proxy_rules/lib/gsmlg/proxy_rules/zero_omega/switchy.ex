@@ -3,7 +3,7 @@ defmodule GSMLG.ProxyRules.ZeroOmega.Switchy do
   Pure SwitchyOmega Conditions renderer.
   """
 
-  alias GSMLG.ProxyRules.ZeroOmega.{Diagnostic, Policy, Rule}
+  alias GSMLG.ProxyRules.ZeroOmega.{Diagnostic, Policy, Rule, Text}
 
   @special_host_glob_leaders ~c"[;#@!+"
 
@@ -43,9 +43,8 @@ defmodule GSMLG.ProxyRules.ZeroOmega.Switchy do
   defp normalize_profile(profile) when is_binary(profile) do
     normalized = String.trim(profile)
 
-    if normalized != "" and String.valid?(normalized) and
-         not String.contains?(normalized, "+") and
-         not Enum.any?(:binary.bin_to_list(normalized), &(&1 < 32 or &1 == 127)) do
+    if normalized != "" and Text.safe_line?(normalized) and
+         not String.contains?(normalized, "+") do
       {:ok, normalized}
     else
       {:error, :ambiguous_profile_name}

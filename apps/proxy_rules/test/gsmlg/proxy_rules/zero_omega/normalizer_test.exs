@@ -97,6 +97,15 @@ defmodule GSMLG.ProxyRules.ZeroOmega.NormalizerTest do
     assert Enum.all?(diagnostics, &(&1.severity == :error))
   end
 
+  test "rejects Unicode control and line-separator characters" do
+    for value <- ["bad\u0085value", "bad\u2028value", "bad\u2029value"] do
+      input = policy([rule("unicode", 1, {:keyword, "safe"}, :match, 0, note: value)])
+
+      assert {:error, [%Diagnostic{code: :line_injection, rule_id: "unicode", field: :note}]} =
+               Normalizer.normalize_policy(input)
+    end
+  end
+
   test "rejects missing defaults, malformed rules, and unsupported conditions" do
     missing_default = %Policy{revision: "rev", default_action: nil, rules: []}
 

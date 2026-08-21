@@ -35,4 +35,11 @@ defmodule GSMLG.ProxyRules.ZeroOmega.PublishedPolicyTest do
     assert published.proxy_domains == ""
     assert {:ok, %Policy{rules: []}} = PublishedPolicy.to_policy(published)
   end
+
+  test "rejects excessive rules before expanding the domain bodies" do
+    published = PublishedPolicy.new("3", [], ["one.example", "two.example", "three.example"])
+
+    assert {:error, [%{code: :invalid_rule, field: :rules}]} =
+             PublishedPolicy.to_policy(published, max_rules: 2)
+  end
 end

@@ -11,7 +11,7 @@ defmodule GSMLG.ProxyRules.Persistence do
   }
 
   alias GSMLG.ProxyRules.Parser.GFWList
-  alias GSMLG.ProxyRules.ZeroOmega.{PAC, PublishedPolicy}
+  alias GSMLG.ProxyRules.ZeroOmega.{PAC, PublishedPolicy, Text}
 
   @artifact_file "artifact.snapshot"
   @transaction_file ".artifact.snapshot.transaction"
@@ -800,9 +800,7 @@ defmodule GSMLG.ProxyRules.Persistence do
     total_bytes = byte_size(direct) + byte_size(proxy)
 
     with true <- total_bytes <= @max_output_bytes,
-         {:ok, policy} <- PublishedPolicy.to_policy(published),
-         true <-
-           length(Enum.take(policy.rules, @max_zeroomega_rules + 1)) <= @max_zeroomega_rules,
+         {:ok, policy} <- PublishedPolicy.to_policy(published, max_rules: @max_zeroomega_rules),
          {:ok, rebuilt} <- PublishedPolicy.from_policy(policy),
          true <- rebuilt == published,
          :ok <- PAC.validate_policy(policy) do
@@ -815,8 +813,7 @@ defmodule GSMLG.ProxyRules.Persistence do
   defp valid_zeroomega_domain_bodies?(_published), do: false
 
   defp bounded_text?(value, max_bytes) do
-    is_binary(value) and byte_size(value) <= max_bytes and String.valid?(value) and
-      not Enum.any?(:binary.bin_to_list(value), &(&1 < 32 or &1 == 127))
+    is_binary(value) and byte_size(value) <= max_bytes and Text.safe_line?(value)
   end
 
   defp valid_output_formats?(%{raw: raw, squid: squid, clash: clash} = formats)
