@@ -82,6 +82,8 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     assert has_element?(view, "#proxy-rules-source-local-proxy-list", "Not available")
     assert has_element?(view, "#proxy-rules-source-local-direct-list", "Not available")
     assert has_element?(view, "#proxy-rules-artifacts-empty", "No artifacts have been published.")
+    refute render(view) =~ "/rules/zeroomega/switchy"
+    refute render(view) =~ "/rules/zeroomega/pac"
     refute has_element?(view, "#proxy-rules-artifacts a")
   end
 
@@ -114,7 +116,9 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
     end
   end
 
-  test "renders summary, sources, bounded diagnostics, and six absolute artifacts", %{conn: conn} do
+  test "renders summary, sources, bounded diagnostics, and eight absolute artifacts", %{
+    conn: conn
+  } do
     snapshot = fixture_snapshot()
     replace_sources(snapshot.source_versions)
     replace_current(snapshot, :ready, nil)
@@ -158,6 +162,27 @@ defmodule GSMLG.AdminWeb.ProxyRulesLiveTest do
 
       assert has_element?(view, "#proxy-rules-artifacts [title='#{output.etag}']")
     end
+
+    switchy_url =
+      "#{base_url}/rules/zeroomega/switchy?mode=result&match_profile=squid&default_profile=direct"
+
+    pac_url = "#{base_url}/rules/zeroomega/pac?proxy=10.100.0.1:3128"
+
+    assert has_element?(
+             view,
+             "#proxy-rules-artifacts a[href='#{switchy_url}']" <>
+               "[aria-label='Download Proxy + Direct Switchy result']"
+           )
+
+    assert has_element?(
+             view,
+             "#proxy-rules-artifacts a[href='#{pac_url}']" <>
+               "[aria-label='Download Proxy + Direct PAC']"
+           )
+
+    assert has_element?(view, "#proxy-rules-artifacts-table", "Proxy + Direct")
+    assert has_element?(view, "#proxy-rules-artifacts-table", "Parameterized")
+    assert has_element?(view, "#proxy-rules-artifacts-table", "2026-07-23 01:02:03Z")
 
     assert has_element?(view, "section > #proxy-rules-artifacts-heading")
 

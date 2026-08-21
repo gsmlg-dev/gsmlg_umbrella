@@ -498,9 +498,15 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
             >
               <:col :let={artifact} label="List">{artifact.list_label}</:col>
               <:col :let={artifact} label="Format">{artifact.format_label}</:col>
-              <:col :let={artifact} label="Size">{format_bytes(artifact.content_length)}</:col>
+              <:col :let={artifact} label="Size">
+                <span :if={artifact.parameterized}>Parameterized</span>
+                <span :if={!artifact.parameterized}>{format_bytes(artifact.content_length)}</span>
+              </:col>
               <:col :let={artifact} label="ETag">
-                <span class="font-mono" title={artifact.etag}>{short_etag(artifact.etag)}</span>
+                <span :if={artifact.parameterized}>Parameterized</span>
+                <span :if={!artifact.parameterized} class="font-mono" title={artifact.etag}>
+                  {short_etag(artifact.etag)}
+                </span>
               </:col>
               <:col :let={artifact} label="Last modified">
                 {display_datetime(artifact.last_modified)}
@@ -586,7 +592,11 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
       viewer_gfwlist: source_for_viewer(sources, :remote_gfwlist),
       viewer_local_proxy: source_for_viewer(sources, :local_proxy),
       viewer_local_direct: source_for_viewer(sources, :local_direct),
-      artifacts: artifact_rows(Map.get(metadata, :rendered_outputs, %{})),
+      artifacts:
+        artifact_rows(
+          Map.get(metadata, :rendered_outputs, %{}),
+          Map.get(metadata, :compiled_at)
+        ),
       diagnostic_counts: diagnostic_counts(statistics, source_statistics),
       diagnostic_samples:
         metadata |> Map.get(:diagnostics, []) |> Enum.take(@diagnostic_sample_limit),
@@ -620,28 +630,61 @@ defmodule GSMLG.AdminWeb.ProxyRulesLive.Index do
     end)
   end
 
-  defp artifact_rows(outputs) do
+  defp artifact_rows(outputs, compiled_at) do
     base_url = GSMLG.Web.Endpoint.url()
 
-    Enum.flat_map(@artifact_paths, fn
-      {list, list_label, format, format_label, list_path, format_path} ->
-        case get_in(outputs, [list, format]) do
-          output when is_map(output) ->
-            [
-              %{
-                list_label: list_label,
-                format_label: format_label,
-                content_length: Map.get(output, :content_length),
-                etag: Map.get(output, :etag),
-                last_modified: Map.get(output, :last_modified),
-                url: "#{base_url}/api/proxy-rules/#{list_path}/#{format_path}"
-              }
-            ]
+    fixed_rows =
+      Enum.flat_map(@artifact_paths, fn
+        {list, list_label, format, format_label, list_path, format_path} ->
+          case get_in(outputs, [list, format]) do
+            output when is_map(output) ->
+              [
+                %{
+                  list_label: list_label,
+                  format_label: format_label,
+                  content_length: Map.get(output, :content_length),
+                  etag: Map.get(output, :etag),
+                  last_modified: Map.get(output, :last_modified),
+                  parameterized: false,
+                  url: "#{base_url}/api/proxy-rules/#{list_path}/#{format_path}"
+                }
+              ]
 
-          _missing ->
-            []
-        end
-    end)
+            _missing ->
+              []
+          end
+      end)
+
+    if fixed_rows == [] do
+      []
+    else
+      fixed_rows ++ parameterized_artifact_rows(base_url, compiled_at)
+    end
+  end
+
+  defp parameterized_artifact_rows(base_url, compiled_at) do
+    [
+      %{
+        list_label: "Proxy + Direct",
+        format_label: "Switchy result",
+        content_length: nil,
+        etag: nil,
+        last_modified: compiled_at,
+        parameterized: true,
+        url:
+          "#{base_url}/rules/zeroomega/switchy?" <>
+            "mode=result&match_profile=squid&default_profile=direct"
+      },
+      %{
+        list_label: "Proxy + Direct",
+        format_label: "PAC",
+        content_length: nil,
+        etag: nil,
+        last_modified: compiled_at,
+        parameterized: true,
+        url: "#{base_url}/rules/zeroomega/pac?proxy=10.100.0.1:3128"
+      }
+    ]
   end
 
   defp source_for_viewer(sources, key) do
