@@ -1,0 +1,8 @@
+[SwitchyOmega Conditions]
+@with result
+
+*.google.com +squid
+*.corp.example.com +corp-proxy
+!*.internal.example.com
+
+* +direct
