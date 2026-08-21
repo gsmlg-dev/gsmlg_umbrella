@@ -7,23 +7,23 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     plug(:match)
     plug(:dispatch)
 
-    put "/*path" do
+    Plug.Router.put "/*path" do
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       notify({:s3_put, conn.request_path, body})
       send_resp(conn, 200, "")
     end
 
-    get "/*path" do
+    Plug.Router.get "/*path" do
       notify({:s3_get, conn.request_path})
       send_resp(conn, 206, Application.get_env(:gsmlg_storage, :gao_note_live_test_object, ""))
     end
 
-    delete "/*path" do
+    Plug.Router.delete "/*path" do
       notify({:s3_delete, conn.request_path})
       send_resp(conn, 204, "")
     end
 
-    match _, do: send_resp(conn, 200, "")
+    Plug.Router.match(_, do: send_resp(conn, 200, ""))
 
     defp notify(message) do
       if pid = Application.get_env(:gsmlg_storage, :gao_note_live_test_pid) do
@@ -92,7 +92,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
         {key, :error} -> Application.delete_env(:gsmlg_storage, key)
       end)
 
-      if Process.alive?(s3_stub), do: GenServer.stop(s3_stub)
+      if Process.alive?(s3_stub) do
+        try do
+          GenServer.stop(s3_stub)
+        catch
+          :exit, _reason -> :ok
+        end
+      end
     end)
 
     user = user_fixture()
@@ -142,6 +148,380 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/references")
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/assets")
     refute html =~ ~s(id="gao-note-table-loading")
+  end
+
+  describe "Notes batch actions" do
+    @describetag :gao_note_batch_actions
+
+    test "notes table selection moves from none to mixed to all and clears", %{
+      conn: conn,
+      user: user
+    } do
+      first = note_fixture(user, "Select First")
+      second = note_fixture(user, "Select Second")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+
+      assert has_element?(view, "#gao-note-select-all[data-state='none']")
+      refute has_element?(view, "#gao-note-batch-toolbar")
+
+      render_click(view, "toggle_batch_note", %{"id" => first.id})
+      assert has_element?(view, "#gao-note-select-all[data-state='mixed'][aria-checked='mixed']")
+      assert has_element?(view, "#gao-note-batch-toolbar", "1 selected")
+
+      render_click(view, "toggle_all_batch_notes")
+      assert has_element?(view, "#gao-note-select-all[data-state='all']")
+      assert has_element?(view, "#gao-note-select-#{first.id}[checked]")
+      assert has_element?(view, "#gao-note-select-#{second.id}[checked]")
+      assert has_element?(view, "#gao-note-batch-toolbar", "2 selected")
+
+      render_click(view, "clear_batch_selection")
+      assert has_element?(view, "#gao-note-select-all[data-state='none']")
+      refute has_element?(view, "#gao-note-batch-toolbar")
+    end
+
+    test "filter changes clear selection and reload reconciliation removes stale selected ids", %{
+      conn: conn,
+      user: user
+    } do
+      selected = note_fixture(user, "Selected Filter Note")
+      _other = note_fixture(user, "Other Filter Note")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+
+      render_click(view, "toggle_batch_note", %{"id" => selected.id})
+
+      view
+      |> form("#gao-note-filter-form", %{"filters" => %{"search" => "Other"}})
+      |> render_submit()
+
+      assert_patch(view, ~p"/gao_notes/notes?search=Other")
+      render_async(view)
+      refute has_element?(view, "#gao-note-batch-toolbar")
+
+      view
+      |> form("#gao-note-filter-form", %{"filters" => %{"search" => ""}})
+      |> render_submit()
+
+      assert_patch(view, ~p"/gao_notes/notes")
+      render_async(view)
+      render_click(view, "toggle_batch_note", %{"id" => selected.id})
+
+      view
+      |> element(~s(#gao-note-delete-list-confirm-#{selected.id} [phx-click="delete"]))
+      |> render_click()
+
+      render_async(view)
+      refute has_element?(view, "#gao-note-batch-toolbar")
+      refute has_element?(view, "#gao-note-row-#{selected.id}")
+    end
+
+    test "native notes table exposes semantic headers, stable rows, and existing row actions", %{
+      conn: conn,
+      user: user
+    } do
+      note = note_fixture(user, "Native Table Note", ["project=umbrella"])
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+
+      assert has_element?(view, "table#gao-note-table")
+      assert has_element?(view, "#gao-note-select-all[aria-label='Select all loaded notes']")
+      assert has_element?(view, "#gao-note-row-#{note.id}")
+
+      assert has_element?(
+               view,
+               "#gao-note-select-#{note.id}[aria-label='Select Native Table Note']"
+             )
+
+      for heading <- ["Title", "Labels", "Created", "Updated", "Actions"] do
+        assert has_element?(view, "#gao-note-table thead th", heading)
+      end
+
+      assert has_element?(view, ~s(a[href="/gao_notes/notes/#{note.id}/show"]), note.title)
+      assert has_element?(view, ~s(a[href="/gao_notes/notes/#{note.id}/edit"]))
+      assert has_element?(view, "#gao-note-list-delete-#{note.id}")
+    end
+
+    test "batch label modal switches catalog-only Add Edit and Delete fields", %{
+      conn: conn,
+      user: user
+    } do
+      setting = label_setting_fixture("Catalog Project")
+      note = note_fixture(user, "Conditional Batch Form")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [note])
+      render_click(view, "open_batch_label_modal")
+
+      assert has_element?(view, ~s(option[value="#{setting.id}"]), setting.name)
+      assert has_element?(view, ~s(select[name="batch_label[target_label_setting_id]"]))
+      refute has_element?(view, ~s(select[name="batch_label[match_label_setting_id]"]))
+      refute has_element?(view, ~s(input[name="batch_label[label_key]"]))
+
+      change_batch_label(view, %{"action" => "edit"})
+      assert has_element?(view, ~s(select[name="batch_label[match_label_setting_id]"]))
+      assert has_element?(view, ~s(select[name="batch_label[target_label_setting_id]"]))
+
+      change_batch_label(view, %{"action" => "delete"})
+      assert has_element?(view, ~s(select[name="batch_label[match_label_setting_id]"]))
+      refute has_element?(view, ~s(select[name="batch_label[target_label_setting_id]"]))
+    end
+
+    test "batch Add changes missing labels, preserves exact labels, audits, and clears selection",
+         %{
+           conn: conn,
+           user: user
+         } do
+      project = label_setting_fixture("project")
+      missing = note_fixture(user, "Batch Add Missing")
+      exact = note_fixture(user, "Batch Add Exact", ["project=alpha"])
+      Repo.delete_all(Log)
+
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [missing, exact])
+      render_click(view, "open_batch_label_modal")
+
+      params = %{
+        "action" => "add",
+        "target_label_setting_id" => project.id,
+        "target_value" => " alpha "
+      }
+
+      html = change_batch_label(view, params)
+      assert html =~ "2 selected"
+      assert html =~ "1"
+      refute has_element?(view, "#gao-note-batch-label-submit[disabled]")
+
+      submit_batch_label(view, params)
+      render_async(view)
+
+      assert %{"project" => "alpha"} = labels_for_note(missing.id)
+      assert %{"project" => "alpha"} = labels_for_note(exact.id)
+      assert [%Log{action: "update", entity_id: changed_id}] = GaoNote.list_logs()
+      assert changed_id == missing.id
+      assert render(view) =~ "1 changed, 1 unchanged"
+      refute has_element?(view, "#gao-note-batch-toolbar")
+    end
+
+    test "batch Add conflict disables submit and retains the modal selection without changes", %{
+      conn: conn,
+      user: user
+    } do
+      project = label_setting_fixture("project")
+      missing = note_fixture(user, "Conflict Would Change")
+      conflict = note_fixture(user, "Conflict Existing", ["project=beta"])
+      Repo.delete_all(Log)
+
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [missing, conflict])
+      render_click(view, "open_batch_label_modal")
+
+      params = %{
+        "action" => "add",
+        "target_label_setting_id" => project.id,
+        "target_value" => "alpha"
+      }
+
+      html = change_batch_label(view, params)
+      assert html =~ "Conflict"
+      assert has_element?(view, "#gao-note-batch-label-submit[disabled]")
+
+      html = render_submit(view, "submit_batch_label", %{"batch_label" => params})
+      assert html =~ "conflict"
+      assert has_element?(view, "#gao-note-batch-label-modal")
+      assert has_element?(view, "#gao-note-batch-toolbar", "2 selected")
+      assert labels_for_note(missing.id) == %{}
+      assert %{"project" => "beta"} = labels_for_note(conflict.id)
+      assert GaoNote.list_logs() == []
+    end
+
+    test "exact Edit and any Delete affect only matching labels and preserve unrelated labels", %{
+      conn: conn,
+      user: user
+    } do
+      status = label_setting_fixture("status")
+      type = label_setting_fixture("type")
+      draft = note_fixture(user, "Exact Draft", ["status=draft", "project=umbrella"])
+      published = note_fixture(user, "Exact Published", ["status=published", "project=umbrella"])
+
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [draft, published])
+      render_click(view, "open_batch_label_modal")
+
+      edit_params = %{
+        "action" => "edit",
+        "match_label_setting_id" => status.id,
+        "match_value" => " draft ",
+        "target_label_setting_id" => type.id,
+        "target_value" => "article"
+      }
+
+      change_batch_label(view, edit_params)
+      submit_batch_label(view, edit_params)
+      render_async(view)
+
+      assert %{"project" => "umbrella", "type" => "article"} = labels_for_note(draft.id)
+      assert %{"project" => "umbrella", "status" => "published"} = labels_for_note(published.id)
+
+      select_notes(view, [published])
+      render_click(view, "open_batch_label_modal")
+
+      delete_params = %{
+        "action" => "delete",
+        "match_label_setting_id" => status.id,
+        "match_value" => ""
+      }
+
+      change_batch_label(view, delete_params)
+      submit_batch_label(view, delete_params)
+      render_async(view)
+      assert %{"project" => "umbrella"} = labels_for_note(published.id)
+    end
+
+    test "zero-match label operation is an informational unaudited no-op", %{
+      conn: conn,
+      user: user
+    } do
+      status = label_setting_fixture("status")
+      note = note_fixture(user, "Zero Match", ["project=umbrella"])
+      Repo.delete_all(Log)
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [note])
+      render_click(view, "open_batch_label_modal")
+
+      params = %{
+        "action" => "delete",
+        "match_label_setting_id" => status.id,
+        "match_value" => ""
+      }
+
+      change_batch_label(view, params)
+      submit_batch_label(view, params)
+      render_async(view)
+      assert render(view) =~ "No matching labels"
+      assert %{"project" => "umbrella"} = labels_for_note(note.id)
+      assert GaoNote.list_logs() == []
+    end
+
+    test "invalid typed label value retains the modal and selection with validation text", %{
+      conn: conn,
+      user: user
+    } do
+      year = label_setting_fixture("year", "year")
+      note = note_fixture(user, "Invalid Typed Label")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [note])
+      render_click(view, "open_batch_label_modal")
+
+      html =
+        change_batch_label(view, %{
+          "action" => "add",
+          "target_label_setting_id" => year.id,
+          "target_value" => "twenty twenty-six"
+        })
+
+      assert html =~ "must be YYYY"
+      assert has_element?(view, "#gao-note-batch-label-submit[disabled]")
+      assert has_element?(view, "#gao-note-batch-label-modal")
+      assert has_element?(view, "#gao-note-batch-toolbar", "1 selected")
+      assert labels_for_note(note.id) == %{}
+    end
+
+    test "stale selected note label error retains modal and atomic selection", %{
+      conn: conn,
+      user: user
+    } do
+      project = label_setting_fixture("project")
+      active = note_fixture(user, "Stale Label Active")
+      stale = note_fixture(user, "Stale Label Deleted")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [active, stale])
+      render_click(view, "open_batch_label_modal")
+      assert {:ok, _deleted} = GaoNote.delete_note(stale, user)
+
+      params = %{
+        "action" => "add",
+        "target_label_setting_id" => project.id,
+        "target_value" => "umbrella"
+      }
+
+      change_batch_label(view, params)
+      html = submit_batch_label(view, params)
+      assert html =~ "changed or disappeared"
+      assert has_element?(view, "#gao-note-batch-label-modal")
+      assert has_element?(view, "#gao-note-batch-toolbar", "2 selected")
+      assert labels_for_note(active.id) == %{}
+    end
+
+    test "batch soft delete moves two notes atomically and clears selection", %{
+      conn: conn,
+      user: user
+    } do
+      first = note_fixture(user, "Batch Recycle First")
+      second = note_fixture(user, "Batch Recycle Second")
+      Repo.delete_all(Log)
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [first, second])
+      render_click(view, "open_batch_delete_modal")
+
+      render_click(view, "batch_delete_notes")
+      render_async(view)
+
+      assert GaoNote.get_note(first.id) == nil
+      assert GaoNote.get_note(second.id) == nil
+      assert %Note{deleted_at: %DateTime{}} = GaoNote.get_deleted_note(first.id)
+      assert %Note{deleted_at: %DateTime{}} = GaoNote.get_deleted_note(second.id)
+      assert 2 == GaoNote.list_logs() |> Enum.filter(&(&1.action == "delete")) |> length()
+      assert render(view) =~ "2 notes moved to the Recycle Bin"
+      refute has_element?(view, "#gao-note-batch-toolbar")
+    end
+
+    test "stale batch soft delete rolls back active notes and retains modal selection", %{
+      conn: conn,
+      user: user
+    } do
+      active = note_fixture(user, "Stale Delete Active")
+      stale = note_fixture(user, "Stale Delete Gone")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [active, stale])
+      render_click(view, "open_batch_delete_modal")
+      assert {:ok, _deleted} = GaoNote.delete_note(stale, user)
+
+      html = render_click(view, "batch_delete_notes")
+      assert html =~ "changed or disappeared"
+      assert %Note{deleted_at: nil} = GaoNote.get_note(active.id)
+      assert has_element?(view, "#gao-note-batch-delete-modal")
+      assert has_element?(view, "#gao-note-batch-toolbar", "2 selected")
+    end
+
+    test "connected notes page has no duplicate ids after async rendering", %{
+      conn: conn,
+      user: user
+    } do
+      note = note_fixture(user, "Unique IDs")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [note])
+      render_click(view, "open_batch_label_modal")
+
+      ids =
+        view
+        |> render()
+        |> Floki.parse_fragment!()
+        |> Floki.find("[id]")
+        |> Floki.attribute("id")
+
+      duplicates = ids -- Enum.uniq(ids)
+      assert duplicates == []
+    end
   end
 
   test "admin can create a note", %{conn: conn} do
@@ -932,12 +1312,12 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
     assert has_element?(
              view,
-             ~s(button[data-clipboard-text="![Diagram](./images/diagram.png)"])
+             ~s|button[data-clipboard-text="![Diagram](./images/diagram.png)"]|
            )
 
     assert has_element?(
              view,
-             ~s(button[data-clipboard-text="[file.txt](./docs/file.txt)"])
+             ~s|button[data-clipboard-text="[file.txt](./docs/file.txt)"]|
            )
 
     assert html =~
@@ -1549,6 +1929,41 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
   defp with_secret_key_base(conn) do
     %{conn | secret_key_base: @secret_key_base}
+  end
+
+  defp note_fixture(user, title, labels \\ []) do
+    assert {:ok, note} =
+             GaoNote.create_note(%{title: title, content: "Batch body", labels: labels}, user)
+
+    note
+  end
+
+  defp label_setting_fixture(name, value_type \\ "text") do
+    case GaoNote.create_label_setting(%{name: name, value_type: value_type}) do
+      {:ok, setting} -> setting
+      {:error, _changeset} -> Enum.find(GaoNote.list_label_settings(), &(&1.name == name))
+    end
+  end
+
+  defp select_notes(view, notes) do
+    Enum.each(notes, fn note ->
+      render_click(view, "toggle_batch_note", %{"id" => note.id})
+    end)
+  end
+
+  defp change_batch_label(view, params) do
+    render_change(view, "change_batch_label_action", %{"batch_label" => params})
+  end
+
+  defp submit_batch_label(view, params) do
+    render_submit(view, "submit_batch_label", %{"batch_label" => params})
+  end
+
+  defp labels_for_note(note_id) do
+    note_id
+    |> GaoNote.get_note!()
+    |> Map.fetch!(:labels)
+    |> Map.new(fn label -> {label.label_setting.name, label.value || ""} end)
   end
 
   defp text_attachment(id, path, content, description) do

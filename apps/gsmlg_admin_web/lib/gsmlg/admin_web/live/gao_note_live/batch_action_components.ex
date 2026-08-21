@@ -52,6 +52,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
           type="button"
           size="sm"
           variant="secondary"
+          phx-click="open_batch_label_modal"
           onclick={show_dialog(@label_modal_id)}
         >
           Edit labels
@@ -60,6 +61,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
           type="button"
           size="sm"
           variant="error"
+          phx-click="open_batch_delete_modal"
           onclick={show_dialog(@delete_modal_id)}
         >
           Delete selected
@@ -155,6 +157,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
               <.dm_btn
                 type="button"
                 variant="ghost"
+                phx-click="cancel_batch_label_modal"
                 onclick={close_dialog("gao-note-batch-label-modal")}
                 data-dialog-initial-focus
               >
@@ -206,6 +209,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.BatchActionComponents do
           <.dm_btn
             type="button"
             variant="ghost"
+            phx-click="cancel_batch_delete_modal"
             onclick={close_dialog("gao-note-batch-delete-modal")}
             data-dialog-initial-focus
           >

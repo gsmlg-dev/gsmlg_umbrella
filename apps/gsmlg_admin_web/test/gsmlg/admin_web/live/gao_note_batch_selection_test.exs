@@ -126,6 +126,44 @@ defmodule GSMLG.AdminWeb.GaoNoteBatchSelectionTest do
       assert_one_id(purge, "gao-note-recycle-purge-confirm")
     end
 
+    test "notes toolbar and modal dismissal controls notify the LiveView" do
+      notes_toolbar =
+        render_component(&BatchActionComponents.notes_toolbar/1,
+          selected_count: 2,
+          clear_event: "clear_batch_selection",
+          label_modal_id: "gao-note-batch-label-modal",
+          delete_modal_id: "gao-note-batch-delete-modal"
+        )
+
+      label_modal = render_label_modal("add")
+
+      soft_delete =
+        render_component(&BatchActionComponents.soft_delete_modal/1,
+          selected_count: 2,
+          error: nil
+        )
+
+      assert [_] =
+               notes_toolbar
+               |> fragment()
+               |> Floki.find(~s([phx-click="open_batch_label_modal"][onclick]))
+
+      assert [_] =
+               notes_toolbar
+               |> fragment()
+               |> Floki.find(~s([phx-click="open_batch_delete_modal"][onclick]))
+
+      assert [_] =
+               label_modal
+               |> fragment()
+               |> Floki.find(~s([phx-click="cancel_batch_label_modal"][onclick]))
+
+      assert [_] =
+               soft_delete
+               |> fragment()
+               |> Floki.find(~s([phx-click="cancel_batch_delete_modal"][onclick]))
+    end
+
     test "every modal preserves client state and installs the accessible dialog workaround" do
       modal_html = [
         {render_label_modal("add"), "gao-note-batch-label-modal"},
