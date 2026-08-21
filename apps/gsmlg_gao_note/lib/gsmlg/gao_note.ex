@@ -10,6 +10,7 @@ defmodule GSMLG.GaoNote do
   alias GSMLG.GaoNote.{
     Attachments,
     Audit,
+    BatchActions,
     CategorySetting,
     Label,
     LabelSetting,
@@ -609,6 +610,9 @@ defmodule GSMLG.GaoNote do
         {:error, reason}
     end
   end
+
+  def batch_mutate_note_labels(note_ids, operation, actor),
+    do: BatchActions.mutate_note_labels(note_ids, operation, actor)
 
   defp list_category_settings do
     CategorySetting
