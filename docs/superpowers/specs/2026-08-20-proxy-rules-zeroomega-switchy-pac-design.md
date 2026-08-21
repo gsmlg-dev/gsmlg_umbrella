@@ -98,7 +98,7 @@ Rule {
   input_order
 }
 
-Action = direct | profile(profile_name)
+Action = match | default | profile(profile_name)
 
 Condition =
   domain_suffix(domain)
@@ -117,11 +117,14 @@ operational adapter emits only `domain_suffix` conditions because the existing
 GFWList and local-source contract intentionally accepts only suffix domains.
 This feature does not broaden those parsers.
 
-For a request, the adapter maps current actions using validated options:
+The compiler adapter maps current actions without embedding request options:
 
-- `:proxy` becomes `profile(match_profile)`.
-- `:direct` becomes `direct`, whose configured profile name is
-  `default_profile`.
+- `:proxy` becomes `match`.
+- `:direct` becomes `default`.
+
+At render time, validated options resolve `match` and `default` to
+`match_profile` and `default_profile`. Explicit `profile(profile_name)` actions
+remain available to the pure result-mode renderer for future sources.
 
 The operational policy orders Direct rules before Proxy rules, preserving the
 existing documented Direct-before-Proxy conflict behavior. Within each
