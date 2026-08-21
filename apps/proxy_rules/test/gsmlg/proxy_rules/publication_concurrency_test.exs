@@ -2,7 +2,7 @@ defmodule GSMLG.ProxyRules.PublicationConcurrencyTest do
   use ExUnit.Case, async: false
 
   alias GSMLG.ProxyRules.{Compiler, Snapshot, Store}
-  alias GSMLG.ProxyRules.ZeroOmega.PublishedPolicy
+  alias GSMLG.ProxyRules.ZeroOmega.{Export, PublishedPolicy}
 
   @tag :tmp_dir
   test "readers never observe a torn six-output generation", %{tmp_dir: dir} do
@@ -78,6 +78,29 @@ defmodule GSMLG.ProxyRules.PublicationConcurrencyTest do
 
     assert direct_domains =~ "#{generation}.example"
     assert proxy_domains =~ "#{generation}.example"
+
+    assert {:ok, policy} =
+             PublishedPolicy.to_policy(%PublishedPolicy{
+               revision: revision,
+               direct_domains: direct_domains,
+               proxy_domains: proxy_domains
+             })
+
+    assert {:ok, switchy} =
+             policy
+             |> Export.normalize()
+             |> Export.validate_for(:switchy, [])
+             |> Export.render()
+
+    assert switchy.body =~ "#{generation}.example"
+
+    assert {:ok, pac} =
+             policy
+             |> Export.normalize()
+             |> Export.validate_for(:pac, proxy: "proxy.example:3128")
+             |> Export.render()
+
+    assert pac.body =~ "#{generation}.example"
 
     assert is_integer(generation)
   end

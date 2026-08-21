@@ -446,6 +446,21 @@ defmodule GSMLG.ProxyRules.StoreTest do
   end
 
   @tag :tmp_dir
+  test "an invalid ZeroOmega policy retains the last-known-good generation" do
+    prior = fixture_snapshot(19)
+    candidate = fixture_snapshot(20)
+    invalid_policy = %{candidate.zeroomega_policy | proxy_domains: "UPPER.example\n"}
+
+    assert :ok = Store.publish(prior)
+
+    assert {:error, :invalid_snapshot} =
+             Store.publish(%{candidate | zeroomega_policy: invalid_policy})
+
+    assert {:ok, %Snapshot{generation: 19} = current} = Store.current()
+    assert current.zeroomega_policy == prior.zeroomega_policy
+  end
+
+  @tag :tmp_dir
   test "serializes concurrent publications into complete generations", %{tmp_dir: dir} do
     snapshots = Enum.map(20..39, &fixture_snapshot/1)
 

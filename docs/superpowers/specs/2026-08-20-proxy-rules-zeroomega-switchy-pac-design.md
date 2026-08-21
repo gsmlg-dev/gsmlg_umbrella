@@ -58,9 +58,12 @@ current accepted rules
 ```
 
 The compiler builds and validates the ZeroOmega policy while it still has the
-accepted folded rules. The policy is stored in the same versioned Snapshot as
-the existing artifacts. Store publication therefore changes the Raw, Squid,
-Clash, Switchy input policy, and PAC input policy as one atomic generation.
+accepted folded rules. The operational domain partitions are stored in the same
+versioned Snapshot as compact newline-encoded binaries and expand through a
+pure adapter when requested. Large binaries remain reference-counted during ETS
+reads, avoiding the cost of copying thousands of rule structs. Store
+publication therefore changes the Raw, Squid, Clash, Switchy input policy, and
+PAC input policy as one atomic generation.
 
 The request boundary reads `Store.current/0` exactly once. Rendering from that
 immutable value is safe for concurrent readers and cannot observe a partially
@@ -322,12 +325,14 @@ routes retain the router's 404 behavior.
 
 ## Snapshot and Persistence Changes
 
-`Snapshot` gains the normalized ZeroOmega policy required by both exporters.
-The persistence validator includes that policy in its exact shape and size
-limits. The artifact envelope version is incremented so an old pre-feature
-artifact cannot be restored as though it contained the new policy. The remote
-source-cache version remains unchanged, allowing the Coordinator to recompile
-from the valid cached GFWList and current local sources after an upgrade.
+`Snapshot` gains a compact `PublishedPolicy` containing revision plus canonical
+Direct and Proxy domain binaries. The persistence validator expands and
+revalidates that policy, requires byte-for-byte canonical reconstruction, and
+applies exact shape, rule-count, and size limits. The artifact envelope version
+is incremented so an old pre-feature artifact cannot be restored as though it
+contained the new policy. The remote source-cache version remains unchanged,
+allowing the Coordinator to recompile from the valid cached GFWList and current
+local sources after an upgrade.
 
 The compiler validates the canonical policy for both required operational
 formats before staging the complete Snapshot. This proves that every published
@@ -343,6 +348,7 @@ invalid policy.
 New pure modules under `apps/proxy_rules/lib/gsmlg/proxy_rules/zero_omega/`:
 
 - `policy.ex` and `rule.ex` for canonical immutable data.
+- `published_policy.ex` for compact atomic Snapshot storage and pure expansion.
 - `diagnostic.ex` for structured errors.
 - `normalizer.ex` for the pure normalization and validation pipeline.
 - `switchy.ex` for Switchy binary and result rendering.

@@ -323,6 +323,53 @@ Configure gateways to evaluate the direct list before the proxy list. The
 compiler deliberately preserves domains present in both lists so that this
 downstream order resolves conflicts toward direct routing.
 
+## ZeroOmega Exports
+
+The public web application also publishes two deterministic views for
+ZeroOmega. Use this URL as a **SwitchyOmega Conditions** rule-list source:
+
+```text
+/rules/zeroomega/switchy
+```
+
+Binary mode is the default. It maps Proxy rules to ZeroOmega's match profile
+and prefixes Direct rules with `!`. For result mode, configure the profile
+names that already exist in ZeroOmega:
+
+```text
+/rules/zeroomega/switchy?mode=result&match_profile=squid&default_profile=direct
+```
+
+Supported Switchy query parameters are `mode=binary|result`, `match_profile`,
+and `default_profile`. The defaults are `binary`, `squid`, and `direct`.
+
+Use the second URL in a ZeroOmega **PAC profile**. The required `proxy`
+parameter is rendered into the PAC JavaScript:
+
+```text
+/rules/zeroomega/pac?proxy=10.100.0.1:3128
+```
+
+The PAC accepts a DNS name, IPv4 address, or bracketed IPv6 address with a port
+from 1 through 65535. Schemes, credentials, paths, whitespace, and control
+characters are rejected. It emits a line such as:
+
+```javascript
+var proxy = 'PROXY 10.100.0.1:3128';
+```
+
+Direct rules are evaluated before Proxy rules, and unmatched hosts return
+`DIRECT`. Current GFWList and local sources produce only domain-suffix rules.
+The generic Switchy renderer supports its documented host, URL, regex, CIDR,
+and keyword conditions, but the operational PAC endpoint rejects every
+condition other than a domain suffix instead of broadening or dropping it.
+
+Both endpoints use CRLF output with a final CRLF. Content-derived ETags make
+equivalent snapshots and canonical parameters stable across requests.
+`If-None-Match` may return `304`, and `HEAD` returns the same headers and content
+length as GET without a response body. Successful responses use
+`Cache-Control: no-cache`.
+
 ## Benchmark
 
 The benchmark uses the vendored official fixture, empty local files, the real

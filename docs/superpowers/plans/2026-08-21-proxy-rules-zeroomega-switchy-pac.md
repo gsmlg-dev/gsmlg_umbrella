@@ -6,6 +6,12 @@
 
 **Architecture:** Pure ZeroOmega policy, normalization, validation, and rendering modules live in `proxy_rules`. The compiler embeds one validated operational policy in the existing immutable Snapshot; a Phoenix controller reads that snapshot once, validates query options, renders exact bytes, and applies content-derived HTTP validators. No new process or database is introduced.
 
+**Implementation note:** The operational Snapshot stores Direct and Proxy
+domains as compact newline-encoded binaries in `PublishedPolicy`. Expanding
+thousands of rule structs inside ETS caused the existing 100,000-read benchmark
+to regress from seconds to 98.7 seconds; the compact representation restored
+the benchmark to 2.07 seconds while retaining atomic publication.
+
 **Tech Stack:** Elixir 1.18, OTP 28, Phoenix 1.8, Plug, ExUnit, existing `GSMLG.ProxyRules.Store` ETS/persistence pipeline.
 
 ---

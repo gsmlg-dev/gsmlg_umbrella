@@ -323,6 +323,24 @@ defmodule GSMLG.ProxyRules.OperationalTest do
              ~r/Admin-added entries are stored as canonical bare domains\. Existing semantic\s+entries and comments are retained, while mutation normalizes line endings,\s+trailing\s+spaces, and trailing blank lines\. Renderers normalize parsed rules for\s+Raw\/DNS,\s+Squid, and Clash output\./
   end
 
+  test "documentation defines ZeroOmega Switchy and PAC exports" do
+    proxy_readme = File.read!(Path.join(@application_root, "README.md"))
+
+    assert proxy_readme =~ "/rules/zeroomega/switchy"
+
+    assert proxy_readme =~
+             "/rules/zeroomega/switchy?mode=result&match_profile=squid&default_profile=direct"
+
+    assert proxy_readme =~ "/rules/zeroomega/pac?proxy=10.100.0.1:3128"
+    assert proxy_readme =~ "SwitchyOmega Conditions"
+    assert proxy_readme =~ "PAC profile"
+    assert proxy_readme =~ "Direct rules are evaluated before Proxy rules"
+    assert proxy_readme =~ "Content-derived ETags"
+    assert proxy_readme =~ "HEAD"
+    assert proxy_readme =~ "CIDR"
+    refute proxy_readme =~ "AutoProxy 0.2.9 export endpoint"
+  end
+
   @tag :tmp_dir
   test "documented upgrade guards reject hostile links and insufficient permissions", %{
     tmp_dir: tmp_dir
