@@ -465,6 +465,40 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       refute has_element?(view, ~s(select[name="batch_label[target_label_setting_id]"]))
     end
 
+    test "batch label modal loads the complete existing settings catalog", %{
+      conn: conn,
+      user: user
+    } do
+      now = DateTime.utc_now()
+
+      settings =
+        for index <- 1..201 do
+          %{
+            id: Ecto.UUID.generate(),
+            name: "Catalog #{index |> Integer.to_string() |> String.pad_leading(3, "0")}",
+            description: "",
+            value_type: "text",
+            metadata: %{},
+            inserted_at: now,
+            updated_at: now
+          }
+        end
+
+      assert {201, nil} = Repo.insert_all(LabelSetting, settings)
+      final_setting = List.last(settings)
+      note = note_fixture(user, "Complete Label Catalog")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [note])
+      render_click(view, "open_batch_label_modal")
+
+      assert has_element?(
+               view,
+               ~s(option[value="#{final_setting.id}"]),
+               final_setting.name
+             )
+    end
+
     test "batch Add changes missing labels, preserves exact labels, audits, and clears selection",
          %{
            conn: conn,

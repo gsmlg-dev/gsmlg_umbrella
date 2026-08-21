@@ -1776,7 +1776,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
       %{
         filters: active_filters,
         notes: GaoNote.list_notes(opts),
-        label_settings: GaoNote.list_label_settings(limit: 200)
+        label_settings: GaoNote.list_label_settings()
       }
     end)
   end
