@@ -58,7 +58,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
         {:ok, %{filters: filters, notes: notes, label_settings: label_settings}},
         socket
       ) do
-    if filters == socket.assigns.active_filters do
+    if socket.assigns.live_action == :index and filters == socket.assigns.active_filters do
       loaded_ids = Enum.map(notes, & &1.id)
 
       {:noreply,
@@ -74,11 +74,15 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   def handle_async(:load_batch_index, {:exit, _reason}, socket) do
-    {:noreply,
-     assign(socket,
-       notes: AsyncResult.failed(socket.assigns.notes, :load_failed),
-       batch_label_settings: AsyncResult.failed(socket.assigns.batch_label_settings, :load_failed)
-     )}
+    if socket.assigns.live_action == :index do
+      {:noreply,
+       assign(socket,
+         notes: AsyncResult.failed(socket.assigns.notes, :load_failed),
+         batch_label_settings: AsyncResult.failed(socket.assigns.batch_label_settings, :load_failed)
+       )}
+    else
+      {:noreply, socket}
+    end
   end
 
   defp apply_action(socket, :index, params) do
@@ -218,6 +222,14 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
      |> push_patch(to: ~p"/gao_notes/notes")}
   end
 
+  def handle_event(
+        "toggle_batch_note",
+        _params,
+        %{assigns: %{live_action: action}} = socket
+      )
+      when action != :index,
+      do: {:noreply, reset_batch_state(socket)}
+
   def handle_event("toggle_batch_note", %{"id" => id}, socket) do
     loaded_ids = loaded_note_ids(socket)
 
@@ -231,6 +243,14 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     {:noreply, assign(socket, :batch_selected, selected)}
   end
 
+  def handle_event(
+        "toggle_all_batch_notes",
+        _params,
+        %{assigns: %{live_action: action}} = socket
+      )
+      when action != :index,
+      do: {:noreply, reset_batch_state(socket)}
+
   def handle_event("toggle_all_batch_notes", _params, socket) do
     {:noreply,
      assign(
@@ -243,6 +263,14 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   def handle_event("clear_batch_selection", _params, socket) do
     {:noreply, reset_batch_state(socket)}
   end
+
+  def handle_event(
+        "open_batch_label_modal",
+        _params,
+        %{assigns: %{live_action: action}} = socket
+      )
+      when action != :index,
+      do: {:noreply, reset_batch_state(socket)}
 
   def handle_event("open_batch_label_modal", _params, socket) do
     {:noreply, reset_batch_label_state(socket)}
@@ -286,6 +314,14 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
      |> reconcile_batch_selection()
      |> assign_malformed_batch_label()}
   end
+
+  def handle_event(
+        "open_batch_delete_modal",
+        _params,
+        %{assigns: %{live_action: action}} = socket
+      )
+      when action != :index,
+      do: {:noreply, reset_batch_state(socket)}
 
   def handle_event("open_batch_delete_modal", _params, socket) do
     {:noreply, assign(socket, :batch_delete_error, nil)}
@@ -1769,6 +1805,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     socket
     |> cancel_async(:load_batch_index)
     |> reset_batch_state()
+    |> assign(
+      notes: AsyncResult.loading(),
+      batch_label_settings: AsyncResult.loading()
+    )
   end
 
   defp reconcile_batch_selection(socket) do
@@ -2051,7 +2091,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   defp loaded_notes(socket), do: async_value(socket.assigns.notes, [])
-  defp loaded_note_ids(socket), do: Enum.map(loaded_notes(socket), & &1.id)
+  defp loaded_note_ids(%{assigns: %{live_action: :index, notes: %AsyncResult{ok?: true} = notes}}),
+    do: notes.result |> List.wrap() |> Enum.map(& &1.id)
+
+  defp loaded_note_ids(_socket), do: []
 
   defp batch_label_success_message(%{matched: 0, changed: 0, unchanged: unchanged}),
     do: "No matching labels; 0 changed, #{unchanged} unchanged."
