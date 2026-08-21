@@ -428,6 +428,29 @@ describe("close dialog event helper", () => {
     expect(fallback.focusCount).toBe(1);
     expect(documentFake.activeElement).toBe(fallback);
   });
+
+  test("focuses the deep button target for a DuskMoon fallback host", () => {
+    const dialog = {
+      close() {},
+    };
+    const fallbackHost = element(documentFake);
+    const fallbackButton = element(documentFake, {
+      documentActiveHost: fallbackHost,
+    });
+    fallbackHost.shadowRoot = shadowRoot({ focusTarget: fallbackButton });
+    fallbackHost.focus = () => {
+      fallbackHost.focusCount += 1;
+    };
+    documentFake.getElementById = () => dialog;
+    documentFake.querySelector = () => fallbackHost;
+
+    closeDialogAndFocus({ id: "dialog-id", focus: "#gao-note-recycle-refresh" });
+    flushAnimationFrames();
+
+    expect(fallbackButton.focusCount).toBe(1);
+    expect(fallbackHost.focusCount).toBe(0);
+    expect(documentFake.activeElement).toBe(fallbackHost);
+  });
 });
 
 function mountedDialog() {

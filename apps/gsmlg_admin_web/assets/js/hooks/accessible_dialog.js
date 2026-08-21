@@ -17,6 +17,10 @@ const FOCUSABLE_SELECTOR = [
   "el-dm-button:not([disabled])",
 ].join(", ");
 
+function focusTarget(element) {
+  return element?.shadowRoot?.querySelector(FOCUSABLE_SELECTOR) || element;
+}
+
 export function closeDialogAndFocus(
   detail,
   documentRoot = document,
@@ -29,7 +33,9 @@ export function closeDialogAndFocus(
     typeof detail?.focus === "string" ? detail.focus.trim() : "";
   if (!focusSelector) return;
 
-  schedule(() => documentRoot.querySelector?.(focusSelector)?.focus?.());
+  schedule(() =>
+    focusTarget(documentRoot.querySelector?.(focusSelector))?.focus?.(),
+  );
 }
 
 const AccessibleDialog = {
@@ -304,7 +310,7 @@ const AccessibleDialog = {
   },
 
   _dialogFocusTarget(element) {
-    return element.shadowRoot?.querySelector(FOCUSABLE_SELECTOR) || element;
+    return focusTarget(element);
   },
 
   _focusDialogItem(item) {
