@@ -501,3 +501,275 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
     %{id: "batch-actor", source: "mcp"}
   end
 end
+
+defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
+  use GSMLG.GaoNote.DataCase, async: false
+
+  alias Ecto.Adapters.SQL
+  alias Ecto.Adapters.SQL.Sandbox
+  alias GSMLG.GaoNote
+  alias GSMLG.GaoNote.{Label, LabelSetting, Log, Note}
+
+  test "an audit constraint failure returns a domain error and rolls back label writes" do
+    fixture = prepare_fixture("audit-failure")
+    constraint = "gao_note_batch_audit_reject_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        SQL.query!(
+          Repo,
+          "ALTER TABLE gao_note_logs DROP CONSTRAINT IF EXISTS #{constraint}",
+          []
+        )
+
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    outside_sandbox(fn ->
+      SQL.query!(
+        Repo,
+        """
+        ALTER TABLE gao_note_logs
+        ADD CONSTRAINT #{constraint}
+        CHECK (NOT (details ? 'batch'))
+        """,
+        []
+      )
+    end)
+
+    note_id = fixture.first.id
+    second_note_id = fixture.second.id
+
+    assert {:error,
+            {:batch_audit_failed,
+             %{note_id: ^note_id, reason: %{type: :constraint, constraint: ^constraint}}}} =
+             outside_sandbox(fn ->
+               GaoNote.batch_mutate_note_labels(
+                 [fixture.first.id],
+                 {:edit,
+                  %{
+                    match: %{label_setting_id: fixture.setting.id, value: :any},
+                    replacement: %{label_setting_id: fixture.setting.id, value: "updated"}
+                  }},
+                 actor()
+               )
+             end)
+
+    assert %{^note_id => "initial", ^second_note_id => "initial"} =
+             Map.new(persisted_values(fixture))
+
+    assert [] = persisted_logs(fixture)
+  end
+
+  test "overlapping inverse-order batches use separate connections without deadlocking" do
+    fixture = prepare_fixture("concurrency")
+    function = "gao_note_batch_delay_#{fixture.suffix}"
+    trigger = "gao_note_batch_delay_trigger_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        drop_delay_trigger(trigger, function)
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    install_delay_trigger(trigger, function)
+
+    first_operation = edit_operation(fixture.setting.id, "first")
+    second_operation = edit_operation(fixture.setting.id, "second")
+
+    {first_owner, first_batch} =
+      start_allowed_batch(
+        [fixture.first.id, fixture.second.id],
+        first_operation
+      )
+
+    {second_owner, second_batch} =
+      start_allowed_batch(
+        [fixture.second.id, fixture.first.id],
+        second_operation
+      )
+
+    results =
+      try do
+        send(first_batch.pid, :run)
+        send(second_batch.pid, :run)
+        Task.await_many([first_batch, second_batch], 5_000)
+      after
+        stop_connection_owner(first_owner)
+        stop_connection_owner(second_owner)
+      end
+
+    assert [
+             {:ok, %{selected: 2, matched: 2, changed: 2, unchanged: 0}},
+             {:ok, %{selected: 2, matched: 2, changed: 2, unchanged: 0}}
+           ] = results
+
+    first_id = fixture.first.id
+    second_id = fixture.second.id
+
+    assert persisted_values(fixture) in [
+             Enum.sort([{first_id, "first"}, {second_id, "first"}]),
+             Enum.sort([{first_id, "second"}, {second_id, "second"}])
+           ]
+  end
+
+  defp prepare_fixture(prefix) do
+    outside_sandbox(fn ->
+      suffix = System.unique_integer([:positive])
+
+      assert {:ok, setting} =
+               GaoNote.create_label_setting(%{name: "#{prefix}-#{suffix}"}, actor())
+
+      assert {:ok, first} =
+               GaoNote.create_note(
+                 %{
+                   title: "#{prefix} first #{suffix}",
+                   content: "Body",
+                   labels: ["#{setting.name}=initial"]
+                 },
+                 actor()
+               )
+
+      assert {:ok, second} =
+               GaoNote.create_note(
+                 %{
+                   title: "#{prefix} second #{suffix}",
+                   content: "Body",
+                   labels: ["#{setting.name}=initial"]
+                 },
+                 actor()
+               )
+
+      note_ids = [first.id, second.id]
+      Repo.delete_all(from(log in Log, where: log.note_id in ^note_ids))
+
+      %{suffix: suffix, setting: setting, first: first, second: second}
+    end)
+  end
+
+  defp cleanup_fixture(fixture) do
+    note_ids = [fixture.first.id, fixture.second.id]
+    Repo.delete_all(from(log in Log, where: log.note_id in ^note_ids))
+    Repo.delete_all(from(label in Label, where: label.note_id in ^note_ids))
+    Repo.delete_all(from(note in Note, where: note.id in ^note_ids))
+    Repo.delete_all(from(setting in LabelSetting, where: setting.id == ^fixture.setting.id))
+  end
+
+  defp persisted_values(fixture) do
+    note_ids = [fixture.first.id, fixture.second.id]
+
+    outside_sandbox(fn ->
+      Label
+      |> where([label], label.note_id in ^note_ids)
+      |> order_by([label], asc: label.note_id)
+      |> select([label], {label.note_id, label.value})
+      |> Repo.all()
+    end)
+  end
+
+  defp persisted_logs(fixture) do
+    note_ids = [fixture.first.id, fixture.second.id]
+
+    outside_sandbox(fn ->
+      Log
+      |> where([log], log.note_id in ^note_ids)
+      |> Repo.all()
+    end)
+  end
+
+  defp edit_operation(label_setting_id, value) do
+    {:edit,
+     %{
+       match: %{label_setting_id: label_setting_id, value: :any},
+       replacement: %{label_setting_id: label_setting_id, value: value}
+     }}
+  end
+
+  defp install_delay_trigger(trigger, function) do
+    outside_sandbox(fn ->
+      drop_delay_trigger(trigger, function)
+
+      SQL.query!(
+        Repo,
+        """
+        CREATE FUNCTION #{function}()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+          PERFORM pg_sleep(0.15);
+          RETURN NEW;
+        END;
+        $$;
+        """,
+        []
+      )
+
+      SQL.query!(
+        Repo,
+        """
+        CREATE TRIGGER #{trigger}
+        BEFORE UPDATE ON gao_note_labels
+        FOR EACH ROW EXECUTE FUNCTION #{function}();
+        """,
+        []
+      )
+    end)
+  end
+
+  defp drop_delay_trigger(trigger, function) do
+    SQL.query!(Repo, "DROP TRIGGER IF EXISTS #{trigger} ON gao_note_labels", [])
+    SQL.query!(Repo, "DROP FUNCTION IF EXISTS #{function}()", [])
+  end
+
+  defp start_allowed_batch(note_ids, operation) do
+    parent = self()
+
+    owner =
+      Task.async(fn ->
+        :ok = Sandbox.checkout(Repo, sandbox: false)
+        send(parent, {:connection_ready, self()})
+
+        receive do
+          :stop -> Sandbox.checkin(Repo)
+        end
+      end)
+
+    assert_receive {:connection_ready, owner_pid}, 2_000
+    assert owner_pid == owner.pid
+
+    batch =
+      Task.async(fn ->
+        receive do
+          :run -> GaoNote.batch_mutate_note_labels(note_ids, operation, actor())
+        end
+      end)
+
+    assert :ok = Sandbox.allow(Repo, owner.pid, batch.pid)
+    {owner, batch}
+  end
+
+  defp stop_connection_owner(owner) do
+    send(owner.pid, :stop)
+    assert :ok = Task.await(owner, 2_000)
+  end
+
+  defp outside_sandbox(fun) do
+    Task.async(fn ->
+      :ok = Sandbox.checkout(Repo, sandbox: false)
+
+      try do
+        fun.()
+      after
+        Sandbox.checkin(Repo)
+      end
+    end)
+    |> Task.await(10_000)
+  end
+
+  defp actor do
+    %{id: "batch-database-test", source: "test"}
+  end
+end

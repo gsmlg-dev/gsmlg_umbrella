@@ -1,5 +1,8 @@
 defmodule GSMLG.GaoNote.BatchActions do
-  @moduledoc false
+  @moduledoc """
+  Applies atomic label mutations with deterministic locks: settings by ID,
+  notes by ID, then labels by note ID and setting ID.
+  """
 
   import Ecto.Query, warn: false
 
@@ -384,8 +387,11 @@ defmodule GSMLG.GaoNote.BatchActions do
     |> Repo.insert()
     |> case do
       {:ok, _label} -> :ok
-      {:error, reason} -> {:error, reason}
+      {:error, reason} -> {:error, batch_write_error(:insert, note_id, reason)}
     end
+  rescue
+    exception in [Ecto.ConstraintError, Ecto.StaleEntryError] ->
+      {:error, batch_write_error(:insert, note_id, exception)}
   end
 
   defp delete_label(label) do
@@ -410,10 +416,48 @@ defmodule GSMLG.GaoNote.BatchActions do
         "batch" => %{"operation" => Atom.to_string(operation)}
       }
 
-      case Audit.log("update", "note", note.id, note.id, actor, details) do
+      case insert_audit(note, actor, details) do
         {:ok, _log} -> {:cont, :ok}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
   end
+
+  defp insert_audit(note, actor, details) do
+    case Audit.log("update", "note", note.id, note.id, actor, details) do
+      {:ok, _log} = result -> result
+      {:error, reason} -> {:error, batch_audit_error(note.id, reason)}
+    end
+  rescue
+    exception in [Ecto.ConstraintError, Ecto.StaleEntryError] ->
+      {:error, batch_audit_error(note.id, exception)}
+  end
+
+  defp batch_write_error(operation, note_id, reason) do
+    {:batch_write_failed,
+     %{operation: operation, note_id: note_id, reason: safe_persistence_reason(reason)}}
+  end
+
+  defp batch_audit_error(note_id, reason) do
+    {:batch_audit_failed, %{note_id: note_id, reason: safe_persistence_reason(reason)}}
+  end
+
+  defp safe_persistence_reason(%Ecto.Changeset{} = changeset) do
+    errors =
+      Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
+        Enum.reduce(opts, message, fn {key, value}, rendered ->
+          String.replace(rendered, "%{#{key}}", to_string(value))
+        end)
+      end)
+
+    %{type: :changeset, errors: errors}
+  end
+
+  defp safe_persistence_reason(%Ecto.ConstraintError{} = error) do
+    %{type: :constraint, constraint_type: error.type, constraint: error.constraint}
+  end
+
+  defp safe_persistence_reason(%Ecto.StaleEntryError{}), do: %{type: :stale}
+  defp safe_persistence_reason(reason) when is_atom(reason), do: reason
+  defp safe_persistence_reason(_reason), do: :persistence_error
 end
