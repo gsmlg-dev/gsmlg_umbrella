@@ -106,6 +106,14 @@ defmodule GSMLG.ProxyRules.ZeroOmega.NormalizerTest do
     end
   end
 
+  test "never copies an unsafe rule id into diagnostics" do
+    input = policy([rule("unsafe\u2028id", 1, {:domain_suffix, "not a host"}, :match, 0)])
+
+    assert {:error, diagnostics} = Normalizer.normalize_policy(input)
+    assert Enum.map(diagnostics, & &1.code) == [:line_injection, :invalid_domain]
+    assert Enum.all?(diagnostics, &is_nil(&1.rule_id))
+  end
+
   test "rejects missing defaults, malformed rules, and unsupported conditions" do
     missing_default = %Policy{revision: "rev", default_action: nil, rules: []}
 

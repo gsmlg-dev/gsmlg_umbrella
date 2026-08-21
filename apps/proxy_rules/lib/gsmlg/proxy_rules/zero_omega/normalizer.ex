@@ -499,8 +499,7 @@ defmodule GSMLG.ProxyRules.ZeroOmega.Normalizer do
   defp condition_error_code(:keyword), do: :unsupported_condition
 
   defp safe_rule_id(rule_id) when is_binary(rule_id) do
-    if String.valid?(rule_id) and
-         not Enum.any?(:binary.bin_to_list(rule_id), &(&1 < 32 or &1 == 127)) do
+    if Text.safe_line?(rule_id) do
       String.slice(String.trim(rule_id), 0, 128)
     end
   end
