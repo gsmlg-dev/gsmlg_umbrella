@@ -17,7 +17,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
      |> assign(
        active_menu: "gao_note_list",
        notes: AsyncResult.loading(),
-       filters: %{},
+       filters: %{"search" => "", "labels" => []},
+       active_filters: %{"search" => "", "labels" => []},
        label_filter_key: "",
        label_filter_operator: "=",
        label_filter_value: "",
@@ -55,7 +56,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
         {:ok, %{filters: filters, notes: notes, label_settings: label_settings}},
         socket
       ) do
-    if filters == socket.assigns.filters do
+    if filters == socket.assigns.active_filters do
       loaded_ids = Enum.map(notes, & &1.id)
 
       {:noreply,
@@ -79,10 +80,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    filters = filter_params(params)
+    active_filters = filter_params(params)
 
     socket =
-      if filters == socket.assigns.filters do
+      if active_filters == socket.assigns.active_filters do
         socket
       else
         reset_batch_state(socket)
@@ -91,9 +92,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     socket
     |> assign(:page_title, "GaoNote")
     |> assign(:active_menu, "gao_note_list")
-    |> assign(:filters, filters)
+    |> assign(:filters, active_filters)
+    |> assign(:active_filters, active_filters)
     |> assign_attachment_editor([])
-    |> assign_notes_async(filter_opts(filters))
+    |> assign_notes_async(filter_opts(active_filters), active_filters)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -135,14 +137,25 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   def handle_event("search_form_changed", params, socket) do
     filters = filter_params(Map.get(params, "filters", %{}))
     label_filter = Map.get(params, "label_filter", %{})
+    label_filter_key = Map.get(label_filter, "key", "")
+    label_filter_operator = normalize_filter_operator(Map.get(label_filter, "operator"))
+    label_filter_value = Map.get(label_filter, "value", "")
 
-    {:noreply,
-     assign(socket,
-       filters: filters,
-       label_filter_key: Map.get(label_filter, "key", ""),
-       label_filter_operator: normalize_filter_operator(Map.get(label_filter, "operator")),
-       label_filter_value: Map.get(label_filter, "value", "")
-     )}
+    draft_changed? =
+      filters != socket.assigns.filters or
+        label_filter_key != socket.assigns.label_filter_key or
+        label_filter_operator != socket.assigns.label_filter_operator or
+        label_filter_value != socket.assigns.label_filter_value
+
+    socket =
+      assign(socket,
+        filters: filters,
+        label_filter_key: label_filter_key,
+        label_filter_operator: label_filter_operator,
+        label_filter_value: label_filter_value
+      )
+
+    {:noreply, if(draft_changed?, do: reset_batch_state(socket), else: socket)}
   end
 
   def handle_event("search", %{"filters" => params}, socket) do
@@ -257,7 +270,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
            |> put_flash(:info, message)
            |> push_event("close-dialog", %{id: "gao-note-batch-label-modal"})
            |> reset_batch_state()
-           |> assign_notes_async(filter_opts(socket.assigns.filters))}
+           |> assign_notes_async(
+             filter_opts(socket.assigns.active_filters),
+             socket.assigns.active_filters
+           )}
 
         {:error, reason} ->
           {:noreply, assign(socket, :batch_label_error, batch_label_error(reason))}
@@ -288,7 +304,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
          |> put_flash(:info, "#{deleted} notes moved to the Recycle Bin")
          |> push_event("close-dialog", %{id: "gao-note-batch-delete-modal"})
          |> reset_batch_state()
-         |> assign_notes_async(filter_opts(socket.assigns.filters))}
+         |> assign_notes_async(
+           filter_opts(socket.assigns.active_filters),
+           socket.assigns.active_filters
+         )}
 
       {:error, reason} ->
         {:noreply, assign(socket, :batch_delete_error, batch_delete_error(reason))}
@@ -1694,9 +1713,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        }),
        do: "#{name}=#{value || ""}"
 
-  defp assign_notes_async(socket, opts) do
-    filters = socket.assigns.filters
-
+  defp assign_notes_async(socket, opts, active_filters) do
     socket
     |> cancel_async(:load_batch_index)
     |> assign(
@@ -1705,7 +1722,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     )
     |> start_async(:load_batch_index, fn ->
       %{
-        filters: filters,
+        filters: active_filters,
         notes: GaoNote.list_notes(opts),
         label_settings: GaoNote.list_label_settings(limit: 200)
       }

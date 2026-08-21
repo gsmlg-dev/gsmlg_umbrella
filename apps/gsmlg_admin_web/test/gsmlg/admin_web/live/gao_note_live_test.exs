@@ -216,6 +216,76 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       refute has_element?(view, "#gao-note-row-#{selected.id}")
     end
 
+    test "unsubmitted filter form changes clear batch selection immediately", %{
+      conn: conn,
+      user: user
+    } do
+      note = note_fixture(user, "Draft Filter Selection")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [note])
+      assert has_element?(view, "#gao-note-batch-toolbar", "1 selected")
+
+      view
+      |> form("#gao-note-filter-form", %{"filters" => %{"search" => "not submitted"}})
+      |> render_change()
+
+      refute has_element?(view, "#gao-note-batch-toolbar")
+      assert has_element?(view, "#gao-note-row-#{note.id}")
+    end
+
+    test "unsubmitted typing does not invalidate the active URL async load", %{
+      conn: conn,
+      user: user
+    } do
+      setting = label_setting_fixture("Async Catalog Label")
+      note = note_fixture(user, "Active URL Result")
+      {:ok, view, html} = live(conn, ~p"/gao_notes/notes")
+      assert html =~ ~s(id="gao-note-table-loading")
+
+      view
+      |> form("#gao-note-filter-form", %{"filters" => %{"search" => "unsubmitted miss"}})
+      |> render_change()
+
+      assert %{active_filters: %{"search" => "", "labels" => []}} =
+               :sys.get_state(view.pid).socket.assigns
+
+      html = render_async(view)
+      assert html =~ note.title
+      refute html =~ ~s(id="gao-note-table-loading")
+
+      render_click(view, "toggle_batch_note", %{"id" => note.id})
+      render_click(view, "open_batch_label_modal")
+      assert has_element?(view, ~s(option[value="#{setting.id}"]), setting.name)
+    end
+
+    test "submitting draft filters updates the active URL and loaded result", %{
+      conn: conn,
+      user: user
+    } do
+      selected = note_fixture(user, "Submitted Filter Match")
+      hidden = note_fixture(user, "Submitted Filter Hidden")
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [hidden])
+
+      view
+      |> form("#gao-note-filter-form", %{"filters" => %{"search" => "Match"}})
+      |> render_change()
+
+      refute has_element?(view, "#gao-note-batch-toolbar")
+
+      view
+      |> form("#gao-note-filter-form", %{"filters" => %{"search" => "Match"}})
+      |> render_submit()
+
+      assert_patch(view, ~p"/gao_notes/notes?search=Match")
+      html = render_async(view)
+      assert html =~ selected.title
+      refute html =~ hidden.title
+      refute has_element?(view, "#gao-note-batch-toolbar")
+    end
+
     test "native notes table exposes semantic headers, stable rows, and existing row actions", %{
       conn: conn,
       user: user
@@ -379,6 +449,33 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       submit_batch_label(view, delete_params)
       render_async(view)
       assert %{"project" => "umbrella"} = labels_for_note(published.id)
+    end
+
+    test "exact Delete removes only the matching value", %{conn: conn, user: user} do
+      status = label_setting_fixture("status")
+      draft = note_fixture(user, "Exact Delete Draft", ["status=draft", "project=umbrella"])
+
+      published =
+        note_fixture(user, "Exact Delete Published", ["status=published", "project=umbrella"])
+
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/notes")
+      render_async(view)
+      select_notes(view, [draft, published])
+      render_click(view, "open_batch_label_modal")
+
+      params = %{
+        "action" => "delete",
+        "match_label_setting_id" => status.id,
+        "match_value" => " draft "
+      }
+
+      change_batch_label(view, params)
+      submit_batch_label(view, params)
+      render_async(view)
+
+      assert %{"project" => "umbrella"} = labels_for_note(draft.id)
+      assert %{"project" => "umbrella", "status" => "published"} =
+               labels_for_note(published.id)
     end
 
     test "zero-match label operation is an informational unaudited no-op", %{
