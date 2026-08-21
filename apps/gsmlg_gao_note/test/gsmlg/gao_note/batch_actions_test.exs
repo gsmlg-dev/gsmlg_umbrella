@@ -13,6 +13,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
     Note
   }
 
+  alias GSMLG.GaoNote.Workers.StorageFilePurgeWorker
   alias GSMLG.Storage.StorageFile
 
   setup do
@@ -23,6 +24,11 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
     Repo.delete_all(StorageFile)
+
+    Repo.delete_all(
+      from(job in Oban.Job, where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker")
+    )
+
     :ok
   end
 
@@ -435,6 +441,249 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
     assert logs() == []
   end
 
+  describe "batch_delete_notes/2" do
+    test "soft deletes every selected note at one timestamp and audits each note" do
+      first = note_fixture(%{title: "First deleted note"})
+      second = note_fixture(%{title: "Second deleted note"})
+      clear_logs()
+
+      assert {:ok, %{selected: 2, deleted: 2}} =
+               GaoNote.batch_delete_notes([second.id, first.id], actor())
+
+      assert GaoNote.get_note(first.id) == nil
+      assert GaoNote.get_note(second.id) == nil
+
+      assert %Note{deleted_at: %DateTime{} = first_deleted_at} =
+               GaoNote.get_deleted_note(first.id)
+
+      assert %Note{deleted_at: %DateTime{} = second_deleted_at} =
+               GaoNote.get_deleted_note(second.id)
+
+      assert DateTime.compare(first_deleted_at, second_deleted_at) == :eq
+
+      assert [
+               %Log{
+                 action: "delete",
+                 entity_type: "note",
+                 entity_id: first_id,
+                 note_id: first_id,
+                 actor_id: "batch-actor",
+                 source: "mcp",
+                 details: %{
+                   "title" => first_title,
+                   "deleted_at" => first_deleted_at_value,
+                   "batch" => %{"operation" => "delete"}
+                 }
+               },
+               %Log{
+                 action: "delete",
+                 entity_type: "note",
+                 entity_id: second_id,
+                 note_id: second_id,
+                 actor_id: "batch-actor",
+                 source: "mcp",
+                 details: %{
+                   "title" => second_title,
+                   "deleted_at" => second_deleted_at_value,
+                   "batch" => %{"operation" => "delete"}
+                 }
+               }
+             ] = logs()
+
+      assert [first_id, second_id] == Enum.sort([first.id, second.id])
+
+      assert Map.new([
+               {first_title, first_deleted_at_value},
+               {second_title, second_deleted_at_value}
+             ]) == %{
+               "First deleted note" => DateTime.to_iso8601(first_deleted_at),
+               "Second deleted note" => DateTime.to_iso8601(second_deleted_at)
+             }
+    end
+
+    test "an already-deleted selection rolls back the active note and every audit" do
+      active = note_fixture(%{title: "Must remain active"})
+      deleted = note_fixture(%{title: "Already deleted"})
+      assert {:ok, %Note{}} = GaoNote.delete_note(deleted, actor())
+      clear_logs()
+
+      assert {:error, {:notes_unavailable, %{state: :active, ids: unavailable_ids}}} =
+               GaoNote.batch_delete_notes([active.id, deleted.id], actor())
+
+      assert unavailable_ids == [deleted.id]
+      assert %Note{deleted_at: nil} = GaoNote.get_note(active.id)
+      assert %Note{deleted_at: %DateTime{}} = GaoNote.get_deleted_note(deleted.id)
+      assert logs() == []
+    end
+
+    test "keeps attachments and does not enqueue storage purges" do
+      note = note_fixture(%{title: "Keep attachment"})
+      attachment = attachment_fixture(note)
+      clear_logs()
+
+      Oban.Testing.with_testing_mode(:manual, fn ->
+        assert {:ok, %{selected: 1, deleted: 1}} =
+                 GaoNote.batch_delete_notes([note.id], actor())
+
+        assert [] =
+                 all_enqueued(
+                   worker: StorageFilePurgeWorker,
+                   args: %{storage_file_id: attachment.storage_file_id}
+                 )
+      end)
+
+      attachment_id = attachment.id
+      storage_file_id = attachment.storage_file_id
+
+      assert %Note{
+               attachments: [
+                 %Attachment{id: ^attachment_id, storage_file_id: ^storage_file_id}
+               ]
+             } = GaoNote.get_deleted_note(note.id)
+
+      assert %StorageFile{id: ^storage_file_id} = Repo.get(StorageFile, storage_file_id)
+    end
+
+    test "uses the shared selection errors with the active-note limit" do
+      note = note_fixture()
+      clear_logs()
+
+      assert {:error, {:invalid_selection, %{code: :empty}}} =
+               GaoNote.batch_delete_notes([], actor())
+
+      assert {:error, {:invalid_selection, %{code: :duplicate, id: duplicate_id}}} =
+               GaoNote.batch_delete_notes([note.id, note.id], actor())
+
+      assert duplicate_id == note.id
+
+      assert {:error, {:invalid_selection, %{code: :invalid_id, id: "not-a-uuid"}}} =
+               GaoNote.batch_delete_notes(["not-a-uuid"], actor())
+
+      too_many_ids = Enum.map(1..101, fn _index -> Ecto.UUID.generate() end)
+
+      assert {:error, {:invalid_selection, %{code: :too_many, limit: 100}}} =
+               GaoNote.batch_delete_notes(too_many_ids, actor())
+
+      assert logs() == []
+    end
+  end
+
+  describe "batch_permanently_delete_notes/2" do
+    test "purges selected deleted notes, audits each note, and enqueues each storage file once" do
+      first = note_fixture(%{title: "First purged note"})
+      second = note_fixture(%{title: "Second purged note"})
+      first_attachment = attachment_fixture(first, "first.txt")
+      second_attachment = attachment_fixture(second, "second.txt")
+      third_attachment = attachment_fixture(second, "third.txt")
+      assert {:ok, %Note{}} = GaoNote.delete_note(first, actor())
+      assert {:ok, %Note{}} = GaoNote.delete_note(second, actor())
+      clear_logs()
+
+      Oban.Testing.with_testing_mode(:manual, fn ->
+        assert {:ok, %{selected: 2, purged: 2}} =
+                 GaoNote.batch_permanently_delete_notes([second.id, first.id], actor())
+
+        for attachment <- [first_attachment, second_attachment, third_attachment] do
+          assert_enqueued(
+            worker: StorageFilePurgeWorker,
+            args: %{storage_file_id: attachment.storage_file_id}
+          )
+
+          assert [_job] =
+                   all_enqueued(
+                     worker: StorageFilePurgeWorker,
+                     args: %{storage_file_id: attachment.storage_file_id}
+                   )
+        end
+      end)
+
+      assert Repo.get(Note, first.id) == nil
+      assert Repo.get(Note, second.id) == nil
+
+      assert [
+               %Log{
+                 action: "purge",
+                 entity_type: "note",
+                 entity_id: first_id,
+                 note_id: first_id,
+                 actor_id: "batch-actor",
+                 details: %{
+                   "title" => first_title,
+                   "batch" => %{"operation" => "purge"}
+                 }
+               },
+               %Log{
+                 action: "purge",
+                 entity_type: "note",
+                 entity_id: second_id,
+                 note_id: second_id,
+                 actor_id: "batch-actor",
+                 details: %{
+                   "title" => second_title,
+                   "batch" => %{"operation" => "purge"}
+                 }
+               }
+             ] = logs()
+
+      assert [first_id, second_id] == Enum.sort([first.id, second.id])
+      assert Enum.sort([first_title, second_title]) == ["First purged note", "Second purged note"]
+    end
+
+    test "an active selection rolls back the deleted note, purge jobs, and audits" do
+      deleted = note_fixture(%{title: "Must remain deleted"})
+      active = note_fixture(%{title: "Still active"})
+      attachment = attachment_fixture(deleted)
+      assert {:ok, %Note{}} = GaoNote.delete_note(deleted, actor())
+      clear_logs()
+
+      Oban.Testing.with_testing_mode(:manual, fn ->
+        assert {:error, {:notes_unavailable, %{state: :deleted, ids: unavailable_ids}}} =
+                 GaoNote.batch_permanently_delete_notes([deleted.id, active.id], actor())
+
+        assert unavailable_ids == [active.id]
+
+        assert [] =
+                 all_enqueued(
+                   worker: StorageFilePurgeWorker,
+                   args: %{storage_file_id: attachment.storage_file_id}
+                 )
+      end)
+
+      assert %Note{} = GaoNote.get_deleted_note(deleted.id)
+      assert %Note{} = GaoNote.get_note(active.id)
+      assert logs() == []
+    end
+
+    test "shares structured selection errors and allows up to 200 deleted-note IDs" do
+      note = note_fixture()
+      valid_ids = Enum.map(1..200, fn _index -> Ecto.UUID.generate() end) |> Enum.sort()
+      too_many_ids = [Ecto.UUID.generate() | valid_ids]
+      clear_logs()
+
+      assert {:error, {:invalid_selection, %{code: :must_be_a_list}}} =
+               GaoNote.batch_permanently_delete_notes(note.id, actor())
+
+      assert {:error, {:invalid_selection, %{code: :empty}}} =
+               GaoNote.batch_permanently_delete_notes([], actor())
+
+      assert {:error, {:invalid_selection, %{code: :duplicate, id: duplicate_id}}} =
+               GaoNote.batch_permanently_delete_notes([note.id, note.id], actor())
+
+      assert duplicate_id == note.id
+
+      assert {:error, {:invalid_selection, %{code: :invalid_id, id: "not-a-uuid"}}} =
+               GaoNote.batch_permanently_delete_notes(["not-a-uuid"], actor())
+
+      assert {:error, {:notes_unavailable, %{state: :deleted, ids: ^valid_ids}}} =
+               GaoNote.batch_permanently_delete_notes(valid_ids, actor())
+
+      assert {:error, {:invalid_selection, %{code: :too_many, limit: 200}}} =
+               GaoNote.batch_permanently_delete_notes(too_many_ids, actor())
+
+      assert logs() == []
+    end
+  end
+
   defp label_setting_fixture(attrs) do
     assert {:ok, label_setting} = GaoNote.create_label_setting(attrs, actor())
     clear_logs()
@@ -453,7 +702,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
     note
   end
 
-  defp attachment_fixture(note) do
+  defp attachment_fixture(note, filename \\ "preserved.txt") do
     suffix = System.unique_integer([:positive])
 
     storage_file =
@@ -461,8 +710,8 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
       |> StorageFile.changeset(%{
         tenant: "gao_note",
         type: "gao_note_attachment",
-        filename: "preserved.txt",
-        s3_key: "batch-actions/#{suffix}/preserved.txt",
+        filename: filename,
+        s3_key: "batch-actions/#{suffix}/#{filename}",
         content_type: "text/plain",
         size: 9,
         checksum: "checksum-#{suffix}",
@@ -472,10 +721,10 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
 
     %Attachment{}
     |> Attachment.changeset(%{
-      id: "preserved-#{suffix}",
+      id: "attachment-#{suffix}",
       note_id: note.id,
       storage_file_id: storage_file.id,
-      path: "preserved.txt",
+      path: filename,
       mime: "text/plain",
       description: "Preserved"
     })
@@ -508,7 +757,14 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
   alias Ecto.Adapters.SQL
   alias Ecto.Adapters.SQL.Sandbox
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Label, LabelSetting, Log, Note}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, Note}
+  alias GSMLG.Storage.StorageFile
+
+  setup_all do
+    outside_sandbox(&delete_all_purge_jobs/0)
+    on_exit(fn -> outside_sandbox(&delete_all_purge_jobs/0) end)
+    :ok
+  end
 
   test "an audit constraint failure returns a domain error and rolls back label writes" do
     fixture = prepare_fixture("audit-failure")
@@ -559,6 +815,71 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
     assert %{^note_id => "initial", ^second_note_id => "initial"} =
              Map.new(persisted_values(fixture))
 
+    assert [] = persisted_logs(fixture)
+  end
+
+  test "a batch soft-delete audit failure rolls back every deleted_at and log" do
+    fixture = prepare_fixture("delete-audit-failure")
+    constraint = "gao_note_batch_delete_audit_reject_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        SQL.query!(
+          Repo,
+          "ALTER TABLE gao_note_logs DROP CONSTRAINT IF EXISTS #{constraint}",
+          []
+        )
+
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    install_batch_audit_constraint(constraint)
+    first_id = fixture.first.id
+
+    assert {:error,
+            {:batch_audit_failed,
+             %{note_id: ^first_id, reason: %{type: :constraint, constraint: ^constraint}}}} =
+             outside_sandbox(fn ->
+               GaoNote.batch_delete_notes([fixture.first.id], actor())
+             end)
+
+    assert %{^first_id => nil} = persisted_deleted_at([first_id])
+    assert [] = persisted_logs(fixture)
+  end
+
+  test "a purge audit failure rolls back deleted notes and already-inserted Oban jobs" do
+    fixture = prepare_deleted_attachment_fixture("purge-audit-failure")
+    constraint = "gao_note_batch_purge_audit_reject_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        SQL.query!(
+          Repo,
+          "ALTER TABLE gao_note_logs DROP CONSTRAINT IF EXISTS #{constraint}",
+          []
+        )
+
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    install_batch_audit_constraint(constraint)
+    note_id = fixture.first.id
+
+    assert {:error,
+            {:batch_audit_failed,
+             %{note_id: ^note_id, reason: %{type: :constraint, constraint: ^constraint}}}} =
+             Oban.Testing.with_testing_mode(:manual, fn ->
+               outside_sandbox(fn ->
+                 Oban.Testing.with_testing_mode(:manual, fn ->
+                   GaoNote.batch_permanently_delete_notes([note_id], actor())
+                 end)
+               end)
+             end)
+
+    assert %{^note_id => %DateTime{}} = persisted_deleted_at([note_id])
+    assert [] = persisted_purge_jobs(fixture.storage_file_ids)
     assert [] = persisted_logs(fixture)
   end
 
@@ -615,6 +936,94 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
            ]
   end
 
+  test "overlapping inverse-order soft deletes complete without deadlocking" do
+    fixture = prepare_fixture("delete-concurrency")
+    function = "gao_note_batch_delete_delay_#{fixture.suffix}"
+    trigger = "gao_note_batch_delete_delay_trigger_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        drop_note_delay_trigger(trigger, function)
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    install_note_delay_trigger(trigger, function, "UPDATE")
+
+    {first_owner, first_batch} =
+      start_allowed_delete([fixture.first.id, fixture.second.id])
+
+    {second_owner, second_batch} =
+      start_allowed_delete([fixture.second.id, fixture.first.id])
+
+    results =
+      try do
+        send(first_batch.pid, :run)
+        send(second_batch.pid, :run)
+        Task.await_many([first_batch, second_batch], 5_000)
+      after
+        stop_connection_owner(first_owner)
+        stop_connection_owner(second_owner)
+      end
+
+    missing_ids = Enum.sort([fixture.first.id, fixture.second.id])
+
+    assert Enum.count(results, &match?({:ok, %{selected: 2, deleted: 2}}, &1)) == 1
+
+    assert Enum.count(
+             results,
+             &match?(
+               {:error, {:notes_unavailable, %{state: :active, ids: ^missing_ids}}},
+               &1
+             )
+           ) == 1
+  end
+
+  test "overlapping inverse-order purges complete without deadlocking" do
+    fixture =
+      prepare_deleted_attachment_fixture("purge-concurrency", two_notes: true, attachments: false)
+
+    function = "gao_note_batch_purge_delay_#{fixture.suffix}"
+    trigger = "gao_note_batch_purge_delay_trigger_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        drop_note_delay_trigger(trigger, function)
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    install_note_delay_trigger(trigger, function, "DELETE")
+
+    {first_owner, first_batch} =
+      start_allowed_purge([fixture.first.id, fixture.second.id])
+
+    {second_owner, second_batch} =
+      start_allowed_purge([fixture.second.id, fixture.first.id])
+
+    results =
+      try do
+        send(first_batch.pid, :run)
+        send(second_batch.pid, :run)
+        Task.await_many([first_batch, second_batch], 5_000)
+      after
+        stop_connection_owner(first_owner)
+        stop_connection_owner(second_owner)
+      end
+
+    missing_ids = Enum.sort([fixture.first.id, fixture.second.id])
+
+    assert Enum.count(results, &match?({:ok, %{selected: 2, purged: 2}}, &1)) == 1
+
+    assert Enum.count(
+             results,
+             &match?(
+               {:error, {:notes_unavailable, %{state: :deleted, ids: ^missing_ids}}},
+               &1
+             )
+           ) == 1
+  end
+
   defp prepare_fixture(prefix) do
     outside_sandbox(fn ->
       suffix = System.unique_integer([:positive])
@@ -649,12 +1058,102 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
     end)
   end
 
+  defp prepare_deleted_attachment_fixture(prefix, opts \\ []) do
+    outside_sandbox(fn ->
+      suffix = System.unique_integer([:positive])
+
+      assert {:ok, first} =
+               GaoNote.create_note(
+                 %{title: "#{prefix} first #{suffix}", content: "Body"},
+                 actor()
+               )
+
+      second =
+        if opts[:two_notes] do
+          assert {:ok, note} =
+                   GaoNote.create_note(
+                     %{title: "#{prefix} second #{suffix}", content: "Body"},
+                     actor()
+                   )
+
+          note
+        else
+          first
+        end
+
+      notes = Enum.uniq_by([first, second], & &1.id)
+
+      storage_file_ids =
+        if Keyword.get(opts, :attachments, true) do
+          Enum.map(notes, fn note ->
+            storage_file = storage_file_fixture(suffix, note.id)
+            _attachment = attachment_fixture(note, storage_file, suffix)
+            storage_file.id
+          end)
+        else
+          []
+        end
+
+      Enum.each(notes, fn note ->
+        assert {:ok, %Note{}} = GaoNote.delete_note(note, actor())
+      end)
+
+      note_ids = Enum.map(notes, & &1.id)
+      Repo.delete_all(from(log in Log, where: log.note_id in ^note_ids))
+      delete_purge_jobs(storage_file_ids)
+
+      %{
+        suffix: suffix,
+        setting: nil,
+        first: first,
+        second: second,
+        storage_file_ids: storage_file_ids
+      }
+    end)
+  end
+
   defp cleanup_fixture(fixture) do
     note_ids = [fixture.first.id, fixture.second.id]
+    storage_file_ids = Map.get(fixture, :storage_file_ids, [])
+    delete_purge_jobs(storage_file_ids)
     Repo.delete_all(from(log in Log, where: log.note_id in ^note_ids))
+    Repo.delete_all(from(attachment in Attachment, where: attachment.note_id in ^note_ids))
     Repo.delete_all(from(label in Label, where: label.note_id in ^note_ids))
     Repo.delete_all(from(note in Note, where: note.id in ^note_ids))
-    Repo.delete_all(from(setting in LabelSetting, where: setting.id == ^fixture.setting.id))
+
+    if fixture.setting do
+      Repo.delete_all(from(setting in LabelSetting, where: setting.id == ^fixture.setting.id))
+    end
+
+    Repo.delete_all(from(file in StorageFile, where: file.id in ^storage_file_ids))
+  end
+
+  defp storage_file_fixture(suffix, note_id) do
+    %StorageFile{}
+    |> StorageFile.changeset(%{
+      tenant: "gao_note",
+      type: "gao_note_attachment",
+      filename: "#{note_id}.txt",
+      s3_key: "batch-actions/database/#{suffix}/#{note_id}.txt",
+      content_type: "text/plain",
+      size: 9,
+      checksum: "checksum-#{suffix}-#{note_id}",
+      uploaded_by: "batch-database-test"
+    })
+    |> Repo.insert!()
+  end
+
+  defp attachment_fixture(note, storage_file, suffix) do
+    %Attachment{}
+    |> Attachment.changeset(%{
+      id: "attachment-#{suffix}-#{note.id}",
+      note_id: note.id,
+      storage_file_id: storage_file.id,
+      path: "#{note.id}.txt",
+      mime: "text/plain",
+      description: "Database batch fixture"
+    })
+    |> Repo.insert!()
   end
 
   defp persisted_values(fixture) do
@@ -676,6 +1175,62 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
       Log
       |> where([log], log.note_id in ^note_ids)
       |> Repo.all()
+    end)
+  end
+
+  defp persisted_deleted_at(note_ids) do
+    outside_sandbox(fn ->
+      Note
+      |> where([note], note.id in ^note_ids)
+      |> select([note], {note.id, note.deleted_at})
+      |> Repo.all()
+      |> Map.new()
+    end)
+  end
+
+  defp persisted_purge_jobs(storage_file_ids) do
+    outside_sandbox(fn ->
+      Oban.Job
+      |> where(
+        [job],
+        job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
+          fragment("(?->>'storage_file_id') = ANY(?)", job.args, ^storage_file_ids)
+      )
+      |> Repo.all()
+    end)
+  end
+
+  defp delete_purge_jobs([]), do: {0, nil}
+
+  defp delete_purge_jobs(storage_file_ids) do
+    Repo.delete_all(
+      from(job in Oban.Job,
+        where:
+          job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
+            fragment("(?->>'storage_file_id') = ANY(?)", job.args, ^storage_file_ids)
+      )
+    )
+  end
+
+  defp delete_all_purge_jobs do
+    Repo.delete_all(
+      from(job in Oban.Job,
+        where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker"
+      )
+    )
+  end
+
+  defp install_batch_audit_constraint(constraint) do
+    outside_sandbox(fn ->
+      SQL.query!(
+        Repo,
+        """
+        ALTER TABLE gao_note_logs
+        ADD CONSTRAINT #{constraint}
+        CHECK (NOT (details ? 'batch'))
+        """,
+        []
+      )
     end)
   end
 
@@ -749,6 +1304,80 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
 
     assert :ok = Sandbox.allow(Repo, owner.pid, batch.pid)
     {owner, batch}
+  end
+
+  defp start_allowed_delete(note_ids) do
+    start_allowed_operation(fn -> GaoNote.batch_delete_notes(note_ids, actor()) end)
+  end
+
+  defp start_allowed_purge(note_ids) do
+    start_allowed_operation(fn -> GaoNote.batch_permanently_delete_notes(note_ids, actor()) end)
+  end
+
+  defp start_allowed_operation(operation) do
+    parent = self()
+
+    owner =
+      Task.async(fn ->
+        :ok = Sandbox.checkout(Repo, sandbox: false)
+        send(parent, {:connection_ready, self()})
+
+        receive do
+          :stop -> Sandbox.checkin(Repo)
+        end
+      end)
+
+    assert_receive {:connection_ready, owner_pid}, 2_000
+    assert owner_pid == owner.pid
+
+    batch =
+      Task.async(fn ->
+        receive do
+          :run -> operation.()
+        end
+      end)
+
+    assert :ok = Sandbox.allow(Repo, owner.pid, batch.pid)
+    {owner, batch}
+  end
+
+  defp install_note_delay_trigger(trigger, function, event) do
+    return_value = if event == "DELETE", do: "OLD", else: "NEW"
+
+    outside_sandbox(fn ->
+      drop_note_delay_trigger(trigger, function)
+
+      SQL.query!(
+        Repo,
+        """
+        CREATE FUNCTION #{function}()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+          PERFORM pg_sleep(0.15);
+          RETURN #{return_value};
+        END;
+        $$;
+        """,
+        []
+      )
+
+      SQL.query!(
+        Repo,
+        """
+        CREATE TRIGGER #{trigger}
+        BEFORE #{event} ON gao_notes
+        FOR EACH ROW EXECUTE FUNCTION #{function}();
+        """,
+        []
+      )
+    end)
+  end
+
+  defp drop_note_delay_trigger(trigger, function) do
+    SQL.query!(Repo, "DROP TRIGGER IF EXISTS #{trigger} ON gao_notes", [])
+    SQL.query!(Repo, "DROP FUNCTION IF EXISTS #{function}()", [])
   end
 
   defp stop_connection_owner(owner) do

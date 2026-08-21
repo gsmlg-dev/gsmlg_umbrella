@@ -1,15 +1,15 @@
 defmodule GSMLG.GaoNote.BatchActions do
   @moduledoc """
-  Applies atomic label mutations with deterministic locks: settings by ID,
-  notes by ID, then labels by note ID and setting ID.
+  Applies atomic note and label mutations with deterministic row locking.
   """
 
   import Ecto.Query, warn: false
 
-  alias GSMLG.GaoNote.{Audit, Label, LabelSetting, LabelValue, Note}
+  alias GSMLG.GaoNote.{Attachments, Audit, Label, LabelSetting, LabelValue, Note}
   alias GSMLG.Repo
 
-  @max_selection 100
+  @max_active_selection 100
+  @max_deleted_selection 200
 
   def mutate_note_labels(note_ids, operation, actor) do
     Repo.transaction(fn ->
@@ -31,6 +31,36 @@ defmodule GSMLG.GaoNote.BatchActions do
           changed: changed,
           unchanged: selected - changed
         }
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  def delete_notes(note_ids, actor) do
+    Repo.transaction(fn ->
+      with {:ok, note_ids} <- normalize_note_ids(note_ids, @max_active_selection),
+           {:ok, notes} <- lock_active_notes(note_ids),
+           deleted_at = DateTime.utc_now(),
+           :ok <- soft_delete_notes(notes, deleted_at),
+           :ok <- audit_deleted_notes(notes, deleted_at, actor) do
+        %{selected: length(note_ids), deleted: length(notes)}
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  def permanently_delete_notes(note_ids, actor) do
+    Repo.transaction(fn ->
+      with {:ok, note_ids} <- normalize_note_ids(note_ids, @max_deleted_selection),
+           {:ok, notes} <- lock_deleted_notes(note_ids),
+           notes = Repo.preload(notes, :attachments),
+           storage_file_ids = storage_file_ids(notes),
+           :ok <- schedule_purges(storage_file_ids),
+           :ok <- purge_notes(notes),
+           :ok <- audit_purged_notes(notes, actor) do
+        %{selected: length(note_ids), purged: length(notes)}
       else
         {:error, reason} -> Repo.rollback(reason)
       end
@@ -92,16 +122,18 @@ defmodule GSMLG.GaoNote.BatchActions do
   defp normalize_match_value(_value),
     do: {:error, {:invalid_operation, %{code: :unsupported_shape}}}
 
-  defp normalize_note_ids(note_ids) when not is_list(note_ids),
+  defp normalize_note_ids(note_ids), do: normalize_note_ids(note_ids, @max_active_selection)
+
+  defp normalize_note_ids(note_ids, _limit) when not is_list(note_ids),
     do: {:error, {:invalid_selection, %{code: :must_be_a_list}}}
 
-  defp normalize_note_ids([]),
+  defp normalize_note_ids([], _limit),
     do: {:error, {:invalid_selection, %{code: :empty}}}
 
-  defp normalize_note_ids(note_ids) when length(note_ids) > @max_selection,
-    do: {:error, {:invalid_selection, %{code: :too_many, limit: @max_selection}}}
+  defp normalize_note_ids(note_ids, limit) when length(note_ids) > limit,
+    do: {:error, {:invalid_selection, %{code: :too_many, limit: limit}}}
 
-  defp normalize_note_ids(note_ids) do
+  defp normalize_note_ids(note_ids, _limit) do
     note_ids
     |> Enum.reduce_while({:ok, {[], MapSet.new()}}, fn original_id, {:ok, {ids, seen}} ->
       case cast_uuid(original_id) do
@@ -209,6 +241,24 @@ defmodule GSMLG.GaoNote.BatchActions do
       {:ok, notes}
     else
       {:error, {:notes_unavailable, %{state: :active, ids: missing_ids}}}
+    end
+  end
+
+  defp lock_deleted_notes(note_ids) do
+    notes =
+      Note
+      |> where([note], note.id in ^note_ids and not is_nil(note.deleted_at))
+      |> order_by([note], asc: note.id)
+      |> lock("FOR UPDATE")
+      |> Repo.all()
+
+    found_ids = MapSet.new(notes, & &1.id)
+    missing_ids = Enum.reject(note_ids, &MapSet.member?(found_ids, &1))
+
+    if missing_ids == [] do
+      {:ok, notes}
+    else
+      {:error, {:notes_unavailable, %{state: :deleted, ids: missing_ids}}}
     end
   end
 
@@ -375,6 +425,65 @@ defmodule GSMLG.GaoNote.BatchActions do
 
   defp apply_change({:delete, label}), do: delete_label(label)
 
+  defp soft_delete_notes(notes, deleted_at) do
+    Enum.reduce_while(notes, :ok, fn note, :ok ->
+      case soft_delete_note(note, deleted_at) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp soft_delete_note(note, deleted_at) do
+    note
+    |> Ecto.Changeset.change(deleted_at: deleted_at)
+    |> Repo.update()
+    |> case do
+      {:ok, _note} -> :ok
+      {:error, reason} -> {:error, batch_write_error(:delete, note.id, reason)}
+    end
+  rescue
+    exception in [Ecto.ConstraintError, Ecto.StaleEntryError] ->
+      {:error, batch_write_error(:delete, note.id, exception)}
+  end
+
+  defp storage_file_ids(notes) do
+    notes
+    |> Enum.flat_map(& &1.attachments)
+    |> Enum.map(& &1.storage_file_id)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  defp schedule_purges(storage_file_ids) do
+    case Attachments.schedule_purges(storage_file_ids) do
+      {:ok, _jobs} -> :ok
+      {:error, reason} -> {:error, batch_purge_error(reason)}
+    end
+  rescue
+    exception in [Ecto.ConstraintError, Ecto.StaleEntryError] ->
+      {:error, batch_purge_error(exception)}
+  end
+
+  defp purge_notes(notes) do
+    Enum.reduce_while(notes, :ok, fn note, :ok ->
+      case purge_note(note) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp purge_note(note) do
+    case Repo.delete(note) do
+      {:ok, _note} -> :ok
+      {:error, reason} -> {:error, batch_write_error(:purge, note.id, reason)}
+    end
+  rescue
+    exception in [Ecto.ConstraintError, Ecto.StaleEntryError] ->
+      {:error, batch_write_error(:purge, note.id, exception)}
+  end
+
   defp insert_label(note_id, label_setting_id, value) do
     %Label{}
     |> Label.changeset(%{
@@ -423,8 +532,40 @@ defmodule GSMLG.GaoNote.BatchActions do
     end)
   end
 
+  defp audit_deleted_notes(notes, deleted_at, actor) do
+    audit_notes(notes, "delete", actor, fn note ->
+      %{
+        "title" => note.title,
+        "deleted_at" => deleted_at,
+        "batch" => %{"operation" => "delete"}
+      }
+    end)
+  end
+
+  defp audit_purged_notes(notes, actor) do
+    audit_notes(notes, "purge", actor, fn note ->
+      %{
+        "title" => note.title,
+        "batch" => %{"operation" => "purge"}
+      }
+    end)
+  end
+
+  defp audit_notes(notes, action, actor, details) do
+    Enum.reduce_while(notes, :ok, fn note, :ok ->
+      case insert_audit(action, note, actor, details.(note)) do
+        {:ok, _log} -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
   defp insert_audit(note, actor, details) do
-    case Audit.log("update", "note", note.id, note.id, actor, details) do
+    insert_audit("update", note, actor, details)
+  end
+
+  defp insert_audit(action, note, actor, details) do
+    case Audit.log(action, "note", note.id, note.id, actor, details) do
       {:ok, _log} = result -> result
       {:error, reason} -> {:error, batch_audit_error(note.id, reason)}
     end
@@ -440,6 +581,10 @@ defmodule GSMLG.GaoNote.BatchActions do
 
   defp batch_audit_error(note_id, reason) do
     {:batch_audit_failed, %{note_id: note_id, reason: safe_persistence_reason(reason)}}
+  end
+
+  defp batch_purge_error(reason) do
+    {:batch_purge_failed, %{operation: :schedule_purges, reason: safe_persistence_reason(reason)}}
   end
 
   defp safe_persistence_reason(%Ecto.Changeset{} = changeset) do

@@ -614,6 +614,12 @@ defmodule GSMLG.GaoNote do
   def batch_mutate_note_labels(note_ids, operation, actor),
     do: BatchActions.mutate_note_labels(note_ids, operation, actor)
 
+  def batch_delete_notes(note_ids, actor),
+    do: BatchActions.delete_notes(note_ids, actor)
+
+  def batch_permanently_delete_notes(note_ids, actor),
+    do: BatchActions.permanently_delete_notes(note_ids, actor)
+
   defp list_category_settings do
     CategorySetting
     |> order_by([category], asc: category.position)
