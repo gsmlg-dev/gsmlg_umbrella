@@ -4,6 +4,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
   """
 
   alias GSMLG.ProxyRules.{Diagnostic, Output, Transport}
+  alias GSMLG.ProxyRules.ZeroOmega.PublishedPolicy
 
   @enforce_keys [
     :generation,
@@ -11,6 +12,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
     :readiness,
     :source_versions,
     :rendered_outputs,
+    :zeroomega_policy,
     :statistics,
     :diagnostics,
     :last_error
@@ -87,6 +89,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
           readiness: readiness(),
           source_versions: source_versions(),
           rendered_outputs: rendered_outputs(),
+          zeroomega_policy: PublishedPolicy.t(),
           statistics: statistics(),
           diagnostics: [Diagnostic.t()],
           last_error: last_error()
@@ -136,6 +139,7 @@ defmodule GSMLG.ProxyRules.Snapshot do
   def metadata(%__MODULE__{} = snapshot) do
     snapshot
     |> Map.from_struct()
+    |> Map.delete(:zeroomega_policy)
     |> omit_bodies()
   end
 

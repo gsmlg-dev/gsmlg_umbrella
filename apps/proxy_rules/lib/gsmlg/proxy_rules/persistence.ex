@@ -11,6 +11,7 @@ defmodule GSMLG.ProxyRules.Persistence do
   }
 
   alias GSMLG.ProxyRules.Parser.GFWList
+  alias GSMLG.ProxyRules.ZeroOmega.{PAC, PublishedPolicy}
 
   @artifact_file "artifact.snapshot"
   @transaction_file ".artifact.snapshot.transaction"
@@ -22,7 +23,7 @@ defmodule GSMLG.ProxyRules.Persistence do
   @remote_transaction_file ".remote.transaction"
   @remote_body_backup ".remote.body.backup"
   @remote_metadata_backup ".remote.metadata.backup"
-  @artifact_version 2
+  @artifact_version 3
   @remote_version 1
   @max_marker_bytes 1_024
   @max_envelope_bytes 64 * 1024 * 1024
@@ -30,6 +31,8 @@ defmodule GSMLG.ProxyRules.Persistence do
   @max_diagnostic_count 1_000
   @max_diagnostic_sample_bytes 512
   @max_remote_metadata_bytes 64 * 1024
+  @max_zeroomega_rules 100_000
+  @max_zeroomega_revision_bytes 256
   @snapshot_keys [
     :__struct__,
     :generation,
@@ -37,6 +40,7 @@ defmodule GSMLG.ProxyRules.Persistence do
     :readiness,
     :source_versions,
     :rendered_outputs,
+    :zeroomega_policy,
     :statistics,
     :diagnostics,
     :last_error
@@ -51,6 +55,7 @@ defmodule GSMLG.ProxyRules.Persistence do
     :content_length
   ]
   @diagnostic_keys [:__struct__, :kind, :source, :location, :reason, :sample]
+  @zeroomega_policy_keys [:__struct__, :revision, :direct_domains, :proxy_domains]
 
   @type read_error ::
           :snapshot_not_found
@@ -370,6 +375,7 @@ defmodule GSMLG.ProxyRules.Persistence do
       Snapshot.persisted_readiness?(snapshot.readiness) and
       valid_source_versions?(snapshot.source_versions) and
       valid_rendered_outputs?(snapshot.rendered_outputs) and
+      valid_zeroomega_policy?(snapshot.zeroomega_policy, snapshot.generation) and
       valid_statistics?(snapshot.statistics) and
       valid_diagnostics?(snapshot.diagnostics) and
       Snapshot.valid_last_error?(snapshot.last_error)
@@ -395,9 +401,17 @@ defmodule GSMLG.ProxyRules.Persistence do
   defp decode_file({:error, _reason}), do: {:error, :snapshot_unreadable}
 
   defp load_artifact_atom_modules do
-    if Enum.all?([Calendar.ISO, DateTime, Diagnostic, Output, Snapshot, Transport], fn module ->
-         Code.ensure_loaded?(module)
-       end) do
+    modules = [
+      Calendar.ISO,
+      DateTime,
+      Diagnostic,
+      Output,
+      PublishedPolicy,
+      Snapshot,
+      Transport
+    ]
+
+    if Enum.all?(modules, &Code.ensure_loaded?/1) do
       :ok
     else
       {:error, :incompatible_snapshot}
@@ -766,6 +780,44 @@ defmodule GSMLG.ProxyRules.Persistence do
   end
 
   defp valid_rendered_outputs?(_outputs), do: false
+
+  defp valid_zeroomega_policy?(%PublishedPolicy{} = published, generation) do
+    exact_keys?(published, @zeroomega_policy_keys) and
+      published.revision == Integer.to_string(generation) and
+      bounded_text?(published.revision, @max_zeroomega_revision_bytes) and
+      valid_zeroomega_domain_bodies?(published)
+  end
+
+  defp valid_zeroomega_policy?(_policy, _generation), do: false
+
+  defp valid_zeroomega_domain_bodies?(
+         %PublishedPolicy{
+           direct_domains: direct,
+           proxy_domains: proxy
+         } = published
+       )
+       when is_binary(direct) and is_binary(proxy) do
+    total_bytes = byte_size(direct) + byte_size(proxy)
+
+    with true <- total_bytes <= @max_output_bytes,
+         {:ok, policy} <- PublishedPolicy.to_policy(published),
+         true <-
+           length(Enum.take(policy.rules, @max_zeroomega_rules + 1)) <= @max_zeroomega_rules,
+         {:ok, rebuilt} <- PublishedPolicy.from_policy(policy),
+         true <- rebuilt == published,
+         :ok <- PAC.validate_policy(policy) do
+      true
+    else
+      _invalid -> false
+    end
+  end
+
+  defp valid_zeroomega_domain_bodies?(_published), do: false
+
+  defp bounded_text?(value, max_bytes) do
+    is_binary(value) and byte_size(value) <= max_bytes and String.valid?(value) and
+      not Enum.any?(:binary.bin_to_list(value), &(&1 < 32 or &1 == 127))
+  end
 
   defp valid_output_formats?(%{raw: raw, squid: squid, clash: clash} = formats)
        when map_size(formats) == 3 do
