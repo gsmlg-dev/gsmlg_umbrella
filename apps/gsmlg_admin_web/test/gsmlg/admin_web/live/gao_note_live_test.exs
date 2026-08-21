@@ -1313,6 +1313,38 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       assert Phoenix.HTML.Form.input_value(assigns.purge_form, :confirmation) == ""
     end
 
+    test "malformed purge submissions retain the modal without destructive effects", %{
+      conn: conn,
+      user: user
+    } do
+      note = deleted_note_fixture(user, "Recycle Malformed Submit")
+      Repo.delete_all(Log)
+      Repo.delete_all(Oban.Job)
+      {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
+      render_async(view)
+      select_recycle_notes(view, [note])
+      render_click(view, "open_batch_purge_modal")
+
+      malformed_payloads = [
+        %{"batch_purge" => %{"confirmation" => %{}}},
+        %{}
+      ]
+
+      for payload <- malformed_payloads do
+        html = render_hook(view, "batch_purge_notes", payload)
+        assert html =~ "Purge confirmation is invalid"
+        assert has_element?(view, "#gao-note-recycle-purge-modal")
+        assert %Note{} = GaoNote.get_deleted_note(note.id)
+        assert GaoNote.list_logs() == []
+
+        assert Oban.Testing.all_enqueued(GSMLG.Repo,
+                 worker: GSMLG.GaoNote.Workers.StorageFilePurgeWorker
+               ) == []
+
+        assert :sys.get_state(view.pid).socket.assigns.batch_selected == MapSet.new([note.id])
+      end
+    end
+
     test "exact confirmation purges two deleted notes and audits the current admin", %{
       conn: conn,
       user: user
