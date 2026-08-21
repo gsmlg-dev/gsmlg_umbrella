@@ -590,8 +590,9 @@ defmodule GSMLG.GaoNote do
   def set_labels(%Note{} = note, label_values, actor) do
     Multi.new()
     |> Multi.run(:labels, fn _repo, _changes ->
-      with {:ok, labels} <- normalize_labels(label_values, :labels) do
-        set_labels_in_repo(note, labels)
+      with {:ok, labels} <- normalize_labels(label_values, :labels),
+           {:ok, locked_note} <- lock_active_note(note.id) do
+        set_labels_in_repo(locked_note, labels)
       end
     end)
     |> Repo.transaction()

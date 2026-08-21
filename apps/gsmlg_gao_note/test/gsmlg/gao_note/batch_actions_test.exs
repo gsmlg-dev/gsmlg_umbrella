@@ -442,6 +442,19 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
   end
 
   describe "batch_delete_notes/2" do
+    test "set_labels rejects a stale active struct after soft deletion" do
+      _project = label_setting_fixture(%{name: "project"})
+      stale_note = note_fixture(%{labels: ["project=original"]})
+      assert {:ok, %Note{}} = GaoNote.delete_note(stale_note, actor())
+      clear_logs()
+
+      assert {:error, :not_found} =
+               GaoNote.set_labels(stale_note, ["project=changed"], actor())
+
+      assert %{"project" => "original"} = deleted_labels_for(stale_note.id)
+      assert logs() == []
+    end
+
     test "soft deletes every selected note at one timestamp and audits each note" do
       first = note_fixture(%{title: "First deleted note"})
       second = note_fixture(%{title: "Second deleted note"})
@@ -600,6 +613,15 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
       assert Repo.get(Note, first.id) == nil
       assert Repo.get(Note, second.id) == nil
 
+      for attachment <- [first_attachment, second_attachment, third_attachment] do
+        assert Repo.get(Attachment, attachment.id) == nil
+
+        assert %StorageFile{id: storage_file_id} =
+                 Repo.get(StorageFile, attachment.storage_file_id)
+
+        assert storage_file_id == attachment.storage_file_id
+      end
+
       assert [
                %Log{
                  action: "purge",
@@ -627,6 +649,27 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
 
       assert [first_id, second_id] == Enum.sort([first.id, second.id])
       assert Enum.sort([first_title, second_title]) == ["First purged note", "Second purged note"]
+    end
+
+    test "set_labels rejects a stale deleted note while batch purge succeeds" do
+      _project = label_setting_fixture(%{name: "project"})
+      note = note_fixture(%{labels: ["project=original"]})
+      assert {:ok, %Note{}} = GaoNote.delete_note(note, actor())
+      stale_deleted_note = GaoNote.get_deleted_note(note.id)
+      clear_logs()
+
+      assert {:error, :not_found} =
+               GaoNote.set_labels(stale_deleted_note, ["project=changed"], actor())
+
+      assert %{"project" => "original"} = deleted_labels_for(note.id)
+      assert logs() == []
+
+      assert {:ok, %{selected: 1, purged: 1}} =
+               GaoNote.batch_permanently_delete_notes([note.id], actor())
+
+      assert Repo.get(Note, note.id) == nil
+      assert [%Log{action: "purge", entity_id: entity_id}] = logs()
+      assert entity_id == note.id
     end
 
     test "an active selection rolls back the deleted note, purge jobs, and audits" do
@@ -734,6 +777,13 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
   defp labels_for(note_id) do
     note_id
     |> GaoNote.get_note!()
+    |> Map.fetch!(:labels)
+    |> Map.new(fn label -> {label.label_setting.name, label.value} end)
+  end
+
+  defp deleted_labels_for(note_id) do
+    note_id
+    |> GaoNote.get_deleted_note()
     |> Map.fetch!(:labels)
     |> Map.new(fn label -> {label.label_setting.name, label.value} end)
   end
@@ -881,6 +931,10 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
     assert %{^note_id => %DateTime{}} = persisted_deleted_at([note_id])
     assert [] = persisted_purge_jobs(fixture.storage_file_ids)
     assert [] = persisted_logs(fixture)
+    assert Enum.sort(fixture.attachment_ids) == persisted_attachment_ids(fixture.attachment_ids)
+
+    assert Enum.sort(fixture.storage_file_ids) ==
+             persisted_storage_file_ids(fixture.storage_file_ids)
   end
 
   test "overlapping inverse-order batches use separate connections without deadlocking" do
@@ -977,6 +1031,50 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
                &1
              )
            ) == 1
+  end
+
+  test "set_labels racing batch delete serializes without deadlocking" do
+    fixture = prepare_fixture("set-labels-delete-concurrency")
+    function = "gao_note_set_labels_delete_delay_#{fixture.suffix}"
+    trigger = "gao_note_set_labels_delete_delay_trigger_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        drop_note_delay_trigger(trigger, function)
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    install_note_delay_trigger(trigger, function, "UPDATE")
+
+    {set_owner, set_task} =
+      start_allowed_set_labels(
+        fixture.first,
+        ["#{fixture.setting.name}=updated"]
+      )
+
+    {delete_owner, delete_task} = start_allowed_delete([fixture.first.id])
+
+    [set_result, delete_result] =
+      try do
+        send(set_task.pid, :run)
+        send(delete_task.pid, :run)
+        Task.await_many([set_task, delete_task], 5_000)
+      after
+        stop_connection_owner(set_owner)
+        stop_connection_owner(delete_owner)
+      end
+
+    assert {:ok, %{selected: 1, deleted: 1}} = delete_result
+    first_id = fixture.first.id
+    assert %{^first_id => final_value} = Map.new(persisted_values(fixture))
+    assert %{^first_id => %DateTime{}} = persisted_deleted_at([first_id])
+
+    case set_result do
+      {:ok, %Note{}} -> assert final_value == "updated"
+      {:error, :not_found} -> assert final_value == "initial"
+      other -> flunk("unexpected set_labels result: #{inspect(other)}")
+    end
   end
 
   test "overlapping inverse-order purges complete without deadlocking" do
@@ -1083,15 +1181,17 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
 
       notes = Enum.uniq_by([first, second], & &1.id)
 
-      storage_file_ids =
+      {storage_file_ids, attachment_ids} =
         if Keyword.get(opts, :attachments, true) do
-          Enum.map(notes, fn note ->
+          notes
+          |> Enum.map(fn note ->
             storage_file = storage_file_fixture(suffix, note.id)
-            _attachment = attachment_fixture(note, storage_file, suffix)
-            storage_file.id
+            attachment = attachment_fixture(note, storage_file, suffix)
+            {storage_file.id, attachment.id}
           end)
+          |> Enum.unzip()
         else
-          []
+          {[], []}
         end
 
       Enum.each(notes, fn note ->
@@ -1107,7 +1207,8 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
         setting: nil,
         first: first,
         second: second,
-        storage_file_ids: storage_file_ids
+        storage_file_ids: storage_file_ids,
+        attachment_ids: attachment_ids
       }
     end)
   end
@@ -1196,6 +1297,26 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
         job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
           fragment("(?->>'storage_file_id') = ANY(?)", job.args, ^storage_file_ids)
       )
+      |> Repo.all()
+    end)
+  end
+
+  defp persisted_attachment_ids(attachment_ids) do
+    outside_sandbox(fn ->
+      Attachment
+      |> where([attachment], attachment.id in ^attachment_ids)
+      |> select([attachment], attachment.id)
+      |> order_by([attachment], asc: attachment.id)
+      |> Repo.all()
+    end)
+  end
+
+  defp persisted_storage_file_ids(storage_file_ids) do
+    outside_sandbox(fn ->
+      StorageFile
+      |> where([file], file.id in ^storage_file_ids)
+      |> select([file], file.id)
+      |> order_by([file], asc: file.id)
       |> Repo.all()
     end)
   end
@@ -1312,6 +1433,10 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
 
   defp start_allowed_purge(note_ids) do
     start_allowed_operation(fn -> GaoNote.batch_permanently_delete_notes(note_ids, actor()) end)
+  end
+
+  defp start_allowed_set_labels(note, labels) do
+    start_allowed_operation(fn -> GaoNote.set_labels(note, labels, actor()) end)
   end
 
   defp start_allowed_operation(operation) do
