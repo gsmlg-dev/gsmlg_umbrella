@@ -59,6 +59,13 @@ const AccessibleDialog = {
     this._refreshDialogFocusables();
     this._observeDialogShadow();
     this._syncDialogOpenState();
+
+    if (
+      this._accessibleDialogOpen &&
+      !this._dialogContains(document.activeElement)
+    ) {
+      this._scheduleDialogSynchronization(true);
+    }
   },
 
   destroyed() {

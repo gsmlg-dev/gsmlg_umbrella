@@ -275,6 +275,91 @@ describe("accessible dialog hook", () => {
     hook.destroyed();
   });
 
+  test("updated recovers focus when a LiveView patch replaces the focused Cancel action", () => {
+    const {
+      cancelHost: oldCancelHost,
+      cancelTarget: oldCancelTarget,
+      host,
+      hook,
+      replaceLightDom,
+    } = mountedDialog();
+
+    host.setAttribute("open", "");
+    observerFor(host).trigger();
+    flushAnimationFrames();
+    expect(oldCancelTarget.focusCount).toBe(1);
+
+    const replacementCancelHost = element(documentFake, {
+      attributes: { "data-dialog-initial-focus": "" },
+    });
+    const replacementCancelTarget = element(documentFake, {
+      documentActiveHost: replacementCancelHost,
+    });
+    replacementCancelHost.shadowRoot = shadowRoot({
+      focusTarget: replacementCancelTarget,
+    });
+    replaceLightDom({
+      cancelHost: replacementCancelHost,
+      focusables: [replacementCancelHost, element(documentFake)],
+    });
+    oldCancelHost.isConnected = false;
+    oldCancelTarget.isConnected = false;
+    documentFake.activeElement = documentFake.body;
+
+    hook.updated();
+
+    expect(replacementCancelTarget.focusCount).toBe(0);
+    flushAnimationFrames();
+    expect(replacementCancelTarget.focusCount).toBe(1);
+    expect(documentFake.activeElement).toBe(replacementCancelHost);
+    expect(host.contains(documentFake.activeElement)).toBe(true);
+
+    hook.destroyed();
+  });
+
+  test("updated preserves focus when the active shadow host remains inside the current dialog", () => {
+    const {
+      cancelTarget: oldCancelTarget,
+      host,
+      hook,
+      replaceLightDom,
+    } = mountedDialog();
+
+    host.setAttribute("open", "");
+    observerFor(host).trigger();
+    flushAnimationFrames();
+
+    const replacementCancelHost = element(documentFake, {
+      attributes: { "data-dialog-initial-focus": "" },
+    });
+    const replacementCancelTarget = element(documentFake, {
+      documentActiveHost: replacementCancelHost,
+    });
+    replacementCancelHost.shadowRoot = shadowRoot({
+      focusTarget: replacementCancelTarget,
+    });
+    const currentHost = element(documentFake);
+    const currentTarget = element(documentFake, {
+      documentActiveHost: currentHost,
+    });
+    currentHost.shadowRoot = shadowRoot({ focusTarget: currentTarget });
+    currentHost.shadowRoot.activeElement = currentTarget;
+    replaceLightDom({
+      cancelHost: replacementCancelHost,
+      focusables: [replacementCancelHost, currentHost],
+    });
+    documentFake.activeElement = currentHost;
+
+    hook.updated();
+    flushAnimationFrames();
+
+    expect(oldCancelTarget.focusCount).toBe(1);
+    expect(replacementCancelTarget.focusCount).toBe(0);
+    expect(documentFake.activeElement).toBe(currentHost);
+
+    hook.destroyed();
+  });
+
   test("destroyed cancels pending focus, disconnects listeners, restores focus, and clears scroll lock", () => {
     const { cancelTarget, host, hook, trigger } = mountedDialog();
     host.close = () => {
@@ -361,7 +446,11 @@ function mountedDialog() {
   const lastTarget = element(documentFake, { documentActiveHost: lastHost });
   lastHost.shadowRoot = shadowRoot({ focusTarget: lastTarget });
 
-  const focusables = [cancelHost, middle, lastHost];
+  const lightDom = {
+    cancelHost,
+    focusables: [cancelHost, middle, lastHost],
+    title,
+  };
   const host = element(documentFake, {
     attributes: {
       role: "dialog",
@@ -373,14 +462,16 @@ function mountedDialog() {
   const hostShadow = shadowRoot({ dialog: shadowDialog });
   host.shadowRoot = hostShadow;
   host.querySelector = (selector) => {
-    if (selector === '[slot="header"]') return title;
-    if (selector === "[data-dialog-initial-focus]") return cancelHost;
+    if (selector === '[slot="header"]') return lightDom.title;
+    if (selector === "[data-dialog-initial-focus]") return lightDom.cancelHost;
     return null;
   };
-  host.querySelectorAll = () => focusables;
+  host.querySelectorAll = () => lightDom.focusables;
   host.contains = (candidate) =>
-    focusables.includes(candidate) ||
-    focusables.some((focusable) => focusable.shadowRoot?.activeElement === candidate);
+    lightDom.focusables.includes(candidate) ||
+    lightDom.focusables.some(
+      (focusable) => focusable.shadowRoot?.activeElement === candidate,
+    );
 
   documentFake.activeElement = trigger;
   const hook = { ...AccessibleDialog, el: host };
@@ -395,6 +486,9 @@ function mountedDialog() {
     lastHost,
     lastTarget,
     middle,
+    replaceLightDom(replacement) {
+      Object.assign(lightDom, replacement);
+    },
     shadowDialog,
     title,
     trigger,
