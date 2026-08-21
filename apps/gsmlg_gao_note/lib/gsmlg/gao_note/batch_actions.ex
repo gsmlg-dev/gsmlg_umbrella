@@ -300,7 +300,9 @@ defmodule GSMLG.GaoNote.BatchActions do
         %{
           operation: :add,
           label_setting_id: operation.target_id,
-          note_ids: Enum.sort(conflicts)
+          note_ids: Enum.sort(conflicts),
+          message:
+            "Selected notes already use this label name with another value; nothing changed."
         }}}
     end
   end
@@ -344,7 +346,8 @@ defmodule GSMLG.GaoNote.BatchActions do
         %{
           operation: :edit,
           label_setting_id: operation.target_id,
-          note_ids: Enum.sort(conflicts)
+          note_ids: Enum.sort(conflicts),
+          message: "Matched notes already contain the replacement label name; nothing changed."
         }}}
     end
   end
@@ -414,6 +417,9 @@ defmodule GSMLG.GaoNote.BatchActions do
       {1, nil} -> :ok
       _result -> {:error, {:batch_write_failed, %{operation: :update, note_id: label.note_id}}}
     end
+  rescue
+    exception in [Ecto.ConstraintError, Ecto.StaleEntryError, Postgrex.Error] ->
+      {:error, batch_write_error(:update, label.note_id, exception)}
   end
 
   defp apply_change({:move, label, target_id, value}) do
@@ -499,7 +505,7 @@ defmodule GSMLG.GaoNote.BatchActions do
       {:error, reason} -> {:error, batch_write_error(:insert, note_id, reason)}
     end
   rescue
-    exception in [Ecto.ConstraintError, Ecto.StaleEntryError] ->
+    exception in [Ecto.ConstraintError, Ecto.StaleEntryError, Postgrex.Error] ->
       {:error, batch_write_error(:insert, note_id, exception)}
   end
 
@@ -515,6 +521,9 @@ defmodule GSMLG.GaoNote.BatchActions do
       {1, nil} -> :ok
       _result -> {:error, {:batch_write_failed, %{operation: :delete, note_id: label.note_id}}}
     end
+  rescue
+    exception in [Ecto.ConstraintError, Ecto.StaleEntryError, Postgrex.Error] ->
+      {:error, batch_write_error(:delete, label.note_id, exception)}
   end
 
   defp audit_changes(changes, operation, actor) do
@@ -603,6 +612,19 @@ defmodule GSMLG.GaoNote.BatchActions do
   end
 
   defp safe_persistence_reason(%Ecto.StaleEntryError{}), do: %{type: :stale}
+
+  defp safe_persistence_reason(%Postgrex.Error{postgres: postgres}) when is_map(postgres) do
+    %{
+      type: :database,
+      code: Map.get(postgres, :code),
+      constraint: Map.get(postgres, :constraint)
+    }
+  end
+
+  defp safe_persistence_reason(%Postgrex.Error{}) do
+    %{type: :database, code: nil, constraint: nil}
+  end
+
   defp safe_persistence_reason(reason) when is_atom(reason), do: reason
   defp safe_persistence_reason(_reason), do: :persistence_error
 end

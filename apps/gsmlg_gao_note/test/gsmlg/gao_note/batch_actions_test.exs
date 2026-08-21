@@ -77,7 +77,13 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
 
       assert {:error,
               {:label_conflict,
-               %{operation: :add, label_setting_id: project_id, note_ids: [^conflict_id]}}} =
+               %{
+                 operation: :add,
+                 label_setting_id: project_id,
+                 note_ids: [^conflict_id],
+                 message:
+                   "Selected notes already use this label name with another value; nothing changed."
+               }}} =
                GaoNote.batch_mutate_note_labels(
                  [missing.id, conflict.id],
                  {:add, %{label_setting_id: project.id, value: "alpha"}},
@@ -169,7 +175,13 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
 
       assert {:error,
               {:label_conflict,
-               %{operation: :edit, label_setting_id: type_id, note_ids: [^colliding_id]}}} =
+               %{
+                 operation: :edit,
+                 label_setting_id: type_id,
+                 note_ids: [^colliding_id],
+                 message:
+                   "Matched notes already contain the replacement label name; nothing changed."
+               }}} =
                GaoNote.batch_mutate_note_labels(
                  [would_change.id, colliding.id],
                  {:edit,
@@ -868,6 +880,102 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
     assert [] = persisted_logs(fixture)
   end
 
+  test "an update constraint failure returns a safe write error and rolls back" do
+    fixture = prepare_fixture("update-write-failure")
+    constraint = "gao_note_batch_update_reject_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        SQL.query!(
+          Repo,
+          "ALTER TABLE gao_note_labels DROP CONSTRAINT IF EXISTS #{constraint}",
+          []
+        )
+
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    outside_sandbox(fn ->
+      SQL.query!(
+        Repo,
+        """
+        ALTER TABLE gao_note_labels
+        ADD CONSTRAINT #{constraint}
+        CHECK (value <> 'blocked-update')
+        """,
+        []
+      )
+    end)
+
+    note_id = fixture.first.id
+
+    assert {:error,
+            {:batch_write_failed,
+             %{
+               operation: :update,
+               note_id: ^note_id,
+               reason: reason
+             }}} =
+             outside_sandbox(fn ->
+               GaoNote.batch_mutate_note_labels(
+                 [note_id],
+                 edit_operation(fixture.setting.id, "blocked-update"),
+                 actor()
+               )
+             end)
+
+    assert reason == %{
+             type: :database,
+             code: :check_violation,
+             constraint: constraint
+           }
+
+    assert %{^note_id => "initial"} = Map.new(persisted_values(fixture))
+    assert [] = persisted_logs(fixture)
+  end
+
+  test "a delete trigger failure returns a safe write error and rolls back" do
+    fixture = prepare_fixture("delete-write-failure")
+    constraint = "gao_note_batch_delete_reject_#{fixture.suffix}"
+    function = "gao_note_batch_delete_reject_fn_#{fixture.suffix}"
+    trigger = "gao_note_batch_delete_reject_trigger_#{fixture.suffix}"
+
+    on_exit(fn ->
+      outside_sandbox(fn ->
+        drop_label_delete_trigger(trigger, function)
+        cleanup_fixture(fixture)
+      end)
+    end)
+
+    install_label_delete_trigger(trigger, function, constraint, fixture)
+    note_id = fixture.first.id
+
+    assert {:error,
+            {:batch_write_failed,
+             %{
+               operation: :delete,
+               note_id: ^note_id,
+               reason: reason
+             }}} =
+             outside_sandbox(fn ->
+               GaoNote.batch_mutate_note_labels(
+                 [note_id],
+                 {:delete, %{match: %{label_setting_id: fixture.setting.id, value: :any}}},
+                 actor()
+               )
+             end)
+
+    assert reason == %{
+             type: :database,
+             code: :check_violation,
+             constraint: constraint
+           }
+
+    assert %{^note_id => "initial"} = Map.new(persisted_values(fixture))
+    assert [] = persisted_logs(fixture)
+  end
+
   test "a batch soft-delete audit failure rolls back every deleted_at and log" do
     fixture = prepare_fixture("delete-audit-failure")
     constraint = "gao_note_batch_delete_audit_reject_#{fixture.suffix}"
@@ -1396,6 +1504,50 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
   end
 
   defp drop_delay_trigger(trigger, function) do
+    SQL.query!(Repo, "DROP TRIGGER IF EXISTS #{trigger} ON gao_note_labels", [])
+    SQL.query!(Repo, "DROP FUNCTION IF EXISTS #{function}()", [])
+  end
+
+  defp install_label_delete_trigger(trigger, function, constraint, fixture) do
+    outside_sandbox(fn ->
+      drop_label_delete_trigger(trigger, function)
+
+      SQL.query!(
+        Repo,
+        """
+        CREATE FUNCTION #{function}()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+          IF OLD.note_id = '#{fixture.first.id}'::uuid
+             AND OLD.label_setting_id = '#{fixture.setting.id}'::uuid THEN
+            RAISE EXCEPTION USING
+              MESSAGE = 'blocked batch label delete',
+              ERRCODE = '23514',
+              CONSTRAINT = '#{constraint}';
+          END IF;
+
+          RETURN OLD;
+        END;
+        $$;
+        """,
+        []
+      )
+
+      SQL.query!(
+        Repo,
+        """
+        CREATE TRIGGER #{trigger}
+        BEFORE DELETE ON gao_note_labels
+        FOR EACH ROW EXECUTE FUNCTION #{function}();
+        """,
+        []
+      )
+    end)
+  end
+
+  defp drop_label_delete_trigger(trigger, function) do
     SQL.query!(Repo, "DROP TRIGGER IF EXISTS #{trigger} ON gao_note_labels", [])
     SQL.query!(Repo, "DROP FUNCTION IF EXISTS #{function}()", [])
   end
