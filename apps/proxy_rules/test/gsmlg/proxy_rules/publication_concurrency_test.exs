@@ -2,6 +2,7 @@ defmodule GSMLG.ProxyRules.PublicationConcurrencyTest do
   use ExUnit.Case, async: false
 
   alias GSMLG.ProxyRules.{Compiler, Snapshot, Store}
+  alias GSMLG.ProxyRules.ZeroOmega.{Export, PublishedPolicy}
 
   @tag :tmp_dir
   test "readers never observe a torn six-output generation", %{tmp_dir: dir} do
@@ -54,7 +55,12 @@ defmodule GSMLG.ProxyRules.PublicationConcurrencyTest do
   defp assert_complete(%Snapshot{
          generation: generation,
          compiled_at: compiled_at,
-         rendered_outputs: outputs
+         rendered_outputs: outputs,
+         zeroomega_policy: %PublishedPolicy{
+           revision: revision,
+           direct_domains: direct_domains,
+           proxy_domains: proxy_domains
+         }
        }) do
     assert Map.keys(outputs) |> Enum.sort() == [:direct, :proxy]
     assert DateTime.diff(compiled_at, ~U[2026-07-23 00:00:00Z], :second) == generation
@@ -67,6 +73,34 @@ defmodule GSMLG.ProxyRules.PublicationConcurrencyTest do
       assert output.last_modified == compiled_at
       assert output.body =~ "#{generation}.example"
     end
+
+    assert revision == Integer.to_string(generation)
+
+    assert direct_domains =~ "#{generation}.example"
+    assert proxy_domains =~ "#{generation}.example"
+
+    assert {:ok, policy} =
+             PublishedPolicy.to_policy(%PublishedPolicy{
+               revision: revision,
+               direct_domains: direct_domains,
+               proxy_domains: proxy_domains
+             })
+
+    assert {:ok, switchy} =
+             policy
+             |> Export.normalize()
+             |> Export.validate_for(:switchy, [])
+             |> Export.render()
+
+    assert switchy.body =~ "#{generation}.example"
+
+    assert {:ok, pac} =
+             policy
+             |> Export.normalize()
+             |> Export.validate_for(:pac, proxy: "proxy.example:3128")
+             |> Export.render()
+
+    assert pac.body =~ "#{generation}.example"
 
     assert is_integer(generation)
   end

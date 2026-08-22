@@ -1,0 +1,6 @@
+[SwitchyOmega Conditions]
+
+!*.internal.example.com
+*.google.com
+*.github.com
+UrlWildcard: https://api.example.net/v1/*

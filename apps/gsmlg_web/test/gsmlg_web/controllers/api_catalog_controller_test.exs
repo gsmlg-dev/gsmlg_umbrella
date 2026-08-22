@@ -17,6 +17,12 @@ defmodule GSMLG.Web.ApiCatalogControllerTest do
                  "service-desc" => [
                    %{"href" => "/api/openapi.json", "type" => "application/json"}
                  ]
+               },
+               %{
+                 "anchor" => "/rules/zeroomega",
+                 "service-desc" => [
+                   %{"href" => "/api/openapi.json", "type" => "application/json"}
+                 ]
                }
              ]
            } == json_response(conn, 200)

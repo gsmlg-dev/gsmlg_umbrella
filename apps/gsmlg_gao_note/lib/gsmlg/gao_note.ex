@@ -6,13 +6,27 @@ defmodule GSMLG.GaoNote do
   import Ecto.Query, warn: false
 
   alias Ecto.Multi
-  alias GSMLG.GaoNote.{Attachments, Label, LabelSetting, Log, MCPSetting, Note}
+
+  alias GSMLG.GaoNote.{
+    Attachments,
+    Audit,
+    BatchActions,
+    CategorySetting,
+    Label,
+    LabelSetting,
+    LabelValue,
+    Log,
+    MCPSetting,
+    Note
+  }
+
   alias GSMLG.Repo
 
   @default_limit 50
   @max_limit 200
   @labels_not_provided :__gao_note_labels_not_provided__
   @mcp_setting_id "default"
+  @category_label_in_use_message "Remove every category using this label from Category labels before deleting it."
   @note_attr_keys %{
     "title" => :title,
     :title => :title,
@@ -137,18 +151,108 @@ defmodule GSMLG.GaoNote do
   def list_label_settings(opts \\ []) do
     limit = Keyword.get(opts, :limit)
 
+    active_note_counts =
+      Label
+      |> join(:inner, [label], note in Note,
+        on: note.id == label.note_id and is_nil(note.deleted_at)
+      )
+      |> group_by([label], label.label_setting_id)
+      |> select([label, note], %{
+        label_setting_id: label.label_setting_id,
+        note_count: count(note.id)
+      })
+
+    category_counts =
+      CategorySetting
+      |> group_by([category], category.label_setting_id)
+      |> select([category], %{
+        label_setting_id: category.label_setting_id,
+        category_count: count(category.id)
+      })
+
     LabelSetting
-    |> join(:left, [label_setting], label in Label,
-      on: label.label_setting_id == label_setting.id
+    |> join(:left, [label_setting], note_count in subquery(active_note_counts),
+      on: note_count.label_setting_id == label_setting.id
     )
-    |> join(:left, [_label_setting, label], note in Note,
-      on: note.id == label.note_id and is_nil(note.deleted_at)
+    |> join(:left, [label_setting], category_count in subquery(category_counts),
+      on: category_count.label_setting_id == label_setting.id
     )
-    |> group_by([label_setting], label_setting.id)
-    |> select_merge([_label_setting, _label, note], %{note_count: count(note.id)})
+    |> select_merge([_label_setting, note_count, category_count], %{
+      note_count: coalesce(note_count.note_count, 0),
+      category_count: coalesce(category_count.category_count, 0)
+    })
     |> order_by([t], asc: fragment("lower(?)", t.name))
     |> maybe_limit(limit)
     |> Repo.all()
+  end
+
+  def save_category_settings(selectors) when is_list(selectors) do
+    with {:ok, normalized_selectors} <- normalize_category_selectors(selectors) do
+      Repo.transaction(fn ->
+        lock_category_settings()
+        Repo.delete_all(CategorySetting)
+
+        normalized_selectors
+        |> Enum.with_index()
+        |> Enum.reduce_while(:ok, fn {selector, position}, :ok ->
+          result =
+            %CategorySetting{}
+            |> CategorySetting.changeset(Map.put(selector, :position, position))
+            |> Repo.insert()
+
+          case result do
+            {:ok, _category} -> {:cont, :ok}
+            {:error, changeset} -> Repo.rollback(changeset)
+          end
+        end)
+
+        list_category_settings()
+      end)
+    end
+  end
+
+  def save_category_settings(_selectors), do: {:error, :category_settings_must_be_a_list}
+
+  def list_category_groups do
+    configured_label_setting_ids =
+      CategorySetting
+      |> distinct(true)
+      |> select([category], %{label_setting_id: category.label_setting_id})
+
+    active_counts =
+      Label
+      |> join(:inner, [label], configured in subquery(configured_label_setting_ids),
+        on: configured.label_setting_id == label.label_setting_id
+      )
+      |> join(:inner, [label, _configured], note in Note, on: note.id == label.note_id)
+      |> where(
+        [label, _configured, note],
+        is_nil(note.deleted_at) and not is_nil(label.value) and label.value != ""
+      )
+      |> group_by([label], [label.label_setting_id, label.value])
+      |> select([label, _configured, note], %{
+        label_setting_id: label.label_setting_id,
+        value: label.value,
+        count: count(note.id)
+      })
+
+    CategorySetting
+    |> join(:inner, [category], label_setting in assoc(category, :label_setting))
+    |> join(:left, [category], count_row in subquery(active_counts),
+      on:
+        count_row.label_setting_id == category.label_setting_id and
+          (is_nil(category.value) or count_row.value == category.value)
+    )
+    |> order_by([category], asc: category.position)
+    |> select([category, label_setting, count_row], %{
+      category: category,
+      label_setting: label_setting,
+      value: count_row.value,
+      count: count_row.count
+    })
+    |> Repo.all()
+    |> Enum.chunk_by(& &1.category.id)
+    |> Enum.map(&category_group/1)
   end
 
   def get_label_setting(id) do
@@ -309,10 +413,23 @@ defmodule GSMLG.GaoNote do
   end
 
   def delete_label_setting(%LabelSetting{} = label_setting, actor \\ nil) do
-    Repo.delete(label_setting)
-    |> tap_success(fn label_setting ->
-      log_action("delete", "label_setting", label_setting.id, nil, actor, %{"name" => label_setting.name})
-    end)
+    if category_label_in_use?(label_setting.id) do
+      category_label_in_use_error(label_setting)
+    else
+      label_setting
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.no_assoc_constraint(:category_settings,
+        name: :gao_note_category_settings_label_setting_id_fkey,
+        message: "remove every category using this label before deleting it"
+      )
+      |> Repo.delete()
+      |> normalize_category_delete_result(label_setting)
+      |> tap_success(fn label_setting ->
+        log_action("delete", "label_setting", label_setting.id, nil, actor, %{
+          "name" => label_setting.name
+        })
+      end)
+    end
   end
 
   def create_note(attrs, actor) do
@@ -473,8 +590,9 @@ defmodule GSMLG.GaoNote do
   def set_labels(%Note{} = note, label_values, actor) do
     Multi.new()
     |> Multi.run(:labels, fn _repo, _changes ->
-      with {:ok, labels} <- normalize_labels(label_values, :labels) do
-        set_labels_in_repo(note, labels)
+      with {:ok, labels} <- normalize_labels(label_values, :labels),
+           {:ok, locked_note} <- lock_active_note(note.id) do
+        set_labels_in_repo(locked_note, labels)
       end
     end)
     |> Repo.transaction()
@@ -492,6 +610,211 @@ defmodule GSMLG.GaoNote do
       {:error, :labels, reason, _changes} ->
         {:error, reason}
     end
+  end
+
+  def batch_mutate_note_labels(note_ids, operation, actor),
+    do: BatchActions.mutate_note_labels(note_ids, operation, actor)
+
+  def batch_delete_notes(note_ids, actor),
+    do: BatchActions.delete_notes(note_ids, actor)
+
+  def batch_permanently_delete_notes(note_ids, actor),
+    do: BatchActions.permanently_delete_notes(note_ids, actor)
+
+  defp list_category_settings do
+    CategorySetting
+    |> order_by([category], asc: category.position)
+    |> preload(:label_setting)
+    |> Repo.all()
+  end
+
+  defp lock_category_settings do
+    Ecto.Adapters.SQL.query!(
+      Repo,
+      "LOCK TABLE gao_note_category_settings IN SHARE ROW EXCLUSIVE MODE",
+      []
+    )
+
+    :ok
+  end
+
+  defp normalize_category_selectors(selectors) do
+    with {:ok, normalized_selectors} <- normalize_category_selector_shapes(selectors) do
+      label_settings_by_id =
+        normalized_selectors
+        |> Enum.map(& &1.label_setting_id)
+        |> Enum.uniq()
+        |> then(fn ids -> Repo.all(from(setting in LabelSetting, where: setting.id in ^ids)) end)
+        |> Map.new(&{&1.id, &1})
+
+      validate_category_selectors(normalized_selectors, label_settings_by_id)
+    end
+  end
+
+  defp normalize_category_selector_shapes(selectors) do
+    selectors
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, []}, fn {selector, index}, {:ok, normalized} ->
+      case normalize_category_selector(selector, index) do
+        {:ok, selector} -> {:cont, {:ok, [selector | normalized]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, normalized} -> {:ok, Enum.reverse(normalized)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp normalize_category_selector(selector, index) when is_map(selector) do
+    with {:ok, label_setting_id} <- category_selector_id(selector, index),
+         {:ok, value} <- category_selector_value(selector, index) do
+      {:ok, %{label_setting_id: label_setting_id, value: value}}
+    end
+  end
+
+  defp normalize_category_selector(_selector, index),
+    do: {:error, {:invalid_category_selector, index, :must_be_a_map}}
+
+  defp category_selector_id(selector, index) do
+    case fetch_category_selector_field(selector, :label_setting_id, "label_setting_id") do
+      {:ok, label_setting_id} ->
+        case Ecto.UUID.cast(label_setting_id) do
+          {:ok, label_setting_id} -> {:ok, label_setting_id}
+          :error -> {:error, {:invalid_category_selector, index, :invalid_label_setting_id}}
+        end
+
+      :error ->
+        {:error, {:invalid_category_selector, index, :invalid_label_setting_id}}
+    end
+  end
+
+  defp category_selector_value(selector, index) do
+    case fetch_category_selector_field(selector, :value, "value") do
+      :error ->
+        {:ok, nil}
+
+      {:ok, nil} ->
+        {:ok, nil}
+
+      {:ok, value} when is_binary(value) ->
+        value = String.trim(value)
+        {:ok, if(value == "", do: nil, else: value)}
+
+      {:ok, _value} ->
+        {:error, {:invalid_category_selector, index, :invalid_value}}
+    end
+  end
+
+  defp fetch_category_selector_field(selector, atom_key, string_key) do
+    case Map.fetch(selector, atom_key) do
+      {:ok, value} -> {:ok, value}
+      :error -> Map.fetch(selector, string_key)
+    end
+  end
+
+  defp validate_category_selectors(normalized_selectors, label_settings_by_id) do
+    normalized_selectors
+    |> Enum.reduce_while({:ok, {[], MapSet.new()}}, fn selector, {:ok, {validated, seen}} ->
+      case validate_category_selector(selector, label_settings_by_id, seen) do
+        {:ok, seen} -> {:cont, {:ok, {[selector | validated], seen}}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, {validated, _seen}} -> {:ok, Enum.reverse(validated)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_category_selector(selector, label_settings_by_id, seen) do
+    case Map.fetch(label_settings_by_id, selector.label_setting_id) do
+      :error ->
+        {:error, {:unknown_category_label, selector.label_setting_id}}
+
+      {:ok, label_setting} ->
+        with :ok <- validate_category_value(label_setting, selector.value),
+             {:ok, seen} <- ensure_unique_category_selector(selector, seen) do
+          {:ok, seen}
+        end
+    end
+  end
+
+  defp validate_category_value(_label_setting, nil), do: :ok
+
+  defp validate_category_value(label_setting, value) do
+    case LabelValue.classify(label_setting, value) do
+      {"valid", []} -> :ok
+      {"invalid", errors} -> {:error, {:invalid_category_value, label_setting.id, errors}}
+    end
+  end
+
+  defp ensure_unique_category_selector(selector, seen) do
+    selector_key = {selector.label_setting_id, selector.value}
+
+    if MapSet.member?(seen, selector_key) do
+      {:error, {:duplicate_category_selector, selector.label_setting_id, selector.value}}
+    else
+      {:ok, MapSet.put(seen, selector_key)}
+    end
+  end
+
+  defp category_group([first | _rest] = rows) do
+    key = LabelSetting.normalized_key(first.label_setting.name)
+
+    values =
+      rows
+      |> Enum.flat_map(fn
+        %{value: value, count: count} when is_binary(value) and is_integer(count) ->
+          [%{value: value, count: count}]
+
+        _row ->
+          []
+      end)
+      |> Enum.sort_by(&{-&1.count, &1.value})
+
+    %{
+      id: first.category.id,
+      label_setting_id: first.category.label_setting_id,
+      key: key,
+      selector: category_selector_name(key, first.category.value),
+      configured_value: first.category.value,
+      description: first.label_setting.description,
+      position: first.category.position,
+      values: values
+    }
+  end
+
+  defp category_selector_name(key, nil), do: key
+  defp category_selector_name(key, value), do: "#{key}=#{value}"
+
+  defp category_label_in_use?(label_setting_id) do
+    Repo.exists?(
+      from(category in CategorySetting, where: category.label_setting_id == ^label_setting_id)
+    )
+  end
+
+  defp normalize_category_delete_result(
+         {:error, %Ecto.Changeset{} = changeset},
+         %LabelSetting{} = label_setting
+       ) do
+    if Keyword.has_key?(changeset.errors, :category_settings) do
+      category_label_in_use_error(label_setting)
+    else
+      {:error, changeset}
+    end
+  end
+
+  defp normalize_category_delete_result(result, _label_setting), do: result
+
+  defp category_label_in_use_error(%LabelSetting{} = label_setting) do
+    {:error,
+     {:category_label_in_use,
+      %{
+        label_setting_id: label_setting.id,
+        name: label_setting.name,
+        message: @category_label_in_use_message
+      }}}
   end
 
   defp list_notes_from(queryable, opts) do
@@ -636,7 +959,7 @@ defmodule GSMLG.GaoNote do
 
       Enum.reduce_while(labels, {:ok, []}, fn label, {:ok, labels} ->
         label_setting = Map.fetch!(label_setting_by_key, label.normalized_key)
-        {status, errors} = validate_label_value(label_setting, label.value)
+        {status, errors} = LabelValue.classify(label_setting, label.value)
 
         attrs = %{
           note_id: note.id,
@@ -797,73 +1120,6 @@ defmodule GSMLG.GaoNote do
     )
   end
 
-  defp validate_label_value(%LabelSetting{value_type: value_type}, value) do
-    value = value_to_string(value)
-    value_type = value_type || "text"
-
-    case value_type do
-      "text" -> valid_label()
-      "number" -> validate_number_label(value)
-      "version" -> validate_version_label(value)
-      "date" -> validate_date_label(value)
-      "date-time" -> validate_datetime_label(value)
-      "time" -> validate_time_label(value)
-      "year" -> validate_regex_label(value, ~r/^\d{4}$/, "must be YYYY")
-      "year-month" -> validate_regex_label(value, ~r/^\d{4}-(0[1-9]|1[0-2])$/, "must be YYYY-MM")
-      "year-season" -> validate_regex_label(value, ~r/^\d{4}-Q[1-4]$/, "must be YYYY-Q1..YYYY-Q4")
-      _other -> invalid_label("unsupported value type #{value_type}")
-    end
-  end
-
-  defp validate_number_label(value) do
-    case Float.parse(value) do
-      {_number, ""} -> valid_label()
-      _other -> invalid_label("must be a number")
-    end
-  end
-
-  defp validate_version_label(value) do
-    if Regex.match?(~r/^v?\d+(\.\d+){0,3}([+-][0-9A-Za-z.-]+)?$/, value) do
-      valid_label()
-    else
-      invalid_label("must be a version")
-    end
-  end
-
-  defp validate_date_label(value) do
-    case Date.from_iso8601(value) do
-      {:ok, _date} -> valid_label()
-      {:error, _reason} -> invalid_label("must be YYYY-MM-DD")
-    end
-  end
-
-  defp validate_datetime_label(value) do
-    cond do
-      match?({:ok, _datetime, _offset}, DateTime.from_iso8601(value)) ->
-        valid_label()
-
-      match?({:ok, _datetime}, NaiveDateTime.from_iso8601(value)) ->
-        valid_label()
-
-      true ->
-        invalid_label("must be ISO8601 date-time")
-    end
-  end
-
-  defp validate_time_label(value) do
-    case Time.from_iso8601(value) do
-      {:ok, _time} -> valid_label()
-      {:error, _reason} -> invalid_label("must be ISO8601 time")
-    end
-  end
-
-  defp validate_regex_label(value, regex, message) do
-    if Regex.match?(regex, value), do: valid_label(), else: invalid_label(message)
-  end
-
-  defp valid_label, do: {"valid", []}
-  defp invalid_label(message), do: {"invalid", [message]}
-
   defp async_revalidate_labels(%LabelSetting{} = label_setting) do
     fun = fn -> revalidate_labels(label_setting.id) end
 
@@ -879,7 +1135,7 @@ defmodule GSMLG.GaoNote do
     |> preload(:label_setting)
     |> Repo.all()
     |> Enum.each(fn %Label{label_setting: label_setting, value: value} = label ->
-      {status, errors} = validate_label_value(label_setting, value)
+      {status, errors} = LabelValue.classify(label_setting, value)
 
       label
       |> Label.changeset(%{status: status, errors: errors})
@@ -887,9 +1143,7 @@ defmodule GSMLG.GaoNote do
     end)
   end
 
-  defp value_to_string(nil), do: ""
-  defp value_to_string(value) when is_binary(value), do: String.trim(value)
-  defp value_to_string(value), do: value |> to_string() |> String.trim()
+  defp value_to_string(value), do: LabelValue.normalize(value)
 
   defp normalize_opts(opts) when is_map(opts) do
     opts
@@ -936,17 +1190,7 @@ defmodule GSMLG.GaoNote do
 
   defp attachment_update_content(_attrs), do: false
 
-  defp actor_id(%{id: id}) when is_binary(id), do: id
-  defp actor_id(%{id: id}), do: to_string(id)
-  defp actor_id(_actor), do: nil
-
-  defp actor_source(actor) do
-    case actor do
-      %{source: source} when is_binary(source) and source != "" -> source
-      %{"source" => source} when is_binary(source) and source != "" -> source
-      _ -> "admin"
-    end
-  end
+  defp actor_id(actor), do: Audit.actor_id(actor)
 
   defp preload_note(%Note{} = note),
     do: Repo.preload(note, [labels: :label_setting, attachments: :storage_file], force: true)
@@ -1074,19 +1318,8 @@ defmodule GSMLG.GaoNote do
     end
   end
 
-  defp log_action(action, entity_type, entity_id, note_id, actor, details) do
-    %Log{}
-    |> Log.changeset(%{
-      action: action,
-      entity_type: entity_type,
-      entity_id: entity_id,
-      note_id: note_id,
-      actor_id: actor_id(actor),
-      source: actor_source(actor),
-      details: details || %{}
-    })
-    |> Repo.insert()
-  end
+  defp log_action(action, entity_type, entity_id, note_id, actor, details),
+    do: Audit.log(action, entity_type, entity_id, note_id, actor, details)
 
   defp tap_success({:ok, value} = result, fun) do
     _ = fun.(value)

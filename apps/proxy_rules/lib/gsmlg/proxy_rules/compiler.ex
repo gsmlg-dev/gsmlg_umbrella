@@ -15,6 +15,7 @@ defmodule GSMLG.ProxyRules.Compiler do
   }
 
   alias GSMLG.ProxyRules.Parser.{GFWList, Local}
+  alias GSMLG.ProxyRules.ZeroOmega.{PAC, PublishedPolicy, Switchy}
 
   @type input :: %{
           required(:remote) => binary(),
@@ -34,17 +35,16 @@ defmodule GSMLG.ProxyRules.Compiler do
       local_proxy = Local.parse(sources.local_proxy, :proxy, :local_proxy, sample_limit)
       local_direct = Local.parse(sources.local_direct, :direct, :local_direct, sample_limit)
 
-      {:ok,
-       build_snapshot(
-         sources,
-         remote,
-         remote_metadata,
-         local_proxy,
-         local_direct,
-         generation,
-         compiled_at,
-         sample_limit
-       )}
+      build_snapshot(
+        sources,
+        remote,
+        remote_metadata,
+        local_proxy,
+        local_direct,
+        generation,
+        compiled_at,
+        sample_limit
+      )
     end
   end
 
@@ -104,34 +104,57 @@ defmodule GSMLG.ProxyRules.Compiler do
     proxy = Hierarchy.fold_with_stats(proxy_rules)
     direct = Hierarchy.fold_with_stats(direct_rules)
 
-    %Snapshot{
-      generation: generation,
-      compiled_at: compiled_at,
-      readiness: :ready,
-      source_versions: source_versions(sources, remote_metadata),
-      rendered_outputs: %{
-        proxy: render_outputs(proxy.rules, compiled_at),
-        direct: render_outputs(direct.rules, compiled_at)
-      },
-      statistics: %{
-        sources: %{
-          gfwlist: remote.counts,
-          local_proxy: local_proxy.counts,
-          local_direct: local_direct.counts
-        },
-        proxy_rule_count: length(proxy.rules),
-        direct_rule_count: length(direct.rules),
-        duplicate_count: proxy.duplicate_count + direct.duplicate_count,
-        collapsed_count: proxy.collapsed_count + direct.collapsed_count,
-        conflict_count: MapSet.size(conflicts)
-      },
-      diagnostics:
-        Enum.take(
-          remote.diagnostics ++ local_proxy.diagnostics ++ local_direct.diagnostics,
-          sample_limit
-        ),
-      last_error: nil
-    }
+    case build_zeroomega_policy(direct.rules, proxy.rules, generation) do
+      {:ok, zeroomega_policy} ->
+        {:ok,
+         %Snapshot{
+           generation: generation,
+           compiled_at: compiled_at,
+           readiness: :ready,
+           source_versions: source_versions(sources, remote_metadata),
+           rendered_outputs: %{
+             proxy: render_outputs(proxy.rules, compiled_at),
+             direct: render_outputs(direct.rules, compiled_at)
+           },
+           zeroomega_policy: zeroomega_policy,
+           statistics: %{
+             sources: %{
+               gfwlist: remote.counts,
+               local_proxy: local_proxy.counts,
+               local_direct: local_direct.counts
+             },
+             proxy_rule_count: length(proxy.rules),
+             direct_rule_count: length(direct.rules),
+             duplicate_count: proxy.duplicate_count + direct.duplicate_count,
+             collapsed_count: proxy.collapsed_count + direct.collapsed_count,
+             conflict_count: MapSet.size(conflicts)
+           },
+           diagnostics:
+             Enum.take(
+               remote.diagnostics ++ local_proxy.diagnostics ++ local_direct.diagnostics,
+               sample_limit
+             ),
+           last_error: nil
+         }}
+
+      {:error, _diagnostics} ->
+        {:error, [systemic(:gfwlist, :systemic_failure)]}
+    end
+  end
+
+  defp build_zeroomega_policy(direct_rules, proxy_rules, generation) do
+    published =
+      PublishedPolicy.new(
+        Integer.to_string(generation),
+        Enum.map(direct_rules, & &1.domain.name),
+        Enum.map(proxy_rules, & &1.domain.name)
+      )
+
+    with {:ok, policy} <- PublishedPolicy.to_policy(published),
+         {:ok, _body} <- Switchy.render(policy),
+         :ok <- PAC.validate_policy(policy) do
+      {:ok, published}
+    end
   end
 
   defp rules_for(result, action), do: Enum.filter(result.rules, &(&1.action == action))

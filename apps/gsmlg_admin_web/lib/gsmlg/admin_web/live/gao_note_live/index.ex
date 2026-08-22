@@ -2,10 +2,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
   alias GSMLG.AdminWeb.{GaoNoteAttachmentTemp, GaoNoteMarkdown}
+  alias GSMLG.AdminWeb.GaoNoteLive.{BatchActionComponents, BatchSelection, NotesPath}
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Note, Presenter}
+  alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, LabelValue, Note, Presenter}
   alias GSMLG.Storage.ContentType
   alias Phoenix.LiveView.AsyncResult
+
+  @batch_label_fields ~w(action match_label_setting_id match_value target_label_setting_id target_value)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -16,7 +19,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
      |> assign(
        active_menu: "gao_note_list",
        notes: AsyncResult.loading(),
-       filters: %{},
+       filters: %{"search" => "", "labels" => []},
+       active_filters: %{"search" => "", "labels" => []},
        label_filter_key: "",
        label_filter_operator: "=",
        label_filter_value: "",
@@ -24,6 +28,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        label_options: AsyncResult.loading(),
        label_key_input: "",
        label_value_input: "",
+       batch_selected: MapSet.new(),
+       batch_label_form: batch_label_form(),
+       batch_label_settings: AsyncResult.loading(),
+       batch_label_preview: nil,
+       batch_label_error: nil,
+       batch_label_valid?: false,
+       batch_delete_error: nil,
        attachment_temp_dir: GaoNoteAttachmentTemp.new_editor_dir(),
        attachment_monitor_started: false
      )
@@ -41,21 +52,64 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
+  @impl true
+  def handle_async(
+        :load_batch_index,
+        {:ok, %{filters: filters, notes: notes, label_settings: label_settings}},
+        socket
+      ) do
+    if socket.assigns.live_action == :index and filters == socket.assigns.active_filters do
+      loaded_ids = Enum.map(notes, & &1.id)
+
+      {:noreply,
+       assign(socket,
+         notes: AsyncResult.ok(socket.assigns.notes, notes),
+         batch_label_settings:
+           AsyncResult.ok(socket.assigns.batch_label_settings, label_settings),
+         batch_selected: BatchSelection.reconcile(socket.assigns.batch_selected, loaded_ids)
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_async(:load_batch_index, {:exit, _reason}, socket) do
+    if socket.assigns.live_action == :index do
+      {:noreply,
+       assign(socket,
+         notes: AsyncResult.failed(socket.assigns.notes, :load_failed),
+         batch_label_settings:
+           AsyncResult.failed(socket.assigns.batch_label_settings, :load_failed)
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
   defp apply_action(socket, :index, params) do
-    filters = filter_params(params)
+    active_filters = filter_params(params)
+
+    socket =
+      if active_filters == socket.assigns.active_filters do
+        socket
+      else
+        reset_batch_state(socket)
+      end
 
     socket
     |> assign(:page_title, "GaoNote")
     |> assign(:active_menu, "gao_note_list")
-    |> assign(:filters, filters)
+    |> assign(:filters, active_filters)
+    |> assign(:active_filters, active_filters)
     |> assign_attachment_editor([])
-    |> assign_notes_async(filter_opts(filters))
+    |> assign_notes_async(filter_opts(active_filters), active_filters)
   end
 
   defp apply_action(socket, :new, _params) do
     changeset = GaoNote.change_note(%Note{})
 
     socket
+    |> leave_batch_index()
     |> assign(:page_title, "New GaoNote")
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, %Note{})
@@ -69,6 +123,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     selected_labels = Enum.map(note.labels, &label_input_value/1)
 
     socket
+    |> leave_batch_index()
     |> assign(:page_title, "Edit GaoNote")
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, note)
@@ -81,6 +136,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     note = GaoNote.get_note!(id)
 
     socket
+    |> leave_batch_index()
     |> assign(:page_title, note.title)
     |> assign(:active_menu, "gao_note_list")
     |> assign(:note, note)
@@ -91,14 +147,25 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   def handle_event("search_form_changed", params, socket) do
     filters = filter_params(Map.get(params, "filters", %{}))
     label_filter = Map.get(params, "label_filter", %{})
+    label_filter_key = Map.get(label_filter, "key", "")
+    label_filter_operator = normalize_filter_operator(Map.get(label_filter, "operator"))
+    label_filter_value = Map.get(label_filter, "value", "")
 
-    {:noreply,
-     assign(socket,
-       filters: filters,
-       label_filter_key: Map.get(label_filter, "key", ""),
-       label_filter_operator: normalize_filter_operator(Map.get(label_filter, "operator")),
-       label_filter_value: Map.get(label_filter, "value", "")
-     )}
+    draft_changed? =
+      filters != socket.assigns.filters or
+        label_filter_key != socket.assigns.label_filter_key or
+        label_filter_operator != socket.assigns.label_filter_operator or
+        label_filter_value != socket.assigns.label_filter_value
+
+    socket =
+      assign(socket,
+        filters: filters,
+        label_filter_key: label_filter_key,
+        label_filter_operator: label_filter_operator,
+        label_filter_value: label_filter_value
+      )
+
+    {:noreply, if(draft_changed?, do: reset_batch_state(socket), else: socket)}
   end
 
   def handle_event("search", %{"filters" => params}, socket) do
@@ -154,6 +221,149 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        label_filter_value: ""
      )
      |> push_patch(to: ~p"/gao_notes/notes")}
+  end
+
+  def handle_event(
+        "toggle_batch_note",
+        _params,
+        %{assigns: %{live_action: action}} = socket
+      )
+      when action != :index,
+      do: {:noreply, reset_batch_state(socket)}
+
+  def handle_event("toggle_batch_note", %{"id" => id}, socket) do
+    loaded_ids = loaded_note_ids(socket)
+
+    selected =
+      if id in loaded_ids do
+        BatchSelection.toggle(socket.assigns.batch_selected, id)
+      else
+        socket.assigns.batch_selected
+      end
+
+    {:noreply, assign(socket, :batch_selected, selected)}
+  end
+
+  def handle_event(
+        "toggle_all_batch_notes",
+        _params,
+        %{assigns: %{live_action: action}} = socket
+      )
+      when action != :index,
+      do: {:noreply, reset_batch_state(socket)}
+
+  def handle_event("toggle_all_batch_notes", _params, socket) do
+    {:noreply,
+     assign(
+       socket,
+       :batch_selected,
+       BatchSelection.toggle_all(socket.assigns.batch_selected, loaded_note_ids(socket))
+     )}
+  end
+
+  def handle_event("clear_batch_selection", _params, socket) do
+    {:noreply, reset_batch_state(socket)}
+  end
+
+  def handle_event(
+        "open_batch_label_modal",
+        _params,
+        %{assigns: %{live_action: action}} = socket
+      )
+      when action != :index,
+      do: {:noreply, reset_batch_state(socket)}
+
+  def handle_event("open_batch_label_modal", _params, socket) do
+    {:noreply, reset_batch_label_state(socket)}
+  end
+
+  def handle_event("cancel_batch_label_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> reset_batch_label_state()
+     |> push_event("close-dialog", %{id: "gao-note-batch-label-modal"})}
+  end
+
+  def handle_event("change_batch_label_action", %{"batch_label" => params}, socket)
+      when is_map(params) do
+    case normalize_batch_label_payload(params) do
+      {:ok, params} ->
+        {socket, _operation} = validate_batch_label(socket, params)
+        {:noreply, socket}
+
+      :error ->
+        {:noreply, assign_malformed_batch_label(socket)}
+    end
+  end
+
+  def handle_event("change_batch_label_action", _params, socket),
+    do: {:noreply, assign_malformed_batch_label(socket)}
+
+  def handle_event("submit_batch_label", %{"batch_label" => params}, socket)
+      when is_map(params) do
+    socket = reconcile_batch_selection(socket)
+
+    case normalize_batch_label_payload(params) do
+      {:ok, params} -> submit_batch_label(socket, params)
+      :error -> {:noreply, assign_malformed_batch_label(socket)}
+    end
+  end
+
+  def handle_event("submit_batch_label", _params, socket) do
+    {:noreply,
+     socket
+     |> reconcile_batch_selection()
+     |> assign_malformed_batch_label()}
+  end
+
+  def handle_event(
+        "open_batch_delete_modal",
+        _params,
+        %{assigns: %{live_action: action}} = socket
+      )
+      when action != :index,
+      do: {:noreply, reset_batch_state(socket)}
+
+  def handle_event("open_batch_delete_modal", _params, socket) do
+    {:noreply, assign(socket, :batch_delete_error, nil)}
+  end
+
+  def handle_event("cancel_batch_delete_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:batch_delete_error, nil)
+     |> push_event("close-dialog", %{id: "gao-note-batch-delete-modal"})}
+  end
+
+  def handle_event("batch_delete_notes", _params, socket) do
+    socket = reconcile_batch_selection(socket)
+
+    case validate_batch_selection(socket.assigns.batch_selected) do
+      :ok ->
+        note_ids = socket.assigns.batch_selected |> MapSet.to_list() |> Enum.sort()
+
+        case GaoNote.batch_delete_notes(note_ids, current_actor(socket)) do
+          {:ok, %{deleted: deleted}} ->
+            {:noreply,
+             socket
+             |> put_flash(:info, "#{deleted} notes moved to the Recycle Bin")
+             |> push_event("close-dialog", %{
+               id: "gao-note-batch-delete-modal",
+               focus: "#gao-note-search-input"
+             })
+             |> reset_batch_state()
+             |> assign_notes_async(
+               filter_opts(socket.assigns.active_filters),
+               socket.assigns.active_filters
+             )}
+
+          {:error, reason} ->
+            {:noreply, assign(socket, :batch_delete_error, batch_delete_error(reason))}
+        end
+
+      {:error, message} ->
+        {:noreply, assign(socket, :batch_delete_error, message)}
+    end
   end
 
   def handle_event("validate", %{"gao_note" => params}, socket) do
@@ -1531,16 +1741,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   end
 
   defp note_filter_path(filters) do
-    query =
-      []
-      |> maybe_put_query(:search, blank_to_nil(filters["search"]))
-      |> maybe_put_query(:labels, filters["labels"])
-
-    ~p"/gao_notes/notes?#{query}"
+    NotesPath.index(filters)
   end
-
-  defp maybe_put_query(query, _key, value) when value in [nil, "", []], do: query
-  defp maybe_put_query(query, key, value), do: Keyword.put(query, key, value)
 
   defp normalize_label_filters(filters) do
     filters
@@ -1563,14 +1765,387 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        }),
        do: "#{name}=#{value || ""}"
 
-  defp assign_notes_async(socket, opts) do
-    assign_async(
-      socket,
-      :notes,
-      fn -> {:ok, %{notes: GaoNote.list_notes(opts)}} end,
-      reset: true
+  defp assign_notes_async(socket, opts, active_filters) do
+    socket
+    |> cancel_async(:load_batch_index)
+    |> assign(
+      notes: AsyncResult.loading(),
+      batch_label_settings: AsyncResult.loading()
+    )
+    |> start_async(:load_batch_index, fn ->
+      %{
+        filters: active_filters,
+        notes: GaoNote.list_notes(opts),
+        label_settings: GaoNote.list_label_settings()
+      }
+    end)
+  end
+
+  defp batch_label_form(params \\ batch_label_params()) do
+    to_form(params, as: :batch_label)
+  end
+
+  defp batch_label_params do
+    %{
+      "action" => "add",
+      "match_label_setting_id" => "",
+      "match_value" => "",
+      "target_label_setting_id" => "",
+      "target_value" => ""
+    }
+  end
+
+  defp reset_batch_state(socket) do
+    socket
+    |> assign(:batch_selected, MapSet.new())
+    |> assign(:batch_delete_error, nil)
+    |> reset_batch_label_state()
+  end
+
+  defp leave_batch_index(socket) do
+    socket
+    |> cancel_async(:load_batch_index)
+    |> reset_batch_state()
+    |> assign(
+      notes: AsyncResult.loading(),
+      batch_label_settings: AsyncResult.loading()
     )
   end
+
+  defp reconcile_batch_selection(socket) do
+    assign(
+      socket,
+      :batch_selected,
+      BatchSelection.reconcile(socket.assigns.batch_selected, loaded_note_ids(socket))
+    )
+  end
+
+  defp reset_batch_label_state(socket) do
+    assign(socket,
+      batch_label_form: batch_label_form(),
+      batch_label_preview: nil,
+      batch_label_error: nil,
+      batch_label_valid?: false
+    )
+  end
+
+  defp normalize_batch_label_payload(params) do
+    params = Map.take(params, @batch_label_fields)
+
+    valid? =
+      is_binary(params["action"]) and
+        Enum.all?(params, fn {_key, value} -> is_binary(value) end)
+
+    if valid? do
+      {:ok, params}
+    else
+      :error
+    end
+  end
+
+  defp assign_malformed_batch_label(socket) do
+    assign(socket,
+      batch_label_preview: nil,
+      batch_label_error: "Batch label form is invalid. Review the fields and try again.",
+      batch_label_valid?: false
+    )
+  end
+
+  defp submit_batch_label(socket, params) do
+    {socket, operation} = validate_batch_label(socket, params)
+
+    if socket.assigns.batch_label_valid? and operation do
+      note_ids = socket.assigns.batch_selected |> MapSet.to_list() |> Enum.sort()
+
+      case GaoNote.batch_mutate_note_labels(note_ids, operation, current_actor(socket)) do
+        {:ok, summary} ->
+          message = batch_label_success_message(summary)
+
+          {:noreply,
+           socket
+           |> put_flash(:info, message)
+           |> push_event("close-dialog", %{
+             id: "gao-note-batch-label-modal",
+             focus: "#gao-note-search-input"
+           })
+           |> reset_batch_state()
+           |> assign_notes_async(
+             filter_opts(socket.assigns.active_filters),
+             socket.assigns.active_filters
+           )}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, :batch_label_error, batch_label_error(reason))}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp validate_batch_label(socket, submitted_params) do
+    params =
+      batch_label_params()
+      |> Map.merge(Map.new(submitted_params, fn {key, value} -> {to_string(key), value} end))
+      |> Map.update!("action", &(&1 |> to_string() |> String.trim() |> String.downcase()))
+
+    base_socket =
+      assign(socket,
+        batch_label_form: batch_label_form(params),
+        batch_label_preview: nil,
+        batch_label_error: nil,
+        batch_label_valid?: false
+      )
+
+    with :ok <- validate_batch_selection(socket.assigns.batch_selected),
+         {:ok, settings} <- loaded_batch_label_settings(socket),
+         {:ok, operation} <- parse_batch_label_operation(params, settings) do
+      preview = batch_label_preview(socket, operation)
+      conflicts = Map.get(preview, :conflict, 0)
+
+      if conflicts == 0 do
+        {assign(base_socket, batch_label_preview: preview, batch_label_valid?: true), operation}
+      else
+        message =
+          "#{conflicts} selected note#{if conflicts == 1, do: " has", else: "s have"} a label conflict. Resolve it before applying this action."
+
+        {assign(base_socket, batch_label_preview: preview, batch_label_error: message), nil}
+      end
+    else
+      {:error, message} -> {assign(base_socket, :batch_label_error, message), nil}
+    end
+  end
+
+  defp validate_batch_selection(selected) do
+    if MapSet.size(selected) > 0,
+      do: :ok,
+      else: {:error, "Select at least one loaded note."}
+  end
+
+  defp loaded_batch_label_settings(socket) do
+    case socket.assigns.batch_label_settings do
+      %AsyncResult{ok?: true, result: settings} ->
+        {:ok, Map.new(settings, &{&1.id, &1})}
+
+      %AsyncResult{failed: failed} when not is_nil(failed) ->
+        {:error, "Label settings are unavailable. Reload the page and try again."}
+
+      _result ->
+        {:error, "Label settings are still loading."}
+    end
+  end
+
+  defp parse_batch_label_operation(%{"action" => "add"} = params, settings) do
+    with {:ok, target} <-
+           fetch_batch_setting(settings, params["target_label_setting_id"], "target"),
+         {:ok, value} <- validate_batch_value(target, params["target_value"]) do
+      {:ok, {:add, %{label_setting_id: target.id, value: value}}}
+    end
+  end
+
+  defp parse_batch_label_operation(%{"action" => "edit"} = params, settings) do
+    with {:ok, source} <-
+           fetch_batch_setting(settings, params["match_label_setting_id"], "match"),
+         {:ok, target} <-
+           fetch_batch_setting(settings, params["target_label_setting_id"], "target"),
+         {:ok, match} <- validate_batch_match(source, params["match_value"]),
+         {:ok, value} <- validate_batch_value(target, params["target_value"]) do
+      {:ok,
+       {:edit,
+        %{
+          match: %{label_setting_id: source.id, value: match},
+          replacement: %{label_setting_id: target.id, value: value}
+        }}}
+    end
+  end
+
+  defp parse_batch_label_operation(%{"action" => "delete"} = params, settings) do
+    with {:ok, source} <-
+           fetch_batch_setting(settings, params["match_label_setting_id"], "match"),
+         {:ok, match} <- validate_batch_match(source, params["match_value"]) do
+      {:ok, {:delete, %{match: %{label_setting_id: source.id, value: match}}}}
+    end
+  end
+
+  defp parse_batch_label_operation(_params, _settings),
+    do: {:error, "Choose Add, Edit, or Delete."}
+
+  defp fetch_batch_setting(settings, id, field) when is_binary(id) do
+    case Map.fetch(settings, String.trim(id)) do
+      {:ok, setting} -> {:ok, setting}
+      :error -> {:error, "Choose a #{field} label from the existing Label Settings."}
+    end
+  end
+
+  defp fetch_batch_setting(_settings, _id, field),
+    do: {:error, "Choose a #{field} label from the existing Label Settings."}
+
+  defp validate_batch_match(setting, value) do
+    if blank?(value) do
+      {:ok, :any}
+    else
+      with {:ok, value} <- validate_batch_value(setting, value), do: {:ok, {:exact, value}}
+    end
+  end
+
+  defp validate_batch_value(setting, value) do
+    case LabelValue.validate(setting, value) do
+      {:ok, value} -> {:ok, value}
+      {:error, {:invalid_label_value, %{errors: errors}}} -> {:error, Enum.join(errors, ", ")}
+    end
+  rescue
+    _error -> {:error, "Enter a valid label value."}
+  end
+
+  defp batch_label_preview(socket, {:add, attrs}) do
+    notes = selected_loaded_notes(socket)
+
+    counts =
+      Enum.frequencies_by(notes, fn note ->
+        case note_label(note, attrs.label_setting_id) do
+          nil ->
+            :changed
+
+          %Label{value: value} ->
+            if LabelValue.normalize(value) == attrs.value, do: :unchanged, else: :conflict
+        end
+      end)
+
+    %{
+      selected: length(notes),
+      matched: length(notes),
+      changed: Map.get(counts, :changed, 0),
+      unchanged: Map.get(counts, :unchanged, 0),
+      conflict: Map.get(counts, :conflict, 0)
+    }
+  end
+
+  defp batch_label_preview(socket, {:edit, %{match: match, replacement: replacement}}) do
+    notes = selected_loaded_notes(socket)
+
+    matches =
+      Enum.flat_map(notes, fn note ->
+        case note_label(note, match.label_setting_id) do
+          %Label{} = label ->
+            if batch_label_matches?(label, match.value), do: [{note, label}], else: []
+
+          nil ->
+            []
+        end
+      end)
+
+    {changed, conflicts} =
+      Enum.reduce(matches, {0, 0}, fn {note, label}, {changed, conflicts} ->
+        conflict? =
+          match.label_setting_id != replacement.label_setting_id and
+            not is_nil(note_label(note, replacement.label_setting_id))
+
+        cond do
+          conflict? -> {changed, conflicts + 1}
+          match.label_setting_id != replacement.label_setting_id -> {changed + 1, conflicts}
+          LabelValue.normalize(label.value) != replacement.value -> {changed + 1, conflicts}
+          true -> {changed, conflicts}
+        end
+      end)
+
+    %{
+      selected: length(notes),
+      matched: length(matches),
+      changed: changed,
+      unchanged: length(notes) - changed,
+      conflict: conflicts
+    }
+  end
+
+  defp batch_label_preview(socket, {:delete, %{match: match}}) do
+    notes = selected_loaded_notes(socket)
+
+    changed =
+      Enum.count(notes, fn note ->
+        case note_label(note, match.label_setting_id) do
+          %Label{} = label -> batch_label_matches?(label, match.value)
+          nil -> false
+        end
+      end)
+
+    %{
+      selected: length(notes),
+      matched: changed,
+      changed: changed,
+      unchanged: length(notes) - changed,
+      conflict: 0
+    }
+  end
+
+  defp batch_label_matches?(_label, :any), do: true
+
+  defp batch_label_matches?(label, {:exact, value}),
+    do: LabelValue.normalize(label.value) == value
+
+  defp note_label(note, setting_id) do
+    note.labels
+    |> loaded_list()
+    |> Enum.find(&(&1.label_setting_id == setting_id))
+  end
+
+  defp selected_loaded_notes(socket) do
+    Enum.filter(loaded_notes(socket), &MapSet.member?(socket.assigns.batch_selected, &1.id))
+  end
+
+  defp loaded_notes(socket), do: async_value(socket.assigns.notes, [])
+
+  defp loaded_note_ids(%{assigns: %{live_action: :index, notes: %AsyncResult{ok?: true} = notes}}),
+    do: notes.result |> List.wrap() |> Enum.map(& &1.id)
+
+  defp loaded_note_ids(_socket), do: []
+
+  defp batch_label_success_message(%{matched: 0, changed: 0, unchanged: unchanged}),
+    do: "No matching labels; 0 changed, #{unchanged} unchanged."
+
+  defp batch_label_success_message(summary) do
+    "#{summary.changed} changed, #{summary.unchanged} unchanged (#{summary.matched} matched)."
+  end
+
+  defp batch_label_error({:label_conflict, _details}),
+    do: "A selected note has a label conflict. No labels were changed."
+
+  defp batch_label_error({:notes_unavailable, _details}),
+    do: "Some selected notes changed or disappeared. No labels were changed."
+
+  defp batch_label_error({:invalid_label_value, %{errors: errors}}),
+    do: "A label value is invalid: #{Enum.join(errors, ", ")}."
+
+  defp batch_label_error({:label_settings_unavailable, _details}),
+    do: "A selected Label Setting is no longer available. Reload and try again."
+
+  defp batch_label_error({:invalid_operation, _details}),
+    do: "The label action is no longer valid. Review the fields and try again."
+
+  defp batch_label_error({:invalid_selection, _details}),
+    do: "The selected notes are invalid. Clear the selection and try again."
+
+  defp batch_label_error({:batch_write_failed, _details}),
+    do: "The labels could not be saved. No labels were changed."
+
+  defp batch_label_error({:batch_audit_failed, _details}),
+    do: "The label audit could not be saved. No labels were changed."
+
+  defp batch_label_error(_reason),
+    do: "The label action could not be completed. No labels were changed."
+
+  defp batch_delete_error({:notes_unavailable, _details}),
+    do: "Some selected notes changed or disappeared. Nothing changed."
+
+  defp batch_delete_error({:invalid_selection, _details}),
+    do: "The selected notes are invalid. Clear the selection and try again."
+
+  defp batch_delete_error({:batch_write_failed, _details}),
+    do: "The selected notes could not be moved. Nothing was moved."
+
+  defp batch_delete_error({:batch_audit_failed, _details}),
+    do: "The delete audit could not be saved. Nothing was moved."
+
+  defp batch_delete_error(_reason),
+    do: "The selected notes could not be moved. Nothing was moved."
 
   defp selected_labels_from_params(params, socket) do
     params
@@ -1700,6 +2275,19 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
 
   @impl true
   def render(assigns) do
+    loaded_notes = async_value(assigns.notes, [])
+    loaded_ids = Enum.map(loaded_notes, & &1.id)
+
+    assigns =
+      assign(assigns,
+        loaded_notes: loaded_notes,
+        batch_selection_state: BatchSelection.state(assigns.batch_selected, loaded_ids),
+        batch_label_options:
+          assigns.batch_label_settings
+          |> async_value([])
+          |> Enum.map(&{&1.name, &1.id})
+      )
+
     ~H"""
     <Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
       <div :if={@live_action == :index} class="flex flex-col gap-4 p-6 w-full">
@@ -1835,96 +2423,161 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           Unable to load notes.
         </div>
 
-        <.dm_table
+        <BatchActionComponents.notes_toolbar
+          :if={MapSet.size(@batch_selected) > 0}
+          selected_count={MapSet.size(@batch_selected)}
+          clear_event="clear_batch_selection"
+          label_modal_id="gao-note-batch-label-modal"
+          delete_modal_id="gao-note-batch-delete-modal"
+        />
+
+        <div>
+          <BatchActionComponents.label_modal
+            :if={MapSet.size(@batch_selected) > 0 or @batch_label_error}
+            form={@batch_label_form}
+            label_options={@batch_label_options}
+            selected_count={MapSet.size(@batch_selected)}
+            preview={@batch_label_preview}
+            error={@batch_label_error}
+            valid?={@batch_label_valid?}
+          />
+          <BatchActionComponents.soft_delete_modal
+            :if={MapSet.size(@batch_selected) > 0 or @batch_delete_error}
+            selected_count={MapSet.size(@batch_selected)}
+            error={@batch_delete_error}
+          />
+        </div>
+
+        <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#145 --%>
+        <div
           :if={!async_loading?(@notes)}
-          id="gao-note-table"
-          class="table-bordered"
-          data={async_value(@notes, [])}
+          class="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container text-on-surface"
         >
-          <:col :let={note} label="Title">
-            <.link
-              patch={~p"/gao_notes/notes/#{note.id}/show"}
-              class="font-medium text-sm text-primary hover:underline"
-            >
-              {note.title}
-            </.link>
-          </:col>
-          <:col :let={note} label="Labels">
-            <div class="flex min-w-32 max-w-56 flex-wrap gap-1">
-              <.dm_badge :for={label <- note_labels(note)} variant={label_variant(label)} soft>
-                {label_text(label)}
-              </.dm_badge>
-              <span :if={note_labels(note) == []} class="text-xs text-base-content/40">None</span>
-            </div>
-          </:col>
-          <:col :let={note} label="Created">
-            <span class="font-mono text-xs">{format_dt(note.created_at)}</span>
-          </:col>
-          <:col :let={note} label="Updated">
-            <span class="font-mono text-xs">{format_dt(note.updated_at)}</span>
-          </:col>
-          <:col :let={note} label="">
-            <div class="flex items-center gap-1">
-              <.link patch={~p"/gao_notes/notes/#{note.id}/show"}>
-                <.dm_btn size="xs" variant="ghost" title="View">
-                  <.dm_mdi name="eye-outline" class="w-3.5 h-3.5" />
-                </.dm_btn>
-              </.link>
-              <.link patch={~p"/gao_notes/notes/#{note.id}/edit"}>
-                <.dm_btn size="xs" variant="ghost" title="Edit">
-                  <.dm_mdi name="pencil-outline" class="w-3.5 h-3.5" />
-                </.dm_btn>
-              </.link>
-              <.dm_modal
-                id={"confirm-dialog-gao-note-list-delete-#{note.id}"}
-                size="sm"
-                hide_close
-                dialog_label="Delete GaoNote"
-              >
-                <:trigger :let={dialog_id}>
-                  <.dm_btn
-                    id={"gao-note-list-delete-#{note.id}"}
-                    size="xs"
-                    variant="ghost"
-                    class="text-error"
-                    title="Delete"
-                    onclick={"document.getElementById('#{dialog_id}').show()"}
+          <table id="gao-note-table" class="table table-zebra table-hover w-full">
+            <thead class="bg-surface-container-high text-on-surface">
+              <tr>
+                <th scope="col" class="w-12">
+                  <BatchActionComponents.selection_checkbox
+                    id="gao-note-select-all"
+                    checked={@batch_selection_state != :none}
+                    state={@batch_selection_state}
+                    event="toggle_all_batch_notes"
+                    label="Select all loaded notes"
+                  />
+                </th>
+                <th scope="col">Title</th>
+                <th scope="col">Labels</th>
+                <th scope="col">Created</th>
+                <th scope="col">Updated</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :if={@loaded_notes == []}>
+                <td colspan="6" class="py-8 text-center text-sm text-on-surface-variant">
+                  No notes found.
+                </td>
+              </tr>
+              <tr :for={note <- @loaded_notes} id={"gao-note-row-#{note.id}"}>
+                <td>
+                  <BatchActionComponents.selection_checkbox
+                    id={"gao-note-select-#{note.id}"}
+                    checked={MapSet.member?(@batch_selected, note.id)}
+                    state={if MapSet.member?(@batch_selected, note.id), do: :all, else: :none}
+                    event="toggle_batch_note"
+                    value_id={note.id}
+                    label={"Select #{note.title}"}
+                  />
+                </td>
+                <td>
+                  <.link
+                    patch={~p"/gao_notes/notes/#{note.id}/show"}
+                    class="font-medium text-sm text-primary hover:underline"
                   >
-                    <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5" />
-                  </.dm_btn>
-                </:trigger>
-                <:title>Delete GaoNote</:title>
-                <:body>
-                  <p class="text-sm text-base-content/80">Delete this GaoNote?</p>
-                </:body>
-                <:footer>
-                  <div class="flex justify-end gap-2">
-                    <form id={"gao-note-delete-list-cancel-#{note.id}"} method="dialog">
-                      <button
-                        type="button"
-                        class="btn btn-ghost btn-sm"
-                        onclick={"document.getElementById('confirm-dialog-gao-note-list-delete-#{note.id}').close()"}
-                      >
-                        Cancel
-                      </button>
-                    </form>
-                    <form id={"gao-note-delete-list-confirm-#{note.id}"} method="dialog">
-                      <.dm_btn
-                        type="submit"
-                        variant="error"
-                        size="sm"
-                        phx-click="delete"
-                        phx-value-id={note.id}
-                      >
-                        Delete
-                      </.dm_btn>
-                    </form>
+                    {note.title}
+                  </.link>
+                </td>
+                <td>
+                  <div class="flex min-w-32 max-w-56 flex-wrap gap-1">
+                    <.dm_badge
+                      :for={label <- note_labels(note)}
+                      variant={label_variant(label)}
+                      soft
+                    >
+                      {label_text(label)}
+                    </.dm_badge>
+                    <span :if={note_labels(note) == []} class="text-xs text-on-surface-variant">
+                      None
+                    </span>
                   </div>
-                </:footer>
-              </.dm_modal>
-            </div>
-          </:col>
-        </.dm_table>
+                </td>
+                <td><span class="font-mono text-xs">{format_dt(note.created_at)}</span></td>
+                <td><span class="font-mono text-xs">{format_dt(note.updated_at)}</span></td>
+                <td>
+                  <div class="flex items-center gap-1">
+                    <.link patch={~p"/gao_notes/notes/#{note.id}/show"}>
+                      <.dm_btn size="xs" variant="ghost" title="View">
+                        <.dm_mdi name="eye-outline" class="w-3.5 h-3.5" />
+                      </.dm_btn>
+                    </.link>
+                    <.link patch={~p"/gao_notes/notes/#{note.id}/edit"}>
+                      <.dm_btn size="xs" variant="ghost" title="Edit">
+                        <.dm_mdi name="pencil-outline" class="w-3.5 h-3.5" />
+                      </.dm_btn>
+                    </.link>
+                    <.dm_modal
+                      id={"confirm-dialog-gao-note-list-delete-#{note.id}"}
+                      size="sm"
+                      hide_close
+                      dialog_label="Delete GaoNote"
+                    >
+                      <:trigger :let={dialog_id}>
+                        <.dm_btn
+                          id={"gao-note-list-delete-#{note.id}"}
+                          size="xs"
+                          variant="ghost"
+                          class="text-error"
+                          title="Delete"
+                          onclick={"document.getElementById('#{dialog_id}').show()"}
+                        >
+                          <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5" />
+                        </.dm_btn>
+                      </:trigger>
+                      <:title>Delete GaoNote</:title>
+                      <:body>
+                        <p class="text-sm text-on-surface-variant">Delete this GaoNote?</p>
+                      </:body>
+                      <:footer>
+                        <div class="flex justify-end gap-2">
+                          <form id={"gao-note-delete-list-cancel-#{note.id}"} method="dialog">
+                            <button
+                              type="button"
+                              class="btn btn-ghost btn-sm"
+                              onclick={"document.getElementById('confirm-dialog-gao-note-list-delete-#{note.id}').close()"}
+                            >
+                              Cancel
+                            </button>
+                          </form>
+                          <form id={"gao-note-delete-list-confirm-#{note.id}"} method="dialog">
+                            <.dm_btn
+                              type="submit"
+                              variant="error"
+                              size="sm"
+                              phx-click="delete"
+                              phx-value-id={note.id}
+                            >
+                              Delete
+                            </.dm_btn>
+                          </form>
+                        </div>
+                      </:footer>
+                    </.dm_modal>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div :if={@live_action in [:new, :edit]} class="flex flex-col gap-4 p-6 w-full max-w-5xl">

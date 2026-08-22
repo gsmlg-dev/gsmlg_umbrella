@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove dead REST and public MCP routes from `gsmlg_web`, publish a complete OpenAPI description of its 17 supported business operations, and expose that description through the RFC 9727 API catalog.
+**Goal:** Remove dead REST and public MCP routes from `gsmlg_web`, publish a complete OpenAPI description of its 19 supported business operations, and expose that description through the RFC 9727 API catalog.
 
 **Architecture:** `GSMLG.Web.ApiSpec` owns one explicit OpenAPI 3.0.3 document assembled from focused schema and operation modules; OpenApiSpex renders it but never validates live requests. A minimal controller serves an RFC 9727 Linkset at `/.well-known/api-catalog`, while an exact router/spec comparison prevents documentation drift.
 
@@ -16,7 +16,7 @@
   `docs/superpowers/specs/2026-08-18-gsmlg-web-api-discovery-design.md`.
 - Work only in `apps/gsmlg_web`, `mix.lock`, and the approved design/plan
   documents. Do not modify `gsmlg_admin_web` or `gsmlg_gao_note`.
-- Preserve all 17 surviving business operations exactly as they behave now.
+- Preserve all 19 surviving business operations exactly as they behave now.
 - Do not add OpenApiSpex casting or validation plugs.
 - Do not add Swagger UI, browser documentation, MCP exposure, deployment,
   release, push, or pull-request work.
@@ -1612,6 +1612,30 @@ Expected:
 Present the scoped diff and verification evidence. Suggested commit if
 explicitly authorized: `test(web): enforce API documentation parity`.
 
+### Task 8: Integrate Current-Main ZeroOmega Artifact APIs
+
+This task was added during local integration on 2026-08-23 because `main`
+introduced two public APIs after the original plan was approved.
+
+**Files:**
+
+- Create: `apps/gsmlg_web/lib/gsmlg/web/open_api/zero_omega_operations.ex`
+- Modify: `apps/gsmlg_web/lib/gsmlg/web/open_api/operations.ex`
+- Modify: `apps/gsmlg_web/lib/gsmlg/web/controllers/api_catalog_controller.ex`
+- Modify: `apps/gsmlg_web/test/gsmlg_web/open_api_spec_test.exs`
+- Modify: `apps/gsmlg_web/test/gsmlg_web/controllers/api_catalog_controller_test.exs`
+
+- [x] Document `GET /rules/zeroomega/switchy` with its mode/profile defaults,
+      conditional request behavior, response headers, and current error
+      statuses.
+- [x] Document `GET /rules/zeroomega/pac` with its required constrained proxy
+      endpoint, PAC media type, conditional request behavior, response headers,
+      and current error statuses.
+- [x] Add both namespaces to RFC 9727 catalog discovery.
+- [x] Expand exact router/OpenAPI parity to `/api` and `/rules/zeroomega`.
+- [x] Verify 20 total OpenAPI operations and focused ZeroOmega/controller
+      behavior with 21 tests and zero failures.
+
 ## Completion Checklist
 
 - [ ] Seven dead REST routes are removed and return JSON 404 through the
@@ -1620,8 +1644,8 @@ explicitly authorized: `test(web): enforce API documentation parity`.
       child.
 - [ ] Admin MCP remains unchanged and registered.
 - [ ] OpenApiSpex is passive and local to `gsmlg_web`.
-- [ ] All 17 surviving business operations match runtime contracts.
-- [ ] `/api/openapi.json` publishes 18 operations including itself.
+- [ ] All 19 surviving business operations match runtime contracts.
+- [ ] `/api/openapi.json` publishes 20 operations including itself.
 - [ ] `GET` and `HEAD /.well-known/api-catalog` expose RFC 9727 Linkset
       discovery.
 - [ ] Router and OpenAPI operation sets match exactly.

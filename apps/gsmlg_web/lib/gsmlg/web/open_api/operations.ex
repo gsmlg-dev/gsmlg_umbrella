@@ -7,7 +7,8 @@ defmodule GSMLG.Web.OpenApi.Operations do
     Operation,
     ProxyRulesOperations,
     ToolboxOperations,
-    WebPushOperations
+    WebPushOperations,
+    ZeroOmegaOperations
   }
 
   def paths do
@@ -17,7 +18,8 @@ defmodule GSMLG.Web.OpenApi.Operations do
       GaoNoteOperations.paths(),
       ToolboxOperations.paths(),
       WebPushOperations.paths(),
-      ProxyRulesOperations.paths()
+      ProxyRulesOperations.paths(),
+      ZeroOmegaOperations.paths()
     ]
     |> Enum.reduce(&deep_merge_paths/2)
   end

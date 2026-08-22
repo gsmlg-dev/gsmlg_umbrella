@@ -243,11 +243,90 @@ defmodule GSMLG.Web.OpenApiSpecTest do
     end
   end
 
+  test "documents ZeroOmega exports with runtime fidelity", %{document: document} do
+    paths = document["paths"]
+
+    assert %{"get" => %{"operationId" => "getZeroOmegaSwitchy"} = switchy} =
+             paths["/rules/zeroomega/switchy"]
+
+    assert %{"get" => %{"operationId" => "getZeroOmegaPac"} = pac} =
+             paths["/rules/zeroomega/pac"]
+
+    for operation <- [switchy, pac] do
+      assert operation["security"] == []
+      assert operation["description"] =~ "HEAD mirrors GET through Plug.Head"
+      assert %{"required" => false, "in" => "header"} = parameter(operation, "If-None-Match")
+
+      for status <- ["200", "304"], header <- zero_omega_response_header_names() do
+        assert %{"description" => _description, "schema" => %{"type" => "string"}} =
+                 operation["responses"][status]["headers"][header]
+      end
+
+      assert %{"description" => _description} = operation["responses"]["304"]
+      refute Map.has_key?(operation["responses"]["304"], "content")
+    end
+
+    assert %{
+             "schema" => %{
+               "type" => "string",
+               "enum" => ["binary", "result"],
+               "default" => "binary"
+             }
+           } =
+             parameter(switchy, "mode")
+
+    for name <- ["mode", "match_profile", "default_profile"] do
+      assert %{"required" => false, "in" => "query"} = parameter(switchy, name)
+    end
+
+    assert %{"schema" => %{"type" => "string", "default" => "squid"}} =
+             parameter(switchy, "match_profile")
+
+    assert %{"schema" => %{"type" => "string", "default" => "direct"}} =
+             parameter(switchy, "default_profile")
+
+    for status <- ["200", "400", "503"] do
+      assert %{"content" => %{"text/plain" => %{"schema" => %{"type" => "string"}}}} =
+               switchy["responses"][status]
+    end
+
+    refute Map.has_key?(switchy["responses"], "404")
+
+    assert %{
+             "required" => true,
+             "in" => "query",
+             "description" => proxy_description,
+             "schema" => %{"type" => "string", "example" => "10.100.0.1:3128"}
+           } = parameter(pac, "proxy")
+
+    assert proxy_description =~ "bare host:port"
+    assert proxy_description =~ "[IPv6]:port"
+    assert proxy_description =~ "1-65535"
+    assert proxy_description =~ "schemes"
+    assert proxy_description =~ "credentials"
+    assert proxy_description =~ "whitespace"
+    assert proxy_description =~ "unsafe delimiters"
+
+    assert %{
+             "content" => %{
+               "application/x-ns-proxy-autoconfig" => %{"schema" => %{"type" => "string"}}
+             }
+           } = pac["responses"]["200"]
+
+    for status <- ["400", "503"] do
+      assert %{"content" => %{"text/plain" => %{"schema" => %{"type" => "string"}}}} =
+               pac["responses"][status]
+    end
+
+    refute Map.has_key?(pac["responses"], "404")
+  end
+
   test "matches the public API router operation surface", %{document: document} do
     router_operation_pairs =
       GSMLG.Web.Router.__routes__()
       |> Enum.filter(fn route ->
-        route.path == "/api" or String.starts_with?(route.path, "/api/")
+        route.path == "/api" or String.starts_with?(route.path, "/api/") or
+          route.path == "/rules/zeroomega" or String.starts_with?(route.path, "/rules/zeroomega/")
       end)
       |> Enum.reject(&(&1.path == "/api/*request_path"))
       |> Enum.filter(&(&1.verb in [:get, :post, :put, :patch, :delete]))
@@ -255,8 +334,10 @@ defmodule GSMLG.Web.OpenApiSpecTest do
       |> MapSet.new()
 
     assert router_operation_pairs == operation_pairs(document)
-    assert MapSet.size(router_operation_pairs) == 18
+    assert MapSet.size(router_operation_pairs) == 20
     assert MapSet.member?(router_operation_pairs, {:get, "/api/openapi.json"})
+    assert MapSet.member?(router_operation_pairs, {:get, "/rules/zeroomega/switchy"})
+    assert MapSet.member?(router_operation_pairs, {:get, "/rules/zeroomega/pac"})
 
     refute Enum.any?(router_operation_pairs, fn {_verb, path} ->
              String.contains?(path, "/mcp")
@@ -337,6 +418,10 @@ defmodule GSMLG.Web.OpenApiSpecTest do
 
   defp proxy_response_header_names do
     ["ETag", "Last-Modified", "Cache-Control", "X-Proxy-Rules-Generation"]
+  end
+
+  defp zero_omega_response_header_names do
+    ["ETag", "Last-Modified", "Cache-Control", "X-Proxy-Rules-Generation", "Content-Length"]
   end
 
   defp collect_refs(value) when is_map(value) do

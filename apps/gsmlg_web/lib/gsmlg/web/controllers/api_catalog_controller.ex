@@ -14,6 +14,12 @@ defmodule GSMLG.Web.ApiCatalogController do
             "service-desc" => [
               %{"href" => "/api/openapi.json", "type" => "application/json"}
             ]
+          },
+          %{
+            "anchor" => "/rules/zeroomega",
+            "service-desc" => [
+              %{"href" => "/api/openapi.json", "type" => "application/json"}
+            ]
           }
         ]
       })

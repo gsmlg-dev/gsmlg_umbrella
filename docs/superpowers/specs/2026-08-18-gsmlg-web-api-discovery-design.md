@@ -17,7 +17,8 @@ application's intended contract.
 
 The completed surface will provide:
 
-- The 17 existing, executable business API operations under `/api`.
+- The 19 executable business API operations under `/api` and
+  `/rules/zeroomega` after integration with `main` on 2026-08-23.
 - `GET /api/openapi.json` as the canonical OpenAPI document.
 - `GET /.well-known/api-catalog` and RFC-compatible `HEAD` behavior for
   standards-based discovery.
@@ -96,7 +97,7 @@ Do not modify:
 
 ## Surviving Business API Inventory
 
-The canonical business inventory contains exactly 17 operations.
+The canonical business inventory contains exactly 19 operations.
 
 ### Public or optionally authenticated operations
 
@@ -127,6 +128,17 @@ Proxy-rule delivery does not use the Guardian pipeline.
 | `PUT` | `/api/gao_notes/:id` | Replace note fields and the complete attachment generation. |
 | `PATCH` | `/api/gao_notes/:id` | Same runtime mutation contract as `PUT`. |
 | `POST` | `/api/send-notification` | Attempt notification delivery to stored subscriptions. |
+
+### Public ZeroOmega artifact operations
+
+| Method | Path | Contract summary |
+|---|---|---|
+| `GET` | `/rules/zeroomega/switchy` | Export SwitchyOmega conditions with optional profile parameters. |
+| `GET` | `/rules/zeroomega/pac` | Export a parameterized proxy auto-configuration script. |
+
+These two operations were added to `main` after the original design approval
+and incorporated during local integration on 2026-08-23. They are public,
+support conditional requests, and remain outside the Guardian pipeline.
 
 ## Selected OpenAPI Approach
 
@@ -178,10 +190,10 @@ Guardian authentication. It returns `application/json`, and the API catalog's
 
 The OpenAPI document describes:
 
-- The 17 business operations above.
+- The 19 business operations above.
 - Its own `GET /api/openapi.json` operation.
 
-It therefore contains 18 OpenAPI operations. The RFC catalog endpoint is the
+It therefore contains 20 OpenAPI operations. The RFC catalog endpoint is the
 bootstrap mechanism and is not duplicated as an OpenAPI operation.
 
 ### Security representation
@@ -262,7 +274,7 @@ to OpenAPI method/path pairs. In particular:
 - `*path` becomes the documented attachment path parameter.
 - The generic API catch-all is excluded explicitly.
 - Browser, file, MCP, admin, and well-known routes are outside the business
-  comparison.
+  comparison. The comparison includes both `/api` and `/rules/zeroomega`.
 - `/api/openapi.json` is asserted separately as the one documentation
   operation.
 
@@ -295,7 +307,7 @@ Implementation follows test-first slices.
 
 - The OpenApiSpex document resolves all schema references and encodes to JSON.
 - `/api/openapi.json` returns `200` with `application/json`.
-- The document contains exactly the 17 surviving business operations plus its
+- The document contains exactly the 19 surviving business operations plus its
   own operation.
 - Security is anonymous-or-bearer, bearer-only, or absent as designed.
 - Representative request, response, error, wildcard, range, conditional, and
@@ -344,8 +356,8 @@ The work is complete when:
 1. The seven dead REST routes are absent and return the normal API 404.
 2. `gsmlg_web` exposes and supervises no MCP transport.
 3. The admin MCP route remains unchanged and registered.
-4. The 17 surviving business operations are represented faithfully.
-5. `/api/openapi.json` publishes a valid OpenAPI document with 18 operations
+4. The 19 surviving business operations are represented faithfully.
+5. `/api/openapi.json` publishes a valid OpenAPI document with 20 operations
    including itself.
 6. `GET` and `HEAD /.well-known/api-catalog` satisfy the selected RFC 9727
    behavior and advertise the OpenAPI document.

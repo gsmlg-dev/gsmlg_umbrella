@@ -2,6 +2,8 @@ import { blogFormHook } from "./hooks/blog_form";
 import TerminalHook from "./hooks/terminal_hook";
 import ClipboardHook from "./hooks/clipboard_hook";
 import { GaoNoteLabelsMultiSelect } from "./hooks/gao_note_labels_multi_select";
+import AccessibleDialog, { closeDialogAndFocus } from "./hooks/accessible_dialog";
+import IndeterminateCheckbox from "./hooks/indeterminate_checkbox";
 import ProxyRulesSourceViewer from "./hooks/proxy_rules_source_viewer";
 import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight } from "phoenix_duskmoon/hooks";
 
@@ -11,7 +13,7 @@ import "@duskmoon-dev/el-markdown/register";
 import "@duskmoon-dev/el-markdown-input/register";
 
 window.addEventListener("phx:close-dialog", (event) => {
-  document.getElementById(event.detail.id)?.close?.();
+  closeDialogAndFocus(event.detail);
 });
 
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -67,6 +69,8 @@ export const hooks = {
   Terminal: TerminalHook,
   Clipboard: ClipboardHook,
   GaoNoteLabelsMultiSelect,
+  AccessibleDialog,
+  IndeterminateCheckbox,
   ProxyRulesSourceViewer,
   WebComponentHook,
   FormElementHook,

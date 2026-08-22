@@ -1,6 +1,7 @@
 defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
+  alias GSMLG.AdminWeb.GaoNoteLive.{BatchActionComponents, BatchSelection}
   alias GSMLG.GaoNote
   alias Phoenix.LiveView.AsyncResult
 
@@ -9,7 +10,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
     {:ok,
      socket
      |> assign(:active_menu, "gao_note_recycle_bin")
-     |> assign(:notes, AsyncResult.loading())}
+     |> assign(:notes, AsyncResult.loading())
+     |> assign(:batch_selected, MapSet.new())
+     |> assign(:purge_form, purge_form())
+     |> assign(:purge_error, nil)}
   end
 
   @impl true
@@ -23,7 +27,76 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
 
   @impl true
   def handle_event("refresh", _params, socket) do
-    {:noreply, assign_deleted_notes_async(socket)}
+    {:noreply,
+     socket
+     |> reset_batch_purge_state()
+     |> assign_deleted_notes_async()}
+  end
+
+  def handle_event("toggle_recycle_note", %{"id" => id}, socket) do
+    loaded_ids = loaded_note_ids(socket)
+
+    selected =
+      if id in loaded_ids do
+        BatchSelection.toggle(socket.assigns.batch_selected, id)
+      else
+        socket.assigns.batch_selected
+      end
+
+    {:noreply, assign(socket, :batch_selected, selected)}
+  end
+
+  def handle_event("toggle_recycle_note", _params, socket), do: {:noreply, socket}
+
+  def handle_event("toggle_all_recycle_notes", _params, socket) do
+    {:noreply,
+     assign(
+       socket,
+       :batch_selected,
+       BatchSelection.toggle_all(socket.assigns.batch_selected, loaded_note_ids(socket))
+     )}
+  end
+
+  def handle_event("clear_recycle_selection", _params, socket) do
+    {:noreply, reset_batch_purge_state(socket)}
+  end
+
+  def handle_event("open_batch_purge_modal", _params, socket) do
+    {:noreply, reset_purge_state(socket)}
+  end
+
+  def handle_event("cancel_batch_purge_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> reset_purge_state()
+     |> push_event("close-dialog", %{id: "gao-note-recycle-purge-modal"})}
+  end
+
+  def handle_event(
+        "change_batch_purge_confirmation",
+        %{"batch_purge" => %{"confirmation" => confirmation}},
+        socket
+      )
+      when is_binary(confirmation) do
+    {:noreply,
+     assign(socket,
+       purge_form: purge_form(confirmation),
+       purge_error: nil
+     )}
+  end
+
+  def handle_event("change_batch_purge_confirmation", _params, socket) do
+    {:noreply, assign_malformed_purge(socket)}
+  end
+
+  def handle_event("batch_purge_notes", params, socket) do
+    socket = reconcile_batch_selection(socket)
+
+    case batch_purge_confirmation(params) do
+      {:ok, "DELETE"} -> submit_batch_purge(socket)
+      {:ok, _confirmation} -> {:noreply, assign_invalid_confirmation(socket)}
+      :error -> {:noreply, assign_malformed_purge(socket)}
+    end
   end
 
   def handle_event("restore", %{"id" => id}, socket) do
@@ -62,7 +135,31 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
   end
 
   @impl true
+  def handle_async(:load_deleted_notes, {:ok, notes}, socket) do
+    loaded_ids = Enum.map(notes, & &1.id)
+
+    {:noreply,
+     assign(socket,
+       notes: AsyncResult.ok(socket.assigns.notes, notes),
+       batch_selected: BatchSelection.reconcile(socket.assigns.batch_selected, loaded_ids)
+     )}
+  end
+
+  def handle_async(:load_deleted_notes, {:exit, _reason}, socket) do
+    {:noreply, assign(socket, :notes, AsyncResult.failed(socket.assigns.notes, :load_failed))}
+  end
+
+  @impl true
   def render(assigns) do
+    loaded_notes = async_value(assigns.notes, [])
+    loaded_ids = Enum.map(loaded_notes, & &1.id)
+
+    assigns =
+      assign(assigns,
+        loaded_notes: loaded_notes,
+        batch_selection_state: BatchSelection.state(assigns.batch_selected, loaded_ids)
+      )
+
     ~H"""
     <Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
       <div class="space-y-6 p-6 w-full">
@@ -75,7 +172,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
             </p>
           </div>
 
-          <.dm_btn variant="ghost" phx-click="refresh">
+          <.dm_btn id="gao-note-recycle-refresh" variant="ghost" phx-click="refresh">
             Refresh
           </.dm_btn>
         </div>
@@ -98,23 +195,60 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
           :if={!async_loading?(@notes) and !async_failed?(@notes)}
           class="overflow-hidden rounded-box border border-base-300 bg-base-100"
         >
-          <table class="w-full text-left text-sm">
+          <BatchActionComponents.recycle_toolbar
+            :if={MapSet.size(@batch_selected) > 0}
+            selected_count={MapSet.size(@batch_selected)}
+            clear_event="clear_recycle_selection"
+            purge_modal_id="gao-note-recycle-purge-modal"
+          />
+
+          <BatchActionComponents.purge_modal
+            :if={MapSet.size(@batch_selected) > 0 or @purge_error}
+            form={@purge_form}
+            selected_count={MapSet.size(@batch_selected)}
+            error={@purge_error}
+          />
+
+          <table id="gao-note-recycle-table" class="w-full text-left text-sm">
             <thead class="border-b border-base-300 bg-base-200/70 text-xs uppercase tracking-wide text-base-content/60">
               <tr>
-                <th class="px-4 py-3">Note</th>
-                <th class="px-4 py-3">Labels</th>
-                <th class="px-4 py-3">Deleted</th>
-                <th class="px-4 py-3 text-right">Actions</th>
+                <th scope="col" class="w-12 px-4 py-3">
+                  <BatchActionComponents.selection_checkbox
+                    id="gao-note-recycle-select-all"
+                    checked={@batch_selection_state != :none}
+                    state={@batch_selection_state}
+                    event="toggle_all_recycle_notes"
+                    label="Select all loaded deleted notes"
+                  />
+                </th>
+                <th scope="col" class="px-4 py-3">Note</th>
+                <th scope="col" class="px-4 py-3">Labels</th>
+                <th scope="col" class="px-4 py-3">Deleted</th>
+                <th scope="col" class="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-base-300">
-              <tr :if={async_value(@notes, []) == []}>
-                <td colspan="4" class="px-4 py-10 text-center text-base-content/50">
+              <tr :if={@loaded_notes == []}>
+                <td colspan="5" class="px-4 py-10 text-center text-base-content/50">
                   Recycle bin is empty.
                 </td>
               </tr>
 
-              <tr :for={note <- async_value(@notes, [])} id={"deleted-note-#{note.id}"}>
+              <tr
+                :for={note <- @loaded_notes}
+                id={"deleted-note-#{note.id}"}
+                data-state={if MapSet.member?(@batch_selected, note.id), do: "selected", else: "none"}
+              >
+                <td class="px-4 py-4 align-top">
+                  <BatchActionComponents.selection_checkbox
+                    id={"gao-note-recycle-select-#{note.id}"}
+                    checked={MapSet.member?(@batch_selected, note.id)}
+                    state={if MapSet.member?(@batch_selected, note.id), do: :all, else: :none}
+                    event="toggle_recycle_note"
+                    value_id={note.id}
+                    label={"Select #{note.title}"}
+                  />
+                </td>
                 <td class="px-4 py-4 align-top">
                   <div class="font-medium text-base-content">{note.title}</div>
                 </td>
@@ -158,13 +292,107 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.RecycleBinLive.Index do
   end
 
   defp assign_deleted_notes_async(socket) do
-    assign_async(
-      socket,
-      :notes,
-      fn -> {:ok, %{notes: GaoNote.list_deleted_notes(limit: 200)}} end,
-      reset: true
+    socket
+    |> cancel_async(:load_deleted_notes)
+    |> assign(:notes, AsyncResult.loading())
+    |> start_async(:load_deleted_notes, fn -> GaoNote.list_deleted_notes(limit: 200) end)
+  end
+
+  defp purge_form(confirmation \\ "") do
+    to_form(%{"confirmation" => confirmation}, as: :batch_purge)
+  end
+
+  defp reset_batch_purge_state(socket) do
+    socket
+    |> assign(:batch_selected, MapSet.new())
+    |> reset_purge_state()
+  end
+
+  defp reset_purge_state(socket) do
+    assign(socket,
+      purge_form: purge_form(),
+      purge_error: nil
     )
   end
+
+  defp reconcile_batch_selection(socket) do
+    assign(
+      socket,
+      :batch_selected,
+      BatchSelection.reconcile(socket.assigns.batch_selected, loaded_note_ids(socket))
+    )
+  end
+
+  defp loaded_note_ids(%{assigns: %{notes: %AsyncResult{ok?: true, result: notes}}}),
+    do: Enum.map(notes, & &1.id)
+
+  defp loaded_note_ids(_socket), do: []
+
+  defp batch_purge_confirmation(%{
+         "batch_purge" => %{"confirmation" => confirmation}
+       })
+       when is_binary(confirmation),
+       do: {:ok, confirmation}
+
+  defp batch_purge_confirmation(_params), do: :error
+
+  defp submit_batch_purge(socket) do
+    if MapSet.size(socket.assigns.batch_selected) > 0 do
+      note_ids = socket.assigns.batch_selected |> MapSet.to_list() |> Enum.sort()
+
+      case GaoNote.batch_permanently_delete_notes(note_ids, current_actor(socket)) do
+        {:ok, %{purged: purged}} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "#{purged} notes permanently deleted")
+           |> push_event("close-dialog", %{
+             id: "gao-note-recycle-purge-modal",
+             focus: "#gao-note-recycle-refresh"
+           })
+           |> reset_batch_purge_state()
+           |> assign_deleted_notes_async()}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, :purge_error, batch_purge_error(reason))}
+      end
+    else
+      {:noreply,
+       assign(socket, :purge_error, "Select at least one loaded deleted note and try again.")}
+    end
+  end
+
+  defp assign_invalid_confirmation(socket) do
+    assign(
+      socket,
+      :purge_error,
+      "Type DELETE exactly to permanently delete the selected notes."
+    )
+  end
+
+  defp assign_malformed_purge(socket) do
+    assign(socket,
+      purge_form: purge_form(),
+      purge_error: "Purge confirmation is invalid. Type DELETE exactly and try again."
+    )
+  end
+
+  defp batch_purge_error({:notes_unavailable, _details}),
+    do: "Some selected notes changed or disappeared. Nothing was permanently deleted."
+
+  defp batch_purge_error({:invalid_selection, _details}),
+    do: "The selected deleted notes are invalid. Clear the selection and try again."
+
+  defp batch_purge_error({:batch_purge_failed, _details}),
+    do: "Attachment cleanup could not be scheduled. Nothing was permanently deleted. Try again."
+
+  defp batch_purge_error({:batch_write_failed, _details}),
+    do: "The selected notes could not be permanently deleted. Nothing was deleted."
+
+  defp batch_purge_error({:batch_audit_failed, _details}),
+    do: "The purge audit could not be saved. Nothing was permanently deleted."
+
+  defp batch_purge_error(_reason),
+    do: "The selected notes could not be permanently deleted. Nothing was deleted."
 
   defp current_actor(socket), do: socket.assigns[:current_user]
 

@@ -1,6 +1,7 @@
 defmodule GSMLG.ProxyRules do
   alias GSMLG.ProxyRules.{Coordinator, Output, SourcePage, Store}
   alias GSMLG.ProxyRules.Source.Local
+  alias GSMLG.ProxyRules.ZeroOmega.{Export, PublishedPolicy, RenderedRuleList}
 
   @type list_name :: :proxy | :direct
   @type renderer :: :raw | :squid | :clash
@@ -31,6 +32,35 @@ defmodule GSMLG.ProxyRules do
   end
 
   def get_artifact_response(_list, _renderer), do: {:error, :not_found}
+
+  @type zeroomega_format :: :switchy | :pac
+
+  @spec export_zeroomega(zeroomega_format(), keyword()) ::
+          {:ok,
+           %{
+             generation: non_neg_integer(),
+             compiled_at: DateTime.t(),
+             output: RenderedRuleList.t()
+           }}
+          | {:error, :not_ready | :not_found | [GSMLG.ProxyRules.ZeroOmega.Diagnostic.t()]}
+  def export_zeroomega(format, options)
+      when format in [:switchy, :pac] and is_list(options) do
+    with {:ok, snapshot} <- Store.current(),
+         {:ok, policy} <- PublishedPolicy.to_policy(snapshot.zeroomega_policy),
+         {:ok, output} <-
+           {:ok, policy}
+           |> Export.validate_for(format, options)
+           |> Export.render() do
+      {:ok,
+       %{
+         generation: snapshot.generation,
+         compiled_at: snapshot.compiled_at,
+         output: output
+       }}
+    end
+  end
+
+  def export_zeroomega(_format, _options), do: {:error, :not_found}
 
   @spec metadata() :: {:ok, map()} | {:error, :not_available}
   def metadata do

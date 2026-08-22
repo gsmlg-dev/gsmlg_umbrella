@@ -161,6 +161,13 @@ defmodule GSMLG.Web.Router do
     get("/api-catalog", ApiCatalogController, :show)
   end
 
+  scope "/rules/zeroomega", GSMLG.Web do
+    pipe_through(:api)
+
+    get("/switchy", ZeroOmegaRulesController, :switchy)
+    get("/pac", ZeroOmegaRulesController, :pac)
+  end
+
   scope "/api", GSMLG.Web do
     pipe_through(:api)
 

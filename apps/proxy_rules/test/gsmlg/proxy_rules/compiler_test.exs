@@ -2,6 +2,7 @@ defmodule GSMLG.ProxyRules.CompilerTest do
   use ExUnit.Case, async: true
 
   alias GSMLG.ProxyRules.{Compiler, Diagnostic, Output, Snapshot}
+  alias GSMLG.ProxyRules.ZeroOmega.{Policy, PublishedPolicy, Rule}
 
   @compiled_at ~U[2026-07-23 01:02:03.987654Z]
 
@@ -67,6 +68,21 @@ defmodule GSMLG.ProxyRules.CompilerTest do
     assert snapshot.rendered_outputs.direct.squid.body == ".example.com\n"
 
     assert snapshot.rendered_outputs.direct.clash.body == "payload:\n- '+.example.com'\n"
+
+    assert %PublishedPolicy{
+             revision: "7",
+             direct_domains: "example.com\n",
+             proxy_domains: "example.com\nother.test\n"
+           } = snapshot.zeroomega_policy
+
+    assert {:ok, %Policy{revision: "7", default_action: :default, rules: zeroomega_rules}} =
+             PublishedPolicy.to_policy(snapshot.zeroomega_policy)
+
+    assert [
+             %Rule{condition: {:domain_suffix, "example.com"}, action: :default},
+             %Rule{condition: {:domain_suffix, "example.com"}, action: :match},
+             %Rule{condition: {:domain_suffix, "other.test"}, action: :match}
+           ] = zeroomega_rules
   end
 
   test "counts exact cross-list conflicts before hierarchy folding" do
@@ -128,6 +144,7 @@ defmodule GSMLG.ProxyRules.CompilerTest do
 
     assert metadata.rendered_outputs.proxy.raw.content_length == 12
     refute Map.has_key?(metadata.rendered_outputs.proxy.raw, :body)
+    refute Map.has_key?(metadata, :zeroomega_policy)
     refute inspect(metadata) =~ "example.com"
   end
 

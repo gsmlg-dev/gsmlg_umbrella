@@ -47,6 +47,7 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           id: "gao_notes",
           title: "GaoNote",
           items: [
+            %{id: "gao_note_dashboard", label: "Dashboard", path: "/gao_notes", exact: true},
             %{id: "gao_note_list", label: "Note List", path: "/gao_notes/notes"},
             %{
               id: "gao_note_label_settings",
@@ -201,14 +202,15 @@ defmodule GSMLG.AdminWeb.AdminMenu do
 
   defp item_for_path(path) do
     enabled_items()
-    |> Enum.filter(&path_matches?(&1.path, path))
+    |> Enum.filter(&path_matches?(&1, path))
     |> Enum.sort_by(&String.length(&1.path), :desc)
     |> List.first()
   end
 
-  defp path_matches?(nil, _path), do: false
-  defp path_matches?("/", path), do: path == "/"
+  defp path_matches?(%{path: nil}, _path), do: false
+  defp path_matches?(%{path: "/"}, path), do: path == "/"
+  defp path_matches?(%{path: item_path, exact: true}, path), do: path == item_path
 
-  defp path_matches?(item_path, path),
+  defp path_matches?(%{path: item_path}, path),
     do: path == item_path or String.starts_with?(path, item_path <> "/")
 end
