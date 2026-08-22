@@ -6,6 +6,7 @@ defmodule GSMLG.GaoNote.Label do
 
   @primary_key false
   @foreign_key_type :binary_id
+  @timestamps_opts [type: :utc_datetime_usec]
 
   schema "gao_note_labels" do
     belongs_to(:note, Note)
@@ -13,6 +14,8 @@ defmodule GSMLG.GaoNote.Label do
     field(:value, :string)
     field(:status, :string, default: "valid")
     field(:errors, {:array, :string}, default: [])
+
+    timestamps()
   end
 
   def changeset(label, attrs) do

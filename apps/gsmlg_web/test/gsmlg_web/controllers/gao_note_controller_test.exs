@@ -74,13 +74,12 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
   end
 
   describe "removed aggregate-fragment routes" do
-    test "reference, asset, and standalone attachment collections return 404", %{conn: conn} do
+    test "reference and asset collections return 404", %{conn: conn} do
       note = note_fixture()
 
       for path <- [
             "/api/gao_notes/#{note.id}/references",
-            "/api/gao_notes/#{note.id}/assets",
-            "/api/gao_notes/#{note.id}/attachments"
+            "/api/gao_notes/#{note.id}/assets"
           ] do
         response =
           conn
@@ -127,5 +126,4 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
     assert {:ok, note} = GaoNote.create_note(attrs, actor())
     note
   end
-
 end

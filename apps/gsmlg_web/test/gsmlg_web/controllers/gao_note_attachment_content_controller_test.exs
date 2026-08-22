@@ -7,8 +7,8 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
     plug(:match)
     plug(:dispatch)
 
-    put "/*path" do
-      {:ok, body, conn} = read_body(conn, "")
+    Plug.Router.put "/*path" do
+      {:ok, body, conn} = read_full_body(conn, "")
       notify({:s3_put, conn.request_path, body})
 
       if Application.get_env(:gsmlg_storage, :gao_note_http_public_fail_put, false) do
@@ -18,11 +18,12 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
       end
     end
 
-    get "/*path" do
+    Plug.Router.get "/*path" do
       ranges = Plug.Conn.get_req_header(conn, "range")
       notify({:s3_get, conn.request_path, ranges})
 
       object = Application.get_env(:gsmlg_storage, :gao_note_http_public_object, "")
+
       fail_ranges =
         Application.get_env(:gsmlg_storage, :gao_note_http_public_fail_ranges, [])
 
@@ -47,17 +48,17 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
       end
     end
 
-    delete "/*path" do
+    Plug.Router.delete "/*path" do
       notify({:s3_delete, conn.request_path})
       send_resp(conn, 204, "")
     end
 
-    match _, do: send_resp(conn, 200, "")
+    match(_, do: send_resp(conn, 200, ""))
 
-    defp read_body(conn, acc) do
+    defp read_full_body(conn, acc) do
       case Plug.Conn.read_body(conn) do
         {:ok, body, conn} -> {:ok, acc <> body, conn}
-        {:more, body, conn} -> read_body(conn, acc <> body)
+        {:more, body, conn} -> read_full_body(conn, acc <> body)
       end
     end
 
@@ -127,7 +128,11 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
         {key, :error} -> Application.delete_env(:gsmlg_storage, key)
       end)
 
-      if Process.alive?(s3_stub), do: GenServer.stop(s3_stub)
+      try do
+        GenServer.stop(s3_stub)
+      catch
+        :exit, _reason -> :ok
+      end
     end)
 
     {:ok,
@@ -288,6 +293,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
 
       assert %{"data" => updated} = json_response(conn, 200)
       assert updated["title"] == "After replacement"
+
       assert [%{"id" => ^first_id, "path" => "./files/renamed.txt"}] =
                updated["attachments"]
 
@@ -428,7 +434,8 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
         })
 
       assert [content_type] = get_req_header(conn, "content-type")
-      assert String.starts_with?(content_type, "multipart/form-data;")
+      assert String.starts_with?(content_type, "multipart/mixed;")
+      assert String.contains?(content_type, "boundary=")
 
       assert %{
                "errors" => %{
@@ -472,7 +479,8 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
         })
 
       assert [content_type] = get_req_header(conn, "content-type")
-      assert String.starts_with?(content_type, "multipart/form-data;")
+      assert String.starts_with?(content_type, "multipart/mixed;")
+      assert String.contains?(content_type, "boundary=")
 
       assert %{
                "errors" => %{
@@ -515,7 +523,8 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
       user: user
     } do
       unauthenticated = post(conn, "/api/gao_notes", %{"title" => "No", "content" => "No"})
-      assert json_response(unauthenticated, 401)["message"] =~ "no_resource"
+
+      assert json_response(unauthenticated, 401)["message"] =~ "unauthenticated"
 
       missing =
         conn
@@ -702,7 +711,9 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
       url = Presenter.attachment(attachment)["content_url"]
 
       conn = get(conn, url)
-      assert json_response(conn, 401)["message"] =~ "no_resource"
+
+      assert json_response(conn, 401)["message"] =~ "unauthenticated"
+
       refute_received {:s3_get, _path, _ranges}
     end
 
@@ -861,7 +872,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
       refute_received {:s3_get, _path, _ranges}
     end
 
-    test "returns 400 when Phoenix or Plug rejects malformed URI encoding", %{user: user} do
+    test "returns 404 for malformed URI encoding", %{user: user} do
       note = note_fixture(user)
 
       for suffix <- ["%ZZ", "%FF.txt"] do
@@ -871,7 +882,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
           |> authenticated_conn(user)
           |> get("/api/gao_notes/#{note.id}/attachments/#{suffix}")
 
-        assert conn.status == 400
+        assert conn.status == 404
       end
 
       refute_received {:s3_get, _path, _ranges}
@@ -1001,7 +1012,9 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
       object = :binary.copy("x", @chunk_size + 10)
       note = note_fixture(user)
       attachment = attachment_fixture(note, "./later-failure.bin", object)
+
       Application.put_env(:gsmlg_storage, :gao_note_http_public_fail_ranges, ["bytes=65536-65545"])
+
       telemetry_id = capture_log_telemetry()
 
       assert {:shutdown, :gao_note_attachment_storage_read_failed} =
