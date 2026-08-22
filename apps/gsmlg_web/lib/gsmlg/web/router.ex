@@ -42,9 +42,9 @@ defmodule GSMLG.Web.Router do
     plug(:put_format, :json)
   end
 
-  pipeline :mcp_public_api do
-    plug(:accepts, ["json"])
-    plug(GSMLG.Web.Plugs.VerifyMCPOrigin)
+  pipeline :api_docs do
+    plug(:put_format, :json)
+    plug(OpenApiSpex.Plug.PutApiSpec, module: GSMLG.Web.ApiSpec)
   end
 
   pipeline :static_file do
@@ -118,11 +118,7 @@ defmodule GSMLG.Web.Router do
   scope "/api", GSMLG.Web do
     pipe_through([:api, :maybe_api_auth])
 
-    post("/sign_in", AuthController, :sign_in)
-    post("/sign_up", AuthController, :sign_up)
-
     get("/blogs", BlogController, :index)
-    get("/blogs/:id", BlogController, :show)
     get("/gao_notes", GaoNoteController, :index)
     get("/gao_notes/label_settings", GaoNoteController, :label_settings)
     get("/gao_notes/:id", GaoNoteController, :show)
@@ -132,12 +128,6 @@ defmodule GSMLG.Web.Router do
     get("/toolbox/whois/rdap", ToolboxController, :rdap_json)
     get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer_json)
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap_post)
-  end
-
-  scope "/mcp" do
-    pipe_through(:mcp_public_api)
-
-    forward("/gao_note", GSMLG.GaoNote.MCP.ReadOnlyPlug)
   end
 
   scope "/api", GSMLG do
@@ -153,21 +143,22 @@ defmodule GSMLG.Web.Router do
     post "/send-notification", WebPushController, :send_notification
   end
 
-  # Other scopes may use custom stacks.
-  scope "/api", GSMLG.Web do
-    pipe_through([:api, :maybe_api_auth, :ensure_authed_access])
-
-    delete("/sign_out", AuthController, :sign_out)
-
-    post("/blogs", BlogController, :create)
-    put("/blogs/:id", BlogController, :update)
-    delete("/blogs/:id", BlogController, :delete)
-  end
-
   scope "/api/proxy-rules", GSMLG.Web do
     pipe_through(:api)
 
     get("/:list/:format", ProxyRulesController, :show)
+  end
+
+  scope "/api" do
+    pipe_through(:api_docs)
+
+    get("/openapi.json", OpenApiSpex.Plug.RenderSpec, [])
+  end
+
+  scope "/.well-known", GSMLG.Web do
+    pipe_through(:api)
+
+    get("/api-catalog", ApiCatalogController, :show)
   end
 
   scope "/api", GSMLG.Web do
