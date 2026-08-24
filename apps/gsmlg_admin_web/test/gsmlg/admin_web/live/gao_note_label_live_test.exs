@@ -111,9 +111,14 @@ defmodule GSMLG.AdminWeb.GaoNoteLabelLiveTest do
     add_category(view, type.id, " skill ")
     add_category(view, type.id, "agent")
 
-    assert has_element?(view, ~s(button[data-selector="project"]), "project")
-    assert has_element?(view, ~s(button[data-selector="type=skill"]), "type=skill")
-    assert has_element?(view, ~s(button[data-selector="type=agent"]), "type=agent")
+    assert has_element?(view, ~s(span.chip[data-selector="project"]), "project")
+    assert has_element?(view, ~s(span.chip[data-selector="type=skill"]), "type=skill")
+    assert has_element?(view, ~s(span.chip[data-selector="type=agent"]), "type=agent")
+
+    assert has_element?(
+             view,
+             ~s(span.chip[data-selector="type=skill"] > button.chip-close[aria-label="Remove category type=skill"])
+           )
 
     html = add_category(view, type.id, "skill")
     assert html =~ "That category selector is already selected."
@@ -121,12 +126,12 @@ defmodule GSMLG.AdminWeb.GaoNoteLabelLiveTest do
     assert view
            |> render()
            |> Floki.parse_fragment!()
-           |> Floki.find("#gao-note-category-selection button")
+           |> Floki.find("#gao-note-category-selection span.chip")
            |> length() == 3
 
     view
     |> element(
-      ~s(button[phx-click="remove_category"][phx-value-label_setting_id="#{type.id}"][phx-value-value="skill"])
+      ~s(span.chip[data-selector="type=skill"] > button.chip-close[phx-click="remove_category"][phx-value-label_setting_id="#{type.id}"][phx-value-value="skill"])
     )
     |> render_click()
 
@@ -173,15 +178,15 @@ defmodule GSMLG.AdminWeb.GaoNoteLabelLiveTest do
     {:ok, view, _html} = live(conn, ~p"/gao_notes/label_settings")
     render_async(view)
 
-    assert has_element?(view, ~s(button[data-selector="project"]), "project")
+    assert has_element?(view, ~s(span.chip[data-selector="project"]), "project")
 
     view
     |> element(
-      ~s(button[phx-click="remove_category"][phx-value-label_setting_id="#{project.id}"][phx-value-value=""])
+      ~s(span.chip[data-selector="project"] > button.chip-close[phx-click="remove_category"][phx-value-label_setting_id="#{project.id}"][phx-value-value=""])
     )
     |> render_click()
 
-    refute has_element?(view, "#gao-note-category-selection button")
+    refute has_element?(view, "#gao-note-category-selection span.chip")
 
     view |> element("#gao-note-category-save") |> render_click()
 
@@ -198,13 +203,13 @@ defmodule GSMLG.AdminWeb.GaoNoteLabelLiveTest do
     render_async(view)
 
     add_category(view, year.id, "20x6")
-    assert has_element?(view, ~s(button[data-selector="year=20x6"]), "year=20x6")
+    assert has_element?(view, ~s(span.chip[data-selector="year=20x6"]), "year=20x6")
 
     html = view |> element("#gao-note-category-save") |> render_click()
 
     assert html =~ "Category value for year must be YYYY."
     assert GaoNote.list_category_groups() == []
-    assert has_element?(view, ~s(button[data-selector="year=20x6"]), "year=20x6")
+    assert has_element?(view, ~s(span.chip[data-selector="year=20x6"]), "year=20x6")
   end
 
   test "persisted category use disables deletion and domain errors retain the removal instruction",

@@ -79,15 +79,15 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.DashboardLive do
           </p>
 
           <div :if={group.values != []} class="flex flex-wrap gap-2">
-            <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#141 --%>
-            <.dm_link
+            <.dm_chip
               :for={value <- group.values}
               navigate={NotesPath.exact_label(group.key, value.value)}
-              class="chip chip-primary chip-sm"
+              color="primary"
+              size="sm"
               aria-label={filter_label(group.key, value.value, value.count)}
             >
               {value.value} · {value.count}
-            </.dm_link>
+            </.dm_chip>
           </div>
         </.dm_card>
       </div>

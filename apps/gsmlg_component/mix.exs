@@ -27,7 +27,7 @@ defmodule GSMLG.Component.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:phoenix_duskmoon, "~> 9.1"},
+      {:phoenix_duskmoon, ">= 9.12.2 and < 10.0.0"},
       {:phoenix_react_server, "~> 0.7"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.0"},

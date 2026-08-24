@@ -471,19 +471,19 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.LabelSettingLive.Index do
             </.dm_form>
 
             <div id="gao-note-category-selection" class="flex min-h-8 flex-wrap gap-2">
-              <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#141 --%>
-              <button
+              <.dm_chip
                 :for={category <- displayed_categories(@category_draft, @category_groups)}
-                type="button"
-                class="chip chip-secondary chip-sm"
-                phx-click="remove_category"
+                color="secondary"
+                size="sm"
+                deletable
+                delete_event="remove_category"
+                delete_label={"Remove category #{category.selector}"}
                 phx-value-label_setting_id={category.label_setting_id}
                 phx-value-value={category.value || ""}
                 data-selector={category.selector}
-                aria-label={"Remove category #{category.selector}"}
               >
-                {category.selector} <span aria-hidden="true">×</span>
-              </button>
+                {category.selector}
+              </.dm_chip>
               <span
                 :if={displayed_categories(@category_draft, @category_groups) == []}
                 class="text-sm text-on-surface-variant"

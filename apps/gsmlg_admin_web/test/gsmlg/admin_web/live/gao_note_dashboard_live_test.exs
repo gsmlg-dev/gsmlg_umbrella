@@ -112,9 +112,10 @@ defmodule GSMLG.AdminWeb.GaoNoteDashboardLiveTest do
     assert has_element?(view, "#gao-note-category-2", "type=skill")
 
     selector =
-      ~s(a[aria-label="Filter notes by project=alpha & beta/γ, 2 active notes"])
+      ~s(a.chip.chip-clickable[aria-label="Filter notes by project=alpha & beta/γ, 2 active notes"])
 
     assert has_element?(view, selector, "alpha & beta/γ · 2")
+    assert has_element?(view, selector <> " > .chip-label", "alpha & beta/γ · 2")
 
     [href] =
       view |> element(selector) |> render() |> Floki.parse_fragment!() |> Floki.attribute("href")
