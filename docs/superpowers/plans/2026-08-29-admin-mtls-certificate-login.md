@@ -19,7 +19,7 @@
 - `apps/gsmlg/priv/repo/migrations/20260829000000_create_user_client_certificates.exs` — durable ownership, uniqueness, cascade, and fingerprint-format constraints.
 - `apps/gsmlg/lib/gsmlg/accounts/user_client_certificate.ex` — binding schema and create-only changeset.
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/client_certificate.ex` — strict Caddy header parsing, X.509 validation, fingerprinting, and PEM reconstruction.
-- `apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex` — preserve optional browser auth semantics after certificate-session sign-out.
+- `apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex` — bounded optional browser Guardian error handling.
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/plugs/client_certificate_auth.ex` — browser request enrollment and Guardian-session policy.
 - `apps/gsmlg_admin_web/test/support/client_certificate_fixtures.ex` — OTP-generated public test certificates and request-header helpers.
 - `apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_test.exs` — parser boundary tests.
@@ -51,8 +51,6 @@
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/components/layouts/root.html.heex` — expose the server-established auth method to scoped styling.
 - `apps/gsmlg_admin_web/assets/css/main.css` — certificate panel styling and certificate-session sign-out hiding.
 - `apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs` — enrollment, rendering, conflicts, fallbacks, and sign-out tests.
-- `apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/gao_note_mcp_controller_test.exs` — prove certificate headers do not authenticate MCP.
-- `apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs` — prove certificate headers do not authenticate the browser-JSON pipeline.
 - `apps/gsmlg_component/lib/gsmlg/component/admin.ex` — stable sign-out element ID.
 - `apps/gsmlg_component/test/gsmlg/component_test.exs` — sign-out hook assertion.
 - `apps/gsmlg_telemetry/lib/gsmlg/telemetry/handler.ex` — sanitize known Phoenix/GSMLG Repo/Ecto events and bounded custom metadata before Metrics, Reporter, and backends.
@@ -816,6 +814,7 @@ git commit -m "feat(admin): parse Caddy client certificates"
 **Files:**
 
 - Create: `apps/gsmlg_admin_web/lib/gsmlg/admin_web/plugs/client_certificate_auth.ex`
+- Create: `apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex`
 - Create: `apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs`
 - Modify: `apps/gsmlg_admin_web/lib/gsmlg/admin_web/router.ex:4-100`
 
@@ -956,6 +955,7 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuth do
   alias GSMLG.Accounts.User
   alias GSMLG.AdminWeb.ClientCertificate
   alias GSMLG.AdminWeb.Guardian
+  alias Elixir.Guardian.Plug.Keys, as: GuardianKeys
 
   @auth_method_key "admin_auth_method"
   @fingerprint_key "admin_client_certificate_fingerprint"
@@ -979,9 +979,9 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuth do
 
   def sign_in_with_certificate(conn, %User{} = user, %ClientCertificate{} = certificate) do
     conn =
-      case Guardian.Plug.current_resource(conn) do
-        %User{id: current_id} when current_id == user.id -> conn
-        _other -> conn |> Guardian.Plug.sign_out() |> Guardian.Plug.sign_in(user)
+      case {Guardian.Plug.current_resource(conn), Guardian.Plug.current_claims(conn)} do
+        {%User{id: current_id}, %{"typ" => "access"}} when current_id == user.id -> conn
+        _other -> conn |> sign_out_guardian_identity() |> Guardian.Plug.sign_in(user)
       end
 
     conn
@@ -1019,7 +1019,7 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuth do
 
   defp prepare_enrollment(conn, certificate) do
     conn
-    |> Guardian.Plug.sign_out()
+    |> sign_out_guardian_identity()
     |> delete_session(@auth_method_key)
     |> delete_session(@fingerprint_key)
     |> assign(:admin_auth_method, nil)
@@ -1030,13 +1030,28 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuth do
   defp preserve_password_or_clear_certificate_session(conn) do
     if get_session(conn, @auth_method_key) == "client_certificate" do
       conn
-      |> Guardian.Plug.sign_out()
+      |> sign_out_guardian_identity()
       |> delete_session(@auth_method_key)
       |> delete_session(@fingerprint_key)
       |> assign(:admin_auth_method, nil)
     else
-      assign(conn, :admin_auth_method, get_session(conn, @auth_method_key))
+      conn
+      |> delete_session(@fingerprint_key)
+      |> assign(:admin_auth_method, get_session(conn, @auth_method_key))
     end
+  end
+
+  defp sign_out_guardian_identity(conn) do
+    conn = Guardian.Plug.sign_out(conn)
+
+    private =
+      Map.drop(conn.private, [
+        GuardianKeys.token_key(),
+        GuardianKeys.claims_key(),
+        GuardianKeys.resource_key()
+      ])
+
+    %{conn | private: private}
   end
 end
 ```
@@ -1046,6 +1061,24 @@ or reason atom), relevant user IDs, and the derived fingerprint. Successful
 binding and automatic certificate login may contain only `user_id` and
 fingerprint. Never log raw headers/params, DER, PEM, subject, email, passwords,
 or Guardian tokens.
+
+Create `apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex`:
+
+```elixir
+defmodule GSMLG.AdminWeb.Guardian.OptionalWebAuthErrorHandler do
+  @behaviour Elixir.Guardian.Plug.ErrorHandler
+
+  alias GSMLG.AdminWeb.Guardian
+  alias GSMLG.AdminWeb.Guardian.WebAuthErrorHandler
+
+  @impl true
+  def auth_error(conn, {:unauthenticated, _reason} = error, opts) do
+    WebAuthErrorHandler.auth_error(conn, error, opts)
+  end
+
+  def auth_error(conn, {_type, _reason}, _opts), do: Guardian.Plug.sign_out(conn)
+end
+```
 
 - [ ] **Step 4: Add an HTML-only router pipeline**
 
@@ -1074,23 +1107,40 @@ pipe_through([
 ])
 ```
 
-Do not add it to `:maybe_browser_auth`, `:browser_json`, `:api`, `:mcp_admin_api`, or bearer pipelines.
+Update `:maybe_browser_auth` to use
+`GSMLG.AdminWeb.Guardian.OptionalWebAuthErrorHandler`. An actual unauthenticated
+error still delegates to the existing web handler; other optional verification
+failures passively sign out. Do not add the certificate plug to `:browser_json`,
+`:api`, `:mcp_admin_api`, or bearer pipelines.
+
+The Guardian pipeline configuration is:
+
+```elixir
+plug(Guardian.Plug.Pipeline,
+  module: GSMLG.AdminWeb.Guardian,
+  error_handler: GSMLG.AdminWeb.Guardian.OptionalWebAuthErrorHandler
+)
+```
 
 - [ ] **Step 5: Run the focused plug tests**
 
 Run the Step 2 command.
 
-Expected: all browser session tests pass.
+Expected: browser session tests cover malformed and revoked-cookie recovery,
+same-owner access-token preservation, replacement of other or non-access
+tokens, stale-session clearing, and GuardianDB revocation.
 
 - [ ] **Step 6: Format and commit the browser-auth slice**
 
 ```bash
 mix format \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/plugs/client_certificate_auth.ex \
+  apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/router.ex \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs
 git add \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/plugs/client_certificate_auth.ex \
+  apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/router.ex \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs
 git commit -m "feat(admin): authenticate client certificate sessions"
@@ -1529,9 +1579,7 @@ git commit -m "feat(admin): enroll client certificates at sign-in"
 - Modify: `apps/gsmlg_admin_web/lib/gsmlg/admin_web/live/hooks/assign_current_user.ex`
 - Modify: `apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex:32-65`
 - Create: `apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs`
-- Test: `apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs`
-- Test: `apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/gao_note_mcp_controller_test.exs`
-- Test: `apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs`
+- Create: `apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_isolation_test.exs`
 
 - [ ] **Step 1: Write failing LiveView reconnect tests**
 
@@ -1648,14 +1696,14 @@ def on_mount(:default, _params, session, socket) do
   current_user = load_user_from_session(session)
   auth_method = Map.get(session, "admin_auth_method")
 
-  case validate_certificate_session(session, socket, current_user, auth_method) do
+  case validate_certificate_session(socket, session, current_user, auth_method) do
     :ok ->
       {:cont,
        socket
        |> assign(:current_user, current_user)
        |> assign(:admin_auth_method, auth_method)}
 
-    {:error, _reason} ->
+    :error ->
       {:halt,
        socket
        |> Phoenix.LiveView.put_flash(:error, "Client certificate authentication expired.")
@@ -1663,11 +1711,11 @@ def on_mount(:default, _params, session, socket) do
   end
 end
 
-defp validate_certificate_session(_session, _socket, _user, method)
+defp validate_certificate_session(_socket, _session, _user, method)
      when method != "client_certificate",
      do: :ok
 
-defp validate_certificate_session(session, socket, current_user, "client_certificate") do
+defp validate_certificate_session(socket, session, current_user, "client_certificate") do
   if GSMLG.AdminWeb.Plugs.ClientCertificateAuth.enabled?() do
     headers = Phoenix.LiveView.get_connect_info(socket, :x_headers) || []
     expected_fingerprint = Map.get(session, "admin_client_certificate_fingerprint")
@@ -1681,7 +1729,7 @@ defp validate_certificate_session(session, socket, current_user, "client_certifi
            ) do
       :ok
     else
-      _ -> {:error, :invalid_client_certificate_session}
+      _ -> :error
     end
   else
     :ok
@@ -1689,7 +1737,10 @@ defp validate_certificate_session(session, socket, current_user, "client_certifi
 end
 ```
 
-Keep the existing `load_user_from_session/1` semantics for password and legacy sessions.
+Keep the existing `load_user_from_session/1` semantics for password and legacy
+sessions: it reads `guardian_default_token` and calls
+`Guardian.resource_from_token(GSMLG.AdminWeb.Guardian, token, %{}, [])`,
+returning `nil` for absent, invalid, or revoked tokens.
 
 - [ ] **Step 4: Install the hook and suppress session-bearing lifecycle logs**
 
@@ -1708,62 +1759,27 @@ sanitized. Do not restructure router route ordering. LiveDashboard keeps its
 existing initial HTTP Guardian protection and externally enforced mTLS; its
 library-owned session payload is not changed by this feature.
 
-- [ ] **Step 5: Add browser-only isolation assertions**
+- [ ] **Step 5: Add the consolidated browser-only isolation test**
 
-In `AuthControllerTest`, bind a certificate and prove headers alone do not
-authenticate JSON sign-out:
-
-```elixir
-test "bound certificate headers do not authenticate JSON sign-out", %{conn: conn} do
-  user = user_fixture()
-  certificate = client_certificate()
-  assert {:ok, _binding} = bind_certificate(user, certificate)
-
-  conn =
-    conn
-    |> put_client_certificate_headers(certificate)
-    |> delete(~p"/api/sign_out")
-
-  assert json_response(conn, 401)["message"] =~ "no_resource"
-end
-```
-
-In both existing unauthenticated test modules, import the client-certificate
-fixture module and use the Task 4 endpoint save/enable/restore setup so the
-feature is enabled during the isolation assertion. Prepend this setup before
-dispatching each request:
-
-```elixir
-certificate_user =
-  user_fixture(%{
-    username: "certificate_header_only",
-    email: "certificate-header-only@example.test"
-  })
-
-certificate = client_certificate()
-assert {:ok, _binding} =
-         GSMLG.Accounts.bind_user_client_certificate(certificate_user, %{
-           certificate_der: certificate.certificate_der,
-           subject: certificate.subject,
-           email: certificate.email
-         })
-conn = put_client_certificate_headers(conn, certificate)
-```
-
-Keep the MCP test's existing `401` JSON assertion and the proxy-source test's
-existing `/sign_in` redirect assertion. Use a distinct username/email if the
-test module setup already creates a user. These edits prove the
-`:mcp_admin_api` and `:browser_json` pipelines remain isolated without adding
-new authentication behavior.
+Create `client_certificate_isolation_test.exs` with the Task 4 endpoint
+save/enable/restore setup, one bound certificate, and a shared request-header
+fixture. Cover all non-browser transports in this one module: API sign-out,
+AdminBearer Scout, browser-JSON proxy sources, MCP, `UserSocket`, and
+CommanderSocket signature authentication. Each assertion must prove that
+certificate headers alone do not authenticate the transport (or bypass its
+existing signature/authentication check). The malformed/revoked-cookie
+recovery cases remain in `client_certificate_auth_test.exs`, including
+GuardianDB revocation assertions. The LiveView test also retains the real
+connected GaoNote mount assertion that all session-bearing lifecycle logging is
+suppressed by `log: false` while telemetry remains active.
 
 - [ ] **Step 6: Run the hook and isolation tests**
 
 ```bash
 mix test \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/gao_note_mcp_controller_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_isolation_test.exs \
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs
 ```
 
 Expected: all tests pass and no non-browser pipeline accepts certificate headers as authentication.
@@ -1775,16 +1791,12 @@ mix format \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/live/hooks/assign_current_user.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/gao_note_mcp_controller_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_isolation_test.exs
 git add \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/live/hooks/assign_current_user.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/gao_note_mcp_controller_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_isolation_test.exs
 git commit -m "feat(admin): verify certificate LiveView reconnects"
 ```
 
@@ -1851,7 +1863,7 @@ mix test \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs \
   apps/gsmlg_component/test/gsmlg/component_test.exs \
-  apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs
+  apps/gsmlg_telemetry/test/
 ```
 
 Expected: the in-scope focused tests pass. Four unrelated MCP mutation failures
@@ -1874,6 +1886,7 @@ mix format --check-formatted \
   apps/gsmlg/priv/repo/migrations/20260829000000_create_user_client_certificates.exs \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/client_certificate.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/plugs/client_certificate_auth.ex \
+  apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/router.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/controllers/auth_controller.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/controllers/auth_html/sign_in.html.heex \
@@ -1882,6 +1895,7 @@ mix format --check-formatted \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/components/layouts/root.html.heex \
   apps/gsmlg_admin_web/test/support/client_certificate_fixtures.ex \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_test.exs \
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_isolation_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
@@ -1954,8 +1968,12 @@ The binding is removed by the tested foreign-key cascade.
 
 ```bash
 git status --short --branch
-git diff --stat HEAD~6..HEAD
-git log -7 --oneline --decorate
+base=$(git merge-base origin/main HEAD)
+git diff --stat "$base"..HEAD
+git diff --check "$base"..HEAD
+git log --oneline "$base"..HEAD
 ```
 
-Expected: only the approved config, Accounts, admin browser auth/UI, shared sign-out hook, tests, design, and plan files changed. Do not push, release, or deploy unless separately requested.
+Expected: the approved config, Accounts, admin browser auth/UI, shared sign-out
+hook, telemetry privacy files, tests, design, and plan files are the complete
+feature range. Do not push, release, or deploy unless separately requested.
