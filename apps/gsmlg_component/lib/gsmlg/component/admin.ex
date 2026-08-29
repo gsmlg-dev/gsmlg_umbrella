@@ -29,7 +29,12 @@ defmodule GSMLG.Component.Admin do
       <:user_profile>
         <div class="flex items-center gap-2">
           <.dm_theme_switcher />
-          <.link href="/sign_out" method="delete" data-confirm="Really sign out?">
+          <.link
+            id="admin-sign-out"
+            href="/sign_out"
+            method="delete"
+            data-confirm="Really sign out?"
+          >
             <.dm_btn variant="error" size="sm">Sign Out</.dm_btn>
           </.link>
         </div>

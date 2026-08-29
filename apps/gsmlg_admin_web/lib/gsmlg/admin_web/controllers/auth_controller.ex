@@ -1,9 +1,11 @@
 defmodule GSMLG.AdminWeb.AuthController do
   use GSMLG.AdminWeb, :controller
 
+  alias GSMLG.Accounts
   alias GSMLG.Accounts.Auth
   alias GSMLG.Accounts.User
   alias GSMLG.AdminWeb.Guardian
+  alias GSMLG.AdminWeb.Plugs.ClientCertificateAuth
 
   def index(conn, _params) do
     if Guardian.Plug.authenticated?(conn) do
@@ -16,25 +18,24 @@ defmodule GSMLG.AdminWeb.AuthController do
       # No user
       changeset = Auth.sign_in_changeset(%Auth{}, %{})
 
-      conn
-      |> render(:sign_in, changeset: changeset, page_title: "SIGN IN")
+      render_sign_in(conn, changeset)
     end
   end
 
   def sign_in(conn, %{"auth" => params}) do
-    case Auth.sign_in(params) do
-      {:ok, %User{} = user} ->
-        # Use access tokens.
-        # Other tokens can be used, like :refresh etc
-        conn
-        |> put_flash(:info, "Sign in successfully.")
-        |> Guardian.Plug.sign_in(user)
-        |> redirect(to: ~p"/users/#{user.id}")
+    if ClientCertificateAuth.certificate_authenticated?(conn) do
+      user = Guardian.Plug.current_resource(conn)
+      redirect(conn, to: ~p"/users/#{user.id}")
+    else
+      case Auth.sign_in(params) do
+        {:ok, %User{} = user} ->
+          complete_html_sign_in(conn, user)
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        conn
-        |> put_flash(:error, "invalid")
-        |> render(:sign_in, changeset: changeset, page_title: "SIGN IN")
+        {:error, %Ecto.Changeset{} = changeset} ->
+          conn
+          |> put_flash(:error, "invalid")
+          |> render_sign_in(changeset)
+      end
     end
   end
 
@@ -113,8 +114,82 @@ defmodule GSMLG.AdminWeb.AuthController do
   end
 
   def sign_out(conn, _params) do
+    if Phoenix.Controller.get_format(conn) == "html" and
+         ClientCertificateAuth.certificate_authenticated?(conn) do
+      user = Guardian.Plug.current_resource(conn)
+
+      conn
+      |> put_flash(:info, "Remove the client certificate to end certificate access.")
+      |> redirect(to: ~p"/users/#{user.id}")
+    else
+      conn
+      |> Guardian.Plug.sign_out()
+      |> delete_session(ClientCertificateAuth.auth_method_key())
+      |> delete_session(ClientCertificateAuth.fingerprint_key())
+      |> redirect(to: ~p"/sign_in")
+    end
+  end
+
+  defp render_sign_in(conn, changeset, opts \\ []) do
     conn
-    |> Guardian.Plug.sign_out()
-    |> redirect(to: ~p"/sign_in")
+    |> put_status(Keyword.get(opts, :status, :ok))
+    |> render(:sign_in,
+      changeset: changeset,
+      client_certificate: conn.assigns[:client_certificate],
+      page_title: "SIGN IN"
+    )
+  end
+
+  defp complete_html_sign_in(conn, user) do
+    case conn.assigns[:client_certificate] do
+      nil ->
+        conn
+        |> put_flash(:info, "Sign in successfully.")
+        |> ClientCertificateAuth.sign_in_with_password(user)
+        |> redirect(to: ~p"/users/#{user.id}")
+
+      certificate ->
+        bind_client_certificate(conn, user, certificate)
+    end
+  end
+
+  defp bind_client_certificate(conn, user, certificate) do
+    case Accounts.bind_user_client_certificate(user, %{
+           certificate_der: certificate.certificate_der,
+           subject: certificate.subject,
+           email: certificate.email
+         }) do
+      {:ok, _binding} ->
+        GSMLG.Telemetry.info("Admin client certificate bound",
+          metadata: %{
+            user_id: user.id,
+            fingerprint: certificate.fingerprint,
+            subject: certificate.subject
+          }
+        )
+
+        conn
+        |> put_flash(:info, "Certificate bound and signed in successfully.")
+        |> ClientCertificateAuth.sign_in_with_certificate(user, certificate)
+        |> redirect(to: ~p"/users/#{user.id}")
+
+      {:error, {:client_certificate_already_bound, owner_user_id}} ->
+        GSMLG.Telemetry.warn("Admin client certificate binding conflict",
+          metadata: %{
+            attempted_user_id: user.id,
+            owner_user_id: owner_user_id,
+            fingerprint: certificate.fingerprint
+          }
+        )
+
+        conn
+        |> put_flash(:error, "This certificate is already bound to another user.")
+        |> render_sign_in(Auth.sign_in_changeset(%Auth{}, %{}), status: :conflict)
+
+      {:error, _reason} ->
+        conn
+        |> put_flash(:error, "The certificate could not be bound. Please try again.")
+        |> render_sign_in(Auth.sign_in_changeset(%Auth{}, %{}), status: :unprocessable_entity)
+    end
   end
 end

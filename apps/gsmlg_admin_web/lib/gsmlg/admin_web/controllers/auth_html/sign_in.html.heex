@@ -9,6 +9,39 @@
       <p class="si-subtitle">Credentials required to proceed.</p>
     </div>
 
+    <section
+      :if={@client_certificate}
+      id="client-certificate-enrollment"
+      aria-labelledby="client-certificate-enrollment-title"
+      class="si-certificate"
+    >
+      <h3 id="client-certificate-enrollment-title" class="si-certificate-title">
+        Client certificate detected
+      </h3>
+      <p id="client-certificate-notice" class="si-certificate-notice">
+        Successful password login permanently binds this certificate to your user.
+      </p>
+      <dl class="si-certificate-details">
+        <div>
+          <dt>SUBJECT</dt>
+          <dd id="client-certificate-subject">{@client_certificate.subject}</dd>
+        </div>
+        <div>
+          <dt>EMAIL</dt>
+          <dd id="client-certificate-email">{@client_certificate.email}</dd>
+        </div>
+      </dl>
+      <label for="client-certificate-pem" class="si-label">CERTIFICATE PEM</label>
+      <textarea
+        id="client-certificate-pem"
+        class="si-certificate-pem"
+        readonly
+        spellcheck="false"
+        wrap="off"
+        rows="8"
+      >{@client_certificate.pem}</textarea>
+    </section>
+
     <%!-- Form --%>
     <.form
       :let={f}
@@ -28,7 +61,8 @@
             value={f[:username].value || ""}
             class="si-input"
             autocomplete="username"
-            autofocus
+            autofocus={!@client_certificate}
+            aria-describedby={@client_certificate && "client-certificate-notice"}
           />
         </div>
         <%= for {msg, _} <- f[:username].errors do %>

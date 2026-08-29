@@ -101,6 +101,68 @@ body > .phx-connected {
   letter-spacing: 0.04em;
 }
 
+.si-certificate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.875rem;
+  border: 1px solid var(--color-outline-variant);
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+}
+
+.si-certificate-title,
+.si-certificate-details dt {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--color-primary);
+}
+
+.si-certificate-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.si-certificate-details {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.si-certificate-details dt {
+  font-size: 0.5625rem;
+  letter-spacing: 0.2em;
+}
+
+.si-certificate-notice,
+.si-certificate-details dd {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.6875rem;
+}
+
+.si-certificate-pem {
+  width: 100%;
+  max-height: 12rem;
+  overflow: auto;
+  resize: vertical;
+  padding: 0.625rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.625rem;
+  background: var(--color-surface);
+  color: var(--color-on-surface);
+  border: 1px solid var(--color-outline-variant);
+}
+
+.si-certificate-pem:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+html[data-admin-auth-method="client_certificate"] #admin-sign-out {
+  display: none;
+}
+
 /* Fields */
 .si-field {
   display: flex;
