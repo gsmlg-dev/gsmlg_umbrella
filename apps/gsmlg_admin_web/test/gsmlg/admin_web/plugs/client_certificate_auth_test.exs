@@ -43,25 +43,54 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuthTest do
     assert ClientCertificateAuth.certificate_authenticated?(conn)
   end
 
+  test "bound certificate replaces a malformed Guardian session without redirecting", %{
+    conn: conn
+  } do
+    owner = user_fixture()
+    certificate = client_certificate()
+    assert {:ok, _binding} = bind_certificate(owner, certificate)
+
+    conn =
+      conn
+      |> Plug.Test.init_test_session(%{})
+      |> put_session(:guardian_default_token, "malformed-token")
+      |> put_client_certificate_headers(certificate)
+      |> get(~p"/")
+
+    assert html_response(conn, 200)
+    assert get_resp_header(conn, "location") == []
+
+    token = get_session(conn, :guardian_default_token)
+
+    assert {:ok, resource, %{"typ" => "access"}} =
+             Guardian.resource_from_token(GSMLG.AdminWeb.Guardian, token)
+
+    assert resource.id == owner.id
+  end
+
   test "bound certificate replaces a different password user", %{conn: conn} do
     owner = user_fixture(%{username: "cert_owner", email: "owner@example.test"})
     other = user_fixture(%{username: "password_user", email: "password@example.test"})
     certificate = client_certificate()
     assert {:ok, _binding} = bind_certificate(owner, certificate)
 
-    conn =
+    request =
       conn
       |> put_guardian_session(other)
       |> put_client_certificate_headers(certificate)
-      |> get(~p"/")
 
-    token = get_session(conn, :guardian_default_token)
+    old_token = get_session(request, :guardian_default_token)
+    conn = get(request, ~p"/")
+    new_token = get_session(conn, :guardian_default_token)
 
-    assert {:ok, resource, _claims} =
-             Guardian.resource_from_token(GSMLG.AdminWeb.Guardian, token)
+    refute new_token == old_token
+
+    assert {:ok, resource, %{"typ" => "access"}} =
+             Guardian.resource_from_token(GSMLG.AdminWeb.Guardian, new_token)
 
     assert resource.id == owner.id
     assert get_session(conn, ClientCertificateAuth.auth_method_key()) == "client_certificate"
+    assert_revoked(old_token)
   end
 
   test "bound certificate preserves the same owner's token", %{conn: conn} do
@@ -85,15 +114,40 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuthTest do
              certificate.fingerprint
   end
 
+  test "bound certificate rotates the same owner's non-access token", %{conn: conn} do
+    user = user_fixture()
+    certificate = client_certificate()
+    assert {:ok, _binding} = bind_certificate(user, certificate)
+
+    request = put_guardian_session(conn, user, "password", "refresh")
+    refresh_token = get_session(request, :guardian_default_token)
+
+    conn =
+      request
+      |> put_client_certificate_headers(certificate)
+      |> get(~p"/")
+
+    access_token = get_session(conn, :guardian_default_token)
+    refute access_token == refresh_token
+
+    assert {:ok, resource, %{"typ" => "access"}} =
+             Guardian.resource_from_token(GSMLG.AdminWeb.Guardian, access_token)
+
+    assert resource.id == user.id
+    assert_revoked(refresh_token)
+  end
+
   test "valid unbound certificate clears a password session for enrollment", %{conn: conn} do
     user = user_fixture()
     certificate = client_certificate()
 
-    conn =
+    request =
       conn
       |> put_guardian_session(user)
       |> put_client_certificate_headers(certificate)
-      |> get(~p"/")
+
+    old_token = get_session(request, :guardian_default_token)
+    conn = get(request, ~p"/")
 
     assert redirected_to(conn) == ~p"/sign_in"
     assert get_session(conn, :guardian_default_token) == nil
@@ -103,48 +157,57 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuthTest do
     assert conn.assigns.client_certificate.fingerprint == certificate.fingerprint
     assert conn.assigns.client_certificate.certificate_der == certificate.certificate_der
     refute ClientCertificateAuth.certificate_authenticated?(conn)
+    assert_revoked(old_token)
   end
 
   test "missing certificate clears a certificate-created session", %{conn: conn} do
     user = user_fixture()
 
-    conn =
+    request =
       conn
       |> put_guardian_session(user, "client_certificate")
       |> put_session(ClientCertificateAuth.fingerprint_key(), String.duplicate("a", 64))
-      |> get(~p"/")
+
+    old_token = get_session(request, :guardian_default_token)
+    conn = get(request, ~p"/")
 
     assert redirected_to(conn) == ~p"/sign_in"
     assert get_session(conn, :guardian_default_token) == nil
     assert get_session(conn, ClientCertificateAuth.auth_method_key()) == nil
     assert get_session(conn, ClientCertificateAuth.fingerprint_key()) == nil
     assert conn.assigns.admin_auth_method == nil
+    assert_revoked(old_token)
   end
 
   test "malformed certificate clears a certificate-created session", %{conn: conn} do
     user = user_fixture()
 
-    conn =
+    request =
       conn
       |> put_guardian_session(user, "client_certificate")
       |> put_session(ClientCertificateAuth.fingerprint_key(), String.duplicate("a", 64))
       |> put_malformed_client_certificate_headers()
-      |> get(~p"/")
+
+    old_token = get_session(request, :guardian_default_token)
+    conn = get(request, ~p"/")
 
     assert redirected_to(conn) == ~p"/sign_in"
     assert get_session(conn, :guardian_default_token) == nil
     assert get_session(conn, ClientCertificateAuth.auth_method_key()) == nil
     assert get_session(conn, ClientCertificateAuth.fingerprint_key()) == nil
     assert conn.assigns.admin_auth_method == nil
+    assert_revoked(old_token)
   end
 
-  test "missing and malformed certificates preserve a password session" do
+  test "missing and malformed certificates preserve non-certificate sessions and clear stale fingerprints" do
     user = user_fixture()
 
-    for add_headers <- [fn conn -> conn end, &put_malformed_client_certificate_headers/1] do
+    for add_headers <- [fn conn -> conn end, &put_malformed_client_certificate_headers/1],
+        method <- ["password", "legacy", nil] do
       request =
         build_conn()
-        |> put_guardian_session(user)
+        |> put_guardian_session(user, method)
+        |> put_session(ClientCertificateAuth.fingerprint_key(), String.duplicate("b", 64))
 
       existing_token = get_session(request, :guardian_default_token)
 
@@ -155,8 +218,9 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuthTest do
 
       assert html_response(response, 200)
       assert get_session(response, :guardian_default_token) == existing_token
-      assert get_session(response, ClientCertificateAuth.auth_method_key()) == "password"
-      assert response.assigns.admin_auth_method == "password"
+      assert get_session(response, ClientCertificateAuth.auth_method_key()) == method
+      assert get_session(response, ClientCertificateAuth.fingerprint_key()) == nil
+      assert response.assigns.admin_auth_method == method
     end
   end
 
@@ -194,14 +258,19 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuthTest do
     })
   end
 
-  defp put_guardian_session(conn, user, method \\ "password") do
+  defp put_guardian_session(conn, user, method \\ "password", token_type \\ "access") do
     {:ok, token, _claims} =
-      GSMLG.AdminWeb.Guardian.encode_and_sign(user, %{}, token_type: "access")
+      GSMLG.AdminWeb.Guardian.encode_and_sign(user, %{}, token_type: token_type)
 
     conn
     |> Plug.Test.init_test_session(%{})
     |> put_session(:guardian_default_token, token)
     |> put_session(ClientCertificateAuth.auth_method_key(), method)
+  end
+
+  defp assert_revoked(token) do
+    assert {:error, :token_not_found} =
+             Guardian.resource_from_token(GSMLG.AdminWeb.Guardian, token)
   end
 
   defp put_malformed_client_certificate_headers(conn) do

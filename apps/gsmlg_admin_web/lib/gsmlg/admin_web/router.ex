@@ -4,7 +4,7 @@ defmodule GSMLG.AdminWeb.Router do
   pipeline :maybe_browser_auth do
     plug(Guardian.Plug.Pipeline,
       module: GSMLG.AdminWeb.Guardian,
-      error_handler: GSMLG.AdminWeb.Guardian.WebAuthErrorHandler
+      error_handler: GSMLG.AdminWeb.Guardian.OptionalWebAuthErrorHandler
     )
 
     plug(Guardian.Plug.VerifySession, halt: false)

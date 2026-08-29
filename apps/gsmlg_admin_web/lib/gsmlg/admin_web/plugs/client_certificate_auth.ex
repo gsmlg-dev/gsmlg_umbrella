@@ -30,8 +30,8 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuth do
 
   def sign_in_with_certificate(conn, %User{} = user, %ClientCertificate{} = certificate) do
     conn =
-      case Guardian.Plug.current_resource(conn) do
-        %User{id: current_id} when current_id == user.id -> conn
+      case {Guardian.Plug.current_resource(conn), Guardian.Plug.current_claims(conn)} do
+        {%User{id: current_id}, %{"typ" => "access"}} when current_id == user.id -> conn
         _other -> conn |> sign_out_guardian_identity() |> Guardian.Plug.sign_in(user)
       end
 
@@ -86,7 +86,9 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuth do
       |> delete_session(@fingerprint_key)
       |> assign(:admin_auth_method, nil)
     else
-      assign(conn, :admin_auth_method, get_session(conn, @auth_method_key))
+      conn
+      |> delete_session(@fingerprint_key)
+      |> assign(:admin_auth_method, get_session(conn, @auth_method_key))
     end
   end
 
