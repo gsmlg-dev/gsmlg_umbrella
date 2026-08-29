@@ -97,6 +97,20 @@ defmodule GSMLG.AdminWeb.ClientCertificateTest do
     assert {:error, :invalid_certificate} = ClientCertificate.parse_headers(headers)
   end
 
+  test "rejects valid certificates with trailing DER data" do
+    certificate = client_certificate()
+    encoded = Base.encode64(certificate.certificate_der <> <<0, 1, 2>>)
+
+    headers =
+      put_header(
+        client_certificate_headers(certificate),
+        "x-client-cert-certificate-pem",
+        encoded
+      )
+
+    assert {:error, :invalid_certificate} = ClientCertificate.parse_headers(headers)
+  end
+
   test "matches header names case-insensitively and preserves subject and email" do
     certificate =
       client_certificate(%{subject: "  CN=Exact Subject  ", email: " exact@example.com "})

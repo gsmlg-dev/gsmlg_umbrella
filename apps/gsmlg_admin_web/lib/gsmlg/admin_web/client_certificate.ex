@@ -63,7 +63,7 @@ defmodule GSMLG.AdminWeb.ClientCertificate do
         {:error, :certificate_too_large}
 
       {:ok, der} ->
-        with :ok <- validate_certificate(der) do
+        with :ok <- validate_x509(der) do
           {:ok,
            %__MODULE__{
              certificate_der: der,
@@ -76,10 +76,14 @@ defmodule GSMLG.AdminWeb.ClientCertificate do
     end
   end
 
-  defp validate_certificate(der) do
+  defp validate_x509(der) do
     try do
-      :public_key.pkix_decode_cert(der, :otp)
-      :ok
+      certificate = :public_key.pkix_decode_cert(der, :otp)
+
+      case :public_key.pkix_encode(:OTPCertificate, certificate, :otp) do
+        ^der -> :ok
+        _ -> {:error, :invalid_certificate}
+      end
     catch
       _, _ -> {:error, :invalid_certificate}
     end
