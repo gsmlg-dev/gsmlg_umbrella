@@ -26,6 +26,7 @@ url = "http://localhost:4113"
 secret_key_base = "test_secret_key_base_test_secret_key_base_test_secret_key_base_test"
 port = 4113
 user_register = false
+client_certificate_auth = false
 
 [commander]
 start = false

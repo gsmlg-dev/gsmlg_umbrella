@@ -178,7 +178,8 @@ defmodule GSMLG.Config.Setup do
       ],
       server: config[:server] != false,
       url: [host: uri.host, port: uri.port, scheme: uri.scheme, path: uri.path],
-      user_register: config[:user_register] == true
+      user_register: config[:user_register] == true,
+      client_certificate_auth: config[:client_certificate_auth] == true
     )
   end
 

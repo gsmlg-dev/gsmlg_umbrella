@@ -133,6 +133,11 @@ defmodule GSMLG.Config.Schema do
       default: false,
       doc: "Enable user registration"
     ],
+    client_certificate_auth: [
+      type: :boolean,
+      default: false,
+      doc: "Trust reverse-proxy-verified client certificate headers for admin browser login"
+    ],
     check_origin: [
       type: {:or, [:boolean, {:list, :string}]},
       doc: "Check origin for WebSocket connections (boolean or list of allowed origins)"

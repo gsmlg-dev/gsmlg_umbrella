@@ -25,6 +25,7 @@ url = "https://admin.gsmlg.org"
 secret_key_base = "CHANGE_ME_IN_PRODUCTION_USE_mix_phx.gen.secret"
 port = 4111
 user_register = false
+client_certificate_auth = true
 
 [commander]
 start = true

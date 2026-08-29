@@ -285,7 +285,8 @@ defmodule GSMLG.Config.SetupTest do
         secret_key_base: "admin_secret",
         port: 8081,
         server: true,
-        user_register: false
+        user_register: false,
+        client_certificate_auth: true
       }
 
       Setup.setup_admin_web(config)
@@ -298,6 +299,16 @@ defmodule GSMLG.Config.SetupTest do
       assert endpoint_config[:url][:port] == 8081
       assert endpoint_config[:url][:scheme] == "https"
       assert endpoint_config[:user_register] == false
+      assert endpoint_config[:client_certificate_auth] == true
+    end
+
+    test "defaults omitted certificate auth to disabled" do
+      config = %{url: "https://admin.example.com"}
+
+      Setup.setup_admin_web(config)
+
+      endpoint_config = Application.get_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint)
+      assert endpoint_config[:client_certificate_auth] == false
     end
   end
 

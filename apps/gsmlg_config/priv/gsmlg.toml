@@ -25,6 +25,7 @@ url = "https://admin.gsmlg.org"
 secret_key_base = "o5xg8yDgSOFVrcrH4seZJ7+wJie4BHGOHmf9wP4mlhDFPPIqNETW8GU+gKVgrtFs"
 port = 4111
 user_register = false
+client_certificate_auth = false
 
 [commander]
 start = false

@@ -52,6 +52,46 @@ defmodule GSMLG.Config.SchemaTest do
              "proxy_rules: invalid retry interval range: retry_max_interval must be greater than or equal to retry_min_interval"
   end
 
+  test "defaults admin certificate auth to disabled" do
+    assert {:ok, %{admin_web: settings}} =
+             Schema.validate(%{admin_web: %{url: "https://admin.example.test"}})
+
+    assert settings.client_certificate_auth == false
+  end
+
+  test "accepts enabled admin certificate auth" do
+    assert {:ok, %{admin_web: settings}} =
+             Schema.validate(%{
+               admin_web: %{url: "https://admin.example.test", client_certificate_auth: true}
+             })
+
+    assert settings.client_certificate_auth == true
+  end
+
+  test "rejects string admin certificate auth" do
+    assert {:error, reason} =
+             Schema.validate(%{
+               admin_web: %{url: "https://admin.example.test", client_certificate_auth: "true"}
+             })
+
+    assert reason =~ "admin_web"
+    assert reason =~ "boolean"
+  end
+
+  test "checked-in TOMLs gate admin certificate auth to production" do
+    config_dir = Path.expand("../../../priv", __DIR__)
+
+    for {filename, expected} <- [
+          {"gsmlg.toml", false},
+          {"gsmlg.dev.toml", false},
+          {"gsmlg.test.toml", false},
+          {"gsmlg.prod.toml", true}
+        ] do
+      assert {:ok, config} = Toml.decode_file(Path.join(config_dir, filename), keys: :atoms)
+      assert config.admin_web.client_certificate_auth == expected
+    end
+  end
+
   test "active TOML files define the proxy-rules defaults" do
     config_dir = Path.expand("../../../priv", __DIR__)
 
