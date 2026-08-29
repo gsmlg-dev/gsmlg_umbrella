@@ -52,6 +52,8 @@ defmodule GSMLG.AdminWeb do
     quote do
       use Phoenix.LiveView
 
+      on_mount GSMLG.AdminWeb.Live.Hooks.AssignCurrentUser
+
       unquote(html_helpers())
     end
   end
@@ -69,6 +71,8 @@ defmodule GSMLG.AdminWeb do
   def aws_live_view do
     quote do
       use Phoenix.LiveView
+
+      on_mount GSMLG.AdminWeb.Live.Hooks.AssignCurrentUser
 
       unquote(html_helpers())
     end
