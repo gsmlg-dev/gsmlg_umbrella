@@ -1344,7 +1344,7 @@ defp complete_html_sign_in(conn, user) do
             metadata: %{
               user_id: user.id,
               fingerprint: certificate.fingerprint,
-              category: certificate_binding_failure_category(reason)
+              reason: certificate_binding_failure_category(reason)
             }
           )
 
@@ -1849,7 +1849,6 @@ mix test \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/gao_note_mcp_controller_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs \
   apps/gsmlg_component/test/gsmlg/component_test.exs \
   apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs
