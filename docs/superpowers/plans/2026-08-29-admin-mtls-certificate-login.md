@@ -1909,13 +1909,16 @@ headers, or session.
 Extend Handler tests with a custom event containing structs and process terms,
 sensitive values under `subject`/`email` key segments in snake, kebab, camel,
 Pascal, and acronym forms, plus password/token/certificate/header/params/query
-variants. Assert those entries are dropped while the safe `fingerprint` and
-safe counters such as `reconnect_count` remain. Add oversized binary, map/list,
-depth, and aggregate-node cases covering the exact limits: valid UTF-8 binaries
-at most 512 bytes, containers at most 32 entries, depth at most 4, and a global
-budget of 256 nodes. Structs and process terms must never be inspected or
-forwarded. Run the focused Handler test again and observe the expected red
-results before implementation.
+variants. Assert those entries are dropped while bounded nonsensitive metadata
+such as `domain`, `message`, and `tags` survives recursively; explicit
+compatibility keys such as `fingerprint` and `result_count` remain permitted.
+Add oversized binary, map/list, depth, and aggregate-node cases covering the
+exact limits: valid UTF-8 binaries at most 512 bytes, containers at most 32
+entries, depth at most 4, and a global budget of 256 nodes. Structs and process
+terms must never be inspected or forwarded. The regression must assert ordinary
+bounded custom metadata survives alongside sensitive-key redaction and global
+budget enforcement. Run the focused Handler test again and observe the expected
+red results before implementation.
 
 - [ ] **Step 4: Implement custom sanitization and defense-in-depth logging rules**
 
@@ -1923,8 +1926,10 @@ Normalize metadata key names before matching sensitive segments so
 snake/kebab/camel/Pascal/acronym variants of subject, email, password, token,
 certificate, headers, params, session, query, result, and related keys are
 redacted. Enforce the 512-byte, 32-entry, depth-4, and global-256 bounds while
-recursing; reject structs/process terms; preserve only explicitly safe
-correlation keys such as `fingerprint` and bounded counters. Keep successful
+recursing; reject structs/process terms; preserve any bounded nonsensitive
+custom metadata recursively, including ordinary domain/message/tags fields.
+Explicit compatibility keys such as `fingerprint` and `result_count` remain
+permitted. Keep successful
 certificate telemetry to user ID plus fingerprint and conflict/failure
 telemetry to bounded category, relevant IDs, and fingerprint.
 
@@ -1966,7 +1971,7 @@ git add \
   apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs \
   config/config.exs \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex
-git diff --check
+git diff --cached --check
 git commit -m "fix(telemetry): harden mTLS privacy boundaries"
 ```
 
