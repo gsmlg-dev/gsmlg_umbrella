@@ -50,7 +50,7 @@ defmodule GSMLG.AdminWeb do
 
   def live_view do
     quote do
-      use Phoenix.LiveView
+      use Phoenix.LiveView, log: false
 
       on_mount GSMLG.AdminWeb.Live.Hooks.AssignCurrentUser
 
@@ -60,7 +60,7 @@ defmodule GSMLG.AdminWeb do
 
   def user_live_view do
     quote do
-      use Phoenix.LiveView
+      use Phoenix.LiveView, log: false
 
       on_mount GSMLG.AdminWeb.Live.Hooks.AssignCurrentUser
 
@@ -70,7 +70,7 @@ defmodule GSMLG.AdminWeb do
 
   def aws_live_view do
     quote do
-      use Phoenix.LiveView
+      use Phoenix.LiveView, log: false
 
       on_mount GSMLG.AdminWeb.Live.Hooks.AssignCurrentUser
 

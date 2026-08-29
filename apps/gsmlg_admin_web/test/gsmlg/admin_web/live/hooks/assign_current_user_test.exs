@@ -3,6 +3,7 @@ defmodule GSMLG.AdminWeb.Live.Hooks.AssignCurrentUserTest do
 
   import GSMLG.AccountsFixtures
   import GSMLG.AdminWeb.ClientCertificateFixtures
+  import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
   alias GSMLG.Accounts
@@ -22,6 +23,49 @@ defmodule GSMLG.AdminWeb.Live.Hooks.AssignCurrentUserTest do
     on_exit(fn -> Application.put_env(:gsmlg_admin_web, endpoint, original) end)
 
     :ok
+  end
+
+  test "admin LiveViews disable Phoenix lifecycle logging" do
+    original_level = Logger.level()
+    Logger.configure(level: :debug)
+    on_exit(fn -> Logger.configure(level: original_level) end)
+
+    unique = System.unique_integer([:positive])
+    token = "guardian-token-sentinel-#{unique}"
+    fingerprint = "certificate-fingerprint-sentinel-#{unique}"
+    params_sentinel = "params-sentinel-#{unique}"
+
+    socket = %Phoenix.LiveView.Socket{
+      view: GSMLG.AdminWeb.GaoNoteLive.DashboardLive,
+      transport_pid: self()
+    }
+
+    log =
+      capture_log([level: :debug], fn ->
+        Phoenix.LiveView.Logger.lv_mount_start(
+          [:phoenix, :live_view, :mount, :start],
+          %{system_time: System.system_time()},
+          %{
+            socket: socket,
+            params: %{"sentinel" => params_sentinel},
+            session: %{
+              "guardian_default_token" => token,
+              ClientCertificateAuth.fingerprint_key() => fingerprint
+            },
+            uri: "http://localhost/gao_notes"
+          },
+          %{}
+        )
+      end)
+
+    refute log =~ "MOUNT"
+    refute log =~ token
+    refute log =~ fingerprint
+    refute log =~ params_sentinel
+
+    assert %{log: false} = GSMLG.AdminWeb.ProxyRulesLive.Index.__live__()
+    assert %{log: false} = GSMLG.AdminWeb.GaoNoteLive.DashboardLive.__live__()
+    assert %{log: false} = GSMLG.AdminWeb.S3Live.Index.__live__()
   end
 
   test "matching bound certificate permits a LiveView connection", %{conn: conn} do

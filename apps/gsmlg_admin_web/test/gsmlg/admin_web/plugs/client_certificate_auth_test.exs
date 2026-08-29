@@ -68,6 +68,39 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuthTest do
     assert resource.id == owner.id
   end
 
+  test "bound certificate replaces a pre-revoked Guardian session without redirecting", %{
+    conn: conn
+  } do
+    owner = user_fixture()
+    certificate = client_certificate()
+    assert {:ok, _binding} = bind_certificate(owner, certificate)
+
+    assert {:ok, revoked_token, _claims} =
+             GSMLG.AdminWeb.Guardian.encode_and_sign(owner, %{}, token_type: "access")
+
+    assert {:ok, _claims} = GSMLG.AdminWeb.Guardian.revoke(revoked_token)
+    assert_revoked(revoked_token)
+
+    conn =
+      conn
+      |> Plug.Test.init_test_session(%{})
+      |> put_session(:guardian_default_token, revoked_token)
+      |> put_client_certificate_headers(certificate)
+      |> get(~p"/")
+
+    assert html_response(conn, 200)
+    assert get_resp_header(conn, "location") == []
+
+    replacement_token = get_session(conn, :guardian_default_token)
+    refute replacement_token == revoked_token
+
+    assert {:ok, resource, %{"typ" => "access"}} =
+             GSMLG.AdminWeb.Guardian.resource_from_token(replacement_token)
+
+    assert resource.id == owner.id
+    assert_revoked(revoked_token)
+  end
+
   test "bound certificate replaces a different password user", %{conn: conn} do
     owner = user_fixture(%{username: "cert_owner", email: "owner@example.test"})
     other = user_fixture(%{username: "password_user", email: "password@example.test"})
