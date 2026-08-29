@@ -269,7 +269,6 @@ defmodule GSMLG.Telemetry.HandlerTest do
 
   test "bounds and redacts sensitive custom event metadata before reporting" do
     sentinel = "CUSTOM-SENSITIVE-SENTINEL"
-    [port | _other_ports] = Port.list()
 
     conn =
       Plug.Test.conn(:post, "/admin/sign-in", %{"password" => sentinel})
@@ -280,9 +279,15 @@ defmodule GSMLG.Telemetry.HandlerTest do
 
     metadata = %{
       "PASSWORD_CONFIRMATION" => sentinel,
+      "Subject" => sentinel,
+      "CLIENT-CERTIFICATE-EMAIL" => sentinel,
       domain: %{operation: :certificate_login, token: sentinel},
       tags: [:authentication, :admin],
       message: "safe",
+      fingerprint: "sha256:audit-correlation",
+      connection_state: :connected,
+      reconnect_count: 2,
+      result_count: 3,
       password: sentinel,
       token: sentinel,
       authorization: sentinel,
@@ -290,6 +295,8 @@ defmodule GSMLG.Telemetry.HandlerTest do
       session: %{token: sentinel},
       certificate: sentinel,
       certificate_der: sentinel,
+      client_certificate_subject: sentinel,
+      email: sentinel,
       pem: sentinel,
       params: %{password: sentinel},
       body_params: %{password: sentinel},
@@ -299,14 +306,7 @@ defmodule GSMLG.Telemetry.HandlerTest do
       assigns: %{client_certificate: sentinel},
       private: %{guardian_token: sentinel},
       query: "SELECT #{sentinel}",
-      result: {:ok, sentinel},
-      process: self(),
-      port: port,
-      reference: make_ref(),
-      callback: fn -> sentinel end,
-      structured: URI.parse("https://example.com/#{sentinel}"),
-      oversized: String.duplicate("x", 513),
-      invalid_binary: <<255>>
+      result: {:ok, sentinel}
     }
 
     Handler.handle_event([:gsmlg, :log], %{count: 1}, metadata, %{})
@@ -317,10 +317,37 @@ defmodule GSMLG.Telemetry.HandlerTest do
     assert reported_metadata == %{
              domain: %{operation: :certificate_login},
              tags: [:authentication, :admin],
-             message: "safe"
+             message: "safe",
+             fingerprint: "sha256:audit-correlation",
+             connection_state: :connected,
+             reconnect_count: 2,
+             result_count: 3
            }
 
     refute inspect(reported_metadata) =~ sentinel
+  end
+
+  test "drops unsafe custom event value types and binaries" do
+    sentinel = "CUSTOM-UNSAFE-VALUE-SENTINEL"
+    [port | _other_ports] = Port.list()
+
+    metadata = %{
+      safe: :retained,
+      process: self(),
+      port: port,
+      reference: make_ref(),
+      callback: fn -> sentinel end,
+      structured: URI.parse("https://example.com/#{sentinel}"),
+      oversized: String.duplicate("x", 513),
+      invalid_binary: <<255>>
+    }
+
+    Handler.handle_event([:custom, :unsafe_values], %{count: 1}, metadata, %{})
+
+    assert {[:custom, :unsafe_values], %{count: 1}, reported_metadata, _timestamp} =
+             reported_event([:custom, :unsafe_values])
+
+    assert reported_metadata == %{safe: :retained}
   end
 
   test "bounds custom event map size, list length, and nesting depth" do
@@ -348,6 +375,24 @@ defmodule GSMLG.Telemetry.HandlerTest do
     assert get_in(reported_metadata, [:too_deep, :one, :two, :three]) == nil
   end
 
+  test "applies one global node budget across branching custom metadata" do
+    leaf = Map.new(1..32, &{"leaf-#{&1}", &1})
+    middle = Map.new(1..32, &{"middle-#{&1}", leaf})
+    branching = Map.new(1..32, &{"branch-#{&1}", middle})
+
+    Handler.handle_event(
+      [:custom, :branching],
+      %{count: 1},
+      %{branching: branching, safe: :retained},
+      %{}
+    )
+
+    assert {[:custom, :branching], %{count: 1}, reported_metadata, _timestamp} =
+             reported_event([:custom, :branching])
+
+    assert metadata_node_count(reported_metadata) <= 256
+  end
+
   test "Phoenix filters authentication and certificate parameters" do
     params =
       Map.new(~w(password password_confirmation token certificate), fn key ->
@@ -372,4 +417,14 @@ defmodule GSMLG.Telemetry.HandlerTest do
       handler.id == :gsmlg_telemetry_main_handler and handler.event_name == event_name
     end)
   end
+
+  defp metadata_node_count(value) when is_map(value) do
+    1 + Enum.sum(Enum.map(Map.values(value), &metadata_node_count/1))
+  end
+
+  defp metadata_node_count(value) when is_list(value) do
+    1 + Enum.sum(Enum.map(value, &metadata_node_count/1))
+  end
+
+  defp metadata_node_count(_value), do: 1
 end

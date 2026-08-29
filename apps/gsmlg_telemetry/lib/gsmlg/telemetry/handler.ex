@@ -35,9 +35,9 @@ defmodule GSMLG.Telemetry.Handler do
   @max_metadata_binary_bytes 512
   @max_custom_metadata_entries 32
   @max_custom_metadata_depth 4
-  @sensitive_metadata_key_fragments ~w(
+  @max_custom_metadata_nodes 256
+  @sensitive_metadata_key_segments ~w(
     password
-    password_confirmation
     token
     authorization
     cookie
@@ -54,7 +54,10 @@ defmodule GSMLG.Telemetry.Handler do
     private
     query
     result
+    subject
+    email
   )
+  @safe_metadata_keys ~w(connection_state reconnect_count result_count fingerprint)
 
   defstruct [:handlers, :config]
 
@@ -180,8 +183,8 @@ defmodule GSMLG.Telemetry.Handler do
   end
 
   defp sanitize_metadata(_event_name, metadata) do
-    case sanitize_custom_value(metadata, 0) do
-      {:ok, sanitized} when is_map(sanitized) -> sanitized
+    case sanitize_custom_value(metadata, 0, @max_custom_metadata_nodes) do
+      {:ok, sanitized, _remaining_budget} when is_map(sanitized) -> sanitized
       _other -> %{}
     end
   end
@@ -261,56 +264,93 @@ defmodule GSMLG.Telemetry.Handler do
   defp safe_scalar?(value) when is_atom(value) or is_integer(value), do: true
   defp safe_scalar?(_value), do: false
 
-  defp sanitize_custom_value(value, _depth) when is_binary(value) do
+  defp sanitize_custom_value(_value, _depth, 0), do: {:drop, 0}
+
+  defp sanitize_custom_value(value, _depth, budget) when is_binary(value) do
+    remaining_budget = budget - 1
+
     if byte_size(value) <= @max_metadata_binary_bytes and String.valid?(value) do
-      {:ok, value}
+      {:ok, value, remaining_budget}
     else
-      :drop
+      {:drop, remaining_budget}
     end
   end
 
-  defp sanitize_custom_value(value, _depth) when is_atom(value) or is_integer(value),
-    do: {:ok, value}
+  defp sanitize_custom_value(value, _depth, budget)
+       when is_atom(value) or is_integer(value),
+       do: {:ok, value, budget - 1}
 
-  defp sanitize_custom_value(value, _depth) when is_struct(value), do: :drop
+  defp sanitize_custom_value(value, _depth, budget) when is_struct(value),
+    do: {:drop, budget - 1}
 
-  defp sanitize_custom_value(value, depth)
+  defp sanitize_custom_value(value, depth, budget)
        when is_map(value) and depth < @max_custom_metadata_depth and
               map_size(value) <= @max_custom_metadata_entries do
-    sanitized =
-      Enum.reduce(value, %{}, fn {key, nested_value}, acc ->
-        with true <- safe_custom_key?(key),
-             false <- sensitive_metadata_key?(key),
-             {:ok, safe_value} <- sanitize_custom_value(nested_value, depth + 1) do
-          Map.put(acc, key, safe_value)
-        else
-          _unsafe -> acc
+    sanitize_custom_map(value, depth + 1, budget - 1)
+  end
+
+  defp sanitize_custom_value(value, depth, budget)
+       when is_list(value) and depth < @max_custom_metadata_depth do
+    sanitize_custom_list(value, depth + 1, 0, [], budget - 1)
+  end
+
+  defp sanitize_custom_value(_value, _depth, budget), do: {:drop, budget - 1}
+
+  defp sanitize_custom_map(_map, _depth, 0), do: {:ok, %{}, 0}
+
+  defp sanitize_custom_map(map, depth, budget) do
+    {sanitized, remaining_budget} =
+      Enum.reduce_while(map, {%{}, budget}, fn {key, nested_value}, {acc, remaining} ->
+        cond do
+          remaining == 0 ->
+            {:halt, {acc, 0}}
+
+          not safe_custom_key?(key) or sensitive_metadata_key?(key) ->
+            continue_or_halt(acc, remaining - 1)
+
+          true ->
+            case sanitize_custom_value(nested_value, depth, remaining) do
+              {:ok, safe_value, next_budget} ->
+                continue_or_halt(Map.put(acc, key, safe_value), next_budget)
+
+              {:drop, next_budget} ->
+                continue_or_halt(acc, next_budget)
+            end
         end
       end)
 
-    {:ok, sanitized}
+    {:ok, sanitized, remaining_budget}
   end
 
-  defp sanitize_custom_value(value, depth)
-       when is_list(value) and depth < @max_custom_metadata_depth do
-    sanitize_custom_list(value, depth + 1, 0, [])
-  end
+  defp continue_or_halt(acc, 0), do: {:halt, {acc, 0}}
+  defp continue_or_halt(acc, budget), do: {:cont, {acc, budget}}
 
-  defp sanitize_custom_value(_value, _depth), do: :drop
+  defp sanitize_custom_list(_list, _depth, _count, acc, 0),
+    do: {:ok, Enum.reverse(acc), 0}
 
-  defp sanitize_custom_list([], _depth, _count, acc), do: {:ok, Enum.reverse(acc)}
+  defp sanitize_custom_list([], _depth, _count, acc, budget),
+    do: {:ok, Enum.reverse(acc), budget}
 
-  defp sanitize_custom_list([_head | _tail], _depth, @max_custom_metadata_entries, _acc),
-    do: :drop
+  defp sanitize_custom_list(
+         [_head | _tail],
+         _depth,
+         @max_custom_metadata_entries,
+         _acc,
+         budget
+       ),
+       do: {:drop, budget}
 
-  defp sanitize_custom_list([head | tail], depth, count, acc) do
-    case sanitize_custom_value(head, depth) do
-      {:ok, safe_value} -> sanitize_custom_list(tail, depth, count + 1, [safe_value | acc])
-      :drop -> sanitize_custom_list(tail, depth, count + 1, acc)
+  defp sanitize_custom_list([head | tail], depth, count, acc, budget) do
+    case sanitize_custom_value(head, depth, budget) do
+      {:ok, safe_value, next_budget} ->
+        sanitize_custom_list(tail, depth, count + 1, [safe_value | acc], next_budget)
+
+      {:drop, next_budget} ->
+        sanitize_custom_list(tail, depth, count + 1, acc, next_budget)
     end
   end
 
-  defp sanitize_custom_list(_improper, _depth, _count, _acc), do: :drop
+  defp sanitize_custom_list(_improper, _depth, _count, _acc, budget), do: {:drop, budget}
 
   defp safe_custom_key?(key) when is_atom(key), do: true
 
@@ -320,9 +360,16 @@ defmodule GSMLG.Telemetry.Handler do
   defp safe_custom_key?(_key), do: false
 
   defp sensitive_metadata_key?(key) do
-    normalized_key = key |> to_string() |> String.downcase()
+    segments =
+      key
+      |> to_string()
+      |> String.downcase()
+      |> String.split(~r/[^a-z0-9]+/u, trim: true)
 
-    Enum.any?(@sensitive_metadata_key_fragments, &String.contains?(normalized_key, &1))
+    normalized_key = Enum.join(segments, "_")
+
+    normalized_key not in @safe_metadata_keys and
+      Enum.any?(segments, &(&1 in @sensitive_metadata_key_segments))
   end
 
   defp attach_default_handlers(config) do
