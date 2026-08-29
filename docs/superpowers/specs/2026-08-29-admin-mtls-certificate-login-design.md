@@ -122,7 +122,7 @@ Each row contains:
 
 The fingerprint is computed locally over the decoded DER bytes. It is globally
 unique and is the only field used to find a binding. Subject and email are
-display and audit metadata only.
+display metadata only; they are not identity keys and never enter telemetry.
 
 A user may own multiple certificate bindings. One certificate can belong to
 only one user. The unique fingerprint constraint is the authoritative guard
@@ -294,17 +294,35 @@ subject/email as proof of identity.
 
 Enrollment failures keep the sign-in page available and show an actionable
 generic error. A cross-user uniqueness conflict never reassigns the certificate
-and never signs in the credential-selected user.
+and never signs in the credential-selected user. Invalid-cookie precedence is
+explicit: a valid bound certificate replaces a stale, invalid, revoked, or
+different-user Guardian cookie; a certificate-created session without a current
+usable certificate is cleared.
 
-Telemetry may record:
+The telemetry boundary is deliberately narrower than the certificate
+presentation and persistence boundary. Successful binding and automatic login
+events may contain only the `user_id` and derived fingerprint. Conflicts and
+failures may contain only a bounded category plus the relevant user IDs and
+derived fingerprint. No event or backend may log DER/PEM bytes, certificate
+subject, certificate email, password, Guardian token, or raw headers/params.
 
-- Successful binding with user ID, fingerprint, and subject.
-- Automatic certificate login with user ID and fingerprint.
-- Malformed certificate assertion by category.
-- Cross-user binding conflict with fingerprint and involved user IDs.
+`GSMLG.Telemetry.Handler` sanitizes known Phoenix endpoint, router-dispatch, and
+LiveView lifecycle events, plus the actual `GSMLG.Repo`/Ecto query event
+families, before forwarding data to Metrics, Reporter, or any backend. Each
+family uses a bounded whitelist (request method/path/status/request ID; route
+and validated router atoms; LiveView view/action; or repo/source/type).
 
-Telemetry and application logs must never include the DER bytes, reconstructed
-PEM, password, Guardian token, or complete raw request headers.
+Custom metadata is sanitized recursively with a global node budget, maximum
+depth, bounded map/list sizes, and a 512-byte valid-UTF-8 binary limit.
+Structs and process terms are rejected. Sensitive key segments are redacted
+after normalization, covering subject/email and password/token/certificate,
+headers, params, session, query, result, and their snake/kebab/camel/Pascal/
+acronym variants. The derived fingerprint is an explicitly safe audit
+correlation key. `Phoenix` also filters `password`, `password_confirmation`,
+`token`, and `certificate` request parameters as defense in depth. The three
+admin LiveView macros use `log: false`, preventing
+`Phoenix.LiveView.Logger` from printing session tokens or fingerprints while
+telemetry events remain active.
 
 ## Verification
 
@@ -355,8 +373,9 @@ PEM, password, Guardian token, or complete raw request headers.
 - Admin endpoint setup propagates the value.
 - Disabled configuration preserves the existing authentication baseline.
 
-Only focused `gsmlg`, `gsmlg_admin_web`, and `gsmlg_config` tests for this
-feature are required by the implementation plan. Browser verification should
-confirm the read-only PEM presentation, keyboard access, and certificate-aware
-sign-out messaging without changing the established admin authentication visual
-language.
+Only focused `gsmlg`, `gsmlg_admin_web`, `gsmlg_config`, and telemetry tests for
+this feature are required by the implementation plan. Browser verification
+should confirm the read-only PEM presentation, keyboard access, new panel
+contrast, and certificate-aware sign-out messaging without changing the
+established admin authentication visual language. Existing authentication
+contrast and meta-description issues remain outside this feature.

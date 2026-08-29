@@ -19,11 +19,14 @@
 - `apps/gsmlg/priv/repo/migrations/20260829000000_create_user_client_certificates.exs` — durable ownership, uniqueness, cascade, and fingerprint-format constraints.
 - `apps/gsmlg/lib/gsmlg/accounts/user_client_certificate.ex` — binding schema and create-only changeset.
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/client_certificate.ex` — strict Caddy header parsing, X.509 validation, fingerprinting, and PEM reconstruction.
+- `apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex` — preserve optional browser auth semantics after certificate-session sign-out.
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/plugs/client_certificate_auth.ex` — browser request enrollment and Guardian-session policy.
 - `apps/gsmlg_admin_web/test/support/client_certificate_fixtures.ex` — OTP-generated public test certificates and request-header helpers.
 - `apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_test.exs` — parser boundary tests.
+- `apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_isolation_test.exs` — bearer, API, MCP, browser-JSON, and socket transport-isolation tests.
 - `apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs` — end-to-end browser pipeline/session tests.
 - `apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs` — LiveView reconnect enforcement tests.
+- `apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs` — telemetry whitelist, redaction, and traversal-bound tests.
 
 ### Modified files
 
@@ -44,7 +47,7 @@
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/controllers/auth_controller.ex` — enrollment, password-session marker, certificate-authoritative POST, and sign-out behavior.
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/controllers/auth_html/sign_in.html.heex` — certificate disclosure and permanence notice.
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/live/hooks/assign_current_user.ex` — verify certificate-created LiveView reconnects.
-- `apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex` — install the hook for all three admin LiveView macros.
+- `apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex` — install the reconnect hook and set `log: false` for all three admin LiveView macros; Phoenix lifecycle logging is suppressed while telemetry remains active.
 - `apps/gsmlg_admin_web/lib/gsmlg/admin_web/components/layouts/root.html.heex` — expose the server-established auth method to scoped styling.
 - `apps/gsmlg_admin_web/assets/css/main.css` — certificate panel styling and certificate-session sign-out hiding.
 - `apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs` — enrollment, rendering, conflicts, fallbacks, and sign-out tests.
@@ -52,8 +55,15 @@
 - `apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs` — prove certificate headers do not authenticate the browser-JSON pipeline.
 - `apps/gsmlg_component/lib/gsmlg/component/admin.ex` — stable sign-out element ID.
 - `apps/gsmlg_component/test/gsmlg/component_test.exs` — sign-out hook assertion.
+- `apps/gsmlg_telemetry/lib/gsmlg/telemetry/handler.ex` — sanitize known Phoenix/GSMLG Repo/Ecto events and bounded custom metadata before Metrics, Reporter, and backends.
+- `config/config.exs` — defense-in-depth Phoenix parameter filtering for password, password confirmation, token, and certificate.
 
 No endpoint change is required: `/live` already exposes `:x_headers` and the cookie session in its connect info.
+
+The optional Guardian web-auth error handler is part of the browser pipeline so
+an intentionally cleared certificate session remains an ordinary optional-auth
+redirect. It does not expand certificate authentication to JSON, MCP,
+Commander, bearer-token, or socket transports.
 
 ## Shared contracts
 
@@ -707,6 +717,7 @@ defmodule GSMLG.AdminWeb.ClientCertificate do
          :ok <- validate_nonblank([subject, encoded, email]),
          :ok <- validate_encoded_size(encoded),
          {:ok, certificate_der} <- Base.decode64(encoded),
+         :ok <- validate_canonical_base64(encoded, certificate_der),
          :ok <- validate_der_size(certificate_der),
          :ok <- validate_x509(certificate_der) do
       {:ok,
@@ -745,14 +756,22 @@ defmodule GSMLG.AdminWeb.ClientCertificate do
   defp validate_encoded_size(encoded) when byte_size(encoded) <= @max_encoded_size, do: :ok
   defp validate_encoded_size(_encoded), do: {:error, :certificate_too_large}
 
+  defp validate_canonical_base64(encoded, der) do
+    if Base.encode64(der) == encoded, do: :ok, else: {:error, :invalid_base64}
+  end
+
   defp validate_der_size(<<>>), do: {:error, :empty_certificate}
   defp validate_der_size(der) when byte_size(der) <= @max_der_size, do: :ok
   defp validate_der_size(_der), do: {:error, :certificate_too_large}
 
   defp validate_x509(der) do
     try do
-      _certificate = :public_key.pkix_decode_cert(der, :otp)
-      :ok
+      certificate = :public_key.pkix_decode_cert(der, :otp)
+
+      case :public_key.pkix_encode(:OTPCertificate, certificate, :otp) do
+        ^der -> :ok
+        _other -> {:error, :invalid_certificate}
+      end
     catch
       _, _ -> {:error, :invalid_certificate}
     end
@@ -1022,7 +1041,11 @@ defmodule GSMLG.AdminWeb.Plugs.ClientCertificateAuth do
 end
 ```
 
-Keep logging metadata to the reason atom; never log raw headers, DER, PEM, or tokens.
+Keep conflict/failure metadata to bounded categories (the fixed event/category
+or reason atom), relevant user IDs, and the derived fingerprint. Successful
+binding and automatic certificate login may contain only `user_id` and
+fingerprint. Never log raw headers/params, DER, PEM, subject, email, passwords,
+or Guardian tokens.
 
 - [ ] **Step 4: Add an HTML-only router pipeline**
 
@@ -1294,8 +1317,7 @@ defp complete_html_sign_in(conn, user) do
           GSMLG.Telemetry.info("Admin client certificate bound",
             metadata: %{
               user_id: user.id,
-              fingerprint: certificate.fingerprint,
-              subject: certificate.subject
+              fingerprint: certificate.fingerprint
             }
           )
 
@@ -1317,7 +1339,15 @@ defp complete_html_sign_in(conn, user) do
           |> put_flash(:error, "This certificate is already bound to another user.")
           |> render_sign_in(Auth.sign_in_changeset(%Auth{}, %{}), status: :conflict)
 
-        {:error, _reason} ->
+        {:error, reason} ->
+          GSMLG.Telemetry.warn("Admin client certificate binding failed",
+            metadata: %{
+              user_id: user.id,
+              fingerprint: certificate.fingerprint,
+              category: certificate_binding_failure_category(reason)
+            }
+          )
+
           conn
           |> put_flash(:error, "The certificate could not be bound. Please try again.")
           |> render_sign_in(Auth.sign_in_changeset(%Auth{}, %{}),
@@ -1661,15 +1691,22 @@ end
 
 Keep the existing `load_user_from_session/1` semantics for password and legacy sessions.
 
-- [ ] **Step 4: Install the hook for every regular admin LiveView macro**
+- [ ] **Step 4: Install the hook and suppress session-bearing lifecycle logs**
 
-In `GSMLG.AdminWeb`, retain the existing hook under `user_live_view` and add it to both `live_view` and `aws_live_view`:
+In `GSMLG.AdminWeb`, retain the existing hook under `user_live_view` and add it
+to both `live_view` and `aws_live_view`. All three macros must use
+`use Phoenix.LiveView, log: false`:
 
 ```elixir
 on_mount GSMLG.AdminWeb.Live.Hooks.AssignCurrentUser
 ```
 
-Every current application LiveView uses one of these three macros. Do not restructure router route ordering. LiveDashboard keeps its existing initial HTTP Guardian protection and externally enforced mTLS; its library-owned session payload is not changed by this feature.
+Every current application LiveView uses one of these three macros. This stops
+`Phoenix.LiveView.Logger` from printing session tokens or certificate
+fingerprints; the `GSMLG.Telemetry.Handler` lifecycle events remain active and
+sanitized. Do not restructure router route ordering. LiveDashboard keeps its
+existing initial HTTP Guardian protection and externally enforced mTLS; its
+library-owned session payload is not changed by this feature.
 
 - [ ] **Step 5: Add browser-only isolation assertions**
 
@@ -1753,6 +1790,46 @@ git commit -m "feat(admin): verify certificate LiveView reconnects"
 
 ---
 
+## Review-driven hardening and final implementation notes
+
+The reviewed implementation includes these final boundaries:
+
+- A valid bound certificate is authoritative over an invalid, stale, revoked,
+  or different-user Guardian cookie. Replacing that identity signs out the old
+  Guardian identity through the configured GuardianDB `on_revoke` hook before
+  establishing the certificate owner's access; an invalid cookie never wins.
+- Certificate assertions require strict canonical Base64 and exact DER
+  round-trip X.509 encoding. Empty, trailing-data, malformed, duplicate,
+  oversized, and non-certificate values are rejected as unusable.
+- The certificate plug is attached only to browser HTML scopes. Bearer HTTP,
+  JSON/API, MCP, Commander, and socket transports remain isolated; headers
+  alone never authenticate those paths.
+- The new enrollment panel has verified contrast in both sunshine and
+  moonlight themes. Pre-existing authentication contrast and meta-description
+  issues remain outside this feature.
+- Telemetry privacy is enforced before Metrics, Reporter, or backends: success
+  events use only user ID plus fingerprint; conflicts/failures use bounded
+  categories, relevant IDs, and fingerprint. DER/PEM/subject/email/password/
+  token/raw headers/params are never logged. Known Phoenix and GSMLG Repo/Ecto
+  events use whitelists, and custom metadata uses normalized sensitive-key
+  redaction plus bounded recursive traversal. All three admin LiveView macros
+  set `log: false`, while telemetry lifecycle events remain active.
+- Final focused coverage includes parser canonicality, browser precedence and
+  revocation behavior, LiveView reconnects, transport isolation, panel/session
+  behavior, and `GSMLG.Telemetry.Handler` whitelist/redaction/traversal tests.
+
+### Verification status
+
+The focused feature checks are the relevant completion evidence. Strict
+umbrella compilation with `--warnings-as-errors` remains blocked by the
+pre-existing GaoNote attachments warning; four unrelated MCP mutation failures
+are excluded and are not fixed by this plan. Browser verification confirms the
+new certificate panel contrast fix; pre-existing authentication contrast and
+meta-description findings remain open and out of scope. Do not describe those
+pre-existing failures as fixed.
+
+---
+
 ### Task 7: Run scoped verification and browser acceptance
 
 **Files:**
@@ -1768,15 +1845,19 @@ mix test \
   apps/gsmlg_config/test/gsmlg/config/setup_test.exs \
   apps/gsmlg/test/gsmlg/accounts_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_test.exs \
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_isolation_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/gao_note_mcp_controller_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs \
-  apps/gsmlg_component/test/gsmlg/component_test.exs
+  apps/gsmlg_component/test/gsmlg/component_test.exs \
+  apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs
 ```
 
-Expected: zero failures. If an out-of-scope test fails, report it and stop rather than repairing it.
+Expected: the in-scope focused tests pass. Four unrelated MCP mutation failures
+remain excluded; if an out-of-scope test fails, report it and stop rather than
+repairing it.
 
 - [ ] **Step 2: Run scoped formatting, compilation, and diff checks**
 
@@ -1806,12 +1887,17 @@ mix format --check-formatted \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
   apps/gsmlg_component/lib/gsmlg/component/admin.ex \
-  apps/gsmlg_component/test/gsmlg/component_test.exs
+  apps/gsmlg_component/test/gsmlg/component_test.exs \
+  apps/gsmlg_telemetry/lib/gsmlg/telemetry/handler.ex \
+  apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs \
+  config/config.exs
 mix compile --warnings-as-errors
 git diff --check
 ```
 
-Expected: formatting, compilation, and whitespace checks pass. Existing unrelated warnings or failures are reported without scope expansion.
+Expected: formatting and whitespace checks pass. Strict umbrella compilation
+remains blocked by the pre-existing GaoNote attachments warning; report it
+without scope expansion and do not repair unrelated warnings.
 
 - [ ] **Step 3: Verify the rendered enrollment and session behavior in Chromium**
 
