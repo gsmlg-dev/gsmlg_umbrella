@@ -126,6 +126,7 @@ config :tailwind,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+config :phoenix, :filter_parameters, ~w(password password_confirmation token certificate)
 
 config :concord,
   cluster_enabled: false,

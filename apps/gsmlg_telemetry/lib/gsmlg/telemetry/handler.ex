@@ -31,6 +31,8 @@ defmodule GSMLG.Telemetry.Handler do
     [:vm, :system_counts]
   ]
 
+  @max_metadata_binary_bytes 512
+
   defstruct [:handlers, :config]
 
   @doc """
@@ -112,6 +114,8 @@ defmodule GSMLG.Telemetry.Handler do
 
   # Default event handler function
   def handle_event(event_name, measurements, metadata, _config) do
+    metadata = sanitize_metadata(event_name, metadata)
+
     # Forward to metrics collector
     Metrics.record_event(event_name, measurements, metadata)
 
@@ -121,6 +125,57 @@ defmodule GSMLG.Telemetry.Handler do
     # Forward to enabled backends
     forward_to_backends(event_name, measurements, metadata)
   end
+
+  defp sanitize_metadata([:phoenix, :endpoint, phase], metadata)
+       when phase in [:start, :stop] do
+    take_safe_metadata(metadata, [:request_id, :method, :request_path, :status])
+  end
+
+  defp sanitize_metadata([:phoenix, :router_dispatch, phase], metadata)
+       when phase in [:start, :stop] do
+    metadata
+    |> take_safe_metadata([:route, :plug, :plug_opts, :action])
+    |> require_atom_metadata([:plug, :plug_opts, :action])
+  end
+
+  defp sanitize_metadata([:phoenix, :live_view, lifecycle, phase], metadata)
+       when lifecycle in [:mount, :handle_params] and phase in [:start, :stop] do
+    metadata
+    |> take_safe_metadata([:view, :action])
+    |> require_atom_metadata([:view, :action])
+  end
+
+  defp sanitize_metadata([:phoenix, :repo, :query], metadata) do
+    metadata
+    |> take_safe_metadata([:repo, :source, :type])
+    |> require_atom_metadata([:repo, :type])
+  end
+
+  defp sanitize_metadata([:ecto, repo_event, :query], metadata)
+       when repo_event in [:repo, :db] do
+    metadata
+    |> take_safe_metadata([:repo, :source, :type])
+    |> require_atom_metadata([:repo, :type])
+  end
+
+  defp sanitize_metadata(_event_name, metadata), do: metadata
+
+  defp take_safe_metadata(metadata, keys) when is_map(metadata) do
+    Map.take(metadata, keys)
+    |> Map.filter(fn {_key, value} -> safe_scalar?(value) end)
+  end
+
+  defp take_safe_metadata(_metadata, _keys), do: %{}
+
+  defp require_atom_metadata(metadata, keys) do
+    Map.filter(metadata, fn {key, value} -> key not in keys or is_atom(value) end)
+  end
+
+  defp safe_scalar?(value) when is_binary(value),
+    do: byte_size(value) <= @max_metadata_binary_bytes
+
+  defp safe_scalar?(value) when is_atom(value) or is_integer(value), do: true
+  defp safe_scalar?(_value), do: false
 
   defp attach_default_handlers(config) do
     events = Keyword.get(config, :events, @default_events)
