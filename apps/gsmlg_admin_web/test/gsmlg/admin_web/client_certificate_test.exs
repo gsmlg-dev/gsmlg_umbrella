@@ -39,6 +39,15 @@ defmodule GSMLG.AdminWeb.ClientCertificateTest do
              ClientCertificate.parse_headers(put_header(headers, "x-client-cert-email", "  "))
   end
 
+  test "rejects an empty certificate" do
+    certificate = client_certificate()
+
+    headers =
+      put_header(client_certificate_headers(certificate), "x-client-cert-certificate-pem", "")
+
+    assert {:error, :empty_certificate} = ClientCertificate.parse_headers(headers)
+  end
+
   test "rejects duplicate certificate headers" do
     certificate = client_certificate()
     headers = client_certificate_headers(certificate)

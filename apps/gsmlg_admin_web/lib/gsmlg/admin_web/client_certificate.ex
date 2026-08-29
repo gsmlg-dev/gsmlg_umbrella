@@ -35,10 +35,15 @@ defmodule GSMLG.AdminWeb.ClientCertificate do
         encoded = hd(grouped[@certificate_header])
         email = hd(grouped[@email_header])
 
-        if Enum.any?([subject, encoded, email], &(String.trim(&1) == "")) do
-          {:error, :blank_header}
-        else
-          parse_certificate(encoded, subject, email)
+        cond do
+          String.trim(subject) == "" or String.trim(email) == "" ->
+            {:error, :blank_header}
+
+          encoded != "" and String.trim(encoded) == "" ->
+            {:error, :blank_header}
+
+          true ->
+            parse_certificate(encoded, subject, email)
         end
     end
   end
