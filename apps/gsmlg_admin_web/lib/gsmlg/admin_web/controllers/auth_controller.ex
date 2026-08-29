@@ -163,8 +163,7 @@ defmodule GSMLG.AdminWeb.AuthController do
         GSMLG.Telemetry.info("Admin client certificate bound",
           metadata: %{
             user_id: user.id,
-            fingerprint: certificate.fingerprint,
-            subject: certificate.subject
+            fingerprint: certificate.fingerprint
           }
         )
 
@@ -186,10 +185,25 @@ defmodule GSMLG.AdminWeb.AuthController do
         |> put_flash(:error, "This certificate is already bound to another user.")
         |> render_sign_in(Auth.sign_in_changeset(%Auth{}, %{}), status: :conflict)
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        GSMLG.Telemetry.warn("Admin client certificate binding failed",
+          metadata: %{
+            user_id: user.id,
+            fingerprint: certificate.fingerprint,
+            reason: certificate_binding_failure_category(reason)
+          }
+        )
+
         conn
         |> put_flash(:error, "The certificate could not be bound. Please try again.")
         |> render_sign_in(Auth.sign_in_changeset(%Auth{}, %{}), status: :unprocessable_entity)
     end
   end
+
+  defp certificate_binding_failure_category(%Ecto.Changeset{}), do: :validation_failed
+
+  defp certificate_binding_failure_category(:client_certificate_binding_failed),
+    do: :binding_failed
+
+  defp certificate_binding_failure_category(_reason), do: :persistence_failed
 end

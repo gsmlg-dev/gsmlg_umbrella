@@ -1,6 +1,7 @@
 defmodule GSMLG.AdminWeb.AuthControllerTest do
   use GSMLG.AdminWeb.ConnCase, async: false
 
+  import ExUnit.CaptureLog
   import GSMLG.AccountsFixtures
   import GSMLG.AdminWeb.ClientCertificateFixtures
 
@@ -151,6 +152,40 @@ defmodule GSMLG.AdminWeb.AuthControllerTest do
       assert get_session(conn, ClientCertificateAuth.auth_method_key()) == "client_certificate"
       assert get_session(conn, ClientCertificateAuth.fingerprint_key()) == certificate.fingerprint
       assert Guardian.Plug.current_resource(conn).id == user.id
+    end
+
+    test "successful enrollment telemetry excludes certificate identity fields", %{conn: conn} do
+      user = user_fixture()
+
+      certificate =
+        client_certificate(%{
+          subject: "CN=private-subject-#{System.unique_integer([:positive])}",
+          email: "private-certificate-#{System.unique_integer([:positive])}@example.test"
+        })
+
+      %{level: previous_log_level} = :logger.get_primary_config()
+
+      {conn, log} =
+        try do
+          Logger.configure(level: :info)
+
+          with_log([level: :info], fn ->
+            conn
+            |> put_client_certificate_headers(certificate)
+            |> post(~p"/sign_in", %{
+              "auth" => %{"username" => user.username, "password" => "some password"}
+            })
+          end)
+        after
+          Logger.configure(level: previous_log_level)
+        end
+
+      assert redirected_to(conn) == ~p"/users/#{user.id}"
+      assert log =~ "Admin client certificate bound"
+      assert log =~ "user_id=#{inspect(user.id)}"
+      assert log =~ "fingerprint=#{inspect(certificate.fingerprint)}"
+      refute log =~ certificate.subject
+      refute log =~ certificate.email
     end
 
     test "ordinary password login records password method and creates no certificate binding", %{
