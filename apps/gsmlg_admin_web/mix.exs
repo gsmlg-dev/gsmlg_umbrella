@@ -24,7 +24,7 @@ defmodule GSMLG.AdminWeb.MixProject do
   def application do
     [
       mod: {GSMLG.AdminWeb.Application, []},
-      extra_applications: [:guardian, :logger, :runtime_tools]
+      extra_applications: [:guardian, :logger, :runtime_tools, :public_key]
     ]
   end
 

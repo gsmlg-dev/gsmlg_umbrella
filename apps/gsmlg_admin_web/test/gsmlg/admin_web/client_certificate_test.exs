@@ -1,0 +1,121 @@
+defmodule GSMLG.AdminWeb.ClientCertificateTest do
+  use ExUnit.Case, async: true
+
+  alias GSMLG.AdminWeb.ClientCertificate
+  alias GSMLG.AdminWeb.ClientCertificateFixtures
+
+  import ClientCertificateFixtures
+
+  test "parses a valid client certificate" do
+    certificate = client_certificate()
+
+    assert {:ok, parsed} =
+             ClientCertificate.parse_headers(client_certificate_headers(certificate))
+
+    assert parsed.certificate_der == certificate.certificate_der
+    assert parsed.fingerprint == certificate.fingerprint
+    assert parsed.pem == certificate.pem
+    assert parsed.subject == certificate.subject
+    assert parsed.email == certificate.email
+  end
+
+  test "rejects headers when all certificate headers are absent" do
+    assert {:error, :missing_headers} = ClientCertificate.parse_headers([])
+  end
+
+  test "rejects incomplete certificate headers" do
+    certificate = client_certificate()
+
+    [first | _] = client_certificate_headers(certificate)
+    assert {:error, :incomplete_headers} = ClientCertificate.parse_headers([first])
+  end
+
+  test "rejects blank certificate headers" do
+    certificate = client_certificate()
+
+    headers = client_certificate_headers(certificate)
+
+    assert {:error, :blank_header} =
+             ClientCertificate.parse_headers(put_header(headers, "x-client-cert-email", "  "))
+  end
+
+  test "rejects duplicate certificate headers" do
+    certificate = client_certificate()
+    headers = client_certificate_headers(certificate)
+    {name, value} = hd(headers)
+
+    assert {:error, :duplicate_header} =
+             ClientCertificate.parse_headers([{name, value} | headers])
+  end
+
+  test "rejects malformed base64" do
+    certificate = client_certificate()
+
+    headers =
+      put_header(
+        client_certificate_headers(certificate),
+        "x-client-cert-certificate-pem",
+        "not-base64"
+      )
+
+    assert {:error, :invalid_base64} = ClientCertificate.parse_headers(headers)
+  end
+
+  test "rejects certificates larger than 16 KiB" do
+    certificate = client_certificate()
+    oversized = Base.encode64(:binary.copy(<<0>>, 16_385))
+
+    headers =
+      put_header(
+        client_certificate_headers(certificate),
+        "x-client-cert-certificate-pem",
+        oversized
+      )
+
+    assert {:error, :certificate_too_large} = ClientCertificate.parse_headers(headers)
+  end
+
+  test "rejects non-X.509 DER" do
+    certificate = client_certificate()
+
+    headers =
+      put_header(
+        client_certificate_headers(certificate),
+        "x-client-cert-certificate-pem",
+        Base.encode64(<<1, 2, 3>>)
+      )
+
+    assert {:error, :invalid_certificate} = ClientCertificate.parse_headers(headers)
+  end
+
+  test "matches header names case-insensitively and preserves subject and email" do
+    certificate =
+      client_certificate(%{subject: "  CN=Exact Subject  ", email: " exact@example.com "})
+
+    headers =
+      client_certificate_headers(certificate)
+      |> Enum.map(fn {name, value} -> {String.upcase(name), value} end)
+
+    assert {:ok, parsed} = ClientCertificate.parse_headers(headers)
+    assert parsed.subject == certificate.subject
+    assert parsed.email == certificate.email
+  end
+
+  test "parses certificate headers from a Plug connection" do
+    certificate = client_certificate()
+
+    conn =
+      Plug.Test.conn(:get, "/")
+      |> put_client_certificate_headers(certificate)
+
+    assert {:ok, parsed} = ClientCertificate.parse_conn(conn)
+    assert parsed.fingerprint == certificate.fingerprint
+  end
+
+  defp put_header(headers, target, value) do
+    Enum.map(headers, fn
+      {^target, _old_value} -> {target, value}
+      pair -> pair
+    end)
+  end
+end

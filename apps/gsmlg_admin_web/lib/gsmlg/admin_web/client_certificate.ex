@@ -1,0 +1,82 @@
+defmodule GSMLG.AdminWeb.ClientCertificate do
+  @max_der_size 16 * 1024
+  @max_base64_size 4 * div(@max_der_size + 2, 3)
+
+  @subject_header "x-client-cert-subject"
+  @certificate_header "x-client-cert-certificate-pem"
+  @email_header "x-client-cert-email"
+  @headers [@subject_header, @certificate_header, @email_header]
+
+  defstruct [:certificate_der, :fingerprint, :pem, :subject, :email]
+
+  def parse_conn(conn), do: parse_headers(conn.req_headers)
+
+  def parse_headers(headers) do
+    grouped =
+      Enum.reduce(headers, %{}, fn {name, value}, acc ->
+        key = String.downcase(name)
+        if key in @headers, do: Map.update(acc, key, [value], &[value | &1]), else: acc
+      end)
+
+    counts = Enum.map(@headers, &length(Map.get(grouped, &1, [])))
+
+    cond do
+      Enum.all?(counts, &(&1 == 0)) ->
+        {:error, :missing_headers}
+
+      Enum.any?(counts, &(&1 > 1)) ->
+        {:error, :duplicate_header}
+
+      not Enum.all?(counts, &(&1 == 1)) ->
+        {:error, :incomplete_headers}
+
+      true ->
+        subject = hd(grouped[@subject_header])
+        encoded = hd(grouped[@certificate_header])
+        email = hd(grouped[@email_header])
+
+        if Enum.any?([subject, encoded, email], &(String.trim(&1) == "")) do
+          {:error, :blank_header}
+        else
+          parse_certificate(encoded, subject, email)
+        end
+    end
+  end
+
+  defp parse_certificate(encoded, _subject, _email) when byte_size(encoded) > @max_base64_size,
+    do: {:error, :certificate_too_large}
+
+  defp parse_certificate(encoded, subject, email) do
+    case Base.decode64(encoded) do
+      :error ->
+        {:error, :invalid_base64}
+
+      {:ok, <<>>} ->
+        {:error, :empty_certificate}
+
+      {:ok, der} when byte_size(der) > @max_der_size ->
+        {:error, :certificate_too_large}
+
+      {:ok, der} ->
+        with :ok <- validate_certificate(der) do
+          {:ok,
+           %__MODULE__{
+             certificate_der: der,
+             fingerprint: :crypto.hash(:sha256, der) |> Base.encode16(case: :lower),
+             pem: :public_key.pem_encode([{:Certificate, der, :not_encrypted}]),
+             subject: subject,
+             email: email
+           }}
+        end
+    end
+  end
+
+  defp validate_certificate(der) do
+    try do
+      :public_key.pkix_decode_cert(der, :otp)
+      :ok
+    catch
+      _, _ -> {:error, :invalid_certificate}
+    end
+  end
+end
