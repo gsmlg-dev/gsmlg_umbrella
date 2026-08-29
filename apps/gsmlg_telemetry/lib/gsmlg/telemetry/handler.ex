@@ -24,6 +24,7 @@ defmodule GSMLG.Telemetry.Handler do
     [:phoenix, :live_view, :mount, :stop],
     [:phoenix, :live_view, :handle_params, :start],
     [:phoenix, :live_view, :handle_params, :stop],
+    [:gsmlg, :repo, :query],
     [:ecto, :repo, :query],
     [:ecto, :db, :query],
     [:vm, :memory],
@@ -146,19 +147,25 @@ defmodule GSMLG.Telemetry.Handler do
   end
 
   defp sanitize_metadata([:phoenix, :repo, :query], metadata) do
-    metadata
-    |> take_safe_metadata([:repo, :source, :type])
-    |> require_atom_metadata([:repo, :type])
+    sanitize_repo_query_metadata(metadata)
+  end
+
+  defp sanitize_metadata([:gsmlg, :repo, :query], metadata) do
+    sanitize_repo_query_metadata(metadata)
   end
 
   defp sanitize_metadata([:ecto, repo_event, :query], metadata)
        when repo_event in [:repo, :db] do
+    sanitize_repo_query_metadata(metadata)
+  end
+
+  defp sanitize_metadata(_event_name, metadata), do: metadata
+
+  defp sanitize_repo_query_metadata(metadata) do
     metadata
     |> take_safe_metadata([:repo, :source, :type])
     |> require_atom_metadata([:repo, :type])
   end
-
-  defp sanitize_metadata(_event_name, metadata), do: metadata
 
   defp take_safe_metadata(metadata, keys) when is_map(metadata) do
     Map.take(metadata, keys)

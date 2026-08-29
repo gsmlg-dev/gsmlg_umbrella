@@ -103,6 +103,52 @@ defmodule GSMLG.Telemetry.HandlerTest do
     end)
   end
 
+  test "redacts metadata from an actual GSMLG Repo query" do
+    event_name = [:gsmlg, :repo, :query]
+    test_handler_id = :gsmlg_repo_query_privacy_test_handler
+
+    sentinels = [
+      "REPO-CERTIFICATE-DER-SENTINEL",
+      "REPO-CERTIFICATE-SUBJECT-SENTINEL",
+      "REPO-CERTIFICATE-EMAIL-SENTINEL"
+    ]
+
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(GSMLG.Repo)
+
+    unless main_handler_attached?(event_name) do
+      :ok = :telemetry.attach(test_handler_id, event_name, &Handler.handle_event/4, %{})
+      on_exit(fn -> :telemetry.detach(test_handler_id) end)
+    end
+
+    reporter_state = :sys.get_state(Reporter)
+    :ets.delete_all_objects(reporter_state.buffer)
+
+    result =
+      GSMLG.Repo.query!(
+        "SELECT $1::text AS der, $2::text AS subject, $3::text AS email",
+        sentinels
+      )
+
+    assert [^sentinels] = result.rows
+
+    assert {^event_name, _measurements, reported_metadata, _timestamp} =
+             reported_event(event_name)
+
+    assert reported_metadata == %{
+             repo: GSMLG.Repo,
+             source: nil,
+             type: :ecto_sql_query
+           }
+
+    refute Enum.any?(sentinels, &(inspect(reported_metadata) =~ &1))
+    refute Map.has_key?(reported_metadata, :query)
+    refute Map.has_key?(reported_metadata, :params)
+    refute Map.has_key?(reported_metadata, :result)
+    refute Map.has_key?(reported_metadata, :options)
+
+    assert main_handler_attached?(event_name)
+  end
+
   test "applies bounded metadata whitelists to every infrastructure event family" do
     sensitive_metadata = %{
       conn: %{secret: "INFRA-CONN-SENTINEL"},
@@ -216,6 +262,12 @@ defmodule GSMLG.Telemetry.HandlerTest do
     Enum.find(:ets.tab2list(reporter_state.buffer), fn
       {^event_name, _measurements, _metadata, _timestamp} -> true
       _event -> false
+    end)
+  end
+
+  defp main_handler_attached?(event_name) do
+    Enum.any?(:telemetry.list_handlers(event_name), fn handler ->
+      handler.id == :gsmlg_telemetry_main_handler and handler.event_name == event_name
     end)
   end
 end
