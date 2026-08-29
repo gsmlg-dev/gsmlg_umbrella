@@ -72,16 +72,15 @@ defmodule GSMLG.AdminWeb.ClientCertificateTest do
 
   test "rejects non-canonical certificate base64" do
     certificate = client_certificate()
-    der = certificate.certificate_der
-    mutated = mutate_final_base64_character(certificate.der_base64)
 
-    assert {:ok, ^der} = Base.decode64(mutated)
+    assert {:ok, <<0>>} = Base.decode64("AB==")
+    assert Base.encode64(<<0>>) == "AA=="
 
     headers =
       put_header(
         client_certificate_headers(certificate),
         "x-client-cert-certificate-pem",
-        mutated
+        "AB=="
       )
 
     assert {:error, :invalid_base64} = ClientCertificate.parse_headers(headers)
@@ -92,6 +91,14 @@ defmodule GSMLG.AdminWeb.ClientCertificateTest do
     headers = put_header(client_certificate_headers(certificate), "x-client-cert-subject", 123)
 
     assert {:error, :invalid_header} = ClientCertificate.parse_headers(headers)
+  end
+
+  test "ignores unrelated opaque headers" do
+    certificate = client_certificate()
+    headers = [{"x-unrelated", <<255>>} | client_certificate_headers(certificate)]
+
+    assert {:ok, parsed} = ClientCertificate.parse_headers(headers)
+    assert parsed.fingerprint == certificate.fingerprint
   end
 
   test "rejects certificates larger than 16 KiB" do
@@ -164,23 +171,5 @@ defmodule GSMLG.AdminWeb.ClientCertificateTest do
       {^target, _old_value} -> {target, value}
       pair -> pair
     end)
-  end
-
-  defp mutate_final_base64_character(encoded) do
-    padding_length =
-      encoded
-      |> String.reverse()
-      |> String.graphemes()
-      |> Enum.take_while(&(&1 == "="))
-      |> length()
-
-    data_length = byte_size(encoded) - padding_length
-    prefix = binary_part(encoded, 0, data_length - 1)
-    final = binary_part(encoded, data_length - 1, 1)
-    alphabet = ~c"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-    index = Enum.find_index(alphabet, &(<<&1>> == final))
-    replacement = Enum.at(alphabet, index + 1)
-
-    prefix <> <<replacement>> <> binary_part(encoded, data_length, padding_length)
   end
 end

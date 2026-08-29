@@ -41,14 +41,20 @@ defmodule GSMLG.AdminWeb.ClientCertificate do
 
   defp collect_headers(headers) when is_list(headers) do
     Enum.reduce_while(headers, {:ok, %{}}, fn
-      {name, value}, {:ok, acc} when is_binary(name) and is_binary(value) ->
-        if String.valid?(name) and String.valid?(value) do
+      {name, value}, {:ok, acc} when is_binary(name) ->
+        if String.valid?(name) do
           key = String.downcase(name)
 
-          grouped =
-            if key in @headers, do: Map.update(acc, key, [value], &[value | &1]), else: acc
-
-          {:cont, {:ok, grouped}}
+          if key in @headers do
+            if is_binary(value) and String.valid?(value) do
+              grouped = Map.update(acc, key, [value], &[value | &1])
+              {:cont, {:ok, grouped}}
+            else
+              {:halt, {:error, :invalid_header}}
+            end
+          else
+            {:cont, {:ok, acc}}
+          end
         else
           {:halt, {:error, :invalid_header}}
         end
