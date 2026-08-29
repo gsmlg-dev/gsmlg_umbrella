@@ -363,7 +363,7 @@ defmodule GSMLG.Telemetry.Handler do
     segments =
       key
       |> to_string()
-      |> String.downcase()
+      |> Macro.underscore()
       |> String.split(~r/[^a-z0-9]+/u, trim: true)
 
     normalized_key = Enum.join(segments, "_")

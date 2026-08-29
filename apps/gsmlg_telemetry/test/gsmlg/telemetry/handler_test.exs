@@ -350,6 +350,43 @@ defmodule GSMLG.Telemetry.HandlerTest do
     assert reported_metadata == %{safe: :retained}
   end
 
+  test "redacts camel-case sensitive custom metadata keys" do
+    sentinel = "CAMEL-CASE-SENSITIVE-SENTINEL"
+
+    metadata = %{
+      :guardianToken => sentinel,
+      :passwordConfirmation => sentinel,
+      :clientCertificateEmail => sentinel,
+      :GuardianToken => sentinel,
+      :ClientCertificateSubject => sentinel,
+      :GuardianJWTToken => sentinel,
+      "guardianToken" => sentinel,
+      "GuardianToken" => sentinel,
+      "passwordConfirmation" => sentinel,
+      "clientCertificateEmail" => sentinel,
+      "ClientCertificateSubject" => sentinel,
+      "clientMTLSCertificateEmail" => sentinel,
+      :connection_state => :connected,
+      :reconnect_count => 2,
+      :result_count => 3,
+      :fingerprint => "sha256:audit-correlation"
+    }
+
+    Handler.handle_event([:custom, :camel_sensitive], %{count: 1}, metadata, %{})
+
+    assert {[:custom, :camel_sensitive], %{count: 1}, reported_metadata, _timestamp} =
+             reported_event([:custom, :camel_sensitive])
+
+    assert reported_metadata == %{
+             connection_state: :connected,
+             reconnect_count: 2,
+             result_count: 3,
+             fingerprint: "sha256:audit-correlation"
+           }
+
+    refute inspect(reported_metadata) =~ sentinel
+  end
+
   test "bounds custom event map size, list length, and nesting depth" do
     max_map = Map.new(1..32, &{"key-#{&1}", &1})
 
