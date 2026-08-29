@@ -496,7 +496,7 @@ def bind_user_client_certificate(
       subject: subject,
       email: email
     })
-    |> Repo.insert(on_conflict: :nothing, conflict_target: [:fingerprint])
+    |> Repo.insert(on_conflict: :nothing, conflict_target: [:fingerprint], log: false)
 
   case insert_result do
     {:ok, _candidate} -> resolve_client_certificate_owner(fingerprint, user_id)

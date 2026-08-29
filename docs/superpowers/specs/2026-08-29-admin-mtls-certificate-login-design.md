@@ -334,6 +334,8 @@ telemetry events remain active.
 - Rebinding it to another user fails without changing ownership.
 - One user may own multiple certificates.
 - Deleting a user removes dependent bindings.
+- The binding insert suppresses Ecto query logging so DER, subject, and email
+  values never appear in debug logs.
 
 ### Parser and browser plug tests
 

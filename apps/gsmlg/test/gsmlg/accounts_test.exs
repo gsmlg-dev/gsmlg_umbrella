@@ -1,6 +1,8 @@
 defmodule GSMLG.AccountsTest do
   use GSMLG.DataCase
 
+  import ExUnit.CaptureLog
+
   alias GSMLG.Accounts
 
   describe "users" do
@@ -244,6 +246,29 @@ defmodule GSMLG.AccountsTest do
       assert {:ok, _user} = Accounts.delete_user(user)
       assert GSMLG.Repo.get(UserClientCertificate, first.id) == nil
       assert GSMLG.Repo.get(UserClientCertificate, second.id) == nil
+    end
+
+    test "binding does not log certificate values" do
+      user = user_fixture()
+      previous_level = Logger.level()
+      Logger.configure(level: :debug)
+      on_exit(fn -> Logger.configure(level: previous_level) end)
+
+      attrs = %{
+        certificate_der: "CERTIFICATE-DER-LOG-SENTINEL",
+        subject: "CERTIFICATE-SUBJECT-LOG-SENTINEL",
+        email: "CERTIFICATE-EMAIL-LOG-SENTINEL"
+      }
+
+      log =
+        capture_log([level: :debug], fn ->
+          assert {:ok, %UserClientCertificate{}} =
+                   Accounts.bind_user_client_certificate(user, attrs)
+        end)
+
+      refute log =~ attrs.certificate_der
+      refute log =~ attrs.subject
+      refute log =~ attrs.email
     end
   end
 end
