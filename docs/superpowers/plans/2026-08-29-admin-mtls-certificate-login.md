@@ -933,7 +933,18 @@ test "missing certificate preserves a password-created session", %{conn: conn} d
 end
 ```
 
-Also add a disabled test that temporarily sets the toggle to false, sends a bound certificate without a cookie, and expects redirect to `/sign_in`.
+Also add cases for each reviewed precedence and cleanup boundary: a malformed
+Guardian cookie with a bound certificate still returns `200`; a pre-revoked
+valid cookie is replaced and returns `200`; a different-user cookie is replaced;
+the same owner’s access token is preserved; the same owner’s non-access token is
+rotated to a fresh access token; an unbound certificate, missing certificate,
+and malformed certificate clear a certificate-created session (while a
+password-created session remains); and every stale
+certificate-session fingerprint is removed. Assert GuardianDB revocation for
+each replaced old token with `Guardian.resource_from_token/2` returning
+`{:error, :token_not_found}`. Also add a disabled test that temporarily sets the
+toggle to false, sends a bound certificate without a cookie, and expects the
+existing password-only redirect to `/sign_in`.
 
 - [ ] **Step 2: Run the plug test and verify the missing behavior**
 
@@ -941,7 +952,10 @@ Also add a disabled test that temporarily sets the toggle to false, sends a boun
 mix test apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs
 ```
 
-Expected: bound-certificate tests redirect because no certificate plug exists.
+Expected red failures cover bound-certificate access, malformed and revoked
+cookie recovery, cross-user replacement, same-owner token preservation and
+rotation, unbound/missing/malformed clearing, stale-fingerprint cleanup, and
+GuardianDB revocation before the plug is implemented.
 
 - [ ] **Step 3: Implement the browser plug**
 
@@ -1842,7 +1856,127 @@ pre-existing failures as fixed.
 
 ---
 
-### Task 7: Run scoped verification and browser acceptance
+### Task 7: Harden telemetry privacy and lifecycle logging
+
+**Files:**
+
+- Modify: `apps/gsmlg_telemetry/lib/gsmlg/telemetry/handler.ex`
+- Create: `apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs`
+- Modify: `config/config.exs`
+- Modify: `apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex`
+- Test: `apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs`
+
+Do not modify `apps/gsmlg_telemetry/lib/gsmlg/telemetry/backends/file.ex`; the
+sanitizer belongs at the shared Handler boundary before every consumer.
+
+- [ ] **Step 1: Write red tests for real endpoint and Repo leaks**
+
+In the new Handler test, send endpoint telemetry through
+`GSMLG.Telemetry.Handler.handle_event/4` with a real `Plug.Conn` containing
+sentinels in request params, certificate headers, assigns, session, and
+endpoint options. Assert the event observed through Reporter contains only the
+bounded endpoint fields (method, request path, status, and request ID), with no
+sentinel in the reported metadata. Execute a parameterized
+`GSMLG.Repo.query!/2` that returns DER, subject, and email sentinel values and
+assert the real `[:gsmlg, :repo, :query]` event exposes only the bounded repo,
+source, and type fields; query, params, result, options, and all sentinels are
+absent. Run:
+
+```bash
+mix test apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs
+```
+
+Expected: these tests fail before the Handler boundary sanitization exists.
+
+- [ ] **Step 2: Implement bounded known-event derivation**
+
+Before forwarding to Metrics, Reporter, or any backend, derive bounded
+whitelists for the real event families:
+
+- Phoenix endpoint start/stop: method, request path, status, request ID.
+- Phoenix router-dispatch start/stop: route plus validated plug, plug options,
+  and action atoms.
+- Phoenix LiveView mount/handle-params start/stop: view and live action only.
+- Phoenix, GSMLG, and Ecto Repo/DB query events: repo, source, and query type
+  only, preserving actual `GSMLG.Repo` identity without query payloads.
+
+Unknown/custom events use the bounded recursive sanitizer described next. No
+known-event path may forward a raw Conn, Socket, query, params, result, options,
+headers, or session.
+
+- [ ] **Step 3: Write red tests for custom metadata limits and key variants**
+
+Extend Handler tests with a custom event containing structs and process terms,
+sensitive values under `subject`/`email` key segments in snake, kebab, camel,
+Pascal, and acronym forms, plus password/token/certificate/header/params/query
+variants. Assert those entries are dropped while the safe `fingerprint` and
+safe counters such as `reconnect_count` remain. Add oversized binary, map/list,
+depth, and aggregate-node cases covering the exact limits: valid UTF-8 binaries
+at most 512 bytes, containers at most 32 entries, depth at most 4, and a global
+budget of 256 nodes. Structs and process terms must never be inspected or
+forwarded. Run the focused Handler test again and observe the expected red
+results before implementation.
+
+- [ ] **Step 4: Implement custom sanitization and defense-in-depth logging rules**
+
+Normalize metadata key names before matching sensitive segments so
+snake/kebab/camel/Pascal/acronym variants of subject, email, password, token,
+certificate, headers, params, session, query, result, and related keys are
+redacted. Enforce the 512-byte, 32-entry, depth-4, and global-256 bounds while
+recursing; reject structs/process terms; preserve only explicitly safe
+correlation keys such as `fingerprint` and bounded counters. Keep successful
+certificate telemetry to user ID plus fingerprint and conflict/failure
+telemetry to bounded category, relevant IDs, and fingerprint.
+
+Set `config/config.exs` Phoenix `filter_parameters` to
+`password`, `password_confirmation`, `token`, and `certificate`. Ensure all
+three admin LiveView macros use `use Phoenix.LiveView, log: false`; the real
+connected GaoNote mount sentinel test must prove Phoenix.LiveView.Logger emits
+neither the session token nor fingerprint while telemetry lifecycle events
+remain active. The existing Task 6 hook test is the executable browser-level
+coverage for this rule.
+
+- [ ] **Step 5: Run focused privacy and isolation coverage**
+
+Run the Handler test, the real connected LiveView logger test, the consolidated
+certificate transport-isolation test, and the certificate plug test:
+
+```bash
+mix test \
+  apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs \
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/client_certificate_isolation_test.exs \
+  apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs
+```
+
+Expected: focused telemetry redaction, bounded traversal, LiveView log
+suppression, and transport-isolation assertions pass. The shared file backend
+implementation remains unchanged.
+
+- [ ] **Step 6: Format, diff-check, and commit the hardening slice**
+
+```bash
+mix format \
+  apps/gsmlg_telemetry/lib/gsmlg/telemetry/handler.ex \
+  apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs \
+  config/config.exs \
+  apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex
+git add \
+  apps/gsmlg_telemetry/lib/gsmlg/telemetry/handler.ex \
+  apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs \
+  config/config.exs \
+  apps/gsmlg_admin_web/lib/gsmlg/admin_web.ex
+git diff --check
+git commit -m "fix(telemetry): harden mTLS privacy boundaries"
+```
+
+Expected: only the Handler, its focused test, Phoenix parameter filter, and
+LiveView macro logging configuration are in this task’s implementation slice;
+the file backend is untouched.
+
+---
+
+### Task 8: Run scoped verification and browser acceptance
 
 **Files:**
 
@@ -1861,9 +1995,8 @@ mix test \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/plugs/client_certificate_auth_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/auth_controller_test.exs \
   apps/gsmlg_admin_web/test/gsmlg/admin_web/live/hooks/assign_current_user_test.exs \
-  apps/gsmlg_admin_web/test/gsmlg/admin_web/controllers/proxy_rules_source_controller_test.exs \
   apps/gsmlg_component/test/gsmlg/component_test.exs \
-  apps/gsmlg_telemetry/test/
+  apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs
 ```
 
 Expected: the in-scope focused tests pass. Four unrelated MCP mutation failures
@@ -1885,6 +2018,7 @@ mix format --check-formatted \
   apps/gsmlg/test/gsmlg/accounts_test.exs \
   apps/gsmlg/priv/repo/migrations/20260829000000_create_user_client_certificates.exs \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/client_certificate.ex \
+  apps/gsmlg_admin_web/mix.exs \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/plugs/client_certificate_auth.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/guardian/optional_web_auth_error_handler.ex \
   apps/gsmlg_admin_web/lib/gsmlg/admin_web/router.ex \
@@ -1905,7 +2039,6 @@ mix format --check-formatted \
   apps/gsmlg_telemetry/test/gsmlg/telemetry/handler_test.exs \
   config/config.exs
 mix compile --warnings-as-errors
-git diff --check
 ```
 
 Expected: formatting and whitespace checks pass. Strict umbrella compilation
