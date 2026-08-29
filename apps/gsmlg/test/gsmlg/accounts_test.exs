@@ -172,4 +172,78 @@ defmodule GSMLG.AccountsTest do
       assert %Ecto.Changeset{} = Accounts.change_user_token(user_token)
     end
   end
+
+  describe "user client certificates" do
+    alias GSMLG.Accounts.User
+    alias GSMLG.Accounts.UserClientCertificate
+
+    import GSMLG.AccountsFixtures
+
+    test "binds DER to a user and loads its authoritative owner" do
+      user = user_fixture()
+      attrs = client_certificate_attrs()
+
+      assert {:ok, %UserClientCertificate{} = binding} =
+               Accounts.bind_user_client_certificate(user, attrs)
+
+      expected_fingerprint =
+        :crypto.hash(:sha256, attrs.certificate_der)
+        |> Base.encode16(case: :lower)
+
+      assert binding.user_id == user.id
+      assert binding.certificate_der == attrs.certificate_der
+      assert binding.fingerprint == expected_fingerprint
+      assert binding.subject == attrs.subject
+      assert binding.email == attrs.email
+
+      loaded = Accounts.get_user_client_certificate_by_fingerprint(expected_fingerprint)
+      assert %User{id: user_id} = loaded.user
+      assert user_id == user.id
+    end
+
+    test "rebinding the same certificate to the same user is idempotent" do
+      user = user_fixture()
+      attrs = client_certificate_attrs()
+
+      assert {:ok, first} = Accounts.bind_user_client_certificate(user, attrs)
+
+      assert {:ok, second} =
+               Accounts.bind_user_client_certificate(user, %{
+                 attrs
+                 | subject: "CN=Changed Display Value",
+                   email: "changed@example.test"
+               })
+
+      assert second.id == first.id
+      assert second.subject == attrs.subject
+      assert second.email == attrs.email
+    end
+
+    test "a certificate cannot be rebound to another user" do
+      owner = user_fixture(%{username: "cert_owner", email: "owner@example.test"})
+      other = user_fixture(%{username: "cert_other", email: "other@example.test"})
+      attrs = client_certificate_attrs()
+
+      assert {:ok, binding} = Accounts.bind_user_client_certificate(owner, attrs)
+
+      assert {:error, {:client_certificate_already_bound, owner_id}} =
+               Accounts.bind_user_client_certificate(other, attrs)
+
+      assert owner_id == owner.id
+
+      assert Accounts.get_user_client_certificate_by_fingerprint(binding.fingerprint).user_id ==
+               owner.id
+    end
+
+    test "one user can own multiple certificates and deletion cascades" do
+      user = user_fixture()
+      first = user_client_certificate_fixture(user)
+      second = user_client_certificate_fixture(user)
+
+      refute first.id == second.id
+      assert {:ok, _user} = Accounts.delete_user(user)
+      assert GSMLG.Repo.get(UserClientCertificate, first.id) == nil
+      assert GSMLG.Repo.get(UserClientCertificate, second.id) == nil
+    end
+  end
 end

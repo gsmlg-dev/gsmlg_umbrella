@@ -38,6 +38,24 @@ defmodule GSMLG.AccountsFixtures do
     user_token
   end
 
+  def client_certificate_attrs(overrides \\ %{}) do
+    Map.merge(
+      %{
+        certificate_der: :crypto.strong_rand_bytes(64),
+        subject: "CN=Admin Client,O=GSMLG Test",
+        email: "admin-client@example.test"
+      },
+      Map.new(overrides)
+    )
+  end
+
+  def user_client_certificate_fixture(user, attrs \\ %{}) do
+    {:ok, binding} =
+      GSMLG.Accounts.bind_user_client_certificate(user, client_certificate_attrs(attrs))
+
+    binding
+  end
+
   ## Phoenix 1.8 Scope Fixtures
 
   @doc """

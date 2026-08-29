@@ -1,6 +1,7 @@
 defmodule GSMLG.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
+  alias GSMLG.Accounts.UserClientCertificate
   alias GSMLG.Accounts.UserToken
   alias GSMLG.Accounts.User
   alias GSMLG.Accounts.Auth
@@ -30,6 +31,7 @@ defmodule GSMLG.Accounts.User do
     field(:email_confirmed_at, :utc_datetime)
 
     has_many(:tokens, UserToken, foreign_key: :sub)
+    has_many(:client_certificates, UserClientCertificate, foreign_key: :user_id)
 
     timestamps()
   end

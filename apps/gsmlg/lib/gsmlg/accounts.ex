@@ -7,6 +7,7 @@ defmodule GSMLG.Accounts do
   alias GSMLG.Repo
 
   alias GSMLG.Accounts.User
+  alias GSMLG.Accounts.UserClientCertificate
   alias GSMLG.Accounts.UserToken
   alias GSMLG.Accounts.Scope
 
@@ -136,6 +137,54 @@ defmodule GSMLG.Accounts do
   """
   def change_user(%User{} = user, attrs \\ %{}) do
     User.changeset(user, attrs)
+  end
+
+  def get_user_client_certificate_by_fingerprint(fingerprint) when is_binary(fingerprint) do
+    from(binding in UserClientCertificate,
+      join: user in assoc(binding, :user),
+      where: binding.fingerprint == ^fingerprint,
+      preload: [user: user]
+    )
+    |> Repo.one()
+  end
+
+  def bind_user_client_certificate(
+        %User{id: user_id},
+        %{certificate_der: certificate_der, subject: subject, email: email}
+      )
+      when is_binary(certificate_der) and is_binary(subject) and is_binary(email) do
+    fingerprint =
+      :crypto.hash(:sha256, certificate_der)
+      |> Base.encode16(case: :lower)
+
+    insert_result =
+      %UserClientCertificate{}
+      |> UserClientCertificate.create_changeset(%{
+        user_id: user_id,
+        fingerprint: fingerprint,
+        certificate_der: certificate_der,
+        subject: subject,
+        email: email
+      })
+      |> Repo.insert(on_conflict: :nothing, conflict_target: [:fingerprint])
+
+    case insert_result do
+      {:ok, _candidate} -> resolve_client_certificate_owner(fingerprint, user_id)
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  defp resolve_client_certificate_owner(fingerprint, requested_user_id) do
+    case get_user_client_certificate_by_fingerprint(fingerprint) do
+      %UserClientCertificate{user_id: ^requested_user_id} = binding ->
+        {:ok, binding}
+
+      %UserClientCertificate{user_id: owner_user_id} ->
+        {:error, {:client_certificate_already_bound, owner_user_id}}
+
+      nil ->
+        {:error, :client_certificate_binding_failed}
+    end
   end
 
   alias GSMLG.Accounts.UserToken
