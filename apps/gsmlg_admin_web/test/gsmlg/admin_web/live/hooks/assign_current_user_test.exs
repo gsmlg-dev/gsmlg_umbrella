@@ -68,6 +68,51 @@ defmodule GSMLG.AdminWeb.Live.Hooks.AssignCurrentUserTest do
     assert %{log: false} = GSMLG.AdminWeb.S3Live.Index.__live__()
   end
 
+  test "connected GaoNote LiveView does not log the certificate session", %{conn: conn} do
+    original_level = Logger.level()
+    original_ecto_levels = Logger.get_module_level(Ecto.Adapters.SQL)
+    Logger.configure(level: :debug)
+    Logger.put_module_level(Ecto.Adapters.SQL, :info)
+
+    on_exit(fn ->
+      Logger.configure(level: original_level)
+
+      case original_ecto_levels do
+        [{Ecto.Adapters.SQL, level}] -> Logger.put_module_level(Ecto.Adapters.SQL, level)
+        [] -> Logger.delete_module_level(Ecto.Adapters.SQL)
+      end
+    end)
+
+    user = user_fixture()
+    certificate = client_certificate()
+    assert {:ok, _binding} = bind_certificate(user, certificate)
+
+    assert {:ok, guardian_token_sentinel, _claims} =
+             Guardian.encode_and_sign(user, %{}, token_type: "access")
+
+    fingerprint_sentinel = certificate.fingerprint
+    headers = client_certificate_headers(certificate)
+
+    conn =
+      conn
+      |> Plug.Test.init_test_session(%{})
+      |> put_session(:guardian_default_token, guardian_token_sentinel)
+      |> put_session(ClientCertificateAuth.auth_method_key(), "client_certificate")
+      |> put_session(ClientCertificateAuth.fingerprint_key(), fingerprint_sentinel)
+      |> put_client_certificate_headers(certificate)
+      |> put_private(:live_view_connect_info, %{x_headers: headers})
+
+    log =
+      capture_log([level: :debug], fn ->
+        assert {:ok, _view, _html} = live(conn, ~p"/gao_notes")
+      end)
+
+    refute log =~ guardian_token_sentinel
+    refute log =~ fingerprint_sentinel
+    refute log =~ "MOUNT GSMLG.AdminWeb.GaoNoteLive.DashboardLive"
+    refute log =~ "Session:"
+  end
+
   test "matching bound certificate permits a LiveView connection", %{conn: conn} do
     user = user_fixture()
     certificate = client_certificate()
