@@ -126,6 +126,39 @@ defmodule GSMLG.AdminWeb.Live.Hooks.AssignCurrentUserTest do
     )
   end
 
+  test "aws_live_view macro validates certificate reconnects", %{conn: conn} do
+    {conn, _user, _certificate} = certificate_conn(conn)
+
+    assert_certificate_expired(
+      conn
+      |> put_private(:live_view_connect_info, %{x_headers: []})
+      |> live(~p"/aws/s3/buckets")
+    )
+  end
+
+  test "disabled certificate authentication preserves certificate-marked Guardian sessions", %{
+    conn: conn
+  } do
+    endpoint = GSMLG.AdminWeb.Endpoint
+    config = Application.get_env(:gsmlg_admin_web, endpoint, [])
+
+    Application.put_env(
+      :gsmlg_admin_web,
+      endpoint,
+      Keyword.put(config, :client_certificate_auth, false)
+    )
+
+    user = user_fixture()
+
+    conn =
+      conn
+      |> put_guardian_session(user, "client_certificate", String.duplicate("a", 64))
+      |> put_private(:live_view_connect_info, %{x_headers: []})
+
+    assert {:ok, _view, html} = live(conn, ~p"/gao_notes")
+    assert html =~ ~s(id="admin-sign-out")
+  end
+
   defp certificate_conn(conn) do
     user = user_fixture()
     certificate = client_certificate()
