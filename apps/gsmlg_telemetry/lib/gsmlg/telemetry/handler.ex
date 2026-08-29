@@ -33,6 +33,28 @@ defmodule GSMLG.Telemetry.Handler do
   ]
 
   @max_metadata_binary_bytes 512
+  @max_custom_metadata_entries 32
+  @max_custom_metadata_depth 4
+  @sensitive_metadata_key_fragments ~w(
+    password
+    password_confirmation
+    token
+    authorization
+    cookie
+    session
+    certificate
+    certificate_der
+    pem
+    params
+    body_params
+    headers
+    conn
+    socket
+    assigns
+    private
+    query
+    result
+  )
 
   defstruct [:handlers, :config]
 
@@ -129,7 +151,7 @@ defmodule GSMLG.Telemetry.Handler do
 
   defp sanitize_metadata([:phoenix, :endpoint, phase], metadata)
        when phase in [:start, :stop] do
-    take_safe_metadata(metadata, [:request_id, :method, :request_path, :status])
+    sanitize_endpoint_metadata(metadata)
   end
 
   defp sanitize_metadata([:phoenix, :router_dispatch, phase], metadata)
@@ -141,9 +163,7 @@ defmodule GSMLG.Telemetry.Handler do
 
   defp sanitize_metadata([:phoenix, :live_view, lifecycle, phase], metadata)
        when lifecycle in [:mount, :handle_params] and phase in [:start, :stop] do
-    metadata
-    |> take_safe_metadata([:view, :action])
-    |> require_atom_metadata([:view, :action])
+    sanitize_live_view_metadata(metadata)
   end
 
   defp sanitize_metadata([:phoenix, :repo, :query], metadata) do
@@ -159,13 +179,69 @@ defmodule GSMLG.Telemetry.Handler do
     sanitize_repo_query_metadata(metadata)
   end
 
-  defp sanitize_metadata(_event_name, metadata), do: metadata
+  defp sanitize_metadata(_event_name, metadata) do
+    case sanitize_custom_value(metadata, 0) do
+      {:ok, sanitized} when is_map(sanitized) -> sanitized
+      _other -> %{}
+    end
+  end
 
   defp sanitize_repo_query_metadata(metadata) do
     metadata
     |> take_safe_metadata([:repo, :source, :type])
     |> require_atom_metadata([:repo, :type])
   end
+
+  defp sanitize_endpoint_metadata(%{conn: conn}) when is_map(conn) do
+    %{}
+    |> put_safe_metadata(:method, Map.get(conn, :method))
+    |> put_safe_metadata(:request_path, Map.get(conn, :request_path))
+    |> put_safe_metadata(:status, Map.get(conn, :status))
+    |> put_safe_metadata(:request_id, request_id_from_conn(conn))
+  end
+
+  defp sanitize_endpoint_metadata(_metadata), do: %{}
+
+  defp sanitize_live_view_metadata(%{socket: socket}) when is_map(socket) do
+    assigns = Map.get(socket, :assigns, %{})
+    action = if is_map(assigns), do: Map.get(assigns, :live_action), else: nil
+
+    %{}
+    |> put_atom_metadata(:view, Map.get(socket, :view))
+    |> put_atom_metadata(:action, action)
+  end
+
+  defp sanitize_live_view_metadata(_metadata), do: %{}
+
+  defp request_id_from_conn(%{resp_headers: headers}) when is_list(headers) do
+    find_header(headers, "x-request-id", 0)
+  end
+
+  defp request_id_from_conn(_conn), do: nil
+
+  defp find_header(_headers, _name, @max_custom_metadata_entries), do: nil
+  defp find_header([], _name, _count), do: nil
+
+  defp find_header([{name, value} | _headers], name, _count) when is_binary(value),
+    do: value
+
+  defp find_header([_header | headers], name, count),
+    do: find_header(headers, name, count + 1)
+
+  defp find_header(_improper, _name, _count), do: nil
+
+  defp put_safe_metadata(metadata, _key, nil), do: metadata
+
+  defp put_safe_metadata(metadata, key, value) do
+    if safe_scalar?(value), do: Map.put(metadata, key, value), else: metadata
+  end
+
+  defp put_atom_metadata(metadata, _key, nil), do: metadata
+
+  defp put_atom_metadata(metadata, key, value) when is_atom(value),
+    do: Map.put(metadata, key, value)
+
+  defp put_atom_metadata(metadata, _key, _value), do: metadata
 
   defp take_safe_metadata(metadata, keys) when is_map(metadata) do
     Map.take(metadata, keys)
@@ -178,11 +254,76 @@ defmodule GSMLG.Telemetry.Handler do
     Map.filter(metadata, fn {key, value} -> key not in keys or is_atom(value) end)
   end
 
-  defp safe_scalar?(value) when is_binary(value),
-    do: byte_size(value) <= @max_metadata_binary_bytes
+  defp safe_scalar?(value) when is_binary(value) do
+    byte_size(value) <= @max_metadata_binary_bytes and String.valid?(value)
+  end
 
   defp safe_scalar?(value) when is_atom(value) or is_integer(value), do: true
   defp safe_scalar?(_value), do: false
+
+  defp sanitize_custom_value(value, _depth) when is_binary(value) do
+    if byte_size(value) <= @max_metadata_binary_bytes and String.valid?(value) do
+      {:ok, value}
+    else
+      :drop
+    end
+  end
+
+  defp sanitize_custom_value(value, _depth) when is_atom(value) or is_integer(value),
+    do: {:ok, value}
+
+  defp sanitize_custom_value(value, _depth) when is_struct(value), do: :drop
+
+  defp sanitize_custom_value(value, depth)
+       when is_map(value) and depth < @max_custom_metadata_depth and
+              map_size(value) <= @max_custom_metadata_entries do
+    sanitized =
+      Enum.reduce(value, %{}, fn {key, nested_value}, acc ->
+        with true <- safe_custom_key?(key),
+             false <- sensitive_metadata_key?(key),
+             {:ok, safe_value} <- sanitize_custom_value(nested_value, depth + 1) do
+          Map.put(acc, key, safe_value)
+        else
+          _unsafe -> acc
+        end
+      end)
+
+    {:ok, sanitized}
+  end
+
+  defp sanitize_custom_value(value, depth)
+       when is_list(value) and depth < @max_custom_metadata_depth do
+    sanitize_custom_list(value, depth + 1, 0, [])
+  end
+
+  defp sanitize_custom_value(_value, _depth), do: :drop
+
+  defp sanitize_custom_list([], _depth, _count, acc), do: {:ok, Enum.reverse(acc)}
+
+  defp sanitize_custom_list([_head | _tail], _depth, @max_custom_metadata_entries, _acc),
+    do: :drop
+
+  defp sanitize_custom_list([head | tail], depth, count, acc) do
+    case sanitize_custom_value(head, depth) do
+      {:ok, safe_value} -> sanitize_custom_list(tail, depth, count + 1, [safe_value | acc])
+      :drop -> sanitize_custom_list(tail, depth, count + 1, acc)
+    end
+  end
+
+  defp sanitize_custom_list(_improper, _depth, _count, _acc), do: :drop
+
+  defp safe_custom_key?(key) when is_atom(key), do: true
+
+  defp safe_custom_key?(key) when is_binary(key),
+    do: byte_size(key) <= @max_metadata_binary_bytes and String.valid?(key)
+
+  defp safe_custom_key?(_key), do: false
+
+  defp sensitive_metadata_key?(key) do
+    normalized_key = key |> to_string() |> String.downcase()
+
+    Enum.any?(@sensitive_metadata_key_fragments, &String.contains?(normalized_key, &1))
+  end
 
   defp attach_default_handlers(config) do
     events = Keyword.get(config, :events, @default_events)

@@ -17,10 +17,7 @@ defmodule GSMLG.Telemetry.HandlerTest do
       password: "PASSWORD-SENTINEL",
       assigned_certificate: "ASSIGNED-CERTIFICATE-SENTINEL",
       guardian_token: "GUARDIAN-TOKEN-SENTINEL",
-      metadata_params: "METADATA-PARAMS-SENTINEL",
-      metadata_session: "METADATA-SESSION-SENTINEL",
-      metadata_headers: "METADATA-HEADERS-SENTINEL",
-      metadata_socket: "METADATA-SOCKET-SENTINEL"
+      options: "ENDPOINT-OPTIONS-SENTINEL"
     }
 
     conn =
@@ -29,40 +26,38 @@ defmodule GSMLG.Telemetry.HandlerTest do
       |> Plug.Conn.put_req_header("x-client-cert-subject", sentinels.subject)
       |> Plug.Conn.put_req_header("x-client-cert-email", sentinels.email)
       |> Plug.Conn.assign(:client_certificate, sentinels.assigned_certificate)
+      |> Plug.Conn.put_resp_header("x-request-id", "request-123")
       |> Map.update!(:private, fn private ->
         Map.put(private, :plug_session, %{
           "guardian_default_token" => sentinels.guardian_token
         })
       end)
+      |> Map.put(:status, 200)
 
     metadata = %{
       conn: conn,
-      headers: %{client_certificate: sentinels.metadata_headers},
-      method: "POST",
-      params: %{password: sentinels.metadata_params},
-      request_id: "request-123",
-      request_path: "/admin/sign-in",
-      session: %{token: sentinels.metadata_session},
-      socket: %{assigns: sentinels.metadata_socket},
-      status: 200
+      options: %{log: sentinels.options}
     }
 
-    Handler.handle_event([:phoenix, :endpoint, :stop], %{duration: 1}, metadata, %{})
+    Enum.each([:start, :stop], fn phase ->
+      event_name = [:phoenix, :endpoint, phase]
+      Handler.handle_event(event_name, %{duration: 1}, metadata, %{})
 
-    assert {[:phoenix, :endpoint, :stop], %{duration: 1}, reported_metadata, _timestamp} =
-             reported_event([:phoenix, :endpoint, :stop])
+      assert {^event_name, %{duration: 1}, reported_metadata, _timestamp} =
+               reported_event(event_name)
 
-    assert reported_metadata == %{
-             method: "POST",
-             request_id: "request-123",
-             request_path: "/admin/sign-in",
-             status: 200
-           }
+      assert reported_metadata == %{
+               method: "POST",
+               request_id: "request-123",
+               request_path: "/admin/sign-in",
+               status: 200
+             }
 
-    inspected_metadata = inspect(reported_metadata)
+      inspected_metadata = inspect(reported_metadata)
 
-    Enum.each(sentinels, fn {_name, sentinel} ->
-      refute inspected_metadata =~ sentinel
+      Enum.each(sentinels, fn {_name, sentinel} ->
+        refute inspected_metadata =~ sentinel
+      end)
     end)
   end
 
@@ -149,9 +144,50 @@ defmodule GSMLG.Telemetry.HandlerTest do
     assert main_handler_attached?(event_name)
   end
 
-  test "applies bounded metadata whitelists to every infrastructure event family" do
+  test "derives bounded LiveView metadata from the socket" do
+    sentinel = "LIVEVIEW-SENSITIVE-SENTINEL"
+
+    socket = %Phoenix.LiveView.Socket{
+      view: GSMLG.AdminWeb.GaoNoteLive.Index,
+      assigns: %{__changed__: %{}, live_action: :index, token: sentinel}
+    }
+
+    metadata = %{
+      socket: socket,
+      params: %{"token" => sentinel},
+      session: %{"guardian_default_token" => sentinel},
+      uri: "https://example.com/admin?token=#{sentinel}"
+    }
+
+    event_names = [
+      [:phoenix, :live_view, :mount, :start],
+      [:phoenix, :live_view, :mount, :stop],
+      [:phoenix, :live_view, :handle_params, :start],
+      [:phoenix, :live_view, :handle_params, :stop]
+    ]
+
+    Enum.each(event_names, fn event_name ->
+      Handler.handle_event(event_name, %{duration: 1}, metadata, %{})
+
+      assert {^event_name, %{duration: 1}, reported_metadata, _timestamp} =
+               reported_event(event_name)
+
+      assert reported_metadata == %{
+               view: GSMLG.AdminWeb.GaoNoteLive.Index,
+               action: :index
+             }
+
+      refute inspect(reported_metadata) =~ sentinel
+    end)
+  end
+
+  test "applies bounded metadata whitelists to router and query event families" do
+    conn =
+      Plug.Test.conn(:get, "/admin/123")
+      |> Plug.Conn.put_req_header("authorization", "INFRA-CONN-SENTINEL")
+
     sensitive_metadata = %{
-      conn: %{secret: "INFRA-CONN-SENTINEL"},
+      conn: conn,
       headers: [authorization: "INFRA-HEADERS-SENTINEL"],
       params: %{password: "INFRA-PARAMS-SENTINEL"},
       path_params: %{id: "INFRA-PATH-PARAMS-SENTINEL"},
@@ -162,25 +198,10 @@ defmodule GSMLG.Telemetry.HandlerTest do
     }
 
     event_cases = [
-      {[:phoenix, :endpoint, :start],
-       %{
-         method: "GET",
-         request_id: "request-start",
-         request_path: "/admin",
-         status: 101
-       }},
       {[:phoenix, :router_dispatch, :start],
        %{route: "/admin/:id", plug: GSMLG.AdminWeb.Router, plug_opts: :show, action: :show}},
       {[:phoenix, :router_dispatch, :stop],
        %{route: "/admin/:id", plug: GSMLG.AdminWeb.Router, plug_opts: :show, action: :show}},
-      {[:phoenix, :live_view, :mount, :start],
-       %{view: GSMLG.AdminWeb.GaoNoteLive.Index, action: :index}},
-      {[:phoenix, :live_view, :mount, :stop],
-       %{view: GSMLG.AdminWeb.GaoNoteLive.Index, action: :index}},
-      {[:phoenix, :live_view, :handle_params, :start],
-       %{view: GSMLG.AdminWeb.GaoNoteLive.Index, action: :index}},
-      {[:phoenix, :live_view, :handle_params, :stop],
-       %{view: GSMLG.AdminWeb.GaoNoteLive.Index, action: :index}},
       {[:phoenix, :repo, :query],
        %{repo: GSMLG.Repo, source: "user_client_certificates", type: :ecto_sql_query}},
       {[:ecto, :db, :query],
@@ -244,6 +265,87 @@ defmodule GSMLG.Telemetry.HandlerTest do
 
     assert {[:gsmlg, :log], %{count: 1}, ^metadata, _timestamp} =
              reported_event([:gsmlg, :log])
+  end
+
+  test "bounds and redacts sensitive custom event metadata before reporting" do
+    sentinel = "CUSTOM-SENSITIVE-SENTINEL"
+    [port | _other_ports] = Port.list()
+
+    conn =
+      Plug.Test.conn(:post, "/admin/sign-in", %{"password" => sentinel})
+      |> Plug.Conn.put_req_header("authorization", sentinel)
+      |> Plug.Conn.put_req_header("cookie", sentinel)
+      |> Plug.Conn.put_req_header("x-client-cert-certificate-pem", sentinel)
+      |> Plug.Conn.assign(:client_certificate, sentinel)
+
+    metadata = %{
+      "PASSWORD_CONFIRMATION" => sentinel,
+      domain: %{operation: :certificate_login, token: sentinel},
+      tags: [:authentication, :admin],
+      message: "safe",
+      password: sentinel,
+      token: sentinel,
+      authorization: sentinel,
+      cookie: sentinel,
+      session: %{token: sentinel},
+      certificate: sentinel,
+      certificate_der: sentinel,
+      pem: sentinel,
+      params: %{password: sentinel},
+      body_params: %{password: sentinel},
+      headers: [{"authorization", sentinel}],
+      conn: conn,
+      socket: %{assigns: %{token: sentinel}},
+      assigns: %{client_certificate: sentinel},
+      private: %{guardian_token: sentinel},
+      query: "SELECT #{sentinel}",
+      result: {:ok, sentinel},
+      process: self(),
+      port: port,
+      reference: make_ref(),
+      callback: fn -> sentinel end,
+      structured: URI.parse("https://example.com/#{sentinel}"),
+      oversized: String.duplicate("x", 513),
+      invalid_binary: <<255>>
+    }
+
+    Handler.handle_event([:gsmlg, :log], %{count: 1}, metadata, %{})
+
+    assert {[:gsmlg, :log], %{count: 1}, reported_metadata, _timestamp} =
+             reported_event([:gsmlg, :log])
+
+    assert reported_metadata == %{
+             domain: %{operation: :certificate_login},
+             tags: [:authentication, :admin],
+             message: "safe"
+           }
+
+    refute inspect(reported_metadata) =~ sentinel
+  end
+
+  test "bounds custom event map size, list length, and nesting depth" do
+    max_map = Map.new(1..32, &{"key-#{&1}", &1})
+
+    metadata = %{
+      max_map: max_map,
+      max_list: Enum.to_list(1..32),
+      oversized_map: Map.put(max_map, "key-33", 33),
+      oversized_list: Enum.to_list(1..33),
+      within_depth: %{one: %{two: %{three: :safe}}},
+      too_deep: %{one: %{two: %{three: %{four: :dropped}}}}
+    }
+
+    Handler.handle_event([:custom, :bounded], %{count: 1}, metadata, %{})
+
+    assert {[:custom, :bounded], %{count: 1}, reported_metadata, _timestamp} =
+             reported_event([:custom, :bounded])
+
+    assert reported_metadata.max_map == max_map
+    assert reported_metadata.max_list == Enum.to_list(1..32)
+    assert reported_metadata.within_depth == %{one: %{two: %{three: :safe}}}
+    refute Map.has_key?(reported_metadata, :oversized_map)
+    refute Map.has_key?(reported_metadata, :oversized_list)
+    assert get_in(reported_metadata, [:too_deep, :one, :two, :three]) == nil
   end
 
   test "Phoenix filters authentication and certificate parameters" do
