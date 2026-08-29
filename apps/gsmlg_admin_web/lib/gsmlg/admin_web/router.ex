@@ -21,6 +21,10 @@ defmodule GSMLG.AdminWeb.Router do
     plug(Guardian.Plug.LoadResource, allow_blank: true)
   end
 
+  pipeline :client_certificate_browser_auth do
+    plug(GSMLG.AdminWeb.Plugs.ClientCertificateAuth)
+  end
+
   pipeline :ensure_authed_access do
     plug(Guardian.Plug.EnsureAuthenticated, claims: %{"typ" => "access"})
     plug(:ensure_session_process_started)
@@ -71,7 +75,7 @@ defmodule GSMLG.AdminWeb.Router do
   # end
 
   scope "/", GSMLG.AdminWeb do
-    pipe_through([:browser, :maybe_browser_auth])
+    pipe_through([:browser, :maybe_browser_auth, :client_certificate_browser_auth])
 
     get("/sign_in", AuthController, :index)
     post("/sign_in", AuthController, :sign_in)
@@ -91,7 +95,12 @@ defmodule GSMLG.AdminWeb.Router do
   end
 
   scope "/", GSMLG.AdminWeb do
-    pipe_through([:browser, :maybe_browser_auth, :ensure_authed_access])
+    pipe_through([
+      :browser,
+      :maybe_browser_auth,
+      :client_certificate_browser_auth,
+      :ensure_authed_access
+    ])
 
     delete("/sign_out", AuthController, :sign_out)
 
