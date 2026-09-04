@@ -119,8 +119,10 @@
     <%!-- Metadata --%>
     <div :if={map_size(@file.metadata || %{}) > 0} class="flex flex-col gap-3">
       <div class="font-mono text-xs text-base-content/45 uppercase tracking-wide">Metadata</div>
-      <.dm_card variant="bordered">
-        <pre class="p-4 text-xs font-mono overflow-auto">{JSON.encode!(@file.metadata, pretty: true)}</pre>
+      <.dm_card variant="bordered" body_class="p-0">
+        <el-dm-code-block language="json" copyable borderless>
+          <pre><code><el-gsmlg-json>{JSON.encode!(@file.metadata)}</el-gsmlg-json></code></pre>
+        </el-dm-code-block>
       </.dm_card>
     </div>
   </div>

@@ -16,7 +16,7 @@
 - Create: `apps/gsmlg_admin_web/test/gsmlg/admin_web/live/storage_live/show_test.exs`
 - Create: `apps/gsmlg_admin_web/assets/js/custom_elements/json_viewer.test.js`
 
-- [ ] **Step 1: Write a LiveView test for non-empty metadata**
+- [x] **Step 1: Write a LiveView test for non-empty metadata**
 
 Create an authenticated admin connection, insert a `GSMLG.Storage.StorageFile`
 whose metadata contains nested values, open `/storage/:id`, and assert the page
@@ -27,7 +27,6 @@ defmodule GSMLG.AdminWeb.StorageLive.ShowTest do
   use GSMLG.AdminWeb.ConnCase, async: false
 
   import GSMLG.AccountsFixtures
-  import Phoenix.LiveViewTest
 
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
@@ -74,15 +73,25 @@ defmodule GSMLG.AdminWeb.StorageLive.ShowTest do
         metadata: %{"count" => 2, "nested" => %{"enabled" => true}}
       })
 
-    {:ok, view, _html} = live(conn, ~p"/storage/#{file.id}")
+    html =
+      conn
+      |> get(~p"/storage/#{file.id}")
+      |> html_response(200)
 
-    assert has_element?(view, "el-dm-code-block[language='json'][copyable]")
-    assert has_element?(view, "el-gsmlg-json", JSON.encode!(file.metadata))
+    document = Floki.parse_document!(html)
+
+    assert [_code_block] =
+             Floki.find(document, "el-dm-code-block[language='json'][copyable]")
+
+    assert [json_element] = Floki.find(document, "el-gsmlg-json")
+    assert json_element |> Floki.text() |> String.trim() == JSON.encode!(file.metadata)
   end
+
+  defp with_secret_key_base(conn), do: %{conn | secret_key_base: @secret_key_base}
 end
 ```
 
-- [ ] **Step 2: Run the LiveView test and verify the production exception**
+- [x] **Step 2: Run the LiveView test and verify the production exception**
 
 Run:
 
@@ -93,7 +102,7 @@ mix test apps/gsmlg_admin_web/test/gsmlg/admin_web/live/storage_live/show_test.e
 Expected: FAIL with `BadFunctionError` from `JSON.encode!/2` receiving
 `[pretty: true]`.
 
-- [ ] **Step 3: Write formatter unit tests**
+- [x] **Step 3: Write formatter unit tests**
 
 Test two-space indentation and invalid-input preservation:
 
@@ -115,7 +124,7 @@ describe("JSON viewer custom element", () => {
 });
 ```
 
-- [ ] **Step 4: Run the formatter test and verify the missing module failure**
+- [x] **Step 4: Run the formatter test and verify the missing module failure**
 
 Run:
 
@@ -132,7 +141,7 @@ Expected: FAIL because `json_viewer.js` does not exist yet.
 - Modify: `apps/gsmlg_admin_web/assets/js/hooks.js`
 - Modify: `apps/gsmlg_admin_web/lib/gsmlg/admin_web/live/storage_live/show.html.heex`
 
-- [ ] **Step 1: Implement the formatter and custom element**
+- [x] **Step 1: Implement the formatter and custom element**
 
 Export `formatJson`, parsing with `JSON.parse` and formatting with
 `JSON.stringify(value, null, 2)`. Define `ElGsmlgJson` with lifecycle-managed
@@ -171,7 +180,7 @@ if (globalThis.customElements && !customElements.get("el-gsmlg-json")) {
 }
 ```
 
-- [ ] **Step 2: Register the module in the admin asset entrypoint**
+- [x] **Step 2: Register the module in the admin asset entrypoint**
 
 Add a side-effect import for `./custom_elements/json_viewer` to `hooks.js`.
 
@@ -179,7 +188,7 @@ Add a side-effect import for `./custom_elements/json_viewer` to `hooks.js`.
 import "./custom_elements/json_viewer";
 ```
 
-- [ ] **Step 3: Replace the invalid server-side pretty encoder call**
+- [x] **Step 3: Replace the invalid server-side pretty encoder call**
 
 Use only `JSON.encode!(@file.metadata)` in HEEX and nest its output as
 `<pre><code><el-gsmlg-json>...</el-gsmlg-json></code></pre>` within a copyable,
@@ -193,7 +202,7 @@ borderless `<el-dm-code-block language="json">`.
 </.dm_card>
 ```
 
-- [ ] **Step 4: Run focused tests and verify they pass**
+- [x] **Step 4: Run focused tests and verify they pass**
 
 Run:
 
@@ -209,7 +218,7 @@ Expected: both commands PASS.
 **Files:**
 - Modify if required by formatter only: files listed in Tasks 1 and 2
 
-- [ ] **Step 1: Format touched Elixir and HEEX files**
+- [x] **Step 1: Format touched Elixir and HEEX files**
 
 Run:
 
@@ -219,7 +228,7 @@ mix format apps/gsmlg_admin_web/test/gsmlg/admin_web/live/storage_live/show_test
 
 Expected: command exits successfully.
 
-- [ ] **Step 2: Re-run focused tests**
+- [x] **Step 2: Re-run focused tests**
 
 Run:
 
@@ -230,7 +239,7 @@ bun test apps/gsmlg_admin_web/assets/js/custom_elements/json_viewer.test.js
 
 Expected: all focused tests PASS.
 
-- [ ] **Step 3: Build the admin assets**
+- [x] **Step 3: Build the admin assets**
 
 Run:
 
@@ -240,7 +249,7 @@ mix bun gsmlg_admin_web --minify
 
 Expected: command exits successfully and resolves the new custom-element import.
 
-- [ ] **Step 4: Review the final diff**
+- [x] **Step 4: Review the final diff**
 
 Run:
 
