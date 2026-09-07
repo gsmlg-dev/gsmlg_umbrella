@@ -164,7 +164,7 @@ body > .phx-connected {
   opacity: 1;
 }
 
-html[data-admin-auth-method="client_certificate"] #admin-sign-out {
+html[data-admin-auth-method="client_certificate"] .admin-sign-out {
   display: none;
 }
 

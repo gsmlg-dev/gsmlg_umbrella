@@ -30,6 +30,7 @@ defmodule GSMLG.Config.SetupTest do
       Application.delete_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint)
       Application.delete_env(:gsmlg_couchdb, GSMLG.CouchDB.Connection)
       Application.delete_env(:gsmlg_commander, GSMLG.Commander)
+      Application.delete_env(:gsmlg_browser_agent, :settings)
       Application.delete_env(:ueberauth, Ueberauth.Strategy.Github.OAuth)
       Application.delete_env(:gsmlg_web_push, :vapid_details)
 
@@ -69,7 +70,13 @@ defmodule GSMLG.Config.SetupTest do
         web: %{url: "http://localhost:4000", secret_key_base: "test", port: 4000},
         admin_web: %{url: "http://localhost:4001", secret_key_base: "test", port: 4001},
         couchdb: %{host: "localhost", port: 5984},
-        commander: %{start: true, name: "test"},
+        commander: %{
+          start: true,
+          name: "test",
+          platform_url: "wss://admin.example.test/commander-socket/websocket",
+          platform_key: "runtime-test-key"
+        },
+        browser_agent: %{enabled: false},
         oauth: %{github: %{client_id: "test", client_secret: "test"}},
         web_push: %{subject: "test", public_key: "test", private_key: "test"}
       }
@@ -337,7 +344,8 @@ defmodule GSMLG.Config.SetupTest do
         start: true,
         name: "test_commander",
         platform_url: "ws://localhost:4111/socket",
-        platform_key: "test_key"
+        platform_key: "test_key",
+        max_in_flight_rpcs: 3
       }
 
       Setup.setup_commander(config)
@@ -347,6 +355,7 @@ defmodule GSMLG.Config.SetupTest do
       assert commander_config[:name] == "test_commander"
       assert commander_config[:platform_url] == "ws://localhost:4111/socket"
       assert commander_config[:platform_key] == "test_key"
+      assert commander_config[:max_in_flight_rpcs] == 3
     end
 
     test "derives platform URL from umbrella server URL and configures features" do
@@ -384,6 +393,59 @@ defmodule GSMLG.Config.SetupTest do
 
       commander_config = Application.get_env(:gsmlg_commander, GSMLG.Commander)
       assert commander_config[:platform_url] == "wss://admin.gsmlg.net/custom/socket"
+    end
+
+    test "configures per-node credentials and Commander mTLS without logging secret contents" do
+      config = %{
+        start: true,
+        name: "browser-node",
+        credential_id: "browser-node-credential",
+        platform_url: "wss://commander.example.test/socket",
+        platform_key: "runtime-only-key",
+        tls: %{
+          enabled: true,
+          client_cert_file: "/run/secrets/client-chain.pem",
+          client_key_file: "/run/secrets/client-key.pem",
+          ca_cert_file: "/run/secrets/ca.pem",
+          reload_interval_ms: 60_000
+        }
+      }
+
+      Setup.setup_commander(config)
+
+      commander_config = Application.fetch_env!(:gsmlg_commander, GSMLG.Commander)
+      assert commander_config[:credential_id] == "browser-node-credential"
+      assert commander_config[:tls][:enabled] == true
+      assert commander_config[:tls][:client_cert_file] == "/run/secrets/client-chain.pem"
+      assert commander_config[:tls][:client_key_file] == "/run/secrets/client-key.pem"
+      assert commander_config[:tls][:ca_cert_file] == "/run/secrets/ca.pem"
+    end
+  end
+
+  describe "setup_browser_agent/1" do
+    test "stores normalized runtime settings without resolving or copying the Manager token" do
+      config = %{
+        enabled: true,
+        backend: "cloakbrowser",
+        manager_url: "http://127.0.0.1:8080",
+        manager_token_env: "CLOAKBROWSER_MANAGER_TOKEN",
+        state_dir: "/var/lib/gsmlg/browser-agent",
+        default_profile_id: "gemini-primary",
+        max_concurrent_sessions: 1,
+        max_concurrent_workflows: 1,
+        keep_profile_running: true,
+        manager_connect_timeout_ms: 2_000,
+        request_timeout_ms: 5_000,
+        max_response_bytes: 1_048_576,
+        monitor_interval_ms: 15_000,
+        lease_ttl_ms: 7_200_000,
+        security: %{allowed_origins: ["https://gemini.google.com"]}
+      }
+
+      Setup.setup_browser_agent(config)
+
+      assert ^config = Application.fetch_env!(:gsmlg_browser_agent, :settings)
+      refute Map.has_key?(Application.fetch_env!(:gsmlg_browser_agent, :settings), :manager_token)
     end
   end
 

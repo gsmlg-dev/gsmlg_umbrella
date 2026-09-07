@@ -277,7 +277,7 @@ defmodule GSMLG.AdminWeb.AuthControllerTest do
       |> html_response(200)
 
     assert html =~ ~s(data-admin-auth-method="client_certificate")
-    assert html =~ ~s(id="admin-sign-out")
+    assert html =~ ~s(data-admin-sign-out="true")
   end
 
   describe "new auth" do

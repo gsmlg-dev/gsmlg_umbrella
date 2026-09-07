@@ -1,0 +1,12 @@
+{
+  "observation": {
+    "page_kind": "document",
+    "url": "https://gemini.google.com/app/research",
+    "alerts": [],
+    "semantic_tree": [
+      {"node_id": "plan", "role": "article", "name": "Research plan", "value": "Review sources and compare evidence", "attributes": {"data-testid": "gemini-plan"}},
+      {"node_id": "approve", "role": "button", "name": "Start research", "attributes": {"data-testid": "gemini-plan-approve"}}
+    ]
+  },
+  "expected_kind": "plan"
+}

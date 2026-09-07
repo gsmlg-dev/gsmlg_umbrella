@@ -89,14 +89,15 @@ defmodule GSMLG.Commander do
   require GSMLG.Telemetry
 
   @supported_features [:pty]
+  @default_max_in_flight_rpcs 2
 
   @impl true
   def start(_type, _args) do
     config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
     start_agent = Keyword.get(config, :start, false)
-    start_server = Keyword.get(config, :server, true)
+    start_server = Keyword.get(config, :server, false)
 
-    Phoenix.SocketClient.Telemetry.attach_debug_handler()
+    if start_agent, do: configure_socket_telemetry()
 
     children = build_children(start_agent, start_server, config)
 
@@ -113,23 +114,83 @@ defmodule GSMLG.Commander do
   @doc """
   Return socket connection options for agent mode
   """
-  @spec socket_opts() :: keyword()
-  def socket_opts do
-    config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
+  @spec socket_opts(keyword()) :: keyword()
+  def socket_opts(config \\ config()) do
     url = Keyword.get(config, :platform_url)
-    priv_key = Keyword.get(config, :platform_key)
-    name = Keyword.get(config, :name, "commander-#{Enum.random(100_000..999_999)}")
+    validate_agent_config!(config)
 
-    sign_at = :os.system_time(:seconds)
+    transport_opts =
+      case GSMLG.Commander.TLS.transport_opts(url, Keyword.get(config, :tls, [])) do
+        {:ok, options} ->
+          options
+
+        {:error, reason} ->
+          raise ArgumentError, "invalid Commander TLS configuration: #{inspect(reason)}"
+      end
+
+    auth_provider = fn -> fresh_auth_params(config) end
 
     [
       url: url,
-      params: %{
-        signature: :crypto.mac(:hmac, :sha256, priv_key, "#{name}/#{sign_at}") |> Base.encode16(),
-        name: name,
-        sign_at: sign_at
-      }
+      params: %{},
+      transport: GSMLG.Commander.Transport,
+      transport_opts: [commander_auth_provider: auth_provider] ++ transport_opts
     ]
+  end
+
+  @doc false
+  def fresh_auth_params(config) do
+    priv_key = Keyword.fetch!(config, :platform_key)
+    name = Keyword.fetch!(config, :name)
+    credential_id = Keyword.fetch!(config, :credential_id)
+    sign_at = System.system_time(:second)
+    nonce = Base.url_encode64(:crypto.strong_rand_bytes(24), padding: false)
+
+    signature =
+      credential_id
+      |> signature_payload(name, sign_at, nonce)
+      |> then(&:crypto.mac(:hmac, :sha256, priv_key, &1))
+      |> Base.encode16(case: :lower)
+
+    %{
+      "signature" => signature,
+      "name" => name,
+      "credential_id" => credential_id,
+      "sign_at" => Integer.to_string(sign_at),
+      "nonce" => nonce
+    }
+  end
+
+  defp validate_agent_config!(config) do
+    for key <- [:platform_url, :platform_key, :name, :credential_id] do
+      case Keyword.get(config, key) do
+        value when is_binary(value) and byte_size(value) > 0 -> :ok
+        _ -> raise ArgumentError, "Commander #{key} is required in agent mode"
+      end
+    end
+
+    case URI.parse(Keyword.fetch!(config, :platform_url)) do
+      %URI{scheme: scheme, host: host}
+      when scheme in ["ws", "wss"] and is_binary(host) and byte_size(host) > 0 ->
+        :ok
+
+      _invalid ->
+        raise ArgumentError, "Commander platform_url must be a valid ws:// or wss:// URL"
+    end
+  end
+
+  @doc false
+  def signature_payload(credential_id, name, sign_at, nonce) do
+    "v1\n#{credential_id}\n#{name}\n#{sign_at}\n#{nonce}"
+  end
+
+  @doc "Disables dependency telemetry that currently exposes transport options and payloads."
+  @spec configure_socket_telemetry() :: :ok
+  def configure_socket_telemetry do
+    # WORKAROUND(upstream): gsmlg-dev/phoenix_socket_client#105
+    # The dependency currently emits complete TLS options and message payloads.
+    Phoenix.SocketClient.Telemetry.detach_debug_handler()
+    Phoenix.SocketClient.Telemetry.update_config(%{enabled: false})
   end
 
   @doc """
@@ -147,7 +208,7 @@ defmodule GSMLG.Commander do
   @spec server_mode?() :: boolean()
   def server_mode? do
     config = Application.get_env(:gsmlg_commander, GSMLG.Commander, [])
-    Keyword.get(config, :server, true)
+    Keyword.get(config, :server, false)
   end
 
   @doc """
@@ -174,6 +235,12 @@ defmodule GSMLG.Commander do
   @spec feature_enabled?(atom(), keyword()) :: boolean()
   def feature_enabled?(feature, config \\ config()) do
     feature in configured_features(config)
+  end
+
+  @doc "Returns the bounded number of simultaneous capability RPC executions."
+  @spec max_in_flight_rpcs(keyword()) :: pos_integer()
+  def max_in_flight_rpcs(config \\ config()) do
+    Keyword.get(config, :max_in_flight_rpcs, @default_max_in_flight_rpcs)
   end
 
   # ============================================================================
@@ -205,13 +272,18 @@ defmodule GSMLG.Commander do
     agent_children =
       if start_agent do
         features = configured_features(config)
+        max_in_flight_rpcs = max_in_flight_rpcs(config)
 
         [
-          # Registry for PTY session lookup (local agent)
-          {Registry, keys: :unique, name: GSMLG.Commander.LocalSessionRegistry},
-          # WebSocket connection
-          {Phoenix.SocketClient, socket_opts() ++ [name: GSMLG.Commander.Socket]}
+          {GSMLG.Commander.CapabilityRegistry,
+           initial_capabilities: builtin_capabilities(features)},
+          {GSMLG.Commander.RequestDedup, []},
+          {Task.Supervisor,
+           name: GSMLG.Commander.RPCTaskSupervisor, max_children: max_in_flight_rpcs},
+          {GSMLG.Commander.ConnectionSupervisor,
+           config: config, max_in_flight_rpcs: max_in_flight_rpcs}
         ]
+        |> Kernel.++(tls_children(config))
         |> Kernel.++(feature_children(features, config))
       else
         []
@@ -223,8 +295,32 @@ defmodule GSMLG.Commander do
   defp feature_children(features, config) do
     if :pty in features do
       [
+        {Registry, keys: :unique, name: GSMLG.Commander.LocalSessionRegistry},
         {GSMLG.Commander.SessionManager, []},
         {GSMLG.Commander.Terminal, [socket: GSMLG.Commander.Socket, name: config[:name]]}
+      ]
+    else
+      []
+    end
+  end
+
+  defp builtin_capabilities(features) do
+    if :pty in features do
+      [{GSMLG.Commander.PTYCapability.descriptor(), GSMLG.Commander.PTYCapability}]
+    else
+      []
+    end
+  end
+
+  defp tls_children(config) do
+    tls = Keyword.get(config, :tls, [])
+
+    if tls[:enabled] == true do
+      [
+        {GSMLG.Commander.TLS,
+         url: Keyword.fetch!(config, :platform_url),
+         tls: tls,
+         reload_interval_ms: tls[:reload_interval_ms] || 60_000}
       ]
     else
       []

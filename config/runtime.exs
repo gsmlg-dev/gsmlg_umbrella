@@ -35,6 +35,9 @@ has_config? =
 skip_config_loading? = System.get_env("SKIP_SANDBOX_POOL") != nil
 
 if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? and not skip_config_loading? do
+  fail_closed? =
+    GSMLG.Config.Loader.fail_closed_on_error?(env: config_env(), config_dir: config_dir)
+
   try do
     case GSMLG.Config.Loader.load(env: config_env(), config_dir: config_dir) do
       {:ok, gsmlg_config} ->
@@ -63,13 +66,21 @@ if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? and not skip_config_
         end
 
       {:error, reason} ->
-        IO.warn("Failed to load GSMLG configuration: #{inspect(reason)}")
-        IO.warn("Using default configuration")
+        if fail_closed? do
+          raise "invalid configuration for an enabled Browser or Commander component"
+        else
+          IO.warn("Failed to load GSMLG configuration: #{inspect(reason)}")
+          IO.warn("Using default configuration")
+        end
     end
   rescue
     e ->
-      IO.warn("Error loading GSMLG configuration: #{inspect(e)}")
-      IO.warn("Using default configuration")
+      if fail_closed? do
+        reraise e, __STACKTRACE__
+      else
+        IO.warn("Error loading GSMLG configuration: #{inspect(e)}")
+        IO.warn("Using default configuration")
+      end
   end
 else
   if Code.ensure_loaded?(GSMLG.Config.Loader) and not skip_config_loading? do

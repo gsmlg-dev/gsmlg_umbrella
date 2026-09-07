@@ -1,0 +1,19 @@
+{
+  "fixtures": [
+    {"expected_kind": "reauth_required", "observation": {"url": "https://accounts.google.com/", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "heading", "name": "Verify it is you", "attributes": {"data-testid": "gemini-reauth"}}]}},
+    {"expected_kind": "passkey_required", "observation": {"url": "https://accounts.google.com/", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "dialog", "name": "Use your passkey", "attributes": {"data-testid": "gemini-passkey"}}]}},
+    {"expected_kind": "two_factor_required", "observation": {"url": "https://accounts.google.com/", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "dialog", "name": "2-Step Verification", "attributes": {"data-testid": "gemini-two-factor"}}]}},
+    {"expected_kind": "captcha_required", "observation": {"url": "https://accounts.google.com/", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "dialog", "name": "CAPTCHA", "attributes": {"data-testid": "gemini-captcha"}}]}},
+    {"expected_kind": "account_warning", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "alert", "name": "Account warning", "attributes": {"data-testid": "gemini-account-warning"}}]}},
+    {"expected_kind": "researching", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "status", "name": "Researching", "attributes": {"data-testid": "gemini-researching"}}]}},
+    {"expected_kind": "researching", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "status", "name": "Generating", "attributes": {"data-testid": "gemini-generating"}}]}},
+    {"expected_kind": "quota", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "alert", "name": "Quota reached", "attributes": {"data-testid": "gemini-quota"}}]}},
+    {"expected_kind": "error", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "alert", "name": "Request failed", "attributes": {"data-testid": "gemini-error"}}]}},
+    {"expected_kind": "video_unavailable", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "alert", "name": "Video unavailable", "attributes": {"data-testid": "gemini-video-unavailable"}}]}},
+    {"expected_kind": "age_restricted", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "alert", "name": "Age restricted", "attributes": {"data-testid": "gemini-video-age-restricted"}}]}},
+    {"expected_kind": "region_restricted", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "alert", "name": "Region restricted", "attributes": {"data-testid": "gemini-video-region-restricted"}}]}},
+    {"expected_kind": "video_inaccessible", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "alert", "name": "Cannot access video", "attributes": {"data-testid": "gemini-video-inaccessible"}}]}},
+    {"expected_kind": "title_only", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "alert", "name": "Title and description only", "attributes": {"data-testid": "gemini-video-title-only"}}]}},
+    {"expected_kind": "unknown", "observation": {"url": "https://gemini.google.com/app", "alerts": [], "semantic_tree": [{"node_id": "state", "role": "region", "name": "Unexpected layout", "attributes": {}}]}}
+  ]
+}

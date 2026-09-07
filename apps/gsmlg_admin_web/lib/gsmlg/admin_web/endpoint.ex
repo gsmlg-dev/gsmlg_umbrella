@@ -21,9 +21,11 @@ defmodule GSMLG.AdminWeb.Endpoint do
 
   socket("/commander-socket", GSMLG.AdminWeb.CommanderSocket,
     websocket: [
+      log: false,
       connect_info: [
         :peer_data,
-        :uri
+        :uri,
+        :x_headers
       ]
     ],
     longpoll: false
@@ -70,6 +72,7 @@ defmodule GSMLG.AdminWeb.Endpoint do
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+  plug GSMLG.AdminWeb.Plugs.BrowserArtifactUploadIngress
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],

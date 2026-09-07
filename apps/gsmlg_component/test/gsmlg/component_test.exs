@@ -26,7 +26,7 @@ defmodule GSMLG.ComponentTest do
           page_title: "Admin"
         )
 
-      assert html =~ ~s(id="admin-sign-out")
+      assert html =~ ~s(data-admin-sign-out="true")
     end
   end
 end

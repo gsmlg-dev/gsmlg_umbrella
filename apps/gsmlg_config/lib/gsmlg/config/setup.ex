@@ -30,6 +30,14 @@ defmodule GSMLG.Config.Setup do
       setup_commander(config[:commander])
     end
 
+    if config[:browser] != nil do
+      setup_browser(config[:browser])
+    end
+
+    if config[:browser_agent] != nil do
+      setup_browser_agent(config[:browser_agent])
+    end
+
     if config[:cluster] != nil do
       setup_cluster(config[:cluster])
     end
@@ -193,12 +201,21 @@ defmodule GSMLG.Config.Setup do
   end
 
   def setup_commander(config) do
+    platform_key = resolve_commander_platform_key!(config)
+    platform_credentials = resolve_commander_platform_credentials!(config)
+
     commander_config = [
       start: config[:start] == true,
       name: config[:name],
+      credential_id: config[:credential_id] || config[:name],
       platform_url: commander_platform_url(config),
-      platform_key: config[:platform_key],
-      features: normalize_commander_features(config[:features])
+      platform_key: platform_key,
+      platform_credentials: platform_credentials,
+      features: normalize_commander_features(config[:features]),
+      auth_timestamp_window_seconds: config[:auth_timestamp_window_seconds] || 60,
+      auth_nonce_ttl_ms: config[:auth_nonce_ttl_ms] || 120_000,
+      max_in_flight_rpcs: config[:max_in_flight_rpcs] || 2,
+      tls: normalize_commander_tls(config[:tls])
     ]
 
     commander_config =
@@ -209,6 +226,121 @@ defmodule GSMLG.Config.Setup do
       end
 
     update_env(:gsmlg_commander, GSMLG.Commander, commander_config)
+  end
+
+  def setup_browser(config) do
+    jobs = config[:jobs] || %{}
+    security = config[:security] || %{}
+
+    Application.put_env(:gsmlg_browser, :settings, config)
+    Application.put_env(:gsmlg_browser, :enabled, config[:enabled] == true)
+    Application.put_env(:gsmlg_browser, :default_node, config[:default_node])
+
+    Application.put_env(
+      :gsmlg_browser,
+      :inline_artifact_max_bytes,
+      config[:inline_artifact_max_bytes]
+    )
+
+    Application.put_env(:gsmlg_browser, :event_retention_days, config[:event_retention_days])
+    Application.put_env(:gsmlg_browser, :upload_base_url, config[:upload_base_url])
+    Application.put_env(:gsmlg_browser, :upload_ttl_seconds, config[:upload_ttl_seconds])
+    Application.put_env(:gsmlg_browser, :dispatch_timeout_ms, jobs[:dispatch_timeout_ms])
+    Application.put_env(:gsmlg_browser, :rpc_timeout_ms, jobs[:dispatch_timeout_ms])
+    Application.put_env(:gsmlg_browser, :reconcile_interval_ms, jobs[:reconcile_interval_ms])
+    Application.put_env(:gsmlg_browser, :default_deadline_ms, jobs[:default_deadline_ms])
+    Application.put_env(:gsmlg_browser, :max_attempts, jobs[:max_attempts])
+    Application.put_env(:gsmlg_browser, :allowed_schemes, security[:allowed_schemes])
+    Application.put_env(:gsmlg_browser, :allow_css_locator, security[:allow_css_locator])
+    Application.put_env(:gsmlg_browser, :allow_downloads, security[:allow_downloads])
+
+    Application.put_env(
+      :gsmlg_browser,
+      :max_observation_bytes,
+      security[:max_observation_bytes]
+    )
+
+    Application.put_env(:gsmlg_browser, :max_artifact_bytes, security[:max_artifact_bytes])
+    configure_browser_queues(config[:enabled] == true)
+  end
+
+  def setup_browser_agent(config) do
+    Application.put_env(:gsmlg_browser_agent, :settings, config)
+  end
+
+  defp resolve_commander_platform_key!(config) do
+    value =
+      case config[:platform_key] do
+        key when is_binary(key) and key != "" -> key
+        _missing -> runtime_secret(config[:platform_key_env])
+      end
+
+    if config[:start] == true and not (is_binary(value) and value != "") do
+      raise ArgumentError, "missing runtime Commander credential"
+    end
+
+    value
+  end
+
+  defp runtime_secret(variable) when is_binary(variable) and variable != "" do
+    case System.get_env(variable) do
+      value when is_binary(value) and value != "" -> value
+      _missing -> nil
+    end
+  end
+
+  defp runtime_secret(_variable), do: nil
+
+  defp resolve_commander_platform_credentials!(config) do
+    credentials = config[:platform_credentials] || %{}
+
+    cond do
+      map_size(credentials) > 0 ->
+        credentials
+
+      config[:server] == true ->
+        with variable when is_binary(variable) and variable != "" <-
+               config[:platform_credentials_env],
+             encoded when is_binary(encoded) and encoded != "" <- System.get_env(variable),
+             {:ok, decoded} when is_map(decoded) and map_size(decoded) > 0 <-
+               JSON.decode(encoded),
+             true <- Enum.all?(decoded, &valid_runtime_credential?/1) do
+          decoded
+        else
+          _invalid -> raise ArgumentError, "missing or invalid runtime Commander credential map"
+        end
+
+      true ->
+        %{}
+    end
+  end
+
+  defp valid_runtime_credential?({credential_id, entry})
+       when is_binary(credential_id) and credential_id != "" and is_map(entry) do
+    key = Map.get(entry, "key")
+    name = Map.get(entry, "commander_name")
+    is_binary(key) and key != "" and is_binary(name) and name != ""
+  end
+
+  defp valid_runtime_credential?(_entry), do: false
+
+  defp configure_browser_queues(enabled?) do
+    config = Application.get_env(:gsmlg, Oban, [])
+    queues = Keyword.get(config, :queues, [])
+    queues = Keyword.drop(queues, [:browser_dispatch, :browser_reconcile, :browser_retention])
+
+    queues =
+      if enabled? do
+        Keyword.merge(queues,
+          browser_dispatch: 2,
+          browser_reconcile: 1,
+          browser_retention: 1
+        )
+      else
+        queues
+      end
+
+    Application.put_env(:gsmlg, Oban, Keyword.put(config, :queues, queues))
   end
 
   defp commander_platform_url(%{platform_url: platform_url})
@@ -265,6 +397,18 @@ defmodule GSMLG.Config.Setup do
   defp normalize_commander_feature(feature) when is_atom(feature), do: feature
   defp normalize_commander_feature("pty"), do: :pty
   defp normalize_commander_feature(_feature), do: nil
+
+  defp normalize_commander_tls(nil), do: [enabled: false, reload_interval_ms: 60_000]
+
+  defp normalize_commander_tls(tls) when is_map(tls) do
+    [
+      enabled: tls[:enabled] == true,
+      client_cert_file: tls[:client_cert_file],
+      client_key_file: tls[:client_key_file],
+      ca_cert_file: tls[:ca_cert_file],
+      reload_interval_ms: tls[:reload_interval_ms] || 60_000
+    ]
+  end
 
   def setup_cluster(config) do
     config = GSMLG.Config.Cluster.normalize(config)

@@ -19,7 +19,7 @@ defmodule GSMLG.Commander.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :crypto, :public_key, :ssl],
       mod: {GSMLG.Commander, []}
     ]
   end
@@ -29,6 +29,7 @@ defmodule GSMLG.Commander.MixProject do
     [
       {:gsmlg_logger, in_umbrella: true},
       {:gsmlg_config, in_umbrella: true},
+      {:gsmlg_commander_protocol, in_umbrella: true},
       {:phoenix_socket_client, "~> 0.7"},
       {:phoenix_pubsub, "~> 2.1"},
       {:jason, "~> 1.2"},

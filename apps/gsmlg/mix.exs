@@ -43,6 +43,7 @@ defmodule GSMLG.MixProject do
       {:cachex, "~> 4.0"},
       {:concord, "~> 2.0"},
       {:gsmlg_config, in_umbrella: true},
+      {:gsmlg_commander_protocol, in_umbrella: true},
       {:gsmlg_aws, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
       {:gsmlg_telemetry, in_umbrella: true},

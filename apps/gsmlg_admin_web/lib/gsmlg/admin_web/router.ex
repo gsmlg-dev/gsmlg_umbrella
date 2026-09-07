@@ -60,6 +60,10 @@ defmodule GSMLG.AdminWeb.Router do
     plug(GSMLG.AdminWeb.Plugs.AdminBearerAuth)
   end
 
+  pipeline :browser_bearer_auth do
+    plug(GSMLG.AdminWeb.Plugs.BrowserBearerAuth)
+  end
+
   pipeline :mcp_admin_api do
     plug(:accepts, ["json"])
     plug(GSMLG.AdminWeb.Plugs.GaoNoteMCPAuth)
@@ -158,6 +162,18 @@ defmodule GSMLG.AdminWeb.Router do
     live("/commander/tokens/new", CommanderLive.TokensLive, :new)
     live("/commander/:name/overview", CommanderLive.ShowLive, :overview)
     live("/commander/:name/shell", CommanderLive.ShowLive, :shell)
+    live("/commander/:name/browser", BrowserLive.Index, :commander)
+
+    # Remote Browser Control
+    live("/browser", BrowserLive.Index, :dashboard)
+    live("/browser/nodes", BrowserLive.Index, :nodes)
+    live("/browser/profiles", BrowserLive.Index, :profiles)
+    live("/browser/sessions", BrowserLive.Index, :sessions)
+    live("/browser/jobs", BrowserLive.Index, :jobs)
+    live("/browser/jobs/new", BrowserLive.Index, :new_job)
+    live("/browser/jobs/:id", BrowserLive.Index, :job)
+    live("/browser/settings", BrowserLive.Index, :settings)
+    get("/browser/artifacts/:id/content", BrowserArtifactContentController, :show)
 
     live("/scout", ScoutLive.DashboardLive, :index)
     live("/proxy-rules", ProxyRulesLive.Index, :index)
@@ -217,6 +233,48 @@ defmodule GSMLG.AdminWeb.Router do
     post("/fetch", ScoutFetchController, :create)
     post("/fetch/sync", ScoutFetchController, :sync)
     get("/fetch/:job_id", ScoutFetchController, :show)
+  end
+
+  scope "/api/browser", GSMLG.AdminWeb.BrowserAPI do
+    pipe_through([:api, :browser_bearer_auth])
+
+    get("/nodes", Controller, :nodes)
+    get("/nodes/:node_id", Controller, :node)
+    get("/nodes/:node_id/profiles", Controller, :profiles)
+    post("/nodes/:node_id/profiles/sync", Controller, :sync_profiles)
+    patch("/profiles/:id", Controller, :configure_profile)
+    post("/profiles/:id/launch", Controller, :launch_profile)
+    post("/profiles/:id/stop", Controller, :stop_profile)
+
+    post("/sessions", Controller, :create_session)
+    get("/sessions/:id", Controller, :session)
+    post("/sessions/:id/observe", Controller, :observe_session)
+    post("/sessions/:id/actions", Controller, :session_action)
+    post("/sessions/:id/manual-acquire", Controller, :manual_acquire)
+    post("/sessions/:id/manual-release", Controller, :manual_release)
+    delete("/sessions/:id", Controller, :delete_session)
+
+    post("/jobs", Controller, :create_job)
+    get("/jobs", Controller, :jobs)
+    get("/jobs/:id", Controller, :job)
+    get("/jobs/:id/events", Controller, :job_events)
+    post("/jobs/:id/cancel", Controller, :cancel_job)
+    post("/jobs/:id/retry", Controller, :retry_job)
+    post("/jobs/:id/resume", Controller, :resume_job)
+    post("/jobs/:id/reconcile", Controller, :reconcile_job)
+    get("/jobs/:id/artifacts", Controller, :job_artifacts)
+
+    get("/artifacts/:id", Controller, :artifact)
+    get("/artifacts/:id/content", Controller, :artifact_content)
+
+    get("/openapi.json", Controller, :openapi)
+    match(:*, "/*request_path", ErrorController, :not_found)
+  end
+
+  scope "/.well-known", GSMLG.AdminWeb.BrowserAPI do
+    pipe_through([:api, :browser_bearer_auth])
+
+    get("/api-catalog", Controller, :catalog)
   end
 
   scope "/mcp" do

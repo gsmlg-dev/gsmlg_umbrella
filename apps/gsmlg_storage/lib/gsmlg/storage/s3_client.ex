@@ -25,6 +25,73 @@ defmodule GSMLG.Storage.S3Client do
     end
   end
 
+  @doc "Uploads a file using bounded 5 MiB chunks."
+  def put_file(bucket, key, path, content_type) do
+    with {:ok, %{size: size}} <- File.stat(path) do
+      if size <= 5_242_880 do
+        with {:ok, data} <- File.read(path), do: put_object(bucket, key, data, content_type)
+      else
+        multipart_file(bucket, key, path, content_type)
+      end
+    end
+  end
+
+  defp multipart_file(bucket, key, path, content_type) do
+    with {:ok, client} <- get_client(),
+         {:ok, %{"UploadId" => upload_id}, _response} <-
+           AWS.S3.create_multipart_upload(client, bucket, key, %{"ContentType" => content_type}),
+         {:ok, parts} <- upload_parts(client, bucket, key, upload_id, path) do
+      case AWS.S3.complete_multipart_upload(client, bucket, key, %{
+             "UploadId" => upload_id,
+             "MultipartUpload" => %{"Parts" => parts}
+           }) do
+        {:ok, _result, _response} ->
+          :ok
+
+        {:error, _reason} = error ->
+          _ = AWS.S3.abort_multipart_upload(client, bucket, key, %{"UploadId" => upload_id})
+          error
+      end
+    end
+  end
+
+  defp upload_parts(client, bucket, key, upload_id, path) do
+    with {:ok, io} <- File.open(path, [:read, :binary]) do
+      try do
+        upload_part_chunks(client, bucket, key, upload_id, io, 1, [])
+      after
+        File.close(io)
+      end
+    end
+  end
+
+  defp upload_part_chunks(client, bucket, key, upload_id, io, number, parts) do
+    case IO.binread(io, 5_242_880) do
+      :eof ->
+        {:ok, Enum.reverse(parts)}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      chunk ->
+        case AWS.S3.upload_part(client, bucket, key, %{
+               "UploadId" => upload_id,
+               "PartNumber" => number,
+               "Body" => chunk,
+               "ContentLength" => byte_size(chunk)
+             }) do
+          {:ok, %{"ETag" => etag}, _response} ->
+            upload_part_chunks(client, bucket, key, upload_id, io, number + 1, [
+              %{"ETag" => etag, "PartNumber" => number} | parts
+            ])
+
+          {:error, _reason} = error ->
+            _ = AWS.S3.abort_multipart_upload(client, bucket, key, %{"UploadId" => upload_id})
+            error
+        end
+    end
+  end
+
   @doc """
   Gets an object from S3.
   Returns `{:ok, binary}` or `{:error, reason}`.
@@ -49,12 +116,15 @@ defmodule GSMLG.Storage.S3Client do
 
     with {:ok, client} <- get_client() do
       case get_object_with_range(client, bucket, key, range) do
-        {:ok, body, _resp} -> extract_body(body)
+        {:ok, body, _resp} ->
+          extract_body(body)
+
         {:error, {:unexpected_response, %{status_code: 206, body: body}}}
         when is_binary(body) ->
           {:ok, body}
 
-        {:error, _} = error -> error
+        {:error, _} = error ->
+          error
       end
     end
   end

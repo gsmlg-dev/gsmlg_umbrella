@@ -1,0 +1,53 @@
+# Browser-control fragment for the remote gsmlg_commander release.
+# Secret values are referenced by environment-variable name or file path only.
+
+[commander]
+start = true
+server = false
+name = "gemini-browser-01"
+credential_id = "gemini-browser-01"
+platform_url = "wss://admin.example.com/commander-socket/websocket"
+platform_key_env = "GSMLG_COMMANDER_PLATFORM_KEY"
+features = ["pty"]
+max_in_flight_rpcs = 2
+
+[commander.tls]
+enabled = true
+client_cert_file = "/run/credentials/gsmlg-commander.service/client-chain.pem"
+client_key_file = "/run/credentials/gsmlg-commander.service/client-key.pem"
+ca_cert_file = "/run/credentials/gsmlg-commander.service/server-ca.pem"
+reload_interval_ms = 60000
+
+[browser_agent]
+enabled = true
+backend = "cloakbrowser"
+manager_url = "http://127.0.0.1:8080"
+manager_token_env = "CLOAKBROWSER_MANAGER_TOKEN"
+state_dir = "/var/lib/gsmlg/browser-agent"
+default_profile_id = "gemini-primary"
+max_concurrent_sessions = 1
+max_concurrent_workflows = 1
+keep_profile_running = true
+manager_connect_timeout_ms = 2000
+request_timeout_ms = 5000
+max_response_bytes = 1048576
+max_observation_bytes = 1048576
+max_artifact_bytes = 104857600
+inline_artifact_max_bytes = 131072
+monitor_interval_ms = 15000
+lease_ttl_ms = 7200000
+journal_terminal_max_records = 10000
+journal_terminal_max_age_ms = 2592000000
+journal_terminal_max_bytes = 67108864
+journal_recovery_scan_max_records = 10000
+
+[browser_agent.security]
+allow_css_locator = false
+allowed_origins = [
+  "https://gemini.google.com",
+  "https://accounts.google.com",
+  "https://www.youtube.com",
+  "https://youtube.com",
+  "https://youtu.be"
+]
+allowed_upload_origins = ["https://admin.example.com"]

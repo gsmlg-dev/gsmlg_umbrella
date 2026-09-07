@@ -16,6 +16,148 @@ defmodule GSMLG.Storage do
 
   @max_filename_bytes 255
 
+  @doc "Prepares a bounded central upload reservation without persisting a bearer target."
+  def prepare_upload(tenant, type, attrs, opts \\ [])
+
+  def prepare_upload(tenant, type, attrs, opts) when is_map(attrs) do
+    max_bytes = min(Keyword.get(opts, :max_bytes, max_file_size()), max_file_size())
+
+    with true <- is_binary(tenant) and is_binary(type),
+         filename when is_binary(filename) <- attrs[:filename],
+         content_type when is_binary(content_type) <- attrs[:content_type],
+         size when is_integer(size) and size >= 0 and size <= max_bytes <- attrs[:size],
+         checksum when is_binary(checksum) <- attrs[:checksum],
+         true <- Regex.match?(~r/\A[0-9a-f]{64}\z/, checksum),
+         %DateTime{} = expires_at <- attrs[:expires_at],
+         true <- DateTime.after?(expires_at, DateTime.utc_now()),
+         {:ok, sanitized} <- sanitize_filename(filename),
+         s3_key <- generate_s3_key(tenant, type, sanitized, content_type),
+         reservation <-
+           StorageFile.changeset(%StorageFile{}, %{
+             tenant: tenant,
+             type: type,
+             filename: sanitized,
+             s3_key: s3_key,
+             content_type: content_type,
+             size: size,
+             checksum: checksum,
+             metadata: %{
+               "upload_expires_at" => DateTime.to_iso8601(expires_at),
+               "max_bytes" => max_bytes
+             },
+             variants: %{},
+             status: "processing"
+           }),
+         {:ok, file} <- Repo.insert(reservation) do
+      case create_reservation_file(file.id) do
+        :ok ->
+          {:ok, file}
+
+        {:error, _reason} = error ->
+          _ = Repo.delete(file)
+          error
+      end
+    else
+      {:error, %Ecto.Changeset{} = changeset} -> {:error, changeset}
+      {:error, _reason} = error -> error
+      _invalid -> {:error, :invalid_upload_reservation}
+    end
+  end
+
+  def prepare_upload(_tenant, _type, _attrs, _opts), do: {:error, :invalid_upload_reservation}
+
+  @doc "Appends one bounded request-body chunk to a durable upload reservation."
+  def write_upload(reservation_id, chunk) when is_binary(reservation_id) and is_binary(chunk) do
+    with %StorageFile{status: "processing"} = reservation <-
+           Repo.get(StorageFile, reservation_id),
+         true <- not upload_expired?(reservation),
+         {:ok, io} <-
+           :file.open(String.to_charlist(reservation_path(reservation.id)), [
+             :read,
+             :write,
+             :binary
+           ]) do
+      result =
+        with {:ok, current_size} <- :file.position(io, :eof),
+             true <- current_size + byte_size(chunk) <= reservation.size,
+             :ok <- :file.write(io, chunk),
+             :ok <- :file.sync(io) do
+          :ok
+        else
+          false -> {:error, :upload_too_large}
+          {:error, _reason} -> {:error, :upload_write_failed}
+        end
+
+      :file.close(io)
+      result
+    else
+      nil -> {:error, :not_found}
+      %StorageFile{} -> {:error, :invalid_upload_reservation}
+      false -> {:error, :upload_expired}
+      {:error, _reason} -> {:error, :upload_write_failed}
+    end
+  end
+
+  def write_upload(_reservation_id, _chunk), do: {:error, :invalid_upload_chunk}
+
+  @doc "Finalizes a bounded reservation using streaming size/hash and bounded object-store writes."
+  def finalize_upload(reservation_id, opts \\ [])
+
+  def finalize_upload(reservation_id, opts) when is_binary(reservation_id) do
+    client = Keyword.get(opts, :s3_client, storage_client())
+
+    with %StorageFile{status: "processing"} = reservation <-
+           Repo.get(StorageFile, reservation_id),
+         true <- not upload_expired?(reservation),
+         path <- reservation_path(reservation.id),
+         {:ok, %{size: size, checksum: checksum, head: head}} <- hash_file(path),
+         true <- size == reservation.size,
+         true <- Plug.Crypto.secure_compare(checksum, reservation.checksum),
+         {:ok, detected} <- ContentType.detect(head, reservation.filename),
+         true <- detected == reservation.content_type,
+         :ok <- client.put_file(bucket(), reservation.s3_key, path, reservation.content_type),
+         {:ok, active} <-
+           reservation |> StorageFile.status_changeset(%{status: "active"}) |> Repo.update() do
+      _ = File.rm(path)
+      {:ok, active}
+    else
+      nil -> {:error, :not_found}
+      %StorageFile{} -> {:error, :invalid_upload_reservation}
+      false -> {:error, :upload_integrity_failed}
+      {:error, %Ecto.Changeset{}} -> {:error, :upload_commit_failed}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  def finalize_upload(_reservation_id, _opts), do: {:error, :invalid_upload_reservation}
+
+  @doc "Rejects a reservation, or recoverably soft-deletes a finalized storage object."
+  def reject_upload(%StorageFile{id: id}), do: reject_upload(id)
+
+  def reject_upload(id) when is_binary(id) do
+    case Repo.get(StorageFile, id) do
+      nil ->
+        {:error, :not_found}
+
+      %StorageFile{status: "processing"} = file ->
+        case File.rm(reservation_path(file.id)) do
+          :ok ->
+            file |> StorageFile.status_changeset(%{status: "deleted"}) |> Repo.update()
+
+          {:error, :enoent} ->
+            file |> StorageFile.status_changeset(%{status: "deleted"}) |> Repo.update()
+
+          {:error, _reason} ->
+            {:error, :upload_reject_failed}
+        end
+
+      file ->
+        file |> StorageFile.status_changeset(%{status: "deleted"}) |> Repo.update()
+    end
+  end
+
+  def reject_upload(_invalid), do: {:error, :invalid_upload_reservation}
+
   @doc """
   Uploads a file to S3 and creates a DB record.
 
@@ -779,6 +921,78 @@ defmodule GSMLG.Storage do
   end
 
   # --- Configuration ---
+
+  defp create_reservation_file(reservation_id) do
+    with :ok <- File.mkdir_p(reservation_dir()),
+         {:ok, io} <-
+           :file.open(String.to_charlist(reservation_path(reservation_id)), [
+             :write,
+             :binary,
+             :exclusive
+           ]) do
+      :file.close(io)
+    else
+      {:error, :eexist} -> :ok
+      {:error, _reason} -> {:error, :upload_reservation_failed}
+    end
+  end
+
+  defp hash_file(path) do
+    with {:ok, io} <- File.open(path, [:read, :binary]) do
+      try do
+        hash_file_chunks(io, :crypto.hash_init(:sha256), 0, <<>>)
+      after
+        File.close(io)
+      end
+    else
+      {:error, _reason} -> {:error, :upload_read_failed}
+    end
+  end
+
+  defp hash_file_chunks(io, hash, size, head) do
+    case IO.binread(io, 1_048_576) do
+      :eof ->
+        {:ok,
+         %{
+           size: size,
+           checksum: :crypto.hash_final(hash) |> Base.encode16(case: :lower),
+           head: head
+         }}
+
+      {:error, _reason} ->
+        {:error, :upload_read_failed}
+
+      chunk ->
+        next_head =
+          if byte_size(head) < 4_096,
+            do: binary_part(head <> chunk, 0, min(4_096, byte_size(head <> chunk))),
+            else: head
+
+        hash_file_chunks(io, :crypto.hash_update(hash, chunk), size + byte_size(chunk), next_head)
+    end
+  end
+
+  defp upload_expired?(%StorageFile{metadata: %{"upload_expires_at" => value}}) do
+    case DateTime.from_iso8601(value) do
+      {:ok, expires_at, _offset} -> not DateTime.after?(expires_at, DateTime.utc_now())
+      _invalid -> true
+    end
+  end
+
+  defp upload_expired?(_file), do: true
+
+  defp reservation_path(reservation_id), do: Path.join(reservation_dir(), reservation_id)
+
+  defp reservation_dir do
+    Application.get_env(
+      :gsmlg_storage,
+      :upload_reservation_dir,
+      Path.join(System.tmp_dir!(), "gsmlg-storage-uploads")
+    )
+  end
+
+  defp storage_client,
+    do: Application.get_env(:gsmlg_storage, :upload_s3_client, S3Client)
 
   defp bucket do
     Application.get_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")

@@ -33,6 +33,7 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLiveTest do
 
     agent_id = "agent-#{System.unique_integer([:positive])}"
     :ok = AgentRegistry.register_agent(agent_id, self())
+    {:ok, _generation} = AgentRegistry.attach_terminal(agent_id, self(), {:legacy, self()})
 
     AgentRegistry.update_agent_info(agent_id, %{
       hostname: "shell-host",
@@ -86,6 +87,47 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLiveTest do
     html = render_async(view)
     assert html =~ "shell-host"
     assert html =~ ~s(href="/commander/#{agent_id}/shell")
+  end
+
+  test "browser tab is shown only after browser.control/v1 is advertised", %{
+    conn: conn,
+    agent_id: agent_id
+  } do
+    {:ok, view, _html} = live(conn, ~p"/commander/#{agent_id}/overview")
+    refute render_async(view) =~ ~s(id="commander-browser-tab")
+
+    AgentRegistry.update_agent_info(agent_id, %{
+      capability_descriptors: [%{id: "browser.control", version: 1}]
+    })
+
+    wait_until(fn ->
+      case AgentRegistry.find_agent(agent_id) do
+        {:ok, %{info: %{capability_descriptors: descriptors}}} -> descriptors != []
+        _other -> false
+      end
+    end)
+
+    send(view.pid, :commander_updates)
+
+    assert render_async(view) =~ ~s(href="/commander/#{agent_id}/browser")
+    assert has_element?(view, "#commander-browser-tab", "Browser")
+  end
+
+  test "browser tab rejects missing, string, or embedded descriptor versions", %{
+    conn: conn,
+    agent_id: agent_id
+  } do
+    {:ok, view, _html} = live(conn, ~p"/commander/#{agent_id}/overview")
+
+    for descriptor <- [
+          %{id: "browser.control"},
+          %{id: "browser.control", version: "1"},
+          %{id: "browser.control/v1", version: 1}
+        ] do
+      AgentRegistry.update_agent_info(agent_id, %{capability_descriptors: [descriptor]})
+      send(view.pid, :commander_updates)
+      refute render_async(view) =~ ~s(id="commander-browser-tab")
+    end
   end
 
   test "list page includes connected command-platform agents", %{conn: conn, agent_id: agent_id} do

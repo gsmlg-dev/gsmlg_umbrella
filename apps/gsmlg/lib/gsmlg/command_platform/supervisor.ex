@@ -14,6 +14,8 @@ defmodule GSMLG.CommandPlatform.Supervisor do
       {GSMLG.CommandPlatform, []},
       # PTY agent registry
       {GSMLG.CommandPlatform.AgentRegistry, []},
+      {GSMLG.CommandPlatform.ReplayCache, []},
+      {GSMLG.CommandPlatform.PendingRequestRegistry, []},
       # PTY session tracker
       {GSMLG.CommandPlatform.SessionTracker, []}
     ]

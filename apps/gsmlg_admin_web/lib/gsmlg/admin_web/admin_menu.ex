@@ -115,6 +115,18 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           ]
         },
         %{
+          id: "browser_control",
+          title: "Browser Control",
+          items: [
+            %{id: "browser_dashboard", label: "Dashboard", path: "/browser", exact: true},
+            %{id: "browser_nodes", label: "Nodes", path: "/browser/nodes"},
+            %{id: "browser_profiles", label: "Profiles", path: "/browser/profiles"},
+            %{id: "browser_sessions", label: "Sessions", path: "/browser/sessions"},
+            %{id: "browser_jobs", label: "Jobs", path: "/browser/jobs"},
+            %{id: "browser_settings", label: "Settings", path: "/browser/settings"}
+          ]
+        },
+        %{
           id: "scout",
           title: "Scout",
           items: [

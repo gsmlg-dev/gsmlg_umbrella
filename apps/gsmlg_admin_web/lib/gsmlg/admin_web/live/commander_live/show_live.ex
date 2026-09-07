@@ -116,6 +116,14 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
                     Shell
                   </span>
                 <% end %>
+                <.link
+                  :if={:browser_control in commander.capabilities}
+                  id="commander-browser-tab"
+                  navigate={~p"/commander/#{@commander_id}/browser"}
+                  class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                >
+                  Browser
+                </.link>
               </nav>
             </div>
 
@@ -366,12 +374,18 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   defp format_commander(agent) do
     info = Map.get(agent, :info, %{})
     metadata = Map.drop(info, [:capabilities, :hostname, :sessions])
+    capabilities = normalize_capabilities(value(info, :capabilities))
+
+    capabilities =
+      if browser_capability?(value(info, :capability_descriptors)),
+        do: [:browser_control | capabilities],
+        else: capabilities
 
     %{
       id: agent.agent_id,
       hostname: value(info, :hostname) || agent.agent_id,
       status: agent.status,
-      capabilities: normalize_capabilities(value(info, :capabilities)),
+      capabilities: Enum.uniq(capabilities),
       tags: value(info, :tags) || [],
       connected_at: agent.connected_at,
       last_activity: agent.last_heartbeat,
@@ -415,7 +429,18 @@ defmodule GSMLG.AdminWeb.CommanderLive.ShowLive do
   defp capability_from_string("logs"), do: :logs
   defp capability_from_string("metrics"), do: :metrics
   defp capability_from_string("system_info"), do: :system_info
+  defp capability_from_string("browser.control/v1"), do: :browser_control
   defp capability_from_string(_), do: :unknown
+
+  defp browser_capability?(descriptors) when is_list(descriptors) do
+    Enum.any?(descriptors, fn descriptor ->
+      id = value(descriptor, :id)
+      version = value(descriptor, :version)
+      id == "browser.control" and version == 1
+    end)
+  end
+
+  defp browser_capability?(_descriptors), do: false
 
   defp value(map, key) do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
