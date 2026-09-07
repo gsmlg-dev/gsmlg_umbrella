@@ -11,6 +11,11 @@ complete tested snapshot. It is not production acceptance evidence.
 
 ## Status legend
 
+On 2026-09-07, the requesting user accepted implementation completion and
+explicitly deferred real E2E acceptance to deployment testing. The external
+items below remain unrun and describe the deployment test checklist; they do
+not block completion of this implementation task or the requested GitHub release.
+
 | Status | Meaning |
 | --- | --- |
 | Locally verified | The implementation is covered by passing local unit, integration, database, controller, or LiveView tests. Synthetic Manager/CDP/Gemini fixtures may be involved. |
