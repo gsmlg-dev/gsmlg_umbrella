@@ -24,7 +24,9 @@ defmodule GSMLG.Umbrella.MixProject do
           include_executables_for: [:unix, :windows],
           steps: [:assemble, :tar],
           applications: [
-            gsmlg_commander: :permanent
+            gsmlg_commander_protocol: :permanent,
+            gsmlg_commander: :permanent,
+            gsmlg_browser_agent: :permanent
           ],
           config_providers: [
             {Toml.Provider,
@@ -38,7 +40,9 @@ defmodule GSMLG.Umbrella.MixProject do
           include_executables_for: [:unix],
           steps: [&build_assets/1, :assemble, :tar],
           applications: [
+            gsmlg_commander_protocol: :permanent,
             gsmlg: :permanent,
+            gsmlg_browser: :permanent,
             gsmlg_scout_server: :permanent,
             proxy_rules: :permanent,
             gsmlg_admin_web: :permanent,
@@ -47,7 +51,9 @@ defmodule GSMLG.Umbrella.MixProject do
         ],
         gsmlg_umbrella_standalone: [
           applications: [
+            gsmlg_commander_protocol: :permanent,
             gsmlg: :permanent,
+            gsmlg_browser: :permanent,
             gsmlg_scout_server: :permanent,
             proxy_rules: :permanent,
             gsmlg_admin_web: :permanent,

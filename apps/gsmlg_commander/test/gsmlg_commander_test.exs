@@ -18,7 +18,8 @@ defmodule GSMLG.Commander.Test do
       Application.put_env(:gsmlg_commander, GSMLG.Commander,
         platform_url: "wss://test.example.com/agent",
         platform_key: "test_secret_key_for_testing",
-        name: "test-agent"
+        name: "test-agent",
+        credential_id: "test-agent-credential"
       )
 
       on_exit(fn ->
@@ -37,23 +38,36 @@ defmodule GSMLG.Commander.Test do
       assert Keyword.has_key?(opts, :url)
     end
 
-    test "returns keyword list with :params key" do
+    test "defers authentication parameters until each transport connection" do
       opts = GSMLG.Commander.socket_opts()
-      assert Keyword.has_key?(opts, :params)
+      assert opts[:transport] == GSMLG.Commander.Transport
+      assert opts[:params] == %{}
+      refute inspect(opts) =~ "test_secret_key_for_testing"
     end
 
-    test "returns :params as a map with required keys when configured" do
-      opts = GSMLG.Commander.socket_opts()
+    test "does not expose socket transport or message payloads through dependency telemetry" do
+      original = Application.get_env(:phoenix_socket_client, :telemetry)
 
-      assert {:ok, url} = Keyword.fetch(opts, :url)
-      assert url == "wss://test.example.com/agent"
+      on_exit(fn ->
+        if original do
+          Application.put_env(:phoenix_socket_client, :telemetry, original)
+        else
+          Application.delete_env(:phoenix_socket_client, :telemetry)
+        end
+      end)
 
-      assert {:ok, params} = Keyword.fetch(opts, :params)
-      assert is_map(params)
-      assert Map.has_key?(params, :name)
-      assert Map.has_key?(params, :signature)
-      assert Map.has_key?(params, :sign_at)
-      assert params.name == "test-agent"
+      assert :ok = GSMLG.Commander.configure_socket_telemetry()
+      assert Phoenix.SocketClient.Telemetry.enabled?() == false
+    end
+
+    test "rejects malformed and non-WebSocket URLs" do
+      config = Application.fetch_env!(:gsmlg_commander, GSMLG.Commander)
+
+      for url <- ["https://test.example.com/agent", "wss:///agent", "not a url"] do
+        assert_raise ArgumentError, ~r/platform_url/, fn ->
+          GSMLG.Commander.socket_opts(Keyword.put(config, :platform_url, url))
+        end
+      end
     end
   end
 
@@ -64,8 +78,8 @@ defmodule GSMLG.Commander.Test do
   end
 
   describe "server_mode?/0" do
-    test "returns true by default" do
-      assert GSMLG.Commander.server_mode?()
+    test "fails closed when server mode is not explicitly enabled" do
+      refute GSMLG.Commander.server_mode?()
     end
   end
 
@@ -76,6 +90,13 @@ defmodule GSMLG.Commander.Test do
 
     test "normalizes supported feature strings" do
       assert GSMLG.Commander.configured_features(features: ["pty", :pty, "unknown"]) == [:pty]
+    end
+  end
+
+  describe "max_in_flight_rpcs/1" do
+    test "uses a finite default matching one advertised session plus one workflow" do
+      assert GSMLG.Commander.max_in_flight_rpcs([]) == 2
+      assert GSMLG.Commander.max_in_flight_rpcs(max_in_flight_rpcs: 5) == 5
     end
   end
 end

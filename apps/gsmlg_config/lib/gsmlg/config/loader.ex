@@ -97,6 +97,23 @@ defmodule GSMLG.Config.Loader do
   end
 
   @doc """
+  Returns whether a configuration-loading failure must abort startup.
+
+  Browser control and Commander authentication are fail-closed when enabled.
+  An explicitly selected configuration file that cannot be read or decoded is
+  also fail-closed because its intended component state cannot be established.
+  """
+  def fail_closed_on_error?(opts \\ []) do
+    config_path = Keyword.get(opts, :config_path) || System.get_env("GSMLG_CONFIG_PATH")
+
+    runtime_component_enabled?() or
+      case inspect_component_flags(config_path, opts) do
+        {:ok, config} -> configured_component_enabled?(config)
+        {:error, _reason} -> is_binary(config_path) and config_path != ""
+      end
+  end
+
+  @doc """
   Loads configuration from a single file.
 
   Priority order:
@@ -235,6 +252,51 @@ defmodule GSMLG.Config.Loader do
   def deep_merge(_left, right), do: right
 
   # Private functions
+
+  defp inspect_component_flags(config_path, _opts)
+       when is_binary(config_path) and config_path != "" do
+    Toml.decode_file(config_path, keys: :atoms)
+  end
+
+  defp inspect_component_flags(_config_path, opts) do
+    env = Keyword.get(opts, :env, get_env())
+    config_dir = Keyword.get(opts, :config_dir, "apps/gsmlg_config/priv")
+    env_path = Path.join(config_dir, "gsmlg.#{env}.toml")
+    fallback_path = Path.join(config_dir, "gsmlg.toml")
+    path = if File.exists?(env_path), do: env_path, else: fallback_path
+    Toml.decode_file(path, keys: :atoms)
+  end
+
+  defp runtime_component_enabled? do
+    Enum.any?(
+      ~w(
+        GSMLG_BROWSER__ENABLED
+        GSMLG_BROWSER_AGENT__ENABLED
+        GSMLG_COMMANDER__START
+        GSMLG_COMMANDER__SERVER
+      ),
+      &(System.get_env(&1) == "true")
+    )
+  end
+
+  defp configured_component_enabled?(config) when is_map(config) do
+    enabled?(get_in_flexible(config, :browser, :enabled)) or
+      enabled?(get_in_flexible(config, :browser_agent, :enabled)) or
+      enabled?(get_in_flexible(config, :commander, :start)) or
+      enabled?(get_in_flexible(config, :commander, :server))
+  end
+
+  defp configured_component_enabled?(_config), do: false
+
+  defp get_in_flexible(config, section, key) do
+    section_config = Map.get(config, section, Map.get(config, Atom.to_string(section), %{}))
+
+    if is_map(section_config),
+      do: Map.get(section_config, key, Map.get(section_config, Atom.to_string(key))),
+      else: nil
+  end
+
+  defp enabled?(value), do: value in [true, "true"]
 
   defp parse_env_var({key, value}) do
     # Remove GSMLG_ prefix and split by double underscore

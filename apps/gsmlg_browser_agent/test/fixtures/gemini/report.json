@@ -1,0 +1,14 @@
+{
+  "observation": {
+    "page_kind": "document",
+    "url": "https://gemini.google.com/app/research/example",
+    "alerts": [],
+    "semantic_tree": [
+      {"node_id": "report", "role": "article", "name": "Final report", "value": "# Summary\nA sanitized example.\n# Evidence\nA public source supports the example.", "attributes": {"data-testid": "gemini-report"}},
+      {"node_id": "summary", "role": "heading", "name": "Summary", "attributes": {"data-testid": "gemini-report-section"}},
+      {"node_id": "evidence", "role": "heading", "name": "Evidence", "attributes": {"data-testid": "gemini-report-section"}},
+      {"node_id": "source", "role": "link", "name": "Example source", "attributes": {"data-testid": "gemini-source", "href": "https://example.com/source"}}
+    ]
+  },
+  "expected_kind": "report"
+}

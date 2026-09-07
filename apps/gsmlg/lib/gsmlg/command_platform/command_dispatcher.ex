@@ -17,7 +17,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
          {:ok, params} <- build_create_params(agent_id, opts) do
       audit_log(:create_pty, agent_id, params)
 
-      case AgentRegistry.send_to_agent(agent_id, {:create_pty, params}) do
+      case AgentRegistry.send_to_terminal(agent_id, {:create_pty, params}) do
         :ok ->
           track_initial_session(agent_id, params)
           {:ok, params.session_id}
@@ -28,7 +28,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
           GSMLG.Telemetry.error("Failed to dispatch create_pty command",
             metadata: %{
               agent_id: agent_id,
-              reason: inspect(reason)
+              error_code: dispatch_error_code(reason)
             }
           )
 
@@ -45,7 +45,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
          :ok <- validate_agent(agent_id) do
       audit_log(:close_pty, agent_id, %{session_id: session_id, force: force})
 
-      AgentRegistry.send_to_agent(agent_id, {:close_pty, session_id, force})
+      AgentRegistry.send_to_terminal(agent_id, {:close_pty, session_id, force})
     end
   end
 
@@ -58,7 +58,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
       SessionTracker.set_controller(session_id, controller_pid)
       audit_log(:attach_pty, agent_id, %{session_id: session_id})
 
-      AgentRegistry.send_to_agent(agent_id, {:attach_pty, session_id})
+      AgentRegistry.send_to_terminal(agent_id, {:attach_pty, session_id})
     end
   end
 
@@ -71,7 +71,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
       SessionTracker.clear_controller(session_id)
       audit_log(:detach_pty, agent_id, %{session_id: session_id})
 
-      AgentRegistry.send_to_agent(agent_id, {:detach_pty, session_id})
+      AgentRegistry.send_to_terminal(agent_id, {:detach_pty, session_id})
     end
   end
 
@@ -82,7 +82,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
     with {:ok, agent_id} <- resolve_session_agent(session_id, opts),
          :ok <- validate_agent(agent_id),
          :ok <- validate_input(data) do
-      AgentRegistry.send_to_agent(agent_id, {:send_input, session_id, data})
+      AgentRegistry.send_to_terminal(agent_id, {:send_input, session_id, data})
     end
   end
 
@@ -99,7 +99,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
         cols: cols
       })
 
-      AgentRegistry.send_to_agent(agent_id, {:resize_pty, session_id, rows, cols})
+      AgentRegistry.send_to_terminal(agent_id, {:resize_pty, session_id, rows, cols})
     end
   end
 
@@ -108,7 +108,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
   """
   def list_agent_sessions(agent_id) do
     with :ok <- validate_agent(agent_id) do
-      AgentRegistry.send_to_agent(agent_id, {:list_sessions})
+      AgentRegistry.send_to_terminal(agent_id, {:list_sessions})
     end
   end
 
@@ -120,7 +120,7 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
          :ok <- validate_command(command_type, params) do
       audit_log(command_type, agent_id, params)
 
-      AgentRegistry.send_to_agent(agent_id, {command_type, params})
+      AgentRegistry.send_to_terminal(agent_id, {command_type, params})
     end
   end
 
@@ -183,7 +183,8 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
       dangerous_pattern?(command) ->
         GSMLG.Telemetry.warn("Potentially dangerous command detected",
           metadata: %{
-            command: command
+            command_code: :create_pty,
+            command_size: byte_size(command)
           }
         )
 
@@ -275,15 +276,48 @@ defmodule GSMLG.CommandPlatform.CommandDispatcher do
 
   defp audit_log(command_type, agent_id, params) do
     GSMLG.Telemetry.info("PTY command dispatched",
-      metadata: %{
-        command_type: command_type,
-        agent_id: agent_id,
-        params: inspect(params),
-        timestamp: System.system_time(:millisecond)
-      }
+      metadata:
+        params
+        |> audit_sizes()
+        |> Map.merge(%{
+          command_type: command_type,
+          agent_id: agent_id,
+          timestamp: System.system_time(:millisecond)
+        })
     )
 
     # Store in audit log table (if needed)
     # GSMLG.CommandPlatform.AuditLog.log(command_type, agent_id, params)
   end
+
+  defp audit_sizes(params) when is_map(params) do
+    %{
+      payload_size: encoded_size(params),
+      session_id_hash: session_id_hash(params[:session_id]),
+      session_id_size: binary_size(params[:session_id])
+    }
+  end
+
+  defp audit_sizes(_params), do: %{payload_size: 0, session_id_hash: nil, session_id_size: 0}
+
+  defp session_id_hash(value) when is_binary(value) do
+    :crypto.hash(:sha256, value) |> Base.encode16(case: :lower)
+  end
+
+  defp session_id_hash(_value), do: nil
+
+  defp encoded_size(value) do
+    value |> JSON.encode!() |> byte_size()
+  rescue
+    _exception -> 0
+  end
+
+  defp binary_size(value) when is_binary(value), do: byte_size(value)
+  defp binary_size(_value), do: 0
+
+  defp dispatch_error_code(reason)
+       when reason in [:agent_not_found, :terminal_not_connected],
+       do: reason
+
+  defp dispatch_error_code(_reason), do: :dispatch_failed
 end

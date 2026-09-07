@@ -56,6 +56,8 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.18 or ~> 1.0"},
       {:gsmlg, in_umbrella: true},
+      {:gsmlg_browser, in_umbrella: true},
+      {:gsmlg_commander_protocol, in_umbrella: true},
       {:gsmlg_aws, in_umbrella: true},
       {:gsmlg_component, in_umbrella: true},
       {:gsmlg_web, in_umbrella: true},
@@ -69,6 +71,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:guardian, "~> 2.0"},
       {:guardian_phoenix, "~> 2.0"},
       {:guardian_db, "~> 3.0"},
+      {:open_api_spex, "~> 3.22"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

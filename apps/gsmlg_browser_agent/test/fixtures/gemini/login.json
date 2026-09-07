@@ -1,0 +1,11 @@
+{
+  "observation": {
+    "page_kind": "document",
+    "url": "https://gemini.google.com/app",
+    "alerts": ["Authentication is required"],
+    "semantic_tree": [
+      {"node_id": "login", "role": "heading", "name": "Sign in", "attributes": {"data-testid": "gemini-login"}}
+    ]
+  },
+  "expected_kind": "login_required"
+}

@@ -1,0 +1,28 @@
+# Browser-control fragment for a central GSMLG Admin release.
+# Merge this into the deployment's complete GSMLG TOML file.
+[commander]
+start = false
+server = true
+platform_credentials_env = "GSMLG_COMMANDER_PLATFORM_CREDENTIALS_JSON"
+max_in_flight_rpcs = 2
+
+[browser]
+enabled = true
+default_node = "gemini-browser-01"
+inline_artifact_max_bytes = 131072
+event_retention_days = 30
+upload_base_url = "https://admin.example.com/browser-artifact-uploads"
+upload_ttl_seconds = 300
+
+[browser.jobs]
+dispatch_timeout_ms = 30000
+reconcile_interval_ms = 30000
+default_deadline_ms = 7200000
+max_attempts = 3
+
+[browser.security]
+allowed_schemes = ["https"]
+allow_css_locator = false
+allow_downloads = true
+max_observation_bytes = 1048576
+max_artifact_bytes = 104857600

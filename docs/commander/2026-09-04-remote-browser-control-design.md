@@ -943,11 +943,14 @@ download
 failure-diagnostic.json
 ```
 
+`download` 使用同一份有限 MIME/扩展名矩阵：`.bin`、`.pdf`、`.json`、`.html`、
+`.md`、`.txt`、`.png`、`.jpg` 和 `.jpeg`；交叉或未知组合必须拒绝。
+
 ### 17.2 Manifest
 
 ```text
 artifact_id
-job_id
+job_id | session_id  # exactly one owner
 kind
 mime
 filename
@@ -1162,7 +1165,7 @@ unique(remote_execution_id, sequence)
 
 ```text
 id
-job_id
+job_id | session_id  # exactly one owner
 kind
 mime
 filename
@@ -1349,6 +1352,7 @@ allowed_origins = [
   "https://www.youtube.com",
   "https://youtu.be"
 ]
+allowed_upload_origins = ["https://commander.admin.gsmlg.org"]
 ```
 
 Manager Token、Commander Credential、Client Key 均由 Runtime Secret 注入，不写入 TOML 正文。

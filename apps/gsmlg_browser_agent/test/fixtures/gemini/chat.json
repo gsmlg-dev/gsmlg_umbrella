@@ -1,0 +1,12 @@
+{
+  "observation": {
+    "page_kind": "document",
+    "url": "https://gemini.google.com/app",
+    "alerts": [],
+    "semantic_tree": [
+      {"node_id": "prompt", "role": "textbox", "name": "Enter a prompt", "attributes": {"data-testid": "gemini-prompt"}},
+      {"node_id": "deep", "role": "button", "name": "Deep Research", "attributes": {"data-testid": "gemini-deep-research"}}
+    ]
+  },
+  "expected_kind": "chat"
+}

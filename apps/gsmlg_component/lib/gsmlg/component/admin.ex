@@ -29,8 +29,10 @@ defmodule GSMLG.Component.Admin do
       <:user_profile>
         <div class="flex items-center gap-2">
           <.dm_theme_switcher />
+          <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#161 --%>
           <.link
-            id="admin-sign-out"
+            class="admin-sign-out"
+            data-admin-sign-out="true"
             href="/sign_out"
             method="delete"
             data-confirm="Really sign out?"

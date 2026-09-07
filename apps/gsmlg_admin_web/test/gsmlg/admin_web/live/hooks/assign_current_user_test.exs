@@ -128,7 +128,7 @@ defmodule GSMLG.AdminWeb.Live.Hooks.AssignCurrentUserTest do
 
     assert {:ok, _view, html} = live(conn, ~p"/gao_notes")
     assert html =~ ~s(data-admin-auth-method="client_certificate")
-    assert html =~ ~s(id="admin-sign-out")
+    assert html =~ ~s(data-admin-sign-out="true")
   end
 
   test "certificate session redirects when reconnect headers are absent", %{conn: conn} do
@@ -245,7 +245,7 @@ defmodule GSMLG.AdminWeb.Live.Hooks.AssignCurrentUserTest do
       |> put_private(:live_view_connect_info, %{x_headers: []})
 
     assert {:ok, _view, html} = live(conn, ~p"/gao_notes")
-    assert html =~ ~s(id="admin-sign-out")
+    assert html =~ ~s(data-admin-sign-out="true")
   end
 
   defp certificate_conn(conn) do

@@ -165,6 +165,31 @@ defmodule GSMLG.Config.Schema do
     ]
   ]
 
+  @commander_tls_schema [
+    enabled: [
+      type: :boolean,
+      default: false,
+      doc: "Enable Commander mutual TLS client authentication"
+    ],
+    client_cert_file: [
+      type: :string,
+      doc: "Runtime-secret client certificate chain PEM path"
+    ],
+    client_key_file: [
+      type: :string,
+      doc: "Runtime-secret client private key PEM path"
+    ],
+    ca_cert_file: [
+      type: :string,
+      doc: "Optional server CA bundle PEM path"
+    ],
+    reload_interval_ms: [
+      type: :pos_integer,
+      default: 60_000,
+      doc: "Client certificate rotation check interval"
+    ]
+  ]
+
   @commander_schema [
     start: [
       type: :boolean,
@@ -173,12 +198,17 @@ defmodule GSMLG.Config.Schema do
     ],
     server: [
       type: :boolean,
+      default: false,
       doc: "Start Commander in server mode"
     ],
     name: [
       type: :string,
       default: "commander",
       doc: "Commander instance name"
+    ],
+    credential_id: [
+      type: :string,
+      doc: "Per-node Commander application credential identifier"
     ],
     umbrella_server_url: [
       type: :string,
@@ -192,10 +222,270 @@ defmodule GSMLG.Config.Schema do
       type: :string,
       doc: "Platform authentication key"
     ],
+    platform_key_env: [
+      type: :string,
+      default: "GSMLG_COMMANDER_PLATFORM_KEY",
+      doc: "Runtime environment variable containing the platform authentication key"
+    ],
+    platform_credentials: [
+      type: :map,
+      default: %{},
+      doc: "Runtime-injected per-node Commander credential map"
+    ],
+    platform_credentials_env: [
+      type: :string,
+      default: "GSMLG_COMMANDER_PLATFORM_CREDENTIALS_JSON",
+      doc: "Runtime environment variable containing the per-node credential JSON map"
+    ],
+    auth_timestamp_window_seconds: [
+      type: :pos_integer,
+      default: 60,
+      doc: "Maximum Commander signature clock skew"
+    ],
+    auth_nonce_ttl_ms: [
+      type: :pos_integer,
+      default: 120_000,
+      doc: "Commander authentication nonce replay window"
+    ],
+    max_in_flight_rpcs: [
+      type: :pos_integer,
+      default: 2,
+      doc: "Maximum simultaneously executing Commander capability RPCs"
+    ],
     features: [
       type: {:list, :string},
       default: ["pty"],
       doc: "Commander features enabled on this agent"
+    ],
+    tls: [
+      type: :map,
+      default: %{},
+      doc: "Commander client TLS settings"
+    ]
+  ]
+
+  @browser_agent_security_schema [
+    allow_css_locator: [
+      type: :boolean,
+      default: false,
+      doc: "Permit the fixed internal CSS locator fallback"
+    ],
+    allowed_origins: [
+      type: {:list, :string},
+      default: [],
+      doc: "Origins the Browser Agent may authorize for remote sessions"
+    ],
+    allowed_upload_origins: [
+      type: {:list, :string},
+      default: [],
+      doc: "Origins the Browser Agent may use for signed artifact uploads"
+    ]
+  ]
+
+  @browser_jobs_schema [
+    dispatch_timeout_ms: [
+      type: :pos_integer,
+      default: 30_000,
+      doc: "Maximum time to wait for the remote workflow acceptance"
+    ],
+    reconcile_interval_ms: [
+      type: :pos_integer,
+      default: 30_000,
+      doc: "Interval for reconciling non-terminal Browser jobs"
+    ],
+    default_deadline_ms: [
+      type: :pos_integer,
+      default: 7_200_000,
+      doc: "Central authority for new Browser workflow deadlines"
+    ],
+    max_attempts: [
+      type: :pos_integer,
+      default: 3,
+      doc: "Maximum explicit Browser job attempts"
+    ]
+  ]
+
+  @browser_security_schema [
+    allowed_schemes: [
+      type: {:list, :string},
+      default: ["https"],
+      doc: "URL schemes exposed by Browser control"
+    ],
+    allow_css_locator: [
+      type: :boolean,
+      default: false,
+      doc: "Permit the fixed internal CSS locator fallback"
+    ],
+    allow_downloads: [
+      type: :boolean,
+      default: true,
+      doc: "Permit bounded downloads as verified artifacts"
+    ],
+    max_observation_bytes: [
+      type: :pos_integer,
+      default: 1_048_576,
+      doc: "Maximum semantic observation size"
+    ],
+    max_artifact_bytes: [
+      type: :pos_integer,
+      default: 104_857_600,
+      doc: "Maximum verified Browser artifact size"
+    ]
+  ]
+
+  @browser_schema [
+    enabled: [
+      type: :boolean,
+      default: false,
+      doc: "Start the central Browser control service"
+    ],
+    default_node: [
+      type: {:or, [:string, nil]},
+      default: nil,
+      doc: "Optional default Commander Browser node"
+    ],
+    inline_artifact_max_bytes: [
+      type: :pos_integer,
+      default: 131_072,
+      doc: "Whole encoded inline artifact response ceiling"
+    ],
+    event_retention_days: [
+      type: :pos_integer,
+      default: 30,
+      doc: "Browser event and artifact retention period"
+    ],
+    upload_base_url: [
+      type: {:or, [:string, nil]},
+      default: nil,
+      doc: "Public HTTPS base URL for dedicated artifact uploads"
+    ],
+    upload_ttl_seconds: [
+      type: :pos_integer,
+      default: 300,
+      doc: "Lifetime of an artifact upload capability"
+    ],
+    jobs: [
+      type: :map,
+      default: %{},
+      doc: "Browser job scheduling settings"
+    ],
+    security: [
+      type: :map,
+      default: %{},
+      doc: "Central Browser security limits"
+    ]
+  ]
+
+  @browser_agent_schema [
+    enabled: [
+      type: :boolean,
+      default: false,
+      doc: "Start the remote Browser Agent"
+    ],
+    backend: [
+      type: {:in, ["cloakbrowser"]},
+      default: "cloakbrowser",
+      doc: "Remote browser Manager backend"
+    ],
+    manager_url: [
+      type: :string,
+      default: "http://127.0.0.1:8080",
+      doc: "Loopback CloakBrowser Manager URL"
+    ],
+    manager_token_env: [
+      type: :string,
+      default: "CLOAKBROWSER_MANAGER_TOKEN",
+      doc: "Environment variable containing the Manager Bearer token"
+    ],
+    state_dir: [
+      type: :string,
+      default: "/var/lib/gsmlg/browser-agent",
+      doc: "Browser Agent local durable-state directory"
+    ],
+    default_profile_id: [
+      type: {:or, [:string, nil]},
+      default: nil,
+      doc: "Optional default Manager profile ID"
+    ],
+    max_concurrent_sessions: [
+      type: :pos_integer,
+      default: 1,
+      doc: "Maximum concurrent Browser sessions"
+    ],
+    max_concurrent_workflows: [
+      type: :pos_integer,
+      default: 1,
+      doc: "Maximum concurrent Browser workflows"
+    ],
+    keep_profile_running: [
+      type: :boolean,
+      default: true,
+      doc: "Keep the default Manager profile running between tasks"
+    ],
+    manager_connect_timeout_ms: [
+      type: :pos_integer,
+      default: 2_000,
+      doc: "Manager connection-pool timeout"
+    ],
+    request_timeout_ms: [
+      type: :pos_integer,
+      default: 5_000,
+      doc: "Manager response timeout"
+    ],
+    max_response_bytes: [
+      type: :pos_integer,
+      default: 1_048_576,
+      doc: "Maximum buffered Manager response body"
+    ],
+    max_observation_bytes: [
+      type: :pos_integer,
+      default: 1_048_576,
+      doc: "Maximum semantic observation size"
+    ],
+    max_artifact_bytes: [
+      type: :pos_integer,
+      default: 104_857_600,
+      doc: "Maximum artifact size retained by the remote outbox"
+    ],
+    inline_artifact_max_bytes: [
+      type: :pos_integer,
+      default: 131_072,
+      doc: "Whole encoded inline artifact response ceiling"
+    ],
+    monitor_interval_ms: [
+      type: :pos_integer,
+      default: 15_000,
+      doc: "Manager health poll interval"
+    ],
+    lease_ttl_ms: [
+      type: :pos_integer,
+      default: 7_200_000,
+      doc: "Default remote profile lease lifetime"
+    ],
+    journal_terminal_max_records: [
+      type: :pos_integer,
+      default: 10_000,
+      doc: "Maximum retained terminal records per Browser Agent journal namespace"
+    ],
+    journal_terminal_max_age_ms: [
+      type: :pos_integer,
+      default: 2_592_000_000,
+      doc: "Maximum age of retained terminal Browser Agent journal records"
+    ],
+    journal_terminal_max_bytes: [
+      type: :pos_integer,
+      default: 67_108_864,
+      doc: "Maximum encoded bytes retained per terminal Browser Agent journal namespace"
+    ],
+    journal_recovery_scan_max_records: [
+      type: :pos_integer,
+      default: 10_000,
+      doc: "Maximum unresolved records considered by one Browser Agent recovery scan"
+    ],
+    security: [
+      type: :map,
+      default: %{},
+      doc: "Browser Agent security settings"
     ]
   ]
 
@@ -622,6 +912,8 @@ defmodule GSMLG.Config.Schema do
       admin_web: @admin_web_schema,
       couchdb: @couchdb_schema,
       commander: @commander_schema,
+      browser: @browser_schema,
+      browser_agent: @browser_agent_schema,
       cluster: @cluster_schema,
       oauth: %{github: @github_oauth_schema},
       web_push: @web_push_schema,
@@ -720,6 +1012,8 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:admin_web), do: @admin_web_schema
   defp get_section_schema(:couchdb), do: @couchdb_schema
   defp get_section_schema(:commander), do: @commander_schema
+  defp get_section_schema(:browser), do: @browser_schema
+  defp get_section_schema(:browser_agent), do: @browser_agent_schema
   defp get_section_schema(:cluster), do: @cluster_schema
   defp get_section_schema(:oauth), do: %{github: @github_oauth_schema}
   defp get_section_schema(:web_push), do: @web_push_schema
@@ -739,6 +1033,50 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:i18n), do: @i18n_schema
   defp get_section_schema(_), do: nil
 
+  defp validate_section_contract(:commander, settings) do
+    with {:ok, validated_tls} <-
+           NimbleOptions.validate(Map.to_list(settings.tls), @commander_tls_schema),
+         tls = Map.new(validated_tls),
+         :ok <- validate_commander_tls(settings, tls),
+         :ok <- validate_commander_agent(settings),
+         :ok <- validate_commander_server(settings),
+         :ok <- validate_commander_auth_windows(settings) do
+      {:ok, %{settings | tls: tls}}
+    else
+      {:error, %NimbleOptions.ValidationError{} = error} -> {:error, Exception.message(error)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_section_contract(:browser_agent, settings) do
+    with {:ok, validated_security} <-
+           NimbleOptions.validate(Map.to_list(settings.security), @browser_agent_security_schema),
+         security = Map.new(validated_security),
+         normalized = %{settings | security: security},
+         :ok <- validate_browser_agent(normalized) do
+      {:ok, normalized}
+    else
+      {:error, %NimbleOptions.ValidationError{} = error} -> {:error, Exception.message(error)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_section_contract(:browser, settings) do
+    with {:ok, validated_jobs} <-
+           NimbleOptions.validate(Map.to_list(settings.jobs), @browser_jobs_schema),
+         {:ok, validated_security} <-
+           NimbleOptions.validate(Map.to_list(settings.security), @browser_security_schema),
+         jobs = Map.new(validated_jobs),
+         security = Map.new(validated_security),
+         normalized = %{settings | jobs: jobs, security: security},
+         :ok <- validate_browser(normalized) do
+      {:ok, normalized}
+    else
+      {:error, %NimbleOptions.ValidationError{} = error} -> {:error, Exception.message(error)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   defp validate_section_contract(:proxy_rules, settings) do
     cond do
       settings.unsupported_rule_sample_limit > 1_000 ->
@@ -754,6 +1092,295 @@ defmodule GSMLG.Config.Schema do
   end
 
   defp validate_section_contract(_section, settings), do: {:ok, settings}
+
+  defp validate_commander_tls(_settings, %{enabled: false}), do: :ok
+
+  defp validate_commander_tls(settings, %{enabled: true} = tls) do
+    missing =
+      [:client_cert_file, :client_key_file]
+      |> Enum.reject(fn key -> is_binary(tls[key]) and tls[key] != "" end)
+
+    cond do
+      missing != [] ->
+        {:error, "Commander mTLS requires #{Enum.join(missing, " and ")}"}
+
+      not secure_commander_url?(settings) ->
+        {:error, "Commander mTLS platform_url must use wss://"}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp secure_commander_url?(%{platform_url: url}) when is_binary(url) and url != "" do
+    String.starts_with?(url, "wss://")
+  end
+
+  defp secure_commander_url?(%{umbrella_server_url: url}) when is_binary(url) do
+    String.starts_with?(url, "https://")
+  end
+
+  defp secure_commander_url?(_settings), do: false
+
+  defp validate_commander_agent(%{start: false} = settings) do
+    validate_optional_commander_url(settings)
+  end
+
+  defp validate_commander_agent(%{start: true} = settings) do
+    required = [:name, :credential_id]
+
+    case Enum.find(required, fn key -> not nonempty?(Map.get(settings, key)) end) do
+      nil ->
+        cond do
+          Map.has_key?(settings, :platform_key) and
+              not nonempty?(Map.get(settings, :platform_key)) ->
+            {:error, "Commander agent requires nonempty platform_key"}
+
+          nonempty?(Map.get(settings, :platform_key)) or
+              nonempty?(Map.get(settings, :platform_key_env)) ->
+            validate_required_commander_url(settings)
+
+          true ->
+            {:error, "Commander agent requires nonempty platform_key or platform_key_env"}
+        end
+
+      key ->
+        {:error, "Commander agent requires nonempty #{key}"}
+    end
+  end
+
+  defp validate_commander_server(%{server: true, platform_credentials: credentials})
+       when map_size(credentials) > 0 do
+    Enum.reduce_while(credentials, :ok, fn {credential_id, entry}, :ok ->
+      case valid_credential_entry?(credential_id, entry) do
+        true -> {:cont, :ok}
+        false -> {:halt, {:error, "Commander platform_credentials entries must be nonempty"}}
+      end
+    end)
+  end
+
+  defp validate_commander_server(%{server: true} = settings) do
+    if nonempty?(Map.get(settings, :platform_credentials_env)),
+      do: :ok,
+      else:
+        {:error,
+         "Commander server requires nonempty platform_credentials or platform_credentials_env"}
+  end
+
+  defp validate_commander_server(settings) do
+    credentials = Map.get(settings, :platform_credentials, %{})
+
+    if Enum.all?(credentials, fn {credential_id, entry} ->
+         valid_credential_entry?(credential_id, entry)
+       end),
+       do: :ok,
+       else: {:error, "Commander platform_credentials entries must be nonempty"}
+  end
+
+  defp validate_commander_auth_windows(settings) do
+    minimum = settings.auth_timestamp_window_seconds * 2_000
+
+    if settings.auth_nonce_ttl_ms >= minimum,
+      do: :ok,
+      else: {:error, "Commander auth_nonce_ttl_ms must cover twice the timestamp window"}
+  end
+
+  defp validate_required_commander_url(settings) do
+    cond do
+      nonempty?(Map.get(settings, :platform_url)) ->
+        validate_websocket_url(settings.platform_url)
+
+      nonempty?(Map.get(settings, :umbrella_server_url)) ->
+        validate_umbrella_url(settings.umbrella_server_url)
+
+      true ->
+        {:error, "Commander agent requires nonempty platform_url"}
+    end
+  end
+
+  defp validate_optional_commander_url(settings) do
+    cond do
+      nonempty?(Map.get(settings, :platform_url)) ->
+        validate_websocket_url(settings.platform_url)
+
+      nonempty?(Map.get(settings, :umbrella_server_url)) ->
+        validate_umbrella_url(settings.umbrella_server_url)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_websocket_url(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host}
+      when scheme in ["ws", "wss"] and is_binary(host) and host != "" ->
+        :ok
+
+      _invalid ->
+        {:error, "Commander platform_url must be a valid ws:// or wss:// URL"}
+    end
+  end
+
+  defp validate_umbrella_url(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host}
+      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+        :ok
+
+      _invalid ->
+        {:error, "Commander umbrella_server_url must be a valid http:// or https:// URL"}
+    end
+  end
+
+  defp valid_credential_entry?(credential_id, entry) do
+    id = if is_atom(credential_id), do: Atom.to_string(credential_id), else: credential_id
+
+    key =
+      if is_map(entry),
+        do: Map.get(entry, :key, Map.get(entry, "key")),
+        else: nil
+
+    name =
+      if is_map(entry),
+        do: Map.get(entry, :commander_name, Map.get(entry, "commander_name")),
+        else: nil
+
+    nonempty?(id) and nonempty?(key) and nonempty?(name)
+  end
+
+  defp validate_browser_agent(%{enabled: false}), do: :ok
+
+  defp validate_browser_agent(%{enabled: true} = settings) do
+    cond do
+      not browser_manager_loopback?(settings.manager_url) ->
+        {:error, "Browser Agent manager_url must use an HTTP loopback address"}
+
+      not nonempty?(settings.manager_token_env) ->
+        {:error, "Browser Agent requires nonempty manager_token_env"}
+
+      not nonempty?(settings.state_dir) ->
+        {:error, "Browser Agent requires nonempty state_dir"}
+
+      Path.type(settings.state_dir) != :absolute ->
+        {:error, "Browser Agent state_dir must be an absolute path"}
+
+      settings.inline_artifact_max_bytes > 131_072 ->
+        {:error, "Browser Agent inline_artifact_max_bytes must not exceed 131072"}
+
+      settings.max_observation_bytes > 1_048_576 ->
+        {:error, "Browser Agent max_observation_bytes must not exceed 1048576"}
+
+      settings.max_artifact_bytes > 104_857_600 ->
+        {:error, "Browser Agent max_artifact_bytes must not exceed 104857600"}
+
+      settings.inline_artifact_max_bytes > settings.max_artifact_bytes ->
+        {:error, "Browser Agent inline_artifact_max_bytes must not exceed max_artifact_bytes"}
+
+      not valid_allowed_origins?(settings.security.allowed_origins) ->
+        {:error, "Browser Agent allowed_origins must contain unique canonical HTTPS origins"}
+
+      not valid_allowed_origins?(settings.security.allowed_upload_origins) ->
+        {:error,
+         "Browser Agent allowed_upload_origins must contain unique canonical HTTPS origins"}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_browser(settings) do
+    cond do
+      settings.inline_artifact_max_bytes > 131_072 ->
+        {:error, "Browser inline_artifact_max_bytes must not exceed 131072"}
+
+      settings.upload_ttl_seconds > 900 ->
+        {:error, "Browser upload_ttl_seconds must not exceed 900"}
+
+      settings.jobs.max_attempts > 10 ->
+        {:error, "Browser max_attempts must not exceed 10"}
+
+      settings.security.allowed_schemes != ["https"] ->
+        {:error, "Browser allowed_schemes must be exactly https"}
+
+      settings.security.max_observation_bytes > 1_048_576 ->
+        {:error, "Browser max_observation_bytes must not exceed 1048576"}
+
+      settings.security.max_artifact_bytes > 104_857_600 ->
+        {:error, "Browser max_artifact_bytes must not exceed 104857600"}
+
+      settings.inline_artifact_max_bytes > settings.security.max_artifact_bytes ->
+        {:error, "Browser inline_artifact_max_bytes must not exceed max_artifact_bytes"}
+
+      settings.enabled and not valid_upload_base_url?(settings.upload_base_url) ->
+        {:error, "Browser upload_base_url must be a valid HTTPS URL without credentials or query"}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp valid_upload_base_url?(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{
+        scheme: "https",
+        host: host,
+        userinfo: nil,
+        query: nil,
+        fragment: nil,
+        path: path
+      }
+      when is_binary(host) and host != "" and
+             path in [nil, "", "/", "/browser-artifact-uploads"] ->
+        true
+
+      _invalid ->
+        false
+    end
+  end
+
+  defp valid_upload_base_url?(_url), do: false
+
+  defp valid_allowed_origins?(origins) when is_list(origins) and origins != [] do
+    Enum.uniq(origins) == origins and Enum.all?(origins, &canonical_https_origin?/1)
+  end
+
+  defp valid_allowed_origins?(_origins), do: false
+
+  defp canonical_https_origin?(origin) when is_binary(origin) do
+    case URI.parse(origin) do
+      %URI{
+        scheme: "https",
+        host: host,
+        path: path,
+        userinfo: nil,
+        query: nil,
+        fragment: nil
+      }
+      when is_binary(host) and host != "" and path in [nil, ""] ->
+        true
+
+      _invalid ->
+        false
+    end
+  end
+
+  defp canonical_https_origin?(_origin), do: false
+
+  defp browser_manager_loopback?(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{scheme: "http", host: host, userinfo: nil, query: nil, fragment: nil}
+      when host in ["127.0.0.1", "localhost", "::1"] ->
+        true
+
+      _invalid ->
+        false
+    end
+  end
+
+  defp browser_manager_loopback?(_url), do: false
+
+  defp nonempty?(value), do: is_binary(value) and String.trim(value) != ""
 
   defp validate_nested(config, _schema) when not is_map(config) do
     {:error, "expected a map, got: #{inspect(config)}"}
