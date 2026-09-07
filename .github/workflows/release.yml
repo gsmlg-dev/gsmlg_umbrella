@@ -209,6 +209,11 @@ jobs:
             mix deps.compile --include-children
             mix compile
           )
+          (
+            cd apps/gsmlg_browser_agent
+            mix deps.compile --include-children
+            mix compile
+          )
           mix release gsmlg_commander --overwrite --no-compile
           cp "_build/prod/gsmlg_commander-${RELEASE_VERSION}.tar.gz" "commander-${{ matrix.target }}.tar.gz"
 
@@ -237,6 +242,11 @@ jobs:
             mix deps.compile --include-children phoenix phoenix_live_view telemetry
             (
               cd apps/gsmlg_commander
+              mix deps.compile --include-children
+              mix compile
+            )
+            (
+              cd apps/gsmlg_browser_agent
               mix deps.compile --include-children
               mix compile
             )
