@@ -53,8 +53,8 @@ defmodule GSMLG.GaoNote.AttachmentInputTest do
               }} =
                AttachmentInput.cast(%{
                  "id" => " attachment-id ",
-                 path: " docs\\./report..txt ",
-                 "mime" => " text/plain "
+                 "mime" => " text/plain ",
+                 path: " docs\\./report..txt "
                })
     end
 
@@ -108,9 +108,7 @@ defmodule GSMLG.GaoNote.AttachmentInputTest do
     test "rejects NUL bytes in every persisted text field" do
       for {input_field, changeset_field} <- text_fields() do
         assert_invalid_text_error(
-          AttachmentInput.cast(
-            Map.put(valid_attrs(), input_field, <<"before", 0, "after">>)
-          ),
+          AttachmentInput.cast(Map.put(valid_attrs(), input_field, <<"before", 0, "after">>)),
           changeset_field,
           "must not contain NUL bytes"
         )
@@ -126,9 +124,7 @@ defmodule GSMLG.GaoNote.AttachmentInputTest do
 
     test "decodes strict standard padded Base64 including explicitly empty content" do
       assert {:ok, %AttachmentInput{bytes: <<0, 1, 2, 255>>}} =
-               AttachmentInput.cast(
-                 Map.put(valid_attrs(), "content_base64", "AAEC/w==")
-               )
+               AttachmentInput.cast(Map.put(valid_attrs(), "content_base64", "AAEC/w=="))
 
       assert {:ok, %AttachmentInput{bytes: <<>>}} =
                AttachmentInput.cast(Map.put(valid_attrs(), "content_base64", ""))
@@ -137,9 +133,7 @@ defmodule GSMLG.GaoNote.AttachmentInputTest do
     test "rejects invalid and unpadded Base64" do
       for content_base64 <- ["Zg", "_w==", "not base64"] do
         assert {:error, changeset} =
-                 AttachmentInput.cast(
-                   Map.put(valid_attrs(), "content_base64", content_base64)
-                 )
+                 AttachmentInput.cast(Map.put(valid_attrs(), "content_base64", content_base64))
 
         assert {"must be standard padded Base64", _metadata} =
                  Keyword.fetch!(changeset.errors, :content_base64)

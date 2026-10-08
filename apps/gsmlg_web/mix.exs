@@ -45,6 +45,7 @@ defmodule GSMLG.Web.MixProject do
       {:phoenix_duskmoon, ">= 9.12.2 and < 10.0.0"},
       {:bandit, "~> 1.0"},
       {:floki, "~> 0.38"},
+      {:mdex, "~> 0.13"},
       {:lazy_html, "~> 0.1.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.7"},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},

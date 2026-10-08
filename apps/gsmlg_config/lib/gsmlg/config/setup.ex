@@ -1,5 +1,9 @@
 defmodule GSMLG.Config.Setup do
   def setup(config) do
+    if config[:gao_note] != nil do
+      Application.put_env(:gsmlg_gao_note, :compat_services, config[:gao_note])
+    end
+
     if config[:gsmlg] != nil do
       setup_gsmlg(config[:gsmlg])
     end

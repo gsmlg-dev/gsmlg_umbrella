@@ -1,0 +1,830 @@
+{
+  "reference_repository": "gsmlg-opt/agent-note",
+  "reference_checkout": "/data/development/gsmlg-opt/agent-note",
+  "reference_commit": "1a16690d3f0bcdb08e00752e46d76f234313416b",
+  "review_date": "2026-10-08",
+  "counts": {
+    "Note": 24,
+    "System": 4,
+    "Org": 40
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/dashboard",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1066
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1109
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/bulk-labels",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1162
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/batch-labels",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1200
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/batch-delete",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1234
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1352
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/count",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1385
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/{id}",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1406
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/{id}/raw",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1430
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/notes/{id}/content",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1507
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/{id}/attachments/{*path}",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1544
+      },
+      "openapi_path": "/api/notes/{id}/attachments/{path}",
+      "runtime_source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1880
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/notes/{id}",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1579
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/notes/{id}",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1623
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/trash",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1653
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/trash/restore",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1683
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/trash/{id}",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1727
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/search",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1779
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/render",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/notes_api.rs",
+        "line": 1830
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/labels",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/labels_api.rs",
+        "line": 58
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/labels",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/labels_api.rs",
+        "line": 105
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/labels/{key}",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/labels_api.rs",
+        "line": 123
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/labels/{key}",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/labels_api.rs",
+        "line": 159
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/export/capabilities",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/export_api.rs",
+        "line": 116
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/{id}/export/pdf",
+      "scope": "Note",
+      "source": {
+        "path": "crates/note-server/src/export_api.rs",
+        "line": 135
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/config",
+      "scope": "System",
+      "source": {
+        "path": "crates/note-server/src/system_api.rs",
+        "line": 17
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/config",
+      "scope": "System",
+      "source": {
+        "path": "crates/note-server/src/system_api.rs",
+        "line": 35
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info",
+      "scope": "System",
+      "source": {
+        "path": "crates/note-server/src/system_api.rs",
+        "line": 72
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backup",
+      "scope": "System",
+      "source": {
+        "path": "crates/note-server/src/system_api.rs",
+        "line": 90
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/workspaces",
+      "scope": "Org",
+      "operation_id": "org_list_workspaces",
+      "source": {
+        "path": "crates/note-server/src/org_api/workspaces.rs",
+        "line": 19
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 30
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/workspaces",
+      "scope": "Org",
+      "operation_id": "org_create_workspace",
+      "source": {
+        "path": "crates/note-server/src/org_api/workspaces.rs",
+        "line": 44
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 31
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/workspaces/{workspace_id}",
+      "scope": "Org",
+      "operation_id": "org_get_workspace",
+      "source": {
+        "path": "crates/note-server/src/org_api/workspaces.rs",
+        "line": 70
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 32
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/org/workspaces/{workspace_id}",
+      "scope": "Org",
+      "operation_id": "org_update_workspace",
+      "source": {
+        "path": "crates/note-server/src/org_api/workspaces.rs",
+        "line": 95
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 37
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/workspaces/{workspace_id}/archive",
+      "scope": "Org",
+      "operation_id": "org_archive_workspace",
+      "source": {
+        "path": "crates/note-server/src/org_api/workspaces.rs",
+        "line": 123
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 42
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/workspaces/{workspace_id}/documents",
+      "scope": "Org",
+      "operation_id": "org_list_documents",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 25
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 47
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/documents/{document_id}",
+      "scope": "Org",
+      "operation_id": "org_get_document",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 82
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 52
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/org/documents/{document_id}",
+      "scope": "Org",
+      "operation_id": "org_put_document",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 111
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 57
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/workspaces/{workspace_id}/documents",
+      "scope": "Org",
+      "operation_id": "org_create_document",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 54
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 62
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/org/documents/{document_id}/path",
+      "scope": "Org",
+      "operation_id": "org_rename_document",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 139
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 67
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/documents/{document_id}/archive",
+      "scope": "Org",
+      "operation_id": "org_archive_document",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 167
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 72
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/documents/{document_id}/restore",
+      "scope": "Org",
+      "operation_id": "org_restore_document",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 195
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 77
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/documents/{document_id}/move",
+      "scope": "Org",
+      "operation_id": "org_move_document",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 223
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 82
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/move",
+      "scope": "Org",
+      "operation_id": "org_move_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 251
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 87
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/workspaces/{workspace_id}/import",
+      "scope": "Org",
+      "operation_id": "org_import_workspace",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 279
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 88
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/workspaces/{workspace_id}/export",
+      "scope": "Org",
+      "operation_id": "org_export_workspace",
+      "source": {
+        "path": "crates/note-server/src/org_api/documents.rs",
+        "line": 307
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 93
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/workspaces/{workspace_id}/items",
+      "scope": "Org",
+      "operation_id": "org_create_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/items.rs",
+        "line": 20
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 98
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/items/{item_id}",
+      "scope": "Org",
+      "operation_id": "org_get_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/items.rs",
+        "line": 46
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 103
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/items/{item_id}/context",
+      "scope": "Org",
+      "operation_id": "org_get_item_context",
+      "source": {
+        "path": "crates/note-server/src/org_api/items.rs",
+        "line": 73
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 104
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/follow-ups",
+      "scope": "Org",
+      "operation_id": "org_create_follow_up",
+      "source": {
+        "path": "crates/note-server/src/org_api/items.rs",
+        "line": 132
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 109
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/assignment",
+      "scope": "Org",
+      "operation_id": "org_assign_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/items.rs",
+        "line": 140
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 114
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/schedule",
+      "scope": "Org",
+      "operation_id": "org_schedule_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/items.rs",
+        "line": 148
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 119
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/queue",
+      "scope": "Org",
+      "operation_id": "org_query_queue",
+      "source": {
+        "path": "crates/note-server/src/org_api/operational.rs",
+        "line": 17
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 124
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/agenda",
+      "scope": "Org",
+      "operation_id": "org_query_agenda",
+      "source": {
+        "path": "crates/note-server/src/org_api/operational.rs",
+        "line": 41
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 125
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/claim",
+      "scope": "Org",
+      "operation_id": "org_claim_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/execution.rs",
+        "line": 20
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 126
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/claim/heartbeat",
+      "scope": "Org",
+      "operation_id": "org_heartbeat_claim",
+      "source": {
+        "path": "crates/note-server/src/org_api/execution.rs",
+        "line": 77
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 127
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/claim/release",
+      "scope": "Org",
+      "operation_id": "org_release_claim",
+      "source": {
+        "path": "crates/note-server/src/org_api/execution.rs",
+        "line": 85
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 132
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/progress",
+      "scope": "Org",
+      "operation_id": "org_report_progress",
+      "source": {
+        "path": "crates/note-server/src/org_api/execution.rs",
+        "line": 93
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 137
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/result",
+      "scope": "Org",
+      "operation_id": "org_submit_result",
+      "source": {
+        "path": "crates/note-server/src/org_api/execution.rs",
+        "line": 101
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 142
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/transition",
+      "scope": "Org",
+      "operation_id": "org_transition_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/execution.rs",
+        "line": 109
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 147
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/retry",
+      "scope": "Org",
+      "operation_id": "org_retry_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/execution.rs",
+        "line": 117
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 152
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/review/request",
+      "scope": "Org",
+      "operation_id": "org_request_review",
+      "source": {
+        "path": "crates/note-server/src/org_api/review.rs",
+        "line": 48
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 153
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/review/approve",
+      "scope": "Org",
+      "operation_id": "org_approve_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/review.rs",
+        "line": 56
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 158
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/review/reject",
+      "scope": "Org",
+      "operation_id": "org_reject_item",
+      "source": {
+        "path": "crates/note-server/src/org_api/review.rs",
+        "line": 64
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 163
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/dependencies",
+      "scope": "Org",
+      "operation_id": "org_add_dependency",
+      "source": {
+        "path": "crates/note-server/src/org_api/relationships.rs",
+        "line": 20
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 168
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/org/items/{item_id}/dependencies/{dependency_item_id}",
+      "scope": "Org",
+      "operation_id": "org_remove_dependency",
+      "source": {
+        "path": "crates/note-server/src/org_api/relationships.rs",
+        "line": 46
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 173
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/org/items/{item_id}/note-links",
+      "scope": "Org",
+      "operation_id": "org_link_note",
+      "source": {
+        "path": "crates/note-server/src/org_api/relationships.rs",
+        "line": 76
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 178
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/org/items/{item_id}/note-links",
+      "scope": "Org",
+      "operation_id": "org_unlink_note",
+      "source": {
+        "path": "crates/note-server/src/org_api/relationships.rs",
+        "line": 102
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 183
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/notes/{note_id}/work-items",
+      "scope": "Org",
+      "operation_id": "org_list_note_work_items",
+      "source": {
+        "path": "crates/note-server/src/org_api/relationships.rs",
+        "line": 128
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 188
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/org/workspaces/{workspace_id}/events",
+      "scope": "Org",
+      "operation_id": "org_list_events",
+      "source": {
+        "path": "crates/note-server/src/org_api/audit.rs",
+        "line": 18
+      },
+      "inventory_source": {
+        "path": "crates/note-server/tests/org_api_inventory_test.rs",
+        "line": 193
+      }
+    }
+  ]
+}

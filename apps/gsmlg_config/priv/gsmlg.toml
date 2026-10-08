@@ -234,3 +234,11 @@ blocked_cidrs = [
   "3fff::/20",
   "5f00::/16"
 ]
+
+# GaoNote Agent Note compatibility services (empty URLs disable external features).
+[gao_note]
+index_url = ""
+search_url = ""
+search_token = ""
+minimum_score = 0.01
+pdf_renderer_url = ""

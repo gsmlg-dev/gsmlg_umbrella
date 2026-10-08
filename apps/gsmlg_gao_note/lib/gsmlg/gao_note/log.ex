@@ -9,7 +9,7 @@ defmodule GSMLG.GaoNote.Log do
   schema "gao_note_logs" do
     field(:action, :string)
     field(:entity_type, :string)
-    field(:entity_id, :binary_id)
+    field(:entity_id, :string)
     field(:note_id, :binary_id)
     field(:actor_id, :string)
     field(:source, :string, default: "admin")

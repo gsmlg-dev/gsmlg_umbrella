@@ -12,6 +12,7 @@ defmodule GSMLG.GaoNote.Note do
     field(:title, :string)
     field(:content, :string)
     field(:deleted_at, :utc_datetime_usec)
+    field(:revision, :integer, default: 1)
 
     has_many(:attachments, Attachment, foreign_key: :note_id)
     has_many(:labels, Label, foreign_key: :note_id)

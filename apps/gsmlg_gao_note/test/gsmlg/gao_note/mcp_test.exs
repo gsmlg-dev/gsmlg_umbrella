@@ -37,7 +37,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       send_resp(conn, 204, "")
     end
 
-    match _, do: send_resp(conn, 200, "")
+    match(_, do: send_resp(conn, 200, ""))
 
     defp read_complete_body(conn, acc) do
       case Plug.Conn.read_body(conn) do
@@ -80,7 +80,7 @@ defmodule GSMLG.GaoNote.MCPTest do
     Repo.delete_all(StorageFile)
 
     original = Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
-    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: 0, startup_log: false)
+    s3_stub = start_supervised!({Bandit, plug: S3Stub, port: 0, startup_log: false})
     {:ok, {_address, port}} = ThousandIsland.listener_info(s3_stub)
 
     Application.put_env(:gsmlg_storage, :allowed_types, %{"gao_note_attachment" => :any})
@@ -96,8 +96,6 @@ defmodule GSMLG.GaoNote.MCPTest do
         {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
         {key, :error} -> Application.delete_env(:gsmlg_storage, key)
       end)
-
-      if Process.alive?(s3_stub), do: GenServer.stop(s3_stub)
     end)
 
     :ok
@@ -183,8 +181,7 @@ defmodule GSMLG.GaoNote.MCPTest do
         "path" => "./files/blob.bin",
         "mime" => "application/octet-stream",
         "description" => "Binary bytes",
-        "content_url" =>
-          "/api/gao_notes/#{note.id}/attachments/files/blob.bin",
+        "content_url" => "/api/gao_notes/#{note.id}/attachments/files/blob.bin",
         "content_base64" => Base.encode64(bytes)
       }
 
@@ -481,7 +478,7 @@ defmodule GSMLG.GaoNote.MCPTest do
                  "id" => ^attachment_id,
                  "path" => "./docs/data.txt",
                  "mime" => "text/plain",
-               "description" => "MCP data"
+                 "description" => "MCP data"
                } = attachment
              ] = created["attachments"]
 
@@ -505,6 +502,7 @@ defmodule GSMLG.GaoNote.MCPTest do
 
       assert updated["title"] == "Aggregate retained"
       assert updated["content"] == "Updated body"
+
       assert [%{"key" => "scope", "value" => "mcp"}] =
                Enum.map(updated["labels"], &Map.take(&1, ["key", "value"]))
 
@@ -929,12 +927,14 @@ defmodule GSMLG.GaoNote.MCPTest do
       string_actor_frame = admin_frame(%{"id" => "admin-1"})
 
       assert %{"structuredContent" => %{"attachment" => deleted}} =
-               call_tool(
-                 GSMLG.GaoNote.MCP.AdminServer,
-                 "gao_note.delete_attachment",
-                 delete_args,
-                 string_actor_frame
-               )
+               Oban.Testing.with_testing_mode(:manual, fn ->
+                 call_tool(
+                   GSMLG.GaoNote.MCP.AdminServer,
+                   "gao_note.delete_attachment",
+                   delete_args,
+                   string_actor_frame
+                 )
+               end)
 
       assert deleted["id"] == selected.id
       assert_attachment_metadata_only(deleted)

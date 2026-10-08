@@ -26,5 +26,13 @@ defmodule GSMLG.GaoNote.Audit do
       details: details || %{}
     })
     |> Repo.insert()
+    |> enqueue_index(action, entity_type, note_id)
   end
+
+  defp enqueue_index({:ok, log}, action, "note", note_id)
+       when action in ["create", "update", "restore"] do
+    with {:ok, _} <- GSMLG.GaoNote.Compat.Index.enqueue(note_id), do: {:ok, log}
+  end
+
+  defp enqueue_index(result, _action, _entity_type, _note_id), do: result
 end

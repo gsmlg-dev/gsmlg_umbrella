@@ -5,8 +5,6 @@ defmodule GSMLG.GaoNote do
 
   import Ecto.Query, warn: false
 
-  alias Ecto.Multi
-
   alias GSMLG.GaoNote.{
     Attachments,
     Audit,
@@ -101,7 +99,7 @@ defmodule GSMLG.GaoNote do
   def get_note(id) do
     with {:ok, id} <- Ecto.UUID.cast(id) do
       active_note_query()
-      |> preload([labels: :label_setting, attachments: :storage_file])
+      |> preload(labels: :label_setting, attachments: :storage_file)
       |> Repo.get(id)
     else
       :error -> nil
@@ -110,7 +108,7 @@ defmodule GSMLG.GaoNote do
 
   def get_note!(id) do
     active_note_query()
-    |> preload([labels: :label_setting, attachments: :storage_file])
+    |> preload(labels: :label_setting, attachments: :storage_file)
     |> Repo.get!(id)
   end
 
@@ -118,7 +116,7 @@ defmodule GSMLG.GaoNote do
     with {:ok, id} <- Ecto.UUID.cast(id) do
       public_note_query()
       |> where([n], n.id == ^id)
-      |> preload([labels: :label_setting, attachments: :storage_file])
+      |> preload(labels: :label_setting, attachments: :storage_file)
       |> Repo.one()
     else
       :error -> nil
@@ -134,14 +132,14 @@ defmodule GSMLG.GaoNote do
     |> order_by([n], desc: n.deleted_at, desc: n.updated_at)
     |> limit(^limit_value(opts[:limit]))
     |> offset(^offset_value(opts[:offset]))
-    |> preload([labels: :label_setting, attachments: :storage_file])
+    |> preload(labels: :label_setting, attachments: :storage_file)
     |> Repo.all()
   end
 
   def get_deleted_note(id) do
     with {:ok, id} <- Ecto.UUID.cast(id) do
       deleted_note_query()
-      |> preload([labels: :label_setting, attachments: :storage_file])
+      |> preload(labels: :label_setting, attachments: :storage_file)
       |> Repo.get(id)
     else
       :error -> nil
@@ -390,46 +388,129 @@ defmodule GSMLG.GaoNote do
     |> LabelSetting.changeset(normalize_attrs(attrs, @label_setting_attr_keys))
     |> Repo.insert()
     |> tap_success(fn label_setting ->
-      log_action("create", "label_setting", label_setting.id, nil, actor, %{"name" => label_setting.name})
+      log_action("create", "label_setting", label_setting.id, nil, actor, %{
+        "name" => label_setting.name
+      })
     end)
   end
 
   def update_label_setting(%LabelSetting{} = label_setting, attrs, actor \\ nil) do
-    old_value_type = label_setting.value_type || "text"
+    attrs = normalize_attrs(attrs, @label_setting_attr_keys)
 
-    label_setting
-    |> LabelSetting.changeset(normalize_attrs(attrs, @label_setting_attr_keys))
-    |> Repo.update()
-    |> tap_success(fn label_setting ->
-      log_action("update", "label_setting", label_setting.id, nil, actor, %{
-        "name" => label_setting.name,
-        "fields" => changed_fields(attrs, @label_setting_attr_keys)
-      })
+    catalog_transaction(fn ->
+      locked = lock_label_setting(label_setting.id)
+      old_value_type = locked.value_type || "text"
+      changeset = LabelSetting.changeset(locked, attrs)
 
-      if old_value_type != (label_setting.value_type || "text") do
-        async_revalidate_labels(label_setting)
+      notes =
+        if Ecto.Changeset.changed?(changeset, :name) do
+          lock_label_setting(locked.id, "FOR UPDATE")
+          lock_label_notes(locked.id)
+        else
+          []
+        end
+
+      with {:ok, updated} <- Repo.update(changeset),
+           :ok <- advance_label_note_revisions(notes) do
+        {updated, old_value_type}
+      else
+        {:error, reason} -> Repo.rollback(reason)
       end
     end)
+    |> case do
+      {:ok, {updated, old_value_type}} ->
+        log_action("update", "label_setting", updated.id, nil, actor, %{
+          "name" => updated.name,
+          "fields" => changed_fields(attrs, @label_setting_attr_keys)
+        })
+
+        if old_value_type != (updated.value_type || "text"), do: async_revalidate_labels(updated)
+        {:ok, updated}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   def delete_label_setting(%LabelSetting{} = label_setting, actor \\ nil) do
-    if category_label_in_use?(label_setting.id) do
-      category_label_in_use_error(label_setting)
-    else
-      label_setting
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.no_assoc_constraint(:category_settings,
-        name: :gao_note_category_settings_label_setting_id_fkey,
-        message: "remove every category using this label before deleting it"
-      )
-      |> Repo.delete()
-      |> normalize_category_delete_result(label_setting)
-      |> tap_success(fn label_setting ->
-        log_action("delete", "label_setting", label_setting.id, nil, actor, %{
-          "name" => label_setting.name
-        })
-      end)
+    catalog_transaction(fn ->
+      locked = lock_label_setting(label_setting.id, "FOR UPDATE")
+
+      if category_label_in_use?(locked.id) do
+        {:error, reason} = category_label_in_use_error(locked)
+        Repo.rollback(reason)
+      end
+
+      notes = lock_label_notes(locked.id)
+
+      with {:ok, deleted} <-
+             locked
+             |> Ecto.Changeset.change()
+             |> Ecto.Changeset.no_assoc_constraint(:category_settings,
+               name: :gao_note_category_settings_label_setting_id_fkey,
+               message: "remove every category using this label before deleting it"
+             )
+             |> Repo.delete()
+             |> normalize_category_delete_result(locked),
+           :ok <- advance_label_note_revisions(notes) do
+        deleted
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+    |> tap_success(fn deleted ->
+      log_action("delete", "label_setting", deleted.id, nil, actor, %{"name" => deleted.name})
+    end)
+  end
+
+  # Lock the catalog before notes so FK inserts cannot bypass catalog revisions.
+  # A competing note-first writer can deadlock; its rolled-back error is retryable.
+  defp catalog_transaction(operation) do
+    Repo.transaction(operation)
+  rescue
+    error in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, error}
+  end
+
+  defp lock_label_setting(id, strength \\ "FOR NO KEY UPDATE") do
+    query = where(LabelSetting, [setting], setting.id == ^id)
+
+    query =
+      case strength do
+        "FOR UPDATE" -> lock(query, "FOR UPDATE")
+        "FOR NO KEY UPDATE" -> lock(query, "FOR NO KEY UPDATE")
+      end
+
+    case Repo.one(query) do
+      nil -> Repo.rollback(:catalog_not_found)
+      setting -> setting
     end
+  end
+
+  defp lock_label_notes(label_setting_id) do
+    note_ids =
+      from(label in Label,
+        where: label.label_setting_id == ^label_setting_id,
+        select: label.note_id
+      )
+
+    notes =
+      Note
+      |> where([note], note.id in subquery(note_ids))
+      |> order_by([note], asc: note.id)
+      |> lock("FOR UPDATE")
+      |> Repo.all()
+
+    affected_ids = note_ids |> Repo.all() |> MapSet.new()
+    Enum.filter(notes, &MapSet.member?(affected_ids, &1.id))
+  end
+
+  defp advance_label_note_revisions(notes) do
+    Enum.reduce_while(notes, :ok, fn note, :ok ->
+      case advance_revision(note) do
+        {:ok, _} -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 
   def create_note(attrs, actor) do
@@ -483,14 +564,31 @@ defmodule GSMLG.GaoNote do
         transaction_result =
           Attachments.transact(attachment_plan, fn ->
             with {:ok, locked_note} <- lock_active_note(note.id),
-                 {:ok, updated_note} <-
-                   locked_note
-                   |> Note.changeset(attrs)
-                   |> Repo.update(),
-                 {:ok, _note} <- replace_labels_in_repo(updated_note, labels),
-                 {:ok, _attachments} <-
-                   Attachments.reconcile(updated_note.id, attachment_plan) do
-              updated_note
+                 {:ok, attachments_changed} <- Attachments.changed?(attachment_plan) do
+              locked_note = preload_note(locked_note)
+              changeset = Note.changeset(locked_note, attrs)
+              labels_changed = labels_changed?(locked_note, labels)
+
+              changed =
+                changed_note_fields(changeset) != [] or labels_changed or attachments_changed
+
+              changeset =
+                if changed,
+                  do: Ecto.Changeset.put_change(changeset, :revision, locked_note.revision + 1),
+                  else: changeset
+
+              with {:ok, updated_note} <- Repo.update(changeset),
+                   {:ok, _note} <-
+                     replace_changed_labels_in_repo(updated_note, labels, labels_changed),
+                   {:ok, _attachments} <-
+                     if(attachments_changed,
+                       do: Attachments.reconcile(updated_note.id, attachment_plan),
+                       else: {:ok, []}
+                     ) do
+                updated_note
+              else
+                {:error, reason} -> Repo.rollback(reason)
+              end
             else
               {:error, reason} -> Repo.rollback(reason)
             end
@@ -498,18 +596,24 @@ defmodule GSMLG.GaoNote do
 
         case transaction_result do
           {:ok, note} ->
-          note = preload_note(note)
+            note = preload_note(note)
+            used_files = MapSet.new(note.attachments, & &1.storage_file_id)
 
-          log_action("update", "note", note.id, note.id, actor, %{
-            "title" => note.title,
-            "fields" =>
-              attrs
-              |> changed_fields(@note_attr_keys, labels)
-              |> Kernel.++(["attachments"])
-              |> Enum.uniq()
-          })
+            unused_files =
+              Enum.reject(attachment_plan.staged_files, &MapSet.member?(used_files, &1.id))
 
-          {:ok, note}
+            Attachments.cleanup(%{staged_files: unused_files})
+
+            log_action("update", "note", note.id, note.id, actor, %{
+              "title" => note.title,
+              "fields" =>
+                attrs
+                |> changed_fields(@note_attr_keys, labels)
+                |> Kernel.++(["attachments"])
+                |> Enum.uniq()
+            })
+
+            {:ok, note}
 
           {:error, reason} ->
             {:error, reason}
@@ -545,14 +649,25 @@ defmodule GSMLG.GaoNote do
   end
 
   def delete_note(%Note{} = note, actor) do
-    note
-    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now())
-    |> Repo.update()
-    |> tap_success(fn deleted ->
-      log_action("delete", "note", deleted.id, deleted.id, actor, %{
-        "title" => deleted.title,
-        "deleted_at" => deleted.deleted_at
-      })
+    Repo.transaction(fn ->
+      with {:ok, locked} <- lock_active_note(note.id),
+           {:ok, deleted} <-
+             locked
+             |> Ecto.Changeset.change(
+               deleted_at: DateTime.utc_now(),
+               revision: locked.revision + 1
+             )
+             |> Ecto.Changeset.force_change(:updated_at, locked.updated_at)
+             |> Repo.update(),
+           {:ok, _log} <-
+             log_action("delete", "note", deleted.id, deleted.id, actor, %{
+               "title" => deleted.title,
+               "deleted_at" => deleted.deleted_at
+             }) do
+        deleted
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
     end)
   end
 
@@ -560,7 +675,8 @@ defmodule GSMLG.GaoNote do
     transact_deleted_note(note.id, fn locked_note ->
       with {:ok, restored} <-
              locked_note
-             |> Ecto.Changeset.change(deleted_at: nil)
+             |> Ecto.Changeset.change(deleted_at: nil, revision: locked_note.revision + 1)
+             |> Ecto.Changeset.force_change(:updated_at, locked_note.updated_at)
              |> Repo.update(),
            {:ok, _log} <-
              log_action("restore", "note", restored.id, restored.id, actor, %{
@@ -588,28 +704,18 @@ defmodule GSMLG.GaoNote do
   end
 
   def set_labels(%Note{} = note, label_values, actor) do
-    Multi.new()
-    |> Multi.run(:labels, fn _repo, _changes ->
-      with {:ok, labels} <- normalize_labels(label_values, :labels),
-           {:ok, locked_note} <- lock_active_note(note.id) do
-        set_labels_in_repo(locked_note, labels)
-      end
-    end)
-    |> Repo.transaction()
-    |> case do
-      {:ok, %{labels: note}} ->
-        note = preload_note(note)
+    update_note_fields(note, %{labels: label_values}, actor)
+  end
 
-        log_action("update", "note", note.id, note.id, actor, %{
-          "title" => note.title,
-          "fields" => ["labels"]
-        })
+  def advance_revision(%Note{} = note) do
+    now = DateTime.utc_now()
 
-        {:ok, note}
+    now =
+      if DateTime.to_unix(now) > DateTime.to_unix(note.updated_at),
+        do: now,
+        else: DateTime.add(note.updated_at, 1, :second)
 
-      {:error, :labels, reason, _changes} ->
-        {:error, reason}
-    end
+    note |> Ecto.Changeset.change(revision: note.revision + 1, updated_at: now) |> Repo.update()
   end
 
   def batch_mutate_note_labels(note_ids, operation, actor),
@@ -826,7 +932,7 @@ defmodule GSMLG.GaoNote do
     |> apply_order(opts[:order_by])
     |> limit(^limit_value(opts[:limit]))
     |> offset(^offset_value(opts[:offset]))
-    |> preload([labels: :label_setting, attachments: :storage_file])
+    |> preload(labels: :label_setting, attachments: :storage_file)
     |> Repo.all()
   end
 
@@ -943,9 +1049,6 @@ defmodule GSMLG.GaoNote do
 
   defp offset_value(_value), do: 0
 
-  defp replace_labels_in_repo(%Note{} = note, @labels_not_provided), do: {:ok, note}
-  defp replace_labels_in_repo(%Note{} = note, labels), do: set_labels_in_repo(note, labels)
-
   defp set_labels_in_repo(%Note{} = note, labels) when is_list(labels) do
     label_keys = Enum.map(labels, & &1.name)
 
@@ -1033,6 +1136,7 @@ defmodule GSMLG.GaoNote do
   end
 
   defp normalize_labels(_labels, :labels), do: {:error, "labels must be an array"}
+
   defp normalize_label(label, :labels) when is_binary(label) do
     case String.split(label, "=", parts: 2) do
       [key, value] -> normalize_label_pair(key, value)
@@ -1085,27 +1189,33 @@ defmodule GSMLG.GaoNote do
       end
     end)
     |> case do
-      {:ok, label_settings} -> {:ok, Enum.sort_by(label_settings, &LabelSetting.normalized_key(&1.name))}
-      {:error, reason} -> {:error, reason}
+      {:ok, label_settings} ->
+        {:ok, Enum.sort_by(label_settings, &LabelSetting.normalized_key(&1.name))}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   defp get_or_insert_label_setting(name) do
-    label_key = LabelSetting.normalized_key(name)
-
-    case label_setting_by_normalized_name(label_key) do
-      %LabelSetting{} = label_setting ->
-        {:ok, label_setting}
+    case Repo.get_by(LabelSetting, name: name) do
+      %LabelSetting{} = setting ->
+        {:ok, setting}
 
       nil ->
-        insert_label_setting(name)
-    end
-  end
+        key = LabelSetting.normalized_key(name)
 
-  defp label_setting_by_normalized_name(label_key) do
-    LabelSetting
-    |> where([setting], fragment("lower(?)", setting.name) == ^label_key)
-    |> Repo.one()
+        matches =
+          LabelSetting
+          |> where([setting], fragment("lower(?)", setting.name) == ^key)
+          |> Repo.all()
+
+        case matches do
+          [] -> insert_label_setting(name)
+          [setting] -> {:ok, setting}
+          _ -> {:error, {:ambiguous_label_key, name}}
+        end
+    end
   end
 
   defp insert_label_setting(name) do
@@ -1114,7 +1224,7 @@ defmodule GSMLG.GaoNote do
     %LabelSetting{}
     |> LabelSetting.changeset(%{name: name})
     |> Repo.insert(
-      conflict_target: {:unsafe_fragment, "(lower(name))"},
+      conflict_target: [:name],
       on_conflict: [set: [updated_at: now]],
       returning: true
     )
@@ -1206,6 +1316,11 @@ defmodule GSMLG.GaoNote do
           changed_note_fields(changeset) ++
             if(labels_changed?, do: ["labels"], else: [])
 
+        changeset =
+          if fields == [],
+            do: changeset,
+            else: Ecto.Changeset.put_change(changeset, :revision, locked_note.revision + 1)
+
         with {:ok, updated} <- Repo.update(changeset),
              {:ok, updated} <-
                replace_changed_labels_in_repo(
@@ -1226,7 +1341,7 @@ defmodule GSMLG.GaoNote do
   defp preload_labels_for_field_update(note, @labels_not_provided), do: note
 
   defp preload_labels_for_field_update(note, _labels),
-    do: Repo.preload(note, labels: :label_setting, force: true)
+    do: Repo.preload(note, [labels: :label_setting], force: true)
 
   defp labels_changed?(_note, @labels_not_provided), do: false
 

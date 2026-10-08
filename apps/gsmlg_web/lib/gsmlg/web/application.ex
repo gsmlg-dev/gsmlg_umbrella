@@ -7,6 +7,8 @@ defmodule GSMLG.Web.Application do
   def start(_type, _args) do
     children = [
       GSMLG.Web.Telemetry,
+      GSMLG.Web.AgentNotePDFPool,
+      {GSMLG.GaoNote.MCP.AgentNoteServer, transport: {:streamable_http, start: true}},
       GSMLG.Web.Endpoint
       # {Guardian.DB.Token.SweeperServer, []}
     ]

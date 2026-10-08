@@ -51,6 +51,10 @@ defmodule GSMLG.Web.Router do
     plug(:put_secure_browser_headers)
   end
 
+  scope "/" do
+    forward("/mcp", GSMLG.Web.AgentNoteMCPPlug)
+  end
+
   scope "/auth", GSMLG.Web do
     pipe_through :browser
 
@@ -99,6 +103,42 @@ defmodule GSMLG.Web.Router do
     get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer)
     get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap)
     get("/toolbox/screensaver", ToolboxController, :screensaver)
+  end
+
+  scope "/", GSMLG.Web do
+    pipe_through([:api, :maybe_api_auth])
+    get("/notes/:id/content", AgentNoteController, :raw)
+  end
+
+  scope "/api", GSMLG.Web do
+    pipe_through([:api, :maybe_api_auth, :ensure_authed_access])
+    get("/notes/:id/export/pdf", AgentNoteController, :pdf)
+    post("/notes", AgentNoteController, :create)
+    post("/notes/bulk-labels", AgentNoteController, :bulk_labels)
+    post("/notes/batch-labels", AgentNoteController, :batch_labels)
+    post("/notes/batch-delete", AgentNoteController, :batch_delete)
+    put("/notes/:id", AgentNoteController, :update)
+    delete("/notes/:id", AgentNoteController, :delete)
+    post("/trash/restore", AgentNoteController, :restore)
+    delete("/trash/:id", AgentNoteController, :purge)
+    post("/labels", AgentNoteController, :define_label)
+    put("/labels/:key", AgentNoteController, :update_label)
+    delete("/labels/:key", AgentNoteController, :delete_label)
+    get("/notes/:note_id/attachments/*path", GaoNoteAttachmentContentController, :show)
+  end
+
+  scope "/api", GSMLG.Web do
+    pipe_through([:api, :maybe_api_auth])
+    get("/notes", AgentNoteController, :index)
+    get("/notes/count", AgentNoteController, :count)
+    post("/notes/search", AgentNoteController, :search)
+    get("/notes/:id/raw", AgentNoteController, :raw)
+    get("/notes/:id", AgentNoteController, :show)
+    get("/trash", AgentNoteController, :trash)
+    get("/labels", AgentNoteController, :labels)
+    get("/dashboard", AgentNoteController, :dashboard)
+    get("/export/capabilities", AgentNoteController, :capabilities)
+    post("/render", AgentNoteController, :render)
   end
 
   scope "/api", GSMLG.Web do

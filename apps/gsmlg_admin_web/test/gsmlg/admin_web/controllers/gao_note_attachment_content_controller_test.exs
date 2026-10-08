@@ -4,6 +4,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
   import GSMLG.AccountsFixtures
 
   defmodule S3Stub do
+    import Phoenix.ConnTest, except: [get: 2]
     use Plug.Router
 
     plug(:match)
@@ -17,6 +18,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
       end
 
       object = Application.get_env(:gsmlg_storage, :gao_note_http_admin_object, "")
+
       fail_ranges =
         Application.get_env(:gsmlg_storage, :gao_note_http_admin_fail_ranges, [])
 
@@ -35,7 +37,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
       end
     end
 
-    match _, do: send_resp(conn, 200, "")
+    match(_, do: send_resp(conn, 200, ""))
   end
 
   alias GSMLG.GaoNote
@@ -63,7 +65,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
 
     original = Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     port = available_port()
-    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
+    start_supervised!({Bandit, plug: S3Stub, port: port, startup_log: false})
 
     Application.put_env(:gsmlg_storage, :gao_note_http_admin_fail_ranges, [])
     Application.put_env(:gsmlg_storage, :gao_note_http_admin_object, "")
@@ -78,8 +80,6 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
         {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
         {key, :error} -> Application.delete_env(:gsmlg_storage, key)
       end)
-
-      if Process.alive?(s3_stub), do: GenServer.stop(s3_stub)
     end)
 
     {:ok, conn: put_req_header(conn, "accept", "*/*"), user: user_fixture()}
@@ -407,11 +407,12 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
     conn: conn,
     user: user
   } do
-    assert_error_sent 404, fn ->
+    standalone =
       conn
       |> session_authenticated_conn(user)
       |> get("/gao_notes/attachments")
-    end
+
+    assert html_response(standalone, 404)
 
     pathless =
       conn
@@ -438,6 +439,10 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
       GSMLG.AdminWeb.Guardian.encode_and_sign(user, %{}, token_type: "access")
 
     put_req_header(conn, "authorization", "Bearer #{token}")
+  end
+
+  defp with_secret_key_base(conn) do
+    %{conn | secret_key_base: GSMLG.AdminWeb.Endpoint.config(:secret_key_base)}
   end
 
   defp capture_log_telemetry do

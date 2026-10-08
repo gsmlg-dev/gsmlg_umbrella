@@ -1,0 +1,66 @@
+==> gsmlg_gao_note
+     warning: the following clause will never match:
+
+         {:error, reason}
+
+     because it attempts to match on the result of:
+
+         storage_source(input)
+
+     which has type:
+
+         dynamic(
+           {:ok, %Plug.Upload{content_type: term(), filename: term(), path: term()} or {term(), term()}}
+         )
+
+     typing violation found at:
+     │
+ 711 │       {:error, reason} ->
+     │       ~~~~~~~~~~~~~~~~~~~
+     │
+     └─ (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note/attachments.ex:711: GSMLG.GaoNote.Attachments.stage_entry/3
+
+==> gsmlg_admin_web
+     warning: variable "destination" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 201 │   defp secure_open_stage(staged_path, editor_dir, destination, uid) do
+     │                                                   ~~~~~~~~~~~
+     │
+     └─ (gsmlg_admin_web 0.1.0) lib/gsmlg/admin_web/gao_note_attachment_temp.ex:201:51: GSMLG.AdminWeb.GaoNoteAttachmentTemp.secure_open_stage/4
+
+     warning: clauses with the same name and arity (number of arguments) should be grouped together, "def handle_event/3" was previously defined (lib/gsmlg/admin_web/live/gao_note_live/index.ex:147)
+     │
+ 558 │   def handle_event("cancel_attachment_upload", %{"ref" => ref}, socket) do
+     │       ~
+     │
+     └─ lib/gsmlg/admin_web/live/gao_note_live/index.ex:558:7
+
+      warning: <%# is deprecated, use <%!-- or add a space between <% and # instead
+      │
+ 2312 │           <%# WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#100 %>
+      │           ~
+      │
+      └─ lib/gsmlg/admin_web/live/gao_note_live/index.ex:2312: (file)
+
+
+12:04:42.800 [info] [2026-10-08T04:04:42.757Z] INFO Loading configuration pid=#PID<0.95.0> process_info=nil
+
+12:04:42.815 [info] [2026-10-08T04:04:42.815Z] INFO Loaded configuration file pid=#PID<0.95.0> process_info=nil
+
+12:04:42.837 [info] [2026-10-08T04:04:42.836Z] INFO Configuration loaded successfully pid=#PID<0.95.0> process_info=nil
+%{
+  status: 500,
+  probe: "agent-note tuple labels",
+  body: "{\"errors\":{\"detail\":\"Internal Server Error\"}}"
+}
+%{
+  status: 500,
+  probe: "malformed labels collection",
+  body: "{\"errors\":{\"detail\":\"Internal Server Error\"}}"
+}
+%{
+  status: 400,
+  probe: "unexpected revision on legacy create",
+  body: "{\"errors\":{\"code\":\"unknown_fields\",\"fields\":[\"expected_revision\"]}}"
+}
+note_schema_fields: [:id, :title, :content, :deleted_at, :created_at, :updated_at]

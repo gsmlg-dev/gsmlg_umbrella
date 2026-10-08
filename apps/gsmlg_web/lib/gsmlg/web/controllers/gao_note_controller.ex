@@ -105,8 +105,11 @@ defmodule GSMLG.Web.GaoNoteController do
     end
   end
 
-  defp body_params(%{body_params: %Plug.Conn.Unfetched{} = _unfetched, path_params: path_params}, params),
-    do: Map.drop(params, Map.keys(path_params))
+  defp body_params(
+         %{body_params: %Plug.Conn.Unfetched{} = _unfetched, path_params: path_params},
+         params
+       ),
+       do: Map.drop(params, Map.keys(path_params))
 
   defp body_params(%{body_params: body_params}, _params) when is_map(body_params),
     do: body_params
@@ -266,6 +269,14 @@ defmodule GSMLG.Web.GaoNoteController do
     do: internal_server_error(conn)
 
   defp render_write_error(_conn, :not_found), do: {:error, :not_found}
+
+  defp render_write_error(conn, reason)
+       when reason in [
+              "labels must be an array",
+              "labels must be strings like key=value or maps with key/value"
+            ],
+       do: json_error(conn, :bad_request, %{labels: [reason]})
+
   defp render_write_error(conn, _reason), do: internal_server_error(conn)
 
   defp json_error(conn, status, errors) do

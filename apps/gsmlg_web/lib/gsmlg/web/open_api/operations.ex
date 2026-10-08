@@ -2,6 +2,7 @@ defmodule GSMLG.Web.OpenApi.Operations do
   @moduledoc false
 
   alias GSMLG.Web.OpenApi.{
+    AgentNoteOperations,
     BlogOperations,
     GaoNoteOperations,
     Operation,
@@ -16,6 +17,7 @@ defmodule GSMLG.Web.OpenApi.Operations do
       self_path(),
       BlogOperations.paths(),
       GaoNoteOperations.paths(),
+      AgentNoteOperations.paths(),
       ToolboxOperations.paths(),
       WebPushOperations.paths(),
       ProxyRulesOperations.paths(),

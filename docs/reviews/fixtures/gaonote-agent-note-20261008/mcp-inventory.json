@@ -1,0 +1,424 @@
+{
+  "reference_repository": "/data/development/gsmlg-opt/agent-note",
+  "reference_sha": "1a16690d3f0bcdb08e00752e46d76f234313416b",
+  "extraction": "Source-derived field inventory, not a runtime-generated JSON Schema snapshot. Required/optional and unknown-field policy follow Rust serde types; source references identify generated-schema definitions.",
+  "tools": [
+    {
+      "name": "bulk_update_note_labels",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:76",
+      "handler_source": "crates/note-mcp/src/server.rs:808",
+      "required_fields": {
+        "selector": {
+          "type": "string"
+        }
+      },
+      "optional_fields": {
+        "set": {
+          "type": "array",
+          "items": "2-element [string key, string value] tuple",
+          "default": []
+        },
+        "remove": {
+          "type": "array",
+          "items": "string",
+          "default": []
+        }
+      },
+      "reject_unknown_input_fields": true,
+      "result": {
+        "matched": "usize",
+        "updated": "usize",
+        "unchanged": "usize"
+      },
+      "notes": "Atomic selector-based set/replace/remove; preserve unrelated labels; no-match 0/0/0."
+    },
+    {
+      "name": "delete_note",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:469",
+      "handler_source": "crates/note-mcp/src/server.rs:895",
+      "required_fields": {
+        "id": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "integer",
+          "rust_type": "i64"
+        }
+      },
+      "optional_fields": {},
+      "reject_unknown_input_fields": false,
+      "result": {
+        "deleted": "boolean"
+      },
+      "notes": "Revision checked."
+    },
+    {
+      "name": "delete_note_attachment",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:738",
+      "handler_source": "crates/note-mcp/src/server.rs:989",
+      "required_fields": {
+        "note_id": {
+          "type": "string"
+        },
+        "attachment_id": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "integer",
+          "rust_type": "i64"
+        }
+      },
+      "optional_fields": {},
+      "reject_unknown_input_fields": true,
+      "result": {
+        "deleted": "boolean",
+        "revision": "i64 or null"
+      },
+      "notes": "Absent attachment returns false/null."
+    },
+    {
+      "name": "get_note",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:121",
+      "handler_source": "crates/note-mcp/src/server.rs:836",
+      "required_fields": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "optional_fields": {},
+      "reject_unknown_input_fields": false,
+      "result": {
+        "ref": "NoteDetailResponse"
+      },
+      "notes": "Top-level structuredContent is the note object; no {note: ...} wrapper."
+    },
+    {
+      "name": "get_note_attachment_content",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:662",
+      "handler_source": "crates/note-mcp/src/server.rs:957",
+      "required_fields": {
+        "note_id": {
+          "type": "string"
+        },
+        "attachment_id": {
+          "type": "string"
+        }
+      },
+      "optional_fields": {},
+      "reject_unknown_input_fields": true,
+      "result": {
+        "attachment": "AttachmentMetadataSchema",
+        "content": "string, iff UTF-8 bytes",
+        "content_base64": "string, iff non-UTF-8 bytes"
+      },
+      "notes": "Exactly one content representation, sibling of attachment metadata."
+    },
+    {
+      "name": "list_notes",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:484",
+      "handler_source": "crates/note-mcp/src/server.rs:909",
+      "required_fields": {},
+      "optional_fields": {
+        "limit": {
+          "type": "u32 or null",
+          "default": null
+        },
+        "offset": {
+          "type": "u32 or null",
+          "default": null
+        },
+        "label": {
+          "type": "string or null",
+          "default": null
+        }
+      },
+      "reject_unknown_input_fields": false,
+      "result": {
+        "notes": "array<NoteSummaryResponse>"
+      },
+      "notes": "Omitted/null limit 10; maximum 1000; zero limit returns no notes; label supports full selector grammar."
+    },
+    {
+      "name": "patch_note",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:407",
+      "handler_source": "crates/note-mcp/src/server.rs:869",
+      "required_fields": {
+        "id": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "integer",
+          "rust_type": "i64",
+          "minimum": 1
+        }
+      },
+      "optional_fields": {
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string or object {apply_patch: string}",
+          "object_rejects_unknown": true
+        },
+        "attachments": {
+          "type": "array",
+          "items_ref": "AttachmentRequestSchema"
+        },
+        "labels": {
+          "type": "array",
+          "items": "2-element [string key, string value] tuple"
+        }
+      },
+      "reject_unknown_input_fields": true,
+      "result": {
+        "id": "string",
+        "revision": "i64",
+        "changed": "boolean"
+      },
+      "notes": "Provided optional fields reject explicit null. Omitted fields preserved; [] clears collections. All omitted is operational invalid_request. Atomic strict contextual diff and semantic no-op retain revision."
+    },
+    {
+      "name": "put_note_attachment",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:588",
+      "handler_source": "crates/note-mcp/src/server.rs:942",
+      "required_fields": {
+        "note_id": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "integer",
+          "rust_type": "i64"
+        },
+        "attachment_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "mime": {
+          "type": "string"
+        }
+      },
+      "optional_fields": {
+        "description": {
+          "type": "string",
+          "default": ""
+        },
+        "content": {
+          "type": "string or null",
+          "default": null
+        },
+        "content_base64": {
+          "type": "string or null",
+          "default": null
+        }
+      },
+      "reject_unknown_input_fields": true,
+      "result": {
+        "created": "boolean",
+        "revision": "i64",
+        "attachment": "AttachmentMetadataSchema"
+      },
+      "notes": "Schema anyOf requires content or content_base64 presence. Decoder requires at least one usable non-null representation and accepts both when decoded bytes agree; mismatches are invalid_params. Add or replace attachment id within note; existing path change/collision invalid_params. See crates/note-core/src/types.rs:411."
+    },
+    {
+      "name": "read_note_lines",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:241",
+      "handler_source": "crates/note-mcp/src/server.rs:852",
+      "required_fields": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "optional_fields": {},
+      "reject_unknown_input_fields": false,
+      "result": {
+        "id": "string",
+        "revision": "i64",
+        "tag": "string",
+        "lines": "array<{n: usize, text: string}>"
+      },
+      "notes": "1-indexed body lines without separators; revision/tag are informational."
+    },
+    {
+      "name": "replace_note",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:356",
+      "handler_source": "crates/note-mcp/src/server.rs:884",
+      "required_fields": {
+        "id": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "integer",
+          "rust_type": "i64",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "attachments": {
+          "type": "array",
+          "items_ref": "AttachmentRequestSchema"
+        },
+        "labels": {
+          "type": "array",
+          "items": "2-element [string key, string value] tuple"
+        }
+      },
+      "optional_fields": {},
+      "reject_unknown_input_fields": true,
+      "result": {
+        "id": "string",
+        "revision": "i64",
+        "changed": "boolean"
+      },
+      "notes": "All writable fields required; [] clears collections; atomic; semantic no-op retains revision."
+    },
+    {
+      "name": "save_note",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:34",
+      "handler_source": "crates/note-mcp/src/server.rs:822",
+      "required_fields": {
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "optional_fields": {
+        "labels": {
+          "type": "array",
+          "items": "2-element [string key, string value] tuple",
+          "default": []
+        }
+      },
+      "reject_unknown_input_fields": true,
+      "result": {
+        "id": "string",
+        "revision": "i64"
+      },
+      "notes": "Does not accept initial attachments."
+    },
+    {
+      "name": "semantic_search",
+      "endpoint": "/mcp",
+      "source": "crates/note-mcp/src/server.rs:516",
+      "handler_source": "crates/note-mcp/src/server.rs:926",
+      "required_fields": {
+        "query": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "usize"
+        }
+      },
+      "optional_fields": {
+        "label": {
+          "type": "string or null",
+          "default": null
+        }
+      },
+      "reject_unknown_input_fields": false,
+      "result": {
+        "results": "array<SemanticSearchHit>"
+      },
+      "notes": "Shared hybrid title/dense weighted RRF pipeline; saved search.minimum_score applies; no offset."
+    }
+  ],
+  "shared_shapes": {
+    "LabelSchema": {
+      "source": "crates/note-mcp/src/server.rs:128",
+      "required": {
+        "key": "string",
+        "value": "string",
+        "description": "string",
+        "value_type": "string"
+      },
+      "additionalProperties": false
+    },
+    "AttachmentMetadataSchema": {
+      "source": "crates/note-mcp/src/server.rs:152",
+      "required": {
+        "id": "string",
+        "path": "string",
+        "mime": "string",
+        "description": "string"
+      },
+      "additionalProperties": false
+    },
+    "AttachmentRequestSchema": {
+      "source": "crates/note-mcp/src/server.rs:296",
+      "required": {
+        "id": "string",
+        "path": "string",
+        "mime": "string"
+      },
+      "optional": {
+        "description": "string default empty",
+        "content": "string, rejects explicit null",
+        "content_base64": "string, rejects explicit null"
+      },
+      "oneOf": "Exactly one content/content_base64 must be supplied",
+      "additionalProperties": false
+    },
+    "NoteSummaryResponse": {
+      "source": "crates/note-mcp/src/server.rs:176",
+      "required": {
+        "id": "string",
+        "title": "string",
+        "labels": "array<LabelSchema>",
+        "created_at": "i64 Unix timestamp",
+        "updated_at": "i64 Unix timestamp",
+        "revision": "i64"
+      },
+      "additionalProperties": false
+    },
+    "NoteDetailResponse": {
+      "source": "crates/note-mcp/src/server.rs:206",
+      "extends": "NoteSummaryResponse",
+      "extra": {
+        "content": "string",
+        "attachments": "array<AttachmentMetadataSchema>"
+      },
+      "additionalProperties": false
+    },
+    "SemanticSearchHit": {
+      "source": "crates/note-mcp/src/server.rs:532",
+      "extends": "NoteSummaryResponse",
+      "extra": {
+        "score": "f32"
+      },
+      "additionalProperties": false
+    }
+  },
+  "transport": {
+    "source": "crates/note-mcp/src/http.rs:42",
+    "sdk": "rmcp 3.4.0",
+    "protocol": "2026-07-28, also legacy versions",
+    "modern": "stateless POST application/json, no initialize/session required, _meta protocolVersion/clientInfo/clientCapabilities; MCP-Protocol-Version + Mcp-Method and tools/call Mcp-Name headers; resultType complete; tools/list ttlMs/cacheScope",
+    "auth": "No app auth; front proxy owns access control; any present Origin rejected",
+    "org_endpoint": "/org/mcp, separate 40 tool registry"
+  },
+  "error_sources": [
+    "crates/note-mcp/src/server.rs:1013",
+    "crates/note-mcp/src/server.rs:1052",
+    "crates/note-mcp/src/server.rs:1125",
+    "crates/note-mcp/src/server.rs:1177",
+    "crates/note-mcp/src/server.rs:1200"
+  ]
+}

@@ -26,6 +26,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentController do
          %StorageFile{} = file <- attachment.storage_file do
       serve(conn, note_id, attachment.path, attachment.mime, file)
     else
+      {:error, :bad_request} -> bad_request(conn)
       _not_found -> not_found(conn)
     end
   end
@@ -44,12 +45,18 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentController do
   end
 
   defp decoded_wildcard_path(conn, segments) when is_list(segments) do
-    with true <- valid_raw_wildcard?(conn.request_path),
-         true <- segments != [],
-         true <- Enum.all?(segments, &(is_binary(&1) and String.valid?(&1))) do
-      {:ok, Enum.join(segments, "/")}
-    else
-      _invalid -> {:error, :not_found}
+    cond do
+      segments == [] ->
+        {:error, :not_found}
+
+      not valid_raw_wildcard?(conn.request_path) ->
+        {:error, :bad_request}
+
+      not Enum.all?(segments, &(is_binary(&1) and String.valid?(&1))) ->
+        {:error, :bad_request}
+
+      true ->
+        {:ok, Enum.join(segments, "/")}
     end
   end
 
@@ -219,6 +226,12 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentController do
 
   defp inline_media_type?(content_type),
     do: String.downcase(content_type) in @inline_media_types
+
+  defp bad_request(conn) do
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(400, Jason.encode!(%{errors: %{detail: "Bad Request"}}))
+  end
 
   defp not_found(conn) do
     conn

@@ -35,9 +35,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   @strict_attachment_map_schema {:schema, @attachment_input_fields,
                                  {:additional_keys,
                                   {:required,
-                                   {:custom,
-                                    {__MODULE__,
-                                     :reject_additional_attachment_field}}}}}
+                                   {:custom, {__MODULE__, :reject_additional_attachment_field}}}}}
   @strict_attachment_input_fields {:custom, {__MODULE__, :validate_attachment_input}}
   @strict_base64_pattern "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
 
@@ -104,10 +102,8 @@ defmodule GSMLG.GaoNote.MCP.Tools do
                                      {:additional_keys,
                                       {:required,
                                        {:custom,
-                                        {__MODULE__,
-                                         :reject_additional_attachment_field}}}}}
-  @strict_put_attachment_input_fields {:custom,
-                                       {__MODULE__, :validate_put_attachment_input}}
+                                        {__MODULE__, :reject_additional_attachment_field}}}}}
+  @strict_put_attachment_input_fields {:custom, {__MODULE__, :validate_put_attachment_input}}
 
   @input_fields %{
     "gao_note.search" => [
@@ -122,8 +118,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     ],
     "gao_note.get_attachment_with_content" => [
       {:note_id, :string, [required: true, description: "GaoNote id."]},
-      {:attachment_id, :string,
-       [required: true, description: "Globally unique attachment ID."]}
+      {:attachment_id, :string, [required: true, description: "Globally unique attachment ID."]}
     ],
     "gao_note.list_label_settings" => [],
     "gao_note.create_note" => [
@@ -152,7 +147,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
       {:title, :string, [description: "Updated note title."]},
       {:content, :string, [description: "Updated markdown note content."]},
       {:labels, {:list, :string},
-       [description: "Replacement labels as key=value strings. Missing label keys are created."]},
+       [description: "Replacement labels as key=value strings. Missing label keys are created."]}
     ],
     "gao_note.delete" => [
       {:id, :string, [required: true, description: "GaoNote id."]}
@@ -164,8 +159,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     ],
     "gao_note.put_attachment" => [
       {:note_id, :string, [required: true, description: "GaoNote id."]},
-      {:attachment_id, :string,
-       [required: true, description: "Globally unique attachment ID."]},
+      {:attachment_id, :string, [required: true, description: "Globally unique attachment ID."]},
       {:path, :string, [required: true, description: "Canonical note-relative path."]},
       {:mime, :string, [required: true, description: "Expected MIME type."]},
       {:description, :string, [required: true, description: "Attachment description."]},
@@ -185,8 +179,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     ],
     "gao_note.delete_attachment" => [
       {:note_id, :string, [required: true, description: "GaoNote id."]},
-      {:attachment_id, :string,
-       [required: true, description: "Globally unique attachment ID."]}
+      {:attachment_id, :string, [required: true, description: "Globally unique attachment ID."]}
     ]
   }
 
@@ -204,6 +197,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     do: {:error, "unsupported note field", []}
 
   @doc false
+  # TODO(upstream): gsmlg-opt/backplane#58
   def validate_attachment_input(attachment) when is_map(attachment) do
     with {:ok, _attachment} <- Peri.validate(@strict_attachment_map_schema, attachment),
          :ok <- validate_attachment_content(attachment),
@@ -254,8 +248,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
         "labels" => %{
           "type" => "array",
           "items" => %{"type" => "string"},
-          "description" =>
-            "Optional labels as key=value strings. Missing label keys are created."
+          "description" => "Optional labels as key=value strings. Missing label keys are created."
         },
         "attachments" => %{
           "type" => "array",
@@ -381,7 +374,9 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     do: "Get GaoNote attachment metadata and Base64-encoded content."
 
   def description("gao_note.list_label_settings"), do: "List GaoNote label settings."
-  def description("gao_note.create_note"), do: "Create a GaoNote and its complete attachment list."
+
+  def description("gao_note.create_note"),
+    do: "Create a GaoNote and its complete attachment list."
 
   def description("gao_note.create_label_setting"),
     do:
@@ -860,6 +855,7 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
       @doc false
       def __mcp_raw_schema__, do: unquote(Macro.escape(schema))
 
+      # TODO(upstream): gsmlg-opt/backplane#58
       defschema(:mcp_schema, unquote(Macro.escape(schema)))
     end
   end
@@ -887,9 +883,7 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
 
     schema =
       {:schema, fields,
-       {:additional_keys,
-        {:required,
-         {:custom, {GSMLG.GaoNote.MCP.Tools, rejector}}}}}
+       {:additional_keys, {:required, {:custom, {GSMLG.GaoNote.MCP.Tools, rejector}}}}}
 
     quote do
       import Peri
@@ -897,6 +891,7 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
       @doc false
       def __mcp_raw_schema__, do: unquote(Macro.escape(schema))
 
+      # TODO(upstream): gsmlg-opt/backplane#58
       defschema(:mcp_schema, unquote(Macro.escape(schema)))
     end
   end

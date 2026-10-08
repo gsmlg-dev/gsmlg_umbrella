@@ -9,6 +9,7 @@ defmodule GSMLG.GaoNote.MCP.AdminPlug do
   def init(opts) do
     opts
     |> Keyword.put(:server, GSMLG.GaoNote.MCP.AdminServer)
+    # TODO(upstream): gsmlg-opt/backplane#56
     |> StreamableHTTP.Plug.init()
   end
 

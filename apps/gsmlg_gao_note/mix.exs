@@ -35,6 +35,7 @@ defmodule GSMLG.GaoNote.MixProject do
       {:plug, "~> 1.18"},
       {:backplane_mcp_protocol, "~> 1.6"},
       {:jason, "~> 1.2"},
+      {:finch, "~> 0.19"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

@@ -393,8 +393,13 @@ defmodule GSMLG.GaoNote.BatchActions do
   end
 
   defp apply_changes(changes) do
-    Enum.reduce_while(changes, :ok, fn {_note, change}, :ok ->
-      case apply_change(change) do
+    Enum.reduce_while(changes, :ok, fn {note, change}, :ok ->
+      result =
+        with :ok <- apply_change(change),
+             {:ok, _} <- GSMLG.GaoNote.advance_revision(note),
+             do: :ok
+
+      case result do
         :ok -> {:cont, :ok}
         {:error, reason} -> {:halt, {:error, reason}}
       end
@@ -442,7 +447,7 @@ defmodule GSMLG.GaoNote.BatchActions do
 
   defp soft_delete_note(note, deleted_at) do
     note
-    |> Ecto.Changeset.change(deleted_at: deleted_at)
+    |> Ecto.Changeset.change(deleted_at: deleted_at, revision: note.revision + 1)
     |> Repo.update()
     |> case do
       {:ok, _note} -> :ok

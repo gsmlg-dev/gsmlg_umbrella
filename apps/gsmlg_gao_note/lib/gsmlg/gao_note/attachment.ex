@@ -20,6 +20,8 @@ defmodule GSMLG.GaoNote.Attachment do
     belongs_to(:note, Note)
     belongs_to(:storage_file, StorageFile)
 
+    field(:api_id, :string)
+    field(:content, :binary, virtual: true)
     field(:path, :string)
     field(:mime, :string)
     field(:description, :string, default: "")
@@ -69,9 +71,10 @@ defmodule GSMLG.GaoNote.Attachment do
 
   def changeset(attachment, attrs) do
     attachment
-    |> cast(attrs, [:id, :note_id, :storage_file_id, :path, :mime, :description],
+    |> cast(attrs, [:id, :api_id, :note_id, :storage_file_id, :path, :mime, :description],
       empty_values: []
     )
+    |> put_default_api_id()
     |> put_default_description()
     |> validate_text_fields()
     |> validate_required([:note_id, :storage_file_id])
@@ -171,6 +174,12 @@ defmodule GSMLG.GaoNote.Attachment do
           changeset
       end
     end
+  end
+
+  defp put_default_api_id(changeset) do
+    if get_field(changeset, :api_id),
+      do: changeset,
+      else: put_change(changeset, :api_id, get_field(changeset, :id))
   end
 
   defp put_default_description(changeset) do

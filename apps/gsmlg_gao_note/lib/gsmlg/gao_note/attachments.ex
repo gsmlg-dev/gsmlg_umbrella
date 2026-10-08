@@ -38,6 +38,41 @@ defmodule GSMLG.GaoNote.Attachments do
     {:error, {:attachments, %{code: :must_be_a_list}}}
   end
 
+  def changed?(plan) do
+    current = Map.new(current_attachments(plan.note_id), &{&1.id, &1})
+    desired = MapSet.new(plan.entries, & &1.input.id)
+    ids_changed = MapSet.new(Map.keys(current)) != desired
+
+    Enum.reduce_while(plan.entries, {:ok, ids_changed}, fn entry, {:ok, changed} ->
+      case Map.get(current, entry.input.id) do
+        nil ->
+          {:cont, {:ok, true}}
+
+        attachment ->
+          metadata_changed =
+            attachment.path != entry.input.path or attachment.mime != entry.input.mime or
+              attachment.description != entry.input.description
+
+          case content_changed?(plan.note_id, attachment, entry) do
+            {:ok, content_changed} ->
+              {:cont, {:ok, changed or metadata_changed or content_changed}}
+
+            {:error, _reason} = error ->
+              {:halt, error}
+          end
+      end
+    end)
+  end
+
+  defp content_changed?(_note_id, _attachment, %{kind: :retain}), do: {:ok, false}
+
+  defp content_changed?(note_id, attachment, entry) do
+    case get_with_content(note_id, attachment.id) do
+      {:ok, _, bytes} -> {:ok, bytes != entry.input.bytes}
+      {:error, _reason} = error -> error
+    end
+  end
+
   def reconcile(note_id, %{note_id: note_id} = plan) do
     desired_ids = MapSet.new(plan.entries, & &1.input.id)
 
@@ -129,7 +164,7 @@ defmodule GSMLG.GaoNote.Attachments do
          {:ok, staged_entry, plan} <-
            stage_targeted_entry(note_id, entry, uploaded_by) do
       transact(plan, fn ->
-        with {:ok, _note} <- lock_active_note(note_id, attachment_id),
+        with {:ok, note} <- lock_active_note(note_id, attachment_id),
              {:ok, locked_attachment} <-
                lock_owned_attachment(note_id, attachment_id),
              :ok <-
@@ -140,7 +175,8 @@ defmodule GSMLG.GaoNote.Attachments do
              {:ok, updated} <-
                persist_targeted_entry(locked_attachment, staged_entry),
              {:ok, _jobs} <-
-               schedule_replaced_file_purge(staged_entry, locked_attachment) do
+               schedule_replaced_file_purge(staged_entry, locked_attachment),
+             {:ok, _note} <- maybe_advance_revision(note, locked_attachment, updated) do
           Repo.preload(updated, :storage_file, force: true)
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -156,12 +192,13 @@ defmodule GSMLG.GaoNote.Attachments do
     with {:ok, note_id} <- cast_note_id(note_id),
          :ok <- validate_attachment_id(attachment_id) do
       Repo.transaction(fn ->
-        with {:ok, _note} <- lock_active_note(note_id, attachment_id),
+        with {:ok, note} <- lock_active_note(note_id, attachment_id),
              {:ok, attachment} <-
                lock_owned_attachment(note_id, attachment_id),
              {:ok, _jobs} <-
                schedule_purges([attachment.storage_file_id]),
-             {:ok, deleted} <- Repo.delete(attachment) do
+             {:ok, deleted} <- Repo.delete(attachment),
+             {:ok, _note} <- GSMLG.GaoNote.advance_revision(note) do
           deleted
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -183,6 +220,14 @@ defmodule GSMLG.GaoNote.Attachments do
          :ok <- validate_text(bytes) do
       {:ok, bytes}
     end
+  end
+
+  defp maybe_advance_revision(note, before, after_attachment) do
+    if {before.path, before.mime, before.description, before.storage_file_id} ==
+         {after_attachment.path, after_attachment.mime, after_attachment.description,
+          after_attachment.storage_file_id},
+       do: {:ok, note},
+       else: GSMLG.GaoNote.advance_revision(note)
   end
 
   defp cast_put_input(raw_attrs, attachment_id) when is_map(raw_attrs) do
@@ -476,9 +521,7 @@ defmodule GSMLG.GaoNote.Attachments do
   end
 
   defp attachment_input_error(attachment_id, code, details \\ %{}) do
-    {:error,
-     {:attachment_input,
-      Map.merge(%{code: code, id: attachment_id}, details)}}
+    {:error, {:attachment_input, Map.merge(%{code: code, id: attachment_id}, details)}}
   end
 
   defp cast_inputs(raw_inputs) do
@@ -493,19 +536,14 @@ defmodule GSMLG.GaoNote.Attachments do
           {:cont, {:ok, [input | inputs]}}
 
         {:ok, %AttachmentInput{id: id, upload: %Plug.Upload{}}} ->
-          {:halt,
-           {:error,
-            {:attachment, %{code: :multiple_content_sources, id: id}}}}
+          {:halt, {:error, {:attachment, %{code: :multiple_content_sources, id: id}}}}
 
         {:ok, %AttachmentInput{id: id}} ->
-          {:halt,
-           {:error,
-            {:attachment, %{code: :unsupported_content_source, id: id}}}}
+          {:halt, {:error, {:attachment, %{code: :unsupported_content_source, id: id}}}}
 
         {:error, changeset} ->
           {:halt,
-           {:error,
-            {:attachment_input, %{code: :invalid, index: index, changeset: changeset}}}}
+           {:error, {:attachment_input, %{code: :invalid, index: index, changeset: changeset}}}}
       end
     end)
     |> case do
@@ -709,8 +747,7 @@ defmodule GSMLG.GaoNote.Attachments do
         upload_staged_file(note_id, entry, source, uploaded_by)
 
       {:error, reason} ->
-        {:error,
-         {:attachment, %{code: :content_read_failed, id: input.id, reason: reason}}, []}
+        {:error, {:attachment, %{code: :content_read_failed, id: input.id, reason: reason}}, []}
     end
   end
 
@@ -728,8 +765,7 @@ defmodule GSMLG.GaoNote.Attachments do
         finish_staged_upload(entry, file)
 
       {:error, reason} ->
-        {:error,
-         {:attachment, %{code: :staging_failed, id: input.id, reason: reason}}, []}
+        {:error, {:attachment, %{code: :staging_failed, id: input.id, reason: reason}}, []}
     end
   end
 
@@ -904,7 +940,8 @@ defmodule GSMLG.GaoNote.Attachments do
       |> Attachment.changeset(attrs)
       |> Repo.insert_or_update()
       |> case do
-        {:ok, attachment} -> {:cont, {:ok, [attachment | attachments]}}
+        {:ok, attachment} ->
+          {:cont, {:ok, [attachment | attachments]}}
 
         {:error, %Ecto.Changeset{} = changeset} ->
           reason = translate_persistence_error(note_id, input.id, changeset)

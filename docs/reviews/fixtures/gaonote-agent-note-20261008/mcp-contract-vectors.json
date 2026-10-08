@@ -1,0 +1,1415 @@
+{
+  "reference_sha": "1a16690d3f0bcdb08e00752e46d76f234313416b",
+  "reference_root": "/data/development/gsmlg-opt/agent-note",
+  "kind": "Concrete source/test-derived acceptance vectors, not full JSON Schema",
+  "symbols": {
+    "${note_id}": "bind from save_note result structuredContent.id; fresh per independent fixture/case",
+    "${revision}": "bind save_note revision; rebind only when step says rebind; bind current_revision leaves revision unchanged",
+    "${revision + 1}": "integer expression after symbol substitution",
+    "${current_revision}": "revision from successful prior mutation",
+    "setup_scope": "fresh empty storage per fixture; cases independent; bulk fixture seeds three notes; each HTTP JSON-RPC id unique integer",
+    "${fresh_note_id}": "harness generated valid fresh note ID for direct storage seed"
+  },
+  "request_adapter": {
+    "tools": "Wrap request.name/arguments in JSON-RPC tools/call at /mcp; append params._meta as modern_metadata; set MCP-Protocol-Version and Mcp-Method tools/call and Mcp-Name=request.name",
+    "modern_metadata": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientInfo": {
+        "name": "contract-vectors",
+        "version": "1"
+      },
+      "io.modelcontextprotocol/clientCapabilities": {}
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Host": "public.example.test",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "${json_rpc_method}",
+      "Mcp-Name": "${tool_name when tools/call}"
+    },
+    "tool_channel_status_note": "Tool vectors assert JSON-RPC error vs result/isError channel; do not invent exact HTTP status where the source helper accepts 200 or 400. Modern transport fixtures explicitly assert tested status."
+  },
+  "vectors": [
+    {
+      "id": "01_save_and_get_labels_boundary",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Standalone",
+              "content": "Body",
+              "labels": [
+                [
+                  "topic",
+                  "rust"
+                ]
+              ]
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "get_note",
+        "arguments": {
+          "id": "${note_id}"
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "required_structured_fields": [
+          "id",
+          "title",
+          "content",
+          "attachments",
+          "labels",
+          "created_at",
+          "updated_at",
+          "revision"
+        ],
+        "absent_structured_fields": [
+          "note"
+        ],
+        "field_equals": {
+          "id": "${note_id}",
+          "title": "Standalone",
+          "content": "Body",
+          "revision": "${revision}",
+          "labels[0].key": "topic",
+          "labels[0].value": "rust"
+        },
+        "field_types": {
+          "created_at": "integer",
+          "updated_at": "integer",
+          "labels[0].description": "string",
+          "labels[0].value_type": "string"
+        },
+        "label_object_exact_keys": [
+          "key",
+          "value",
+          "description",
+          "value_type"
+        ],
+        "attachments": []
+      },
+      "sources": [
+        "crates/note-mcp/src/server.rs:34",
+        "crates/note-mcp/src/server.rs:128",
+        "crates/note-mcp/src/server.rs:206",
+        "crates/note-mcp/src/server.rs:2913",
+        "crates/note-server/src/notes_api.rs:585"
+      ],
+      "notes": "REST NoteDto labels is [[key,value]], MCP get output labels is objects; do not reuse one output serializer. save input labels uses tuple pairs in both transports."
+    },
+    {
+      "id": "02_replace_requires_all_writable_fields",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "replace_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "title": "Replaced",
+          "content": "after",
+          "attachments": []
+        }
+      },
+      "expected": {
+        "channel": "json_rpc_error",
+        "error": {
+          "code": -32602
+        },
+        "absent_top_level": [
+          "result"
+        ],
+        "state_unchanged": true
+      },
+      "sources": [
+        "crates/note-mcp/src/server.rs:356",
+        "crates/note-mcp/tests/org_transports_test.rs:980"
+      ]
+    },
+    {
+      "id": "03_replace_complete_changes_once",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "before",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "replace_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "title": "Replaced",
+          "content": "after",
+          "attachments": [],
+          "labels": []
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": false,
+          "structuredContent": {
+            "id": "${note_id}",
+            "revision": "${revision + 1}",
+            "changed": true
+          }
+        },
+        "post_read": {
+          "title": "Replaced",
+          "content": "after",
+          "labels": [],
+          "attachments": []
+        }
+      },
+      "sources": [
+        "crates/note-mcp/tests/org_transports_test.rs:941"
+      ]
+    },
+    {
+      "id": "04_replace_semantic_noop",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Replaced",
+              "content": "after",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "replace_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "title": "Replaced",
+          "content": "after",
+          "attachments": [],
+          "labels": []
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": false,
+          "structuredContent": {
+            "id": "${note_id}",
+            "revision": "${revision}",
+            "changed": false
+          }
+        }
+      },
+      "sources": [
+        "crates/note-mcp/tests/org_transports_test.rs:960"
+      ]
+    },
+    {
+      "id": "05_patch_omitted_preserves_content_and_attachments",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "one\ntwo\nthree\n",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        },
+        {
+          "call": {
+            "name": "put_note_attachment",
+            "arguments": {
+              "note_id": "${note_id}",
+              "expected_revision": "${revision}",
+              "attachment_id": "old",
+              "path": "files/old.txt",
+              "mime": "text/plain",
+              "description": "old attachment",
+              "content": "old bytes"
+            }
+          },
+          "rebind": {
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "patch_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "title": "Changed title",
+          "labels": [
+            [
+              "topic",
+              "rust"
+            ]
+          ]
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": false,
+          "structuredContent": {
+            "id": "${note_id}",
+            "revision": "${revision + 1}",
+            "changed": true
+          }
+        },
+        "post_read": {
+          "content": "one\ntwo\nthree\n",
+          "attachments[0].id": "old",
+          "labels[0].key": "topic",
+          "labels[0].value": "rust"
+        }
+      },
+      "sources": [
+        "crates/note-mcp/tests/tools_test.rs:285"
+      ]
+    },
+    {
+      "id": "06_patch_explicit_null_rejected",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "tool": "patch_note",
+        "cases": [
+          {
+            "id": "${note_id}",
+            "expected_revision": "${revision}",
+            "title": null
+          },
+          {
+            "id": "${note_id}",
+            "expected_revision": "${revision}",
+            "content": null
+          },
+          {
+            "id": "${note_id}",
+            "expected_revision": "${revision}",
+            "attachments": null
+          },
+          {
+            "id": "${note_id}",
+            "expected_revision": "${revision}",
+            "labels": null
+          }
+        ]
+      },
+      "expected": {
+        "channel": "json_rpc_error",
+        "error": {
+          "code": -32602
+        },
+        "absent_top_level": [
+          "result"
+        ],
+        "state_unchanged": true
+      },
+      "sources": [
+        "crates/note-mcp/src/server.rs:407",
+        "crates/note-mcp/src/server.rs:412",
+        "crates/note-mcp/tests/org_transports_test.rs:1067"
+      ],
+      "evidence_kind": "title null from explicit HTTP test; other nulls follow identical deserialize_present source definitions"
+    },
+    {
+      "id": "07_patch_empty_collections_clear",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": [
+                [
+                  "topic",
+                  "rust"
+                ]
+              ]
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        },
+        {
+          "call": {
+            "name": "put_note_attachment",
+            "arguments": {
+              "note_id": "${note_id}",
+              "expected_revision": "${revision}",
+              "attachment_id": "old",
+              "path": "files/old.txt",
+              "mime": "text/plain",
+              "description": "old attachment",
+              "content": "old bytes"
+            }
+          },
+          "rebind": {
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "patch_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "attachments": [],
+          "labels": []
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": false,
+          "structuredContent": {
+            "id": "${note_id}",
+            "revision": "${revision + 1}",
+            "changed": true
+          }
+        },
+        "post_read": {
+          "title": "Original",
+          "content": "Body",
+          "attachments": [],
+          "labels": []
+        }
+      },
+      "sources": [
+        "crates/note-mcp/tests/tools_test.rs:351"
+      ]
+    },
+    {
+      "id": "08_patch_same_field_is_noop",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "patch_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "title": "Original"
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": false,
+          "structuredContent": {
+            "id": "${note_id}",
+            "revision": "${revision}",
+            "changed": false
+          }
+        }
+      },
+      "sources": [
+        "crates/note-mcp/tests/tools_test.rs:373",
+        "crates/note-mcp/tests/org_transports_test.rs:1055"
+      ]
+    },
+    {
+      "id": "09_patch_all_omitted_is_operational_error",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "patch_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}"
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": true,
+          "structuredContent": {
+            "code": "invalid_request",
+            "message": "patch must provide at least one field",
+            "details": {},
+            "retryable": false
+          }
+        },
+        "state_unchanged": true
+      },
+      "sources": [
+        "crates/note-mcp/tests/tools_test.rs:414",
+        "crates/note-mcp/src/server.rs:2326",
+        "crates/note-mcp/tests/org_transports_test.rs:1106",
+        "crates/note-mcp/src/server.rs:1095"
+      ]
+    },
+    {
+      "id": "10_patch_stale_revision_structured_conflict",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Editable",
+              "content": "first",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        },
+        {
+          "call": {
+            "name": "patch_note",
+            "arguments": {
+              "id": "${note_id}",
+              "expected_revision": "${revision}",
+              "content": "second"
+            }
+          },
+          "bind": {
+            "current_revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "patch_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "title": "stale"
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": true,
+          "structuredContent": {
+            "code": "revision_conflict",
+            "message": "the note changed after it was read",
+            "details": {
+              "note_id": "${note_id}",
+              "expected_revision": "${revision}",
+              "current_revision": "${current_revision}"
+            },
+            "retryable": false
+          }
+        },
+        "post_read": {
+          "title": "Editable",
+          "content": "second",
+          "revision": "${current_revision}"
+        }
+      },
+      "sources": [
+        "crates/note-mcp/src/server.rs:2849"
+      ]
+    },
+    {
+      "id": "11_patch_strict_contextual_success",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "alpha\nbeta\ngamma\n",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "patch_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "content": {
+            "apply_patch": "@@\n alpha\n-beta\n+BETA\n gamma\n"
+          }
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": false,
+          "structuredContent": {
+            "id": "${note_id}",
+            "revision": "${revision + 1}",
+            "changed": true
+          }
+        },
+        "post_read": {
+          "content": "alpha\nBETA\ngamma\n"
+        }
+      },
+      "sources": [
+        "crates/note-mcp/tests/tools_test.rs:336"
+      ]
+    },
+    {
+      "id": "12_patch_failed_is_atomic",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "patch_note",
+        "arguments": {
+          "id": "${note_id}",
+          "expected_revision": "${revision}",
+          "title": "Should not persist",
+          "content": {
+            "apply_patch": "@@\n-not present\n+replacement\n"
+          }
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result_isError": true,
+        "structured_code": "patch_failed",
+        "structured_exact_keys": [
+          "code",
+          "message",
+          "details",
+          "retryable"
+        ],
+        "structured_retryable": false,
+        "state_unchanged": true
+      },
+      "sources": [
+        "crates/note-mcp/tests/tools_test.rs:431",
+        "crates/note-mcp/tests/org_transports_test.rs:1091",
+        "crates/note-mcp/src/server.rs:1095"
+      ],
+      "evidence_kind": "Concrete failing patch from tests; combined title is source-derived atomicity acceptance extension, not copied literal test"
+    },
+    {
+      "id": "13_read_lines_raw_fnv1a_and_split",
+      "setup": [],
+      "request": {
+        "cases": [
+          {
+            "setup": [
+              {
+                "call": {
+                  "name": "save_note",
+                  "arguments": {
+                    "title": "Inspection",
+                    "content": "First line\nSecond line",
+                    "labels": []
+                  }
+                },
+                "bind": {
+                  "note_id": "result.structuredContent.id",
+                  "revision": "result.structuredContent.revision"
+                }
+              }
+            ],
+            "request": {
+              "name": "read_note_lines",
+              "arguments": {
+                "id": "${note_id}"
+              }
+            },
+            "expected": {
+              "channel": "tool_result",
+              "result": {
+                "isError": false,
+                "structuredContent": {
+                  "id": "${note_id}",
+                  "revision": "${revision}",
+                  "tag": "0a116c89",
+                  "lines": [
+                    {
+                      "n": 1,
+                      "text": "First line"
+                    },
+                    {
+                      "n": 2,
+                      "text": "Second line"
+                    }
+                  ]
+                }
+              },
+              "state_unchanged": true
+            }
+          },
+          {
+            "setup": [
+              {
+                "call": {
+                  "name": "save_note",
+                  "arguments": {
+                    "title": "Inspection",
+                    "content": "a\r\nb\n",
+                    "labels": []
+                  }
+                },
+                "bind": {
+                  "note_id": "result.structuredContent.id",
+                  "revision": "result.structuredContent.revision"
+                }
+              }
+            ],
+            "request": {
+              "name": "read_note_lines",
+              "arguments": {
+                "id": "${note_id}"
+              }
+            },
+            "expected": {
+              "channel": "tool_result",
+              "result": {
+                "isError": false,
+                "structuredContent": {
+                  "id": "${note_id}",
+                  "revision": "${revision}",
+                  "tag": "670f2203",
+                  "lines": [
+                    {
+                      "n": 1,
+                      "text": "a\r"
+                    },
+                    {
+                      "n": 2,
+                      "text": "b"
+                    },
+                    {
+                      "n": 3,
+                      "text": ""
+                    }
+                  ]
+                }
+              },
+              "state_unchanged": true
+            }
+          },
+          {
+            "setup": [
+              {
+                "storage_seed_metadata": {
+                  "id": "${fresh_note_id}",
+                  "title": "Inspection",
+                  "content": "",
+                  "labels": [],
+                  "attachments": [],
+                  "revision": 1
+                },
+                "bind": {
+                  "note_id": "storage_seed_metadata.id",
+                  "revision": "storage_seed_metadata.revision"
+                },
+                "reason": "Empty content is not accepted by save_note; this boundary injects existing metadata directly to test read_note_lines split behavior, not a claim of successful API creation."
+              }
+            ],
+            "request": {
+              "name": "read_note_lines",
+              "arguments": {
+                "id": "${note_id}"
+              }
+            },
+            "expected": {
+              "channel": "tool_result",
+              "result": {
+                "isError": false,
+                "structuredContent": {
+                  "id": "${note_id}",
+                  "revision": "${revision}",
+                  "tag": "811c9dc5",
+                  "lines": [
+                    {
+                      "n": 1,
+                      "text": ""
+                    }
+                  ]
+                }
+              },
+              "state_unchanged": true
+            },
+            "sources": [
+              "crates/note-pipelines/src/save_note.rs:56",
+              "crates/note-pipelines/src/edit_note.rs:20"
+            ]
+          },
+          {
+            "setup": [
+              {
+                "call": {
+                  "name": "save_note",
+                  "arguments": {
+                    "title": "Inspection",
+                    "content": "你好\n",
+                    "labels": []
+                  }
+                },
+                "bind": {
+                  "note_id": "result.structuredContent.id",
+                  "revision": "result.structuredContent.revision"
+                }
+              }
+            ],
+            "request": {
+              "name": "read_note_lines",
+              "arguments": {
+                "id": "${note_id}"
+              }
+            },
+            "expected": {
+              "channel": "tool_result",
+              "result": {
+                "isError": false,
+                "structuredContent": {
+                  "id": "${note_id}",
+                  "revision": "${revision}",
+                  "tag": "8348010b",
+                  "lines": [
+                    {
+                      "n": 1,
+                      "text": "你好"
+                    },
+                    {
+                      "n": 2,
+                      "text": ""
+                    }
+                  ]
+                }
+              },
+              "state_unchanged": true
+            }
+          }
+        ]
+      },
+      "expected": {
+        "per_case": true
+      },
+      "sources": [
+        "crates/note-core/src/line_edit.rs:3",
+        "crates/note-pipelines/src/edit_note.rs:20",
+        "crates/note-mcp/tests/tools_test.rs:453"
+      ],
+      "algorithm": {
+        "tag": "UTF-8 bytes; hash=0x811c9dc5; for byte: hash=((hash XOR byte)*0x01000193) mod 2^32; 8-character lowercase hexadecimal",
+        "lines": "split only LF, retain CR in CRLF; retain trailing empty segment; empty content yields one empty line"
+      },
+      "evidence_kind": "First-line example copied from tests; CRLF/empty/Unicode cases derived from exact implementation, expected hashes independently calculated in Python"
+    },
+    {
+      "id": "14_put_accepts_matching_dual_content",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "put_note_attachment",
+        "arguments": {
+          "note_id": "${note_id}",
+          "expected_revision": "${revision}",
+          "attachment_id": "metadata",
+          "path": "files/metadata.txt",
+          "mime": "text/plain",
+          "content": "metadata",
+          "content_base64": "bWV0YWRhdGE="
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": false,
+          "structuredContent": {
+            "created": true,
+            "revision": "${revision + 1}",
+            "attachment": {
+              "id": "metadata",
+              "path": "files/metadata.txt",
+              "mime": "text/plain",
+              "description": ""
+            }
+          }
+        },
+        "post_attachment_bytes_utf8": "metadata"
+      },
+      "sources": [
+        "crates/note-core/src/types.rs:892",
+        "crates/note-mcp/src/server.rs:588",
+        "crates/note-mcp/src/server.rs:610"
+      ],
+      "evidence_kind": "Decoder vector copied from core test; MCP put wrapper behavior follows TryFrom source"
+    },
+    {
+      "id": "15_put_rejects_mismatched_dual_content",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "put_note_attachment",
+        "arguments": {
+          "note_id": "${note_id}",
+          "expected_revision": "${revision}",
+          "attachment_id": "metadata",
+          "path": "files/metadata.txt",
+          "mime": "text/plain",
+          "content": "abc",
+          "content_base64": "eHl6"
+        }
+      },
+      "expected": {
+        "channel": "json_rpc_error",
+        "error_code": -32602,
+        "error_message_contains": "attachment content and content_base64 do not match",
+        "state_unchanged": true
+      },
+      "sources": [
+        "crates/note-mcp/src/server.rs:3223"
+      ]
+    },
+    {
+      "id": "16_aggregate_attachment_xor_and_null",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Original",
+              "content": "Body",
+              "labels": []
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "tool": "replace_note",
+        "cases": [
+          {
+            "id": "${note_id}",
+            "expected_revision": "${revision}",
+            "title": "Replaced",
+            "content": "after",
+            "attachments": [
+              {
+                "id": "blob",
+                "path": "./blob.bin",
+                "mime": "application/octet-stream",
+                "content": "metadata",
+                "content_base64": "bWV0YWRhdGE="
+              }
+            ],
+            "labels": []
+          },
+          {
+            "id": "${note_id}",
+            "expected_revision": "${revision}",
+            "title": "Replaced",
+            "content": "after",
+            "attachments": [
+              {
+                "id": "blob",
+                "path": "./blob.bin",
+                "mime": "application/octet-stream",
+                "content": null,
+                "content_base64": "AP8="
+              }
+            ],
+            "labels": []
+          },
+          {
+            "id": "${note_id}",
+            "expected_revision": "${revision}",
+            "title": "Replaced",
+            "content": "after",
+            "attachments": [
+              {
+                "id": "blob",
+                "path": "./blob.bin",
+                "mime": "application/octet-stream",
+                "content": "bytes",
+                "content_base64": null
+              }
+            ],
+            "labels": []
+          }
+        ]
+      },
+      "expected": {
+        "channel": "json_rpc_error",
+        "error": {
+          "code": -32602
+        },
+        "absent_top_level": [
+          "result"
+        ],
+        "state_unchanged": true
+      },
+      "sources": [
+        "crates/note-mcp/src/server.rs:296",
+        "crates/note-mcp/src/server.rs:319",
+        "crates/note-mcp/tests/org_transports_test.rs:989"
+      ],
+      "notes": "replace/patch aggregate rejects dual fields even if byte-identical, unlike standalone put. Explicit null rejects before conversion."
+    },
+    {
+      "id": "17_get_attachment_exclusive_output",
+      "setup": [],
+      "request": {
+        "cases": [
+          {
+            "setup": [
+              {
+                "call": {
+                  "name": "save_note",
+                  "arguments": {
+                    "title": "Standalone",
+                    "content": "Body",
+                    "labels": []
+                  }
+                },
+                "bind": {
+                  "note_id": "result.structuredContent.id",
+                  "revision": "result.structuredContent.revision"
+                }
+              },
+              {
+                "call": {
+                  "name": "put_note_attachment",
+                  "arguments": {
+                    "note_id": "${note_id}",
+                    "expected_revision": "${revision}",
+                    "attachment_id": "text",
+                    "path": "./text.txt",
+                    "mime": "application/octet-stream",
+                    "description": "text description",
+                    "content": "plain text\n"
+                  }
+                },
+                "rebind": {
+                  "revision": "result.structuredContent.revision"
+                }
+              }
+            ],
+            "request": {
+              "name": "get_note_attachment_content",
+              "arguments": {
+                "note_id": "${note_id}",
+                "attachment_id": "text"
+              }
+            },
+            "expected": {
+              "channel": "tool_result",
+              "result": {
+                "isError": false,
+                "structuredContent": {
+                  "attachment": {
+                    "id": "text",
+                    "path": "./text.txt",
+                    "mime": "application/octet-stream",
+                    "description": "text description"
+                  },
+                  "content": "plain text\n"
+                }
+              },
+              "absent_structured_fields": [
+                "content_base64"
+              ],
+              "state_unchanged": true
+            }
+          },
+          {
+            "setup": [
+              {
+                "call": {
+                  "name": "save_note",
+                  "arguments": {
+                    "title": "Standalone",
+                    "content": "Body",
+                    "labels": []
+                  }
+                },
+                "bind": {
+                  "note_id": "result.structuredContent.id",
+                  "revision": "result.structuredContent.revision"
+                }
+              },
+              {
+                "call": {
+                  "name": "put_note_attachment",
+                  "arguments": {
+                    "note_id": "${note_id}",
+                    "expected_revision": "${revision}",
+                    "attachment_id": "blob",
+                    "path": "./blob.bin",
+                    "mime": "application/octet-stream",
+                    "description": "blob description",
+                    "content_base64": "AJ+Slv8="
+                  }
+                },
+                "rebind": {
+                  "revision": "result.structuredContent.revision"
+                }
+              }
+            ],
+            "request": {
+              "name": "get_note_attachment_content",
+              "arguments": {
+                "note_id": "${note_id}",
+                "attachment_id": "blob"
+              }
+            },
+            "expected": {
+              "channel": "tool_result",
+              "result": {
+                "isError": false,
+                "structuredContent": {
+                  "attachment": {
+                    "id": "blob",
+                    "path": "./blob.bin",
+                    "mime": "application/octet-stream",
+                    "description": "blob description"
+                  },
+                  "content_base64": "AJ+Slv8="
+                }
+              },
+              "absent_structured_fields": [
+                "content"
+              ],
+              "state_unchanged": true
+            }
+          }
+        ]
+      },
+      "expected": {
+        "per_case": true
+      },
+      "sources": [
+        "crates/note-mcp/src/server.rs:2913",
+        "crates/note-mcp/src/server.rs:3002",
+        "crates/note-mcp/src/server.rs:3022"
+      ]
+    },
+    {
+      "id": "18_bulk_selector_counts_preserves_unrelated",
+      "setup": [
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Add",
+              "content": "Body",
+              "labels": [
+                [
+                  "type",
+                  "ietf-rfc"
+                ],
+                [
+                  "owner",
+                  "protocols"
+                ]
+              ]
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        },
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Replace",
+              "content": "Body",
+              "labels": [
+                [
+                  "type",
+                  "ietf-rfc"
+                ],
+                [
+                  "owner",
+                  "protocols"
+                ],
+                [
+                  "project",
+                  "old"
+                ]
+              ]
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        },
+        {
+          "call": {
+            "name": "save_note",
+            "arguments": {
+              "title": "Noop",
+              "content": "Body",
+              "labels": [
+                [
+                  "type",
+                  "ietf-rfc"
+                ],
+                [
+                  "owner",
+                  "protocols"
+                ],
+                [
+                  "project",
+                  "new"
+                ]
+              ]
+            }
+          },
+          "bind": {
+            "note_id": "result.structuredContent.id",
+            "revision": "result.structuredContent.revision"
+          }
+        }
+      ],
+      "request": {
+        "name": "bulk_update_note_labels",
+        "arguments": {
+          "selector": "type=ietf-rfc",
+          "set": [
+            [
+              "project",
+              "new"
+            ]
+          ],
+          "remove": []
+        }
+      },
+      "expected": {
+        "channel": "tool_result",
+        "result": {
+          "isError": false,
+          "structuredContent": {
+            "matched": 3,
+            "updated": 2,
+            "unchanged": 1
+          }
+        },
+        "post_all_matches_labels": {
+          "type": "ietf-rfc",
+          "owner": "protocols",
+          "project": "new"
+        }
+      },
+      "sources": [
+        "crates/note-mcp/src/server.rs:2419"
+      ]
+    },
+    {
+      "id": "19_modern_discover_and_list_without_initialize",
+      "setup": [],
+      "request": {
+        "http_sequence": [
+          {
+            "method": "POST",
+            "path": "/mcp",
+            "json_rpc_method": "server/discover",
+            "params": {}
+          },
+          {
+            "method": "POST",
+            "path": "/mcp",
+            "json_rpc_method": "tools/list",
+            "params": {}
+          }
+        ]
+      },
+      "expected": {
+        "per_response_http_status": 200,
+        "content_type": "application/json",
+        "absent_headers": [
+          "mcp-session-id"
+        ],
+        "resultType": "complete",
+        "discover_supportedVersions_contains": "2026-07-28",
+        "tools_list_count": 12,
+        "tools_list_field_types": {
+          "ttlMs": "unsigned integer",
+          "cacheScope": "string"
+        }
+      },
+      "sources": [
+        "crates/note-mcp/tests/org_transports_test.rs:704"
+      ]
+    },
+    {
+      "id": "20_modern_header_mismatch",
+      "setup": [],
+      "request": {
+        "http": {
+          "method": "POST",
+          "path": "/mcp",
+          "header_overrides": {
+            "Mcp-Method": "tools/call"
+          },
+          "json_rpc_method": "tools/list",
+          "params": {}
+        }
+      },
+      "expected": {
+        "http_status": 400,
+        "channel": "json_rpc_error",
+        "error_code": -32020
+      },
+      "sources": [
+        "crates/note-mcp/tests/org_transports_test.rs:759"
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "message": "REST note/list output labels is tuples [[key,value]]; MCP output is LabelSchema objects with key/value/description/value_type. MCP save/replace/patch input labels is tuples too. Do not conflate inputs with MCP outputs.",
+      "sources": [
+        "crates/note-server/src/notes_api.rs:585",
+        "crates/note-server/src/notes_api.rs:637",
+        "crates/note-mcp/src/server.rs:128",
+        "crates/note-mcp/src/server.rs:34",
+        "crates/note-mcp/src/server.rs:356",
+        "crates/note-mcp/src/server.rs:407"
+      ]
+    },
+    {
+      "message": "Current GaoNote baseline is not green per parent report: attachment_input_test syntax; admin attachment test get/2 ambiguous; test DB role lacks gao_note_attachments privileges. No fixes made.",
+      "evidence": "Parent handoff; not independently rerun in this read-only fixture assignment."
+    }
+  ],
+  "validation": "JSON structural validation performed; source fixture behavior not executed on reference or target during this read-only audit."
+}

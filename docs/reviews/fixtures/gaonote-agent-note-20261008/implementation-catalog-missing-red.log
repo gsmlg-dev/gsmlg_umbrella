@@ -1,0 +1,356 @@
+==> gsmlg_gao_note
+Compiling 5 files (.ex)
+     warning: the following clause will never match:
+
+         {:error, reason}
+
+     because it attempts to match on the result of:
+
+         storage_source(input)
+
+     which has type:
+
+         dynamic(
+           {:ok, %Plug.Upload{content_type: term(), filename: term(), path: term()} or {term(), term()}}
+         )
+
+     typing violation found at:
+     │
+ 749 │       {:error, reason} ->
+     │       ~~~~~~~~~~~~~~~~~~~
+     │
+     └─ (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note/attachments.ex:749: GSMLG.GaoNote.Attachments.stage_entry/3
+
+Generated gsmlg_gao_note app
+==> gsmlg_web
+Compiling 1 file (.ex)
+Generated gsmlg_web app
+==> gsmlg_admin_web
+Compiling 2 files (.ex)
+     warning: clauses with the same name and arity (number of arguments) should be grouped together, "def handle_event/3" was previously defined (lib/gsmlg/admin_web/live/gao_note_live/index.ex:147)
+     │
+ 558 │   def handle_event("cancel_attachment_upload", %{"ref" => ref}, socket) do
+     │       ~
+     │
+     └─ lib/gsmlg/admin_web/live/gao_note_live/index.ex:558:7
+
+      warning: <%# is deprecated, use <%!-- or add a space between <% and # instead
+      │
+ 2312 │           <%# WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#100 %>
+      │           ~
+      │
+      └─ lib/gsmlg/admin_web/live/gao_note_live/index.ex:2312: (file)
+
+     warning: variable "destination" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 201 │   defp secure_open_stage(staged_path, editor_dir, destination, uid) do
+     │                                                   ~~~~~~~~~~~
+     │
+     └─ (gsmlg_admin_web 0.1.0) lib/gsmlg/admin_web/gao_note_attachment_temp.ex:201:51: GSMLG.AdminWeb.GaoNoteAttachmentTemp.secure_open_stage/4
+
+Generated gsmlg_admin_web app
+==> gsmlg_gao_note
+
+15:26:29.808 [info] [2026-10-08T07:26:29.779Z] INFO Loading configuration pid=#PID<0.95.0> process_info=nil
+
+15:26:29.822 [info] [2026-10-08T07:26:29.821Z] INFO Loaded configuration file pid=#PID<0.95.0> process_info=nil
+
+15:26:29.836 [info] [2026-10-08T07:26:29.836Z] INFO Configuration loaded successfully pid=#PID<0.95.0> process_info=nil
+
+15:26:30.371 [warning] [GSMLG.IpGeo] Database file not found
+
+15:26:30.371 [warning] [GSMLG.IpGeo] Database file not found
+2 | import Markdown from 'react-markdown';
+                         ^
+error: Could not resolve: "react-markdown". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:2:22
+
+3 | import remarkGfm from 'remark-gfm';
+                          ^
+error: Could not resolve: "remark-gfm". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:3:23
+
+4 | import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+                                             ^
+error: Could not resolve: "react-syntax-highlighter". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:4:42
+
+5 | import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+                          ^
+error: Could not resolve: "react-syntax-highlighter/dist/esm/styles/prism". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:5:23
+
+3 | import Markdown from 'react-markdown';
+                         ^
+error: Could not resolve: "react-markdown". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:3:22
+
+4 | import remarkGfm from 'remark-gfm';
+                          ^
+error: Could not resolve: "remark-gfm". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:4:23
+
+5 | import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+                                             ^
+error: Could not resolve: "react-syntax-highlighter". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:5:42
+
+6 | import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+                          ^
+error: Could not resolve: "react-syntax-highlighter/dist/esm/styles/prism". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:6:23
+"bun build failed(1)"
+Watching /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component for changes...
+
+15:26:30.568 [warning] Bun#Port<0.44>: exit_status: 1
+3 | import Markdown from 'react-markdown';
+                         ^
+error: Could not resolve: "react-markdown". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:3:22
+
+4 | import remarkGfm from 'remark-gfm';
+                          ^
+error: Could not resolve: "remark-gfm". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:4:23
+
+5 | import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+                                             ^
+error: Could not resolve: "react-syntax-highlighter". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:5:42
+
+6 | import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+                          ^
+error: Could not resolve: "react-syntax-highlighter/dist/esm/styles/prism". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:6:23
+
+2 | import Markdown from 'react-markdown';
+                         ^
+error: Could not resolve: "react-markdown". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:2:22
+
+3 | import remarkGfm from 'remark-gfm';
+                          ^
+error: Could not resolve: "remark-gfm". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:3:23
+
+4 | import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+                                             ^
+error: Could not resolve: "react-syntax-highlighter". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:4:42
+
+5 | import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+                          ^
+error: Could not resolve: "react-syntax-highlighter/dist/esm/styles/prism". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:5:23
+"bun build failed(1)"
+
+15:26:30.641 [warning] Bun#Port<0.49>: exit_status: 1
+3 | import Markdown from 'react-markdown';
+                         ^
+error: Could not resolve: "react-markdown". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:3:22
+
+4 | import remarkGfm from 'remark-gfm';
+                          ^
+error: Could not resolve: "remark-gfm". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:4:23
+
+5 | import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+                                             ^
+error: Could not resolve: "react-syntax-highlighter". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:5:42
+
+6 | import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+                          ^
+error: Could not resolve: "react-syntax-highlighter/dist/esm/styles/prism". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:6:23
+
+2 | import Markdown from 'react-markdown';
+                         ^
+error: Could not resolve: "react-markdown". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:2:22
+
+3 | import remarkGfm from 'remark-gfm';
+                          ^
+error: Could not resolve: "remark-gfm". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:3:23
+
+4 | import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+                                             ^
+error: Could not resolve: "react-syntax-highlighter". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:4:42
+
+5 | import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+                          ^
+error: Could not resolve: "react-syntax-highlighter/dist/esm/styles/prism". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:5:23
+"bun build failed(1)"
+
+15:26:30.733 [warning] Bun#Port<0.51>: exit_status: 1
+2 | import Markdown from 'react-markdown';
+                         ^
+error: Could not resolve: "react-markdown". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:2:22
+
+3 | import remarkGfm from 'remark-gfm';
+                          ^
+error: Could not resolve: "remark-gfm". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:3:23
+
+4 | import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+                                             ^
+error: Could not resolve: "react-syntax-highlighter". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:4:42
+
+5 | import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+                          ^
+error: Could not resolve: "react-syntax-highlighter/dist/esm/styles/prism". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/markdown.js:5:23
+
+3 | import Markdown from 'react-markdown';
+                         ^
+error: Could not resolve: "react-markdown". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:3:22
+
+4 | import remarkGfm from 'remark-gfm';
+                          ^
+error: Could not resolve: "remark-gfm". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:4:23
+
+5 | import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+                                             ^
+error: Could not resolve: "react-syntax-highlighter". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:5:42
+
+6 | import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+                          ^
+error: Could not resolve: "react-syntax-highlighter/dist/esm/styles/prism". Maybe you need to "bun install"?
+    at /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/.trees/gaonote-api-parity/apps/gsmlg_component/assets/component/blog_form.js:6:23
+"bun build failed(1)"
+
+15:26:30.802 [warning] Bun#Port<0.53>: exit_status: 1
+
+15:26:31.286 [warning] Failed to run Node.start(gsmlg@127.0.0.1)
+
+15:26:31.290 [error] Failed to broadcast to GSMLG.Web.Endpoint
+Running ExUnit with seed: 895273, max_cases: 96
+
+
+
+  1) test legacy catalog mutations return tagged errors for a concurrently deleted setting (GSMLG.GaoNote.Compat.SharedWriterTest)
+     apps/gsmlg_gao_note/test/gsmlg/gao_note/compat/shared_writer_test.exs:13
+     ** (Ecto.NoResultsError) expected at least one result but got none in query:
+
+     from l0 in GSMLG.GaoNote.LabelSetting,
+       where: l0.id == ^"3e23ba08-b518-4447-af81-d760406668d6",
+       lock: "FOR NO KEY UPDATE"
+
+     code: GaoNote.update_label_setting(setting, %{description: "after deletion"}, nil)
+     stacktrace:
+       (ecto 3.14.0) lib/ecto/repo/queryable.ex:178: Ecto.Repo.Queryable.one!/3
+       (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:401: anonymous fn/2 in GSMLG.GaoNote.update_label_setting/3
+       (gsmlg 0.1.0) lib/gsmlg/repo.ex:2: anonymous fn/1 in GSMLG.Repo.transaction/2
+       (ecto 3.14.0) lib/ecto/repo/transaction.ex:11: anonymous fn/3 in Ecto.Repo.Transaction.transact/4
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1481: anonymous fn/3 in Ecto.Adapters.SQL.checkout_or_transaction/4
+       (db_connection 2.10.1) lib/db_connection.ex:1766: DBConnection.run_transaction/4
+       (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:469: GSMLG.GaoNote.catalog_transaction/1
+       (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:400: GSMLG.GaoNote.update_label_setting/3
+       test/gsmlg/gao_note/compat/shared_writer_test.exs:18: (test)
+
+
+15:26:36.202 [error] GET http://127.0.0.1:33913/test/ddba53de-d1da-4cb2-b089-b4dc160d647a/gao_note_attachment/2026/10/5afd7998-c9be-4165-a87f-23373f136378.txt?x-id=GetObject -> 503 (0.600 ms)
+
+15:26:36.229 [error] GET http://127.0.0.1:33913/test/ddba53de-d1da-4cb2-b089-b4dc160d647a/gao_note_attachment/2026/10/5afd7998-c9be-4165-a87f-23373f136378.txt?x-id=GetObject -> 503 (0.604 ms)
+.
+15:26:36.321 [error] Task #PID<0.2357.0> started from #PID<0.2350.0> terminating
+** (Ecto.NoResultsError) expected at least one result but got none in query:
+
+from l0 in GSMLG.GaoNote.LabelSetting,
+  where: l0.id == ^"1b7190d2-cf82-4224-817c-37d9a8e87372",
+  lock: "FOR UPDATE"
+
+    (ecto 3.14.0) lib/ecto/repo/queryable.ex:178: Ecto.Repo.Queryable.one!/3
+    (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:437: anonymous fn/1 in GSMLG.GaoNote.delete_label_setting/2
+    (gsmlg 0.1.0) lib/gsmlg/repo.ex:2: anonymous fn/1 in GSMLG.Repo.transaction/2
+    (ecto 3.14.0) lib/ecto/repo/transaction.ex:11: anonymous fn/3 in Ecto.Repo.Transaction.transact/4
+    (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1481: anonymous fn/3 in Ecto.Adapters.SQL.checkout_or_transaction/4
+    (db_connection 2.10.1) lib/db_connection.ex:1766: DBConnection.run_transaction/4
+    (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:469: GSMLG.GaoNote.catalog_transaction/1
+    (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:436: GSMLG.GaoNote.delete_label_setting/2
+    test/gsmlg/gao_note/compat/shared_writer_test.exs:588: GSMLG.GaoNote.Compat.SharedWriterTest.with_connection/1
+    (elixir 1.18.5) lib/task/supervised.ex:101: Task.Supervised.invoke_mfa/2
+    (elixir 1.18.5) lib/task/supervised.ex:36: Task.Supervised.reply/4
+Function: #Function<54.72424705/0 in GSMLG.GaoNote.Compat.SharedWriterTest."test compat catalog delete succeeds when another delete wins after its lookup"/1>
+    Args: []
+
+
+  2) test compat catalog delete succeeds when another delete wins after its lookup (GSMLG.GaoNote.Compat.SharedWriterTest)
+     apps/gsmlg_gao_note/test/gsmlg/gao_note/compat/shared_writer_test.exs:24
+     ** (EXIT from #PID<0.2350.0>) an exception was raised:
+         ** (Ecto.NoResultsError) expected at least one result but got none in query:
+
+     from l0 in GSMLG.GaoNote.LabelSetting,
+       where: l0.id == ^"1b7190d2-cf82-4224-817c-37d9a8e87372",
+       lock: "FOR UPDATE"
+
+             (ecto 3.14.0) lib/ecto/repo/queryable.ex:178: Ecto.Repo.Queryable.one!/3
+             (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:437: anonymous fn/1 in GSMLG.GaoNote.delete_label_setting/2
+             (gsmlg 0.1.0) lib/gsmlg/repo.ex:2: anonymous fn/1 in GSMLG.Repo.transaction/2
+             (ecto 3.14.0) lib/ecto/repo/transaction.ex:11: anonymous fn/3 in Ecto.Repo.Transaction.transact/4
+             (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1481: anonymous fn/3 in Ecto.Adapters.SQL.checkout_or_transaction/4
+             (db_connection 2.10.1) lib/db_connection.ex:1766: DBConnection.run_transaction/4
+             (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:469: GSMLG.GaoNote.catalog_transaction/1
+             (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:436: GSMLG.GaoNote.delete_label_setting/2
+             test/gsmlg/gao_note/compat/shared_writer_test.exs:588: GSMLG.GaoNote.Compat.SharedWriterTest.with_connection/1
+             (elixir 1.18.5) lib/task/supervised.ex:101: Task.Supervised.invoke_mfa/2
+             (elixir 1.18.5) lib/task/supervised.ex:36: Task.Supervised.reply/4
+
+...
+15:26:36.831 [error] Task #PID<0.2413.0> started from #PID<0.2406.0> terminating
+** (Ecto.NoResultsError) expected at least one result but got none in query:
+
+from l0 in GSMLG.GaoNote.LabelSetting,
+  where: l0.id == ^"644fc20a-a077-498b-be00-3c4d4d0be065",
+  lock: "FOR NO KEY UPDATE"
+
+    (ecto 3.14.0) lib/ecto/repo/queryable.ex:178: Ecto.Repo.Queryable.one!/3
+    (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:401: anonymous fn/2 in GSMLG.GaoNote.update_label_setting/3
+    (gsmlg 0.1.0) lib/gsmlg/repo.ex:2: anonymous fn/1 in GSMLG.Repo.transaction/2
+    (ecto 3.14.0) lib/ecto/repo/transaction.ex:11: anonymous fn/3 in Ecto.Repo.Transaction.transact/4
+    (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1481: anonymous fn/3 in Ecto.Adapters.SQL.checkout_or_transaction/4
+    (db_connection 2.10.1) lib/db_connection.ex:1766: DBConnection.run_transaction/4
+    (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:469: GSMLG.GaoNote.catalog_transaction/1
+    (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:400: GSMLG.GaoNote.update_label_setting/3
+    test/gsmlg/gao_note/compat/shared_writer_test.exs:588: GSMLG.GaoNote.Compat.SharedWriterTest.with_connection/1
+    (elixir 1.18.5) lib/task/supervised.ex:101: Task.Supervised.invoke_mfa/2
+    (elixir 1.18.5) lib/task/supervised.ex:36: Task.Supervised.reply/4
+Function: #Function<62.72424705/0 in GSMLG.GaoNote.Compat.SharedWriterTest."test compat catalog update succeeds when another delete wins after its lookup"/1>
+    Args: []
+
+
+  3) test compat catalog update succeeds when another delete wins after its lookup (GSMLG.GaoNote.Compat.SharedWriterTest)
+     apps/gsmlg_gao_note/test/gsmlg/gao_note/compat/shared_writer_test.exs:24
+     ** (EXIT from #PID<0.2406.0>) an exception was raised:
+         ** (Ecto.NoResultsError) expected at least one result but got none in query:
+
+     from l0 in GSMLG.GaoNote.LabelSetting,
+       where: l0.id == ^"644fc20a-a077-498b-be00-3c4d4d0be065",
+       lock: "FOR NO KEY UPDATE"
+
+             (ecto 3.14.0) lib/ecto/repo/queryable.ex:178: Ecto.Repo.Queryable.one!/3
+             (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:401: anonymous fn/2 in GSMLG.GaoNote.update_label_setting/3
+             (gsmlg 0.1.0) lib/gsmlg/repo.ex:2: anonymous fn/1 in GSMLG.Repo.transaction/2
+             (ecto 3.14.0) lib/ecto/repo/transaction.ex:11: anonymous fn/3 in Ecto.Repo.Transaction.transact/4
+             (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1481: anonymous fn/3 in Ecto.Adapters.SQL.checkout_or_transaction/4
+             (db_connection 2.10.1) lib/db_connection.ex:1766: DBConnection.run_transaction/4
+             (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:469: GSMLG.GaoNote.catalog_transaction/1
+             (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:400: GSMLG.GaoNote.update_label_setting/3
+             test/gsmlg/gao_note/compat/shared_writer_test.exs:588: GSMLG.GaoNote.Compat.SharedWriterTest.with_connection/1
+             (elixir 1.18.5) lib/task/supervised.ex:101: Task.Supervised.invoke_mfa/2
+             (elixir 1.18.5) lib/task/supervised.ex:36: Task.Supervised.reply/4
+
+.....
+Finished in 5.3 seconds (0.00s async, 5.3s sync)
+12 tests, 3 failures
+[os_mon] memory supervisor port (memsup): Erlang has closed
+[os_mon] cpu supervisor port (cpu_sup): Erlang has closed

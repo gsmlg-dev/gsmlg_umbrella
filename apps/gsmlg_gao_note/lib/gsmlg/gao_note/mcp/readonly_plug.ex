@@ -9,6 +9,7 @@ defmodule GSMLG.GaoNote.MCP.ReadOnlyPlug do
   def init(opts) do
     opts
     |> Keyword.put(:server, GSMLG.GaoNote.MCP.ReadOnlyServer)
+    # TODO(upstream): gsmlg-opt/backplane#56
     |> StreamableHTTP.Plug.init()
   end
 

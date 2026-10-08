@@ -5,6 +5,14 @@ defmodule GSMLG.Config.Schema do
   Uses NimbleOptions to validate configuration structure and types.
   """
 
+  @gao_note_schema [
+    index_url: [type: :string, default: ""],
+    search_url: [type: :string, default: ""],
+    search_token: [type: :string, default: ""],
+    minimum_score: [type: :float, default: 0.01],
+    pdf_renderer_url: [type: :string, default: ""]
+  ]
+
   @gsmlg_schema [
     tailwind_path: [
       type: :string,
@@ -905,6 +913,7 @@ defmodule GSMLG.Config.Schema do
   """
   def schema do
     %{
+      gao_note: @gao_note_schema,
       gsmlg: @gsmlg_schema,
       logger: @logger_schema,
       database: @database_schema,
@@ -1005,6 +1014,7 @@ defmodule GSMLG.Config.Schema do
 
   # Private functions
 
+  defp get_section_schema(:gao_note), do: @gao_note_schema
   defp get_section_schema(:gsmlg), do: @gsmlg_schema
   defp get_section_schema(:logger), do: @logger_schema
   defp get_section_schema(:database), do: @database_schema

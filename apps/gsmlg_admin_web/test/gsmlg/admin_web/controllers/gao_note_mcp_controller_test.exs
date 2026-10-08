@@ -457,7 +457,14 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     refute Repo.get_by(Note, title: title)
   end
 
-  defp authenticated_conn(conn), do: authenticated_conn(conn, user_fixture())
+  defp authenticated_conn(conn) do
+    suffix = System.unique_integer([:positive])
+
+    authenticated_conn(
+      conn,
+      user_fixture(%{username: "mcp-#{suffix}", email: "mcp-#{suffix}@test.local"})
+    )
+  end
 
   defp authenticated_conn(conn, user) do
     {:ok, token, _claims} =
@@ -557,14 +564,12 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
                },
                "content" => %{
                  "type" => "string",
-                 "description" =>
-                   "Raw replacement content. Use only when update_content is true."
+                 "description" => "Raw replacement content. Use only when update_content is true."
                },
                "content_base64" => %{
                  "type" => "string",
                  "contentEncoding" => "base64",
-                 "pattern" =>
-                   "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                 "pattern" => "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
                  "description" =>
                    "Strict standard padded Base64 replacement content. Use only when update_content is true."
                }

@@ -19,6 +19,7 @@ defmodule GSMLG.GaoNote.AttachmentMigrationTest do
              :id,
              :note_id,
              :storage_file_id,
+             :api_id,
              :path,
              :mime,
              :description,
@@ -28,20 +29,18 @@ defmodule GSMLG.GaoNote.AttachmentMigrationTest do
 
     assert Attachment.__schema__(:associations) == [:note, :storage_file]
 
-    assert Repo.query!(
-             """
-             SELECT
-               column_name,
-               data_type,
-               is_nullable,
-               column_default,
-               datetime_precision
-             FROM information_schema.columns
-             WHERE table_schema = 'public'
-               AND table_name = 'gao_note_attachments'
-             ORDER BY ordinal_position
-             """
-           ).rows == [
+    assert Repo.query!("""
+           SELECT
+             column_name,
+             data_type,
+             is_nullable,
+             column_default,
+             datetime_precision
+           FROM information_schema.columns
+           WHERE table_schema = 'public'
+             AND table_name = 'gao_note_attachments'
+           ORDER BY ordinal_position
+           """).rows == [
              ["id", "text", "NO", nil, nil],
              ["note_id", "uuid", "NO", nil, nil],
              ["storage_file_id", "uuid", "NO", nil, nil],
@@ -49,56 +48,54 @@ defmodule GSMLG.GaoNote.AttachmentMigrationTest do
              ["mime", "text", "NO", nil, nil],
              ["description", "text", "NO", "''::text", nil],
              ["inserted_at", "timestamp without time zone", "NO", nil, 6],
-             ["updated_at", "timestamp without time zone", "NO", nil, 6]
+             ["updated_at", "timestamp without time zone", "NO", nil, 6],
+             ["api_id", "text", "NO", nil, nil]
            ]
   end
 
   test "foreign keys use cascade for notes and restrict for storage files" do
-    assert Repo.query!(
-             """
-             SELECT constraint_record.conname, constraint_record.confdeltype::text
-             FROM pg_constraint AS constraint_record
-             JOIN pg_class AS table_record
-               ON table_record.oid = constraint_record.conrelid
-             JOIN pg_namespace AS namespace_record
-               ON namespace_record.oid = table_record.relnamespace
-             WHERE namespace_record.nspname = 'public'
-               AND table_record.relname = 'gao_note_attachments'
-               AND constraint_record.contype = 'f'
-             ORDER BY constraint_record.conname
-             """
-           ).rows == [
+    assert Repo.query!("""
+           SELECT constraint_record.conname, constraint_record.confdeltype::text
+           FROM pg_constraint AS constraint_record
+           JOIN pg_class AS table_record
+             ON table_record.oid = constraint_record.conrelid
+           JOIN pg_namespace AS namespace_record
+             ON namespace_record.oid = table_record.relnamespace
+           WHERE namespace_record.nspname = 'public'
+             AND table_record.relname = 'gao_note_attachments'
+             AND constraint_record.contype = 'f'
+           ORDER BY constraint_record.conname
+           """).rows == [
              ["gao_note_attachments_note_id_fkey", "c"],
              ["gao_note_attachments_storage_file_id_fkey", "r"]
            ]
   end
 
   test "indexes enforce global storage identity and per-note canonical paths" do
-    assert Repo.query!(
-             """
-             SELECT
-               index_record.relname,
-               index_metadata.indisunique,
-               array_agg(column_record.attname ORDER BY key_record.ordinality)
-             FROM pg_class AS table_record
-             JOIN pg_namespace AS namespace_record
-               ON namespace_record.oid = table_record.relnamespace
-             JOIN pg_index AS index_metadata
-               ON index_metadata.indrelid = table_record.oid
-             JOIN pg_class AS index_record
-               ON index_record.oid = index_metadata.indexrelid
-             JOIN LATERAL unnest(index_metadata.indkey)
-               WITH ORDINALITY AS key_record(attnum, ordinality)
-               ON true
-             JOIN pg_attribute AS column_record
-               ON column_record.attrelid = table_record.oid
-              AND column_record.attnum = key_record.attnum
-             WHERE namespace_record.nspname = 'public'
-               AND table_record.relname = 'gao_note_attachments'
-             GROUP BY index_record.relname, index_metadata.indisunique
-             ORDER BY index_record.relname
-             """
-           ).rows == [
+    assert Repo.query!("""
+           SELECT
+             index_record.relname,
+             index_metadata.indisunique,
+             array_agg(column_record.attname ORDER BY key_record.ordinality)
+           FROM pg_class AS table_record
+           JOIN pg_namespace AS namespace_record
+             ON namespace_record.oid = table_record.relnamespace
+           JOIN pg_index AS index_metadata
+             ON index_metadata.indrelid = table_record.oid
+           JOIN pg_class AS index_record
+             ON index_record.oid = index_metadata.indexrelid
+           JOIN LATERAL unnest(index_metadata.indkey)
+             WITH ORDINALITY AS key_record(attnum, ordinality)
+             ON true
+           JOIN pg_attribute AS column_record
+             ON column_record.attrelid = table_record.oid
+            AND column_record.attnum = key_record.attnum
+           WHERE namespace_record.nspname = 'public'
+             AND table_record.relname = 'gao_note_attachments'
+           GROUP BY index_record.relname, index_metadata.indisunique
+           ORDER BY index_record.relname
+           """).rows == [
+             ["gao_note_attachments_note_id_api_id_index", true, ["note_id", "api_id"]],
              ["gao_note_attachments_note_id_index", false, ["note_id"]],
              ["gao_note_attachments_note_id_path_index", true, ["note_id", "path"]],
              ["gao_note_attachments_pkey", true, ["id"]],
@@ -132,8 +129,7 @@ defmodule GSMLG.GaoNote.AttachmentMigrationTest do
 
     assert {:foreign_key, :note_id, "gao_note_attachments_note_id_fkey"} in constraints
 
-    assert {:foreign_key, :storage_file_id,
-            "gao_note_attachments_storage_file_id_fkey"} in constraints
+    assert {:foreign_key, :storage_file_id, "gao_note_attachments_storage_file_id_fkey"} in constraints
 
     assert constraints
            |> Enum.filter(fn {type, _field, _name} -> type == :unique end)

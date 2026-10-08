@@ -1,0 +1,443 @@
+==> gsmlg_gao_note
+Compiling 2 files (.ex)
+     warning: the following clause will never match:
+
+         {:error, reason}
+
+     because it attempts to match on the result of:
+
+         storage_source(input)
+
+     which has type:
+
+         dynamic(
+           {:ok, %Plug.Upload{content_type: term(), filename: term(), path: term()} or {term(), term()}}
+         )
+
+     typing violation found at:
+     │
+ 711 │       {:error, reason} ->
+     │       ~~~~~~~~~~~~~~~~~~~
+     │
+     └─ (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note/attachments.ex:711: GSMLG.GaoNote.Attachments.stage_entry/3
+
+Generated gsmlg_gao_note app
+==> gsmlg_admin_web
+     warning: variable "destination" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 201 │   defp secure_open_stage(staged_path, editor_dir, destination, uid) do
+     │                                                   ~~~~~~~~~~~
+     │
+     └─ (gsmlg_admin_web 0.1.0) lib/gsmlg/admin_web/gao_note_attachment_temp.ex:201:51: GSMLG.AdminWeb.GaoNoteAttachmentTemp.secure_open_stage/4
+
+     warning: clauses with the same name and arity (number of arguments) should be grouped together, "def handle_event/3" was previously defined (lib/gsmlg/admin_web/live/gao_note_live/index.ex:147)
+     │
+ 558 │   def handle_event("cancel_attachment_upload", %{"ref" => ref}, socket) do
+     │       ~
+     │
+     └─ lib/gsmlg/admin_web/live/gao_note_live/index.ex:558:7
+
+      warning: <%# is deprecated, use <%!-- or add a space between <% and # instead
+      │
+ 2312 │           <%# WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#100 %>
+      │           ~
+      │
+      └─ lib/gsmlg/admin_web/live/gao_note_live/index.ex:2312: (file)
+
+==> gsmlg_gao_note
+
+12:03:25.537 [info] [2026-10-08T04:03:25.511Z] INFO Loading configuration pid=#PID<0.95.0> process_info=nil
+
+12:03:25.558 [info] [2026-10-08T04:03:25.558Z] INFO Loaded configuration file pid=#PID<0.95.0> process_info=nil
+
+12:03:25.578 [info] [2026-10-08T04:03:25.578Z] INFO Configuration loaded successfully pid=#PID<0.95.0> process_info=nil
+
+12:03:26.071 [warning] [GSMLG.IpGeo] Database file not found
+
+12:03:26.071 [warning] [GSMLG.IpGeo] Database file not found
+Watching /home/gao/Workspace/gsmlg-dev/gsmlg_umbrella/apps/gsmlg_component/assets/component for changes...
+
+12:03:26.938 [warning] Failed to run Node.start(gsmlg@127.0.0.1)
+
+12:03:26.942 [error] Failed to broadcast to GSMLG.Web.Endpoint
+Running ExUnit with seed: 346300, max_cases: 96
+
+.........
+
+  1) test search dispatch forwards the label filter and returns only matching notes (GSMLG.GaoNote.MCPLabelFilterTest)
+     apps/gsmlg_gao_note/test/gsmlg/gao_note/mcp_label_filter_test.exs:28
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     code: matching = note_fixture("MCP matching label", ["topic=ecto"])
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       (ecto 3.14.0) lib/ecto/repo/queryable.ex:248: Ecto.Repo.Queryable.execute/4
+       (ecto 3.14.0) lib/ecto/repo/queryable.ex:19: Ecto.Repo.Queryable.all/3
+       (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note/attachments.ex:29: GSMLG.GaoNote.Attachments.prepare/3
+       (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:443: GSMLG.GaoNote.create_note/2
+       test/gsmlg/gao_note/mcp_label_filter_test.exs:51: GSMLG.GaoNote.MCPLabelFilterTest.note_fixture/2
+       test/gsmlg/gao_note/mcp_label_filter_test.exs:29: (test)
+
+.
+Finished in 0.6 seconds (0.5s async, 0.1s sync)
+11 tests, 1 failure
+==> gsmlg_web
+Running ExUnit with seed: 346300, max_cases: 96
+
+
+
+  1) test public index accepts labels and filters by label (GSMLG.Web.GaoNoteLabelControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_label_controller_test.exs:8
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     code: matching = note_fixture("Public matching label", ["topic=ecto"])
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       (ecto 3.14.0) lib/ecto/repo/queryable.ex:248: Ecto.Repo.Queryable.execute/4
+       (ecto 3.14.0) lib/ecto/repo/queryable.ex:19: Ecto.Repo.Queryable.all/3
+       (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note/attachments.ex:29: GSMLG.GaoNote.Attachments.prepare/3
+       (gsmlg_gao_note 0.1.0) lib/gsmlg/gao_note.ex:443: GSMLG.GaoNote.create_note/2
+       test/gsmlg_web/controllers/gao_note_label_controller_test.exs:25: GSMLG.Web.GaoNoteLabelControllerTest.note_fixture/2
+       test/gsmlg_web/controllers/gao_note_label_controller_test.exs:9: (test)
+
+
+
+  2) test show returns a GaoNote note by id (GSMLG.Web.GaoNoteControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_controller_test.exs:49
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:12: GSMLG.Web.GaoNoteControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:1: GSMLG.Web.GaoNoteControllerTest.__ex_unit__/2
+
+
+
+  3) test show returns 404 for an unknown GaoNote id (GSMLG.Web.GaoNoteControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_controller_test.exs:59
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:12: GSMLG.Web.GaoNoteControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:1: GSMLG.Web.GaoNoteControllerTest.__ex_unit__/2
+
+
+
+  4) test removed aggregate-fragment routes reference and asset collections return 404 (GSMLG.Web.GaoNoteControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_controller_test.exs:77
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:12: GSMLG.Web.GaoNoteControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:1: GSMLG.Web.GaoNoteControllerTest.__ex_unit__/2
+
+
+
+  5) test label settings lists GaoNote label settings (GSMLG.Web.GaoNoteControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_controller_test.exs:67
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:12: GSMLG.Web.GaoNoteControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:1: GSMLG.Web.GaoNoteControllerTest.__ex_unit__/2
+
+
+
+  6) test index lists GaoNote notes through the public API (GSMLG.Web.GaoNoteControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_controller_test.exs:22
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:12: GSMLG.Web.GaoNoteControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_controller_test.exs:1: GSMLG.Web.GaoNoteControllerTest.__ex_unit__/2
+
+
+
+  7) test authenticated raw content serves a zero-byte full response and rejects every zero-byte range (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:938
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+  8) test authenticated raw content streams the Presenter URL with one decode and safe verified headers (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:720
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+  9) test authenticated raw content scopes by active note and path without accepting storage IDs (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:813
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 10) test authenticated raw content requires authentication (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:708
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 11) test authenticated aggregate writes create rejects removed and unknown top-level fields before mutation (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:203
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 12) test authenticated raw content forces active MIME types to download and inlines only safe raster or text content (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:767
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 13) test authenticated raw content does not double-decode a literal percent escape (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:797
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 14) test authenticated aggregate writes update requires and replaces the complete nested attachment list (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:255
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 15) test authenticated raw content returns a generic 503 when the first bounded storage read fails (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:987
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 16) test authenticated raw content stops without crashing when the client closes on the first chunk (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1041
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 17) test authenticated raw content aborts a partial response and emits sanitized telemetry on a later read failure (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1008
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 18) test authenticated raw content streams closed, open-ended, and suffix ranges (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:891
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 19) test authenticated aggregate writes update without attachments is a structured 400 and does not mutate (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:504
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 20) test authenticated raw content returns 416 for malformed, multiple, and unsatisfiable ranges (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:915
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 21) test authenticated raw content uses only bounded 64 KiB storage reads for a full response (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:967
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 22) test authenticated raw content returns 404 for malformed URI encoding (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:875
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 23) test authenticated aggregate writes write errors use 401, 404, 409, and 422 without leaking internals (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:521
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 24) test authenticated aggregate writes multipart update rejects upload and other unknown attachment fields (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:457
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 25) test authenticated aggregate writes multipart create rejects external upload before note or storage creation (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:413
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 26) test authenticated aggregate writes PATCH performs the same complete attachment-list replacement (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:360
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 27) test authenticated aggregate writes only malformed Base64 is 400 while semantic content is 422 (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:636
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 28) test authenticated aggregate writes update rejects unknown top-level fields without mutation or storage writes (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:306
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 29) test authenticated aggregate writes create accepts nested attachments and uses the Guardian actor (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:144
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+
+ 30) test authenticated raw content returns 404 for controller-reachable invalid and unknown canonical paths (GSMLG.Web.GaoNoteAttachmentContentControllerTest)
+     apps/gsmlg_web/test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:850
+     ** (Postgrex.Error) ERROR 42501 (insufficient_privilege) permission denied for table gao_note_attachments
+     stacktrace:
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1121: Ecto.Adapters.SQL.raise_sql_call_error/1
+       (ecto_sql 3.14.0) lib/ecto/adapters/sql.ex:1019: Ecto.Adapters.SQL.execute/6
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:105: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit_setup_1/1
+       test/gsmlg_web/controllers/gao_note_attachment_content_controller_test.exs:1: GSMLG.Web.GaoNoteAttachmentContentControllerTest.__ex_unit__/2
+
+
+Finished in 2.3 seconds (0.00s async, 2.3s sync)
+30 tests, 30 failures
+==> gsmlg_admin_web
+Running ExUnit with seed: 346300, max_cases: 96
+Excluding tags: [external: true]
+
+    error: function get/2 imported from both Plug.Router and Phoenix.ConnTest, call is ambiguous
+    │
+ 12 │     get "/*path" do
+    │     ^
+    │
+    └─ test/gsmlg/admin_web/controllers/gao_note_attachment_content_controller_test.exs:12:5: GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest.S3Stub (module)
+
+
+== Compilation error in file test/gsmlg/admin_web/controllers/gao_note_attachment_content_controller_test.exs ==
+** (CompileError) test/gsmlg/admin_web/controllers/gao_note_attachment_content_controller_test.exs: cannot compile module GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest.S3Stub (errors have been logged)
+    test/gsmlg/admin_web/controllers/gao_note_attachment_content_controller_test.exs:6: (module)
+    (elixir 1.18.5) lib/kernel/parallel_compiler.ex:542: Kernel.ParallelCompiler.require_file/2
+    (elixir 1.18.5) lib/kernel/parallel_compiler.ex:425: anonymous fn/5 in Kernel.ParallelCompiler.spawn_workers/8
+[os_mon] memory supervisor port (memsup): Erlang has closed
+[os_mon] cpu supervisor port (cpu_sup): Erlang has closed

@@ -26,14 +26,15 @@ defmodule GSMLG.GaoNote.LabelSetting do
 
   def changeset(label_setting, attrs) do
     label_setting
-    |> cast(attrs, [:name, :color, :description, :value_type, :metadata])
+    |> cast(attrs, [:name, :color, :value_type, :metadata])
+    |> cast(attrs, [:description], empty_values: [])
     |> normalize_name()
     |> put_default_description()
     |> put_default_value_type()
     |> normalize_value_type()
     |> validate_required([:name])
     |> validate_inclusion(:value_type, @value_types, message: "unsupported value type")
-    |> unique_constraint(:name, name: :gao_note_label_settings_lower_name_index)
+    |> unique_constraint(:name, name: :gao_note_label_settings_name_index)
   end
 
   def normalize_display_name(name) when is_binary(name) do
