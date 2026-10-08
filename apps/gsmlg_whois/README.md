@@ -742,6 +742,7 @@ MIT License
 ## Changelog
 
 ### 0.5.1
+- Temporarily constrain ExTurso to 0.3.x for clean Concord installs pending [concord#92](https://github.com/gsmlg-dev/concord/issues/92)
 - Add a finite total WHOIS deadline covering DNS, connect, send, reads, and referrals
 - Close sockets on success, errors, deadline expiry, and task cancellation
 - Support custom server ports and preserve trailing raw response bytes

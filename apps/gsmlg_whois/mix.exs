@@ -37,6 +37,10 @@ defmodule GSMLG.Whois.MixProject do
       {:http_fetch, "~> 0.10"},
       {:postgrex, "~> 0.21", optional: true},
       {:concord, "~> 2.0"},
+      # TODO(upstream): gsmlg-dev/concord#92
+      # WORKAROUND(upstream): gsmlg-dev/concord#92 - constrain ExTurso's compatible API;
+      # Concord starts the application through its own runtime dependency.
+      {:ex_turso, "~> 0.3.0", runtime: false},
       {:ex_doc, ">= 0.0.0", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
