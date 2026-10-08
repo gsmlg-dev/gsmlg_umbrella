@@ -107,7 +107,17 @@ GSMLG.MAC.lookup_vendor("invalid")
 - `{:ok, short_name, full_name}` - Vendor found
 - `:error` - Vendor not found or invalid MAC format
 
-The lookup uses only the OUI (first 24 bits) of the MAC address. The vendor database contains over 28,000+ entries from the IEEE registration authority and Wireshark project.
+The lookup chooses the longest matching prefix, including /24, /28, and /36 entries sharing the same OUI. When a more specific prefix does not match, it falls back to a broader entry if one exists. The vendor database contains over 28,000+ entries from the IEEE registration authority and Wireshark project.
+
+Operator-provided Wireshark manufacturer database contents can be compiled and queried without replacing the bundled database:
+
+```elixir
+table = GSMLG.MAC.Compiler.build_lookup_table(File.read!("/etc/manuf.txt"))
+GSMLG.MAC.Compiler.count_entries(table)
+GSMLG.MAC.Vendor.lookup("00:11:22:33:40:00", table)
+```
+
+Tables with a single prefix width per OUI retain their existing format. Mixed widths use `{:mixed, [{width, prefix_map}, ...]}` buckets ordered longest first. Repeated identical prefixes keep the last record, as before.
 
 ### MAC Address Validation
 
