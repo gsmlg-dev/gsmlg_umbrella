@@ -3,9 +3,9 @@ defmodule GSMLG.Whois.Server do
   Define whois server address.
   Find whois server of Domain, IP or AS.
   """
-  defstruct [:host]
+  defstruct [:host, port: 43]
 
-  @type t :: %__MODULE__{host: binary()}
+  @type t :: %__MODULE__{host: binary(), port: :inet.port_number()}
 
   def root() do
     %GSMLG.Whois.Server{host: "whois.iana.org"}

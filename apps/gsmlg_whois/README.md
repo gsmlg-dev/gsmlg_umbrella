@@ -25,7 +25,7 @@ Add `gsmlg_whois` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_whois, "~> 0.5.0"}
+    {:gsmlg_whois, "~> 0.5.1"}
   ]
 end
 ```
@@ -99,13 +99,13 @@ end
 )
 
 # Or use a Server struct
-server = %GSMLG.Whois.Server{host: "whois.markmonitor.com"}
+server = %GSMLG.Whois.Server{host: "whois.markmonitor.com", port: 43}
 {:ok, results} = GSMLG.Whois.lookup_raw("google.com", server: server)
 ```
 
 ## Caching
 
-GSMLG.Whois includes intelligent caching to improve performance and reduce load on WHOIS servers.
+GSMLG.Whois includes intelligent caching to improve performance and reduce load on WHOIS servers. The default ETS backend needs no additional package. The optional PostgreSQL backend requires the host application to add `{:postgrex, "~> 0.21"}` and configure a connection pool. The Concord backend uses the included `concord` dependency; start its server before selecting `GSMLG.Whois.Cache.Concord`.
 
 ### Enabling Cache
 
@@ -291,21 +291,12 @@ GSMLG.Whois emits telemetry events for monitoring and debugging:
 ### Available Events
 
 - `[:gsmlg, :whois, :lookup, :start]` - Lookup starts
-- `[:gsmlg, :whois, :lookup, :stop]` - Lookup completes successfully
-- `[:gsmlg, :whois, :lookup, :exception]` - Lookup fails
+- `[:gsmlg, :whois, :lookup, :stop]` - Lookup returns (including an error tuple)
+- `[:gsmlg, :whois, :lookup, :exception]` - Lookup raises, throws, or exits
 
 ### Event Metadata
 
-```elixir
-%{
-  query: "example.com",           # The query string
-  server: "whois.iana.org",       # WHOIS server being queried
-  cache_hit: false,               # Whether result was from cache
-  duration: 1_234_567,            # Duration in native time units (stop event only)
-  kind: :error,                   # Exception kind (exception event only)
-  reason: :timeout                # Error reason (exception event only)
-}
-```
+Lookup events include `%{query: "example.com", type: :domain}`. The `:stop` event's measurements include `duration` in native time units; `:exception` metadata additionally includes `kind`, `reason`, and `stacktrace`. Cache events include the same query/type fields, with `:hit` or `:miss` in the event name. A normal `{:error, :timeout}` return emits `:stop`, while `:exception` is reserved for exceptions, throws, and exits.
 
 ### Setting Up Telemetry Handler
 
@@ -319,9 +310,7 @@ defmodule MyApp.TelemetryHandler do
 
   def handle_event([:gsmlg, :whois, :lookup, :stop], measurements, metadata, _config) do
     duration_ms = System.convert_time_unit(measurements.duration, :native, :millisecond)
-    cache_status = if metadata.cache_hit, do: "(cached)", else: ""
-
-    Logger.info("WHOIS lookup completed in #{duration_ms}ms #{cache_status}: #{metadata.query}")
+    Logger.info("WHOIS lookup returned in #{duration_ms}ms: #{metadata.query}")
   end
 
   def handle_event([:gsmlg, :whois, :lookup, :exception], measurements, metadata, _config) do
@@ -385,6 +374,8 @@ end
 ```
 
 ### Timeout Configuration
+
+WHOIS uses a finite total deadline, including native DNS resolution, TCP connection, sending the query, every response read, and all referrals. The default is 30,000 milliseconds. New data and referrals do not restart the budget. Expiry returns `{:error, :timeout}` even if a previous server returned a partial record. Other referral connection errors retain the previous raw records. Set a non-negative integer timeout; zero expires immediately, and `:infinity` is rejected. Cancelling a caller task closes its linked lookup worker and the worker-owned sockets.
 
 ```elixir
 # Configure timeout in config/config.exs
@@ -749,6 +740,12 @@ MIT License
 - [ICANN WHOIS Policy](https://www.icann.org/resources/pages/whois)
 
 ## Changelog
+
+### 0.5.1
+- Add a finite total WHOIS deadline covering DNS, connect, send, reads, and referrals
+- Close sockets on success, errors, deadline expiry, and task cancellation
+- Support custom server ports and preserve trailing raw response bytes
+- Remove the unpublished umbrella telemetry dependency; emit the documented `:start`, `:stop`, and `:exception` lifecycle events directly through `:telemetry`
 
 ### 0.5.0
 - Production-ready release

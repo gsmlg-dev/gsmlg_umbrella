@@ -26,6 +26,7 @@ defmodule GSMLG.Whois do
 
   ## Additional WHOIS options
 
+    - `:timeout` — total WHOIS deadline in milliseconds (default: configured timeout or 30,000)
     - `:server` — override the initial WHOIS server (binary hostname or `%GSMLG.Whois.Server{}`)
 
   ## Telemetry
@@ -55,6 +56,7 @@ defmodule GSMLG.Whois do
   @type lookup_type :: :domain | :ip | :asn
   @type whois_opts :: [
           server: binary() | Server.t(),
+          timeout: non_neg_integer(),
           cache: boolean(),
           type: lookup_type()
         ]
@@ -88,16 +90,16 @@ defmodule GSMLG.Whois do
       _ ->
         if cache_enabled, do: emit_cache_event(:miss, query, lookup_type)
 
-        GSMLG.Telemetry.span(
+        :telemetry.span(
           [:gsmlg, :whois, :lookup],
           %{query: query, type: lookup_type},
           fn ->
             server = resolve_server(opts)
-            result = WhoisProtocol.lookup(query, server)
+            result = WhoisProtocol.lookup(query, server, opts)
 
             if cache_enabled, do: cache_on_ok(result, cache_key, lookup_type)
 
-            result
+            {result, %{query: query, type: lookup_type}}
           end
         )
     end
@@ -127,7 +129,7 @@ defmodule GSMLG.Whois do
       _ ->
         if cache_enabled, do: emit_cache_event(:miss, query, lookup_type)
 
-        GSMLG.Telemetry.span(
+        :telemetry.span(
           [:gsmlg, :whois, :rdap, :lookup],
           %{query: query, type: lookup_type},
           fn ->
@@ -136,7 +138,7 @@ defmodule GSMLG.Whois do
 
             if cache_enabled, do: cache_on_ok(result, cache_key, :rdap)
 
-            result
+            {result, %{query: query, type: lookup_type}}
           end
         )
     end

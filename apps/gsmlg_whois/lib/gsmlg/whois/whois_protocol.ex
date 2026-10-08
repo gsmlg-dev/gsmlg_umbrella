@@ -2,12 +2,10 @@ defmodule GSMLG.Whois.WhoisProtocol do
   @moduledoc """
   TCP WHOIS lookup protocol (RFC 3912).
 
-  Connects to a WHOIS server on port 43, sends the query, reads the raw
-  text response, and recursively follows referrals to authoritative servers
-  when the response contains a `whois:` or `whois server:` header.
-
-  Returns a list of `{server_host, raw_text}` pairs — one per server
-  contacted, with the root server first.
+  Returns root-first `{server_host, raw_text}` records. DNS, connection,
+  send, response reads and referrals share one finite deadline. A linked
+  worker bounds native DNS resolution and owns all sockets so cancellation
+  also closes them.
   """
 
   require Logger
@@ -19,62 +17,100 @@ defmodule GSMLG.Whois.WhoisProtocol do
   @doc """
   Performs a raw WHOIS lookup starting from the given server.
 
-  ## Options
-
-    - `:server` — override the initial WHOIS server (binary hostname or `%Server{}`)
-
-  ## Examples
-
-      {:ok, results} = GSMLG.Whois.WhoisProtocol.lookup("example.com", Server.root())
+  `:timeout` is the total budget in milliseconds (default: the application's
+  `:gsmlg_whois, :timeout` configuration, or 30,000). Expiry returns
+  `{:error, :timeout}`, including when a referral times out.
   """
-  @spec lookup(binary(), Server.t()) :: result()
-  def lookup(query, server) do
-    host = server.host
-    Logger.debug("WHOIS lookup #{query} on #{host}")
+  @spec lookup(binary(), Server.t(), keyword()) :: result()
+  def lookup(query, server, opts \\ []) do
+    timeout = Keyword.get(opts, :timeout, Application.get_env(:gsmlg_whois, :timeout, 30_000))
 
-    with {:ok, socket} <-
-           :gen_tcp.connect(
-             String.to_charlist(host),
-             43,
-             [{:active, false}, {:mode, :binary}, {:packet, :line}],
-             30_000
-           ),
-         :ok <- :gen_tcp.send(socket, [query, "\r\n"]),
-         raw when is_binary(raw) <- recv_all(socket) do
-      case next_server(raw) do
-        nil ->
-          {:ok, [{host, raw}]}
+    unless is_integer(timeout) and timeout >= 0 do
+      raise ArgumentError, "WHOIS timeout must be a non-negative integer in milliseconds"
+    end
 
-        ^host ->
-          {:ok, [{host, raw}]}
+    deadline = System.monotonic_time(:millisecond) + timeout
 
-        "" ->
-          {:ok, [{host, raw}]}
-
-        "^http://" <> _ ->
-          {:ok, [{host, raw}]}
-
-        "^https://" <> _ ->
-          {:ok, [{host, raw}]}
-
-        next_host ->
-          case lookup(query, %Server{host: next_host}) do
-            {:ok, rest} -> {:ok, [{host, raw} | rest]}
-            {:error, _} -> {:ok, [{host, raw}]}
-          end
-      end
+    if timeout == 0 do
+      {:error, :timeout}
     else
-      {:error, reason} ->
-        Logger.debug("WHOIS lookup #{query} on #{host} failed: #{inspect(reason)}")
-        {:error, reason}
+      task = Task.async(fn -> lookup_until(query, server, deadline) end)
+
+      try do
+        case Task.yield(task, remaining(deadline)) do
+          {:ok, result} -> if remaining(deadline) > 0, do: result, else: {:error, :timeout}
+          nil -> {:error, :timeout}
+        end
+      after
+        Task.shutdown(task, :brutal_kill)
+      end
     end
   end
 
-  defp recv_all(socket, acc \\ "") do
-    case :gen_tcp.recv(socket, 0) do
-      {:ok, data} -> recv_all(socket, acc <> data)
-      {:error, :closed} -> acc
-      {:error, reason} -> {:error, reason}
+  defp lookup_until(query, server, deadline) do
+    host = server.host
+    Logger.debug("WHOIS lookup #{query} on #{host}")
+
+    with {:ok, timeout} <- budget(deadline),
+         {:ok, socket} <-
+           :gen_tcp.connect(
+             String.to_charlist(host),
+             server.port,
+             [
+               active: false,
+               mode: :binary,
+               packet: :raw,
+               send_timeout: timeout,
+               send_timeout_close: true
+             ],
+             timeout
+           ) do
+      raw_result =
+        try do
+          with {:ok, timeout} <- budget(deadline),
+               :ok <- :inet.setopts(socket, send_timeout: timeout),
+               :ok <- :gen_tcp.send(socket, [query, "\r\n"]) do
+            recv_all(socket, deadline, [])
+          end
+        after
+          :gen_tcp.close(socket)
+        end
+
+      with {:ok, raw} <- raw_result do
+        case next_server(raw) do
+          nil ->
+            {:ok, [{host, raw}]}
+
+          ^server ->
+            {:ok, [{host, raw}]}
+
+          next ->
+            case lookup_until(query, next, deadline) do
+              {:ok, rest} -> {:ok, [{host, raw} | rest]}
+              {:error, :timeout} = error -> error
+              {:error, _} -> {:ok, [{host, raw}]}
+            end
+        end
+      end
+    end
+  end
+
+  defp recv_all(socket, deadline, acc) do
+    with {:ok, timeout} <- budget(deadline) do
+      case :gen_tcp.recv(socket, 0, timeout) do
+        {:ok, data} -> recv_all(socket, deadline, [data | acc])
+        {:error, :closed} -> {:ok, acc |> Enum.reverse() |> IO.iodata_to_binary()}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  defp remaining(deadline), do: max(0, deadline - System.monotonic_time(:millisecond))
+
+  defp budget(deadline) do
+    case remaining(deadline) do
+      0 -> {:error, :timeout}
+      timeout -> {:ok, timeout}
     end
   end
 
@@ -82,15 +118,26 @@ defmodule GSMLG.Whois.WhoisProtocol do
     raw
     |> String.split("\n")
     |> Enum.find_value(fn line ->
-      line
-      |> String.trim()
-      |> String.downcase()
-      |> case do
-        "whois:" <> host -> String.trim(host)
-        "whois server:" <> host -> String.trim(host)
-        "registrar whois server:" <> host -> String.trim(host)
+      case line |> String.trim() |> String.downcase() do
+        "whois:" <> host -> referral(host)
+        "whois server:" <> host -> referral(host)
+        "registrar whois server:" <> host -> referral(host)
         _ -> nil
       end
     end)
+  end
+
+  defp referral(host) do
+    host = String.trim(host)
+    uri = URI.parse(if String.contains?(host, "://"), do: host, else: "whois://" <> host)
+
+    case uri do
+      %URI{scheme: "whois", host: host, port: port}
+      when is_binary(host) and host != "" and (is_nil(port) or port in 1..65_535) ->
+        %Server{host: host, port: port || 43}
+
+      _ ->
+        nil
+    end
   end
 end

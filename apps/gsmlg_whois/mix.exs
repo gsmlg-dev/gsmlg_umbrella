@@ -4,7 +4,7 @@ defmodule GSMLG.Whois.MixProject do
   def project do
     [
       app: :gsmlg_whois,
-      version: "0.5.0",
+      version: "0.5.1",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -33,7 +33,7 @@ defmodule GSMLG.Whois.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:gsmlg_telemetry, in_umbrella: true},
+      {:telemetry, "~> 1.2"},
       {:http_fetch, "~> 0.10"},
       {:postgrex, "~> 0.21", optional: true},
       {:concord, "~> 2.0"},
