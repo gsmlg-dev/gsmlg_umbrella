@@ -3,6 +3,8 @@ defmodule GSMLG.Web.AgentNoteMCPControllerTest do
   import GSMLG.AccountsFixtures
   alias GSMLG.GaoNote
 
+  @mcp_headers ~w(accept authorization x-gaonote-mcp-key mcp-session-id mcp-protocol-version)
+
   defp authenticated_conn do
     user =
       user_fixture(%{
@@ -14,12 +16,40 @@ defmodule GSMLG.Web.AgentNoteMCPControllerTest do
 
     build_conn()
     |> put_req_header("authorization", "Bearer #{token}")
-    |> put_req_header("accept", "application/json")
+    |> put_req_header("accept", "application/json, text/event-stream")
   end
 
-  defp rpc(conn, method, params),
-    do:
-      post(conn, "/mcp", %{"jsonrpc" => "2.0", "id" => 1, "method" => method, "params" => params})
+  defp rpc(conn, method, params) do
+    conn
+    |> recycle(@mcp_headers)
+    |> put_req_header("accept", "application/json, text/event-stream")
+    |> post("/mcp", %{"jsonrpc" => "2.0", "id" => 1, "method" => method, "params" => params})
+  end
+
+  defp initialized_conn(conn) do
+    conn
+    |> rpc("initialize", %{
+      "protocolVersion" => "2025-06-18",
+      "capabilities" => %{},
+      "clientInfo" => %{"name" => "parity-test", "version" => "1"}
+    })
+    |> complete_initialization()
+  end
+
+  defp complete_initialization(conn) do
+    assert json_response(conn, 200)["result"]["protocolVersion"] == "2025-06-18"
+    assert [session_id] = get_resp_header(conn, "mcp-session-id")
+
+    conn =
+      conn
+      |> recycle(@mcp_headers)
+      |> put_req_header("mcp-session-id", session_id)
+      |> put_req_header("mcp-protocol-version", "2025-06-18")
+      |> post("/mcp", %{"jsonrpc" => "2.0", "method" => "notifications/initialized"})
+
+    assert response(conn, 202)
+    recycle(conn, @mcp_headers)
+  end
 
   test "public canonical MCP requires authentication", %{conn: conn} do
     conn = rpc(conn, "tools/list", %{})
@@ -46,7 +76,7 @@ defmodule GSMLG.Web.AgentNoteMCPControllerTest do
     assert capabilities["tools"] == %{}
     refute Map.has_key?(capabilities, "resources")
 
-    conn = rpc(authenticated_conn(), "tools/list", %{})
+    conn = conn |> complete_initialization() |> rpc("tools/list", %{})
     tools = json_response(conn, 200)["result"]["tools"]
 
     assert Enum.sort(Enum.map(tools, & &1["name"])) ==
@@ -54,8 +84,10 @@ defmodule GSMLG.Web.AgentNoteMCPControllerTest do
   end
 
   test "tools/call saves and hydrates canonical structured DTOs" do
+    authenticated = authenticated_conn() |> initialized_conn()
+
     conn =
-      rpc(authenticated_conn(), "tools/call", %{
+      rpc(authenticated, "tools/call", %{
         "name" => "save_note",
         "arguments" => %{
           "title" => "Public MCP",
@@ -72,7 +104,7 @@ defmodule GSMLG.Web.AgentNoteMCPControllerTest do
            } = json_response(conn, 200)
 
     conn =
-      rpc(authenticated_conn(), "tools/call", %{
+      rpc(authenticated, "tools/call", %{
         "name" => "get_note",
         "arguments" => %{"id" => id}
       })
@@ -100,8 +132,9 @@ defmodule GSMLG.Web.AgentNoteMCPControllerTest do
 
     conn =
       build_conn()
-      |> put_req_header("accept", "application/json")
+      |> put_req_header("accept", "application/json, text/event-stream")
       |> put_req_header("x-gaonote-mcp-key", key)
+      |> initialized_conn()
       |> rpc("tools/list", %{})
 
     assert %{"result" => %{"tools" => [_ | _]}} = json_response(conn, 200)

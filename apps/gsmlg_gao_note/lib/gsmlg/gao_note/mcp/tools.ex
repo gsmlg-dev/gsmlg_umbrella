@@ -197,7 +197,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     do: {:error, "unsupported note field", []}
 
   @doc false
-  # TODO(upstream): gsmlg-opt/backplane#58
+  # TODO(upstream): gsmlg-opt/backplane#63
   def validate_attachment_input(attachment) when is_map(attachment) do
     with {:ok, _attachment} <- Peri.validate(@strict_attachment_map_schema, attachment),
          :ok <- validate_attachment_content(attachment),

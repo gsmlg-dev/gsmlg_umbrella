@@ -8,6 +8,8 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
 
+  @mcp_headers ~w(accept authorization x-gaonote-mcp-key mcp-session-id mcp-protocol-version)
+
   @removed_tool_names ~w(
     gao_note.create
     gao_note.update
@@ -36,7 +38,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
   test "admin MCP requires authentication", %{conn: conn} do
     conn =
       conn
-      |> put_req_header("accept", "application/json")
+      |> put_req_header("accept", "application/json, text/event-stream")
       |> post(~p"/mcp/gao_note", %{
         "jsonrpc" => "2.0",
         "id" => 1,
@@ -51,7 +53,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     conn =
       conn
       |> authenticated_conn()
-      |> put_req_header("accept", "application/json")
+      |> put_req_header("accept", "application/json, text/event-stream")
       |> post(~p"/mcp/gao_note", %{
         "jsonrpc" => "2.0",
         "id" => 1,
@@ -71,13 +73,15 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
                "capabilities" => %{"tools" => %{}, "resources" => %{}}
              }
            } = json_response(conn, 200)
+
+    complete_initialization(conn)
   end
 
   test "admin MCP tools/list exposes CRUD tools with bearer token", %{conn: conn} do
     conn =
       conn
       |> authenticated_conn()
-      |> put_req_header("accept", "application/json")
+      |> initialized_conn()
       |> post(~p"/mcp/gao_note", %{
         "jsonrpc" => "2.0",
         "id" => 1,
@@ -138,7 +142,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     conn =
       conn
       |> put_req_header("x-gaonote-mcp-key", api_key)
-      |> put_req_header("accept", "application/json")
+      |> initialized_conn()
       |> post(~p"/mcp/gao_note", %{
         "jsonrpc" => "2.0",
         "id" => 1,
@@ -253,7 +257,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     conn: conn
   } do
     user = user_fixture()
-    authenticated = authenticated_conn(conn, user)
+    authenticated = conn |> authenticated_conn(user) |> initialized_conn()
 
     assert {:ok, note} =
              GaoNote.create_note(
@@ -476,18 +480,50 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
   defp call_mcp_tool(conn, name, arguments) do
     conn
     |> authenticated_conn()
+    |> initialized_conn()
     |> call_authenticated_mcp_tool(name, arguments)
   end
 
   defp call_authenticated_mcp_tool(conn, name, arguments) do
     conn
-    |> put_req_header("accept", "application/json")
+    |> recycle(@mcp_headers)
     |> post(~p"/mcp/gao_note", %{
       "jsonrpc" => "2.0",
       "id" => System.unique_integer([:positive]),
       "method" => "tools/call",
       "params" => %{"name" => name, "arguments" => arguments}
     })
+  end
+
+  defp initialized_conn(conn) do
+    conn
+    |> put_req_header("accept", "application/json, text/event-stream")
+    |> post(~p"/mcp/gao_note", %{
+      "jsonrpc" => "2.0",
+      "id" => System.unique_integer([:positive]),
+      "method" => "initialize",
+      "params" => %{
+        "protocolVersion" => "2025-06-18",
+        "capabilities" => %{},
+        "clientInfo" => %{"name" => "gao-note-admin-test", "version" => "0.1.0"}
+      }
+    })
+    |> complete_initialization()
+  end
+
+  defp complete_initialization(conn) do
+    assert json_response(conn, 200)["result"]["protocolVersion"] == "2025-06-18"
+    assert [session_id] = get_resp_header(conn, "mcp-session-id")
+
+    conn =
+      conn
+      |> recycle(@mcp_headers)
+      |> put_req_header("mcp-session-id", session_id)
+      |> put_req_header("mcp-protocol-version", "2025-06-18")
+      |> post(~p"/mcp/gao_note", %{"jsonrpc" => "2.0", "method" => "notifications/initialized"})
+
+    assert response(conn, 202)
+    recycle(conn, @mcp_headers)
   end
 
   defp assert_invalid_params(response) do

@@ -15,7 +15,7 @@ defmodule GSMLG.Storage.S3Client do
   def put_object(bucket, key, data, content_type) do
     with {:ok, client} <- get_client() do
       case client
-           |> AWS.S3.put_object(key, bucket, %{
+           |> AWS.S3.put_object(bucket, key, %{
              "Body" => data,
              "ContentType" => content_type
            }) do
