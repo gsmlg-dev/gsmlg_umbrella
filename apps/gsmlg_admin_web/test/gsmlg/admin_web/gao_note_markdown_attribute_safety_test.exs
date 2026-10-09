@@ -33,7 +33,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdownAttributeSafetyTest do
 
     assert [{"img", image_attributes, _children}] = Floki.find(document, "img")
     assert Enum.map(image_attributes, &elem(&1, 0)) |> Enum.sort() == ["alt", "src", "title"]
-    assert attribute_value(image_attributes, "alt") == ~s(safe" onerror="alert(1))
+    assert attribute_value(image_attributes, "alt") == ~s|safe" onerror="alert(1)|
     refute attribute_value(image_attributes, "alt") == "IAL override"
     assert attribute_value(image_attributes, "src") == raw_url("./image.png")
   end

@@ -261,6 +261,9 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdown do
 
   defp sanitize_destination(destination, kind, routes) do
     case attachment_route(destination, routes) do
+      :error ->
+        :drop
+
       nil ->
         if safe_destination?(destination, kind), do: {:ok, destination}, else: :drop
 

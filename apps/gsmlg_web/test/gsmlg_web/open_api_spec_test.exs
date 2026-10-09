@@ -151,6 +151,15 @@ defmodule GSMLG.Web.OpenApiSpecTest do
     refute Map.has_key?(attachment["get"]["responses"]["416"], "content")
   end
 
+  test "documents the Agent Note attachment route parameters", %{document: document} do
+    assert %{"get" => %{"operationId" => "getAgentNoteAttachment"} = operation} =
+             document["paths"]["/api/notes/{note_id}/attachments/{path}"]
+
+    assert %{"required" => true, "in" => "path"} = parameter(operation, "note_id")
+    assert %{"required" => true, "in" => "path"} = parameter(operation, "path")
+    refute parameter(operation, "id")
+  end
+
   test "documents toolbox, web push, and proxy rules operations with runtime fidelity", %{
     document: document
   } do
@@ -326,7 +335,8 @@ defmodule GSMLG.Web.OpenApiSpecTest do
       GSMLG.Web.Router.__routes__()
       |> Enum.filter(fn route ->
         route.path == "/api" or String.starts_with?(route.path, "/api/") or
-          route.path == "/rules/zeroomega" or String.starts_with?(route.path, "/rules/zeroomega/")
+          route.path == "/rules/zeroomega" or String.starts_with?(route.path, "/rules/zeroomega/") or
+          route.path == "/notes/:id/content"
       end)
       |> Enum.reject(&(&1.path == "/api/*request_path"))
       |> Enum.filter(&(&1.verb in [:get, :post, :put, :patch, :delete]))
@@ -334,7 +344,8 @@ defmodule GSMLG.Web.OpenApiSpecTest do
       |> MapSet.new()
 
     assert router_operation_pairs == operation_pairs(document)
-    assert MapSet.size(router_operation_pairs) == 20
+    assert MapSet.size(router_operation_pairs) == 44
+    assert MapSet.member?(router_operation_pairs, {:get, "/notes/{id}/content"})
     assert MapSet.member?(router_operation_pairs, {:get, "/api/openapi.json"})
     assert MapSet.member?(router_operation_pairs, {:get, "/rules/zeroomega/switchy"})
     assert MapSet.member?(router_operation_pairs, {:get, "/rules/zeroomega/pac"})

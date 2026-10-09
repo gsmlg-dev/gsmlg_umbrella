@@ -8,7 +8,7 @@ defmodule GSMLG.Web.OpenApi.AgentNoteOperations do
     {"/api/notes/{id}", "getAgentNote", :note},
     {"/api/notes/{id}/raw", "getAgentNoteRaw", :raw},
     {"/notes/{id}/content", "getAgentNoteContent", :raw},
-    {"/api/notes/{id}/attachments/{path}", "getAgentNoteAttachment", :attachment},
+    {"/api/notes/{note_id}/attachments/{path}", "getAgentNoteAttachment", :attachment},
     {"/api/trash", "listAgentNoteTrash", :trash},
     {"/api/labels", "listAgentNoteLabels", :labels},
     {"/api/dashboard", "getAgentNoteDashboard", :dashboard},
