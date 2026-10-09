@@ -3,7 +3,7 @@ defmodule GSMLG.AdminWeb.CommanderChannel do
   Commander Channel
 
   """
-  use Phoenix.Channel
+  use Phoenix.Channel, log_join: false, log_handle_in: false
 
   alias GSMLG.Commander.Protocol.{
     CapabilitiesUpdate,

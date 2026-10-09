@@ -7,7 +7,7 @@ defmodule GSMLG.AdminWeb.TerminalChannel do
   and output streaming to admin UI.
   """
 
-  use Phoenix.Channel
+  use Phoenix.Channel, log_join: false, log_handle_in: false
   require Logger
 
   @agent_message_types ~w(pty_output pty_created pty_closed pty_resized error sessions_list)

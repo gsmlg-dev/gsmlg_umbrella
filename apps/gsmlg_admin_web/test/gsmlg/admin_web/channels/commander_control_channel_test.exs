@@ -6,6 +6,13 @@ defmodule GSMLG.AdminWeb.CommanderControlChannelTest do
   alias GSMLG.CommandPlatform.{AgentRegistry, CommandDispatcher}
   alias GSMLG.AdminWeb.{CommanderChannel, CommanderSocket, TerminalChannel}
 
+  setup do
+    previous_level = Logger.level()
+    Logger.configure(level: :debug)
+    on_exit(fn -> Logger.configure(level: previous_level) end)
+    :ok
+  end
+
   test "binds the control topic to the authenticated socket identity" do
     socket =
       socket(CommanderSocket, "commander-node-a", %{name: "node-a", commander_name: "node-a"})
@@ -125,6 +132,7 @@ defmodule GSMLG.AdminWeb.CommanderControlChannelTest do
 
   test "authenticated heartbeats retain only a strict TLS validity summary" do
     name = "node-live-tls-summary"
+    synchronize_prior_agent_cleanup()
     Phoenix.PubSub.subscribe(GSMLG.PubSub, "commander_updates")
 
     assert {:ok, _, joined} =
@@ -641,6 +649,19 @@ defmodule GSMLG.AdminWeb.CommanderControlChannelTest do
 
     assert_reply ref, :error, %{reason: "unknown_request"}
     assert Process.alive?(joined.channel_pid)
+  end
+
+  defp synchronize_prior_agent_cleanup do
+    # A coherent snapshot waits for removals whose ETS delete precedes their broadcast.
+    %{agents: agents} = :sys.get_state(AgentRegistry)
+
+    for agent <- Map.values(agents) do
+      pid = agent.channel_pid
+      ref = Process.monitor(pid)
+      assert_receive {:DOWN, ^ref, :process, ^pid, _reason}, 500
+
+      assert :ok = AgentRegistry.unregister_agent(agent.agent_id, pid, agent.generation)
+    end
   end
 
   defp negotiation(capabilities \\ [browser_descriptor()]) do
