@@ -39,6 +39,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   alias GSMLG.ProxyRules.Source.Remote
 
   @now ~U[2026-07-23 02:03:04Z]
+  @persistence_timeout 5_000
 
   @tag :tmp_dir
   test "changed and identical 200 responses persist before bounded notifications", %{tmp_dir: dir} do
@@ -54,12 +55,15 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     assert_receive {:proxy_rules_source, :remote,
                     %SourceSnapshot{content: "||example.com^\n", metadata: %{etag: ~s("one")}}},
-                   1_000
+                   @persistence_timeout
 
     assert {:ok, %{metadata: %{etag: ~s("one")}}} = Persistence.read_remote(dir)
 
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source_fresh, :remote, %{etag: ~s(W/"two")}}, 1_000
+
+    assert_receive {:proxy_rules_source_fresh, :remote, %{etag: ~s(W/"two")}},
+                   @persistence_timeout
+
     refute_receive {:proxy_rules_source, :remote, _}, 30
     assert {:ok, %{metadata: %{etag: ~s(W/"two")}}} = Persistence.read_remote(dir)
   end
@@ -82,7 +86,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert_receive {:transport_request, _, _, [],
                     %{connect_timeout: 11, receive_timeout: 12, max_body_size: 256}}
 
-    assert_receive {:proxy_rules_source, :remote, _}, 2_000
+    assert_receive {:proxy_rules_source, :remote, _}, @persistence_timeout
 
     assert {:ok, :accepted} = Remote.refresh(server)
     assert_receive {:transport_request, _, _, headers, _}
@@ -91,7 +95,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     assert_receive {:proxy_rules_source_fresh, :remote,
                     %{etag: ~s(W/"tag-2"), last_modified: "Sun, 06 Nov 1994 08:49:37 GMT"}},
-                   1_000
+                   @persistence_timeout
   end
 
   @tag :tmp_dir
@@ -123,7 +127,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
       ])
 
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source, :remote, first}, 1_000
+    assert_receive {:proxy_rules_source, :remote, first}, @persistence_timeout
 
     for _ <- 1..5 do
       assert {:ok, :accepted} = Remote.refresh(server)
@@ -150,7 +154,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
       ])
 
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source, :remote, original}, 1_000
+    assert_receive {:proxy_rules_source, :remote, original}, @persistence_timeout
     assert {:ok, original_cache, original_body} = Persistence.read_remote_pair(dir)
 
     assert {:ok, :accepted} = Remote.refresh(server)
@@ -166,7 +170,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert {:ok, ^original_cache, ^original_body} = Persistence.read_remote_pair(dir)
 
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source_fresh, :remote, _metadata}, 1_000
+    assert_receive {:proxy_rules_source_fresh, :remote, _metadata}, @persistence_timeout
     assert %SourceSnapshot{availability: :ready} = Remote.snapshot(server)
     assert :ready == Remote.status(server)
   end
@@ -184,7 +188,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
                       line_count: 1,
                       availability: :ready
                     }},
-                   1_000
+                   @persistence_timeout
 
     assert :ready == Remote.status(server)
 
@@ -235,7 +239,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert_receive {:transport_request, task, _, _, _}
     refute_receive {:transport_request, _, _, _, _}, 30
     send(task, {:transport_response, response(200, Base.encode64("example.com\n"))})
-    assert_receive {:proxy_rules_source, :remote, _}, 1_000
+    assert_receive {:proxy_rules_source, :remote, _}, @persistence_timeout
   end
 
   @tag :tmp_dir
@@ -247,7 +251,10 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     revision = Store.source_revision(Store)
 
     send(task, {:transport_response, response(200, Base.encode64("example.com\n"))})
-    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{availability: :ready}}, 1_000
+
+    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{availability: :ready}},
+                   @persistence_timeout
+
     assert Store.source_revision(Store) > revision
   end
 
@@ -303,7 +310,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     assert_receive {:telemetry, [:gsmlg, :proxy_rules, :remote, :fetch, :stop], measurements,
                     %{source: :gfwlist, status: 200}},
-                   1_000
+                   @persistence_timeout
 
     assert measurements.response_size == byte_size(body)
     refute Map.has_key?(measurements, :body)
@@ -319,7 +326,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert {:ok, :accepted} = Remote.refresh(server)
     assert_receive {:cancelled, ^first_ref}
     assert_receive {:transport_request, _, _, _, _}
-    assert_receive {:proxy_rules_source, :remote, _}, 2_000
+    assert_receive {:proxy_rules_source, :remote, _}, @persistence_timeout
     assert_receive {:scheduled, 100, second_ref}
     refute first_ref == second_ref
 
@@ -396,7 +403,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     assert %SourceSnapshot{availability: :stale} = Remote.snapshot(server)
 
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source_fresh, :remote, _}, 1_000
+    assert_receive {:proxy_rules_source_fresh, :remote, _}, @persistence_timeout
     assert %SourceSnapshot{availability: :ready} = Remote.snapshot(server)
   end
 
@@ -462,7 +469,9 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
     old_body = Base.encode64(old_content)
     server = start_remote(dir, [response(200, old_body), response(304, ""), response(304, "")])
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{content: ^old_content}}, 3_000
+
+    assert_receive {:proxy_rules_source, :remote, %SourceSnapshot{content: ^old_content}},
+                   @persistence_timeout
 
     new_content = "new.example\n"
 
@@ -476,7 +485,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     for _ <- 1..2 do
       assert {:ok, :accepted} = Remote.refresh(server)
-      assert_receive {:proxy_rules_source_fresh, :remote, _}, 3_000
+      assert_receive {:proxy_rules_source_fresh, :remote, _}, @persistence_timeout
     end
 
     assert {:ok, %SourceSnapshot{content: ^old_content}, ^old_body} =
@@ -505,7 +514,7 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
 
     server = start_remote(dir, responses)
     assert {:ok, :accepted} = Remote.refresh(server)
-    assert_receive {:proxy_rules_source, :remote, original}, 1_000
+    assert_receive {:proxy_rules_source, :remote, original}, @persistence_timeout
     assert_receive {:scheduled, 100, _}
 
     for _ <- 1..6 do

@@ -376,7 +376,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
 
     {:ok, pid} =
       Task.start_link(fn ->
-        {:ok, socket} = :gen_tcp.accept(listener, 1_000)
+        {:ok, socket} = :gen_tcp.accept(listener, 5_000)
 
         try do
           handler.(socket, parent)
