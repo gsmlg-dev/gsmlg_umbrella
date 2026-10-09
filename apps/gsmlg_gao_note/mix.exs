@@ -33,7 +33,7 @@ defmodule GSMLG.GaoNote.MixProject do
       {:oban, "~> 2.18"},
       {:bandit, "~> 1.0", only: :test},
       {:plug, "~> 1.18"},
-      {:backplane_mcp_protocol, "~> 1.6"},
+      {:backplane_mcp_protocol, ">= 1.10.16 and < 2.0.0"},
       {:jason, "~> 1.2"},
       {:finch, "~> 0.19"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

@@ -1,6 +1,7 @@
 defmodule GSMLG.GaoNote.MCP.Tools do
   @moduledoc false
 
+  alias Backplane.McpProtocol.Server.Component.Schema
   alias Backplane.McpProtocol.Server.Response
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.MCP.Authorization
@@ -197,9 +198,8 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     do: {:error, "unsupported note field", []}
 
   @doc false
-  # TODO(upstream): gsmlg-opt/backplane#63
   def validate_attachment_input(attachment) when is_map(attachment) do
-    with {:ok, _attachment} <- Peri.validate(@strict_attachment_map_schema, attachment),
+    with {:ok, _attachment} <- Schema.validator(@strict_attachment_map_schema).(attachment),
          :ok <- validate_attachment_content(attachment),
          {:ok, attachment} <- Peri.validate(@attachment_input_fields, attachment) do
       {:ok, attachment}
@@ -211,7 +211,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
 
   @doc false
   def validate_put_attachment_input(args) when is_map(args) do
-    with {:ok, args} <- Peri.validate(@strict_put_attachment_map_schema, args),
+    with {:ok, args} <- Schema.validator(@strict_put_attachment_map_schema).(args),
          :ok <- validate_put_attachment_content(args) do
       {:ok, args}
     end
@@ -850,13 +850,13 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
       {:custom, {GSMLG.GaoNote.MCP.Tools, :validate_put_attachment_input}}
 
     quote do
-      import Peri
-
       @doc false
-      def __mcp_raw_schema__, do: unquote(Macro.escape(schema))
+      def __mcp_raw_schema__,
+        do:
+          {:custom,
+           Backplane.McpProtocol.Server.Component.Schema.validator(unquote(Macro.escape(schema)))}
 
-      # TODO(upstream): gsmlg-opt/backplane#58
-      defschema(:mcp_schema, unquote(Macro.escape(schema)))
+      def mcp_schema(params), do: Peri.validate(__mcp_raw_schema__(), params)
     end
   end
 
@@ -886,13 +886,13 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
        {:additional_keys, {:required, {:custom, {GSMLG.GaoNote.MCP.Tools, rejector}}}}}
 
     quote do
-      import Peri
-
       @doc false
-      def __mcp_raw_schema__, do: unquote(Macro.escape(schema))
+      def __mcp_raw_schema__,
+        do:
+          {:custom,
+           Backplane.McpProtocol.Server.Component.Schema.validator(unquote(Macro.escape(schema)))}
 
-      # TODO(upstream): gsmlg-opt/backplane#58
-      defschema(:mcp_schema, unquote(Macro.escape(schema)))
+      def mcp_schema(params), do: Peri.validate(__mcp_raw_schema__(), params)
     end
   end
 
