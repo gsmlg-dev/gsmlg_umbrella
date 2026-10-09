@@ -551,10 +551,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     stage_attachment(socket, socket.assigns.attachment_fields, :empty)
   end
 
-  defp handle_attachment_upload_progress(:attachment, _entry, socket) do
-    {:noreply, maybe_apply_upload_defaults(socket)}
-  end
-
   def handle_event("cancel_attachment_upload", %{"ref" => ref}, socket) do
     {:noreply,
      socket
@@ -628,6 +624,10 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Delete failed: #{inspect(reason)}")}
     end
+  end
+
+  defp handle_attachment_upload_progress(:attachment, _entry, socket) do
+    {:noreply, maybe_apply_upload_defaults(socket)}
   end
 
   defp save_note(socket, action, params) when action in [:new, :edit] do
@@ -2309,7 +2309,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           phx-submit="search"
           class="grid min-w-0 gap-3 rounded-2xl border border-outline-variant bg-surface-container-low p-4 text-on-surface"
         >
-          <%# WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#100 %>
+          <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#100 --%>
           <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <div class="min-w-0">
               <.dm_input

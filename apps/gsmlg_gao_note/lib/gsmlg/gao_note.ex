@@ -192,14 +192,14 @@ defmodule GSMLG.GaoNote do
 
         normalized_selectors
         |> Enum.with_index()
-        |> Enum.reduce_while(:ok, fn {selector, position}, :ok ->
+        |> Enum.each(fn {selector, position} ->
           result =
             %CategorySetting{}
             |> CategorySetting.changeset(Map.put(selector, :position, position))
             |> Repo.insert()
 
           case result do
-            {:ok, _category} -> {:cont, :ok}
+            {:ok, _category} -> :ok
             {:error, changeset} -> Repo.rollback(changeset)
           end
         end)

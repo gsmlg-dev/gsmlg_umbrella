@@ -741,14 +741,8 @@ defmodule GSMLG.GaoNote.Attachments do
 
   defp stage_entry(note_id, entry, uploaded_by) do
     input = entry.input
-
-    case storage_source(input) do
-      {:ok, source} ->
-        upload_staged_file(note_id, entry, source, uploaded_by)
-
-      {:error, reason} ->
-        {:error, {:attachment, %{code: :content_read_failed, id: input.id, reason: reason}}, []}
-    end
+    {:ok, source} = storage_source(input)
+    upload_staged_file(note_id, entry, source, uploaded_by)
   end
 
   defp upload_staged_file(note_id, entry, source, uploaded_by) do

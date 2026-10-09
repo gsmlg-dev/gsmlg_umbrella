@@ -198,7 +198,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentTemp do
     end
   end
 
-  defp secure_open_stage(staged_path, editor_dir, destination, uid) do
+  defp secure_open_stage(staged_path, editor_dir, _destination, uid) do
     with :ok <- File.chmod(staged_path, 0o600),
          :ok <- validate_existing_directory(editor_dir, uid),
          {:ok, _stat} <- private_stage_stat(staged_path, editor_dir, uid) do
