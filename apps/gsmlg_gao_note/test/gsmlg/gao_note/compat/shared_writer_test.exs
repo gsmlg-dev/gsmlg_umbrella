@@ -263,7 +263,7 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
                            value: "added"
                          })
                          |> Ecto.Changeset.foreign_key_constraint(:label_setting_id,
-                           name: :gao_note_taggings_tag_id_fkey
+                           name: :gao_note_labels_label_setting_id_fkey
                          )
                          |> Repo.insert(),
                        {:ok, updated} <- GaoNote.advance_revision(note) do

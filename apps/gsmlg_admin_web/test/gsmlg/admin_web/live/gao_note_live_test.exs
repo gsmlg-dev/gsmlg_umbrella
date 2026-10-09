@@ -987,7 +987,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
              "New Live Label"
            ]
 
-    assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
+    assert_patch(view, ~p"/gao_notes/notes/#{note.id}/show")
   end
 
   test "admin sees validation errors when note creation is invalid", %{conn: conn} do
@@ -1007,16 +1007,27 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ ~s(id="gao_note_content-errors")
   end
 
-  test "attachment modal disables native dismissal and exposes only explicit actions", %{
+  test "inline attachment editor opens and closes through explicit actions", %{
     conn: conn
   } do
     {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/new")
     render_async(view)
 
-    assert has_element?(view, "el-dm-dialog#gao-note-attachment-modal[no-dismiss]")
-    refute has_element?(view, "el-dm-dialog#gao-note-attachment-modal [slot='close']")
+    refute has_element?(view, "#gao-note-attachment-inline-form")
+
+    view |> element("#gao-note-add-attachment") |> render_click()
+
+    assert has_element?(view, "section#gao-note-attachment-inline-form")
+    refute has_element?(view, "dialog#gao-note-attachment-modal")
     assert has_element?(view, "#gao-note-attachment-form [phx-click='cancel_attachment_modal']")
     assert has_element?(view, "#gao-note-attachment-form button[type='submit']")
+
+    view
+    |> element("#gao-note-attachment-form [phx-click='cancel_attachment_modal']")
+    |> render_click()
+
+    refute has_element?(view, "#gao-note-attachment-inline-form")
+    assert has_element?(view, "#gao-note-add-attachment")
   end
 
   test "admin can edit a note with the markdown input", %{conn: conn, user: user} do
@@ -1049,7 +1060,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
            } =
              GaoNote.get_note!(note.id)
 
-    assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
+    assert_patch(view, ~p"/gao_notes/notes/#{note.id}/show")
   end
 
   test "admin show renders note content as server-side safe HTML", %{conn: conn, user: user} do
@@ -1062,7 +1073,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
                user
              )
 
-    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}")
+    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}/show")
 
     refute html =~ ~s(<el-dm-markdown)
     assert html =~ ~s(id="gao-note-content-#{note.id}")
@@ -1118,7 +1129,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
                user
              )
 
-    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}")
+    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}/show")
 
     assert html =~ ~s(id="gao-note-delete-#{note.id}")
     assert html =~ ~s(id="confirm-dialog-gao-note-delete-#{note.id}")
@@ -1820,7 +1831,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
     assert_receive {:s3_put, _path, "staged text"}
     assert_receive {:s3_put, _path, ^png}
-    assert_patch(view, ~p"/gao_notes/notes/#{note.id}")
+    assert_patch(view, ~p"/gao_notes/notes/#{note.id}/show")
   end
 
   test "edit keeps ID immutable and stages metadata, replacement, and removal", %{
@@ -2138,7 +2149,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
                user
              )
 
-    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}")
+    {:ok, view, _html} = live(conn, ~p"/gao_notes/notes/#{note.id}/show")
     content_selector = "#gao-note-content-#{note.id}"
 
     assert has_element?(
@@ -2685,7 +2696,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
              )
 
     attachment = attachment_by_id(note, "inventory-file")
-    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}")
+    {:ok, view, html} = live(conn, ~p"/gao_notes/notes/#{note.id}/show")
 
     assert has_element?(view, "#note-attachments")
     assert html =~ "./docs/inventory file.txt"

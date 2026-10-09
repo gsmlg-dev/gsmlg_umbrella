@@ -126,7 +126,12 @@ defmodule GSMLG.AdminWeb.ScoutLiveTest do
     {:ok, view, html} = live(conn, ~p"/scout")
 
     assert has_element?(view, "#scout-job-#{job_id}", "Show content")
-    assert has_element?(view, "el-dm-dialog#scout-job-content-#{job_id}[role='dialog']")
+
+    assert has_element?(
+             view,
+             "dialog#scout-job-content-#{job_id}[aria-labelledby='scout-job-content-#{job_id}-title']"
+           )
+
     assert has_element?(view, "#scout-job-content-#{job_id} el-dm-markdown")
     assert html =~ "# Example Documentation"
     assert html =~ "Fetched https://example.com/docs"

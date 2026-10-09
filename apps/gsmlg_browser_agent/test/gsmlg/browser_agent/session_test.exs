@@ -888,9 +888,30 @@ defmodule GSMLG.BrowserAgent.SessionTest do
   end
 
   test "session expiry reconciles closure and retains an unconfirmed lease", context do
-    params = Map.put(open_params(), "ttl_ms", 1_000)
     Agent.update(context.adapter_state, &Map.put(&1, :close_results, [{:error, :timeout}, :ok]))
-    assert {:ok, %{"status" => "ready"}} = Session.open(context.supervisor, params)
+
+    assert {:ok, %{"status" => "ready", "lease_id" => lease_id}} =
+             Session.open(context.supervisor, open_params())
+
+    assert {:ok, expired_lease} =
+             ProfileLeaseServer.heartbeat(context.leases, "profile-1", lease_id,
+               now: DateTime.add(DateTime.utc_now(), -60, :second),
+               ttl_ms: 1
+             )
+
+    runner = SessionSupervisor.runner(context.supervisor, "session-1")
+
+    # Trigger expiry after readiness, independently of durable opening time.
+    :sys.replace_state(runner, fn state ->
+      Process.cancel_timer(state.expiry_timer)
+      timer = Process.send_after(self(), {:session_expired, state.expiry_token}, 0)
+
+      %{
+        state
+        | session: %{state.session | expires_at: expired_lease.expires_at},
+          expiry_timer: timer
+      }
+    end)
 
     assert eventually(
              fn ->
@@ -902,8 +923,10 @@ defmodule GSMLG.BrowserAgent.SessionTest do
              200
            )
 
-    assert {:ok, _expired_but_authoritative} =
+    assert {:ok, expired_but_authoritative} =
              ProfileLeaseServer.get(context.leases, "profile-1")
+
+    assert DateTime.compare(expired_but_authoritative.expires_at, DateTime.utc_now()) == :lt
 
     assert {:ok, %{"status" => "closed"}} =
              Session.reconcile(context.supervisor, "session-1")

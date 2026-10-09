@@ -47,18 +47,21 @@ defmodule GSMLG.Storage.StorageFileTest do
       assert {:status, _} = List.keyfind(changeset.errors, :status, 0)
     end
 
-    test "validates size is positive" do
+    test "validates size is non-negative" do
       attrs = %{
         tenant: "default",
         type: "attachment",
         filename: "test.jpg",
         s3_key: "default/attachment/2026/03/uuid.jpg",
         content_type: "image/jpeg",
-        size: 0
+        size: -1
       }
 
       changeset = StorageFile.changeset(%StorageFile{}, attrs)
       refute changeset.valid?
+      assert {:size, _} = List.keyfind(changeset.errors, :size, 0)
+
+      assert StorageFile.changeset(%StorageFile{}, %{attrs | size: 0}).valid?
     end
 
     test "defaults status to active" do

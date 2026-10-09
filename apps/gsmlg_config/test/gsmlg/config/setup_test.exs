@@ -10,8 +10,28 @@ defmodule GSMLG.Config.SetupTest do
         {name, System.get_env(name)}
       end)
 
-    scout_settings = Application.fetch_env(:gsmlg_scout, :settings)
-    proxy_rules_settings = Application.fetch_env(:proxy_rules, :settings)
+    application_env =
+      for {app, key} <- [
+            {:tailwind, :path},
+            {:bun, :path},
+            {:gsmlg, GSMLG.Repo},
+            {:gsmlg_web, GSMLG.Web.Endpoint},
+            {:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint},
+            {:gsmlg_couchdb, GSMLG.CouchDB.Connection},
+            {:gsmlg_commander, GSMLG.Commander},
+            {:gsmlg_browser_agent, :settings},
+            {:ueberauth, Ueberauth.Strategy.Github.OAuth},
+            {:gsmlg_web_push, :vapid_details},
+            {:gsmlg_scout, :settings},
+            {:proxy_rules, :settings},
+            {:gsmlg, :cluster},
+            {:libcluster, :topologies},
+            {:test_app, TestKey},
+            {:test_app_new, TestKey}
+          ],
+          do: {app, key, Application.fetch_env(app, key)}
+
+    log_level = Logger.level()
 
     Enum.each(Map.keys(database_env), &System.delete_env/1)
 
@@ -22,30 +42,12 @@ defmodule GSMLG.Config.SetupTest do
         {name, value} -> System.put_env(name, value)
       end)
 
-      # Reset some common application env values
-      Application.delete_env(:tailwind, :path)
-      Application.delete_env(:bun, :path)
-      Application.delete_env(:gsmlg, GSMLG.Repo)
-      Application.delete_env(:gsmlg_web, GSMLG.Web.Endpoint)
-      Application.delete_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint)
-      Application.delete_env(:gsmlg_couchdb, GSMLG.CouchDB.Connection)
-      Application.delete_env(:gsmlg_commander, GSMLG.Commander)
-      Application.delete_env(:gsmlg_browser_agent, :settings)
-      Application.delete_env(:ueberauth, Ueberauth.Strategy.Github.OAuth)
-      Application.delete_env(:gsmlg_web_push, :vapid_details)
+      Enum.each(application_env, fn
+        {app, key, {:ok, value}} -> Application.put_env(app, key, value)
+        {app, key, :error} -> Application.delete_env(app, key)
+      end)
 
-      case scout_settings do
-        {:ok, settings} -> Application.put_env(:gsmlg_scout, :settings, settings)
-        :error -> Application.delete_env(:gsmlg_scout, :settings)
-      end
-
-      case proxy_rules_settings do
-        {:ok, settings} -> Application.put_env(:proxy_rules, :settings, settings)
-        :error -> Application.delete_env(:proxy_rules, :settings)
-      end
-
-      Application.delete_env(:gsmlg, :cluster)
-      Application.delete_env(:libcluster, :topologies)
+      Logger.configure(level: log_level)
     end)
 
     :ok

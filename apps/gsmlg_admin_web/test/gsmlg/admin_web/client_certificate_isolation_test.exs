@@ -62,11 +62,15 @@ defmodule GSMLG.AdminWeb.ClientCertificateIsolationTest do
   } do
     original = Application.fetch_env(:gsmlg_commander, GSMLG.Commander)
     platform_key = :crypto.strong_rand_bytes(32)
+    name = "certificate-isolation"
+    credential_id = "certificate-isolation-credential"
 
     config =
       :gsmlg_commander
       |> Application.get_env(GSMLG.Commander, [])
-      |> Keyword.put(:platform_key, platform_key)
+      |> Keyword.put(:platform_credentials, %{
+        credential_id => %{key: platform_key, commander_name: name}
+      })
 
     Application.put_env(:gsmlg_commander, GSMLG.Commander, config)
 
@@ -77,22 +81,36 @@ defmodule GSMLG.AdminWeb.ClientCertificateIsolationTest do
       end
     end)
 
-    name = "certificate-isolation"
     sign_at = Integer.to_string(System.system_time(:second))
+    nonce = Base.url_encode64(:crypto.strong_rand_bytes(24), padding: false)
 
     valid_signature =
-      :crypto.mac(:hmac, :sha256, platform_key, "#{name}/#{sign_at}")
-      |> Base.encode16()
+      :crypto.mac(
+        :hmac,
+        :sha256,
+        platform_key,
+        "v1\n#{credential_id}\n#{name}\n#{sign_at}\n#{nonce}"
+      )
+      |> Base.encode16(case: :lower)
 
     <<first, rest::binary>> = valid_signature
     different_first = if first == ?0, do: ?1, else: ?0
     invalid_signature = <<different_first, rest::binary>>
-    headers = client_certificate_headers(certificate)
+
+    headers =
+      client_certificate_headers(certificate) ++
+        [
+          {"x-commander-name", name},
+          {"x-commander-credential-id", credential_id},
+          {"x-commander-sign-at", sign_at},
+          {"x-commander-nonce", nonce},
+          {"x-commander-signature", invalid_signature}
+        ]
 
     assert {:error, :invalid_signature} =
              Phoenix.ChannelTest.connect(
                GSMLG.AdminWeb.CommanderSocket,
-               %{"name" => name, "sign_at" => sign_at, "signature" => invalid_signature},
+               %{},
                connect_info: %{req_headers: headers, x_headers: headers}
              )
   end

@@ -20,10 +20,31 @@ defmodule GSMLG.Web.ApiRouteSurfaceTest do
     assert MapSet.disjoint?(routes, MapSet.new(@removed_routes))
   end
 
-  test "does not expose MCP routes from the public router" do
-    refute GSMLG.Web.Router
-           |> Phoenix.Router.routes()
-           |> Enum.any?(&String.starts_with?(&1.path, "/mcp"))
+  test "forwards the canonical MCP route to the authenticated Agent Note plug" do
+    routes =
+      GSMLG.Web.Router
+      |> Phoenix.Router.routes()
+      |> Enum.filter(&String.starts_with?(&1.path, "/mcp"))
+
+    assert [
+             %{
+               path: "/mcp",
+               verb: :*,
+               metadata: %{forward: ["mcp"]},
+               plug: GSMLG.Web.AgentNoteMCPPlug
+             }
+           ] = routes
+  end
+
+  test "rejects unauthenticated requests to the canonical MCP endpoint", %{conn: conn} do
+    conn =
+      conn
+      |> put_req_header("content-type", "application/json")
+      |> post("/mcp", Jason.encode!(%{jsonrpc: "2.0", id: 1, method: "tools/list"}))
+
+    assert json_response(conn, 401) == %{"error" => "unauthorized"}
+    assert get_resp_header(conn, "www-authenticate") == ["Bearer"]
+    assert conn.halted
   end
 
   test "removed API routes use the existing JSON 404 response" do

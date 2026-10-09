@@ -10,6 +10,7 @@ defmodule GSMLG.AdminWeb.OperatorChannelTest do
     session_id = "#{agent_id}-pty"
 
     :ok = AgentRegistry.register_agent(agent_id, self())
+    {:ok, _generation} = AgentRegistry.attach_terminal(agent_id, self(), {:legacy, self()})
 
     :ok =
       PTYSessionRecord.write(%{
