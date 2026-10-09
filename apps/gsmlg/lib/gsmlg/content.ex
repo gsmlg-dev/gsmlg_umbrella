@@ -349,7 +349,7 @@ defmodule GSMLG.Content do
 
     existing_needing_work =
       from(t in BlogTranslation,
-        where: t.status in ["failed", "outdated"],
+        where: t.status in ["pending", "failed", "outdated"],
         select: {t.blog_id, t.locale}
       )
       |> Repo.all()

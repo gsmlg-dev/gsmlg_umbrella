@@ -84,6 +84,42 @@ defmodule GSMLG.ContentTest do
     end
   end
 
+  describe "batch_pending_translations/0" do
+    alias GSMLG.Content.{Blog, BlogTranslation}
+
+    test "includes pending, failed, outdated and missing translations only" do
+      GSMLG.Repo.delete_all(Blog)
+
+      blog =
+        %Blog{}
+        |> Blog.changeset(%{
+          author: "author",
+          content: "content",
+          date: ~D[2021-09-26],
+          slug: "batch-#{System.unique_integer([:positive])}",
+          title: "title",
+          source_locale: "zh-Hans"
+        })
+        |> GSMLG.Repo.insert!()
+
+      for {locale, status} <- [
+            {"en", "pending"},
+            {"fr", "failed"},
+            {"de", "outdated"},
+            {"it", "completed"},
+            {"ja", "in_progress"}
+          ] do
+        %BlogTranslation{}
+        |> BlogTranslation.pending_changeset(%{blog_id: blog.id, locale: locale})
+        |> Ecto.Changeset.change(status: status)
+        |> GSMLG.Repo.insert!()
+      end
+
+      assert MapSet.new(Content.batch_pending_translations()) ==
+               MapSet.new(for locale <- ~w(en fr de zh-Hant es), do: {blog.id, locale})
+    end
+  end
+
   describe "blog translation job enqueueing" do
     import GSMLG.ContentFixtures
 
