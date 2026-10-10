@@ -4,7 +4,7 @@ defmodule GSMLG.Whois.MixProject do
   def project do
     [
       app: :gsmlg_whois,
-      version: "0.5.1",
+      version: "0.5.2",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -36,11 +36,11 @@ defmodule GSMLG.Whois.MixProject do
       {:telemetry, "~> 1.2"},
       {:http_fetch, "~> 0.10"},
       {:postgrex, "~> 0.21", optional: true},
-      {:concord, "~> 2.0"},
+      {:concord, "~> 2.0", optional: true},
       # TODO(upstream): gsmlg-dev/concord#92
       # WORKAROUND(upstream): gsmlg-dev/concord#92 - constrain ExTurso's compatible API;
       # Concord starts the application through its own runtime dependency.
-      {:ex_turso, "~> 0.3.0", runtime: false},
+      {:ex_turso, "~> 0.3.0", optional: true, runtime: false},
       {:ex_doc, ">= 0.0.0", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

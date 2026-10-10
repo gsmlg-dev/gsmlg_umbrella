@@ -25,7 +25,7 @@ Add `gsmlg_whois` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_whois, "~> 0.5.1"}
+    {:gsmlg_whois, "~> 0.5.2"}
   ]
 end
 ```
@@ -105,7 +105,7 @@ server = %GSMLG.Whois.Server{host: "whois.markmonitor.com", port: 43}
 
 ## Caching
 
-GSMLG.Whois includes intelligent caching to improve performance and reduce load on WHOIS servers. The default ETS backend needs no additional package. The optional PostgreSQL backend requires the host application to add `{:postgrex, "~> 0.21"}` and configure a connection pool. The Concord backend uses the included `concord` dependency; start its server before selecting `GSMLG.Whois.Cache.Concord`.
+GSMLG.Whois includes intelligent caching to improve performance and reduce load on WHOIS servers. The default ETS backend needs no additional package and does not install Concord, ExTurso, Ra, Libcluster, or Postgrex. The optional PostgreSQL backend requires the host application to add `{:postgrex, "~> 0.21"}` and configure a connection pool. To use the Concord backend, add `{:concord, "~> 2.0"}` to the host application's dependencies and ensure its application is started before selecting `GSMLG.Whois.Cache.Concord`. ExTurso's compatible 0.3.x constraint applies when Concord is selected; it is also optional for ETS-only consumers.
 
 ### Enabling Cache
 
@@ -740,6 +740,10 @@ MIT License
 - [ICANN WHOIS Policy](https://www.icann.org/resources/pages/whois)
 
 ## Changelog
+
+### 0.5.2
+- Make Concord and the ExTurso compatibility constraint optional so ETS-only consumers do not install or start alternative cache runtimes
+- Keep optional Concord and PostgreSQL backends compilable without their dependencies
 
 ### 0.5.1
 - Temporarily constrain ExTurso to 0.3.x for clean Concord installs pending [concord#92](https://github.com/gsmlg-dev/concord/issues/92)

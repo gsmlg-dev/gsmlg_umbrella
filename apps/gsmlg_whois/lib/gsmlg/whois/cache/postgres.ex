@@ -34,6 +34,7 @@ defmodule GSMLG.Whois.Cache.Postgres do
   """
 
   @behaviour GSMLG.Whois.Cache
+  @compile {:no_warn_undefined, Postgrex}
 
   @table "gsmlg_whois_cache"
 

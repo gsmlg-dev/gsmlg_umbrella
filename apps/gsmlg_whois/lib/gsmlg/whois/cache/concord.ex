@@ -2,8 +2,8 @@ defmodule GSMLG.Whois.Cache.Concord do
   @moduledoc """
   Concord-backed cache backend for GSMLG.Whois.
 
-  Requires the `concord` hex package (`~> 0.1`) and Concord to be started
-  by the host application.
+  Requires the host to add the optional `concord` hex package (`~> 2.0`)
+  and its application to be started by the host.
 
   Concord's `ttl:` option accepts seconds (integer). This backend converts
   the behaviour's `ttl_ms` (milliseconds) to seconds automatically.
@@ -14,10 +14,11 @@ defmodule GSMLG.Whois.Cache.Concord do
 
   Ensure Concord is started before use:
 
-      Concord.start_link([])  # or add to supervision tree
+      Application.ensure_all_started(:concord)
   """
 
   @behaviour GSMLG.Whois.Cache
+  @compile {:no_warn_undefined, Concord}
 
   @impl GSMLG.Whois.Cache
   def get(key) do

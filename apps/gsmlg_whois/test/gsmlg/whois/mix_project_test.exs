@@ -6,10 +6,15 @@ defmodule GSMLG.Whois.MixProjectTest do
              List.keyfind(Mix.Project.config()[:deps], :ex_turso, 0)
 
     assert options[:runtime] == false
+    assert options[:optional] == true
     assert :ex_turso in Application.spec(:concord, :applications)
   end
 
-  test "starts Concord for the built-in Concord cache backend" do
+  test "Concord is optional and starts when the host opts into it" do
+    assert {:concord, "~> 2.0", options} =
+             List.keyfind(Mix.Project.config()[:deps], :concord, 0)
+
+    assert options[:optional] == true
     applications = Application.spec(:gsmlg_whois, :applications)
 
     assert :concord in applications
