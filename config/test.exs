@@ -12,18 +12,20 @@ pool_opt =
   end
 
 test_db = System.get_env("POSTGRES_DB", "gsmlg_test") <> "#{System.get_env("MIX_TEST_PARTITION")}"
+db_port = String.to_integer(System.get_env("PGPORT") || System.get_env("POSTGRES_PORT", "5432"))
 
 db_config =
   if url = System.get_env("DATABASE_URL") do
-    # Replace dev database name with test database + partition
-    test_url = String.replace(url, "gsmlg_dev", test_db)
-    [url: test_url]
+    # Select the test database without changing the URL credentials or options.
+    uri = URI.parse(url)
+    test_url = URI.to_string(%{uri | path: "/#{test_db}"})
+    [url: test_url, port: uri.port || db_port]
   else
     [
       username: System.get_env("POSTGRES_USER", "gsmlg_test"),
       password: System.get_env("POSTGRES_PASSWORD", "gsmlg_test"),
       hostname: System.get_env("POSTGRES_HOST", "localhost"),
-      port: String.to_integer(System.get_env("POSTGRES_PORT", "5432")),
+      port: db_port,
       database: test_db
     ]
   end

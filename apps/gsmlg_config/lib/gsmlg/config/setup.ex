@@ -12,8 +12,8 @@ defmodule GSMLG.Config.Setup do
       setup_logger(config[:logger])
     end
 
-    # Skip database setup when SKIP_SANDBOX_POOL is set (during CI migrations)
-    # to avoid deep_merge preserving the Sandbox pool from test.exs
+    # Preserve the test-selected database and Sandbox pool across runtime setup.
+    # Migration commands also keep their explicit config via SKIP_SANDBOX_POOL.
     if config[:database] != nil and not skip_database_setup?() do
       setup_database(config[:database])
     end
@@ -548,8 +548,10 @@ defmodule GSMLG.Config.Setup do
     end
   end
 
-  # Check if database setup should be skipped (for CI migrations)
+  # Keep test and migration database selection from the explicit Mix config.
   defp skip_database_setup? do
-    System.get_env("SKIP_SANDBOX_POOL") != nil
+    System.get_env("SKIP_SANDBOX_POOL") != nil or
+      (get_env() == :test and
+         Application.get_env(:gsmlg, GSMLG.Repo, [])[:pool] == Ecto.Adapters.SQL.Sandbox)
   end
 end
