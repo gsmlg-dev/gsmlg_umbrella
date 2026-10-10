@@ -461,16 +461,56 @@ defmodule GSMLG.ProxyRules.StoreTest do
   end
 
   @tag :tmp_dir
+  @tag timeout: 120_000
   test "serializes concurrent publications into complete generations", %{tmp_dir: dir} do
     snapshots = Enum.map(20..39, &fixture_snapshot/1)
+    max_concurrency = 8
+
+    # Each caller waits for the durable writes ahead of it in the Store queue.
+    publication_timeout = 5_000 * max_concurrency
 
     snapshots
-    |> Task.async_stream(&Store.publish/1, max_concurrency: 8, timeout: 5_000)
+    |> Task.async_stream(&Store.publish/1,
+      max_concurrency: max_concurrency,
+      timeout: publication_timeout
+    )
     |> Enum.each(fn result -> assert {:ok, :ok} == result end)
 
     assert {:ok, %Snapshot{generation: generation} = current} = Store.current()
     assert generation in 20..39
     assert {:ok, ^current} = Persistence.read_artifact(dir)
+  end
+
+  @tag :tmp_dir
+  test "publication waits for a definitive result beyond the default call timeout", %{
+    tmp_dir: dir
+  } do
+    snapshot = fixture_snapshot(40)
+    store = Process.whereis(Store)
+    test_process = self()
+    :ok = :sys.suspend(store)
+
+    publication =
+      Task.async(fn ->
+        send(test_process, :publication_started)
+
+        try do
+          Store.publish(snapshot)
+        catch
+          :exit, reason -> {:exit, reason}
+        end
+      end)
+
+    try do
+      assert_receive :publication_started, 1_000
+      assert Task.yield(publication, 5_100) == nil
+    after
+      :ok = :sys.resume(store)
+    end
+
+    assert Task.await(publication, 5_000) == :ok
+    assert {:ok, ^snapshot} = Store.current()
+    assert {:ok, ^snapshot} = Persistence.read_artifact(dir)
   end
 
   defp fixture_snapshot(generation) do

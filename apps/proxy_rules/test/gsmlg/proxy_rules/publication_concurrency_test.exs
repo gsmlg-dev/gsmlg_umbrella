@@ -5,6 +5,8 @@ defmodule GSMLG.ProxyRules.PublicationConcurrencyTest do
   alias GSMLG.ProxyRules.ZeroOmega.{Export, PublishedPolicy}
 
   @tag :tmp_dir
+  # The 100 serialized generations each perform a complete durable write.
+  @tag timeout: 100 * 5_000
   test "readers never observe a torn six-output generation", %{tmp_dir: dir} do
     supervisor = GSMLG.ProxyRules.Supervisor
     :ok = Supervisor.terminate_child(supervisor, Store)

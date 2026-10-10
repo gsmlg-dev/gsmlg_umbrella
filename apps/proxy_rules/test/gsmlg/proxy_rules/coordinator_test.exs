@@ -1381,7 +1381,7 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     send_sources(coordinator, "abandoned.example")
     assert_receive {:compile_started, 2, candidate, _}
     send(candidate, {:compile_result, :compile})
-    assert_receive {:restart_finalization_started, finalizing_store}, 2_000
+    assert_receive {:restart_finalization_started, finalizing_store}, 5_000
     :ok = GenServer.stop(coordinator)
 
     restart = Task.async(fn -> Coordinator.start_link(options) end)
@@ -1394,10 +1394,14 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     assert_receive {:compile_started, 2, later, _}
     send(later, {:compile_result, :compile})
 
-    assert_eventually(fn -> Store.current() end, fn
-      {:ok, %Snapshot{generation: 2}} -> true
-      _other -> false
-    end)
+    assert_eventually(
+      fn -> Store.current() end,
+      fn
+        {:ok, %Snapshot{generation: 2}} -> true
+        _other -> false
+      end,
+      5_000
+    )
 
     assert {:ok, %Snapshot{generation: 2}} = Persistence.read_artifact(directory)
     :ok = GenServer.stop(restarted)
@@ -1784,8 +1788,8 @@ defmodule GSMLG.ProxyRules.CoordinatorTest do
     end)
   end
 
-  defp assert_eventually(fun, predicate) do
-    deadline = System.monotonic_time(:millisecond) + 1_000
+  defp assert_eventually(fun, predicate, timeout \\ 1_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
     do_assert_eventually(fun, predicate, deadline)
   end
 

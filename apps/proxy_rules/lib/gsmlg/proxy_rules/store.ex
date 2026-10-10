@@ -85,7 +85,7 @@ defmodule GSMLG.ProxyRules.Store do
   def discard(server, token), do: GenServer.call(server, {:discard, token})
 
   @spec publish(Snapshot.t()) :: :ok | {:error, :invalid_snapshot | :persistence_failed}
-  def publish(snapshot), do: GenServer.call(__MODULE__, {:publish, snapshot})
+  def publish(snapshot), do: GenServer.call(__MODULE__, {:publish, snapshot}, :infinity)
 
   @spec update_status(Snapshot.readiness(), nil | Snapshot.operational_error()) ::
           :ok | {:error, :invalid_readiness | :invalid_operational_error}
