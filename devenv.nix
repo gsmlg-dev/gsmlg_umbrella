@@ -54,6 +54,9 @@ in
     '';
   };
 
+  # Keep PostgreSQL in the supervised process so restart waits for shutdown.
+  processes.postgres.exec = lib.mkForce "exec start-postgres";
+
   # DATABASE_URL for Ecto. services.postgres exports PGHOST/PGPORT for its
   # runtime socket; dev config falls back to this URL when that socket is absent.
   env.DATABASE_URL = "postgres://gsmlg_dev:gsmlg_dev@localhost/gsmlg_dev";
