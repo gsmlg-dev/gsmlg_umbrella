@@ -18,7 +18,7 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
       end
     end
 
-    match _, do: send_resp(conn, 200, "")
+    match(_, do: send_resp(conn, 200, ""))
   end
 
   alias GSMLG.GaoNote.Workers.StorageFilePurgeWorker
@@ -69,6 +69,28 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
                perform_job(StorageFilePurgeWorker, %{storage_file_id: file.id})
 
       assert nil == Storage.get(file.id)
+    end)
+  end
+
+  test "snoozes while a native attachment still references the object" do
+    with_s3_stub(fn ->
+      file = insert_file(%{status: "active"})
+      assert {:ok, note} = GSMLG.GaoNote.create_note(%{title: "Referenced", content: "Body"}, nil)
+
+      %GSMLG.GaoNote.Attachment{}
+      |> GSMLG.GaoNote.Attachment.changeset(%{
+        id: "protected:#{Ecto.UUID.generate()}",
+        note_id: note.id,
+        storage_file_id: file.id,
+        path: "protected.txt",
+        mime: "text/plain"
+      })
+      |> Repo.insert!()
+
+      assert {:snooze, 60} =
+               perform_job(StorageFilePurgeWorker, %{storage_file_id: file.id})
+
+      assert %StorageFile{status: "active"} = Storage.get(file.id)
     end)
   end
 
@@ -141,9 +163,7 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
 
       Oban.Testing.with_testing_mode(:manual, fn ->
         assert {:ok, retryable_job} =
-                 Oban.insert(
-                   StorageFilePurgeWorker.new(%{storage_file_id: retryable_file.id})
-                 )
+                 Oban.insert(StorageFilePurgeWorker.new(%{storage_file_id: retryable_file.id}))
 
         assert {:ok, discarded_job} =
                  Oban.insert(
@@ -174,9 +194,7 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
       assert {:ok, missing_id_job} = Oban.insert(StorageFilePurgeWorker.new(%{}))
 
       assert {:ok, malformed_id_job} =
-               Oban.insert(
-                 StorageFilePurgeWorker.new(%{storage_file_id: "not-a-uuid"})
-               )
+               Oban.insert(StorageFilePurgeWorker.new(%{storage_file_id: "not-a-uuid"}))
 
       _summary = Oban.drain_queue(queue: :storage_cleanup)
 

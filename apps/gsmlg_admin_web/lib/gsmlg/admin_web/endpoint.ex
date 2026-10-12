@@ -31,6 +31,17 @@ defmodule GSMLG.AdminWeb.Endpoint do
     longpoll: false
   )
 
+  socket("/note-sync", GSMLG.AdminWeb.NoteSyncSocket,
+    websocket: [
+      log: false,
+      timeout: 60_000,
+      max_frame_size: 131_072,
+      connect_info: [:peer_data, :x_headers]
+    ],
+    longpoll: false,
+    serializer: [{GSMLG.AdminWeb.NoteSyncSerializer, "~> 2.0.0"}]
+  )
+
   socket("/live", Phoenix.LiveView.Socket,
     websocket: @websocket_options,
     longpoll: @websocket_options

@@ -5,13 +5,14 @@ defmodule GSMLG.GaoNote.Attachments do
 
   require Logger
 
-  alias GSMLG.GaoNote.{Attachment, AttachmentInput, Note}
+  alias GSMLG.GaoNote.{Attachment, AttachmentInput, Note, Sync}
   alias GSMLG.GaoNote.Workers.StorageFilePurgeWorker
   alias GSMLG.Repo
   alias GSMLG.Storage
   alias GSMLG.Storage.StorageFile
 
   @storage_type "gao_note_attachment"
+  @sha256 ~r/\A[0-9a-fA-F]{64}\z/
   @put_input_keys [
     {"path", :path},
     {"mime", :mime},
@@ -22,7 +23,13 @@ defmodule GSMLG.GaoNote.Attachments do
     {"upload", :upload}
   ]
 
-  def prepare(note_id, raw_inputs, uploaded_by) when is_list(raw_inputs) do
+  def prepare(note_id, raw_inputs, uploaded_by),
+    do: prepare_with(note_id, raw_inputs, uploaded_by, Storage)
+
+  def prepare_sync(note_id, raw_inputs, uploaded_by),
+    do: prepare_with(note_id, raw_inputs, uploaded_by, Sync.Staging)
+
+  defp prepare_with(note_id, raw_inputs, uploaded_by, uploader) when is_list(raw_inputs) do
     with {:ok, note_id} <- cast_note_id(note_id),
          {:ok, inputs} <- cast_inputs(raw_inputs),
          :ok <- validate_unique_inputs(inputs),
@@ -30,11 +37,11 @@ defmodule GSMLG.GaoNote.Attachments do
          :ok <- ensure_ids_available(note_id, inputs),
          {:ok, entries} <- build_entries(inputs, current),
          :ok <- ensure_external_transaction_supported(entries) do
-      stage_entries(note_id, entries, current, uploaded_by)
+      stage_entries(note_id, entries, current, uploaded_by, uploader)
     end
   end
 
-  def prepare(_note_id, _raw_inputs, _uploaded_by) do
+  defp prepare_with(_note_id, _raw_inputs, _uploaded_by, _uploader) do
     {:error, {:attachments, %{code: :must_be_a_list}}}
   end
 
@@ -67,11 +74,39 @@ defmodule GSMLG.GaoNote.Attachments do
   defp content_changed?(_note_id, _attachment, %{kind: :retain}), do: {:ok, false}
 
   defp content_changed?(note_id, attachment, entry) do
-    case get_with_content(note_id, attachment.id) do
-      {:ok, _, bytes} -> {:ok, bytes != entry.input.bytes}
-      {:error, _reason} = error -> error
+    current = Storage.get_active(attachment.storage_file_id)
+    staged_metadata = content_metadata(entry.staged_file)
+
+    case {content_metadata(current), staged_metadata} do
+      {{:ok, before}, {:ok, replacement}} ->
+        {:ok, before != replacement}
+
+      _ ->
+        case get_with_content(note_id, attachment.id) do
+          {:ok, _, bytes} ->
+            case staged_metadata do
+              {:ok, replacement} ->
+                checksum = :crypto.hash(:sha256, bytes) |> Base.encode16(case: :lower)
+                {:ok, {byte_size(bytes), checksum} != replacement}
+
+              :error ->
+                {:ok, bytes != entry.input.bytes}
+            end
+
+          {:error, _reason} = error ->
+            error
+        end
     end
   end
+
+  defp content_metadata(%StorageFile{size: size, checksum: checksum})
+       when is_integer(size) and size >= 0 and is_binary(checksum) do
+    if Regex.match?(@sha256, checksum),
+      do: {:ok, {size, String.downcase(checksum)}},
+      else: :error
+  end
+
+  defp content_metadata(_file), do: :error
 
   def reconcile(note_id, %{note_id: note_id} = plan) do
     desired_ids = MapSet.new(plan.entries, & &1.input.id)
@@ -80,6 +115,7 @@ defmodule GSMLG.GaoNote.Attachments do
          current <- lock_current_attachments(note_id),
          :ok <- ensure_snapshot_unchanged(plan.snapshot, current),
          :ok <- ensure_ids_available_locked(note_id, plan.entries),
+         :ok <- lock_entry_objects(plan.entries, current),
          purge_ids <- purge_storage_file_ids(current, plan.entries, desired_ids),
          {:ok, remaining} <- remove_missing(current, desired_ids),
          {:ok, moved} <- temporarily_move_paths(remaining),
@@ -172,11 +208,20 @@ defmodule GSMLG.GaoNote.Attachments do
                  attachment_snapshot([existing]),
                  [locked_attachment]
                ),
+             :ok <- Sync.lock_objects([storage_file_id(staged_entry, locked_attachment)]),
+             {:ok, content_changed} <- content_changed?(note_id, locked_attachment, staged_entry),
              {:ok, updated} <-
                persist_targeted_entry(locked_attachment, staged_entry),
              {:ok, _jobs} <-
                schedule_replaced_file_purge(staged_entry, locked_attachment),
-             {:ok, _note} <- maybe_advance_revision(note, locked_attachment, updated) do
+             {:ok, _note} <- maybe_advance_revision(note, locked_attachment, updated),
+             :ok <-
+               if(
+                 content_changed or
+                   attachment_metadata(locked_attachment) != attachment_metadata(updated),
+                 do: Sync.capture(note.id),
+                 else: :ok
+               ) do
           Repo.preload(updated, :storage_file, force: true)
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -198,7 +243,8 @@ defmodule GSMLG.GaoNote.Attachments do
              {:ok, _jobs} <-
                schedule_purges([attachment.storage_file_id]),
              {:ok, deleted} <- Repo.delete(attachment),
-             {:ok, _note} <- GSMLG.GaoNote.advance_revision(note) do
+             {:ok, _note} <- GSMLG.GaoNote.advance_revision(note),
+             :ok <- Sync.capture(note.id) do
           deleted
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -221,6 +267,9 @@ defmodule GSMLG.GaoNote.Attachments do
       {:ok, bytes}
     end
   end
+
+  defp attachment_metadata(attachment),
+    do: {attachment.path, attachment.mime, attachment.description}
 
   defp maybe_advance_revision(note, before, after_attachment) do
     if {before.path, before.mime, before.description, before.storage_file_id} ==
@@ -669,8 +718,8 @@ defmodule GSMLG.GaoNote.Attachments do
     end
   end
 
-  defp stage_entries(note_id, entries, current, uploaded_by) do
-    do_stage_entries(entries, note_id, current, uploaded_by, [], [])
+  defp stage_entries(note_id, entries, current, uploaded_by, uploader) do
+    do_stage_entries(entries, note_id, current, uploaded_by, [], [], uploader)
   end
 
   defp do_stage_entries(
@@ -679,7 +728,8 @@ defmodule GSMLG.GaoNote.Attachments do
          current,
          _uploaded_by,
          prepared,
-         staged_files
+         staged_files,
+         _uploader
        ) do
     {:ok,
      %{
@@ -696,9 +746,10 @@ defmodule GSMLG.GaoNote.Attachments do
          current,
          uploaded_by,
          prepared,
-         staged_files
+         staged_files,
+         uploader
        ) do
-    case stage_entry_safely(note_id, entry, uploaded_by, staged_files) do
+    case stage_entry_safely(note_id, entry, uploaded_by, staged_files, uploader) do
       {:ok, prepared_entry, nil} ->
         do_stage_entries(
           rest,
@@ -706,7 +757,8 @@ defmodule GSMLG.GaoNote.Attachments do
           current,
           uploaded_by,
           [prepared_entry | prepared],
-          staged_files
+          staged_files,
+          uploader
         )
 
       {:ok, prepared_entry, file} ->
@@ -716,7 +768,8 @@ defmodule GSMLG.GaoNote.Attachments do
           current,
           uploaded_by,
           [prepared_entry | prepared],
-          [file | staged_files]
+          [file | staged_files],
+          uploader
         )
 
       {:error, reason, extra_files} ->
@@ -725,9 +778,9 @@ defmodule GSMLG.GaoNote.Attachments do
     end
   end
 
-  defp stage_entry_safely(note_id, entry, uploaded_by, staged_files) do
+  defp stage_entry_safely(note_id, entry, uploaded_by, staged_files, uploader \\ Storage) do
     try do
-      stage_entry(note_id, entry, uploaded_by)
+      stage_entry(note_id, entry, uploaded_by, uploader)
     catch
       kind, reason ->
         stacktrace = __STACKTRACE__
@@ -736,16 +789,16 @@ defmodule GSMLG.GaoNote.Attachments do
     end
   end
 
-  defp stage_entry(_note_id, %{kind: :retain} = entry, _uploaded_by),
+  defp stage_entry(_note_id, %{kind: :retain} = entry, _uploaded_by, _uploader),
     do: {:ok, entry, nil}
 
-  defp stage_entry(note_id, entry, uploaded_by) do
+  defp stage_entry(note_id, entry, uploaded_by, uploader) do
     input = entry.input
     {:ok, source} = storage_source(input)
-    upload_staged_file(note_id, entry, source, uploaded_by)
+    upload_staged_file(note_id, entry, source, uploaded_by, uploader)
   end
 
-  defp upload_staged_file(note_id, entry, source, uploaded_by) do
+  defp upload_staged_file(note_id, entry, source, uploaded_by, uploader) do
     input = entry.input
 
     opts = [
@@ -754,7 +807,7 @@ defmodule GSMLG.GaoNote.Attachments do
       variants: []
     ]
 
-    case Storage.upload(source, note_id, @storage_type, opts) do
+    case uploader.upload(source, note_id, @storage_type, opts) do
       {:ok, %StorageFile{} = file} ->
         finish_staged_upload(entry, file)
 
@@ -916,6 +969,17 @@ defmodule GSMLG.GaoNote.Attachments do
     end)
   end
 
+  defp lock_entry_objects(entries, current) do
+    current_by_id = Map.new(current, &{&1.id, &1})
+
+    ids =
+      Enum.map(entries, fn entry ->
+        storage_file_id(entry, Map.get(current_by_id, entry.input.id))
+      end)
+
+    Sync.lock_objects(ids)
+  end
+
   defp persist_entries(note_id, entries, existing_by_id) do
     Enum.reduce_while(entries, {:ok, []}, fn entry, {:ok, attachments} ->
       input = entry.input
@@ -996,6 +1060,19 @@ defmodule GSMLG.GaoNote.Attachments do
   end
 
   defp cleanup_file(%StorageFile{} = file) do
+    case Sync.with_object_lock(file.id, fn ->
+           if Sync.object_referenced?(file.id) do
+             schedule_purges([file.id])
+           else
+             cleanup_unreferenced_file(file)
+           end
+         end) do
+      {:ok, _} -> :ok
+      {:error, reason} -> log_cleanup_failure(file.id, reason)
+    end
+  end
+
+  defp cleanup_unreferenced_file(%StorageFile{} = file) do
     case Storage.delete(file) do
       {:ok, deleted} ->
         case Storage.purge(deleted) do

@@ -15,7 +15,8 @@ defmodule GSMLG.GaoNote do
     LabelValue,
     Log,
     MCPSetting,
-    Note
+    Note,
+    Sync
   }
 
   alias GSMLG.Repo
@@ -403,7 +404,7 @@ defmodule GSMLG.GaoNote do
       changeset = LabelSetting.changeset(locked, attrs)
 
       notes =
-        if Ecto.Changeset.changed?(changeset, :name) do
+        if Enum.any?([:name, :description, :value_type], &Ecto.Changeset.changed?(changeset, &1)) do
           lock_label_setting(locked.id, "FOR UPDATE")
           lock_label_notes(locked.id)
         else
@@ -411,20 +412,29 @@ defmodule GSMLG.GaoNote do
         end
 
       with {:ok, updated} <- Repo.update(changeset),
-           :ok <- advance_label_note_revisions(notes) do
+           :ok <-
+             if(Ecto.Changeset.changed?(changeset, :name),
+               do: advance_label_note_revisions(notes),
+               else: :ok
+             ),
+           :ok <-
+             if(old_value_type != (updated.value_type || "text"),
+               do: revalidate_labels(updated.id),
+               else: :ok
+             ),
+           :ok <- capture_label_notes(notes) do
         {updated, old_value_type}
       else
         {:error, reason} -> Repo.rollback(reason)
       end
     end)
     |> case do
-      {:ok, {updated, old_value_type}} ->
+      {:ok, {updated, _old_value_type}} ->
         log_action("update", "label_setting", updated.id, nil, actor, %{
           "name" => updated.name,
           "fields" => changed_fields(attrs, @label_setting_attr_keys)
         })
 
-        if old_value_type != (updated.value_type || "text"), do: async_revalidate_labels(updated)
         {:ok, updated}
 
       {:error, reason} ->
@@ -452,7 +462,8 @@ defmodule GSMLG.GaoNote do
              )
              |> Repo.delete()
              |> normalize_category_delete_result(locked),
-           :ok <- advance_label_note_revisions(notes) do
+           :ok <- advance_label_note_revisions(notes),
+           :ok <- capture_label_notes(notes) do
         deleted
       else
         {:error, reason} -> Repo.rollback(reason)
@@ -513,6 +524,15 @@ defmodule GSMLG.GaoNote do
     end)
   end
 
+  defp capture_label_notes(notes) do
+    Enum.reduce_while(notes, :ok, fn note, :ok ->
+      case Sync.capture(note.id) do
+        :ok -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
   def create_note(attrs, actor) do
     attrs = normalize_attrs(attrs, @note_attr_keys)
     {label_source, label_values, attrs} = pop_labels_input(attrs)
@@ -531,7 +551,8 @@ defmodule GSMLG.GaoNote do
                  |> Note.create_changeset(attrs)
                  |> Repo.insert(),
                {:ok, _note} <- set_labels_in_repo(note, labels),
-               {:ok, _attachments} <- Attachments.reconcile(note.id, attachment_plan) do
+               {:ok, _attachments} <- Attachments.reconcile(note.id, attachment_plan),
+               :ok <- Sync.capture(note.id) do
             note
           else
             {:error, reason} -> Repo.rollback(reason)
@@ -584,7 +605,8 @@ defmodule GSMLG.GaoNote do
                      if(attachments_changed,
                        do: Attachments.reconcile(updated_note.id, attachment_plan),
                        else: {:ok, []}
-                     ) do
+                     ),
+                   :ok <- if(changed, do: Sync.capture(updated_note.id), else: :ok) do
                 updated_note
               else
                 {:error, reason} -> Repo.rollback(reason)
@@ -659,6 +681,7 @@ defmodule GSMLG.GaoNote do
              )
              |> Ecto.Changeset.force_change(:updated_at, locked.updated_at)
              |> Repo.update(),
+           :ok <- Sync.capture(note.id),
            {:ok, _log} <-
              log_action("delete", "note", deleted.id, deleted.id, actor, %{
                "title" => deleted.title,
@@ -678,6 +701,7 @@ defmodule GSMLG.GaoNote do
              |> Ecto.Changeset.change(deleted_at: nil, revision: locked_note.revision + 1)
              |> Ecto.Changeset.force_change(:updated_at, locked_note.updated_at)
              |> Repo.update(),
+           :ok <- Sync.capture(note.id),
            {:ok, _log} <-
              log_action("restore", "note", restored.id, restored.id, actor, %{
                "title" => restored.title
@@ -693,6 +717,7 @@ defmodule GSMLG.GaoNote do
         Enum.map(locked_note.attachments, & &1.storage_file_id)
 
       with {:ok, _jobs} <- Attachments.schedule_purges(storage_file_ids),
+           :ok <- Sync.capture(locked_note.id, kind: :purge),
            {:ok, deleted} <- Repo.delete(locked_note),
            {:ok, _log} <-
              log_action("purge", "note", deleted.id, deleted.id, actor, %{
@@ -1230,26 +1255,27 @@ defmodule GSMLG.GaoNote do
     )
   end
 
-  defp async_revalidate_labels(%LabelSetting{} = label_setting) do
-    fun = fn -> revalidate_labels(label_setting.id) end
-
-    case Process.whereis(GSMLG.TaskSupervisor) do
-      nil -> Task.start(fun)
-      _pid -> Task.Supervisor.start_child(GSMLG.TaskSupervisor, fun)
-    end
-  end
-
   defp revalidate_labels(label_setting_id) do
     Label
     |> where([label], label.label_setting_id == ^label_setting_id)
     |> preload(:label_setting)
     |> Repo.all()
-    |> Enum.each(fn %Label{label_setting: label_setting, value: value} = label ->
+    |> Enum.reduce_while(:ok, fn %Label{label_setting: label_setting, value: value} = label,
+                                 :ok ->
       {status, errors} = LabelValue.classify(label_setting, value)
 
-      label
-      |> Label.changeset(%{status: status, errors: errors})
-      |> Repo.update()
+      query =
+        from(existing in Label,
+          where:
+            existing.note_id == ^label.note_id and existing.label_setting_id == ^label_setting.id
+        )
+
+      case Repo.update_all(query,
+             set: [status: status, errors: errors, updated_at: DateTime.utc_now()]
+           ) do
+        {1, nil} -> {:cont, :ok}
+        _ -> {:halt, {:error, :label_unavailable}}
+      end
     end)
   end
 
@@ -1327,7 +1353,8 @@ defmodule GSMLG.GaoNote do
                  updated,
                  labels,
                  labels_changed?
-               ) do
+               ),
+             :ok <- if(fields != [], do: Sync.capture(updated.id), else: :ok) do
           {preload_note(updated), fields}
         else
           {:error, reason} -> Repo.rollback(reason)

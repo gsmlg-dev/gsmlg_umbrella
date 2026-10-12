@@ -5,7 +5,7 @@ defmodule GSMLG.GaoNote.BatchActions do
 
   import Ecto.Query, warn: false
 
-  alias GSMLG.GaoNote.{Attachments, Audit, Label, LabelSetting, LabelValue, Note}
+  alias GSMLG.GaoNote.{Attachments, Audit, Label, LabelSetting, LabelValue, Note, Sync}
   alias GSMLG.Repo
 
   @max_active_selection 100
@@ -397,6 +397,7 @@ defmodule GSMLG.GaoNote.BatchActions do
       result =
         with :ok <- apply_change(change),
              {:ok, _} <- GSMLG.GaoNote.advance_revision(note),
+             :ok <- Sync.capture(note.id),
              do: :ok
 
       case result do
@@ -450,7 +451,7 @@ defmodule GSMLG.GaoNote.BatchActions do
     |> Ecto.Changeset.change(deleted_at: deleted_at, revision: note.revision + 1)
     |> Repo.update()
     |> case do
-      {:ok, _note} -> :ok
+      {:ok, _note} -> Sync.capture(note.id)
       {:error, reason} -> {:error, batch_write_error(:delete, note.id, reason)}
     end
   rescue
@@ -486,8 +487,10 @@ defmodule GSMLG.GaoNote.BatchActions do
   end
 
   defp purge_note(note) do
-    case Repo.delete(note) do
-      {:ok, _note} -> :ok
+    with :ok <- Sync.capture(note.id, kind: :purge),
+         {:ok, _note} <- Repo.delete(note) do
+      :ok
+    else
       {:error, reason} -> {:error, batch_write_error(:purge, note.id, reason)}
     end
   rescue

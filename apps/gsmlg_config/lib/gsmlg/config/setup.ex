@@ -1,5 +1,9 @@
 defmodule GSMLG.Config.Setup do
   def setup(config) do
+    if config[:note_sync] != nil do
+      Application.put_env(:gsmlg_gao_note, :note_sync, config[:note_sync])
+    end
+
     if config[:gao_note] != nil do
       Application.put_env(:gsmlg_gao_note, :compat_services, config[:gao_note])
     end

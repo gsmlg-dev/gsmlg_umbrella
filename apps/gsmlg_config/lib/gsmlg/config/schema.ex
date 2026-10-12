@@ -13,6 +13,12 @@ defmodule GSMLG.Config.Schema do
     pdf_renderer_url: [type: :string, default: ""]
   ]
 
+  @note_sync_schema [
+    enabled: [type: :boolean, default: false],
+    trusted_proxy_ips: [type: {:list, :string}, default: []],
+    max_blob_bytes: [type: :pos_integer, default: 536_870_912]
+  ]
+
   @gsmlg_schema [
     tailwind_path: [
       type: :string,
@@ -914,6 +920,7 @@ defmodule GSMLG.Config.Schema do
   def schema do
     %{
       gao_note: @gao_note_schema,
+      note_sync: @note_sync_schema,
       gsmlg: @gsmlg_schema,
       logger: @logger_schema,
       database: @database_schema,
@@ -1014,6 +1021,7 @@ defmodule GSMLG.Config.Schema do
 
   # Private functions
 
+  defp get_section_schema(:note_sync), do: @note_sync_schema
   defp get_section_schema(:gao_note), do: @gao_note_schema
   defp get_section_schema(:gsmlg), do: @gsmlg_schema
   defp get_section_schema(:logger), do: @logger_schema
@@ -1095,6 +1103,27 @@ defmodule GSMLG.Config.Schema do
       settings.retry_max_interval < settings.retry_min_interval ->
         {:error,
          "invalid retry interval range: retry_max_interval must be greater than or equal to retry_min_interval"}
+
+      true ->
+        {:ok, settings}
+    end
+  end
+
+  defp validate_section_contract(:note_sync, settings) do
+    valid_ips =
+      Enum.all?(settings.trusted_proxy_ips, fn ip ->
+        match?({:ok, _}, :inet.parse_strict_address(String.to_charlist(ip)))
+      end)
+
+    cond do
+      not valid_ips ->
+        {:error, "note_sync trusted_proxy_ips must contain exact IP addresses"}
+
+      settings.enabled and settings.trusted_proxy_ips == [] ->
+        {:error, "enabled note_sync requires trusted_proxy_ips"}
+
+      settings.max_blob_bytes > 536_870_912 ->
+        {:error, "note_sync max_blob_bytes exceeds 512 MiB"}
 
       true ->
         {:ok, settings}

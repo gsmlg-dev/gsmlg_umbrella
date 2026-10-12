@@ -424,6 +424,11 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
     with_storage(fn ->
       {note, input} = attachment_note()
       original = hd(note.attachments)
+
+      Repo.get!(StorageFile, original.storage_file_id)
+      |> Ecto.Changeset.change(checksum: "legacy-checksum")
+      |> Repo.update!()
+
       files = Repo.aggregate(StorageFile, :count)
       Application.put_env(:gsmlg_gao_note, :shared_writer_read_failure, true)
 

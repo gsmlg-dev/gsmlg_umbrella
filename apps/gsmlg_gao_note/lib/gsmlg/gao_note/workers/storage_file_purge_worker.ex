@@ -8,6 +8,8 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorker do
     max_attempts: 10,
     unique: [period: 86_400, fields: [:worker, :args]]
 
+  alias GSMLG.GaoNote.Sync
+  alias GSMLG.GaoNote.Sync.Staging
   alias GSMLG.Storage
   alias GSMLG.Storage.StorageFile
 
@@ -22,6 +24,15 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorker do
   def perform(%Oban.Job{}), do: {:cancel, :invalid_storage_file_id}
 
   defp perform_for_id(id) do
+    case Sync.with_object_lock(id, fn ->
+           if Sync.object_referenced?(id), do: {:snooze, 60}, else: purge_unreferenced(id)
+         end) do
+      {:ok, result} -> result
+      {:error, _} = error -> error
+    end
+  end
+
+  defp purge_unreferenced(id) do
     case Storage.get(id) do
       nil ->
         :ok
@@ -36,10 +47,10 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorker do
   end
 
   defp perform_for_file(%StorageFile{variants: variants} = file) do
-    if empty_variants?(variants) do
-      perform_matching_file(file)
-    else
-      {:cancel, :storage_file_has_variants}
+    cond do
+      Staging.protected?(file) -> {:snooze, 60}
+      empty_variants?(variants) -> perform_matching_file(file)
+      true -> {:cancel, :storage_file_has_variants}
     end
   end
 
@@ -48,6 +59,17 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorker do
 
   defp perform_matching_file(%StorageFile{status: "deleted"} = file),
     do: normalize_result(Storage.purge(file))
+
+  defp perform_matching_file(%StorageFile{status: "processing"} = file) do
+    if Staging.reservation?(file) do
+      case Storage.reject_upload(file) do
+        {:ok, deleted} -> normalize_result(Storage.purge(deleted))
+        {:error, _} = error -> error
+      end
+    else
+      {:cancel, {:unsupported_status, "processing"}}
+    end
+  end
 
   defp perform_matching_file(%StorageFile{status: status}),
     do: {:cancel, {:unsupported_status, status}}

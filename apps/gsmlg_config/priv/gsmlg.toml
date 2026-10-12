@@ -242,3 +242,9 @@ search_url = ""
 search_token = ""
 minimum_score = 0.01
 pdf_renderer_url = ""
+
+# Only enable behind a verified mTLS proxy with a private/firewalled backend.
+[note_sync]
+enabled = false
+trusted_proxy_ips = []
+max_blob_bytes = 536870912

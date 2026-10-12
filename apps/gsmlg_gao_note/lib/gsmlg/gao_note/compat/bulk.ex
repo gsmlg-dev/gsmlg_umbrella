@@ -2,7 +2,7 @@ defmodule GSMLG.GaoNote.Compat.Bulk do
   @moduledoc false
   import Ecto.Query
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Audit, Note}
+  alias GSMLG.GaoNote.{Audit, Note, Sync}
   alias GSMLG.GaoNote.Compat
   alias GSMLG.GaoNote.Compat.{Catalog, LabelSelector}
   alias GSMLG.Repo
@@ -161,6 +161,7 @@ defmodule GSMLG.GaoNote.Compat.Bulk do
     else
       with :ok <- Catalog.replace(note, desired),
            {:ok, _} <- GaoNote.advance_revision(note),
+           :ok <- Sync.capture(note.id),
            {:ok, _} <-
              Audit.log("update", "note", note.id, note.id, actor, %{"fields" => ["labels"]}) do
         true

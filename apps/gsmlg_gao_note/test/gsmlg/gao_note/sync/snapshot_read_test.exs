@@ -1,0 +1,98 @@
+defmodule GSMLG.GaoNote.Sync.SnapshotReadTest do
+  use GSMLG.GaoNote.DataCase, async: false
+
+  alias GSMLG.GaoNote.Sync.Snapshot
+  alias GSMLG.Storage.StorageFile
+
+  defmodule ObjectStub do
+    use Plug.Router
+    plug(:match)
+    plug(:dispatch)
+
+    get "/*path" do
+      bytes = Application.fetch_env!(:gsmlg_gao_note, :snapshot_test_bytes)
+      [range] = get_req_header(conn, "range")
+      "bytes=" <> bounds = range
+      [first, last] = bounds |> String.split("-") |> Enum.map(&String.to_integer/1)
+
+      if first >= byte_size(bytes) do
+        send_resp(conn, 416, "")
+      else
+        size = min(last + 1, byte_size(bytes)) - first
+        send_resp(conn, 206, binary_part(bytes, first, size))
+      end
+    end
+  end
+
+  setup do
+    {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false])
+    {:ok, {_, port}} = :inet.sockname(socket)
+    :ok = :gen_tcp.close(socket)
+    start_supervised!({Bandit, plug: ObjectStub, port: port, startup_log: false})
+
+    config = %{
+      s3_access_key_id: "test",
+      s3_secret_access_key: "test",
+      s3_endpoint: "http://127.0.0.1:#{port}",
+      s3_bucket: "snapshot-test"
+    }
+
+    previous =
+      Map.new(config, fn {key, _} -> {key, Application.fetch_env(:gsmlg_storage, key)} end)
+
+    Enum.each(config, fn {key, value} -> Application.put_env(:gsmlg_storage, key, value) end)
+
+    on_exit(fn ->
+      Enum.each(previous, fn
+        {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
+        {key, :error} -> Application.delete_env(:gsmlg_storage, key)
+      end)
+
+      Application.delete_env(:gsmlg_gao_note, :snapshot_test_bytes)
+    end)
+
+    :ok
+  end
+
+  test "reads multi-chunk objects and verifies a stored checksum" do
+    bytes = String.duplicate("a", 65_536) <> "final"
+    file = insert_file(bytes, hash(bytes))
+    assert {:ok, ^bytes} = Snapshot.read_object(file.id)
+  end
+
+  test "legacy checksum reads compute SHA256 without trusting obsolete digest metadata" do
+    file = insert_file("legacy", "old-md5-checksum")
+    assert {:ok, "legacy"} = Snapshot.read_object(file.id)
+  end
+
+  test "zero-byte objects complete after a bounded empty range response" do
+    file = insert_file("", hash(""))
+    assert {:ok, ""} = Snapshot.read_object(file.id)
+  end
+
+  test "rejects declared size and checksum mismatches" do
+    file = insert_file("data", String.duplicate("a", 64))
+    assert {:error, :object_checksum_mismatch} = Snapshot.read_object(file.id)
+    Application.put_env(:gsmlg_gao_note, :snapshot_test_bytes, "x")
+    assert {:error, :object_size_mismatch} = Snapshot.read_object(file.id)
+  end
+
+  defp insert_file(bytes, checksum) do
+    Application.put_env(:gsmlg_gao_note, :snapshot_test_bytes, bytes)
+
+    %StorageFile{}
+    |> StorageFile.changeset(%{
+      tenant: "gao_note",
+      type: "gao_note_attachment",
+      filename: "object.txt",
+      s3_key: "snapshot/#{Ecto.UUID.generate()}",
+      content_type: "text/plain",
+      size: byte_size(bytes),
+      checksum: checksum,
+      variants: %{}
+    })
+    |> Repo.insert!()
+  end
+
+  defp hash(bytes), do: :crypto.hash(:sha256, bytes) |> Base.encode16(case: :lower)
+end

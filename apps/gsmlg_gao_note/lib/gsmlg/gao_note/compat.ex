@@ -2,7 +2,7 @@ defmodule GSMLG.GaoNote.Compat do
   @moduledoc "Agent Note domain compatibility backed by the shared GaoNote records."
   import Ecto.Query
   alias GSMLG.GaoNote
-  alias GSMLG.GaoNote.{Attachment, Attachments, Audit, LabelSetting, Note}
+  alias GSMLG.GaoNote.{Attachment, Attachments, Audit, LabelSetting, Note, Sync}
   alias GSMLG.GaoNote.Compat.{Catalog, ContentPatch, LabelSelector}
   alias GSMLG.Repo
 
@@ -74,6 +74,7 @@ defmodule GSMLG.GaoNote.Compat do
              :ok <- Catalog.replace(note, labels),
              {:ok, _} <- Attachments.reconcile(id, plan),
              :ok <- persist_identities(identities),
+             :ok <- Sync.capture(id),
              {:ok, _} <- Audit.log("create", "note", id, id, actor, %{"title" => note.title}) do
           get_note(id)
         else
@@ -134,6 +135,7 @@ defmodule GSMLG.GaoNote.Compat do
                {:ok, _} <-
                  if(attachments_changed, do: Attachments.reconcile(id, plan), else: {:ok, []}),
                :ok <- persist_identities(identities),
+               :ok <- if(changed, do: Sync.capture(id), else: :ok),
                {:ok, _} <-
                  if(changed,
                    do: Audit.log("update", "note", id, id, actor, %{"title" => locked.title}),
@@ -243,9 +245,11 @@ defmodule GSMLG.GaoNote.Compat do
         Attachments.transact(plan, fn ->
           with {:ok, locked} <- lock_note(note_id, :active),
                :ok <- ensure_revision(locked, revision),
+               {:ok, changed} <- Attachments.changed?(plan),
                {:ok, _} <- Attachments.reconcile(note_id, plan),
                :ok <- persist_identities(identities),
                {:ok, updated} <- GaoNote.advance_revision(locked),
+               :ok <- if(changed, do: Sync.capture(note_id), else: :ok),
                {:ok, _} <-
                  Audit.log("update", "note", note_id, note_id, actor, %{
                    "fields" => ["attachments"]
