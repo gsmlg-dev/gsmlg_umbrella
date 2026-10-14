@@ -56,7 +56,8 @@ defmodule GSMLG.AdminWeb.AdminMenu do
             },
             %{id: "gao_note_recycle_bin", label: "Recycle Bin", path: "/gao_notes/recycle_bin"},
             %{id: "gao_note_logs", label: "Log", path: "/gao_notes/logs"},
-            %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"}
+            %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"},
+            %{id: "gao_note_settings", label: "Settings", path: "/gao_notes/settings"}
           ]
         },
         %{

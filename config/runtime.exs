@@ -44,6 +44,10 @@ if Code.ensure_loaded?(GSMLG.Config.Loader) and has_config? and not skip_config_
         # Store the loaded configuration for the application to access
         config :gsmlg_config, :loaded_config, gsmlg_config
 
+        config :gsmlg_config,
+               :loaded_config_path,
+               Application.fetch_env!(:gsmlg_config, :loaded_config_path)
+
         if caddy_config = gsmlg_config[:caddy] do
           caddy_mode =
             case caddy_config[:mode] do

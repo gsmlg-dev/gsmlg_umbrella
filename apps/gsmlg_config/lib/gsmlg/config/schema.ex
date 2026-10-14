@@ -6,6 +6,7 @@ defmodule GSMLG.Config.Schema do
   """
 
   @gao_note_schema [
+    storage_path: [type: :string, default: "gaonote"],
     index_url: [type: :string, default: ""],
     search_url: [type: :string, default: ""],
     search_token: [type: :string, default: ""],
@@ -1106,6 +1107,14 @@ defmodule GSMLG.Config.Schema do
 
       true ->
         {:ok, settings}
+    end
+  end
+
+  defp validate_section_contract(:gao_note, settings) do
+    if Regex.match?(~r/\A[a-z0-9_-]+\z/i, settings.storage_path) do
+      {:ok, settings}
+    else
+      {:error, "gao_note storage_path must contain only letters, numbers, - and _"}
     end
   end
 

@@ -6,6 +6,12 @@ defmodule GSMLG.Config.Setup do
 
     if config[:gao_note] != nil do
       Application.put_env(:gsmlg_gao_note, :compat_services, config[:gao_note])
+
+      Application.put_env(
+        :gsmlg_gao_note,
+        :storage_path,
+        config[:gao_note][:storage_path] || "gaonote"
+      )
     end
 
     if config[:gsmlg] != nil do

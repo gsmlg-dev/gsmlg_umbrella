@@ -800,6 +800,7 @@ defmodule GSMLG.GaoNote.Attachments do
 
   defp upload_staged_file(note_id, entry, source, uploaded_by, uploader) do
     input = entry.input
+    storage_path = Application.get_env(:gsmlg_gao_note, :storage_path, "gaonote")
 
     opts = [
       uploaded_by: uploaded_by,
@@ -807,7 +808,7 @@ defmodule GSMLG.GaoNote.Attachments do
       variants: []
     ]
 
-    case uploader.upload(source, note_id, @storage_type, opts) do
+    case uploader.upload(source, storage_path, @storage_type, opts) do
       {:ok, %StorageFile{} = file} ->
         finish_staged_upload(entry, file)
 

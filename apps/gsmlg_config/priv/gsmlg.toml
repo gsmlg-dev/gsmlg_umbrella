@@ -235,8 +235,9 @@ blocked_cidrs = [
   "5f00::/16"
 ]
 
-# GaoNote Agent Note compatibility services (empty URLs disable external features).
+# GaoNote storage and Agent Note compatibility services (empty URLs disable external features).
 [gao_note]
+storage_path = "gaonote"
 index_url = ""
 search_url = ""
 search_token = ""

@@ -9,6 +9,7 @@ defmodule GSMLG.ConfigTest do
   setup do
     # Store original config to restore after test
     original_config = Application.get_env(:gsmlg_config, :loaded_config)
+    original_loaded_path = Application.fetch_env(:gsmlg_config, :loaded_config_path)
     original_config_path = System.get_env("GSMLG_CONFIG_PATH")
 
     on_exit(fn ->
@@ -16,6 +17,11 @@ defmodule GSMLG.ConfigTest do
         Application.put_env(:gsmlg_config, :loaded_config, original_config)
       else
         Application.delete_env(:gsmlg_config, :loaded_config)
+      end
+
+      case original_loaded_path do
+        {:ok, path} -> Application.put_env(:gsmlg_config, :loaded_config_path, path)
+        :error -> Application.delete_env(:gsmlg_config, :loaded_config_path)
       end
 
       if original_config_path do

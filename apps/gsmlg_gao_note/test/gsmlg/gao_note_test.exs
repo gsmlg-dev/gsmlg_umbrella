@@ -89,6 +89,16 @@ defmodule GSMLG.GaoNoteTest do
   alias GSMLG.Storage.StorageFile
 
   setup do
+    storage_path = Application.fetch_env(:gsmlg_gao_note, :storage_path)
+    Application.delete_env(:gsmlg_gao_note, :storage_path)
+
+    on_exit(fn ->
+      case storage_path do
+        {:ok, value} -> Application.put_env(:gsmlg_gao_note, :storage_path, value)
+        :error -> Application.delete_env(:gsmlg_gao_note, :storage_path)
+      end
+    end)
+
     Repo.delete_all(MCPSetting)
     Repo.delete_all(Log)
     Repo.delete_all(Attachment)
@@ -866,10 +876,90 @@ defmodule GSMLG.GaoNoteTest do
                  }
                ] = Enum.sort_by(attachments, & &1.id)
 
-        assert Enum.all?(attachments, &(&1.storage_file.tenant == note.id))
+        Enum.each(attachments, fn %{storage_file: file} ->
+          assert file.tenant == "gaonote"
+          assert String.starts_with?(file.s3_key, "gaonote/gao_note_attachment/")
+          assert file.metadata["note_id"] == note.id
+        end)
+
         assert %Note{attachments: [_, _], labels: []} = GaoNote.get_note(note.id)
         assert %Note{attachments: [_, _]} = Enum.find(GaoNote.list_notes(), &(&1.id == note.id))
         assert %Attachment{id: "readme"} = attachment_by_id(GaoNote.get_note(note.id), "readme")
+      end)
+    end
+
+    test "configured storage path applies to new uploads while retained attachments keep their keys" do
+      with_storage_test_config(fn ->
+        legacy_path = Ecto.UUID.generate()
+        Application.put_env(:gsmlg_gao_note, :storage_path, legacy_path)
+
+        note =
+          note_fixture(%{
+            attachments: [text_attachment("legacy", "original.txt", "original bytes")]
+          })
+
+        original = attachment_by_id(note, "legacy")
+        assert original.storage_file.tenant == legacy_path
+        assert String.starts_with?(original.storage_file.s3_key, legacy_path <> "/")
+
+        Application.put_env(:gsmlg_gao_note, :storage_path, "team-notes_1")
+
+        assert {:ok, updated} =
+                 GaoNote.update_note(
+                   note,
+                   %{
+                     attachments: [
+                       retained_attachment(original, %{path: "renamed.txt"}),
+                       text_attachment("new", "new.txt", "new bytes")
+                     ]
+                   },
+                   actor()
+                 )
+
+        retained = attachment_by_id(updated, "legacy")
+        assert retained.storage_file_id == original.storage_file_id
+        assert retained.storage_file.s3_key == original.storage_file.s3_key
+
+        uploaded = attachment_by_id(updated, "new")
+        assert uploaded.storage_file.tenant == "team-notes_1"
+
+        assert String.starts_with?(
+                 uploaded.storage_file.s3_key,
+                 "team-notes_1/gao_note_attachment/"
+               )
+
+        assert uploaded.storage_file.metadata["note_id"] == note.id
+        assert uploaded.path == "./new.txt"
+
+        Application.put_env(:gsmlg_storage, :gao_note_test_object, "original bytes")
+
+        assert {:ok, %{path: "./renamed.txt"}, "original bytes"} =
+                 GaoNote.get_attachment_with_content(note.id, retained.id)
+
+        assert_receive {:s3_get, requested_path, _range}
+        assert requested_path == "/gsmlg-storage/" <> original.storage_file.s3_key
+      end)
+    end
+
+    test "inbound sync attachment staging uses the configured storage path" do
+      with_storage_test_config(fn ->
+        Application.put_env(:gsmlg_gao_note, :storage_path, "sync-notes")
+        note_id = Ecto.UUID.generate()
+
+        Oban.Testing.with_testing_mode(:manual, fn ->
+          assert {:ok, %{staged_files: [file]} = plan} =
+                   GSMLG.GaoNote.Attachments.prepare_sync(
+                     note_id,
+                     [text_attachment("synced", "synced.txt", "sync bytes")],
+                     "sync-peer"
+                   )
+
+          assert %StorageFile{tenant: "sync-notes", metadata: %{"note_id" => ^note_id}} = file
+          assert String.starts_with?(file.s3_key, "sync-notes/gao_note_attachment/")
+          assert_receive {:s3_put, requested_path, "sync bytes"}
+          assert requested_path == "/gsmlg-storage/" <> file.s3_key
+          assert :ok = GSMLG.GaoNote.Attachments.cleanup(plan)
+        end)
       end)
     end
 

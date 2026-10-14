@@ -136,6 +136,7 @@ defmodule GSMLG.AdminWeb.Router do
     live("/gao_notes/recycle_bin", GaoNoteLive.RecycleBinLive.Index, :index)
     live("/gao_notes/logs", GaoNoteLive.LogLive.Index, :index)
     live("/gao_notes/mcp", GaoNoteLive.MCPLive.Index, :index)
+    live("/gao_notes/settings", GaoNoteLive.SettingsLive, :index)
 
     live("/users", UserLive.Index, :index)
     live("/users/new", UserLive.Index, :new)

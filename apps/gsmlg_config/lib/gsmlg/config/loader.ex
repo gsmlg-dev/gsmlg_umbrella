@@ -66,9 +66,11 @@ defmodule GSMLG.Config.Loader do
       config_path: config_path
     )
 
-    with {:ok, config} <- load_config_file(env, config_dir, config_path),
+    with {:ok, config, selected_path} <- load_config_file_with_path(env, config_dir, config_path),
          {:ok, config} <- apply_env_overrides(config),
          {:ok, config} <- maybe_validate(config, validate?) do
+      Application.put_env(:gsmlg_config, :loaded_config_path, selected_path)
+
       GSMLG.Telemetry.info("Configuration loaded successfully",
         sections: Map.keys(config),
         env: env
@@ -122,6 +124,13 @@ defmodule GSMLG.Config.Loader do
   3. Fallback to gsmlg.toml
   """
   def load_config_file(env, config_dir, custom_path \\ nil) do
+    case load_config_file_with_path(env, config_dir, custom_path) do
+      {:ok, config, _path} -> {:ok, config}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp load_config_file_with_path(env, config_dir, custom_path) do
     paths =
       if custom_path do
         # If custom path provided, try only that
@@ -138,7 +147,7 @@ defmodule GSMLG.Config.Loader do
     Enum.reduce_while(paths, {:error, :no_config_found}, fn {type, path, opts}, _acc ->
       required? = Keyword.get(opts, :required, true)
 
-      case load_toml_file(path, opts) do
+      case load_toml_file(path) do
         {:ok, config} ->
           GSMLG.Telemetry.info("Loaded configuration file",
             type: type,
@@ -146,7 +155,7 @@ defmodule GSMLG.Config.Loader do
             sections: Map.keys(config)
           )
 
-          {:halt, {:ok, config}}
+          {:halt, {:ok, config, Path.expand(path)}}
 
         {:error, {:file_not_found, _}} when not required? ->
           GSMLG.Telemetry.debug("Optional config file not found, trying next",

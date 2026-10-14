@@ -95,6 +95,37 @@ host = "localhost"
 port = 4111
 ```
 
+## GaoNote Attachment Storage
+
+Set the storage root for new GaoNote attachments in TOML:
+
+```toml
+[gao_note]
+storage_path = "gaonote"
+```
+
+The default is `gaonote`. The value must be a nonempty single storage tenant/root
+segment containing only letters, numbers, `_`, and `-`; nested paths are invalid.
+New attachment keys use `<storage_path>/gao_note_attachment/YYYY/MM/uuid.ext`.
+Changing this setting affects new uploads; existing files keep their stored keys
+and remain accessible.
+
+The same setting supports the generic environment override:
+
+```bash
+export GSMLG_GAO_NOTE__STORAGE_PATH=custom-notes
+```
+
+The GaoNote settings page can save this value to the exact TOML file selected at
+startup and apply it immediately to new uploads. The file and its directory must
+be writable by the application. Saving preserves other settings, comments, and
+file ownership and permissions, and leaves the running configuration unchanged on failure.
+An environment override takes priority and prevents saving through the UI;
+remove it before editing the TOML-backed setting. The editor supports a regular
+TOML file with a canonical `[gao_note]` table (or adds that table if absent).
+Quoted/dotted GaoNote declarations and symlink files return an unsupported-format
+error; symlinks in the containing directory are supported.
+
 ## Programmatic Usage
 
 ```elixir
