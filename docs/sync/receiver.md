@@ -110,6 +110,33 @@ Native `date-time` labels use wire `datetime`. Native `year`, `year-month` and
 until their labels are changed or the protocol is extended. No lossy conversion
 is applied. The existing native storage size and MIME limits still apply.
 
+Sync preserves the attachment MIME declared in the hashed snapshot, including
+zero-byte files and filenames renamed across extensions. Storage independently
+detects the actual content type, enforces its configured policy, and records that
+detected type on the storage object. Native attachment uploads retain their MIME
+equality check. NUL-containing note text cannot be stored in PostgreSQL: commit
+returns `note_rejected/validation_failed` for that note, without altering its
+content or closing the channel. The client retains the pending note and caches
+the rejection; other notes continue, and editing the rejected note permits retry.
+
+Sync regex selectors accept a conservative common subset: ASCII literals,
+escaped regex punctuation, `^`/`$` anchors, `|` alternatives and simple ASCII
+character classes. Matching remains case-insensitive. Examples include
+`project~=^bear_note$` and `project~=^bear_[a-z]ote$`. Groups, wildcard dots,
+repetition, Unicode/POSIX classes and class set operations are rejected at peer
+registration, selection and join. This includes `[a~~a]`, whose PCRE and Rust
+results differ. Use the existing prefix/suffix operators where appropriate.
+Exact selectors such as `project=bear_note`, Unicode exact values, typed AND
+conditions and the OR union of rules retain their existing behavior. Legacy
+unsupported scopes cannot join and are excluded from native sync capture until
+replaced with supported selectors.
+
+Generic storage delete, upload rejection, purge and folder deletion now share
+the sync object lock and check current attachment references and snapshot/read
+pins before changing status or removing bytes. Expired read leases are retired
+under the same transaction; ordinary unreferenced objects remain purgeable.
+Folder deletion refuses the entire operation if any selected object is protected.
+
 Before enabling a deployment, qualify the actual ingress with registered,
 unregistered, revoked and missing certificates; spoofed/duplicate headers;
 untrusted backend addresses; and unauthorized node/rule joins. Validate the Caddy
