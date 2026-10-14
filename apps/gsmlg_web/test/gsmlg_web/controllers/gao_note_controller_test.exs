@@ -5,7 +5,7 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, Note}
   alias GSMLG.Repo
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.TestCatalogClient
 
   setup %{conn: conn} do
     Repo.delete_all(Log)
@@ -13,7 +13,7 @@ defmodule GSMLG.Web.GaoNoteControllerTest do
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
-    Repo.delete_all(StorageFile)
+    TestCatalogClient.setup!()
 
     {:ok, conn: put_req_header(conn, "accept", "application/json")}
   end

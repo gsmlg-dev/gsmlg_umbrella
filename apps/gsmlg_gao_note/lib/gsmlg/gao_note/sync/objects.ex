@@ -4,7 +4,7 @@ defmodule GSMLG.GaoNote.Sync.Objects do
   alias GSMLG.GaoNote.Attachment
   alias GSMLG.GaoNote.Sync.{Pin, Record, Store}
   alias GSMLG.Repo
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage
 
   @lease_millis 60_000
 
@@ -50,11 +50,9 @@ defmodule GSMLG.GaoNote.Sync.Objects do
     |> Enum.reduce_while(:ok, fn id, :ok ->
       Store.lock("object", id)
 
-      if Repo.exists?(
-           from(file in StorageFile, where: file.id == ^id and file.status == "active")
-         ),
-         do: {:cont, :ok},
-         else: {:halt, {:error, :object_unavailable}}
+      if Storage.get_active(id),
+        do: {:cont, :ok},
+        else: {:halt, {:error, :object_unavailable}}
     end)
   end
 

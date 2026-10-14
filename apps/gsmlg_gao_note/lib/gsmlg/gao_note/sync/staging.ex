@@ -66,9 +66,7 @@ defmodule GSMLG.GaoNote.Sync.Staging do
              |> Map.merge(opts[:metadata] || %{})
              |> Map.put("sync_staging_expires_at", DateTime.to_iso8601(attrs.expires_at)),
            {:ok, file} <-
-             Repo.update(
-               Ecto.Changeset.change(file, metadata: metadata, uploaded_by: opts[:uploaded_by])
-             ),
+             Storage.update_metadata(file, %{metadata: metadata, uploaded_by: opts[:uploaded_by]}),
            {:ok, _job} <-
              %{storage_file_id: file.id}
              |> StorageFilePurgeWorker.new(schedule_in: @expiry_seconds)

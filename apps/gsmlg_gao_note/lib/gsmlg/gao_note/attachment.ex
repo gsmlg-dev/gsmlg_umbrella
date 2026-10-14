@@ -7,7 +7,7 @@ defmodule GSMLG.GaoNote.Attachment do
   import Ecto.Changeset
 
   alias GSMLG.GaoNote.Note
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage
 
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :binary_id
@@ -18,7 +18,8 @@ defmodule GSMLG.GaoNote.Attachment do
 
   schema "gao_note_attachments" do
     belongs_to(:note, Note)
-    belongs_to(:storage_file, StorageFile)
+    field(:storage_file_id, :binary_id)
+    field(:storage_file, :any, virtual: true)
 
     field(:api_id, :string)
     field(:content, :binary, virtual: true)
@@ -81,9 +82,6 @@ defmodule GSMLG.GaoNote.Attachment do
     |> validate_required_text_fields([:id, :path, :mime])
     |> normalize_path_change()
     |> foreign_key_constraint(:note_id, name: :gao_note_attachments_note_id_fkey)
-    |> foreign_key_constraint(:storage_file_id,
-      name: :gao_note_attachments_storage_file_id_fkey
-    )
     |> unique_constraint(:id, name: :gao_note_attachments_pkey)
     |> unique_constraint(:storage_file_id,
       name: :gao_note_attachments_storage_file_id_index
@@ -92,6 +90,20 @@ defmodule GSMLG.GaoNote.Attachment do
       name: :gao_note_attachments_note_id_path_index,
       error_key: :path
     )
+  end
+
+  def load_storage_file(nil), do: nil
+
+  def load_storage_file(%__MODULE__{} = attachment),
+    do: %{attachment | storage_file: Storage.get(attachment.storage_file_id)}
+
+  def load_active_storage_file(nil), do: nil
+
+  def load_active_storage_file(%__MODULE__{} = attachment) do
+    case Storage.get_active(attachment.storage_file_id) do
+      nil -> nil
+      file -> %{attachment | storage_file: file}
+    end
   end
 
   defp normalize_path_segments(segments) do

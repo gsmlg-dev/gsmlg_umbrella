@@ -85,7 +85,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, Note, Presenter}
   alias GSMLG.Repo
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{StorageFile, TestCatalogClient}
 
   @chunk_size 65_536
   @storage_keys [
@@ -106,7 +106,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
-    Repo.delete_all(StorageFile)
+    TestCatalogClient.setup!()
 
     original = Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     port = available_port()
@@ -247,7 +247,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
              } = json_response(conn, 400)
 
       refute Repo.get_by(Note, title: title)
-      assert Repo.aggregate(StorageFile, :count, :id) == 0
+      assert TestCatalogClient.count() == 0
       assert Repo.aggregate(Log, :count, :id) == 0
       refute_received {:s3_put, _path, _body}
     end
@@ -352,7 +352,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
                attachments: []
              } = GaoNote.get_note(note.id)
 
-      assert Repo.aggregate(StorageFile, :count, :id) == 0
+      assert TestCatalogClient.count() == 0
       assert Repo.aggregate(Log, :count, :id) == log_count
       refute_received {:s3_put, _path, _body}
     end
@@ -450,7 +450,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
              } = json_response(conn, 400)
 
       refute Repo.get_by(Note, title: title)
-      assert Repo.aggregate(StorageFile, :count, :id) == 0
+      assert TestCatalogClient.count() == 0
       refute_received {:s3_put, _path, _body}
     end
 
@@ -497,7 +497,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
       assert %Note{title: "Unchanged multipart update", attachments: []} =
                GaoNote.get_note(note.id)
 
-      assert Repo.aggregate(StorageFile, :count, :id) == 0
+      assert TestCatalogClient.count() == 0
       refute_received {:s3_put, _path, _body}
     end
 
@@ -1114,7 +1114,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
         status: "active",
         uploaded_by: "fixture"
       })
-      |> Repo.insert!()
+      |> TestCatalogClient.insert_file!()
 
     attachment =
       %Attachment{}
@@ -1128,7 +1128,7 @@ defmodule GSMLG.Web.GaoNoteAttachmentContentControllerTest do
       })
       |> Repo.insert!()
 
-    Repo.preload(attachment, :storage_file)
+    Attachment.load_storage_file(attachment)
   end
 
   defp multipart_upload(contents) do

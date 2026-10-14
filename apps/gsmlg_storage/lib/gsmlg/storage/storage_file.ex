@@ -1,7 +1,7 @@
 defmodule GSMLG.Storage.StorageFile do
   @moduledoc """
-  Ecto schema for the storage_files table.
-  Represents an uploaded file with its metadata, S3 location, and variants.
+  Managed object data, persisted as an S3 manifest.
+  The legacy Ecto source is retained solely for the explicit catalog export.
   """
 
   use Ecto.Schema
@@ -23,6 +23,7 @@ defmodule GSMLG.Storage.StorageFile do
     field(:variants, :map, default: %{})
     field(:status, :string, default: "active")
     field(:uploaded_by, :string)
+    field(:backend_id, :string, virtual: true)
 
     timestamps()
   end

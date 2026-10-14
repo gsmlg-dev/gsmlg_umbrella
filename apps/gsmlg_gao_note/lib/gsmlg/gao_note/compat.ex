@@ -38,8 +38,8 @@ defmodule GSMLG.GaoNote.Compat do
 
       notes =
         query
-        |> preload(labels: :label_setting, attachments: :storage_file)
         |> Repo.all()
+        |> GaoNote.preload_note()
 
       {:ok,
        Enum.filter(
@@ -255,7 +255,7 @@ defmodule GSMLG.GaoNote.Compat do
                    "fields" => ["attachments"]
                  }) do
             %{
-              attachment: attachment_by_api_id(note_id, api_id) |> Repo.preload(:storage_file),
+              attachment: attachment_by_api_id(note_id, api_id) |> Attachment.load_storage_file(),
               revision: updated.revision,
               created: is_nil(existing)
             }
@@ -313,7 +313,7 @@ defmodule GSMLG.GaoNote.Compat do
 
       case query |> where([n], n.id == ^id) |> lock("FOR UPDATE") |> Repo.one() do
         nil -> {:error, :not_found}
-        note -> {:ok, Repo.preload(note, labels: :label_setting, attachments: :storage_file)}
+        note -> {:ok, GaoNote.preload_note(note)}
       end
     else
       _ -> {:error, :not_found}

@@ -27,7 +27,9 @@ defmodule GSMLG.GaoNote.AttachmentMigrationTest do
              :updated_at
            ]
 
-    assert Attachment.__schema__(:associations) == [:note, :storage_file]
+    assert Attachment.__schema__(:associations) == [:note]
+    assert Attachment.__schema__(:type, :storage_file_id) == :binary_id
+    assert :storage_file in Attachment.__schema__(:virtual_fields)
 
     assert Repo.query!("""
            SELECT
@@ -53,7 +55,7 @@ defmodule GSMLG.GaoNote.AttachmentMigrationTest do
            ]
   end
 
-  test "foreign keys use cascade for notes and restrict for storage files" do
+  test "only the note reference uses a foreign key, and legacy file tables remain" do
     assert Repo.query!("""
            SELECT constraint_record.conname, constraint_record.confdeltype::text
            FROM pg_constraint AS constraint_record
@@ -66,9 +68,22 @@ defmodule GSMLG.GaoNote.AttachmentMigrationTest do
              AND constraint_record.contype = 'f'
            ORDER BY constraint_record.conname
            """).rows == [
-             ["gao_note_attachments_note_id_fkey", "c"],
-             ["gao_note_attachments_storage_file_id_fkey", "r"]
+             ["gao_note_attachments_note_id_fkey", "c"]
            ]
+
+    assert [["storage_files"], ["storage_folders"]] =
+             Repo.query!("""
+             SELECT table_name FROM information_schema.tables
+             WHERE table_schema = 'public' AND table_name IN ('storage_files', 'storage_folders')
+             ORDER BY table_name
+             """).rows
+
+    assert [] =
+             Repo.query!("""
+             SELECT conname FROM pg_constraint
+             WHERE conrelid = 'gao_note_sync_pins'::regclass
+               AND confrelid = 'storage_files'::regclass
+             """).rows
   end
 
   test "indexes enforce global storage identity and per-note canonical paths" do
@@ -129,7 +144,9 @@ defmodule GSMLG.GaoNote.AttachmentMigrationTest do
 
     assert {:foreign_key, :note_id, "gao_note_attachments_note_id_fkey"} in constraints
 
-    assert {:foreign_key, :storage_file_id, "gao_note_attachments_storage_file_id_fkey"} in constraints
+    refute Enum.any?(constraints, fn {type, field, _} ->
+             type == :foreign_key and field == :storage_file_id
+           end)
 
     assert constraints
            |> Enum.filter(fn {type, _field, _name} -> type == :unique end)

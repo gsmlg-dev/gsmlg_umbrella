@@ -10,7 +10,7 @@ defmodule GSMLG.Storage do
   require Logger
 
   alias GSMLG.Repo
-  alias GSMLG.Storage.{StorageFile, StorageFolder, StorageConfig, S3Client, ContentType}
+  alias GSMLG.Storage.{StorageFile, StorageFolder, StorageConfig, S3Client, ContentType, Catalog}
 
   import Ecto.Query
 
@@ -48,13 +48,14 @@ defmodule GSMLG.Storage do
              variants: %{},
              status: "processing"
            }),
-         {:ok, file} <- Repo.insert(reservation) do
+         {:ok, backend} <- S3Client.capture_backend(),
+         {:ok, file} <- Catalog.update(reservation, backend: backend) do
       case create_reservation_file(file.id) do
         :ok ->
           {:ok, file}
 
         {:error, _reason} = error ->
-          _ = Repo.delete(file)
+          _ = Catalog.delete(file, backend: backend)
           error
       end
     else
@@ -69,7 +70,7 @@ defmodule GSMLG.Storage do
   @doc "Appends one bounded request-body chunk to a durable upload reservation."
   def write_upload(reservation_id, chunk) when is_binary(reservation_id) and is_binary(chunk) do
     with %StorageFile{status: "processing"} = reservation <-
-           Repo.get(StorageFile, reservation_id),
+           get(reservation_id),
          true <- not upload_expired?(reservation),
          {:ok, io} <-
            :file.open(String.to_charlist(reservation_path(reservation.id)), [
@@ -104,59 +105,110 @@ defmodule GSMLG.Storage do
   def finalize_upload(reservation_id, opts \\ [])
 
   def finalize_upload(reservation_id, opts) when is_binary(reservation_id) do
+    with_locked_file(
+      reservation_id,
+      fn
+        %StorageFile{status: "processing"} = reservation, backend ->
+          finalize_reservation(reservation, backend, opts)
+
+        _file, _backend ->
+          {:error, :invalid_upload_reservation}
+      end,
+      protect: false
+    )
+  end
+
+  def finalize_upload(_reservation_id, _opts), do: {:error, :invalid_upload_reservation}
+
+  defp finalize_reservation(reservation, backend, opts) do
     client = Keyword.get(opts, :s3_client, storage_client())
 
-    with %StorageFile{status: "processing"} = reservation <-
-           Repo.get(StorageFile, reservation_id),
-         true <- not upload_expired?(reservation),
+    with true <- not upload_expired?(reservation),
          path <- reservation_path(reservation.id),
          {:ok, %{size: size, checksum: checksum, head: head}} <- hash_file(path),
          true <- size == reservation.size,
          true <- Plug.Crypto.secure_compare(checksum, reservation.checksum),
          {:ok, detected} <- ContentType.detect(head, reservation.filename),
          true <- detected == reservation.content_type,
-         :ok <- client.put_file(bucket(), reservation.s3_key, path, reservation.content_type),
+         target <- if(client == S3Client, do: backend, else: backend.bucket),
+         :ok <- client.put_file(target, reservation.s3_key, path, reservation.content_type),
          {:ok, active} <-
-           reservation |> StorageFile.status_changeset(%{status: "active"}) |> Repo.update() do
+           reservation
+           |> StorageFile.status_changeset(%{status: "active"})
+           |> Catalog.update(backend: backend) do
       _ = File.rm(path)
       {:ok, active}
     else
-      nil -> {:error, :not_found}
-      %StorageFile{} -> {:error, :invalid_upload_reservation}
       false -> {:error, :upload_integrity_failed}
       {:error, %Ecto.Changeset{}} -> {:error, :upload_commit_failed}
       {:error, _reason} = error -> error
     end
   end
 
-  def finalize_upload(_reservation_id, _opts), do: {:error, :invalid_upload_reservation}
-
   @doc "Rejects a reservation, or recoverably soft-deletes a finalized storage object."
-  def reject_upload(%StorageFile{id: id}), do: reject_upload(id)
+  def reject_upload(%StorageFile{} = file), do: reject_upload(file.id, file.backend_id)
+  def reject_upload(id) when is_binary(id), do: reject_upload(id, nil)
+  def reject_upload(_invalid), do: {:error, :invalid_upload_reservation}
 
-  def reject_upload(id) when is_binary(id) do
-    with_locked_file(id, fn
+  defp reject_upload(id, backend_id) do
+    with_locked_file(id, &reject_current_upload/2, backend_id: backend_id)
+  end
+
+  defp reject_current_upload(file, backend) do
+    case file do
       %StorageFile{status: "processing"} = file ->
         case File.rm(reservation_path(file.id)) do
           :ok ->
-            file |> StorageFile.status_changeset(%{status: "deleted"}) |> Repo.update()
+            file
+            |> StorageFile.status_changeset(%{status: "deleted"})
+            |> Catalog.update(backend: backend)
 
           {:error, :enoent} ->
-            file |> StorageFile.status_changeset(%{status: "deleted"}) |> Repo.update()
+            file
+            |> StorageFile.status_changeset(%{status: "deleted"})
+            |> Catalog.update(backend: backend)
 
           {:error, _reason} ->
             {:error, :upload_reject_failed}
         end
 
       file ->
-        file |> StorageFile.status_changeset(%{status: "deleted"}) |> Repo.update()
-    end)
+        file
+        |> StorageFile.status_changeset(%{status: "deleted"})
+        |> Catalog.update(backend: backend)
+    end
   end
 
-  def reject_upload(_invalid), do: {:error, :invalid_upload_reservation}
+  @doc "Recovers only intents that are still expired after acquiring the object lock."
+  def recover_upload(%StorageFile{} = file) do
+    with_locked_file(
+      file.id,
+      fn current, backend ->
+        expiry =
+          if current.status == "processing",
+            do: current.metadata["upload_expires_at"],
+            else: if(current.status == "active", do: current.metadata["sync_staging_expires_at"])
+
+        case expiry && DateTime.from_iso8601(expiry) do
+          {:ok, expires_at, _} ->
+            if DateTime.after?(expires_at, DateTime.utc_now()) do
+              {:ok, current}
+            else
+              ensure_unreferenced!(current, reference_tables())
+              reject_current_upload(current, backend)
+            end
+
+          _ ->
+            {:ok, current}
+        end
+      end,
+      protect: false,
+      backend_id: file.backend_id
+    )
+  end
 
   @doc """
-  Uploads a file to S3 and creates a DB record.
+  Uploads a file and its stable identity manifest to S3.
 
   Accepts:
   - `%Plug.Upload{}` struct
@@ -175,53 +227,121 @@ defmodule GSMLG.Storage do
          :ok <- validate_size(data, type),
          {:ok, content_type} <- ContentType.detect(data, filename),
          :ok <- validate_content_type(content_type, type),
-         checksum <- compute_checksum(data),
-         s3_key <- generate_s3_key(tenant, type, filename, content_type),
-         bucket <- bucket(),
-         :ok <- S3Client.put_object(bucket, s3_key, data, content_type) do
-      attrs = %{
-        tenant: tenant,
-        type: type,
-        filename: filename,
-        s3_key: s3_key,
-        content_type: content_type,
-        size: byte_size(data),
-        checksum: checksum,
-        metadata: opts[:metadata] || %{},
-        variants: %{},
-        status: "active",
-        uploaded_by: opts[:uploaded_by]
-      }
+         {:ok, backend} <- capture_current_backend(opts[:backend_id]),
+         attrs <- %{
+           tenant: tenant,
+           type: type,
+           filename: filename,
+           s3_key: generate_s3_key(tenant, type, filename, content_type),
+           content_type: content_type,
+           size: byte_size(data),
+           checksum: compute_checksum(data),
+           metadata:
+             Map.put(
+               opts[:metadata] || %{},
+               "upload_expires_at",
+               DateTime.to_iso8601(DateTime.add(DateTime.utc_now(), 3600, :second))
+             ),
+           variants: %{},
+           status: "processing",
+           uploaded_by: opts[:uploaded_by]
+         },
+         {:ok, file} <-
+           %StorageFile{} |> StorageFile.changeset(attrs) |> Catalog.update(backend: backend) do
+      case commit_upload(file, data, backend) do
+        {:ok, active} ->
+          if opts[:variants] != [], do: maybe_generate_variants(active)
+          {:ok, active}
 
-      case insert_storage_file(attrs, bucket, s3_key) do
-        {:ok, file} ->
-          if opts[:variants] != [] do
-            maybe_generate_variants(file)
-          end
-
-          {:ok, file}
-
-        {:error, changeset} ->
-          best_effort_delete_uploaded_object(bucket, s3_key)
-          {:error, changeset}
+        {:error, _} = error ->
+          error
       end
     end
+  end
+
+  defp commit_upload(file, data, backend) do
+    with_locked_file(
+      file.id,
+      fn
+        %StorageFile{status: "processing"} = current, ^backend ->
+          with true <- not upload_expired?(current),
+               :ok <- S3Client.put_object(backend, current.s3_key, data, current.content_type),
+               {:ok, active} <-
+                 current
+                 |> StorageFile.status_changeset(%{status: "active"})
+                 |> Catalog.update(backend: backend) do
+            {:ok, active}
+          else
+            false ->
+              {:error, :upload_integrity_failed}
+
+            {:error, _} = error ->
+              compensate_upload(current, backend)
+              error
+          end
+
+        _file, _backend ->
+          {:error, :invalid_upload_reservation}
+      end,
+      protect: false,
+      backend: backend
+    )
+  catch
+    kind, reason ->
+      stacktrace = __STACKTRACE__
+
+      try do
+        with_locked_file(file.id, &compensate_upload/2, backend: backend)
+      catch
+        _kind, _reason -> :ok
+      end
+
+      :erlang.raise(kind, reason, stacktrace)
+  end
+
+  defp compensate_upload(file, backend) do
+    _ = S3Client.delete_object(backend, file.s3_key)
+
+    _ =
+      file
+      |> StorageFile.status_changeset(%{status: "deleted"})
+      |> Catalog.update(backend: backend)
+
+    :ok
+  catch
+    _kind, _reason -> :ok
   end
 
   @doc """
   Gets a storage file by ID. Returns nil if not found or not active.
   """
   def get(id) do
-    Repo.get(StorageFile, id)
+    case Catalog.fetch(id) do
+      {:ok, file} -> file
+      {:error, _reason} -> nil
+    end
   end
 
   @doc """
   Gets an active storage file by ID. Returns nil for deleted/processing files.
   """
   def get_active(id) do
-    StorageFile
-    |> where([f], f.id == ^id and f.status == "active")
-    |> Repo.one()
+    case get(id) do
+      %StorageFile{status: "active"} = file -> file
+      _ -> nil
+    end
+  end
+
+  @doc "Updates managed metadata in S3 while retaining the object's stable identity."
+  def update_metadata(%StorageFile{} = file, attrs) do
+    with_locked_file(
+      file.id,
+      fn current, backend ->
+        current |> StorageFile.changeset(attrs) |> Catalog.update(backend: backend)
+      end,
+      protect: false,
+      backend_id: file.backend_id
+    )
   end
 
   @doc """
@@ -230,8 +350,9 @@ defmodule GSMLG.Storage do
   Returns `{:ok, binary}` or `{:error, reason}`.
   """
   def stream(file_or_id) do
-    with {:ok, file} <- resolve_file(file_or_id) do
-      S3Client.get_object(bucket(), file.s3_key)
+    with {:ok, file} <- resolve_file(file_or_id),
+         {:ok, backend} <- file_backend(file) do
+      S3Client.get_object(backend, file.s3_key)
     end
   end
 
@@ -243,8 +364,9 @@ defmodule GSMLG.Storage do
   def read_range(file_or_id, first, last) do
     with :ok <- validate_range(first, last),
          {:ok, file} <- resolve_range_file(file_or_id),
-         :ok <- validate_range_bounds(file, last) do
-      S3Client.get_object_range(bucket(), file.s3_key, first, last)
+         :ok <- validate_range_bounds(file, last),
+         {:ok, backend} <- file_backend(file) do
+      S3Client.get_object_range(backend, file.s3_key, first, last)
     end
   end
 
@@ -253,10 +375,12 @@ defmodule GSMLG.Storage do
 
   Returns `{:ok, binary}` or `{:error, reason}`.
   """
-  def stream_variant(%StorageFile{variants: variants}, variant_name) do
-    case Map.get(variants || %{}, variant_name) do
-      %{"s3_key" => s3_key} -> S3Client.get_object(bucket(), s3_key)
-      _ -> {:error, :variant_not_found}
+  def stream_variant(%StorageFile{variants: variants} = file, variant_name) do
+    with {:ok, backend} <- file_backend(file) do
+      case Map.get(variants || %{}, variant_name) do
+        %{"s3_key" => s3_key} -> S3Client.get_object(backend, s3_key)
+        _ -> {:error, :variant_not_found}
+      end
     end
   end
 
@@ -266,11 +390,15 @@ defmodule GSMLG.Storage do
   """
   def delete(file_or_id) do
     with {:ok, file} <- resolve_file(file_or_id) do
-      with_locked_file(file.id, fn current ->
-        current
-        |> StorageFile.status_changeset(%{status: "deleted"})
-        |> Repo.update()
-      end)
+      with_locked_file(
+        file.id,
+        fn current, backend ->
+          current
+          |> StorageFile.status_changeset(%{status: "deleted"})
+          |> Catalog.update(backend: backend)
+        end,
+        backend_id: file.backend_id
+      )
     end
   end
 
@@ -278,11 +406,85 @@ defmodule GSMLG.Storage do
   Permanently purges a soft-deleted file and all its variants from S3.
   Only works on files with status "deleted".
   """
-  def purge(%StorageFile{status: "deleted", id: id}) when is_binary(id) do
-    with_locked_file(id, &purge_current_file/1, purge: true)
+  def purge(%StorageFile{status: "deleted", id: id} = file) when is_binary(id) do
+    with_locked_file(id, &purge_current_file/2, purge: true, backend_id: file.backend_id)
   end
 
   def purge(_file), do: {:error, :not_deleted}
+
+  @doc "Deletes an exact browser object, retaining managed attachment and sync protections."
+  def delete_object(key, backend_id) do
+    with :ok <- validate_object_key(key),
+         {:ok, backend} <- capture_current_backend(backend_id),
+         {:ok, files} <- Catalog.list(backend: backend) do
+      case Enum.find(files, &owns_object?(&1, key)) do
+        nil ->
+          with :ok <- S3Client.delete_object(backend, key), do: {:ok, key}
+
+        file ->
+          with_locked_file(
+            file.id,
+            fn current, backend ->
+              delete_managed_object(current, key, backend)
+            end,
+            backend: backend
+          )
+      end
+    end
+  end
+
+  @doc "Creates a zero-byte folder marker on the browser snapshot's backend."
+  def create_object_folder(prefix, backend_id) when is_binary(prefix) and prefix != "" do
+    key = if String.ends_with?(prefix, "/"), do: prefix, else: prefix <> "/"
+
+    with :ok <- validate_object_key(key),
+         {:ok, backend} <- capture_current_backend(backend_id),
+         :ok <- S3Client.put_folder_marker(backend, key),
+         do: {:ok, key}
+  end
+
+  def create_object_folder(_prefix, _backend_id), do: {:error, :invalid_object_key}
+
+  defp delete_managed_object(%{s3_key: key} = file, key, backend) do
+    with {:ok, deleted} <-
+           file
+           |> StorageFile.status_changeset(%{status: "deleted"})
+           |> Catalog.update(backend: backend),
+         {:ok, _file} <- purge_current_file(deleted, backend),
+         do: {:ok, key}
+  end
+
+  defp delete_managed_object(file, key, backend) do
+    variants =
+      Map.reject(file.variants || %{}, fn {_name, variant} -> variant["s3_key"] == key end)
+
+    with true <- owns_object?(file, key),
+         :ok <- S3Client.delete_object(backend, key),
+         {:ok, _file} <-
+           file
+           |> StorageFile.variants_changeset(%{variants: variants})
+           |> Catalog.update(backend: backend) do
+      {:ok, key}
+    else
+      false -> {:error, :not_found}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp owns_object?(file, key),
+    do:
+      file.s3_key == key or
+        Enum.any?(file.variants || %{}, fn {_name, variant} -> variant["s3_key"] == key end)
+
+  defp validate_object_key(key) when is_binary(key) and key != "" do
+    cond do
+      not String.valid?(key) -> {:error, :invalid_object_key}
+      Catalog.internal_key?(key) -> {:error, :reserved_storage_key}
+      true -> :ok
+    end
+  end
+
+  defp validate_object_key(_key), do: {:error, :invalid_object_key}
 
   @doc """
   Lists files with filtering and pagination.
@@ -298,226 +500,156 @@ defmodule GSMLG.Storage do
   - `:page_size` - items per page (default: 20)
   """
   def list(opts \\ []) do
-    page = opts[:page] || 1
-    page_size = opts[:page_size] || 20
-    offset = (page - 1) * page_size
+    with {:ok, files} <- Catalog.list(status: opts[:status] || "active") do
+      files = filter_managed(files, opts) |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
+      page_size = max(1, opts[:page_size] || 20)
+      total = length(files)
+      pages = max(1, ceil(total / page_size))
+      page = max(1, opts[:page] || 1) |> min(pages)
 
-    query =
-      StorageFile
-      |> filter_by_tenant(opts[:tenant])
-      |> filter_by_type(opts[:type])
-      |> filter_by_status(opts[:status] || "active")
-      |> filter_by_search(opts[:search])
-      |> filter_by_year(opts[:year])
-      |> filter_by_month(opts[:month])
-      |> order_by([f], desc: f.inserted_at)
-
-    total = Repo.aggregate(query, :count)
-    files = query |> limit(^page_size) |> offset(^offset) |> Repo.all()
-
-    %{
-      files: files,
-      total: total,
-      page: page,
-      page_size: page_size,
-      total_pages: max(1, ceil(total / page_size))
-    }
+      %{
+        files: Enum.slice(files, (page - 1) * page_size, page_size),
+        total: total,
+        page: page,
+        page_size: page_size,
+        total_pages: pages
+      }
+    end
   end
 
-  @doc """
-  Returns a tree of tenants → types → year/month nodes with file counts.
-  Used to populate the file browser sidebar.
-  """
+  @doc "Managed folders and dates, derived from S3 manifests and directory markers."
   def folder_tree do
-    # File-derived groups: {tenant, type, year, month, count}
-    file_groups =
-      StorageFile
-      |> where([f], f.status == "active")
-      |> group_by([f], [
-        f.tenant,
-        f.type,
-        fragment("date_part('year', ?)", f.inserted_at),
-        fragment("date_part('month', ?)", f.inserted_at)
-      ])
-      |> select([f], {
-        f.tenant,
-        f.type,
-        fragment("date_part('year', ?)", f.inserted_at),
-        fragment("date_part('month', ?)", f.inserted_at),
-        count(f.id)
-      })
-      |> order_by([f], [
-        f.tenant,
-        f.type,
-        desc: fragment("date_part('year', ?)", f.inserted_at),
-        desc: fragment("date_part('month', ?)", f.inserted_at)
-      ])
-      |> Repo.all()
+    with {:ok, backend} <- S3Client.capture_backend(),
+         {:ok, files} <- Catalog.list(status: "active", backend: backend),
+         {:ok, objects} <- S3Client.list_objects(backend) do
+      markers =
+        objects
+        |> Enum.filter(& &1.folder?)
+        |> Enum.map(fn object -> String.split(String.trim_trailing(object.key, "/"), "/") end)
+        |> Enum.filter(&(length(&1) in [1, 2]))
 
-    # Explicit folder records (may be empty of files)
-    explicit_folders = Repo.all(StorageFolder)
+      tenants =
+        (Enum.map(files, & &1.tenant) ++ Enum.map(markers, &hd/1)) |> Enum.uniq() |> Enum.sort()
 
-    # Union of all {tenant, type} pairs from both sources
-    file_pairs =
-      file_groups
-      |> Enum.map(fn {t, ty, _, _, _} -> {t, ty} end)
-      |> Enum.uniq()
+      Enum.map(tenants, fn tenant ->
+        scoped = Enum.filter(files, &(&1.tenant == tenant))
 
-    folder_pairs =
-      explicit_folders
-      |> Enum.reject(fn f -> is_nil(f.type) end)
-      |> Enum.map(fn f -> {f.tenant, f.type} end)
+        types =
+          (Enum.map(scoped, & &1.type) ++
+             Enum.flat_map(markers, fn
+               [^tenant, type] -> [type]
+               _ -> []
+             end))
+          |> Enum.uniq()
+          |> Enum.sort()
 
-    explicit_tenants =
-      explicit_folders
-      |> Enum.map(& &1.tenant)
-      |> Enum.uniq()
+        %{
+          tenant: tenant,
+          types:
+            Enum.map(types, fn type ->
+              months =
+                scoped
+                |> Enum.filter(&(&1.type == type))
+                |> Enum.group_by(&{&1.inserted_at.year, &1.inserted_at.month})
+                |> Enum.map(fn {{year, month}, fs} ->
+                  %{year: year, month: month, count: length(fs)}
+                end)
+                |> Enum.sort_by(&{&1.year, &1.month}, :desc)
 
-    all_tenants =
-      (Enum.map(file_pairs, fn {t, _} -> t end) ++ explicit_tenants)
-      |> Enum.uniq()
-      |> Enum.sort()
-
-    Enum.map(all_tenants, fn tenant ->
-      file_types =
-        file_pairs |> Enum.filter(fn {t, _} -> t == tenant end) |> Enum.map(fn {_, ty} -> ty end)
-
-      folder_types =
-        folder_pairs
-        |> Enum.filter(fn {t, _} -> t == tenant end)
-        |> Enum.map(fn {_, ty} -> ty end)
-
-      tenant_types =
-        (file_types ++ folder_types)
-        |> Enum.reject(&is_nil/1)
-        |> Enum.uniq()
-        |> Enum.sort()
-
-      types =
-        Enum.map(tenant_types, fn type ->
-          months =
-            file_groups
-            |> Enum.filter(fn {t, ty, _, _, _} -> t == tenant and ty == type end)
-            |> Enum.map(fn {_, _, year, month, count} ->
-              %{year: trunc(year), month: trunc(month), count: count}
+              %{type: type, months: months}
             end)
-
-          %{type: type, months: months}
-        end)
-
-      %{tenant: tenant, types: types}
-    end)
+        }
+      end)
+    end
   end
 
-  @doc """
-  Creates an explicit storage folder record (tenant + optional type).
-  The folder will appear in the file browser tree even before any files are uploaded.
-  """
+  @doc "Creates an empty S3 directory marker, without writing a folder table."
   def create_folder(tenant, type \\ nil) do
-    %StorageFolder{}
-    |> StorageFolder.changeset(%{tenant: tenant, type: type})
-    |> Repo.insert()
+    with {:ok, folder} <-
+           %StorageFolder{}
+           |> StorageFolder.changeset(%{tenant: tenant, type: type})
+           |> Ecto.Changeset.apply_action(:insert),
+         {:ok, backend} <- S3Client.capture_backend(),
+         key <- Enum.join(Enum.reject([tenant, type], &is_nil/1), "/") <> "/",
+         :ok <- S3Client.put_folder_marker(backend, key) do
+      {:ok, folder}
+    end
   end
 
-  @doc """
-  Deletes a folder and all files within it.
-
-  - `delete_folder(tenant)` — soft-deletes all files for that tenant and removes all
-    folder records under that tenant.
-  - `delete_folder(tenant, type)` — soft-deletes all files for tenant+type and removes
-    that folder record.
-  - `delete_folder(tenant, type, year, month)` — soft-deletes only those files (no
-    folder record removed since year/month nodes are file-derived).
-  """
+  @doc "Soft-deletes managed objects in a folder, preserving domain reference protection."
   def delete_folder(tenant, type \\ nil, year \\ nil, month \\ nil)
 
-  def delete_folder(_tenant, _type, nil, month) when not is_nil(month) do
-    {:error, :month_requires_year}
-  end
+  def delete_folder(_tenant, _type, nil, month) when not is_nil(month),
+    do: {:error, :month_requires_year}
 
   def delete_folder(tenant, type, year, month) do
-    Repo.transaction(fn ->
-      # Soft-delete matching files
-      query =
-        StorageFile
-        |> where([f], f.tenant == ^tenant and f.status == "active")
-        |> maybe_filter_type(type)
-        |> maybe_filter_year(year)
-        |> maybe_filter_month(month)
+    with {:ok, backend} <- S3Client.capture_backend(),
+         {:ok, files} <- Catalog.list(status: "active", backend: backend) do
+      files =
+        filter_managed(files, tenant: tenant, type: type, year: year, month: month)
+        |> Enum.sort_by(& &1.id)
 
-      tables = reference_tables()
-      ids = Repo.all(from(file in query, select: file.id, order_by: file.id))
+      Repo.transaction(fn ->
+        tables = reference_tables()
 
-      Enum.each(ids, fn id ->
-        case lock_file(id) do
-          nil -> :ok
-          file -> ensure_unreferenced!(file, tables)
+        current_files =
+          Enum.map(files, fn file ->
+            current = lock_file(file.id, backend)
+            ensure_unreferenced!(current, tables)
+            current
+          end)
+
+        Enum.each(current_files, fn file ->
+          case file
+               |> StorageFile.status_changeset(%{status: "deleted"})
+               |> Catalog.update(backend: backend) do
+            {:ok, _} -> :ok
+            {:error, reason} -> Repo.rollback(reason)
+          end
+        end)
+
+        if is_nil(year) do
+          prefix = Enum.join(Enum.reject([tenant, type], &is_nil/1), "/") <> "/"
+
+          case S3Client.delete_object(backend, prefix) do
+            :ok -> :ok
+            {:error, reason} -> Repo.rollback(reason)
+          end
         end
+
+        :ok
       end)
-
-      Repo.update_all(from(file in query, where: file.id in ^ids), set: [status: "deleted"])
-
-      # Remove explicit folder records
-      cond do
-        not is_nil(year) ->
-          # Year/month nodes are file-derived — no folder record to remove
-          :ok
-
-        not is_nil(type) ->
-          Repo.delete_all(
-            from(f in StorageFolder, where: f.tenant == ^tenant and f.type == ^type)
-          )
-
-        true ->
-          # Tenant-level delete: remove all folder records for this tenant
-          Repo.delete_all(from(f in StorageFolder, where: f.tenant == ^tenant))
-      end
-
-      :ok
-    end)
+    end
   end
 
-  defp maybe_filter_type(query, nil), do: query
-  defp maybe_filter_type(query, type), do: where(query, [f], f.type == ^type)
-
-  defp maybe_filter_year(query, nil), do: query
-
-  defp maybe_filter_year(query, year) when is_integer(year) do
-    where(query, [f], fragment("date_part('year', ?)", f.inserted_at) == ^year)
-  end
-
-  defp maybe_filter_month(query, nil), do: query
-
-  defp maybe_filter_month(query, month) when is_integer(month) do
-    where(query, [f], fragment("date_part('month', ?)", f.inserted_at) == ^month)
-  end
-
-  @doc """
-  Returns summary statistics for stored files.
-  """
+  @doc "Summary statistics for managed S3 objects."
   def stats(tenant \\ nil) do
-    query =
-      StorageFile
-      |> where([f], f.status == "active")
-      |> filter_by_tenant(tenant)
+    with {:ok, files} <- Catalog.list(status: "active") do
+      files = filter_managed(files, tenant: tenant)
 
-    total_files = Repo.aggregate(query, :count)
-    total_size = Repo.aggregate(query, :sum, :size) || 0
+      %{
+        total_files: length(files),
+        total_size: Enum.sum(Enum.map(files, & &1.size)),
+        by_type:
+          files
+          |> Enum.group_by(& &1.type)
+          |> Enum.sort_by(&elem(&1, 0))
+          |> Enum.map(fn {type, fs} ->
+            %{type: type, count: length(fs), size: Enum.sum(Enum.map(fs, & &1.size))}
+          end)
+      }
+    end
+  end
 
-    type_breakdown =
-      query
-      |> group_by([f], f.type)
-      |> select([f], {f.type, count(f.id), sum(f.size)})
-      |> Repo.all()
-      |> Enum.map(fn {type, count, size} ->
-        %{type: type, count: count, size: size || 0}
-      end)
-
-    %{
-      total_files: total_files,
-      total_size: total_size,
-      by_type: type_breakdown
-    }
+  defp filter_managed(files, opts) do
+    Enum.filter(files, fn file ->
+      (is_nil(opts[:tenant]) or file.tenant == opts[:tenant]) and
+        (is_nil(opts[:type]) or file.type == opts[:type]) and
+        (is_nil(opts[:year]) or file.inserted_at.year == opts[:year]) and
+        (is_nil(opts[:month]) or file.inserted_at.month == opts[:month]) and
+        (opts[:search] in [nil, ""] or
+           String.contains?(String.downcase(file.filename), String.downcase(opts[:search])))
+    end)
   end
 
   @doc """
@@ -537,38 +669,53 @@ defmodule GSMLG.Storage do
 
   # --- Private ---
 
-  defp with_locked_file(id, operation, opts \\ []) do
-    Repo.transaction(fn ->
-      file = lock_file(id) || Repo.rollback(:not_found)
+  defp with_locked_file(id, operation, opts) do
+    with {:ok, backend} <- locked_backend(opts) do
+      Repo.transaction(fn ->
+        file = lock_file(id, backend)
 
-      # Re-read the status before checking references, even for stale caller structs.
-      if opts[:purge] do
-        case ensure_purgeable(file) do
-          :ok -> :ok
-          {:error, reason} -> Repo.rollback(reason)
+        if opts[:backend_id] && file.backend_id != opts[:backend_id],
+          do: Repo.rollback(:backend_changed)
+
+        # Re-read the status before checking references, even for stale caller structs.
+        if opts[:purge] do
+          case ensure_purgeable(file) do
+            :ok -> :ok
+            {:error, reason} -> Repo.rollback(reason)
+          end
         end
+
+        if Keyword.get(opts, :protect, true), do: ensure_unreferenced!(file, reference_tables())
+
+        # A retryable S3 error must not roll back an enclosing cleanup transaction's
+        # soft-delete. Preserve the deleted state so later attempts can resume.
+        operation.(file, backend)
+      end)
+      |> case do
+        {:ok, result} -> result
+        {:error, _reason} = error -> error
       end
-
-      ensure_unreferenced!(file, reference_tables())
-
-      # A retryable S3 error must not roll back an enclosing cleanup transaction's
-      # soft-delete. Preserve the deleted state so later attempts can resume.
-      operation.(file)
-    end)
-    |> case do
-      {:ok, result} -> result
-      {:error, _reason} = error -> error
     end
   end
 
-  defp lock_file(id) do
+  defp locked_backend(opts) do
+    case Keyword.fetch(opts, :backend) do
+      {:ok, backend} -> {:ok, backend}
+      :error -> capture_current_backend(opts[:backend_id])
+    end
+  end
+
+  defp lock_file(id, backend) do
     id = Ecto.UUID.cast!(id)
     # Shared with GaoNote Sync.Objects: references cannot appear during deletion.
     Repo.query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
       "gao-note-sync:object:" <> id
     ])
 
-    Repo.one(from(file in StorageFile, where: file.id == ^id, lock: "FOR UPDATE"))
+    case Catalog.fetch(id, backend: backend) do
+      {:ok, file} -> file
+      {:error, reason} -> Repo.rollback(reason)
+    end
   end
 
   defp reference_tables do
@@ -619,37 +766,6 @@ defmodule GSMLG.Storage do
     :ok
   end
 
-  defp insert_storage_file(attrs, bucket, s3_key) do
-    try do
-      repo = Application.get_env(:gsmlg_storage, :repo, Repo)
-
-      %StorageFile{}
-      |> StorageFile.changeset(attrs)
-      |> repo.insert()
-    catch
-      kind, reason ->
-        stacktrace = __STACKTRACE__
-        best_effort_delete_uploaded_object(bucket, s3_key)
-        :erlang.raise(kind, reason, stacktrace)
-    end
-  end
-
-  defp best_effort_delete_uploaded_object(bucket, s3_key) do
-    try do
-      case S3Client.delete_object(bucket, s3_key) do
-        :ok -> :ok
-        {:error, _reason} -> log_upload_compensation_failure()
-      end
-    catch
-      _kind, _reason -> log_upload_compensation_failure()
-    end
-  end
-
-  defp log_upload_compensation_failure do
-    Logger.warning("S3 cleanup failed after storage row insertion failure")
-    :ok
-  end
-
   defp validate_range(first, last)
        when is_integer(first) and is_integer(last) and first >= 0 and last >= first,
        do: :ok
@@ -665,12 +781,10 @@ defmodule GSMLG.Storage do
   defp ensure_purgeable(%StorageFile{status: "deleted"}), do: :ok
   defp ensure_purgeable(%StorageFile{}), do: {:error, :not_deleted}
 
-  defp purge_current_file(file) do
-    bucket = bucket()
-
-    with :ok <- delete_variant_objects(bucket, file.variants || %{}),
-         :ok <- S3Client.delete_object(bucket, file.s3_key),
-         {:ok, deleted} <- Repo.delete(file) do
+  defp purge_current_file(file, backend) do
+    with :ok <- delete_variant_objects(backend, file.variants || %{}),
+         :ok <- S3Client.delete_object(backend, file.s3_key),
+         {:ok, deleted} <- Catalog.delete(file, backend: backend) do
       {:ok, deleted}
     end
   end
@@ -805,9 +919,24 @@ defmodule GSMLG.Storage do
   end
 
   defp do_generate_variants(%StorageFile{} = file) do
+    with_locked_file(
+      file.id,
+      fn
+        %StorageFile{status: "active"} = current, backend ->
+          generate_current_variants(current, backend)
+
+        _file, _backend ->
+          {:error, :not_active}
+      end,
+      protect: false,
+      backend_id: file.backend_id
+    )
+  end
+
+  defp generate_current_variants(file, backend) do
     variant_defs = variant_definitions(file.type)
 
-    case S3Client.get_object(bucket(), file.s3_key) do
+    case S3Client.get_object(backend, file.s3_key) do
       {:ok, original_data} ->
         variants =
           Enum.reduce(variant_defs, %{}, fn {name, opts}, acc ->
@@ -819,7 +948,8 @@ defmodule GSMLG.Storage do
                 variant_key = String.replace(file.s3_key, ~r/\.[^.]+$/, "_#{name}.#{variant_ext}")
                 variant_ct = content_type_for_format(opts[:format], file.content_type)
 
-                case S3Client.put_object(bucket(), variant_key, processed_data, variant_ct) do
+                S3Client.put_object(backend, variant_key, processed_data, variant_ct)
+                |> case do
                   :ok ->
                     Map.put(acc, to_string(name), %{
                       "s3_key" => variant_key,
@@ -849,7 +979,7 @@ defmodule GSMLG.Storage do
           |> StorageFile.variants_changeset(%{
             variants: Map.merge(file.variants || %{}, variants)
           })
-          |> Repo.update()
+          |> Catalog.update(backend: backend)
         end
 
       {:error, reason} ->
@@ -861,10 +991,22 @@ defmodule GSMLG.Storage do
     end
   end
 
+  defp file_backend(file) do
+    capture_current_backend(file.backend_id)
+  end
+
+  defp capture_current_backend(expected_id) do
+    with {:ok, backend} <- S3Client.capture_backend() do
+      if is_nil(expected_id) or expected_id == backend.id,
+        do: {:ok, backend},
+        else: {:error, :backend_changed}
+    end
+  end
+
   defp resolve_file(%StorageFile{} = file), do: {:ok, file}
 
   defp resolve_file(id) when is_binary(id) do
-    case Repo.get(StorageFile, id) do
+    case get(id) do
       nil -> {:error, :not_found}
       file -> {:ok, file}
     end
@@ -875,7 +1017,7 @@ defmodule GSMLG.Storage do
   defp resolve_range_file(id) when is_binary(id) do
     case Ecto.UUID.cast(id) do
       {:ok, id} ->
-        case Repo.get(StorageFile, id) do
+        case get(id) do
           nil -> {:error, :not_found}
           file -> {:ok, file}
         end
@@ -886,41 +1028,6 @@ defmodule GSMLG.Storage do
   end
 
   defp resolve_range_file(_file_or_id), do: {:error, :invalid_file}
-
-  defp filter_by_tenant(query, nil), do: query
-  defp filter_by_tenant(query, tenant), do: where(query, [f], f.tenant == ^tenant)
-
-  defp filter_by_type(query, nil), do: query
-  defp filter_by_type(query, type), do: where(query, [f], f.type == ^type)
-
-  defp filter_by_status(query, nil), do: query
-  defp filter_by_status(query, status), do: where(query, [f], f.status == ^status)
-
-  defp filter_by_year(query, nil), do: query
-
-  defp filter_by_year(query, year) when is_integer(year) do
-    where(query, [f], fragment("date_part('year', ?)", f.inserted_at) == ^year)
-  end
-
-  defp filter_by_month(query, nil), do: query
-
-  defp filter_by_month(query, month) when is_integer(month) do
-    where(query, [f], fragment("date_part('month', ?)", f.inserted_at) == ^month)
-  end
-
-  defp filter_by_search(query, nil), do: query
-  defp filter_by_search(query, ""), do: query
-
-  defp filter_by_search(query, search) do
-    escaped =
-      search
-      |> String.replace("\\", "\\\\")
-      |> String.replace("%", "\\%")
-      |> String.replace("_", "\\_")
-
-    pattern = "%#{escaped}%"
-    where(query, [f], ilike(f.filename, ^pattern))
-  end
 
   # --- Public config API ---
 
@@ -945,6 +1052,12 @@ defmodule GSMLG.Storage do
     |> case do
       {:ok, saved} ->
         apply_config(saved)
+
+        Phoenix.PubSub.broadcast(GSMLG.PubSub, "storage:config", {
+          :storage_backend_changed,
+          GSMLG.Storage.Inventory.current_backend_id()
+        })
+
         {:ok, saved}
 
       {:error, changeset} ->
@@ -1076,10 +1189,6 @@ defmodule GSMLG.Storage do
 
   defp storage_client,
     do: Application.get_env(:gsmlg_storage, :upload_s3_client, S3Client)
-
-  defp bucket do
-    Application.get_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
-  end
 
   defp max_file_size do
     Application.get_env(:gsmlg_storage, :max_file_size, 5 * 1024 * 1024 * 1024)

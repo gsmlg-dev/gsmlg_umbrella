@@ -3,148 +3,146 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
 
   import GSMLG.AdminWeb.StorageLive.Helpers
 
+  alias GSMLG.SessionProcess.{StorageBrowser, StorageReducer}
+  alias GSMLG.Accounts.User
   alias GSMLG.Storage
-
-  @max_upload_entries 10
-  @max_upload_size 5 * 1024 * 1024 * 1024
+  alias GSMLG.Storage.Inventory
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok,
-     socket
-     |> assign(active_menu: "storage_files")
-     |> assign(
-       tenant_filter: nil,
-       type_filter: nil,
-       search: nil,
-       page: 1,
-       year_filter: nil,
-       month_filter: nil
-     )
-     |> assign(stats: nil, files_result: nil, tree: nil)
-     |> assign(folder_modal: nil, folder_form: nil)
-     |> assign(show_upload: false, upload_tenant: "", upload_type: "attachment")
-     |> allow_upload(:files,
-       accept: :any,
-       max_entries: @max_upload_entries,
-       max_file_size: @max_upload_size,
-       auto_upload: false
-     )
-     |> stream(:files, [])}
-  end
-
-  @impl true
-  def handle_params(params, _url, socket) do
-    page = parse_int(params["page"], 1)
-    tenant = params["tenant"]
-    type = params["type"]
-    search = params["search"]
-    year = parse_int(params["year"], nil)
-    month = parse_int(params["month"], nil)
-
+  def mount(_params, %{"session_id" => session_id}, %{assigns: %{current_user: %User{}}} = socket) do
     socket =
       socket
       |> assign(
-        page: page,
-        tenant_filter: tenant,
-        type_filter: type,
-        search: search,
-        year_filter: year,
-        month_filter: month
+        active_menu: "storage_files",
+        page_title: "Storage - File Browser",
+        session_id: session_id,
+        prefix: "",
+        search: "",
+        page: 1,
+        folders: [],
+        stats: nil,
+        files_result: nil,
+        bucket: nil,
+        loading: false,
+        error: nil,
+        refreshed_at: nil,
+        backend_id: nil,
+        show_upload: false,
+        upload_tenant: "",
+        upload_type: "attachment"
       )
-      |> assign(page_title: "Storage - File Browser")
-      |> start_async(:load_files, fn ->
-        files =
-          Storage.list(
-            tenant: tenant,
-            type: type,
-            search: search,
-            page: page,
-            year: year,
-            month: month
-          )
+      |> allow_upload(:files,
+        accept: :any,
+        max_entries: 10,
+        max_file_size: 5 * 1024 * 1024 * 1024
+      )
+      |> stream_configure(:objects, dom_id: &object_dom_id/1)
+      |> stream(:objects, [])
 
-        stats = Storage.stats(tenant)
-        tree = Storage.folder_tree()
-        {files, stats, tree}
-      end)
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(GSMLG.PubSub, "storage:config")
+
+      with {:ok, _ref} <- StorageBrowser.subscribe(session_id),
+           :ok <- StorageBrowser.refresh(session_id) do
+        {:ok, project_snapshot(socket, StorageBrowser.snapshot(session_id))}
+      else
+        {:error, _reason} -> {:ok, session_error(socket)}
+      end
+    else
+      {:ok, project_snapshot(socket, StorageBrowser.snapshot(session_id))}
+    end
+  end
+
+  def mount(_params, _session, socket), do: {:ok, redirect(socket, to: "/sign_in")}
+
+  @impl true
+  def handle_params(params, _url, socket) do
+    socket =
+      socket
+      |> assign(
+        prefix: params["prefix"] || "",
+        search: params["search"] || "",
+        page: parse_page(params["page"])
+      )
+      |> project_snapshot(StorageBrowser.snapshot(socket.assigns.session_id))
 
     {:noreply, socket}
   end
 
   @impl true
-  def handle_async(:load_files, {:ok, {files_result, stats, tree}}, socket) do
-    {:noreply,
-     socket
-     |> assign(files_result: files_result, stats: stats, tree: tree)
-     |> stream(:files, files_result.files, reset: true)}
-  end
-
-  def handle_async(:load_files, {:exit, _reason}, socket) do
-    {:noreply,
-     assign(socket,
-       files_result: %{files: [], total: 0, page: 1, page_size: 20, total_pages: 0},
-       stats: nil,
-       tree: []
-     )}
-  end
-
-  @impl true
-  def handle_event("search", %{"search" => search}, socket) do
-    params = build_filter_params(socket.assigns, search: search, page: 1)
-    {:noreply, push_patch(socket, to: ~p"/storage?#{params}")}
-  end
-
-  def handle_event("filter", %{"tenant" => tenant, "type" => type}, socket) do
-    params = build_filter_params(socket.assigns, tenant: tenant, type: type, page: 1)
-    {:noreply, push_patch(socket, to: ~p"/storage?#{params}")}
-  end
-
-  def handle_event("delete", %{"id" => id}, socket) do
-    case Storage.delete(id) do
-      {:ok, _} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "File deleted")
-         |> push_patch(to: ~p"/storage?#{build_filter_params(socket.assigns, [])}")}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to delete file")}
+  def handle_info({:storage_snapshot, snapshot}, socket) do
+    if snapshot.backend_id == Inventory.current_backend_id() do
+      {:noreply, project_snapshot(socket, snapshot)}
+    else
+      {:noreply, refresh(socket)}
     end
   end
 
-  # --- Upload events ---
+  def handle_info({:storage_backend_changed, _id}, socket),
+    do: {:noreply, refresh(socket)}
 
-  def handle_event("toggle_upload", _params, socket) do
-    tenant = socket.assigns.tenant_filter || socket.assigns.upload_tenant
-    type = socket.assigns.type_filter || socket.assigns.upload_type
+  @impl true
+  def handle_event(_event, _params, %{assigns: %{current_user: user}} = socket)
+      when not is_struct(user, User),
+      do: {:noreply, redirect(socket, to: "/sign_in")}
 
+  def handle_event("refresh", _params, %{assigns: %{current_user: %User{}}} = socket),
+    do: {:noreply, refresh(socket)}
+
+  def handle_event("refresh", _params, socket),
+    do: {:noreply, redirect(socket, to: "/sign_in")}
+
+  def handle_event("search", %{"search" => search}, socket) do
     {:noreply,
-     assign(socket,
-       show_upload: !socket.assigns.show_upload,
-       upload_tenant: tenant || "",
-       upload_type: type || "attachment"
+     push_patch(socket,
+       to: ~p"/storage?#{filter_params(socket.assigns, search: search, page: 1)}"
      )}
   end
 
-  def handle_event("validate_upload", %{"tenant" => tenant, "type" => type}, socket) do
-    {:noreply, assign(socket, upload_tenant: tenant, upload_type: type)}
-  end
-
-  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :files, ref)}
-  end
-
-  def handle_event("save_upload", %{"tenant" => tenant, "type" => type}, socket) do
-    tenant = String.trim(tenant)
-    type = String.trim(type)
-
-    if tenant == "" do
-      {:noreply, put_flash(socket, :error, "Tenant is required")}
+  def handle_event("delete", %{"key" => encoded, "backend" => expected}, socket) do
+    with :ok <- check_backend(socket, expected),
+         {:ok, key} <- Inventory.decode_key(encoded),
+         {:ok, _} <- Storage.delete_object(key, expected) do
+      {:noreply, socket |> put_flash(:info, "File deleted") |> refresh()}
     else
-      uploaded_files =
+      {:error, reason} -> {:noreply, put_flash(socket, :error, mutation_error(reason))}
+    end
+  end
+
+  def handle_event("create_folder", %{"folder" => folder, "backend" => expected}, socket) do
+    with :ok <- check_backend(socket, expected),
+         {:ok, _} <- Storage.create_object_folder(socket.assigns.prefix <> folder, expected) do
+      {:noreply, socket |> put_flash(:info, "Folder created") |> refresh()}
+    else
+      {:error, reason} -> {:noreply, put_flash(socket, :error, mutation_error(reason))}
+    end
+  end
+
+  def handle_event("toggle_upload", _params, socket),
+    do: {:noreply, assign(socket, show_upload: !socket.assigns.show_upload)}
+
+  def handle_event("validate_upload", %{"tenant" => tenant, "type" => type}, socket),
+    do: {:noreply, assign(socket, upload_tenant: tenant, upload_type: type)}
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket),
+    do: {:noreply, cancel_upload(socket, :files, ref)}
+
+  def handle_event(
+        "save_upload",
+        %{"tenant" => tenant, "type" => type, "backend" => expected},
+        socket
+      ) do
+    with :ok <- check_backend(socket, expected) do
+      results =
         consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
-          case Storage.upload(path, tenant, type,
+          input = %Plug.Upload{
+            path: path,
+            filename: entry.client_name,
+            content_type: entry.client_type
+          }
+
+          case Storage.upload(input, String.trim(tenant), String.trim(type),
+                 backend_id: expected,
                  uploaded_by: "admin",
                  metadata: %{original_name: entry.client_name}
                ) do
@@ -153,107 +151,97 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
           end
         end)
 
-      success_count = Enum.count(uploaded_files, fn f -> match?(%{id: _}, f) end)
+      count = Enum.count(results, &match?(%GSMLG.Storage.StorageFile{}, &1))
 
-      socket =
-        if success_count > 0 do
-          socket
-          |> put_flash(:info, "#{success_count} file(s) uploaded")
-          |> assign(show_upload: false)
-          |> push_patch(to: ~p"/storage?#{build_filter_params(socket.assigns, [])}")
-        else
-          put_flash(socket, :error, "Upload failed")
-        end
-
-      {:noreply, socket}
-    end
-  end
-
-  # --- Folder modal events ---
-
-  def handle_event("show_create_folder_modal", %{"level" => "root"}, socket) do
-    {:noreply, assign(socket, folder_modal: :root, folder_form: %{tenant: "", type: ""})}
-  end
-
-  def handle_event("show_create_folder_modal", %{"level" => "tenant", "tenant" => tenant}, socket) do
-    {:noreply, assign(socket, folder_modal: :tenant, folder_form: %{tenant: tenant, type: ""})}
-  end
-
-  def handle_event("close_folder_modal", _params, socket) do
-    {:noreply, assign(socket, folder_modal: nil, folder_form: nil)}
-  end
-
-  def handle_event("create_folder", %{"tenant" => tenant, "type" => type}, socket) do
-    tenant = String.trim(tenant)
-    type = if String.trim(type) == "", do: nil, else: String.trim(type)
-
-    case Storage.create_folder(tenant, type) do
-      {:ok, _} ->
+      if count > 0 do
         {:noreply,
          socket
-         |> assign(folder_modal: nil, folder_form: nil)
-         |> put_flash(:info, "Folder created")
-         |> push_patch(to: ~p"/storage?#{build_filter_params(socket.assigns, [])}")}
-
-      {:error, changeset} ->
-        errors = changeset.errors
-        error_msg = Enum.map_join(errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
-
+         |> assign(show_upload: false)
+         |> put_flash(:info, "#{count} file(s) uploaded")
+         |> refresh()}
+      else
         {:noreply,
-         assign(socket, folder_form: %{tenant: tenant, type: type || "", error: error_msg})}
+         put_flash(
+           socket,
+           :error,
+           "Upload failed. Check the tenant and file type, then try again."
+         )}
+      end
+    else
+      {:error, reason} -> {:noreply, put_flash(socket, :error, mutation_error(reason))}
     end
   end
 
-  def handle_event(
-        "delete_folder",
-        %{"tenant" => tenant} = params,
-        socket
-      ) do
-    type = params["type"]
-    year = parse_int(params["year"], nil)
-    month = parse_int(params["month"], nil)
+  def handle_event(_event, _params, socket),
+    do: {:noreply, put_flash(socket, :error, "Refresh the listing before changing files.")}
 
-    case Storage.delete_folder(tenant, type, year, month) do
-      {:ok, _} ->
-        nav_params =
-          case {type, year} do
-            {nil, _} -> %{}
-            {_, nil} -> %{tenant: tenant}
-            _ -> %{tenant: tenant, type: type}
-          end
+  defp check_backend(socket, expected) do
+    if is_binary(expected) and expected == socket.assigns.backend_id and
+         expected == Inventory.current_backend_id(),
+       do: :ok,
+       else: {:error, :backend_changed}
+  end
 
-        {:noreply,
-         socket
-         |> put_flash(:info, "Folder deleted")
-         |> push_patch(to: ~p"/storage?#{nav_params}")}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to delete folder")}
+  defp refresh(socket) do
+    case StorageBrowser.refresh(socket.assigns.session_id) do
+      :ok -> project_snapshot(socket, StorageBrowser.snapshot(socket.assigns.session_id))
+      {:error, _reason} -> session_error(socket)
     end
   end
 
-  defp build_filter_params(assigns, overrides) do
+  defp project_snapshot(socket, {:error, _reason}), do: session_error(socket)
+
+  defp project_snapshot(socket, snapshot) do
+    snapshot =
+      if snapshot.backend_id == Inventory.current_backend_id(),
+        do: snapshot,
+        else: StorageReducer.init_state()
+
+    result =
+      Inventory.project(snapshot.objects,
+        prefix: socket.assigns.prefix,
+        search: socket.assigns.search,
+        page: socket.assigns.page
+      )
+
+    socket
+    |> assign(
+      files_result: Map.drop(result, [:objects, :folders, :stats]),
+      folders: result.folders,
+      stats: result.stats,
+      page: result.page,
+      bucket: snapshot.bucket,
+      backend_id: snapshot.backend_id,
+      loading: snapshot.loading,
+      error: snapshot.error,
+      refreshed_at: snapshot.refreshed_at
+    )
+    |> stream(:objects, result.objects, reset: true)
+  end
+
+  defp session_error(socket),
+    do: assign(socket, loading: false, error: :session_not_found)
+
+  defp filter_params(assigns, overrides) do
     %{
-      tenant: Keyword.get(overrides, :tenant, assigns.tenant_filter),
-      type: Keyword.get(overrides, :type, assigns.type_filter),
+      prefix: Keyword.get(overrides, :prefix, assigns.prefix),
       search: Keyword.get(overrides, :search, assigns.search),
-      year: Keyword.get(overrides, :year, assigns.year_filter),
-      month: Keyword.get(overrides, :month, assigns.month_filter),
       page: Keyword.get(overrides, :page, assigns.page)
     }
     |> Enum.reject(fn
       {:page, 1} -> true
-      {_k, v} -> is_nil(v) or v == ""
+      {_key, value} -> value in [nil, ""]
     end)
   end
 
-  defp parse_int(nil, default), do: default
-  defp parse_int("", default), do: default
+  defp object_dom_id(object), do: "s3-object-" <> Inventory.encode_key(object.key)
 
-  defp parse_int(str, default) do
-    case Integer.parse(str) do
-      {n, ""} -> n
-      _ -> default
+  defp parse_page(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {page, ""} when page > 0 -> page
+      _ -> 1
     end
   end
+
+  defp parse_page(_value), do: 1
 end

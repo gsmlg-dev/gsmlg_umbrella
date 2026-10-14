@@ -1,6 +1,11 @@
 defmodule GSMLG.GaoNote.MCPTest do
   use GSMLG.GaoNote.DataCase, async: false
 
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   defmodule S3Stub do
     use Plug.Router
 
@@ -77,7 +82,6 @@ defmodule GSMLG.GaoNote.MCPTest do
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
-    Repo.delete_all(StorageFile)
 
     original = Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     s3_stub = start_supervised!({Bandit, plug: S3Stub, port: 0, startup_log: false})
@@ -1063,7 +1067,7 @@ defmodule GSMLG.GaoNote.MCPTest do
         status: "active",
         uploaded_by: "fixture"
       })
-      |> Repo.insert!()
+      |> GSMLG.Storage.TestCatalogClient.insert_file!()
 
     attachment =
       %Attachment{}
@@ -1077,7 +1081,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       })
       |> Repo.insert!()
 
-    Repo.preload(attachment, :storage_file)
+    Attachment.load_storage_file(attachment)
   end
 
   defp unique_title(prefix) do

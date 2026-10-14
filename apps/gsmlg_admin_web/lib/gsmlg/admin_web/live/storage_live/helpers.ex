@@ -17,6 +17,26 @@ defmodule GSMLG.AdminWeb.StorageLive.Helpers do
 
   def format_size(_), do: "—"
 
+  def parent_prefix(prefix) do
+    prefix
+    |> String.trim_trailing("/")
+    |> String.split("/")
+    |> Enum.drop(-1)
+    |> Enum.map_join("", &(&1 <> "/"))
+  end
+
+  def storage_error(:session_not_found), do: "Session expired. Please sign in again."
+  def storage_error(:backend_changed), do: "S3 configuration changed. Refresh the listing."
+  def storage_error(:missing_s3_access_key_id), do: "S3 access key is missing."
+  def storage_error(:missing_s3_secret_access_key), do: "S3 secret key is missing."
+  def storage_error(_reason), do: "Could not read the file listing from S3. Try refreshing."
+
+  def mutation_error(:backend_changed), do: storage_error(:backend_changed)
+  def mutation_error(:file_referenced), do: "This file is still used by a note or sync reader."
+  def mutation_error(:invalid_prefix), do: "Enter a valid folder path."
+  def mutation_error(%Ecto.Changeset{}), do: "Enter a valid tenant and file type."
+  def mutation_error(_reason), do: "Could not change the S3 object. Try again."
+
   def error_to_string(:too_large), do: "File is too large"
   def error_to_string(:too_many_files), do: "Too many files selected"
   def error_to_string(:not_accepted), do: "File type not accepted"

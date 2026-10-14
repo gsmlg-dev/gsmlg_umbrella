@@ -39,11 +39,12 @@ defmodule GSMLG.AdminWeb.BrowserLiveTest do
   alias GSMLG.Browser.{Artifact, Job, JobEvent, Node, Profile, Session}
   alias GSMLG.CommandPlatform.AgentRegistry
   alias GSMLG.Repo
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{StorageFile, TestCatalogClient}
 
   @secret_key_base String.duplicate("r", 64)
 
   setup %{conn: conn} do
+    TestCatalogClient.setup!()
     endpoint_config = Application.get_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint, [])
     browser_config = Application.get_all_env(:gsmlg_browser)
 
@@ -591,7 +592,7 @@ defmodule GSMLG.AdminWeb.BrowserLiveTest do
         size: byte_size(object),
         checksum: :crypto.hash(:sha256, object) |> Base.encode16(case: :lower)
       })
-      |> Repo.insert!()
+      |> TestCatalogClient.insert_file!()
 
     artifact =
       %Artifact{}

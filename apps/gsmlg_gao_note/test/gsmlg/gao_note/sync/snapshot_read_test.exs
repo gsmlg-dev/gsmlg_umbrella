@@ -1,6 +1,11 @@
 defmodule GSMLG.GaoNote.Sync.SnapshotReadTest do
   use GSMLG.GaoNote.DataCase, async: false
 
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   alias GSMLG.GaoNote.Sync.Snapshot
   alias GSMLG.Storage.StorageFile
 
@@ -21,6 +26,14 @@ defmodule GSMLG.GaoNote.Sync.SnapshotReadTest do
         size = min(last + 1, byte_size(bytes)) - first
         send_resp(conn, 206, binary_part(bytes, first, size))
       end
+    end
+  end
+
+  defmodule SwitchingCatalogClient do
+    def get_object(backend, key) do
+      result = GSMLG.Storage.TestCatalogClient.get_object(backend, key)
+      Application.put_env(:gsmlg_storage, :s3_bucket, "replacement-bucket")
+      result
     end
   end
 
@@ -77,6 +90,16 @@ defmodule GSMLG.GaoNote.Sync.SnapshotReadTest do
     assert {:error, :object_size_mismatch} = Snapshot.read_object(file.id)
   end
 
+  test "backend changes after metadata is loaded abort both empty and nonempty object reads" do
+    for bytes <- ["", "data"] do
+      Application.put_env(:gsmlg_storage, :s3_bucket, "snapshot-test")
+      Application.put_env(:gsmlg_storage, :catalog_s3_client, GSMLG.Storage.TestCatalogClient)
+      file = insert_file(bytes, hash(bytes))
+      Application.put_env(:gsmlg_storage, :catalog_s3_client, SwitchingCatalogClient)
+      assert {:error, :backend_changed} = Snapshot.read_object(file.id)
+    end
+  end
+
   defp insert_file(bytes, checksum) do
     Application.put_env(:gsmlg_gao_note, :snapshot_test_bytes, bytes)
 
@@ -91,7 +114,7 @@ defmodule GSMLG.GaoNote.Sync.SnapshotReadTest do
       checksum: checksum,
       variants: %{}
     })
-    |> Repo.insert!()
+    |> GSMLG.Storage.TestCatalogClient.insert_file!()
   end
 
   defp hash(bytes), do: :crypto.hash(:sha256, bytes) |> Base.encode16(case: :lower)

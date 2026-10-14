@@ -1,5 +1,11 @@
 defmodule GSMLG.GaoNote.BatchActionsTest do
   use GSMLG.GaoNote.DataCase, async: false
+
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   use Oban.Testing, repo: GSMLG.Repo
 
   alias GSMLG.GaoNote
@@ -23,7 +29,6 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
-    Repo.delete_all(StorageFile)
 
     Repo.delete_all(
       from(job in Oban.Job, where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker")
@@ -566,7 +571,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
                ]
              } = GaoNote.get_deleted_note(note.id)
 
-      assert %StorageFile{id: ^storage_file_id} = Repo.get(StorageFile, storage_file_id)
+      assert %StorageFile{id: ^storage_file_id} = GSMLG.Storage.get(storage_file_id)
     end
 
     test "uses the shared selection errors with the active-note limit" do
@@ -629,7 +634,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
         assert Repo.get(Attachment, attachment.id) == nil
 
         assert %StorageFile{id: storage_file_id} =
-                 Repo.get(StorageFile, attachment.storage_file_id)
+                 GSMLG.Storage.get(attachment.storage_file_id)
 
         assert storage_file_id == attachment.storage_file_id
       end
@@ -772,7 +777,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
         checksum: "checksum-#{suffix}",
         uploaded_by: "batch-actor"
       })
-      |> Repo.insert!()
+      |> GSMLG.Storage.TestCatalogClient.insert_file!()
 
     %Attachment{}
     |> Attachment.changeset(%{
@@ -815,6 +820,11 @@ end
 
 defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
   use GSMLG.GaoNote.DataCase, async: false
+
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
 
   alias Ecto.Adapters.SQL
   alias Ecto.Adapters.SQL.Sandbox
@@ -1334,7 +1344,9 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
       Repo.delete_all(from(setting in LabelSetting, where: setting.id == ^fixture.setting.id))
     end
 
-    Repo.delete_all(from(file in StorageFile, where: file.id in ^storage_file_ids))
+    Enum.each(storage_file_ids, fn id ->
+      if file = GSMLG.Storage.get(id), do: GSMLG.Storage.TestCatalogClient.delete_file!(file)
+    end)
   end
 
   defp storage_file_fixture(suffix, note_id) do
@@ -1349,7 +1361,7 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
       checksum: "checksum-#{suffix}-#{note_id}",
       uploaded_by: "batch-database-test"
     })
-    |> Repo.insert!()
+    |> GSMLG.Storage.TestCatalogClient.insert_file!()
   end
 
   defp attachment_fixture(note, storage_file, suffix) do
@@ -1421,11 +1433,10 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
 
   defp persisted_storage_file_ids(storage_file_ids) do
     outside_sandbox(fn ->
-      StorageFile
-      |> where([file], file.id in ^storage_file_ids)
-      |> select([file], file.id)
-      |> order_by([file], asc: file.id)
-      |> Repo.all()
+      GSMLG.Storage.TestCatalogClient.files()
+      |> Enum.filter(&(&1.id in storage_file_ids))
+      |> Enum.map(& &1.id)
+      |> Enum.sort()
     end)
   end
 

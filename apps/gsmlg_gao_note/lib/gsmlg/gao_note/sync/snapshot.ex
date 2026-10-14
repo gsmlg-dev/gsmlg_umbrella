@@ -13,7 +13,7 @@ defmodule GSMLG.GaoNote.Sync.Snapshot do
   def build(note_id) do
     case Repo.get(Note, note_id) do
       nil -> {:error, :not_found}
-      note -> build_note(Repo.preload(note, labels: :label_setting, attachments: :storage_file))
+      note -> build_note(GSMLG.GaoNote.preload_note(note))
     end
   end
 
@@ -102,12 +102,16 @@ defmodule GSMLG.GaoNote.Sync.Snapshot do
   defp read_file(_file), do: {:error, :invalid_object_metadata}
 
   defp read_chunks(%StorageFile{size: 0} = file, 0, []) do
-    bucket = Application.get_env(:gsmlg_storage, :s3_bucket)
-
-    case S3Client.get_object_range(bucket, file.s3_key, 0, 0) do
-      {:ok, ""} -> {:ok, ""}
-      {:error, {:unexpected_response, %{status_code: 416}}} -> {:ok, ""}
-      {:ok, _bytes} -> {:error, :object_size_mismatch}
+    with {:ok, backend} <- S3Client.capture_backend(),
+         true <- is_nil(file.backend_id) or file.backend_id == backend.id do
+      case S3Client.get_object_range(backend, file.s3_key, 0, 0) do
+        {:ok, ""} -> {:ok, ""}
+        {:error, {:unexpected_response, %{status_code: 416}}} -> {:ok, ""}
+        {:ok, _bytes} -> {:error, :object_size_mismatch}
+        {:error, _} = error -> error
+      end
+    else
+      false -> {:error, :backend_changed}
       {:error, _} = error -> error
     end
   end

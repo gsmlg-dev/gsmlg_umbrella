@@ -1,5 +1,11 @@
 defmodule GSMLG.GaoNote.MCP.AgentNoteToolsTest do
   use GSMLG.GaoNote.DataCase, async: false
+
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   alias Backplane.McpProtocol.MCP.Error
   alias Backplane.McpProtocol.Server.{Frame, Response}
   alias GSMLG.GaoNote.Compat

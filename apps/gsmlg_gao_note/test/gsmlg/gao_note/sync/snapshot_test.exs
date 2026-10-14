@@ -1,5 +1,10 @@
 defmodule GSMLG.GaoNote.Sync.SnapshotTest do
-  use GSMLG.GaoNote.DataCase, async: true
+  use GSMLG.GaoNote.DataCase, async: false
+
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
 
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Compat, Note}
@@ -119,6 +124,6 @@ defmodule GSMLG.GaoNote.Sync.SnapshotTest do
       checksum: checksum,
       variants: %{}
     })
-    |> Repo.insert!()
+    |> GSMLG.Storage.TestCatalogClient.insert_file!()
   end
 end

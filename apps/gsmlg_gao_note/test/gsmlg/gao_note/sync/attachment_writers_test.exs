@@ -1,6 +1,11 @@
 defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
   use GSMLG.GaoNote.DataCase, async: false
 
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Compat, Sync}
   alias GSMLG.GaoNote.Sync.{Protocol, Store}
@@ -151,7 +156,11 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     [first] = Sync.pending(peer.id)
     [attachment] = note.attachments
     file = GSMLG.Storage.get(attachment.storage_file_id)
-    Repo.update!(Ecto.Changeset.change(file, checksum: String.upcase(file.checksum)))
+
+    GSMLG.Storage.TestCatalogClient.update_file!(
+      Ecto.Changeset.change(file, checksum: String.upcase(file.checksum))
+    )
+
     Application.put_env(:gsmlg_gao_note, :attachment_writer_read_fail, true)
 
     assert {:ok, _} =
@@ -190,7 +199,10 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     [first] = Sync.pending(peer.id)
     [attachment] = note.attachments
     file = GSMLG.Storage.get(attachment.storage_file_id)
-    Repo.update!(Ecto.Changeset.change(file, checksum: "legacy-digest"))
+
+    GSMLG.Storage.TestCatalogClient.update_file!(
+      Ecto.Changeset.change(file, checksum: "legacy-digest")
+    )
 
     assert {:ok, _} =
              GaoNote.put_attachment(

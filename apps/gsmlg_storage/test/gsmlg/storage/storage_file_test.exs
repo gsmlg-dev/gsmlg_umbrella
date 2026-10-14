@@ -1,7 +1,41 @@
 defmodule GSMLG.Storage.StorageFileTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{StorageFile, Catalog, TestCatalogClient}
+
+  setup do
+    TestCatalogClient.setup!()
+    :ok
+  end
+
+  test "persists validated metadata in an S3 manifest and keeps its stable identity" do
+    file =
+      %StorageFile{}
+      |> StorageFile.changeset(%{
+        tenant: "default",
+        type: "attachment",
+        filename: "test.jpg",
+        s3_key: "default/attachment/object.jpg",
+        content_type: "image/jpeg",
+        size: 1024,
+        metadata: %{"source" => "external"},
+        variants: %{"thumb" => %{"s3_key" => "thumb.jpg"}}
+      })
+      |> TestCatalogClient.insert_file!()
+
+    assert {:ok, fetched} = Catalog.fetch(file.id)
+    assert fetched.id == file.id
+    assert fetched.s3_key == file.s3_key
+    assert fetched.metadata == file.metadata
+    assert fetched.variants == file.variants
+    assert fetched.inserted_at == file.inserted_at
+
+    assert {:ok, deleted} =
+             file |> StorageFile.status_changeset(%{status: "deleted"}) |> Catalog.update()
+
+    assert {:ok, %{status: "deleted", id: id}} = Catalog.fetch(file.id)
+    assert id == deleted.id
+  end
 
   describe "changeset/2" do
     test "valid changeset with required fields" do

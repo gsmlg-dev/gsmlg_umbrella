@@ -1,5 +1,11 @@
 defmodule GSMLG.GaoNote.Compat.DomainTest do
   use GSMLG.GaoNote.DataCase, async: false
+
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   alias GSMLG.GaoNote.Compat
 
   defp save(labels, attachments \\ []) do

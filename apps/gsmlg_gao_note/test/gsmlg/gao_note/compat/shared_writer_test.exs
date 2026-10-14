@@ -1,11 +1,15 @@
 defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
   use GSMLG.GaoNote.DataCase, async: false
 
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{CategorySetting, LabelSetting, Note}
   alias GSMLG.GaoNote.Compat
   alias GSMLG.GaoNote.Compat.Catalog
-  alias GSMLG.Storage.StorageFile
   alias Ecto.Adapters.SQL
   alias Ecto.Adapters.SQL.Sandbox
   alias GSMLG.GaoNote.{Label, Log}
@@ -400,14 +404,14 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
     with_storage(fn ->
       {note, input} = attachment_note()
       original = hd(note.attachments)
-      files = Repo.aggregate(StorageFile, :count)
+      files = GSMLG.Storage.TestCatalogClient.count()
 
       assert {:ok, same} = GaoNote.update_note(note, %{attachments: [input]}, nil)
       assert same.revision == note.revision
       assert same.updated_at == note.updated_at
       assert hd(same.attachments).storage_file_id == original.storage_file_id
       assert hd(same.attachments).updated_at == original.updated_at
-      assert Repo.aggregate(StorageFile, :count) == files
+      assert GSMLG.Storage.TestCatalogClient.count() == files
       refute purge_scheduled?(original.storage_file_id)
 
       assert {:ok, changed} =
@@ -415,7 +419,7 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
 
       assert changed.revision == note.revision + 1
       assert hd(changed.attachments).storage_file_id == original.storage_file_id
-      assert Repo.aggregate(StorageFile, :count) == files
+      assert GSMLG.Storage.TestCatalogClient.count() == files
       refute purge_scheduled?(original.storage_file_id)
     end)
   end
@@ -425,11 +429,11 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
       {note, input} = attachment_note()
       original = hd(note.attachments)
 
-      Repo.get!(StorageFile, original.storage_file_id)
+      GSMLG.Storage.TestCatalogClient.get_file!(original.storage_file_id)
       |> Ecto.Changeset.change(checksum: "legacy-checksum")
-      |> Repo.update!()
+      |> GSMLG.Storage.TestCatalogClient.update_file!()
 
-      files = Repo.aggregate(StorageFile, :count)
+      files = GSMLG.Storage.TestCatalogClient.count()
       Application.put_env(:gsmlg_gao_note, :shared_writer_read_failure, true)
 
       assert {:error, _reason} =
@@ -457,8 +461,8 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
       assert persisted.updated_at == note.updated_at
       assert Catalog.pairs(persisted) == []
       assert hd(persisted.attachments).storage_file_id == original.storage_file_id
-      assert Repo.get(StorageFile, original.storage_file_id).status == "active"
-      assert Repo.aggregate(StorageFile, :count) == files
+      assert GSMLG.Storage.get(original.storage_file_id).status == "active"
+      assert GSMLG.Storage.TestCatalogClient.count() == files
       refute purge_scheduled?(original.storage_file_id)
       assert Repo.get_by(LabelSetting, name: "new") == nil
     end)

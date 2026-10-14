@@ -6,43 +6,39 @@ defmodule GSMLG.Web.FileController do
 
   use GSMLG.Web, :controller
 
-  alias GSMLG.Storage
-  alias GSMLG.Storage.S3Client
+  alias GSMLG.Storage.{Catalog, S3Client}
 
   @cache_control "public, max-age=31536000, immutable"
 
   def show(conn, %{"id" => id}) do
-    with {:ok, file} <- fetch_active_file(id) do
-      serve_file(conn, file.s3_key, file.content_type, file.size, file.checksum)
+    with {:ok, file, backend} <- fetch_active_file(id) do
+      serve_file(conn, backend, file.s3_key, file.content_type, file.size, file.checksum)
     else
       :error -> conn |> put_status(:not_found) |> text("Not Found")
     end
   end
 
   def variant(conn, %{"id" => id, "variant" => variant_name}) do
-    with {:ok, file} <- fetch_active_file(id),
+    with {:ok, file, backend} <- fetch_active_file(id),
          %{"s3_key" => s3_key, "content_type" => ct, "size" => size} <-
            get_in(file.variants || %{}, [variant_name]) do
-      serve_file(conn, s3_key, ct, size, file.checksum)
+      serve_file(conn, backend, s3_key, ct, size, file.checksum)
     else
       _ -> conn |> put_status(:not_found) |> text("Not Found")
     end
   end
 
   defp fetch_active_file(id) do
-    case Ecto.UUID.cast(id) do
-      {:ok, _} ->
-        case Storage.get_active(id) do
-          nil -> :error
-          file -> {:ok, file}
-        end
-
-      :error ->
-        :error
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         {:ok, backend} <- S3Client.capture_backend(),
+         {:ok, %{status: "active"} = file} <- Catalog.fetch(id, backend: backend) do
+      {:ok, file, backend}
+    else
+      _ -> :error
     end
   end
 
-  defp serve_file(conn, s3_key, content_type, total_size, checksum) do
+  defp serve_file(conn, backend, s3_key, content_type, total_size, checksum) do
     etag = if checksum, do: ~s("#{checksum}"), else: nil
 
     if etag && match_etag?(conn, etag) do
@@ -51,9 +47,7 @@ defmodule GSMLG.Web.FileController do
       |> put_resp_header("cache-control", @cache_control)
       |> send_resp(304, "")
     else
-      bucket = Application.get_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
-
-      case S3Client.get_object(bucket, s3_key) do
+      case S3Client.get_object(backend, s3_key) do
         {:ok, data} ->
           serve_data(conn, data, content_type, total_size, etag)
 

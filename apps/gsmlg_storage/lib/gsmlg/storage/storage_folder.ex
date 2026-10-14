@@ -1,8 +1,7 @@
 defmodule GSMLG.Storage.StorageFolder do
   @moduledoc """
-  Represents an explicit storage folder (tenant + optional type).
-  Allows empty folders to persist in the file browser tree independent
-  of whether any files exist under that path.
+  Validates legacy folder names for S3 directory markers.
+  The legacy table remains available for the explicit one-time export.
   """
 
   use Ecto.Schema
@@ -12,8 +11,8 @@ defmodule GSMLG.Storage.StorageFolder do
   @timestamps_opts [type: :utc_datetime_usec]
 
   schema "storage_folders" do
-    field :tenant, :string
-    field :type, :string
+    field(:tenant, :string)
+    field(:type, :string)
 
     timestamps()
   end

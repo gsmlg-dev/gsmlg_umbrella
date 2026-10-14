@@ -11,7 +11,7 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorker do
   alias GSMLG.GaoNote.Sync
   alias GSMLG.GaoNote.Sync.Staging
   alias GSMLG.Storage
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{Catalog, StorageFile}
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"storage_file_id" => id}}) when is_binary(id) do
@@ -33,12 +33,15 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorker do
   end
 
   defp purge_unreferenced(id) do
-    case Storage.get(id) do
-      nil ->
+    case Catalog.fetch(id) do
+      {:error, :not_found} ->
         :ok
 
-      %StorageFile{} = file ->
+      {:ok, %StorageFile{} = file} ->
         perform_for_file(file)
+
+      {:error, _} = error ->
+        error
     end
   end
 

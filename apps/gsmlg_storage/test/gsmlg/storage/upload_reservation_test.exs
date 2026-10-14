@@ -3,7 +3,7 @@ defmodule GSMLG.Storage.UploadReservationTest do
 
   alias GSMLG.Repo
   alias GSMLG.Storage
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{Catalog, StorageFile, TestCatalogClient}
 
   defmodule ObjectStore do
     def put_file(bucket, key, path, content_type) do
@@ -14,6 +14,7 @@ defmodule GSMLG.Storage.UploadReservationTest do
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+    TestCatalogClient.setup!()
 
     directory =
       Path.join(System.tmp_dir!(), "storage-reservation-#{System.unique_integer([:positive])}")
@@ -48,7 +49,9 @@ defmodule GSMLG.Storage.UploadReservationTest do
                max_bytes: byte_size(content)
              )
 
-    assert Repo.get!(StorageFile, reservation.id).status == "processing"
+    assert {:ok, %StorageFile{status: "processing", id: id}} = Catalog.fetch(reservation.id)
+    assert id == reservation.id
+    assert Repo.get(StorageFile, reservation.id) == nil
     assert :ok = Storage.write_upload(reservation.id, "# Browser ")
     assert :ok = Storage.write_upload(reservation.id, "report\n")
 
@@ -56,6 +59,8 @@ defmodule GSMLG.Storage.UploadReservationTest do
              Storage.finalize_upload(reservation.id, s3_client: ObjectStore)
 
     assert_received {:put_file, _bucket, _key, ^content, "text/markdown"}
+    assert %StorageFile{status: "active"} = Storage.get(reservation.id)
+    assert Repo.get(StorageFile, reservation.id) == nil
   end
 
   test "rejects overflow and integrity mismatch while retaining a recoverable deleted reservation" do
@@ -79,6 +84,8 @@ defmodule GSMLG.Storage.UploadReservationTest do
              Storage.finalize_upload(reservation.id, s3_client: ObjectStore)
 
     assert {:ok, %StorageFile{status: "deleted"}} = Storage.reject_upload(reservation.id)
+    assert {:ok, %StorageFile{status: "deleted"}} = Catalog.fetch(reservation.id)
+    assert Repo.get(StorageFile, reservation.id) == nil
     refute_received {:put_file, _, _, _, _}
   end
 

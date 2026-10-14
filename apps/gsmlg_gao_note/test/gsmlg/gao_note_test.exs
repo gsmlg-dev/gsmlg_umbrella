@@ -1,5 +1,11 @@
 defmodule GSMLG.GaoNoteTest do
   use GSMLG.GaoNote.DataCase, async: false
+
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   use Oban.Testing, repo: GSMLG.Repo
 
   defmodule S3Stub do
@@ -105,7 +111,6 @@ defmodule GSMLG.GaoNoteTest do
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
-    Repo.delete_all(StorageFile)
     :ok
   end
 
@@ -477,7 +482,7 @@ defmodule GSMLG.GaoNoteTest do
                  )
 
         refute_received {:s3_put, _path, _body}
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
       end)
     end
 
@@ -626,7 +631,7 @@ defmodule GSMLG.GaoNoteTest do
                    actor()
                  )
 
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
         assert_receive {:s3_delete, _path}
         assert {:ok, "plain upload bytes"} = File.read(upload.path)
       end)
@@ -693,7 +698,7 @@ defmodule GSMLG.GaoNoteTest do
                  )
 
         refute changeset.valid?
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
         assert Repo.get(Attachment, "plug-rollback") == nil
         assert_receive {:s3_delete, _path}
         assert {:ok, "rollback upload"} = File.read(upload.path)
@@ -731,7 +736,7 @@ defmodule GSMLG.GaoNoteTest do
                  )
 
         refute_received {:s3_put, _path, _body}
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
         assert {:ok, "caller-owned"} = File.read(upload.path)
       end)
     end
@@ -769,7 +774,7 @@ defmodule GSMLG.GaoNoteTest do
                             )
 
                    assert Repo.get_by(Note, title: title) == nil
-                   assert Repo.aggregate(StorageFile, :count) == 0
+                   assert GSMLG.Storage.TestCatalogClient.count() == 0
                    :outer_committed
                  end)
 
@@ -820,7 +825,7 @@ defmodule GSMLG.GaoNoteTest do
                  end)
 
         refute_received {:s3_put, _path, _body}
-        assert Repo.aggregate(StorageFile, :count) == 1
+        assert GSMLG.Storage.TestCatalogClient.count() == 1
         assert %Note{title: "Original Base64 note"} = GaoNote.get_note(note.id)
 
         assert %Attachment{storage_file_id: storage_file_id} =
@@ -989,7 +994,7 @@ defmodule GSMLG.GaoNoteTest do
                    actor()
                  )
 
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
         assert_receive {:s3_delete, _path}
       end)
     end
@@ -1014,7 +1019,7 @@ defmodule GSMLG.GaoNoteTest do
                  )
 
         refute_received {:s3_put, _path, _body}
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
       end)
     end
 
@@ -1076,7 +1081,7 @@ defmodule GSMLG.GaoNoteTest do
                  )
 
         assert_receive {:s3_delete, _path}
-        assert Repo.aggregate(StorageFile, :count) == 1
+        assert GSMLG.Storage.TestCatalogClient.count() == 1
 
         assert %Attachment{storage_file_id: storage_file_id, mime: "text/plain"} =
                  attachment_by_id(GaoNote.get_note(note.id), "mime-retain")
@@ -1108,7 +1113,7 @@ defmodule GSMLG.GaoNoteTest do
                    actor()
                  )
 
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
         assert_receive {:s3_delete, _first_path}
         assert_receive {:s3_delete, _second_path}
       end)
@@ -1193,7 +1198,8 @@ defmodule GSMLG.GaoNoteTest do
 
     test "advisory locks serialize overlapping global ID claims and compensate the loser" do
       with_storage_test_config(fn ->
-        race_actor = actor("race-actor")
+        :ok = Ecto.Adapters.SQL.Sandbox.mode(Repo, :manual)
+        race_actor = committed_actor("race-actor")
 
         claims =
           for {title, path, bytes} <- [
@@ -1201,21 +1207,23 @@ defmodule GSMLG.GaoNoteTest do
                 {"Second claim", "second.txt", "block-for-second-claim"}
               ] do
             Task.async(fn ->
-              GaoNote.create_note(
-                %{
-                  title: title,
-                  content: "Body",
-                  attachments: [
-                    text_attachment("raced-global-id", path, bytes)
-                  ]
-                },
-                race_actor
-              )
+              with_committed_connection(fn ->
+                GaoNote.create_note(
+                  %{
+                    title: title,
+                    content: "Body",
+                    attachments: [
+                      text_attachment("raced-global-id", path, bytes)
+                    ]
+                  },
+                  race_actor
+                )
+              end)
             end)
           end
 
-        assert_receive {:s3_put_blocked, first_request_pid, _path}
-        assert_receive {:s3_put_blocked, second_request_pid, _path}
+        assert_receive {:s3_put_blocked, first_request_pid, _path}, 2_000
+        assert_receive {:s3_put_blocked, second_request_pid, _path}, 2_000
 
         send(first_request_pid, :release_s3_put)
         send(second_request_pid, :release_s3_put)
@@ -1228,8 +1236,7 @@ defmodule GSMLG.GaoNoteTest do
                  results,
                  &match?(
                    {:error,
-                    {:attachment,
-                     %{code: :owned_by_another_note, id: "raced-global-id"}}},
+                    {:attachment, %{code: :owned_by_another_note, id: "raced-global-id"}}},
                    &1
                  )
                ) == 1
@@ -1240,9 +1247,7 @@ defmodule GSMLG.GaoNoteTest do
           Enum.find(
             results,
             &match?(
-              {:error,
-               {:attachment,
-                %{code: :owned_by_another_note, id: "raced-global-id"}}},
+              {:error, {:attachment, %{code: :owned_by_another_note, id: "raced-global-id"}}},
               &1
             )
           )
@@ -1255,60 +1260,78 @@ defmodule GSMLG.GaoNoteTest do
                    code: :owned_by_another_note,
                    id: "raced-global-id",
                    owner_note_id: winner_id
-        }}} = loser_result
+                 }}} = loser_result
 
         assert winner_id == winner.id
 
         assert %Attachment{note_id: ^winner_id} =
-                 attachment_by_id(GaoNote.get_note(winner_id), "raced-global-id")
+                 outside_sandbox(fn ->
+                   attachment_by_id(GaoNote.get_note(winner_id), "raced-global-id")
+                 end)
 
-        assert Repo.aggregate(StorageFile, :count) == 1
+        assert GSMLG.Storage.TestCatalogClient.count() == 1
         assert_receive {:s3_delete, _loser_path}
       end)
     end
 
     test "a concurrent metadata update invalidates the complete attachment snapshot" do
       with_storage_test_config(fn ->
+        :ok = Ecto.Adapters.SQL.Sandbox.mode(Repo, :manual)
+        stale_actor = committed_actor("stale-actor")
+
         note =
-          note_fixture(%{
-            attachments: [text_attachment("stale-plan", "before.txt", "original")]
-          })
+          outside_sandbox(fn ->
+            assert {:ok, note} =
+                     GaoNote.create_note(
+                       %{
+                         title: unique_title("Concurrent metadata"),
+                         content: "Content",
+                         attachments: [text_attachment("stale-plan", "before.txt", "original")]
+                       },
+                       stale_actor
+                     )
+
+            note
+          end)
 
         original = attachment_by_id(note, "stale-plan")
-        stale_actor = actor("stale-actor")
 
         stale_update =
           Task.async(fn ->
-            GaoNote.update_note(
-              note,
-              %{
-                attachments: [
-                  text_attachment(
-                    "stale-plan",
-                    "stale.txt",
-                    "block-for-stale-plan"
-                  )
-                ]
-              },
-              stale_actor
-            )
+            with_committed_connection(fn ->
+              GaoNote.update_note(
+                note,
+                %{
+                  attachments: [
+                    text_attachment(
+                      "stale-plan",
+                      "stale.txt",
+                      "block-for-stale-plan"
+                    )
+                  ]
+                },
+                stale_actor
+              )
+            end)
           end)
 
         assert_receive {:s3_put_blocked, request_pid, _path}
 
         assert {:ok, %Note{} = concurrent} =
-                 GaoNote.update_note(
-                   note,
-                   %{
-                     attachments: [
-                       retained_attachment(original, %{
-                         path: "concurrent.txt",
-                         description: "concurrent metadata"
-                       })
-                     ]
-                   },
-                   stale_actor
-                 )
+                 outside_sandbox(fn ->
+                   GaoNote.update_note(
+                     note,
+                     %{
+                       attachments: [
+                         retained_attachment(original, %{
+                           path: "concurrent.txt",
+                           description: "concurrent metadata"
+                         })
+                       ]
+                     },
+                     stale_actor
+                   )
+                 end)
 
         send(request_pid, :release_s3_put)
 
@@ -1324,9 +1347,11 @@ defmodule GSMLG.GaoNoteTest do
         assert original_storage_file_id == original.storage_file_id
 
         assert %Attachment{path: "./concurrent.txt"} =
-                 attachment_by_id(GaoNote.get_note(note.id), "stale-plan")
+                 outside_sandbox(fn ->
+                   attachment_by_id(GaoNote.get_note(note.id), "stale-plan")
+                 end)
 
-        assert Repo.aggregate(StorageFile, :count) == 1
+        assert GSMLG.Storage.TestCatalogClient.count() == 1
         assert_receive {:s3_delete, _stale_path}
       end)
     end
@@ -1555,7 +1580,7 @@ defmodule GSMLG.GaoNoteTest do
                  )
 
         refute changeset.valid?
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
         assert Repo.get(Attachment, "rollback") == nil
         assert_receive {:s3_delete, _path}
       end)
@@ -1590,7 +1615,7 @@ defmodule GSMLG.GaoNoteTest do
 
         refute changeset.valid?
         assert_receive {:s3_delete, _staged_path}
-        assert Repo.aggregate(StorageFile, :count) == 1
+        assert GSMLG.Storage.TestCatalogClient.count() == 1
 
         assert %Note{title: "Original title"} = GaoNote.get_note(note.id)
 
@@ -1635,7 +1660,7 @@ defmodule GSMLG.GaoNoteTest do
           )
 
         assert is_exception(error)
-        assert Repo.aggregate(StorageFile, :count) == 0
+        assert GSMLG.Storage.TestCatalogClient.count() == 0
         assert Repo.get(Attachment, "exception-cleanup") == nil
         assert_receive {:s3_delete, _staged_path}
         assert {:ok, "exception upload"} = File.read(upload.path)
@@ -2183,7 +2208,7 @@ defmodule GSMLG.GaoNoteTest do
 
         assert_receive {:s3_put, _path, "replacement text"}
         assert_receive {:s3_delete, _path}
-        assert Repo.aggregate(StorageFile, :count) == 1
+        assert GSMLG.Storage.TestCatalogClient.count() == 1
 
         assert %Attachment{
                  path: "./docs/original.txt",
@@ -2435,7 +2460,7 @@ defmodule GSMLG.GaoNoteTest do
         refute changeset.valid?
         assert_receive {:s3_put, _path, "new staged bytes"}
         assert_receive {:s3_delete, _path}
-        assert Repo.aggregate(StorageFile, :count) == 2
+        assert GSMLG.Storage.TestCatalogClient.count() == 2
 
         assert %Attachment{
                  path: "./before.txt",
@@ -2548,7 +2573,7 @@ defmodule GSMLG.GaoNoteTest do
         assert %StorageFile{status: "deleted"} =
                  attachment.storage_file
                  |> StorageFile.status_changeset(%{status: "deleted"})
-                 |> Repo.update!()
+                 |> GSMLG.Storage.TestCatalogClient.update_file!()
 
         flush_storage_messages()
 
@@ -2686,11 +2711,72 @@ defmodule GSMLG.GaoNoteTest do
                  ]
                } = GaoNote.get_note(note.id)
 
-        assert Repo.aggregate(StorageFile, :count) == 1
+        assert GSMLG.Storage.TestCatalogClient.count() == 1
         refute_received {:s3_put, _path, _body}
         refute_received {:s3_delete, _path}
       end)
     end
+  end
+
+  # These two S3 barriers hold a transaction open. Each writer must own a
+  # committed connection rather than queue on DataCase's shared connection.
+  defp with_committed_connection(operation) do
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo, sandbox: false)
+
+    try do
+      operation.()
+    after
+      Ecto.Adapters.SQL.Sandbox.checkin(Repo)
+    end
+  end
+
+  defp outside_sandbox(operation) do
+    Task.async(fn -> with_committed_connection(operation) end)
+    |> Task.await(10_000)
+  end
+
+  defp committed_actor(prefix) do
+    id = "#{String.slice(prefix, 0, 3)}-#{Ecto.UUID.generate()}"
+    actor = outside_sandbox(fn -> actor(id) end)
+    on_exit(fn -> outside_sandbox(fn -> cleanup_committed_actor(id) end) end)
+    actor
+  end
+
+  defp cleanup_committed_actor(actor_id) do
+    note_ids =
+      Repo.all(
+        from(log in Log,
+          where: log.actor_id == ^actor_id and not is_nil(log.note_id),
+          select: log.note_id,
+          distinct: true
+        )
+      )
+
+    storage_ids =
+      Repo.all(
+        from(attachment in Attachment,
+          where: attachment.note_id in ^note_ids,
+          select: attachment.storage_file_id
+        )
+      )
+
+    Repo.delete_all(
+      from(job in Oban.Job,
+        where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker",
+        where: fragment("?->>'storage_file_id'", job.args) in ^storage_ids
+      )
+    )
+
+    Repo.delete_all(from(attachment in Attachment, where: attachment.note_id in ^note_ids))
+
+    Repo.delete_all(
+      from(log in Log, where: log.actor_id == ^actor_id or log.note_id in ^note_ids)
+    )
+
+    Repo.delete_all(from(label in Label, where: label.note_id in ^note_ids))
+    Repo.delete_all(from(record in GSMLG.GaoNote.Sync.Record, where: record.note_id in ^note_ids))
+    Repo.delete_all(from(note in Note, where: note.id in ^note_ids))
+    Repo.delete_all(from(user in User, where: user.id == ^actor_id))
   end
 
   defp actor(id \\ "actor-1") do

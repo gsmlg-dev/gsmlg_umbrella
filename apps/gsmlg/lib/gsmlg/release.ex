@@ -5,7 +5,11 @@ defmodule GSMLG.Release do
     load_app()
 
     for repo <- repos() do
-      {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
+      {:ok, _, _} =
+        Ecto.Migrator.with_repo(repo, fn repo ->
+          :ok = apply(GSMLG.Storage.Migration, :export_if_needed, [])
+          Ecto.Migrator.run(repo, :up, all: true)
+        end)
     end
   end
 

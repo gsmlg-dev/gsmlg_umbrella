@@ -1,5 +1,11 @@
 defmodule GSMLG.GaoNote.Sync.StagingTest do
   use ExUnit.Case, async: false
+
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   import Ecto.Query
   alias GSMLG.GaoNote.{Attachment, Attachments, Compat}
   alias GSMLG.GaoNote.Sync.{Pin, Record, Staging}
@@ -70,10 +76,10 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
 
       on_exit(fn ->
         unboxed(fn ->
-          Repo.all(from(file in StorageFile, where: file.tenant == ^tenant))
+          Enum.filter(GSMLG.Storage.TestCatalogClient.files(), &(&1.tenant == tenant))
           |> Enum.each(fn file ->
             GSMLG.Storage.reject_upload(file)
-            Repo.delete!(file)
+            GSMLG.Storage.TestCatalogClient.delete_file!(file)
 
             Repo.delete_all(
               from(job in Oban.Job,
@@ -96,7 +102,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
       assert {:error, {:file_too_large, 12, 2}} =
                Staging.upload({"file.txt", "staged bytes"}, tenant, "gao_note_attachment", [])
 
-      refute Repo.exists?(from(file in StorageFile, where: file.tenant == ^tenant))
+      refute Enum.any?(GSMLG.Storage.TestCatalogClient.files(), &(&1.tenant == tenant))
       assert recovery_jobs() == jobs_before
       refute_receive {:object_put, _, _, _}
     end)
@@ -106,7 +112,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
     unboxed(fn ->
       task = upload_task()
       assert_receive {:object_put, uploader, key, "staged bytes"}, 5_000
-      file = Repo.get_by!(StorageFile, s3_key: key)
+      file = Enum.find(GSMLG.Storage.TestCatalogClient.files(), &(&1.s3_key == key))
       track(file)
       assert file.status == "processing"
 
@@ -126,7 +132,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
       assert {:snooze, _} = recover(file)
       expire(file)
       assert :ok = recover(file)
-      refute Repo.get(StorageFile, file.id)
+      refute GSMLG.Storage.get(file.id)
     end)
   end
 
@@ -134,18 +140,18 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
     unboxed(fn ->
       task = upload_task()
       assert_receive {:object_put, uploader, key, "staged bytes"}, 5_000
-      file = Repo.get_by!(StorageFile, s3_key: key)
+      file = Enum.find(GSMLG.Storage.TestCatalogClient.files(), &(&1.s3_key == key))
       track(file)
       send(uploader, :finish_upload)
       assert_receive {:prepared, ^uploader, %{staged_files: [%StorageFile{id: id}]}}, 5_000
       assert id == file.id
-      assert Repo.get!(StorageFile, id).status == "active"
+      assert GSMLG.Storage.TestCatalogClient.get_file!(id).status == "active"
       Process.exit(uploader, :kill)
       assert_receive {:DOWN, ref, :process, ^uploader, :killed}, 5_000
       assert ref == task.ref
       expire(file)
       assert :ok = recover(file)
-      refute Repo.get(StorageFile, id)
+      refute GSMLG.Storage.get(id)
     end)
   end
 
@@ -153,7 +159,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
     unboxed(fn ->
       task = upload_task()
       assert_receive {:object_put, uploader, key, "staged bytes"}, 5_000
-      file = Repo.get_by!(StorageFile, s3_key: key)
+      file = Enum.find(GSMLG.Storage.TestCatalogClient.files(), &(&1.s3_key == key))
       track(file)
       send(uploader, :finish_upload)
       assert_receive {:prepared, ^uploader, plan}, 5_000
@@ -171,13 +177,13 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
       assert {:ok, {:ok, [_]}} = Repo.transaction(fn -> Attachments.reconcile(note.id, plan) end)
       expire(file)
       assert {:snooze, _} = recover(file)
-      assert Repo.get!(StorageFile, file.id).status == "active"
+      assert GSMLG.Storage.TestCatalogClient.get_file!(file.id).status == "active"
       Repo.delete_all(from(a in Attachment, where: a.storage_file_id == ^file.id))
       owner = Ecto.UUID.generate()
       Repo.insert!(%Record{id: owner, kind: "lease", data: %{}})
       Repo.insert!(%Pin{owner_id: owner, storage_file_id: file.id})
       assert {:snooze, _} = recover(file)
-      assert Repo.get!(StorageFile, file.id).status == "active"
+      assert GSMLG.Storage.TestCatalogClient.get_file!(file.id).status == "active"
       Repo.delete_all(from(p in Pin, where: p.owner_id == ^owner))
       Repo.delete_all(from(r in Record, where: r.id == ^owner))
       assert :ok = recover(file)
@@ -229,7 +235,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
       )
 
   defp expire(file) do
-    current = Repo.get!(StorageFile, file.id)
+    current = GSMLG.Storage.TestCatalogClient.get_file!(file.id)
 
     metadata =
       Map.put(
@@ -238,7 +244,9 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
         DateTime.to_iso8601(DateTime.add(DateTime.utc_now(), -1))
       )
 
-    Repo.update!(Ecto.Changeset.change(current, metadata: metadata))
+    GSMLG.Storage.TestCatalogClient.update_file!(
+      Ecto.Changeset.change(current, metadata: metadata)
+    )
   end
 
   defp track(file) do
@@ -251,9 +259,9 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
           from(j in Oban.Job, where: fragment("?->>'storage_file_id'", j.args) == ^file.id)
         )
 
-        if current = Repo.get(StorageFile, file.id) do
+        if current = GSMLG.Storage.get(file.id) do
           GSMLG.Storage.reject_upload(current)
-          Repo.delete!(current)
+          GSMLG.Storage.TestCatalogClient.delete_file!(current)
         end
       end)
     end)

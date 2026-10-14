@@ -4,7 +4,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
   alias GSMLG.GaoNote.{Compat, Note, Sync}
   alias GSMLG.GaoNote.Sync.Protocol
 
+  alias GSMLG.Storage.TestCatalogClient
+
   setup do
+    TestCatalogClient.setup!()
     previous = Application.get_env(:gsmlg_gao_note, :note_sync)
 
     Application.put_env(:gsmlg_gao_note, :note_sync, %{
@@ -344,7 +347,7 @@ while time.monotonic() < end:
       )
 
     file =
-      GSMLG.Repo.insert!(%GSMLG.Storage.StorageFile{
+      TestCatalogClient.insert_file!(%GSMLG.Storage.StorageFile{
         tenant: "gao_note",
         type: "attachment",
         filename: "x.txt",

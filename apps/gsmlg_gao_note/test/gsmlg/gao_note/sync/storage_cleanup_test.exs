@@ -1,11 +1,16 @@
 defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
   use GSMLG.GaoNote.DataCase, async: false
 
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Compat, Sync}
   alias GSMLG.GaoNote.Sync.{Objects, Protocol, Store}
   alias GSMLG.Storage
-  alias GSMLG.Storage.{CleanupWorker, StorageFolder}
+  alias GSMLG.Storage.CleanupWorker
 
   defmodule ObjectStore do
     import Plug.Conn
@@ -88,6 +93,55 @@ defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
     %{peer: joined.peer, objects: table}
   end
 
+  test "periodic cleanup retires an expired durable intent with no recovery job" do
+    {:ok, file} =
+      Storage.prepare_upload("abandoned", "gao_note_attachment", %{
+        filename: "abandoned.txt",
+        content_type: "text/plain",
+        size: 0,
+        checksum: Protocol.sha256(""),
+        expires_at: DateTime.add(DateTime.utc_now(), 60)
+      })
+
+    refute Repo.exists?(
+             from(job in Oban.Job,
+               where: fragment("?->>'storage_file_id'", job.args) == ^file.id
+             )
+           )
+
+    expired = Map.put(file.metadata, "upload_expires_at", "2000-01-01T00:00:00Z")
+    GSMLG.Storage.TestCatalogClient.update_file!(Ecto.Changeset.change(file, metadata: expired))
+    assert :ok = CleanupWorker.run_cleanup()
+    assert Storage.get(file.id).status == "deleted"
+    assert {:ok, _} = Storage.purge(Storage.get(file.id))
+  end
+
+  test "periodic cleanup preserves an expired staged object with a committed attachment or pin",
+       %{peer: peer} do
+    note = note_with_attachment()
+    [attachment] = note.attachments
+    attached = Storage.get(attachment.storage_file_id)
+    {pinned, _lease} = leased_object(peer)
+
+    Enum.each([attached, pinned], fn file ->
+      metadata = Map.put(file.metadata, "sync_staging_expires_at", "2000-01-01T00:00:00Z")
+
+      GSMLG.Storage.TestCatalogClient.update_file!(
+        Ecto.Changeset.change(file, metadata: metadata)
+      )
+
+      Repo.delete_all(
+        from(job in Oban.Job,
+          where: fragment("?->>'storage_file_id'", job.args) == ^file.id
+        )
+      )
+    end)
+
+    assert :ok = CleanupWorker.run_cleanup()
+    assert Storage.get(attached.id).status == "active"
+    assert Storage.get(pinned.id).status == "active"
+  end
+
   test "generic delete and upload rejection preserve referenced active files", %{objects: objects} do
     note = note_with_attachment()
     [attachment] = note.attachments
@@ -145,7 +199,8 @@ defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
     assert {:ok, _} = Storage.purge(deleted)
   end
 
-  test "folder deletion rolls back every file and folder when a selected file is referenced" do
+  test "folder deletion preserves every file and directory marker when a selected file is referenced",
+       %{objects: objects} do
     note = note_with_attachment()
     [attachment] = note.attachments
     protected = Storage.get(attachment.storage_file_id)
@@ -153,11 +208,11 @@ defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
     {:ok, loose} =
       Storage.upload({"loose.txt", "loose"}, protected.tenant, protected.type, variants: [])
 
-    {:ok, folder} = Storage.create_folder(protected.tenant, protected.type)
+    {:ok, _folder} = Storage.create_folder(protected.tenant, protected.type)
     assert {:error, :file_referenced} = Storage.delete_folder(protected.tenant, protected.type)
     assert Storage.get(protected.id).status == "active"
     assert Storage.get(loose.id).status == "active"
-    assert Repo.get(StorageFolder, folder.id)
+    assert :ets.lookup(objects, "/sync-test/#{protected.tenant}/#{protected.type}/") != []
   end
 
   test "folder deletion retains year and month filtering while blocking protected candidates" do
@@ -168,7 +223,10 @@ defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
     {:ok, loose} =
       Storage.upload({"loose.txt", "loose"}, protected.tenant, protected.type, variants: [])
 
-    Repo.update!(Ecto.Changeset.change(loose, inserted_at: ~U[2020-01-01 00:00:00.000000Z]))
+    GSMLG.Storage.TestCatalogClient.update_file!(
+      Ecto.Changeset.change(loose, inserted_at: ~U[2020-01-01 00:00:00.000000Z])
+    )
+
     assert {:ok, :ok} = Storage.delete_folder(protected.tenant, protected.type, 2020, 1)
     assert Storage.get(loose.id).status == "deleted"
     assert Storage.get(protected.id).status == "active"
@@ -189,7 +247,7 @@ defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
     {file, _lease} = leased_object(peer)
 
     deleted =
-      Repo.update!(
+      GSMLG.Storage.TestCatalogClient.update_file!(
         Ecto.Changeset.change(file,
           status: "deleted",
           updated_at: ~U[2000-01-01 00:00:00.000000Z]
@@ -223,10 +281,6 @@ defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
   end
 
   test "ordinary storage still deletes files when GaoNote tables are absent" do
-    Repo.query!(
-      "CREATE TEMP TABLE storage_files (LIKE public.storage_files INCLUDING ALL) ON COMMIT DROP"
-    )
-
     Repo.query!("SET LOCAL search_path TO pg_temp")
 
     {:ok, file} =

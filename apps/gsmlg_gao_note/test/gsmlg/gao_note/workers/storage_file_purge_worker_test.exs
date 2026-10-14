@@ -1,8 +1,12 @@
 defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
   use ExUnit.Case, async: false
-  use Oban.Testing, repo: GSMLG.Repo
 
-  import Ecto.Query
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
+  use Oban.Testing, repo: GSMLG.Repo
 
   defmodule S3Stub do
     use Plug.Router
@@ -206,19 +210,25 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
              perform_job(StorageFilePurgeWorker, %{storage_file_id: 123})
   end
 
-  test "cancels unsupported storage file statuses without raising" do
+  test "invalid manifests return an error and retain their object for recovery" do
     file = insert_file(%{status: "active"})
 
-    assert {1, nil} =
-             Repo.update_all(
-               from(storage_file in StorageFile, where: storage_file.id == ^file.id),
-               set: [status: "unsupported"]
-             )
+    corrupted =
+      GSMLG.Storage.TestCatalogClient.mutate_manifest!(
+        file.id,
+        &Map.put(&1, "status", "unsupported")
+      )
 
-    assert {:cancel, {:unsupported_status, "unsupported"}} =
+    assert {:error, :invalid_storage_manifest} =
              perform_job(StorageFilePurgeWorker, %{storage_file_id: file.id})
 
-    assert %StorageFile{status: "unsupported"} = Storage.get(file.id)
+    {:ok, backend} = GSMLG.Storage.S3Client.capture_backend()
+
+    assert {:ok, ^corrupted} =
+             GSMLG.Storage.TestCatalogClient.get_object(
+               backend,
+               ".gsmlg-storage/objects/#{file.id}.json"
+             )
   end
 
   defp insert_file(attrs) do
@@ -238,7 +248,7 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
 
     %StorageFile{}
     |> StorageFile.changeset(Map.merge(defaults, attrs))
-    |> Repo.insert!()
+    |> GSMLG.Storage.TestCatalogClient.insert_file!()
   end
 
   defp with_s3_stub(fun) do

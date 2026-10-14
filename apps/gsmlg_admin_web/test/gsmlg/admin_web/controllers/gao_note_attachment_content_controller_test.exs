@@ -43,7 +43,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, Note, Presenter}
   alias GSMLG.Repo
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{StorageFile, TestCatalogClient}
 
   @storage_keys [
     :gao_note_http_admin_fail_ranges,
@@ -61,7 +61,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
-    Repo.delete_all(StorageFile)
+    TestCatalogClient.setup!()
 
     original = Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     port = available_port()
@@ -491,7 +491,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
         status: "active",
         uploaded_by: "fixture"
       })
-      |> Repo.insert!()
+      |> TestCatalogClient.insert_file!()
 
     attachment =
       %Attachment{}
@@ -505,7 +505,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
       })
       |> Repo.insert!()
 
-    Repo.preload(attachment, :storage_file)
+    Attachment.load_storage_file(attachment)
   end
 
   defp available_port do

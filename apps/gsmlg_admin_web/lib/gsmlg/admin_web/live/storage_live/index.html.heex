@@ -1,176 +1,152 @@
 <Layouts.app flash={@flash} page_title={@page_title} active_menu={@active_menu}>
   <div class="flex w-full h-full overflow-hidden">
-    <%!-- Tree Panel --%>
-    <div class="w-56 flex-none border-r border-base-300 overflow-y-auto py-2">
-      <div :if={is_nil(@tree)} class="flex justify-center p-4">
-        <span class="loading loading-spinner loading-sm text-primary"></span>
+    <nav
+      class="w-56 flex-none border-r border-base-300 overflow-y-auto p-3 flex flex-col gap-1"
+      aria-label="S3 folders"
+    >
+      <.link
+        patch={~p"/storage"}
+        class="flex items-center gap-2 p-2 rounded hover:bg-base-200 text-sm"
+      >
+        <.dm_mdi name="folder-open-outline" class="w-4 h-4" />
+        <span>All Files</span>
+      </.link>
+      <.link
+        :if={@prefix != ""}
+        patch={~p"/storage?#{%{prefix: parent_prefix(@prefix)}}"}
+        class="flex items-center gap-2 p-2 rounded hover:bg-base-200 text-sm"
+      >
+        <.dm_mdi name="arrow-up" class="w-4 h-4" />
+        <span>Parent folder</span>
+      </.link>
+      <.link
+        :for={folder <- @folders}
+        patch={~p"/storage?#{%{prefix: folder.prefix}}"}
+        class="flex items-center gap-2 p-2 rounded hover:bg-base-200 text-sm"
+        title={folder.prefix}
+      >
+        <.dm_mdi name="folder-outline" class="w-4 h-4 shrink-0 text-primary" />
+        <span class="truncate">{folder.name}</span>
+        <span class="ml-auto text-xs text-base-content/50">{folder.count}</span>
+      </.link>
+    </nav>
+
+    <div class="flex-1 flex flex-col gap-4 p-6 min-w-0 overflow-auto">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h1 class="font-semibold">Files</h1>
+          <p class="font-mono text-sm text-base-content/60 break-all">
+            {@bucket || "S3"}/{@prefix}
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <form id="storage-search" phx-submit="search" class="flex gap-2">
+            <input
+              type="search"
+              name="search"
+              value={@search}
+              placeholder="Search object keys..."
+              class="input input-sm input-bordered"
+              aria-label="Search object keys"
+            />
+            <.dm_btn type="submit" size="sm" variant="ghost">Search</.dm_btn>
+          </form>
+          <.dm_btn
+            id="toggle-storage-upload"
+            size="sm"
+            variant="ghost"
+            phx-click="toggle_upload"
+            disabled={is_nil(@backend_id)}
+          >
+            Upload
+          </.dm_btn>
+          <.dm_btn
+            id="refresh-storage"
+            size="sm"
+            variant="primary"
+            phx-click="refresh"
+            disabled={@loading}
+          >
+            <.dm_mdi name="refresh" class="w-4 h-4" /> Refresh
+          </.dm_btn>
+        </div>
       </div>
 
-      <nav :if={@tree} class="flex flex-col gap-0.5 px-2">
-        <%!-- Root row --%>
-        <div class="flex items-center gap-1 group">
-          <.link
-            patch={~p"/storage"}
-            class={[
-              "flex-1 flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-base-200 transition-colors",
-              if(is_nil(@tenant_filter), do: "bg-base-200 text-primary font-medium")
-            ]}
-          >
-            <.dm_mdi name="folder-open-outline" class="w-4 h-4 flex-none" />
-            <span>All Files</span>
-            <span :if={@stats} class="ml-auto text-[10px] text-base-content/40 tabular-nums">
-              {@stats.total_files}
-            </span>
-          </.link>
-          <button
-            class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-base-200 transition-opacity"
-            phx-click="show_create_folder_modal"
-            phx-value-level="root"
-            title="New folder"
-          >
-            <.dm_mdi name="folder-plus-outline" class="w-3.5 h-3.5 text-primary" />
-          </button>
+      <form
+        id="create-storage-folder"
+        phx-submit="create_folder"
+        class="flex flex-wrap items-center gap-2"
+      >
+        <input type="hidden" name="backend" value={@backend_id} />
+        <input
+          type="text"
+          name="folder"
+          placeholder="New folder name"
+          required
+          class="input input-sm input-bordered"
+          aria-label="New folder name"
+        />
+        <.dm_btn type="submit" size="sm" variant="ghost" disabled={is_nil(@backend_id)}>
+          Create folder
+        </.dm_btn>
+      </form>
+      <form
+        :if={@show_upload}
+        id="storage-upload-form"
+        phx-change="validate_upload"
+        phx-submit="save_upload"
+        class="flex flex-col gap-3 border border-base-300 rounded p-4"
+      >
+        <input type="hidden" name="backend" value={@backend_id} />
+        <div class="flex flex-wrap gap-2">
+          <input
+            name="tenant"
+            value={@upload_tenant}
+            placeholder="Tenant"
+            required
+            class="input input-sm input-bordered"
+            aria-label="Upload tenant"
+          />
+          <input
+            name="type"
+            value={@upload_type}
+            placeholder="File type"
+            required
+            class="input input-sm input-bordered"
+            aria-label="Upload file type"
+          />
         </div>
+        <.live_file_input upload={@uploads.files} />
+        <div :for={entry <- @uploads.files.entries} class="flex items-center gap-2 text-sm">
+          <span>{entry.client_name} — {entry.progress}%</span>
+          <.dm_btn
+            type="button"
+            size="sm"
+            variant="ghost"
+            phx-click="cancel_upload"
+            phx-value-ref={entry.ref}
+          >
+            Cancel
+          </.dm_btn>
+          <span :for={error <- upload_errors(@uploads.files, entry)} class="text-error">{error_to_string(
+            error
+          )}</span>
+        </div>
+        <.dm_btn type="submit" size="sm" variant="primary" disabled={is_nil(@backend_id)}>
+          Upload files
+        </.dm_btn>
+      </form>
 
-        <%!-- Tenant nodes --%>
-        <%= for tenant_node <- @tree do %>
-          <div class="mt-1">
-            <%!-- Tenant row --%>
-            <div class="flex items-center gap-1 group">
-              <.link
-                patch={~p"/storage?#{%{tenant: tenant_node.tenant}}"}
-                class={[
-                  "flex-1 flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-base-200 transition-colors",
-                  if(
-                    @tenant_filter == tenant_node.tenant and is_nil(@type_filter),
-                    do: "bg-base-200 text-primary font-medium"
-                  )
-                ]}
-              >
-                <.dm_mdi name="domain" class="w-4 h-4 flex-none text-primary/70" />
-                <span class="truncate font-medium">{tenant_node.tenant}</span>
-              </.link>
-              <button
-                class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-base-200 transition-opacity"
-                phx-click="show_create_folder_modal"
-                phx-value-level="tenant"
-                phx-value-tenant={tenant_node.tenant}
-                title="New type folder"
-              >
-                <.dm_mdi name="folder-plus-outline" class="w-3.5 h-3.5 text-primary" />
-              </button>
-              <button
-                class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-base-200 transition-opacity"
-                phx-click="delete_folder"
-                phx-value-tenant={tenant_node.tenant}
-                data-confirm={"Delete tenant '#{tenant_node.tenant}' and all its files?"}
-                title="Delete tenant"
-              >
-                <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5 text-error" />
-              </button>
-            </div>
-
-            <%!-- Type nodes --%>
-            <%= for type_node <- tenant_node.types do %>
-              <div class="ml-3">
-                <%!-- Type row --%>
-                <div class="flex items-center gap-1 group">
-                  <.link
-                    patch={~p"/storage?#{%{tenant: tenant_node.tenant, type: type_node.type}}"}
-                    class={[
-                      "flex-1 flex items-center gap-2 px-2 py-1 rounded text-sm hover:bg-base-200 transition-colors",
-                      if(
-                        @tenant_filter == tenant_node.tenant and
-                          @type_filter == type_node.type and is_nil(@year_filter),
-                        do: "bg-base-200 text-primary"
-                      )
-                    ]}
-                  >
-                    <.dm_mdi
-                      name={type_icon(type_node.type)}
-                      class="w-3.5 h-3.5 flex-none text-accent/70"
-                    />
-                    <span class="truncate">{type_node.type}</span>
-                  </.link>
-                  <button
-                    class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-base-200 transition-opacity"
-                    phx-click="delete_folder"
-                    phx-value-tenant={tenant_node.tenant}
-                    phx-value-type={type_node.type}
-                    data-confirm={"Delete '#{tenant_node.tenant}/#{type_node.type}' and all its files?"}
-                    title="Delete type folder"
-                  >
-                    <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5 text-error" />
-                  </button>
-                </div>
-
-                <%!-- Year/Month nodes --%>
-                <%= for month_node <- type_node.months do %>
-                  <div class="flex items-center gap-1 group">
-                    <.link
-                      patch={
-                        ~p"/storage?#{%{tenant: tenant_node.tenant, type: type_node.type, year: month_node.year, month: month_node.month}}"
-                      }
-                      class={[
-                        "flex-1 flex items-center gap-1.5 pl-6 pr-2 py-0.5 rounded text-xs hover:bg-base-200 transition-colors font-mono",
-                        if(
-                          @tenant_filter == tenant_node.tenant and
-                            @type_filter == type_node.type and
-                            @year_filter == month_node.year and
-                            @month_filter == month_node.month,
-                          do: "bg-base-200 text-primary"
-                        )
-                      ]}
-                    >
-                      <.dm_mdi
-                        name="calendar-month-outline"
-                        class="w-3 h-3 flex-none text-base-content/30"
-                      />
-                      <span>
-                        {month_node.year}/{String.pad_leading(to_string(month_node.month), 2, "0")}
-                      </span>
-                      <span class="ml-auto text-[10px] text-base-content/40">
-                        {month_node.count}
-                      </span>
-                    </.link>
-                    <button
-                      class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-base-200 transition-opacity"
-                      phx-click="delete_folder"
-                      phx-value-tenant={tenant_node.tenant}
-                      phx-value-type={type_node.type}
-                      phx-value-year={month_node.year}
-                      phx-value-month={month_node.month}
-                      data-confirm={"Delete all files in #{month_node.year}/#{String.pad_leading(to_string(month_node.month), 2, "0")}?"}
-                      title="Delete all files in this month"
-                    >
-                      <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5 text-error" />
-                    </button>
-                  </div>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
-        <% end %>
-      </nav>
-    </div>
-
-    <%!-- Main File Browser --%>
-    <div class="flex-1 flex flex-col gap-4 p-6 min-w-0 overflow-auto">
-      <%!-- Stats Cards --%>
       <div :if={@stats} class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <.dm_card variant="bordered">
           <div class="p-4">
-            <div class="text-xs font-mono text-base-content/50 uppercase tracking-wide">
-              Total Files
-            </div>
+            <div class="text-xs text-base-content/50 uppercase">Total Files</div>
             <div class="text-2xl font-bold text-primary mt-1">{@stats.total_files}</div>
           </div>
         </.dm_card>
         <.dm_card variant="bordered">
           <div class="p-4">
-            <div class="text-xs font-mono text-base-content/50 uppercase tracking-wide">
-              Total Size
-            </div>
+            <div class="text-xs text-base-content/50 uppercase">Total Size</div>
             <div class="text-2xl font-bold text-primary mt-1">
               {format_size(@stats.total_size)}
             </div>
@@ -178,322 +154,97 @@
         </.dm_card>
         <.dm_card variant="bordered">
           <div class="p-4">
-            <div class="text-xs font-mono text-base-content/50 uppercase tracking-wide">
-              By Type
-            </div>
-            <div class="flex flex-wrap gap-2 mt-2">
-              <%= for info <- @stats.by_type do %>
-                <span class="badge badge-sm badge-outline">{info.type}: {info.count}</span>
-              <% end %>
-            </div>
+            <div class="text-xs text-base-content/50 uppercase">Folders</div>
+            <div class="text-2xl font-bold text-primary mt-1">{@stats.total_folders}</div>
           </div>
         </.dm_card>
       </div>
 
-      <%!-- Breadcrumb --%>
-      <div class="flex items-center gap-2 text-sm text-base-content/60 font-mono">
-        <.dm_mdi name="folder-open-outline" class="w-4 h-4 text-primary" />
-        <.link patch={~p"/storage"} class="hover:text-primary">root</.link>
-        <%= if @tenant_filter do %>
-          <span class="text-base-content/30">/</span>
-          <.link
-            patch={~p"/storage?#{%{tenant: @tenant_filter}}"}
-            class="hover:text-primary"
-          >
-            {@tenant_filter}
-          </.link>
-        <% end %>
-        <%= if @type_filter do %>
-          <span class="text-base-content/30">/</span>
-          <.link
-            patch={~p"/storage?#{%{tenant: @tenant_filter, type: @type_filter}}"}
-            class="hover:text-primary"
-          >
-            {@type_filter}
-          </.link>
-        <% end %>
-        <%= if @year_filter do %>
-          <span class="text-base-content/30">/</span>
-          <span>
-            {@year_filter}/{String.pad_leading(to_string(@month_filter), 2, "0")}
-          </span>
-        <% end %>
+      <p :if={@loading} role="status" class="text-sm text-base-content/60">
+        Reading files from S3…
+      </p>
+      <p :if={@error} id="storage-error" role="alert" class="text-sm text-error">
+        {storage_error(@error)}
+        <span :if={@refreshed_at}>Showing the last successful listing.</span>
+      </p>
+      <p :if={@refreshed_at} class="text-xs text-base-content/50">
+        Last refreshed: {Calendar.strftime(@refreshed_at, "%Y-%m-%d %H:%M:%S UTC")}
+      </p>
+
+      <div class="overflow-x-auto">
+        <table class="table table-sm w-full">
+          <thead>
+            <tr>
+              <th>Object Key</th><th>Size</th><th>Last Modified</th><th>ETag</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="storage-objects" phx-update="stream">
+            <tr :for={{dom_id, object} <- @streams.objects} id={dom_id}>
+              <td class="font-mono text-xs break-all">
+                <.link
+                  navigate={
+                    ~p"/storage/#{Inventory.encode_key(object.key)}?#{%{backend: @backend_id}}"
+                  }
+                  class="text-primary hover:underline"
+                >
+                  {object.key}
+                </.link>
+              </td>
+              <td class="whitespace-nowrap">{format_size(object.size)}</td>
+              <td class="whitespace-nowrap text-xs">{object.last_modified}</td>
+              <td class="font-mono text-xs break-all">{object.etag || "—"}</td>
+              <td>
+                <.dm_btn
+                  id={object_dom_id(object) <> "-delete"}
+                  confirm="Are you sure you want to delete this file?"
+                  size="sm"
+                  variant="ghost"
+                  class="text-error"
+                  confirm_class="btn-error btn-sm"
+                  cancel_class="btn-ghost btn-sm"
+                  confirm_title="Delete File"
+                >
+                  Delete
+                  <:confirm_action>
+                    <form method="dialog">
+                      <.dm_btn
+                        phx-click="delete"
+                        phx-value-key={Inventory.encode_key(object.key)}
+                        phx-value-backend={@backend_id}
+                        class="btn-error btn-sm"
+                      >
+                        Delete
+                      </.dm_btn>
+                    </form>
+                  </:confirm_action>
+                </.dm_btn>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      <%!-- Header with search and upload button --%>
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <h1 class="font-semibold text-base-content">Files</h1>
-          <span :if={assigns[:files_result]} class="badge badge-sm badge-ghost font-mono">
-            {@files_result.total}
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <form phx-submit="search" class="flex gap-2">
-            <input
-              type="text"
-              name="search"
-              value={@search}
-              placeholder="Search files..."
-              class="input input-sm input-bordered"
-            />
-            <.dm_btn type="submit" size="sm" variant="ghost">
-              <.dm_mdi name="magnify" class="w-4 h-4" />
-            </.dm_btn>
-          </form>
-          <.dm_btn size="sm" variant="primary" phx-click="toggle_upload">
-            <.dm_mdi name="upload" class="w-4 h-4" />
-            <span>Upload</span>
-          </.dm_btn>
-        </div>
-      </div>
-
-      <%!-- Upload Panel --%>
-      <div :if={@show_upload} class="border border-primary/30 rounded-lg p-4 bg-base-200/50">
-        <form phx-submit="save_upload" phx-change="validate_upload" class="flex flex-col gap-3">
-          <div class="flex gap-3">
-            <div class="flex flex-col gap-1 flex-1">
-              <label class="label text-xs font-medium">Tenant</label>
-              <input
-                type="text"
-                name="tenant"
-                value={@upload_tenant}
-                placeholder="e.g. my-project"
-                class="input input-sm input-bordered"
-                required
-              />
-            </div>
-            <div class="flex flex-col gap-1 flex-1">
-              <label class="label text-xs font-medium">Type</label>
-              <select name="type" class="select select-sm select-bordered">
-                <option value="attachment" selected={@upload_type == "attachment"}>
-                  attachment
-                </option>
-                <option value="avatar" selected={@upload_type == "avatar"}>avatar</option>
-                <option value="document" selected={@upload_type == "document"}>document</option>
-                <option value="image" selected={@upload_type == "image"}>image</option>
-              </select>
-            </div>
-          </div>
-
-          <div
-            class="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center hover:border-primary/60 transition-colors"
-            phx-drop-target={@uploads.files.ref}
-          >
-            <.dm_mdi name="cloud-upload-outline" class="w-10 h-10 mx-auto text-primary/50 mb-2" />
-            <p class="text-sm text-base-content/60 mb-2">
-              Drag & drop files here, or click to browse
-            </p>
-            <.live_file_input
-              upload={@uploads.files}
-              class="file-input file-input-sm file-input-bordered"
-            />
-          </div>
-
-          <%!-- Upload entries with progress --%>
-          <%= for entry <- @uploads.files.entries do %>
-            <div class="flex items-center gap-3 text-sm">
-              <.dm_mdi name="file-outline" class="w-4 h-4 flex-none text-base-content/50" />
-              <span class="flex-1 truncate font-mono text-xs">{entry.client_name}</span>
-              <span class="text-xs text-base-content/50 tabular-nums">
-                {format_size(entry.client_size)}
-              </span>
-              <progress
-                class="progress progress-primary w-24 h-1.5"
-                value={entry.progress}
-                max="100"
-              ></progress>
-              <span class="text-xs tabular-nums w-8 text-right">{entry.progress}%</span>
-              <button
-                type="button"
-                phx-click="cancel_upload"
-                phx-value-ref={entry.ref}
-                class="btn btn-ghost btn-xs text-error"
-              >
-                <.dm_mdi name="close" class="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <%= for err <- upload_errors(@uploads.files, entry) do %>
-              <p class="text-error text-xs ml-8">{error_to_string(err)}</p>
-            <% end %>
-          <% end %>
-
-          <%= for err <- upload_errors(@uploads.files) do %>
-            <p class="text-error text-xs">{error_to_string(err)}</p>
-          <% end %>
-
-          <div class="flex justify-end gap-2">
-            <.dm_btn type="button" variant="ghost" size="sm" phx-click="toggle_upload">
-              Cancel
-            </.dm_btn>
-            <.dm_btn
-              type="submit"
-              variant="primary"
-              size="sm"
-              disabled={@uploads.files.entries == []}
-            >
-              Upload {length(@uploads.files.entries)} file(s)
-            </.dm_btn>
-          </div>
-        </form>
-      </div>
-
-      <%!-- Loading state --%>
-      <div :if={is_nil(@files_result)} class="flex justify-center py-12">
-        <span class="loading loading-spinner loading-md text-primary"></span>
-      </div>
-
-      <%!-- File Table --%>
-      <.dm_table
-        :if={@files_result}
-        id="storage-files-table"
-        class="table-bordered [&_thead]:bg-primary [&_thead]:text-primary-content [&_thead]:z-10"
-        stream={true}
-        data={@streams.files}
+      <p
+        :if={@files_result && @files_result.total == 0 && !@loading && !@error}
+        class="text-sm text-base-content/50 py-8 text-center"
       >
-        <:col :let={f} label="Filename">
-          <.link navigate={~p"/storage/#{f.id}"} class="text-sm font-medium hover:text-primary">
-            {f.filename}
-          </.link>
-        </:col>
-        <:col :let={f} label="Type">
-          <span class="badge badge-sm badge-outline">{f.type}</span>
-        </:col>
-        <:col :let={f} label="Content Type">
-          <span class="font-mono text-xs">{f.content_type}</span>
-        </:col>
-        <:col :let={f} label="Size">
-          <span class="font-mono text-xs tabular-nums">{format_size(f.size)}</span>
-        </:col>
-        <:col :let={f} label="Variants">
-          <span class="font-mono text-xs">{map_size(f.variants || %{})}</span>
-        </:col>
-        <:col :let={f} label="Uploaded">
-          <span class="font-mono text-xs tabular-nums">
-            {Calendar.strftime(f.inserted_at, "%Y-%m-%d %H:%M")}
-          </span>
-        </:col>
-        <:col :let={f} label="">
-          <div class="flex items-center gap-1.5">
-            <.link navigate={~p"/storage/#{f.id}"}>
-              <.dm_btn size="xs" variant="ghost">
-                <.dm_mdi name="eye-outline" class="w-3.5 h-3.5" />
-              </.dm_btn>
-            </.link>
-            <.dm_btn
-              id={"file-del-#{f.id}"}
-              confirm="Are you sure you want to delete this file?"
-              size="xs"
-              variant="ghost"
-              class="text-error"
-              confirm_class="btn-error btn-sm"
-              cancel_class="btn-ghost btn-sm"
-              confirm_title="Delete File"
-            >
-              <.dm_mdi name="trash-can-outline" class="w-3.5 h-3.5" />
-              <:confirm_action>
-                <form method="dialog">
-                  <.dm_btn
-                    phx-click={JS.push("delete", value: %{id: f.id})}
-                    class="btn-error btn-sm"
-                  >
-                    Delete
-                  </.dm_btn>
-                </form>
-              </:confirm_action>
-            </.dm_btn>
-          </div>
-        </:col>
-      </.dm_table>
-
-      <%!-- Empty state --%>
+        No files in this folder
+      </p>
       <div
-        :if={@files_result && @files_result.total == 0}
-        class="flex flex-col items-center gap-3 py-16 text-base-content/40"
-      >
-        <.dm_mdi name="folder-open-outline" class="w-12 h-12" />
-        <p class="text-sm">No files found</p>
-      </div>
-
-      <%!-- Pagination --%>
-      <div
-        :if={assigns[:files_result] && @files_result.total_pages > 1}
-        class="flex justify-center gap-2 mt-4"
+        :if={@files_result && @files_result.total_pages > 1}
+        class="flex justify-center items-center gap-3"
       >
         <.link
           :if={@page > 1}
-          patch={
-            ~p"/storage?#{%{page: @page - 1, tenant: @tenant_filter, type: @type_filter, search: @search, year: @year_filter, month: @month_filter} |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)}"
-          }
-        >
-          <.dm_btn size="sm" variant="ghost">Previous</.dm_btn>
-        </.link>
-        <span class="flex items-center text-sm text-base-content/60">
-          Page {@page} of {@files_result.total_pages}
-        </span>
+          patch={~p"/storage?#{filter_params(assigns, page: @page - 1)}"}
+          class="btn btn-ghost btn-sm"
+        >Previous</.link>
+        <span class="text-sm">Page {@page} of {@files_result.total_pages}</span>
         <.link
           :if={@page < @files_result.total_pages}
-          patch={
-            ~p"/storage?#{%{page: @page + 1, tenant: @tenant_filter, type: @type_filter, search: @search, year: @year_filter, month: @month_filter} |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)}"
-          }
-        >
-          <.dm_btn size="sm" variant="ghost">Next</.dm_btn>
-        </.link>
+          patch={~p"/storage?#{filter_params(assigns, page: @page + 1)}"}
+          class="btn btn-ghost btn-sm"
+        >Next</.link>
       </div>
     </div>
-  </div>
-
-  <%!-- Create Folder Modal --%>
-  <div :if={@folder_modal} class="modal modal-open">
-    <div class="modal-box max-w-sm">
-      <h3 class="font-bold text-lg mb-4">New Folder</h3>
-      <form phx-submit="create_folder" class="flex flex-col gap-4">
-        <div :if={@folder_modal == :root} class="flex flex-col gap-1">
-          <label class="label text-sm font-medium">Tenant</label>
-          <input
-            type="text"
-            name="tenant"
-            value={@folder_form[:tenant]}
-            placeholder="e.g. my-project"
-            class="input input-bordered input-sm"
-            autofocus
-          />
-        </div>
-
-        <input
-          :if={@folder_modal == :tenant}
-          type="hidden"
-          name="tenant"
-          value={@folder_form[:tenant]}
-        />
-
-        <div class="flex flex-col gap-1">
-          <label class="label text-sm font-medium">Type</label>
-          <input
-            type="text"
-            name="type"
-            value={@folder_form[:type]}
-            placeholder="e.g. image, document"
-            class="input input-bordered input-sm"
-            autofocus={@folder_modal == :tenant}
-          />
-        </div>
-
-        <div :if={@folder_form[:error]} class="text-error text-sm">
-          {@folder_form[:error]}
-        </div>
-
-        <div class="flex justify-end gap-2 mt-2">
-          <.dm_btn type="button" variant="ghost" size="sm" phx-click="close_folder_modal">
-            Cancel
-          </.dm_btn>
-          <.dm_btn type="submit" variant="primary" size="sm">
-            Create
-          </.dm_btn>
-        </div>
-      </form>
-    </div>
-    <label class="modal-backdrop" phx-click="close_folder_modal"></label>
   </div>
 </Layouts.app>

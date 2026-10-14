@@ -39,7 +39,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.AdminWeb.GaoNoteLive.Index, as: GaoNoteIndex
   alias GSMLG.Repo
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{StorageFile, TestCatalogClient}
 
   @secret_key_base String.duplicate("a", 64)
   @storage_keys [
@@ -71,7 +71,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
-    Repo.delete_all(StorageFile)
+    TestCatalogClient.setup!()
 
     original_storage =
       Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
@@ -1483,7 +1483,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       end)
 
       assert Repo.get(Attachment, attachment.id) == nil
-      assert %StorageFile{id: storage_file_id} = Repo.get(StorageFile, attachment.storage_file_id)
+      assert %StorageFile{id: storage_file_id} = GSMLG.Storage.get(attachment.storage_file_id)
       assert storage_file_id == attachment.storage_file_id
     end
 
@@ -1778,7 +1778,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ "text/plain"
     assert html =~ "New"
     assert Repo.aggregate(Attachment, :count) == 0
-    assert Repo.aggregate(StorageFile, :count) == 0
+    assert TestCatalogClient.count() == 0
     refute_received {:s3_put, _path, _body}
 
     render_click(view, "open_attachment_modal", %{"operation" => "new"})
@@ -1807,7 +1807,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     assert html =~ "./images/pixel.png"
     assert html =~ "image/png"
     assert Repo.aggregate(Attachment, :count) == 0
-    assert Repo.aggregate(StorageFile, :count) == 0
+    assert TestCatalogClient.count() == 0
 
     render_submit(view, "save", %{
       "gao_note" => %{

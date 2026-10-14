@@ -1,8 +1,55 @@
 defmodule GSMLG.Web.FileControllerTest do
   use GSMLG.Web.ConnCase
 
-  alias GSMLG.Repo
-  alias GSMLG.Storage.StorageFile
+  defmodule S3Stub do
+    use Plug.Router
+    plug(:match)
+    plug(:dispatch)
+
+    Plug.Router.get "/*path" do
+      data =
+        if String.starts_with?(conn.request_path, "/controller-test/"),
+          do: String.duplicate("x", 1024),
+          else: "wrong bucket"
+
+      send_resp(conn, 200, data)
+    end
+
+    match(_, do: send_resp(conn, 404, ""))
+  end
+
+  alias GSMLG.Storage.{StorageFile, TestCatalogClient}
+
+  defmodule SwitchingCatalogClient do
+    alias GSMLG.Storage.TestCatalogClient
+
+    def get_object(backend, key) do
+      result = TestCatalogClient.get_object(backend, key)
+      Application.put_env(:gsmlg_storage, :s3_bucket, "other-bucket")
+      result
+    end
+  end
+
+  setup do
+    TestCatalogClient.setup!()
+    keys = [:s3_endpoint, :s3_bucket]
+    previous = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
+    {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false])
+    {:ok, {_, port}} = :inet.sockname(socket)
+    :gen_tcp.close(socket)
+    start_supervised!({Bandit, plug: S3Stub, port: port, startup_log: false})
+    Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
+    Application.put_env(:gsmlg_storage, :s3_bucket, "controller-test")
+
+    on_exit(fn ->
+      Enum.each(previous, fn
+        {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
+        {key, :error} -> Application.delete_env(:gsmlg_storage, key)
+      end)
+    end)
+
+    :ok
+  end
 
   @valid_attrs %{
     tenant: "test",
@@ -27,7 +74,7 @@ defmodule GSMLG.Web.FileControllerTest do
   defp insert_file(attrs \\ %{}) do
     %StorageFile{}
     |> StorageFile.changeset(Map.merge(@valid_attrs, attrs))
-    |> Repo.insert!()
+    |> TestCatalogClient.insert_file!()
   end
 
   describe "GET /files/:id" do
@@ -75,13 +122,27 @@ defmodule GSMLG.Web.FileControllerTest do
     end
   end
 
-  describe "Range header parsing" do
-    # These tests verify the parse_range logic via the controller module.
-    # Since we can't call private functions directly, we test via the
-    # parse_byte_range/2 behavior observed through HTTP responses.
-    # Full integration requires S3, so these are tagged :requires_s3.
+  test "keeps manifest and original bytes on the captured bucket during configuration changes", %{
+    conn: conn
+  } do
+    file = insert_file()
+    Application.put_env(:gsmlg_storage, :catalog_s3_client, SwitchingCatalogClient)
+    conn = get(conn, "/files/#{file.id}")
+    assert response(conn, 200) == String.duplicate("x", 1024)
+    assert Application.get_env(:gsmlg_storage, :s3_bucket) == "other-bucket"
+  end
 
-    @tag :requires_s3
+  test "keeps variant bytes on the manifest's captured bucket during configuration changes", %{
+    conn: conn
+  } do
+    file = insert_file()
+    Application.put_env(:gsmlg_storage, :catalog_s3_client, SwitchingCatalogClient)
+    conn = get(conn, "/files/#{file.id}/v/thumb")
+    assert response(conn, 200) == String.duplicate("x", 1024)
+    assert Application.get_env(:gsmlg_storage, :s3_bucket) == "other-bucket"
+  end
+
+  describe "Range header parsing" do
     test "returns 206 with partial content for valid Range header", %{conn: conn} do
       file = insert_file()
 
@@ -90,11 +151,10 @@ defmodule GSMLG.Web.FileControllerTest do
         |> put_req_header("range", "bytes=0-99")
         |> get("/files/#{file.id}")
 
-      # If S3 is available, should return 206; otherwise falls through to error
-      assert conn.status in [206, 404]
+      assert response(conn, 206) == String.duplicate("x", 100)
+      assert get_resp_header(conn, "content-range") == ["bytes 0-99/1024"]
     end
 
-    @tag :requires_s3
     test "returns 416 for out-of-range request", %{conn: conn} do
       file = insert_file()
 
@@ -103,8 +163,8 @@ defmodule GSMLG.Web.FileControllerTest do
         |> put_req_header("range", "bytes=999999999-")
         |> get("/files/#{file.id}")
 
-      # 416 or 404 (if S3 unavailable)
-      assert conn.status in [416, 404]
+      assert conn.status == 416
+      assert get_resp_header(conn, "content-range") == ["bytes */1024"]
     end
   end
 
@@ -122,7 +182,6 @@ defmodule GSMLG.Web.FileControllerTest do
       assert get_resp_header(conn, "cache-control") == ["public, max-age=31536000, immutable"]
     end
 
-    @tag :requires_s3
     test "does not return 304 when If-None-Match does not match", %{conn: conn} do
       file = insert_file()
 
@@ -131,9 +190,7 @@ defmodule GSMLG.Web.FileControllerTest do
         |> put_req_header("if-none-match", ~s("wrong-checksum"))
         |> get("/files/#{file.id}")
 
-      # Requires S3/AWS services running. When ETag doesn't match, controller
-      # fetches from S3 — returns 200 with data or 404 on S3 error.
-      assert conn.status in [200, 404]
+      assert response(conn, 200) == String.duplicate("x", 1024)
       refute conn.status == 304
     end
   end

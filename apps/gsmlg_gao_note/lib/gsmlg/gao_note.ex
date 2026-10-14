@@ -6,6 +6,7 @@ defmodule GSMLG.GaoNote do
   import Ecto.Query, warn: false
 
   alias GSMLG.GaoNote.{
+    Attachment,
     Attachments,
     Audit,
     BatchActions,
@@ -100,8 +101,8 @@ defmodule GSMLG.GaoNote do
   def get_note(id) do
     with {:ok, id} <- Ecto.UUID.cast(id) do
       active_note_query()
-      |> preload(labels: :label_setting, attachments: :storage_file)
       |> Repo.get(id)
+      |> preload_note()
     else
       :error -> nil
     end
@@ -109,16 +110,16 @@ defmodule GSMLG.GaoNote do
 
   def get_note!(id) do
     active_note_query()
-    |> preload(labels: :label_setting, attachments: :storage_file)
     |> Repo.get!(id)
+    |> preload_note()
   end
 
   def get_public_note(id) do
     with {:ok, id} <- Ecto.UUID.cast(id) do
       public_note_query()
       |> where([n], n.id == ^id)
-      |> preload(labels: :label_setting, attachments: :storage_file)
       |> Repo.one()
+      |> preload_note()
     else
       :error -> nil
     end
@@ -133,15 +134,15 @@ defmodule GSMLG.GaoNote do
     |> order_by([n], desc: n.deleted_at, desc: n.updated_at)
     |> limit(^limit_value(opts[:limit]))
     |> offset(^offset_value(opts[:offset]))
-    |> preload(labels: :label_setting, attachments: :storage_file)
     |> Repo.all()
+    |> preload_note()
   end
 
   def get_deleted_note(id) do
     with {:ok, id} <- Ecto.UUID.cast(id) do
       deleted_note_query()
-      |> preload(labels: :label_setting, attachments: :storage_file)
       |> Repo.get(id)
+      |> preload_note()
     else
       :error -> nil
     end
@@ -957,8 +958,8 @@ defmodule GSMLG.GaoNote do
     |> apply_order(opts[:order_by])
     |> limit(^limit_value(opts[:limit]))
     |> offset(^offset_value(opts[:offset]))
-    |> preload(labels: :label_setting, attachments: :storage_file)
     |> Repo.all()
+    |> preload_note()
   end
 
   defp filter_by_search(query, nil), do: query
@@ -1328,8 +1329,22 @@ defmodule GSMLG.GaoNote do
 
   defp actor_id(actor), do: Audit.actor_id(actor)
 
-  defp preload_note(%Note{} = note),
-    do: Repo.preload(note, [labels: :label_setting, attachments: :storage_file], force: true)
+  def preload_note(nil), do: nil
+
+  def preload_note(notes) when is_list(notes) do
+    notes
+    |> Repo.preload([:attachments, labels: :label_setting], force: true)
+    |> Enum.map(&load_attachment_files/1)
+  end
+
+  def preload_note(%Note{} = note) do
+    note
+    |> Repo.preload([:attachments, labels: :label_setting], force: true)
+    |> load_attachment_files()
+  end
+
+  defp load_attachment_files(note),
+    do: %{note | attachments: Enum.map(note.attachments, &Attachment.load_storage_file/1)}
 
   defp update_note_fields_in_repo(note_id, attrs, labels) do
     Repo.transaction(fn ->

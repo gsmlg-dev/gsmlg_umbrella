@@ -1,9 +1,13 @@
 defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
   use GSMLG.GaoNote.DataCase, async: false
 
+  setup do
+    GSMLG.Storage.TestCatalogClient.setup!()
+    :ok
+  end
+
   alias GSMLG.GaoNote.{Attachment, Attachments, Compat, Note, Sync}
   alias GSMLG.GaoNote.Sync.{Protocol, Snapshot, Store}
-  alias GSMLG.Storage.StorageFile
 
   defmodule ObjectStore do
     import Plug.Conn
@@ -166,7 +170,7 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
              Sync.apply(peer, incoming, %{"disguised" => "<html>active</html>"})
 
     refute Repo.get(Note, incoming["note_id"])
-    refute Repo.exists?(from(f in StorageFile, where: f.status == "active"))
+    refute GSMLG.Storage.TestCatalogClient.files(status: "active") != []
   end
 
   test "catalog rejection rolls back content and discards staged objects", %{
@@ -187,7 +191,7 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
       )
 
     [pending] = Sync.pending(peer.id)
-    files = Repo.all(from(f in StorageFile, where: f.status == "active", select: f.id))
+    files = Enum.map(GSMLG.Storage.TestCatalogClient.files(status: "active"), & &1.id)
     stored_objects = :ets.tab2list(objects)
 
     incoming =
@@ -204,7 +208,7 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
              Sync.apply(peer, incoming, %{"replacement" => "rejected"})
 
     assert %Note{title: "local", revision: 1} = Repo.get!(Note, local.id)
-    assert Repo.all(from(f in StorageFile, where: f.status == "active", select: f.id)) == files
+    assert Enum.map(GSMLG.Storage.TestCatalogClient.files(status: "active"), & &1.id) == files
     assert :ets.tab2list(objects) == stored_objects
     assert Store.get("received", incoming["event_id"], peer.id) == nil
     assert [^pending] = Sync.pending(peer.id)
@@ -218,7 +222,7 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
     incoming = event(peer, Ecto.UUID.generate(), 1000, [{"stale", "stale.txt", "stale"}])
     assert {:error, :obsolete_session} = Sync.apply(peer, incoming, %{"stale" => "stale"})
     refute Repo.get(Note, incoming["note_id"])
-    refute Repo.exists?(from(f in StorageFile, where: f.status == "active"))
+    refute GSMLG.Storage.TestCatalogClient.files(status: "active") != []
     assert :ets.tab2list(objects) == []
   end
 
@@ -241,7 +245,9 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
     assert {:ok, built} = Snapshot.build(incoming["note_id"])
     assert built.snapshot == snapshot
     stored = Repo.get_by!(Attachment, note_id: incoming["note_id"], api_id: "bad")
-    assert Repo.get!(StorageFile, stored.storage_file_id).content_type == "text/plain"
+
+    assert GSMLG.Storage.TestCatalogClient.get_file!(stored.storage_file_id).content_type ==
+             "text/plain"
   end
 
   test "attachment metadata cannot be normalized while recording the remote hash", %{peer: peer} do
@@ -283,7 +289,7 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
                Sync.apply(peer, incoming, %{"policy" => "text"})
 
       refute Repo.get(Note, incoming["note_id"])
-      refute Repo.exists?(from(f in StorageFile, where: f.status == "active"))
+      refute GSMLG.Storage.TestCatalogClient.files(status: "active") != []
     after
       if is_nil(previous),
         do: Application.delete_env(:gsmlg_storage, :max_file_size),

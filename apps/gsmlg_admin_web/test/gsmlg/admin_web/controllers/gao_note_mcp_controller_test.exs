@@ -6,7 +6,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
   alias GSMLG.GaoNote
   alias GSMLG.GaoNote.{Attachment, Label, LabelSetting, Log, MCPSetting, Note}
   alias GSMLG.Repo
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{StorageFile, TestCatalogClient}
 
   @mcp_headers ~w(accept authorization x-gaonote-mcp-key mcp-session-id mcp-protocol-version)
 
@@ -31,7 +31,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
     Repo.delete_all(Label)
     Repo.delete_all(LabelSetting)
     Repo.delete_all(Note)
-    Repo.delete_all(StorageFile)
+    TestCatalogClient.setup!()
     :ok
   end
 
@@ -661,7 +661,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
         status: "active",
         uploaded_by: "fixture"
       })
-      |> Repo.insert!()
+      |> TestCatalogClient.insert_file!()
 
     attachment =
       %Attachment{}
@@ -675,7 +675,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMCPControllerTest do
       })
       |> Repo.insert!()
 
-    Repo.preload(attachment, :storage_file)
+    Attachment.load_storage_file(attachment)
   end
 
   defp unique_id(prefix) do

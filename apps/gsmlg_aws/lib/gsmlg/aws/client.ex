@@ -106,9 +106,9 @@ defmodule GSMLG.AWS.HttpClient do
         headers,
         opts
       ) do
-    opts = opts || []
+    {decode_json, opts} = Keyword.pop(opts || [], :decode_json, true)
 
-    case client()
+    case client(decode_json)
          |> Tesla.request(method: method, url: url, body: body, headers: headers, opts: opts) do
       {:ok, response} ->
         {:ok, %{status_code: response.status, headers: response.headers, body: response.body}}
@@ -118,14 +118,21 @@ defmodule GSMLG.AWS.HttpClient do
     end
   end
 
-  def client() do
+  def client(), do: client(true)
+
+  defp client(decode_json) do
+    middleware =
+      if decode_json,
+        do: [Tesla.Middleware.JSON],
+        else: []
+
     Tesla.client(
-      [
-        # {Tesla.Middleware.FollowRedirects, max_redirects: 3},
-        Tesla.Middleware.JSON,
-        # {Tesla.Middleware.Headers, [{"Accept", "application/json"}]},
-        {Tesla.Middleware.Logger, debug: false, filter_headers: ["authorization"]}
-      ],
+      middleware ++
+        [
+          # {Tesla.Middleware.FollowRedirects, max_redirects: 3},
+          # {Tesla.Middleware.Headers, [{"Accept", "application/json"}]},
+          {Tesla.Middleware.Logger, debug: false, filter_headers: ["authorization"]}
+        ],
       {Tesla.Adapter.Finch, name: GSMLG.AWS.Finch}
     )
   end

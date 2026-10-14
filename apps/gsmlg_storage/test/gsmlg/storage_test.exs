@@ -13,6 +13,13 @@ defmodule GSMLG.StorageTest do
         send(pid, {:s3_put_path, conn.request_path})
       end
 
+      if String.ends_with?(conn.request_path, "/") do
+        Agent.update(
+          Application.fetch_env!(:gsmlg_storage, :storage_test_markers),
+          &MapSet.put(&1, conn.request_path)
+        )
+      end
+
       send_resp(conn, 200, "")
     end
 
@@ -27,6 +34,11 @@ defmodule GSMLG.StorageTest do
       if is_binary(failure_key) and String.ends_with?(conn.request_path, failure_key) do
         send_resp(conn, 500, "delete failed")
       else
+        Agent.update(
+          Application.fetch_env!(:gsmlg_storage, :storage_test_markers),
+          &MapSet.delete(&1, conn.request_path)
+        )
+
         send_resp(conn, 204, "")
       end
     end
@@ -38,12 +50,29 @@ defmodule GSMLG.StorageTest do
         send(pid, {:s3_get, range_headers})
       end
 
-      object = Application.get_env(:gsmlg_storage, :storage_test_object, "")
-      {status, body} = range_response(object, range_headers)
-      send_resp(conn, status, body)
+      if String.contains?(conn.query_string, "list-type=") do
+        contents =
+          Application.fetch_env!(:gsmlg_storage, :storage_test_markers)
+          |> Agent.get(& &1)
+          |> Enum.map_join(fn path ->
+            key = String.replace_prefix(path, "/gsmlg-storage/", "")
+
+            "<Contents><Key>#{URI.encode(key, &URI.char_unreserved?/1)}</Key><Size>0</Size><LastModified>2026-10-14T00:00:00Z</LastModified></Contents>"
+          end)
+
+        send_resp(
+          conn,
+          200,
+          "<ListBucketResult><EncodingType>url</EncodingType><IsTruncated>false</IsTruncated>#{contents}</ListBucketResult>"
+        )
+      else
+        object = Application.get_env(:gsmlg_storage, :storage_test_object, "")
+        {status, body} = range_response(object, range_headers)
+        send_resp(conn, status, body)
+      end
     end
 
-    match _, do: send_resp(conn, 200, "")
+    match(_, do: send_resp(conn, 200, ""))
 
     defp range_response(object, ["bytes=" <> range]) do
       [first, last] =
@@ -57,22 +86,62 @@ defmodule GSMLG.StorageTest do
     defp range_response(object, _headers), do: {200, object}
   end
 
-  defmodule FailingInsertRepo do
-    def insert(_changeset) do
-      case Process.get({__MODULE__, :failure}) do
-        {:raise, message} -> raise message
-        {:exit, reason} -> exit(reason)
-        {:throw, reason} -> throw(reason)
+  defmodule FailingCatalogClient do
+    alias GSMLG.Storage.TestCatalogClient
+
+    defdelegate get_object(backend, key), to: TestCatalogClient
+    defdelegate list_objects(backend), to: TestCatalogClient
+
+    def put_object(backend, key, data, content_type) do
+      status = JSON.decode!(data)["status"]
+
+      case {Process.get({__MODULE__, :failure}), status} do
+        {:put, "active"} -> {:error, :manifest_write_failed}
+        {:intent, "processing"} -> {:error, :manifest_write_failed}
+        {:raise, "active"} -> raise "manifest write crashed"
+        _ -> TestCatalogClient.put_object(backend, key, data, content_type)
+      end
+    end
+
+    def delete_object(backend, key) do
+      if Process.get({__MODULE__, :failure}) == :delete,
+        do: {:error, :manifest_delete_failed},
+        else: TestCatalogClient.delete_object(backend, key)
+    end
+  end
+
+  defmodule OrderedCatalogClient do
+    alias GSMLG.Storage.TestCatalogClient
+    defdelegate get_object(backend, key), to: TestCatalogClient
+    defdelegate put_object(backend, key, data, content_type), to: TestCatalogClient
+    defdelegate delete_object(backend, key), to: TestCatalogClient
+
+    def list_objects(backend) do
+      with {:ok, objects} <- TestCatalogClient.list_objects(backend),
+           do: {:ok, Enum.sort_by(objects, & &1.key)}
+    end
+  end
+
+  defmodule StaleSnapshotCatalogClient do
+    alias GSMLG.Storage.TestCatalogClient
+    defdelegate list_objects(backend), to: TestCatalogClient
+    defdelegate put_object(backend, key, data, content_type), to: TestCatalogClient
+    defdelegate delete_object(backend, key), to: TestCatalogClient
+
+    def get_object(backend, key) do
+      case Process.delete({__MODULE__, :snapshot}) do
+        nil -> TestCatalogClient.get_object(backend, key)
+        data -> {:ok, data}
       end
     end
   end
 
-  alias GSMLG.Repo
   alias GSMLG.Storage
-  alias GSMLG.Storage.StorageFile
+  alias GSMLG.Storage.{StorageFile, TestCatalogClient}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(GSMLG.Repo)
+    TestCatalogClient.setup!()
     :ok
   end
 
@@ -93,7 +162,7 @@ defmodule GSMLG.StorageTest do
 
     %StorageFile{}
     |> StorageFile.changeset(Map.merge(defaults, attrs))
-    |> Repo.insert!()
+    |> TestCatalogClient.insert_file!()
   end
 
   defp with_s3_stub(fun) do
@@ -105,7 +174,8 @@ defmodule GSMLG.StorageTest do
       :storage_test_object,
       :storage_test_delete_failure_key,
       :max_file_size,
-      :repo
+      :catalog_s3_client,
+      :storage_test_markers
     ]
 
     original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
@@ -116,6 +186,8 @@ defmodule GSMLG.StorageTest do
     Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
     Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
     Application.put_env(:gsmlg_storage, :storage_test_pid, self())
+    markers = start_supervised!({Agent, fn -> MapSet.new() end}, id: :s3_markers)
+    Application.put_env(:gsmlg_storage, :storage_test_markers, markers)
 
     try do
       fun.()
@@ -220,7 +292,11 @@ defmodule GSMLG.StorageTest do
     test "sanitizes path-like filenames and preserves normal Unicode basenames" do
       with_s3_stub(fn ->
         assert {:ok, %StorageFile{filename: "file.txt"}} =
-                 Storage.upload({"C:\\fakepath\\file.txt", "windows path"}, "tenant", "attachment")
+                 Storage.upload(
+                   {"C:\\fakepath\\file.txt", "windows path"},
+                   "tenant",
+                   "attachment"
+                 )
 
         assert {:ok, %StorageFile{filename: "file.txt"}} =
                  Storage.upload({"../../file.txt", "relative path"}, "tenant", "attachment")
@@ -236,7 +312,7 @@ defmodule GSMLG.StorageTest do
 
     test "rejects blank, dot, control, NUL, invalid UTF-8, and overlong filenames before S3" do
       with_s3_stub(fn ->
-        count_before = Repo.aggregate(StorageFile, :count, :id)
+        count_before = TestCatalogClient.count()
         overlong_multibyte = String.duplicate("界", 84) <> ".txt"
 
         invalid_filenames = [
@@ -256,7 +332,7 @@ defmodule GSMLG.StorageTest do
         end
 
         assert byte_size(overlong_multibyte) > 255
-        assert Repo.aggregate(StorageFile, :count, :id) == count_before
+        assert TestCatalogClient.count() == count_before
         refute_received :s3_put
       end)
     end
@@ -300,101 +376,77 @@ defmodule GSMLG.StorageTest do
       end)
     end
 
-    @tag :tmp_dir
-    test "compensates and re-raises a row insertion exception without changing Plug.Upload",
-         %{tmp_dir: tmp_dir} do
+    test "a failed recovery intent write prevents any payload upload" do
       with_s3_stub(fn ->
-        png =
-          Base.decode64!(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-          )
+        Application.put_env(:gsmlg_storage, :catalog_s3_client, FailingCatalogClient)
+        Process.put({FailingCatalogClient, :failure}, :intent)
 
-        path = Path.join(tmp_dir, "failing-upload")
-        File.write!(path, png)
+        assert {:error, :manifest_write_failed} =
+                 Storage.upload({"intent.txt", "safe data"}, "tenant", "attachment", variants: [])
 
-        upload = %Plug.Upload{
-          path: path,
-          filename: "failing-upload.png",
-          content_type: "image/png"
-        }
+        assert TestCatalogClient.count() == 0
+        refute_received :s3_put
+      end)
+    end
 
-        count_before = Repo.aggregate(StorageFile, :count, :id)
-        Application.put_env(:gsmlg_storage, :repo, FailingInsertRepo)
-        Process.put({FailingInsertRepo, :failure}, {:raise, "storage row insert failed"})
+    test "an active manifest exception cleans the payload and preserves the original error" do
+      with_s3_stub(fn ->
+        Application.put_env(:gsmlg_storage, :catalog_s3_client, FailingCatalogClient)
+        Process.put({FailingCatalogClient, :failure}, :raise)
 
-        try do
-          Storage.upload(upload, "tenant", "attachment")
-          flunk("expected storage row insertion to raise")
-        rescue
-          error in RuntimeError ->
-            assert Exception.message(error) == "storage row insert failed"
-            assert [{FailingInsertRepo, :insert, 1, _location} | _rest] = __STACKTRACE__
+        assert_raise RuntimeError, "manifest write crashed", fn ->
+          Storage.upload({"crash.txt", "safe data"}, "tenant", "attachment", variants: [])
         end
 
-        assert_receive :s3_put
         assert_receive {:s3_put_path, put_path}
-        assert_receive {:s3_delete, delete_path}
-        assert delete_path == put_path
-        assert Repo.aggregate(StorageFile, :count, :id) == count_before
-        assert File.read!(path) == png
-        refute_receive {:s3_get, _headers}, 100
-        refute_receive :s3_put, 100
+        assert_receive {:s3_delete, ^put_path}
+        assert TestCatalogClient.count(status: "active") == 0
+        assert TestCatalogClient.count(status: "deleted") == 1
       end)
     end
 
-    test "compensates and preserves a row insertion exit" do
+    @tag :tmp_dir
+    test "compensates manifest write failure without changing Plug.Upload", %{tmp_dir: tmp_dir} do
       with_s3_stub(fn ->
-        png =
-          Base.decode64!(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-          )
+        path = Path.join(tmp_dir, "failing-upload")
+        File.write!(path, "safe data")
+        upload = %Plug.Upload{path: path, filename: "failing.txt", content_type: "text/plain"}
+        Application.put_env(:gsmlg_storage, :catalog_s3_client, FailingCatalogClient)
+        Process.put({FailingCatalogClient, :failure}, :put)
 
-        count_before = Repo.aggregate(StorageFile, :count, :id)
-        Application.put_env(:gsmlg_storage, :repo, FailingInsertRepo)
-        Process.put({FailingInsertRepo, :failure}, {:exit, :storage_row_insert_exit})
-
-        assert :storage_row_insert_exit =
-                 catch_exit(
-                   Storage.upload({"failing-upload.png", png}, "tenant", "attachment")
-                 )
+        assert {:error, :manifest_write_failed} =
+                 Storage.upload(upload, "tenant", "attachment", variants: [])
 
         assert_receive :s3_put
         assert_receive {:s3_put_path, put_path}
-        assert_receive {:s3_delete, delete_path}
-        assert delete_path == put_path
-        assert Repo.aggregate(StorageFile, :count, :id) == count_before
-        refute_receive {:s3_get, _headers}, 100
-        refute_receive :s3_put, 100
+        assert_receive {:s3_delete, ^put_path}
+        assert TestCatalogClient.count(status: "active") == 0
+        assert TestCatalogClient.count(status: "deleted") == 1
+        assert File.read!(path) == "safe data"
       end)
     end
 
-    test "compensates and preserves a row insertion throw" do
+    test "a failed manifest write can be retried after the backend recovers" do
       with_s3_stub(fn ->
-        png =
-          Base.decode64!(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-          )
+        Application.put_env(:gsmlg_storage, :catalog_s3_client, FailingCatalogClient)
+        Process.put({FailingCatalogClient, :failure}, :put)
 
-        count_before = Repo.aggregate(StorageFile, :count, :id)
-        thrown_term = {:storage_row_insert_throw, Ecto.UUID.generate()}
-        Application.put_env(:gsmlg_storage, :repo, FailingInsertRepo)
-        Process.put({FailingInsertRepo, :failure}, {:throw, thrown_term})
+        assert {:error, :manifest_write_failed} =
+                 Storage.upload({"retry.txt", "safe data"}, "tenant", "attachment", variants: [])
 
-        assert ^thrown_term =
-                 catch_throw(
-                   Storage.upload({"failing-upload.png", png}, "tenant", "attachment")
-                 )
+        assert TestCatalogClient.count(status: "active") == 0
+        assert TestCatalogClient.count(status: "deleted") == 1
 
-        assert_receive :s3_put
-        assert_receive {:s3_put_path, put_path}
-        assert_receive {:s3_delete, delete_path}
-        assert delete_path == put_path
-        assert Repo.aggregate(StorageFile, :count, :id) == count_before
-        refute_receive {:s3_get, _headers}, 100
-        refute_receive :s3_put, 100
+        Process.delete({FailingCatalogClient, :failure})
+
+        assert {:ok, file} =
+                 Storage.upload({"retry.txt", "safe data"}, "tenant", "attachment", variants: [])
+
+        assert %StorageFile{id: id, filename: "retry.txt"} = Storage.get(file.id)
+        assert id == file.id
+        assert TestCatalogClient.count(status: "active") == 1
       end)
     end
-
   end
 
   describe "get/1 and get_active/1" do
@@ -418,6 +470,123 @@ defmodule GSMLG.StorageTest do
       assert nil == Storage.get_active(deleted.id)
     end
   end
+
+  describe "captured backend guards" do
+    test "stale range and variant readers reject a different current bucket" do
+      with_s3_stub(fn ->
+        file = insert_file(%{size: 10, variants: %{"thumb" => %{"s3_key" => "thumb.jpg"}}})
+        Application.put_env(:gsmlg_storage, :s3_bucket, "another-bucket")
+
+        assert {:error, :backend_changed} = Storage.read_range(file, 0, 1)
+        assert {:error, :backend_changed} = Storage.stream_variant(file, "thumb")
+        refute_received {:s3_get, _headers}
+      end)
+    end
+
+    test "stale mutation structs cannot modify the same UUID in another bucket" do
+      with_s3_stub(fn ->
+        for {operation, status} <- [
+              delete: "active",
+              reject_upload: "processing",
+              purge: "deleted"
+            ] do
+          Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
+          original = insert_file(%{status: status})
+          Application.put_env(:gsmlg_storage, :s3_bucket, "another-bucket")
+          duplicate = TestCatalogClient.insert_file!(%{original | backend_id: nil})
+
+          assert {:error, :backend_changed} = apply(Storage, operation, [original])
+          assert %StorageFile{status: ^status} = Storage.get(duplicate.id)
+        end
+
+        refute_received {:s3_delete, _path}
+      end)
+    end
+  end
+
+  test "finalizing a rejected reservation cannot revive its deleted manifest" do
+    with_s3_stub(fn ->
+      data = "safe data"
+
+      attrs = %{
+        filename: "reservation.txt",
+        content_type: "text/plain",
+        size: byte_size(data),
+        checksum: :crypto.hash(:sha256, data) |> Base.encode16(case: :lower),
+        expires_at: DateTime.add(DateTime.utc_now(), 60, :second)
+      }
+
+      assert {:ok, file} = Storage.prepare_upload("test", "attachment", attrs)
+      assert :ok = Storage.write_upload(file.id, data)
+      assert {:ok, %StorageFile{status: "deleted"}} = Storage.reject_upload(file)
+
+      assert {:error, :invalid_upload_reservation} = Storage.finalize_upload(file.id)
+      assert %StorageFile{status: "deleted"} = Storage.get(file.id)
+      refute_received :s3_put
+    end)
+  end
+
+  test "cleanup reaches an expired intent after the first hundred healthy manifests" do
+    Application.put_env(:gsmlg_storage, :catalog_s3_client, OrderedCatalogClient)
+    on_exit(fn -> Application.put_env(:gsmlg_storage, :catalog_s3_client, TestCatalogClient) end)
+
+    for n <- 1..100 do
+      file = %StorageFile{id: ordered_id(n)}
+
+      attrs = %{
+        tenant: "test",
+        type: "attachment",
+        filename: "healthy.txt",
+        s3_key: "healthy/#{n}",
+        content_type: "text/plain",
+        size: 1
+      }
+
+      file |> StorageFile.changeset(attrs) |> TestCatalogClient.insert_file!()
+    end
+
+    expired =
+      %StorageFile{id: ordered_id(101)}
+      |> StorageFile.changeset(%{
+        tenant: "test",
+        type: "attachment",
+        filename: "expired.txt",
+        s3_key: "expired/intent",
+        content_type: "text/plain",
+        size: 1,
+        status: "processing",
+        metadata: %{"upload_expires_at" => "2020-01-01T00:00:00Z"}
+      })
+      |> TestCatalogClient.insert_file!()
+
+    assert :ok = GSMLG.Storage.CleanupWorker.run_cleanup()
+    assert %StorageFile{status: "deleted"} = Storage.get(expired.id)
+    assert TestCatalogClient.count(status: "active") == 100
+  end
+
+  test "cleanup rechecks a completed upload instead of deleting an expired stale processing snapshot" do
+    file =
+      insert_file(%{
+        status: "processing",
+        content_type: "text/plain",
+        metadata: %{"upload_expires_at" => "2020-01-01T00:00:00Z"}
+      })
+
+    {:ok, backend} = GSMLG.Storage.S3Client.capture_backend()
+    {:ok, [object]} = TestCatalogClient.list_objects(backend)
+    {:ok, expired_snapshot} = TestCatalogClient.get_object(backend, object.key)
+
+    {:ok, _active} =
+      file |> StorageFile.status_changeset(%{status: "active"}) |> GSMLG.Storage.Catalog.update()
+
+    Application.put_env(:gsmlg_storage, :catalog_s3_client, StaleSnapshotCatalogClient)
+    Process.put({StaleSnapshotCatalogClient, :snapshot}, expired_snapshot)
+
+    assert :ok = GSMLG.Storage.CleanupWorker.run_cleanup()
+    assert %StorageFile{status: "active"} = Storage.get(file.id)
+  end
+
+  defp ordered_id(n), do: "00000000-0000-4000-8000-" <> String.pad_leading(to_string(n), 12, "0")
 
   describe "read_range/3" do
     test "retrieves only the requested inclusive bytes for a file or ID" do
@@ -479,7 +648,6 @@ defmodule GSMLG.StorageTest do
     test "returns error for non-existent ID" do
       assert {:error, :not_found} = Storage.delete(Ecto.UUID.generate())
     end
-
   end
 
   describe "list/1" do
@@ -569,7 +737,7 @@ defmodule GSMLG.StorageTest do
       assert {:error, :not_deleted} = Storage.purge(file)
     end
 
-    test "deletes variants and the original before removing the DB row" do
+    test "deletes variants and the original before removing the S3 manifest" do
       with_s3_stub(fn ->
         variant_key = "test/attachment/variant-thumb.jpg"
         original_key = "test/attachment/original.jpg"
@@ -628,6 +796,21 @@ defmodule GSMLG.StorageTest do
       end)
     end
 
+    test "retains the deleted manifest when metadata deletion fails and converges on retry" do
+      with_s3_stub(fn ->
+        file = insert_file(%{status: "deleted"})
+        Application.put_env(:gsmlg_storage, :catalog_s3_client, FailingCatalogClient)
+        Process.put({FailingCatalogClient, :failure}, :delete)
+
+        assert {:error, :manifest_delete_failed} = Storage.purge(file)
+        assert %StorageFile{status: "deleted"} = Storage.get(file.id)
+        Process.delete({FailingCatalogClient, :failure})
+
+        assert {:ok, %StorageFile{}} = Storage.purge(file)
+        assert Storage.get(file.id) == nil
+      end)
+    end
+
     test "stops at the first failed variant deletion" do
       with_s3_stub(fn ->
         variant_key = "test/attachment/variant-failure.jpg"
@@ -652,70 +835,86 @@ defmodule GSMLG.StorageTest do
   end
 
   describe "create_folder/2" do
-    test "creates a folder record" do
-      assert {:ok, folder} = Storage.create_folder("my-tenant", "images")
-      assert folder.tenant == "my-tenant"
-      assert folder.type == "images"
+    test "creates a folder marker" do
+      with_s3_stub(fn ->
+        assert {:ok, folder} = Storage.create_folder("my-tenant", "images")
+        assert folder.tenant == "my-tenant"
+        assert folder.type == "images"
+      end)
     end
 
     test "creates a tenant-only folder" do
-      assert {:ok, folder} = Storage.create_folder("my-tenant")
-      assert folder.tenant == "my-tenant"
-      assert is_nil(folder.type)
+      with_s3_stub(fn ->
+        assert {:ok, folder} = Storage.create_folder("my-tenant")
+        assert folder.tenant == "my-tenant"
+        assert is_nil(folder.type)
+      end)
     end
 
-    test "rejects duplicate folder" do
-      assert {:ok, _} = Storage.create_folder("my-tenant", "images")
-      assert {:error, _} = Storage.create_folder("my-tenant", "images")
+    test "creating the same folder marker is idempotent" do
+      with_s3_stub(fn ->
+        assert {:ok, _} = Storage.create_folder("my-tenant", "images")
+        assert {:ok, _} = Storage.create_folder("my-tenant", "images")
+      end)
     end
   end
 
   describe "folder_tree/0" do
     test "returns hierarchical tree from files" do
-      insert_file(%{tenant: "alpha", type: "avatar"})
-      insert_file(%{tenant: "alpha", type: "document"})
-      insert_file(%{tenant: "beta", type: "avatar"})
+      with_s3_stub(fn ->
+        insert_file(%{tenant: "alpha", type: "avatar"})
+        insert_file(%{tenant: "alpha", type: "document"})
+        insert_file(%{tenant: "beta", type: "avatar"})
 
-      tree = Storage.folder_tree()
-      assert length(tree) == 2
+        tree = Storage.folder_tree()
+        assert length(tree) == 2
 
-      alpha = Enum.find(tree, &(&1.tenant == "alpha"))
-      assert length(alpha.types) == 2
+        alpha = Enum.find(tree, &(&1.tenant == "alpha"))
+        assert length(alpha.types) == 2
+      end)
     end
 
     test "includes explicit folders without files" do
-      Storage.create_folder("empty-tenant", "photos")
+      with_s3_stub(fn ->
+        Storage.create_folder("empty-tenant", "photos")
 
-      tree = Storage.folder_tree()
-      empty = Enum.find(tree, &(&1.tenant == "empty-tenant"))
-      assert empty != nil
-      assert length(empty.types) == 1
-      assert hd(empty.types).type == "photos"
+        tree = Storage.folder_tree()
+        empty = Enum.find(tree, &(&1.tenant == "empty-tenant"))
+        assert empty != nil
+        assert length(empty.types) == 1
+        assert hd(empty.types).type == "photos"
+      end)
     end
   end
 
   describe "delete_folder/4" do
     test "soft-deletes all files in tenant" do
-      insert_file(%{tenant: "doomed"})
-      insert_file(%{tenant: "doomed"})
-      insert_file(%{tenant: "safe"})
+      with_s3_stub(fn ->
+        insert_file(%{tenant: "doomed"})
+        insert_file(%{tenant: "doomed"})
+        insert_file(%{tenant: "safe"})
 
-      assert {:ok, _} = Storage.delete_folder("doomed")
-      assert Storage.list(tenant: "doomed").total == 0
-      assert Storage.list(tenant: "safe").total == 1
+        assert {:ok, _} = Storage.delete_folder("doomed")
+        assert Storage.list(tenant: "doomed").total == 0
+        assert Storage.list(tenant: "safe").total == 1
+      end)
     end
 
     test "soft-deletes files in tenant+type" do
-      insert_file(%{tenant: "t", type: "avatar"})
-      insert_file(%{tenant: "t", type: "document"})
+      with_s3_stub(fn ->
+        insert_file(%{tenant: "t", type: "avatar"})
+        insert_file(%{tenant: "t", type: "document"})
 
-      assert {:ok, _} = Storage.delete_folder("t", "avatar")
-      assert Storage.list(tenant: "t", type: "avatar").total == 0
-      assert Storage.list(tenant: "t", type: "document").total == 1
+        assert {:ok, _} = Storage.delete_folder("t", "avatar")
+        assert Storage.list(tenant: "t", type: "avatar").total == 0
+        assert Storage.list(tenant: "t", type: "document").total == 1
+      end)
     end
 
     test "rejects month without year" do
-      assert {:error, :month_requires_year} = Storage.delete_folder("t", "avatar", nil, 3)
+      with_s3_stub(fn ->
+        assert {:error, :month_requires_year} = Storage.delete_folder("t", "avatar", nil, 3)
+      end)
     end
   end
 

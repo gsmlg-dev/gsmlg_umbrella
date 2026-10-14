@@ -222,7 +222,7 @@ defmodule GSMLG.GaoNote.Attachments do
                  do: Sync.capture(note.id),
                  else: :ok
                ) do
-          Repo.preload(updated, :storage_file, force: true)
+          Attachment.load_storage_file(updated)
         else
           {:error, reason} -> Repo.rollback(reason)
         end
@@ -446,12 +446,12 @@ defmodule GSMLG.GaoNote.Attachments do
   defp get_active_by_id(note_id, attachment_id) do
     attachment_query()
     |> where(
-      [attachment, _note, _file],
+      [attachment, _note],
       attachment.note_id == ^note_id and attachment.id == ^attachment_id
     )
     |> active_scope()
-    |> preload([_attachment, _note, file], storage_file: file)
     |> Repo.one()
+    |> Attachment.load_active_storage_file()
   end
 
   defp read_with_changed_storage_retry(
@@ -518,14 +518,10 @@ defmodule GSMLG.GaoNote.Attachments do
 
   defp lock_owned_attachment(note_id, attachment_id) do
     Attachment
-    |> join(:inner, [attachment], file in StorageFile,
-      on:
-        file.id == attachment.storage_file_id and
-          file.status == "active"
-    )
     |> where([attachment], attachment.id == ^attachment_id)
     |> lock("FOR UPDATE")
     |> Repo.one()
+    |> Attachment.load_active_storage_file()
     |> case do
       nil ->
         attachment_error(attachment_id, :not_found)
@@ -1107,12 +1103,12 @@ defmodule GSMLG.GaoNote.Attachments do
          %Attachment{} = attachment <-
            attachment_query()
            |> where(
-             [attachment, _note, _file],
+             [attachment, _note],
              attachment.note_id == ^note_id and attachment.path == ^path
            )
            |> note_scope(scope)
-           |> preload([_attachment, _note, file], storage_file: file)
-           |> Repo.one() do
+           |> Repo.one()
+           |> Attachment.load_active_storage_file() do
       {:ok, attachment}
     else
       nil -> {:error, :not_found}
@@ -1124,19 +1120,16 @@ defmodule GSMLG.GaoNote.Attachments do
   defp attachment_query do
     from(attachment in Attachment,
       join: note in Note,
-      on: note.id == attachment.note_id,
-      join: file in StorageFile,
-      on: file.id == attachment.storage_file_id,
-      where: file.status == "active"
+      on: note.id == attachment.note_id
     )
   end
 
-  defp active_scope(query), do: where(query, [_attachment, note, _file], is_nil(note.deleted_at))
+  defp active_scope(query), do: where(query, [_attachment, note], is_nil(note.deleted_at))
 
   defp note_scope(query, :active), do: active_scope(query)
 
   defp note_scope(query, :deleted),
-    do: where(query, [_attachment, note, _file], not is_nil(note.deleted_at))
+    do: where(query, [_attachment, note], not is_nil(note.deleted_at))
 
   defp read_storage_file(%StorageFile{size: 0}), do: {:ok, ""}
 
