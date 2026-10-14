@@ -135,10 +135,7 @@ defmodule GSMLG.Storage do
   def reject_upload(%StorageFile{id: id}), do: reject_upload(id)
 
   def reject_upload(id) when is_binary(id) do
-    case Repo.get(StorageFile, id) do
-      nil ->
-        {:error, :not_found}
-
+    with_locked_file(id, fn
       %StorageFile{status: "processing"} = file ->
         case File.rm(reservation_path(file.id)) do
           :ok ->
@@ -153,7 +150,7 @@ defmodule GSMLG.Storage do
 
       file ->
         file |> StorageFile.status_changeset(%{status: "deleted"}) |> Repo.update()
-    end
+    end)
   end
 
   def reject_upload(_invalid), do: {:error, :invalid_upload_reservation}
@@ -269,9 +266,11 @@ defmodule GSMLG.Storage do
   """
   def delete(file_or_id) do
     with {:ok, file} <- resolve_file(file_or_id) do
-      file
-      |> StorageFile.status_changeset(%{status: "deleted"})
-      |> Repo.update()
+      with_locked_file(file.id, fn current ->
+        current
+        |> StorageFile.status_changeset(%{status: "deleted"})
+        |> Repo.update()
+      end)
     end
   end
 
@@ -280,15 +279,7 @@ defmodule GSMLG.Storage do
   Only works on files with status "deleted".
   """
   def purge(%StorageFile{status: "deleted", id: id}) when is_binary(id) do
-    case Repo.get(StorageFile, id) do
-      nil ->
-        {:error, :not_found}
-
-      current_file ->
-        with :ok <- ensure_purgeable(current_file) do
-          purge_current_file(current_file)
-        end
-    end
+    with_locked_file(id, &purge_current_file/1, purge: true)
   end
 
   def purge(_file), do: {:error, :not_deleted}
@@ -454,7 +445,17 @@ defmodule GSMLG.Storage do
         |> maybe_filter_year(year)
         |> maybe_filter_month(month)
 
-      Repo.update_all(query, set: [status: "deleted"])
+      tables = reference_tables()
+      ids = Repo.all(from(file in query, select: file.id, order_by: file.id))
+
+      Enum.each(ids, fn id ->
+        case lock_file(id) do
+          nil -> :ok
+          file -> ensure_unreferenced!(file, tables)
+        end
+      end)
+
+      Repo.update_all(from(file in query, where: file.id in ^ids), set: [status: "deleted"])
 
       # Remove explicit folder records
       cond do
@@ -535,6 +536,88 @@ defmodule GSMLG.Storage do
   end
 
   # --- Private ---
+
+  defp with_locked_file(id, operation, opts \\ []) do
+    Repo.transaction(fn ->
+      file = lock_file(id) || Repo.rollback(:not_found)
+
+      # Re-read the status before checking references, even for stale caller structs.
+      if opts[:purge] do
+        case ensure_purgeable(file) do
+          :ok -> :ok
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end
+
+      ensure_unreferenced!(file, reference_tables())
+
+      # A retryable S3 error must not roll back an enclosing cleanup transaction's
+      # soft-delete. Preserve the deleted state so later attempts can resume.
+      operation.(file)
+    end)
+    |> case do
+      {:ok, result} -> result
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp lock_file(id) do
+    id = Ecto.UUID.cast!(id)
+    # Shared with GaoNote Sync.Objects: references cannot appear during deletion.
+    Repo.query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+      "gao-note-sync:object:" <> id
+    ])
+
+    Repo.one(from(file in StorageFile, where: file.id == ^id, lock: "FOR UPDATE"))
+  end
+
+  defp reference_tables do
+    %{rows: [[attachments, pins, records]]} =
+      Repo.query!("""
+      SELECT to_regclass('gao_note_attachments') IS NOT NULL,
+             to_regclass('gao_note_sync_pins') IS NOT NULL,
+             to_regclass('gao_note_sync_records') IS NOT NULL
+      """)
+
+    %{attachments: attachments, pins: pins, records: records}
+  end
+
+  defp ensure_unreferenced!(file, tables) do
+    if tables.pins and tables.records do
+      owners =
+        from(pin in "gao_note_sync_pins",
+          where: pin.storage_file_id == type(^file.id, Ecto.UUID),
+          select: pin.owner_id
+        )
+
+      now = System.system_time(:millisecond)
+
+      # Conditional deletion serializes with lease renewal; FK cascades release pins.
+      Repo.delete_all(
+        from(record in "gao_note_sync_records",
+          where: record.kind == "lease" and record.id in subquery(owners),
+          where: fragment("(?->>'expires_at')::bigint <= ?", record.data, ^now)
+        )
+      )
+    end
+
+    referenced =
+      (tables.attachments and
+         Repo.exists?(
+           from(attachment in "gao_note_attachments",
+             where: attachment.storage_file_id == type(^file.id, Ecto.UUID)
+           )
+         )) or
+        (tables.pins and
+           Repo.exists?(
+             from(pin in "gao_note_sync_pins",
+               where: pin.storage_file_id == type(^file.id, Ecto.UUID)
+             )
+           ))
+
+    if referenced, do: Repo.rollback(:file_referenced)
+    :ok
+  end
 
   defp insert_storage_file(attrs, bucket, s3_key) do
     try do
