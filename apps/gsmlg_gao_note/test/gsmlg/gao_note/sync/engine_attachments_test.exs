@@ -240,7 +240,8 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
     assert {:ok, _} = Sync.apply(peer, incoming, %{"bad" => "text"})
     assert {:ok, built} = Snapshot.build(incoming["note_id"])
     assert built.snapshot == snapshot
-    assert Repo.get_by!(StorageFile, tenant: incoming["note_id"]).content_type == "text/plain"
+    stored = Repo.get_by!(Attachment, note_id: incoming["note_id"], api_id: "bad")
+    assert Repo.get!(StorageFile, stored.storage_file_id).content_type == "text/plain"
   end
 
   test "attachment metadata cannot be normalized while recording the remote hash", %{peer: peer} do

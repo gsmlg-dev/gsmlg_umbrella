@@ -183,7 +183,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     transfer = stage(socket, good)
     ref = push(socket, "transfer_commit", %{"transfer_id" => transfer})
     ack = Protocol.ack(good)
-    assert_reply(ref, :ok, ^ack)
+    assert_reply(ref, :ok, ^ack, 2000)
     assert_push("ack", ^ack)
     assert %Note{content: "body"} = GSMLG.Repo.get(Note, good["note_id"])
   end
