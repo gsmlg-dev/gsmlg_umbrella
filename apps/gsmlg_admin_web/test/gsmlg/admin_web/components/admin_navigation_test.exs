@@ -5,6 +5,34 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
 
   alias GSMLG.AdminWeb.Components.AdminNavigation
 
+  describe "local_app_bar/1" do
+    test "keeps the app menu in a native popover controlled by its button" do
+      html = render_component(&GSMLG.Component.Admin.local_app_bar/1, page_title: "Home")
+      document = Floki.parse_fragment!(html)
+      popover_id = "admin-app-menu-popover"
+
+      assert [_trigger] =
+               Floki.find(
+                 document,
+                 ~s(button[type="button"][command="toggle-popover"][commandfor="#{popover_id}"][aria-controls="#{popover_id}"])
+               )
+
+      assert [popover] = Floki.find(document, ~s(##{popover_id}[popover="auto"]))
+      assert [_users] = Floki.find(popover, ~s(a[href="/users"]))
+      assert [_commander] = Floki.find(popover, ~s(a[href="/commander/list"]))
+      assert [_caddy] = Floki.find(popover, ~s(a[href="/caddy"]))
+    end
+
+    test "does not render mobile navigation when no appbar menu entries are supplied" do
+      html = render_component(&GSMLG.Component.Admin.local_app_bar/1, page_title: "Home")
+      document = Floki.parse_fragment!(html)
+
+      assert Floki.find(document, ~s(button[aria-label="Toggle mobile menu"])) == []
+      assert Floki.find(document, "#appbar-mobile-menu") == []
+      assert [_admin_menu] = Floki.find(document, ~s(#admin-app-menu-popover[popover="auto"]))
+    end
+  end
+
   describe "left_menu/1" do
     test "renders the active branch and current page state" do
       html = render_component(&AdminNavigation.left_menu/1, active_menu: "caddy_dashboard")

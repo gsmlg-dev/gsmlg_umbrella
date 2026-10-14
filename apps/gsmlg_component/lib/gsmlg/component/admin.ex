@@ -13,15 +13,19 @@ defmodule GSMLG.Component.Admin do
     ~H"""
     <.dm_simple_appbar title={@page_title} class="h-14 bg-primary text-primary-content z-20">
       <:logo>
-        <div class="dropdown">
-          <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
+        <.dm_dropdown
+          id="admin-app-menu"
+          dropdown_class="popover-start w-max max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-5rem)] overflow-auto p-2"
+        >
+          <:trigger class="btn btn-ghost btn-sm">
             <.dm_mdi name="menu" class="w-8 h-8" />
-          </div>
-          <div tabindex="0" class="dropdown-content z-1000 w-auto p-2">
+            <span class="sr-only">Open admin navigation</span>
+          </:trigger>
+          <:content>
             <.local_app_menus />
-          </div>
-        </div>
-        <.dm_link navigate="/">
+          </:content>
+        </.dm_dropdown>
+        <.dm_link navigate="/" class="hidden sm:inline-flex">
           <%!-- # WORKAROUND(upstream): gsmlg-dev/gsmlg-nodejs#4 --%>
           <logo-gsmlg-dev class="h-12" width="200" height="40" />
         </.dm_link>
@@ -47,7 +51,7 @@ defmodule GSMLG.Component.Admin do
 
   def local_app_menus(assigns) do
     ~H"""
-    <.dm_card class="w-max shadow-2xl" body_class="p-6 flex flex-col gap-6">
+    <.dm_card class="w-max max-w-full shadow-2xl" body_class="p-6 flex flex-col gap-6">
       <:title>
         <div class="flex items-center gap-2">
           <.dm_mdi name="view-grid-outline" class="w-4 h-4 text-primary" />
