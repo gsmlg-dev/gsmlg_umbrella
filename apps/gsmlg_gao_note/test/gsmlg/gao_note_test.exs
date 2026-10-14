@@ -2544,8 +2544,11 @@ defmodule GSMLG.GaoNoteTest do
         attachment =
           attachment_by_id(note, "standalone-inactive-delete")
 
-        assert {:ok, %StorageFile{status: "deleted"}} =
-                 Storage.delete(attachment.storage_file)
+        # Simulate a legacy inactive row; public deletion now protects references.
+        assert %StorageFile{status: "deleted"} =
+                 attachment.storage_file
+                 |> StorageFile.status_changeset(%{status: "deleted"})
+                 |> Repo.update!()
 
         flush_storage_messages()
 

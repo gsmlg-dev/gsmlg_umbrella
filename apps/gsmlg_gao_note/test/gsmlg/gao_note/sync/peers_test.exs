@@ -88,6 +88,72 @@ defmodule GSMLG.GaoNote.Sync.PeersTest do
     assert Repo.get!(Peer, peer.id).selectors == []
   end
 
+  test "unsupported regex cannot be provisioned or joined from a legacy authorization", %{
+    peer: peer
+  } do
+    for selector <- [
+          "project~=[a~~a]",
+          "project~=[a--a]",
+          "project~=[[:alpha:]]",
+          "project~=\\w+",
+          "project~=(?i)bear",
+          "project~=bear.*"
+        ] do
+      assert {:error, :invalid_peer} =
+               Sync.register_peer(%{
+                 node_id: Ecto.UUID.generate(),
+                 certificate_fingerprint: Protocol.sha256(selector),
+                 actor_id: "regex-peer",
+                 allowed_selectors: [selector]
+               })
+
+      legacy = Repo.update!(Ecto.Changeset.change(peer, allowed_selectors: [selector]))
+
+      assert {:error, :unauthorized} =
+               Sync.join(legacy, Map.put(payload(legacy), "selectors", [selector]))
+
+      assert {:error, :unauthorized} = Sync.select(legacy.id, [selector])
+    end
+
+    assert Repo.get!(Peer, peer.id).selectors == []
+  end
+
+  test "portable regex retains typed AND conditions and selector OR union", %{peer: peer} do
+    selectors = ["priority>=2 & project~=^bear_[a-z]ote$", "type=daily"]
+    peer = Repo.update!(Ecto.Changeset.change(peer, allowed_selectors: selectors))
+    assert {:ok, joined} = Sync.join(peer, Map.put(payload(peer), "selectors", selectors))
+
+    snapshot = fn project, priority, type ->
+      %{
+        "labels" => [
+          %{"key" => "project", "value" => project, "value_type" => "text"},
+          %{"key" => "priority", "value" => priority, "value_type" => "number"},
+          %{"key" => "type", "value" => type, "value_type" => "text"}
+        ]
+      }
+    end
+
+    assert GSMLG.GaoNote.Sync.Peers.matches?(
+             snapshot.("BEAR_NOTE", "2", "other"),
+             joined.peer.selectors
+           )
+
+    refute GSMLG.GaoNote.Sync.Peers.matches?(
+             snapshot.("bear_note", "1", "other"),
+             joined.peer.selectors
+           )
+
+    refute GSMLG.GaoNote.Sync.Peers.matches?(
+             snapshot.("bear_todo", "2", "other"),
+             joined.peer.selectors
+           )
+
+    assert GSMLG.GaoNote.Sync.Peers.matches?(
+             snapshot.("other", "1", "daily"),
+             joined.peer.selectors
+           )
+  end
+
   test "new sessions reject old writes and cannot release their replacement's lease", %{
     peer: peer
   } do

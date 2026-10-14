@@ -2,7 +2,7 @@ defmodule GSMLG.GaoNote.Sync.Peers do
   @moduledoc false
   import Ecto.Query
   alias GSMLG.GaoNote.Compat.LabelSelector
-  alias GSMLG.GaoNote.Sync.{Peer, Protocol, Store}
+  alias GSMLG.GaoNote.Sync.{Peer, Protocol, Selectors, Store}
   alias GSMLG.Repo
 
   @limit 536_870_912
@@ -41,8 +41,11 @@ defmodule GSMLG.GaoNote.Sync.Peers do
     end
   end
 
-  def selected,
-    do: Repo.all(from(p in Peer, where: p.selectors != ^[])) |> Enum.map(&with_scope/1)
+  def selected do
+    Repo.all(from(p in Peer, where: p.selectors != ^[]))
+    |> Enum.filter(&(selectors(&1.selectors) == :ok))
+    |> Enum.map(&with_scope/1)
+  end
 
   def select(id, requested) do
     Store.transaction(fn ->
@@ -205,7 +208,7 @@ defmodule GSMLG.GaoNote.Sync.Peers do
     if values == Enum.sort(Enum.uniq(values)) and
          Enum.all?(values, fn s ->
            is_binary(s) and byte_size(s) in 1..4096 and
-             match?({:ok, [_ | _]}, LabelSelector.parse(s))
+             match?({:ok, [_ | _]}, Selectors.parse(s))
          end),
        do: :ok,
        else: {:error, :invalid_selectors}

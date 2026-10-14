@@ -1,5 +1,9 @@
 # GaoNote sync receiver validation
 
+The receiver fixes and actual local Rust client interoperability were requalified
+on 2026-10-13; see [validation-2026-10-13.md](validation-2026-10-13.md). The results
+below preserve the original 2026-10-11 checkpoint.
+
 Validated on 2026-10-11 in `.trees/codex-gaonote-sync`, branch
 `codex/gaonote-sync`, based on `a04e40a36b01ab9c33908cba78692dd2dad7d55f`.
 At the 2026-10-11 validation checkpoint, the implementation was uncommitted.

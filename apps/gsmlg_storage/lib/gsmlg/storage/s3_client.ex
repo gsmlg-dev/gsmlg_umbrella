@@ -99,7 +99,7 @@ defmodule GSMLG.Storage.S3Client do
   def get_object(bucket, key) do
     with {:ok, client} <- get_client() do
       case client |> AWS.S3.get_object(bucket, key) do
-        {:ok, body, _resp} -> extract_body(body)
+        {:ok, body, response} -> extract_body(body, response)
         {:error, _} = error -> error
       end
     end
@@ -116,8 +116,8 @@ defmodule GSMLG.Storage.S3Client do
 
     with {:ok, client} <- get_client() do
       case get_object_with_range(client, bucket, key, range) do
-        {:ok, body, _resp} ->
-          extract_body(body)
+        {:ok, body, response} ->
+          extract_body(body, response)
 
         {:error, {:unexpected_response, %{status_code: 206, body: body}}}
         when is_binary(body) ->
@@ -151,9 +151,11 @@ defmodule GSMLG.Storage.S3Client do
     apply(AWS.S3, :get_object, arguments)
   end
 
-  defp extract_body(%{"Body" => body}) when is_binary(body), do: {:ok, body}
-  defp extract_body(body) when is_binary(body), do: {:ok, body}
-  defp extract_body(_body), do: {:error, :invalid_s3_response_body}
+  # AWS omits the decoded Body for a successful zero-byte object response.
+  defp extract_body(_decoded, %{body: ""}), do: {:ok, ""}
+  defp extract_body(%{"Body" => body}, _response) when is_binary(body), do: {:ok, body}
+  defp extract_body(body, _response) when is_binary(body), do: {:ok, body}
+  defp extract_body(_body, _response), do: {:error, :invalid_s3_response_body}
 
   # Build an AWS client for storage operations.
   # When a custom S3 endpoint is configured (e.g. Minio), creates a client

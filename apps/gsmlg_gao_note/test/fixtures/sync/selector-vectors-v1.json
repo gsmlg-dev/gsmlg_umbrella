@@ -1,0 +1,485 @@
+{
+  "version": 1,
+  "accepted_regex": [
+    {
+      "name": "unanchored ASCII literal",
+      "pattern": "bear",
+      "cases": [
+        {
+          "value": "bear",
+          "matches": true
+        },
+        {
+          "value": "BEAR",
+          "matches": true
+        },
+        {
+          "value": "pre_bear_post",
+          "matches": true
+        },
+        {
+          "value": "bear\n",
+          "matches": true
+        },
+        {
+          "value": "fox",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "both anchors require exact end",
+      "pattern": "^bear$",
+      "cases": [
+        {
+          "value": "bear",
+          "matches": true
+        },
+        {
+          "value": "BEAR",
+          "matches": true
+        },
+        {
+          "value": "pre_bear",
+          "matches": false
+        },
+        {
+          "value": "bear_post",
+          "matches": false
+        },
+        {
+          "value": "bear\n",
+          "matches": false
+        },
+        {
+          "value": "bear\r\n",
+          "matches": false
+        },
+        {
+          "value": "\nbear",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "start anchor only",
+      "pattern": "^bear",
+      "cases": [
+        {
+          "value": "bear_note",
+          "matches": true
+        },
+        {
+          "value": "bear\n",
+          "matches": true
+        },
+        {
+          "value": "pre_bear",
+          "matches": false
+        },
+        {
+          "value": "\nbear",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "end anchor only",
+      "pattern": "bear$",
+      "cases": [
+        {
+          "value": "pre_bear",
+          "matches": true
+        },
+        {
+          "value": "bear",
+          "matches": true
+        },
+        {
+          "value": "bear\n",
+          "matches": false
+        },
+        {
+          "value": "bear\r\n",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "anchored alternatives",
+      "pattern": "^bear$|^fox$",
+      "cases": [
+        {
+          "value": "bear",
+          "matches": true
+        },
+        {
+          "value": "FOX",
+          "matches": true
+        },
+        {
+          "value": "bearfox",
+          "matches": false
+        },
+        {
+          "value": "pre_fox",
+          "matches": false
+        },
+        {
+          "value": "fox\n",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "unanchored alternatives",
+      "pattern": "bear|fox",
+      "cases": [
+        {
+          "value": "pre_FOX_post",
+          "matches": true
+        },
+        {
+          "value": "bear\nfox",
+          "matches": true
+        },
+        {
+          "value": "cat",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "simple class",
+      "pattern": "^[abc]$",
+      "cases": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "B",
+          "matches": true
+        },
+        {
+          "value": "c",
+          "matches": true
+        },
+        {
+          "value": "d",
+          "matches": false
+        },
+        {
+          "value": "ab",
+          "matches": false
+        },
+        {
+          "value": "\n",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "ASCII range and digits",
+      "pattern": "^[a-z0-9_]$",
+      "cases": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "Z",
+          "matches": true
+        },
+        {
+          "value": "7",
+          "matches": true
+        },
+        {
+          "value": "_",
+          "matches": true
+        },
+        {
+          "value": "K",
+          "matches": true
+        },
+        {
+          "value": "ſ",
+          "matches": true
+        },
+        {
+          "value": "İ",
+          "matches": false
+        },
+        {
+          "value": "ı",
+          "matches": false
+        },
+        {
+          "value": "猫",
+          "matches": false
+        },
+        {
+          "value": "-",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "negated ASCII range",
+      "pattern": "^[^a-z]$",
+      "cases": [
+        {
+          "value": "7",
+          "matches": true
+        },
+        {
+          "value": "_",
+          "matches": true
+        },
+        {
+          "value": "猫",
+          "matches": true
+        },
+        {
+          "value": "\n",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        },
+        {
+          "value": "Z",
+          "matches": false
+        },
+        {
+          "value": "K",
+          "matches": false
+        },
+        {
+          "value": "ſ",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "literal hyphen first in class",
+      "pattern": "^[-a]$",
+      "cases": [
+        {
+          "value": "-",
+          "matches": true
+        },
+        {
+          "value": "A",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "literal hyphen last in class",
+      "pattern": "^[a-]$",
+      "cases": [
+        {
+          "value": "-",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "escaped regex punctuation",
+      "pattern": "^\\[\\]\\(\\)\\{\\}\\.\\*\\+\\?\\^\\$\\|\\\\\\-$",
+      "cases": [
+        {
+          "value": "[](){}.*+?^$|\\-",
+          "matches": true
+        },
+        {
+          "value": "[](){}.*+?^$|\\-\n",
+          "matches": false
+        },
+        {
+          "value": "[](){}.*+?^$|-",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "internal literal space",
+      "pattern": "^bear note$",
+      "cases": [
+        {
+          "value": "bear note",
+          "matches": true
+        },
+        {
+          "value": "BEAR NOTE",
+          "matches": true
+        },
+        {
+          "value": "bearnote",
+          "matches": false
+        },
+        {
+          "value": "bear  note",
+          "matches": false
+        },
+        {
+          "value": "bear note\n",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "ASCII punctuation literals",
+      "pattern": "^a/b:c,_-=d$",
+      "cases": [
+        {
+          "value": "a/b:c,_-=d",
+          "matches": true
+        },
+        {
+          "value": "A/B:C,_-=D",
+          "matches": true
+        },
+        {
+          "value": "a/b:c,_-d",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "Kelvin folds to ASCII K",
+      "pattern": "^k$",
+      "cases": [
+        {
+          "value": "k",
+          "matches": true
+        },
+        {
+          "value": "K",
+          "matches": true
+        },
+        {
+          "value": "K",
+          "matches": true
+        },
+        {
+          "value": "κ",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "long s folds to ASCII S",
+      "pattern": "^s$",
+      "cases": [
+        {
+          "value": "s",
+          "matches": true
+        },
+        {
+          "value": "S",
+          "matches": true
+        },
+        {
+          "value": "ſ",
+          "matches": true
+        },
+        {
+          "value": "ß",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "name": "ASCII I does not use Turkish folds",
+      "pattern": "^i$",
+      "cases": [
+        {
+          "value": "i",
+          "matches": true
+        },
+        {
+          "value": "I",
+          "matches": true
+        },
+        {
+          "value": "İ",
+          "matches": false
+        },
+        {
+          "value": "ı",
+          "matches": false
+        }
+      ]
+    }
+  ],
+  "rejected_regex": [
+    "[a~~a]",
+    "[a--a]",
+    "[a||a]",
+    "[a&&a]",
+    "[[a]]",
+    "[[:alpha:]]",
+    "[[:digit:]]",
+    "\\p{L}",
+    "\\P{L}",
+    "\\u0073",
+    "\\x{73}",
+    "\\x73",
+    "\\w",
+    "\\d",
+    "\\s",
+    "\\b",
+    "\\A",
+    "\\z",
+    "(bear)",
+    "(?:bear)",
+    "(?i)bear",
+    "(?=bear)",
+    "bear.",
+    "bear*",
+    "bear+",
+    "bear?",
+    "bear{2}",
+    "[a-z]+",
+    "猫",
+    "[猫]",
+    "[\\]]",
+    "[a",
+    "a]"
+  ],
+  "exact_selectors": [
+    {
+      "selector": "~project==%E7%8C%AB",
+      "cases": [
+        {
+          "value": "猫",
+          "matches": true
+        },
+        {
+          "value": "狗",
+          "matches": false
+        },
+        {
+          "value": " 猫 ",
+          "matches": false
+        }
+      ]
+    }
+  ]
+}
