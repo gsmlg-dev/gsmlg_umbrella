@@ -809,14 +809,19 @@ defmodule GSMLG.GaoNote.Attachments do
 
     case uploader.upload(source, note_id, @storage_type, opts) do
       {:ok, %StorageFile{} = file} ->
-        finish_staged_upload(entry, file)
+        finish_staged_upload(entry, file, uploader)
 
       {:error, reason} ->
         {:error, {:attachment, %{code: :staging_failed, id: input.id, reason: reason}}, []}
     end
   end
 
-  defp finish_staged_upload(entry, file) do
+  # Sync preserves the hashed wire metadata; staging independently validates the
+  # detected content type and stores it on StorageFile for storage policy checks.
+  defp finish_staged_upload(entry, file, Sync.Staging),
+    do: {:ok, %{entry | staged_file: file}, file}
+
+  defp finish_staged_upload(entry, file, _uploader) do
     try do
       if file.content_type == entry.input.mime do
         {:ok, %{entry | staged_file: file}, file}

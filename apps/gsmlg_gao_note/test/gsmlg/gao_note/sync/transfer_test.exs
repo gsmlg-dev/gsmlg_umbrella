@@ -1,7 +1,7 @@
 defmodule GSMLG.GaoNote.Sync.TransferTest do
   use ExUnit.Case, async: true
   alias GSMLG.GaoNote.Sync.{Protocol, Transfer}
-  alias GSMLG.GaoNote.Sync.ProtocolTest
+  alias GSMLG.GaoNote.SyncFixtures
   @id "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
 
   defp begin_transfer(event, limit \\ 1_000_000) do
@@ -34,7 +34,7 @@ defmodule GSMLG.GaoNote.Sync.TransferTest do
     do: Transfer.blob_end(transfer, %{"transfer_id" => @id, "blob_id" => blob})
 
   test "verifies exact event bytes and zero-byte manifest object before commit" do
-    event = ProtocolTest.event()
+    event = SyncFixtures.event()
     {transfer, bytes} = begin_transfer(event)
     assert {:ok, transfer} = chunk(transfer, "event", 0, bytes)
     assert {:ok, transfer} = finish(transfer, "event")
@@ -52,7 +52,7 @@ defmodule GSMLG.GaoNote.Sync.TransferTest do
   end
 
   test "rejects skipped offsets unpadded base64 oversize chunks and corrupt hash" do
-    {transfer, bytes} = begin_transfer(ProtocolTest.event())
+    {transfer, bytes} = begin_transfer(SyncFixtures.event())
     assert {:error, :validation_failed} = chunk(transfer, "event", 1, bytes)
     assert {:error, :validation_failed} = chunk(transfer, "event", 0, :binary.copy("a", 65_537))
 
@@ -70,7 +70,7 @@ defmodule GSMLG.GaoNote.Sync.TransferTest do
 
   test "native attachment ID event remains distinct from metadata and verifies multiple chunks" do
     content = :binary.copy("x", 65_540)
-    event = ProtocolTest.event()
+    event = SyncFixtures.event()
 
     attachment = %{
       "id" => "event",
@@ -107,7 +107,7 @@ defmodule GSMLG.GaoNote.Sync.TransferTest do
   end
 
   test "aggregate includes manifest objects and rejects undeclared or duplicate blob" do
-    event = ProtocolTest.event()
+    event = SyncFixtures.event()
     event = put_in(event, ["snapshot", "attachments", Access.at(0), "size_bytes"], 1_000_000)
     event = Map.put(event, "snapshot_hash", Protocol.snapshot_hash(event["snapshot"]))
     {transfer, bytes} = begin_transfer(event)

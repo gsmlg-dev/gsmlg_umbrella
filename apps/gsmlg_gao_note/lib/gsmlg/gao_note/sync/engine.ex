@@ -332,6 +332,7 @@ defmodule GSMLG.GaoNote.Sync.Engine do
     with :ok <- Protocol.validate_event(event),
          :ok <- validate_bytes(event, bytes),
          :ok <- authorized_snapshot(peer, event),
+         :ok <- Protocol.validate_storage_text(event),
          {:ok, staged} <- prepare(event, bytes, peer.actor_id) do
       try do
         Store.transaction(fn ->

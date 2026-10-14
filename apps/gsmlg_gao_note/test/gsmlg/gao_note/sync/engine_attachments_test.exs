@@ -116,6 +116,59 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
     assert {:ok, _, "one"} = Attachments.get_with_content(id, attachment.id)
   end
 
+  test "zero-byte binary MIME survives inbound apply and outbound reads", %{peer: peer} do
+    id = Ecto.UUID.generate()
+    incoming = event(peer, id, 1000, [{"empty", "assets/empty.bin", ""}])
+
+    incoming =
+      put_in(
+        incoming,
+        ["snapshot", "attachments", Access.at(0), "mime"],
+        "application/octet-stream"
+      )
+
+    incoming = Map.put(incoming, "snapshot_hash", Protocol.snapshot_hash(incoming["snapshot"]))
+
+    assert {:ok, _} = Sync.apply(peer, incoming, %{"empty" => ""})
+    assert {:ok, built} = Snapshot.build(id)
+    assert built.snapshot == incoming["snapshot"]
+    assert {:ok, lease} = Sync.checkout(peer, id)
+    assert {:ok, ""} = Snapshot.read_object(lease.objects["empty"])
+    assert :ok = Sync.ack(peer, Protocol.ack(lease.event), lease.lease_id)
+  end
+
+  test "path extension changes preserve wire MIME and the complete snapshot", %{peer: peer} do
+    id = Ecto.UUID.generate()
+    first = event(peer, id, 1000, [{"renamed", "assets/file.txt", "plain text"}])
+    assert {:ok, _} = Sync.apply(peer, first, %{"renamed" => "plain text"})
+
+    renamed =
+      event(peer, id, 2000, [{"renamed", "assets/file.md", "plain text"}])
+      |> Map.put("kind", "snapshot")
+
+    assert {:ok, _} = Sync.apply(peer, renamed, %{"renamed" => "plain text"})
+    assert {:ok, built} = Snapshot.build(id)
+    assert built.snapshot == renamed["snapshot"]
+    assert {:ok, lease} = Sync.checkout(peer, id)
+    assert {:ok, "plain text"} = Snapshot.read_object(lease.objects["renamed"])
+    assert :ok = Sync.ack(peer, Protocol.ack(lease.event), lease.lease_id)
+  end
+
+  test "wire MIME cannot disguise detected content excluded by storage policy", %{peer: peer} do
+    Application.put_env(:gsmlg_storage, :allowed_types, %{"gao_note_attachment" => ["text/plain"]})
+
+    incoming =
+      event(peer, Ecto.UUID.generate(), 1000, [
+        {"disguised", "assets/file.txt", "<html>active</html>"}
+      ])
+
+    assert {:error, {:note_rejected, "validation_failed"}} =
+             Sync.apply(peer, incoming, %{"disguised" => "<html>active</html>"})
+
+    refute Repo.get(Note, incoming["note_id"])
+    refute Repo.exists?(from(f in StorageFile, where: f.status == "active"))
+  end
+
   test "catalog rejection rolls back content and discards staged objects", %{
     peer: peer,
     objects: objects
@@ -169,7 +222,9 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
     assert :ets.tab2list(objects) == []
   end
 
-  test "a MIME mismatch is a definitive note validation rejection", %{peer: peer} do
+  test "declared MIME metadata preserves the hash while storage retains detected MIME", %{
+    peer: peer
+  } do
     incoming = event(peer, Ecto.UUID.generate(), 1000, [{"bad", "bad.txt", "text"}])
     [attachment] = incoming["snapshot"]["attachments"]
 
@@ -182,10 +237,10 @@ defmodule GSMLG.GaoNote.Sync.EngineAttachmentsTest do
         "snapshot_hash" => Protocol.snapshot_hash(snapshot)
       })
 
-    assert {:error, {:note_rejected, "validation_failed"}} =
-             Sync.apply(peer, incoming, %{"bad" => "text"})
-
-    refute Repo.get(Note, incoming["note_id"])
+    assert {:ok, _} = Sync.apply(peer, incoming, %{"bad" => "text"})
+    assert {:ok, built} = Snapshot.build(incoming["note_id"])
+    assert built.snapshot == snapshot
+    assert Repo.get_by!(StorageFile, tenant: incoming["note_id"]).content_type == "text/plain"
   end
 
   test "attachment metadata cannot be normalized while recording the remote hash", %{peer: peer} do

@@ -145,6 +145,49 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     assert GSMLG.Repo.get(Note, good["note_id"])
   end
 
+  test "NUL note receives a definitive rejection at commit and the next note continues", %{
+    socket: socket,
+    peer: peer
+  } do
+    bad = put_in(event(peer), ["snapshot", "content"], "body" <> <<0>>)
+    bad = Map.put(bad, "snapshot_hash", Protocol.snapshot_hash(bad["snapshot"]))
+    transfer = stage(socket, bad)
+    ref = push(socket, "transfer_commit", %{"transfer_id" => transfer})
+
+    expected = %{
+      "code" => "note_rejected",
+      "event_id" => bad["event_id"],
+      "note_id" => bad["note_id"],
+      "reason" => "validation_failed"
+    }
+
+    assert_reply(ref, :error, ^expected)
+    refute GSMLG.Repo.get(Note, bad["note_id"])
+    refute GSMLG.GaoNote.Sync.Store.get("received", bad["event_id"], peer.id)
+    assert Process.alive?(socket.channel_pid)
+
+    transfer = stage(socket, bad)
+
+    send(socket.channel_pid, %Phoenix.Socket.Message{
+      join_ref: socket.join_ref,
+      ref: nil,
+      topic: socket.topic,
+      event: "transfer_commit",
+      payload: %{"transfer_id" => transfer}
+    })
+
+    assert_push("note_rejected", ^expected)
+    refute GSMLG.GaoNote.Sync.Store.get("received", bad["event_id"], peer.id)
+
+    good = event(peer)
+    transfer = stage(socket, good)
+    ref = push(socket, "transfer_commit", %{"transfer_id" => transfer})
+    ack = Protocol.ack(good)
+    assert_reply(ref, :ok, ^ack)
+    assert_push("ack", ^ack)
+    assert %Note{content: "body"} = GSMLG.Repo.get(Note, good["note_id"])
+  end
+
   test "outbound inventory continues servicing inbound transfers while waiting for peer reply", %{
     socket: socket,
     peer: peer

@@ -2,40 +2,7 @@ defmodule GSMLG.GaoNote.Sync.ProtocolTest do
   use ExUnit.Case, async: true
   alias GSMLG.GaoNote.Sync.Protocol
 
-  def event do
-    vector = vectors() |> Enum.at(1)
-
-    snapshot =
-      put_in(
-        vector["snapshot"],
-        ["content"],
-        String.replace(vector["snapshot"]["content"], <<0>>, "")
-      )
-
-    clock = %{
-      "millis" => 1_791_676_800_000,
-      "counter" => 0,
-      "node_id" => "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
-    }
-
-    %{
-      "event_id" => "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
-      "note_id" => "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      "generation" => clock,
-      "control" => clock,
-      "version" => clock,
-      "kind" => "attach",
-      "snapshot" => snapshot,
-      "snapshot_hash" => Protocol.snapshot_hash(snapshot)
-    }
-  end
-
-  defp vectors do
-    Path.expand("../../../fixtures/sync/hash-vectors-v1.json", __DIR__)
-    |> File.read!()
-    |> Jason.decode!()
-    |> Map.fetch!("vectors")
-  end
+  import GSMLG.GaoNote.SyncFixtures, only: [event: 0, vectors: 0]
 
   test "independent Unicode and null hash vectors match exactly" do
     for vector <- vectors() do
@@ -81,11 +48,10 @@ defmodule GSMLG.GaoNote.Sync.ProtocolTest do
     end
   end
 
-  test "rejects invalid typed values NUL business text and closure clocks" do
+  test "rejects invalid typed values and closure clocks" do
     for {path, value} <- [
           {["generation", "millis"], -1},
           {["snapshot", "title"], "  "},
-          {["snapshot", "content"], "a" <> <<0>>},
           {["snapshot", "labels", Access.at(0), "value"], "not a number"},
           {["snapshot", "labels", Access.at(1), "key"], "project=spoof"}
         ] do
@@ -103,6 +69,28 @@ defmodule GSMLG.GaoNote.Sync.ProtocolTest do
                |> Map.put("kind", "fence")
                |> Map.put("snapshot", nil)
              )
+  end
+
+  test "hashed NUL business text is valid on the wire but cannot be stored" do
+    for path <- [
+          ["title"],
+          ["content"],
+          ["labels", Access.at(1), "value"],
+          ["labels", Access.at(1), "description"],
+          ["attachments", Access.at(0), "description"]
+        ] do
+      event = event()
+      snapshot = update_in(event["snapshot"], path, &(&1 <> <<0>>))
+
+      event = %{
+        event
+        | "snapshot" => snapshot,
+          "snapshot_hash" => Protocol.snapshot_hash(snapshot)
+      }
+
+      assert :ok = Protocol.validate_event(event)
+      assert {:error, :validation_failed} = Protocol.validate_storage_text(event)
+    end
   end
 
   test "fences retain closing hashes while purge requires null hash" do

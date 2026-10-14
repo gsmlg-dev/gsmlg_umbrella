@@ -31,6 +31,12 @@ defmodule GSMLG.GaoNote.Sync.Protocol do
     if valid_event?(event), do: :ok, else: {:error, :validation_failed}
   end
 
+  # NUL is valid JSON/UTF-8 and must retain its original snapshot hash. PostgreSQL
+  # cannot store it, so reject the note at commit rather than closing the transfer.
+  def validate_storage_text(event) do
+    if storage_text?(event["snapshot"]), do: :ok, else: {:error, :validation_failed}
+  end
+
   def uuid?(value), do: is_binary(value) and Regex.match?(@uuid, value)
   def checksum?(value), do: is_binary(value) and Regex.match?(@sha, value)
 
@@ -102,8 +108,12 @@ defmodule GSMLG.GaoNote.Sync.Protocol do
   defp ordered_unique?(_, _, _), do: false
   defp unique_field?(items, field), do: length(items) == length(Enum.uniq_by(items, & &1[field]))
 
-  defp text?(value),
-    do: is_binary(value) and String.valid?(value) and not String.contains?(value, <<0>>)
+  defp text?(value), do: is_binary(value) and String.valid?(value)
+
+  defp storage_text?(value) when is_binary(value), do: not String.contains?(value, <<0>>)
+  defp storage_text?(value) when is_map(value), do: Enum.all?(Map.values(value), &storage_text?/1)
+  defp storage_text?(value) when is_list(value), do: Enum.all?(value, &storage_text?/1)
+  defp storage_text?(_value), do: true
 
   defp i64?(value), do: is_integer(value) and value >= @i64_min and value <= @i64_max
   defp uint?(value), do: is_integer(value) and value >= 0 and value <= @u64_max
