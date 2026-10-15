@@ -7,14 +7,25 @@ defmodule GSMLG.GaoNote.Sync.Peers do
 
   @limit 536_870_912
 
-  def register(attrs) when is_map(attrs) do
+  def register(attrs), do: register(attrs, :mtls)
+
+  def register_ssh(attrs) when is_map(attrs) do
+    if is_nil(Map.get(attrs, :certificate_fingerprint)) and
+         is_nil(Map.get(attrs, "certificate_fingerprint")),
+       do: register(attrs, :ssh),
+       else: {:error, :invalid_peer}
+  end
+
+  def register_ssh(_), do: {:error, :invalid_peer}
+
+  defp register(attrs, transport) when is_map(attrs) do
     attrs =
       Map.new(~w(node_id certificate_fingerprint actor_id allowed_selectors)a, fn k ->
         {k, Map.get(attrs, k, Map.get(attrs, Atom.to_string(k)))}
       end)
 
     with true <- Protocol.uuid?(attrs.node_id),
-         true <- Protocol.checksum?(attrs.certificate_fingerprint),
+         true <- transport == :ssh or Protocol.checksum?(attrs.certificate_fingerprint),
          true <- is_binary(attrs.actor_id) and String.trim(attrs.actor_id) != "",
          :ok <- selectors(attrs.allowed_selectors) do
       %Peer{id: attrs.node_id}
@@ -27,7 +38,7 @@ defmodule GSMLG.GaoNote.Sync.Peers do
     end
   end
 
-  def register(_), do: {:error, :invalid_peer}
+  defp register(_, _), do: {:error, :invalid_peer}
 
   def authenticate(fingerprint) do
     if Protocol.checksum?(fingerprint) do
@@ -91,6 +102,17 @@ defmodule GSMLG.GaoNote.Sync.Peers do
       {:error, _} = error -> error
     end
   end
+
+  def join_ssh(%{"node_id" => node_id} = payload) do
+    with true <- Protocol.uuid?(node_id),
+         %Peer{certificate_fingerprint: nil} = peer <- Repo.get(Peer, node_id) do
+      join(peer, payload)
+    else
+      _ -> {:error, :unauthorized}
+    end
+  end
+
+  def join_ssh(_), do: {:error, :unauthorized}
 
   def join(peer, payload) do
     with true <-

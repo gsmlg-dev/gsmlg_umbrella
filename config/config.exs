@@ -91,6 +91,11 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   pubsub_server: GSMLG.PubSub,
   live_view: [signing_salt: "gmmaSSOy"]
 
+config :gsmlg_admin_web, GSMLG.AdminWeb.NoteSyncSSHEndpoint,
+  adapter: Bandit.PhoenixAdapter,
+  pubsub_server: GSMLG.PubSub,
+  server: false
+
 config :bun,
   version: "1.3.4",
   gsmlg_web: [

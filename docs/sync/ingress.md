@@ -1,5 +1,9 @@
 # GaoNote sync v1 ingress
 
+For the independent, certificate-free loopback listener behind a host-managed SSH
+tunnel, see [ssh-tunnel.md](ssh-tunnel.md). The mTLS requirements below still apply
+to the ordinary admin endpoint.
+
 The receiver is disabled by default. Provision a peer with
 `GSMLG.GaoNote.Sync.register_peer/1`, binding its certificate's SHA-256 fingerprint
 (64 lowercase hexadecimal characters), node UUID, GaoNote actor, and authorized

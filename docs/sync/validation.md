@@ -1,5 +1,8 @@
 # GaoNote sync receiver validation
 
+The private SSH receiver was qualified on 2026-10-15; see
+[validation-2026-10-15.md](validation-2026-10-15.md).
+
 The receiver fixes and actual local Rust client interoperability were requalified
 on 2026-10-13; see [validation-2026-10-13.md](validation-2026-10-13.md). The results
 below preserve the original 2026-10-11 checkpoint.

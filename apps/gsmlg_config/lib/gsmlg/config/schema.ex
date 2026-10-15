@@ -16,6 +16,8 @@ defmodule GSMLG.Config.Schema do
 
   @note_sync_schema [
     enabled: [type: :boolean, default: false],
+    ssh_enabled: [type: :boolean, default: false],
+    ssh_port: [type: :pos_integer, default: 4114],
     trusted_proxy_ips: [type: {:list, :string}, default: []],
     max_blob_bytes: [type: :pos_integer, default: 536_870_912]
   ]
@@ -1133,6 +1135,9 @@ defmodule GSMLG.Config.Schema do
 
       settings.max_blob_bytes > 536_870_912 ->
         {:error, "note_sync max_blob_bytes exceeds 512 MiB"}
+
+      settings.ssh_port > 65_535 ->
+        {:error, "note_sync ssh_port must be between 1 and 65535"}
 
       true ->
         {:ok, settings}

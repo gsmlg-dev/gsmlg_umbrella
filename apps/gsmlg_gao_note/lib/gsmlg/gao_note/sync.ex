@@ -1,8 +1,9 @@
 defmodule GSMLG.GaoNote.Sync do
-  @moduledoc "Durable, certificate-scoped GaoNote synchronization using protocol v1."
+  @moduledoc "Durable, provisioned-peer GaoNote synchronization using protocol v1."
   alias GSMLG.GaoNote.Sync.{Engine, Objects, Peers, Store}
 
   defdelegate register_peer(attrs), to: Peers, as: :register
+  defdelegate register_ssh_peer(attrs), to: Peers, as: :register_ssh
   defdelegate authenticate_peer(fingerprint), to: Peers, as: :authenticate
   defdelegate revoke_peer(peer_id), to: Peers, as: :revoke
   defdelegate lock_objects(ids), to: Objects
@@ -19,6 +20,10 @@ defmodule GSMLG.GaoNote.Sync do
 
   def join(peer, payload) do
     with {:ok, joined} <- Peers.join(peer, payload), do: {:ok, Map.delete(joined, :changed)}
+  end
+
+  def join_ssh(payload) do
+    with {:ok, joined} <- Peers.join_ssh(payload), do: {:ok, Map.delete(joined, :changed)}
   end
 
   def capture(note_id, opts \\ []), do: Engine.capture(note_id, opts)

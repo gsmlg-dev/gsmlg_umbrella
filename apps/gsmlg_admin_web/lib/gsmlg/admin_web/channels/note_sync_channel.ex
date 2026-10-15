@@ -8,7 +8,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
 
   @impl true
   def join("note_sync:v1", payload, socket) do
-    with {:ok, %{peer: peer, response: response}} <- Sync.join(socket.assigns.sync_peer, payload) do
+    with {:ok, %{peer: peer, response: response}} <- join_peer(payload, socket) do
       owner = self()
 
       staging_root =
@@ -164,6 +164,11 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
   def handle_in(_event, _payload, socket), do: stop(socket)
 
   @impl true
+  def handle_info(%Phoenix.Socket.Broadcast{event: "disconnect"} = broadcast, socket) do
+    send(socket.transport_pid, broadcast)
+    {:stop, {:shutdown, :disconnected}, socket}
+  end
+
   def handle_info(
         :send_next,
         %{assigns: %{outgoing: nil, checkout_task: nil, queue: [id | rest]}} = socket
@@ -390,6 +395,19 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
 
   def handle_info({:request_deadline, _}, socket), do: {:noreply, socket}
   def handle_info({:incoming_deadline, _}, socket), do: {:noreply, socket}
+
+  defp join_peer(payload, %{assigns: %{sync_transport: :ssh_tunnel}}) do
+    with %{"node_id" => node_id} <- payload,
+         true <- Protocol.uuid?(node_id),
+         :ok <- Phoenix.PubSub.subscribe(GSMLG.PubSub, "note_sync:#{node_id}") do
+      Sync.join_ssh(payload)
+    else
+      _ -> {:error, :unauthorized}
+    end
+  end
+
+  defp join_peer(payload, %{assigns: %{sync_peer: peer}}), do: Sync.join(peer, payload)
+  defp join_peer(_payload, _socket), do: {:error, :unauthorized}
 
   defp prepare_outgoing(checkout, socket) do
     event = checkout.event

@@ -16,6 +16,7 @@ defmodule GSMLG.AdminWeb.Application do
       GSMLG.AdminWeb.ProxyRulesTelemetryBridge,
       # Start the Endpoint (http/https)
       GSMLG.AdminWeb.Endpoint,
+      GSMLG.AdminWeb.NoteSyncSSHEndpoint,
       {Guardian.DB.Sweeper, []}
     ]
 
@@ -32,6 +33,7 @@ defmodule GSMLG.AdminWeb.Application do
   @impl true
   def config_change(changed, _new, removed) do
     GSMLG.AdminWeb.Endpoint.config_change(changed, removed)
+    GSMLG.AdminWeb.NoteSyncSSHEndpoint.config_change(changed, removed)
     :ok
   end
 end

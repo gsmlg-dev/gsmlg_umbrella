@@ -5,6 +5,7 @@ GaoNote sends and receives complete Agent Note snapshots through the dedicated
 The receiver implements the
 [v1 contract](/data/development/gsmlg-opt/agent-note/.trees/codex-note-sync/docs/sync/gaonote-protocol-v1.md).
 Configure the verified certificate ingress as described in [ingress.md](ingress.md).
+Alternatively, provision the separate private [SSH tunnel endpoint](ssh-tunnel.md).
 The receiver is disabled by default.
 
 ## Migration and provisioning

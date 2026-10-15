@@ -280,6 +280,136 @@ defmodule GSMLG.GaoNote.Sync.PeersTest do
     assert {:ok, ^before} = Store.transaction(fn -> Store.node() end)
   end
 
+  test "SSH provisioning stores distinct certificate-free peers without weakening mTLS registration",
+       %{
+         peer: mtls
+       } do
+    attrs = ssh_attrs()
+    assert {:ok, first} = Sync.register_ssh_peer(attrs)
+    assert first.certificate_fingerprint == nil
+    assert first.actor_id == attrs.actor_id
+    assert first.allowed_selectors == attrs.allowed_selectors
+    assert {:ok, second} = Sync.register_ssh_peer(ssh_attrs())
+    assert second.certificate_fingerprint == nil
+    refute first.id == second.id
+    assert {:error, %Ecto.Changeset{}} = Sync.register_ssh_peer(attrs)
+
+    for fingerprint <- [nil, "", String.duplicate("C", 64), "invalid"] do
+      assert {:error, :invalid_peer} =
+               Sync.register_peer(Map.put(ssh_attrs(), :certificate_fingerprint, fingerprint))
+    end
+
+    assert {:error, %Ecto.Changeset{}} =
+             Sync.register_peer(
+               Map.put(ssh_attrs(), :certificate_fingerprint, mtls.certificate_fingerprint)
+             )
+
+    assert {:error, :unauthorized} = Sync.authenticate_peer(nil)
+  end
+
+  test "SSH provisioning validates canonical identity grants and absent certificate" do
+    for attrs <- [
+          Map.put(ssh_attrs(), :node_id, "invalid"),
+          Map.put(ssh_attrs(), :node_id, "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"),
+          Map.put(ssh_attrs(), :actor_id, "  "),
+          Map.put(ssh_attrs(), :allowed_selectors, []),
+          Map.put(ssh_attrs(), :allowed_selectors, ["type=daily", "project=bear_note"]),
+          Map.put(ssh_attrs(), :allowed_selectors, ["project=bear_note", "project=bear_note"]),
+          Map.put(ssh_attrs(), :allowed_selectors, ["project~=bear.*"]),
+          Map.put(ssh_attrs(), :certificate_fingerprint, String.duplicate("d", 64)),
+          Map.put(ssh_attrs(), "certificate_fingerprint", String.duplicate("d", 64)),
+          Map.merge(ssh_attrs(), %{
+            "certificate_fingerprint" => String.duplicate("d", 64),
+            certificate_fingerprint: nil
+          })
+        ] do
+      assert {:error, :invalid_peer} = Sync.register_ssh_peer(attrs)
+    end
+
+    assert {:error, :invalid_peer} = Sync.register_ssh_peer(nil)
+
+    attrs = Map.new(ssh_attrs(), fn {key, value} -> {Atom.to_string(key), value} end)
+    assert {:ok, peer} = Sync.register_ssh_peer(attrs)
+    assert peer.certificate_fingerprint == nil
+  end
+
+  test "SSH join rejects unknown certificate-bound malformed and ungranted identities", %{
+    peer: mtls
+  } do
+    {:ok, peer} = Sync.register_ssh_peer(ssh_attrs())
+
+    for bad <- [
+          nil,
+          %{},
+          payload(mtls),
+          Map.put(payload(peer), "node_id", Ecto.UUID.generate()),
+          Map.put(payload(peer), "node_id", "invalid"),
+          Map.put(payload(peer), "node_id", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"),
+          Map.put(payload(peer), "selectors", ["project=other"]),
+          Map.put(payload(peer), "selectors", []),
+          Map.put(payload(peer), "certificate_fingerprint", nil)
+        ] do
+      assert {:error, :unauthorized} = Sync.join_ssh(bad)
+    end
+
+    assert Repo.get!(Peer, peer.id).session_id == nil
+    assert {:ok, %{peer: joined, response: response}} = Sync.join_ssh(payload(peer))
+    assert joined.actor_id == peer.actor_id
+    assert response["selectors"] == ["project=bear_note"]
+    assert response["protocol_version"] == 1
+    assert {:ok, []} = Sync.inventory(joined)
+  end
+
+  test "SSH replacement sessions and changed grants invalidate old operations" do
+    {:ok, peer} = Sync.register_ssh_peer(ssh_attrs())
+    {:ok, first} = Sync.join_ssh(payload(peer))
+    {:ok, second} = Sync.join_ssh(payload(peer))
+    refute first.peer.session_id == second.peer.session_id
+    assert {:error, :obsolete_session} = Sync.inventory(first.peer)
+    assert {:ok, []} = Sync.inventory(second.peer)
+
+    Repo.update!(
+      Ecto.Changeset.change(Repo.get!(Peer, peer.id), allowed_selectors: ["type=daily"])
+    )
+
+    assert {:error, :unauthorized} = Sync.inventory(second.peer)
+    assert {:error, :unauthorized} = Sync.join_ssh(payload(peer))
+    assert {:ok, _} = Sync.join_ssh(Map.put(payload(peer), "selectors", ["type=daily"]))
+  end
+
+  test "SSH revocation rejects new joins and disconnects the current session" do
+    {:ok, peer} = Sync.register_ssh_peer(ssh_attrs())
+    {:ok, joined} = Sync.join_ssh(payload(peer))
+    :ok = Phoenix.PubSub.subscribe(GSMLG.PubSub, "note_sync:#{peer.id}")
+    assert :ok = Sync.revoke_peer(peer.id)
+    assert_receive %Phoenix.Socket.Broadcast{event: "disconnect"}
+    assert {:error, :unauthorized} = Sync.join_ssh(payload(peer))
+    assert {:error, :obsolete_session} = Sync.inventory(joined.peer)
+  end
+
+  test "SSH credential changes reject cached sessions and require the mTLS path" do
+    {:ok, peer} = Sync.register_ssh_peer(ssh_attrs())
+    {:ok, joined} = Sync.join_ssh(payload(peer))
+    fingerprint = String.duplicate("d", 64)
+
+    Repo.update!(
+      Ecto.Changeset.change(Repo.get!(Peer, peer.id), certificate_fingerprint: fingerprint)
+    )
+
+    assert {:error, :unauthorized} = Sync.inventory(joined.peer)
+    assert {:error, :unauthorized} = Sync.join_ssh(payload(peer))
+    assert {:ok, certificate_peer} = Sync.authenticate_peer(fingerprint)
+    assert {:ok, _} = Sync.join(certificate_peer, payload(certificate_peer))
+  end
+
+  defp ssh_attrs do
+    %{
+      node_id: Ecto.UUID.generate(),
+      actor_id: "ssh-provisioned-actor",
+      allowed_selectors: ["project=bear_note", "type=daily"]
+    }
+  end
+
   defp payload(peer),
     do: %{
       "protocol_version" => 1,

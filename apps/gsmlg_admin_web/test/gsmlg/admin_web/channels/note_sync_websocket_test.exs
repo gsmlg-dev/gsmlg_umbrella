@@ -4,11 +4,12 @@ defmodule GSMLG.AdminWeb.NoteSyncWebSocketTest do
   alias GSMLG.GaoNote.{Compat, Label, Note, Sync}
   alias GSMLG.GaoNote.Sync.Protocol
 
-  setup do
+  setup context do
     previous = Application.get_env(:gsmlg_gao_note, :note_sync)
 
     Application.put_env(:gsmlg_gao_note, :note_sync, %{
       enabled: true,
+      ssh_enabled: true,
       trusted_proxy_ips: ["127.0.0.1"],
       max_blob_bytes: 536_870_912
     })
@@ -21,219 +22,254 @@ defmodule GSMLG.AdminWeb.NoteSyncWebSocketTest do
 
     fingerprint = Protocol.sha256(Ecto.UUID.generate())
 
-    {:ok, peer} =
-      Sync.register_peer(%{
-        node_id: Ecto.UUID.generate(),
-        certificate_fingerprint: fingerprint,
-        actor_id: "websocket-peer",
-        allowed_selectors: ["project=bear_note"]
-      })
+    attrs = %{
+      node_id: Ecto.UUID.generate(),
+      actor_id: "websocket-peer",
+      allowed_selectors: ["project=bear_note"]
+    }
 
-    listener =
-      start_supervised!({Bandit, plug: GSMLG.AdminWeb.Endpoint, ip: {127, 0, 0, 1}, port: 0})
+    {peer, endpoint, socket_module, headers} =
+      if context[:transport] == :ssh do
+        {:ok, peer} = Sync.register_ssh_peer(attrs)
+        {peer, GSMLG.AdminWeb.NoteSyncSSHEndpoint, GSMLG.AdminWeb.NoteSyncSSHSocket, []}
+      else
+        {:ok, peer} = Sync.register_peer(Map.put(attrs, :certificate_fingerprint, fingerprint))
 
-    {:ok, {_address, port}} = ThousandIsland.listener_info(listener)
-    %{fingerprint: fingerprint, peer: peer, port: port}
+        {peer, GSMLG.AdminWeb.Endpoint, GSMLG.AdminWeb.NoteSyncSocket,
+         [{"X-Note-Sync-Client-Fingerprint", fingerprint}]}
+      end
+
+    listener = start_supervised!({Bandit, plug: endpoint, ip: {127, 0, 0, 1}, port: 0})
+    assert {:ok, {{127, 0, 0, 1}, port}} = ThousandIsland.listener_info(listener)
+
+    %{
+      fingerprint: fingerprint,
+      peer: peer,
+      port: port,
+      endpoint: endpoint,
+      socket_module: socket_module,
+      headers: headers
+    }
   end
 
-  test "actual V2 websocket authorizes ingress joins heartbeats and commits a complete note",
-       context do
-    {tcp, response} =
-      open(context.port, [{"X-Note-Sync-Client-Fingerprint", context.fingerprint}])
+  for transport <- [:mtls, :ssh] do
+    @tag transport: transport
+    test "actual #{transport} V2 websocket joins heartbeats and commits a complete note",
+         context do
+      {tcp, response} =
+        open(context.port, context.headers)
 
-    assert response =~ "101 Switching Protocols"
+      assert response =~ "101 Switching Protocols"
 
-    hello = %{
-      "protocol_version" => 1,
-      "node_id" => context.peer.id,
-      "selectors" => ["project=bear_note"],
-      "max_blob_bytes" => 536_870_912
-    }
-
-    send_frame(tcp, ["join", "join", "note_sync:v1", "phx_join", hello])
-
-    assert [
-             "join",
-             "join",
-             "note_sync:v1",
-             "phx_reply",
-             %{"status" => "ok", "response" => joined}
-           ] = receive_frame(tcp)
-
-    assert joined["node_id"] != context.peer.id
-    guard = session_guard(context.peer.id)
-
-    on_exit(fn ->
-      monitor = Process.monitor(guard)
-      :gen_tcp.close(tcp)
-      assert_receive {:DOWN, ^monitor, :process, ^guard, _}, 5000
-    end)
-
-    send_frame(tcp, [nil, "heartbeat", "phoenix", "heartbeat", %{}])
-    assert [nil, "heartbeat", "phoenix", "phx_reply", %{"status" => "ok"}] = receive_frame(tcp)
-    clock = %{"millis" => 1_791_676_800_000, "counter" => 0, "node_id" => context.peer.id}
-
-    snapshot = %{
-      "title" => "wire",
-      "content" => "actual websocket",
-      "labels" => [
-        %{"key" => "project", "value" => "bear_note", "description" => "", "value_type" => "text"}
-      ],
-      "created_at" => 1_791_676_800,
-      "updated_at" => 1_791_676_800,
-      "deleted_at" => nil,
-      "attachments" => []
-    }
-
-    event = %{
-      "event_id" => Ecto.UUID.generate(),
-      "note_id" => Ecto.UUID.generate(),
-      "generation" => clock,
-      "control" => clock,
-      "version" => clock,
-      "kind" => "attach",
-      "snapshot" => snapshot,
-      "snapshot_hash" => Protocol.snapshot_hash(snapshot)
-    }
-
-    bytes = Jason.encode!(event)
-    transfer = Ecto.UUID.generate()
-
-    request(tcp, "begin", "transfer_begin", %{
-      "transfer_id" => transfer,
-      "size_bytes" => byte_size(bytes),
-      "checksum_sha256" => Protocol.sha256(bytes)
-    })
-
-    send_frame(tcp, [
-      "join",
-      nil,
-      "note_sync:v1",
-      "blob_chunk",
-      %{
-        "transfer_id" => transfer,
-        "blob_id" => "event",
-        "offset" => 0,
-        "data" => Base.encode64(bytes)
+      hello = %{
+        "protocol_version" => 1,
+        "node_id" => context.peer.id,
+        "selectors" => ["project=bear_note"],
+        "max_blob_bytes" => 536_870_912
       }
-    ])
 
-    request(tcp, "end", "blob_end", %{"transfer_id" => transfer, "blob_id" => "event"})
+      send_frame(tcp, ["join", "join", "note_sync:v1", "phx_join", hello])
 
-    send_frame(tcp, [
-      "join",
-      "commit",
-      "note_sync:v1",
-      "transfer_commit",
-      %{"transfer_id" => transfer}
-    ])
+      assert [
+               "join",
+               "join",
+               "note_sync:v1",
+               "phx_reply",
+               %{"status" => "ok", "response" => joined}
+             ] = receive_frame(tcp)
 
-    ack = Protocol.ack(event)
-    assert ["join", nil, "note_sync:v1", "ack", ^ack] = receive_frame(tcp)
+      assert joined["node_id"] != context.peer.id
+      guard = session_guard(context)
 
-    assert [
-             "join",
-             "commit",
-             "note_sync:v1",
-             "phx_reply",
-             %{"status" => "ok", "response" => ^ack}
-           ] = receive_frame(tcp)
+      on_exit(fn ->
+        monitor = Process.monitor(guard)
+        :gen_tcp.close(tcp)
+        assert_receive {:DOWN, ^monitor, :process, ^guard, _}, 5000
+      end)
 
-    assert %Note{title: "wire"} = GSMLG.Repo.get(Note, event["note_id"])
-    :gen_tcp.close(tcp)
-  end
+      send_frame(tcp, [nil, "heartbeat", "phoenix", "heartbeat", %{}])
+      assert [nil, "heartbeat", "phoenix", "phx_reply", %{"status" => "ok"}] = receive_frame(tcp)
+      clock = %{"millis" => 1_791_676_800_000, "counter" => 0, "node_id" => context.peer.id}
 
-  test "actual V2 websocket sends historical inventory and clears pending after a complete ACK",
-       context do
-    old = %{DateTime.from_unix!(1_600_000_000) | microsecond: {0, 6}}
+      snapshot = %{
+        "title" => "wire",
+        "content" => "actual websocket",
+        "labels" => [
+          %{
+            "key" => "project",
+            "value" => "bear_note",
+            "description" => "",
+            "value_type" => "text"
+          }
+        ],
+        "created_at" => 1_791_676_800,
+        "updated_at" => 1_791_676_800,
+        "deleted_at" => nil,
+        "attachments" => []
+      }
 
-    note =
-      GSMLG.Repo.insert!(%Note{
-        title: "historical wire",
-        content: "inventory over an actual websocket",
-        created_at: old,
-        updated_at: old
+      event = %{
+        "event_id" => Ecto.UUID.generate(),
+        "note_id" => Ecto.UUID.generate(),
+        "generation" => clock,
+        "control" => clock,
+        "version" => clock,
+        "kind" => "attach",
+        "snapshot" => snapshot,
+        "snapshot_hash" => Protocol.snapshot_hash(snapshot)
+      }
+
+      bytes = Jason.encode!(event)
+      transfer = Ecto.UUID.generate()
+
+      request(tcp, "begin", "transfer_begin", %{
+        "transfer_id" => transfer,
+        "size_bytes" => byte_size(bytes),
+        "checksum_sha256" => Protocol.sha256(bytes)
       })
 
-    {:ok, setting} = Compat.define_label_key("project", "")
+      send_frame(tcp, [
+        "join",
+        nil,
+        "note_sync:v1",
+        "blob_chunk",
+        %{
+          "transfer_id" => transfer,
+          "blob_id" => "event",
+          "offset" => 0,
+          "data" => Base.encode64(bytes)
+        }
+      ])
 
-    GSMLG.Repo.insert!(%Label{
-      note_id: note.id,
-      label_setting_id: setting.id,
-      value: "bear_note"
-    })
+      request(tcp, "end", "blob_end", %{"transfer_id" => transfer, "blob_id" => "event"})
 
-    assert Sync.pending(context.peer.id) == []
-    assert Sync.membership(context.peer.id, note.id) == nil
+      send_frame(tcp, [
+        "join",
+        "commit",
+        "note_sync:v1",
+        "transfer_commit",
+        %{"transfer_id" => transfer}
+      ])
 
-    {tcp, response} =
-      open(context.port, [{"X-Note-Sync-Client-Fingerprint", context.fingerprint}])
+      ack = Protocol.ack(event)
+      assert ["join", nil, "note_sync:v1", "ack", ^ack] = receive_frame(tcp)
 
-    assert response =~ "101 Switching Protocols"
+      assert [
+               "join",
+               "commit",
+               "note_sync:v1",
+               "phx_reply",
+               %{"status" => "ok", "response" => ^ack}
+             ] = receive_frame(tcp)
 
-    hello = %{
-      "protocol_version" => 1,
-      "node_id" => context.peer.id,
-      "selectors" => ["project=bear_note"],
-      "max_blob_bytes" => 536_870_912
-    }
-
-    send_frame(tcp, ["join", "join", "note_sync:v1", "phx_join", hello])
-
-    assert ["join", "join", "note_sync:v1", "phx_reply", %{"status" => "ok"}] =
-             receive_frame(tcp)
-
-    guard = session_guard(context.peer.id)
-
-    on_exit(fn ->
-      monitor = Process.monitor(guard)
+      assert %Note{title: "wire"} = GSMLG.Repo.get(Note, event["note_id"])
       :gen_tcp.close(tcp)
-      assert_receive {:DOWN, ^monitor, :process, ^guard, _}, 5000
-    end)
+    end
 
-    request(tcp, "inventory", "inventory_start", %{})
+    @tag transport: transport
+    test "actual #{transport} V2 websocket sends historical inventory and clears pending after a complete ACK",
+         context do
+      old = %{DateTime.from_unix!(1_600_000_000) | microsecond: {0, 6}}
 
-    assert ["join", begin_ref, "note_sync:v1", "transfer_begin", manifest] = receive_frame(tcp)
-    transfer = manifest["transfer_id"]
-    assert Protocol.uuid?(transfer)
-    assert is_binary(begin_ref)
-    reply(tcp, begin_ref, %{})
-    {bytes, end_ref} = receive_event_blob(tcp, transfer, "")
-    assert byte_size(bytes) == manifest["size_bytes"]
-    assert Protocol.sha256(bytes) == manifest["checksum_sha256"]
+      note =
+        GSMLG.Repo.insert!(%Note{
+          title: "historical wire",
+          content: "inventory over an actual websocket",
+          created_at: old,
+          updated_at: old
+        })
 
-    snapshot = %{
-      "title" => note.title,
-      "content" => note.content,
-      "labels" => [
-        %{"key" => "project", "value" => "bear_note", "description" => "", "value_type" => "text"}
-      ],
-      "created_at" => 1_600_000_000,
-      "updated_at" => 1_600_000_000,
-      "deleted_at" => nil,
-      "attachments" => []
-    }
+      {:ok, setting} = Compat.define_label_key("project", "")
 
-    event = Jason.decode!(bytes)
-    assert :ok = Protocol.validate_event(event)
-    assert event["note_id"] == note.id
-    assert event["snapshot"] == snapshot
-    assert event["snapshot_hash"] == Protocol.snapshot_hash(snapshot)
-    assert event["version"]["millis"] == 1_600_000_000_000
-    assert [pending] = Sync.pending(context.peer.id)
-    assert pending == event
-    reply(tcp, end_ref, %{})
+      GSMLG.Repo.insert!(%Label{
+        note_id: note.id,
+        label_setting_id: setting.id,
+        value: "bear_note"
+      })
 
-    assert ["join", commit_ref, "note_sync:v1", "transfer_commit", %{"transfer_id" => ^transfer}] =
-             receive_frame(tcp)
+      assert Sync.pending(context.peer.id) == []
+      assert Sync.membership(context.peer.id, note.id) == nil
 
-    ack = Protocol.ack(event)
-    send_frame(tcp, ["join", nil, "note_sync:v1", "ack", ack])
-    reply(tcp, commit_ref, ack)
+      {tcp, response} =
+        open(context.port, context.headers)
 
-    assert ["join", nil, "note_sync:v1", "inventory_complete", %{}] = receive_frame(tcp)
-    assert Sync.pending(context.peer.id) == []
-    :gen_tcp.close(tcp)
+      assert response =~ "101 Switching Protocols"
+
+      hello = %{
+        "protocol_version" => 1,
+        "node_id" => context.peer.id,
+        "selectors" => ["project=bear_note"],
+        "max_blob_bytes" => 536_870_912
+      }
+
+      send_frame(tcp, ["join", "join", "note_sync:v1", "phx_join", hello])
+
+      assert ["join", "join", "note_sync:v1", "phx_reply", %{"status" => "ok"}] =
+               receive_frame(tcp)
+
+      guard = session_guard(context)
+
+      on_exit(fn ->
+        monitor = Process.monitor(guard)
+        :gen_tcp.close(tcp)
+        assert_receive {:DOWN, ^monitor, :process, ^guard, _}, 5000
+      end)
+
+      request(tcp, "inventory", "inventory_start", %{})
+
+      assert ["join", begin_ref, "note_sync:v1", "transfer_begin", manifest] = receive_frame(tcp)
+      transfer = manifest["transfer_id"]
+      assert Protocol.uuid?(transfer)
+      assert is_binary(begin_ref)
+      reply(tcp, begin_ref, %{})
+      {bytes, end_ref} = receive_event_blob(tcp, transfer, "")
+      assert byte_size(bytes) == manifest["size_bytes"]
+      assert Protocol.sha256(bytes) == manifest["checksum_sha256"]
+
+      snapshot = %{
+        "title" => note.title,
+        "content" => note.content,
+        "labels" => [
+          %{
+            "key" => "project",
+            "value" => "bear_note",
+            "description" => "",
+            "value_type" => "text"
+          }
+        ],
+        "created_at" => 1_600_000_000,
+        "updated_at" => 1_600_000_000,
+        "deleted_at" => nil,
+        "attachments" => []
+      }
+
+      event = Jason.decode!(bytes)
+      assert :ok = Protocol.validate_event(event)
+      assert event["note_id"] == note.id
+      assert event["snapshot"] == snapshot
+      assert event["snapshot_hash"] == Protocol.snapshot_hash(snapshot)
+      assert event["version"]["millis"] == 1_600_000_000_000
+      assert [pending] = Sync.pending(context.peer.id)
+      assert pending == event
+      reply(tcp, end_ref, %{})
+
+      assert [
+               "join",
+               commit_ref,
+               "note_sync:v1",
+               "transfer_commit",
+               %{"transfer_id" => ^transfer}
+             ] =
+               receive_frame(tcp)
+
+      ack = Protocol.ack(event)
+      send_frame(tcp, ["join", nil, "note_sync:v1", "ack", ack])
+      reply(tcp, commit_ref, ack)
+
+      assert ["join", nil, "note_sync:v1", "inventory_complete", %{}] = receive_frame(tcp)
+      assert Sync.pending(context.peer.id) == []
+      :gen_tcp.close(tcp)
+    end
   end
 
   test "actual ingress rejects missing duplicate and unregistered certificate identities",
@@ -252,8 +288,141 @@ defmodule GSMLG.AdminWeb.NoteSyncWebSocketTest do
     end
   end
 
-  defp session_guard(peer_id) do
-    table = GSMLG.AdminWeb.Endpoint.config({:socket, GSMLG.AdminWeb.NoteSyncSocket})
+  @tag transport: :ssh
+  test "SSH joins require an explicitly registered peer and its exact authorized profile",
+       context do
+    {:ok, mtls_peer} =
+      Sync.register_peer(%{
+        node_id: Ecto.UUID.generate(),
+        actor_id: "mtls-only",
+        certificate_fingerprint: context.fingerprint,
+        allowed_selectors: ["project=bear_note"]
+      })
+
+    payload = hello(context.peer)
+
+    for invalid <- [
+          Map.put(payload, "node_id", Ecto.UUID.generate()),
+          Map.put(payload, "node_id", mtls_peer.id),
+          Map.put(payload, "node_id", String.upcase(context.peer.id)),
+          Map.put(payload, "selectors", ["project=other"]),
+          Map.put(payload, "actor_id", "spoof")
+        ] do
+      {tcp, response} = open(context.port, [])
+      assert response =~ "101 Switching Protocols"
+      send_frame(tcp, ["join", "join", "note_sync:v1", "phx_join", invalid])
+
+      assert [
+               "join",
+               "join",
+               "note_sync:v1",
+               "phx_reply",
+               %{"status" => "error", "response" => %{"code" => "unauthorized"}}
+             ] =
+               receive_frame(tcp)
+
+      :gen_tcp.close(tcp)
+    end
+  end
+
+  @tag transport: :ssh
+  test "revocation and selector changes close established SSH websockets", context do
+    for change <- [:revoke, :select] do
+      {:ok, peer} =
+        Sync.register_ssh_peer(%{
+          node_id: Ecto.UUID.generate(),
+          actor_id: "disconnect-peer",
+          allowed_selectors: ["project=bear_note", "project=other"]
+        })
+
+      {tcp, response} = open(context.port, [])
+      assert response =~ "101 Switching Protocols"
+      send_frame(tcp, ["join", "join", "note_sync:v1", "phx_join", hello(peer)])
+
+      assert ["join", "join", "note_sync:v1", "phx_reply", %{"status" => "ok"}] =
+               receive_frame(tcp)
+
+      guard = session_guard(%{context | peer: peer})
+      monitor = Process.monitor(guard)
+
+      case change do
+        :revoke -> assert :ok = Sync.revoke_peer(peer.id)
+        :select -> assert {:ok, _} = Sync.select(peer.id, ["project=other"])
+      end
+
+      assert_closed(tcp)
+      assert_receive {:DOWN, ^monitor, :process, ^guard, _}, 5000
+
+      if change == :revoke do
+        {retry, _response} = open(context.port, [])
+        send_frame(retry, ["join", "join", "note_sync:v1", "phx_join", hello(peer)])
+
+        assert ["join", "join", "note_sync:v1", "phx_reply", %{"status" => "error"}] =
+                 receive_frame(retry)
+
+        :gen_tcp.close(retry)
+      end
+
+      :gen_tcp.close(tcp)
+    end
+  end
+
+  @tag transport: :ssh
+  test "SSH listener serves no admin HTTP pages or alternate sockets", context do
+    for path <- [
+          "/",
+          "/users/log_in",
+          "/socket/websocket?vsn=2.0.0",
+          "/note-sync/longpoll?vsn=2.0.0"
+        ] do
+      {:ok, tcp} = :gen_tcp.connect({127, 0, 0, 1}, context.port, [:binary, active: false], 2000)
+
+      :ok =
+        :gen_tcp.send(tcp, "GET #{path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+
+      assert receive_headers(tcp, "") =~ "404 Not Found"
+      :gen_tcp.close(tcp)
+    end
+  end
+
+  test "SSH peer UUID in the public socket query cannot replace certificate identity", context do
+    {:ok, peer} =
+      Sync.register_ssh_peer(%{
+        node_id: Ecto.UUID.generate(),
+        actor_id: "ssh-only",
+        allowed_selectors: ["project=bear_note"]
+      })
+
+    {tcp, response} = open(context.port, [], "&node_id=#{peer.id}")
+    assert response =~ "403 Forbidden"
+    :gen_tcp.close(tcp)
+  end
+
+  defp hello(peer) do
+    %{
+      "protocol_version" => 1,
+      "node_id" => peer.id,
+      "selectors" => ["project=bear_note"],
+      "max_blob_bytes" => 536_870_912
+    }
+  end
+
+  defp assert_closed(tcp, remaining_frames \\ 2) do
+    assert remaining_frames > 0
+
+    case :gen_tcp.recv(tcp, 2, 2000) do
+      {:ok, <<0x88, size>>} ->
+        assert {:ok, <<1001::16, _::binary>>} = :gen_tcp.recv(tcp, size, 2000)
+
+      {:ok, <<0x81, size>>} when size < 126 ->
+        assert {:ok, _payload} = :gen_tcp.recv(tcp, size, 2000)
+        assert_closed(tcp, remaining_frames - 1)
+    end
+  end
+
+  defp session_guard(context) do
+    peer_id = context.peer.id
+    table = context.endpoint.config({:socket, context.socket_module})
 
     guards =
       table
@@ -273,7 +442,7 @@ defmodule GSMLG.AdminWeb.NoteSyncWebSocketTest do
     guard
   end
 
-  defp open(port, headers) do
+  defp open(port, headers, query \\ "") do
     {:ok, tcp} =
       :gen_tcp.connect({127, 0, 0, 1}, port, [:binary, active: false, packet: :raw], 2000)
 
@@ -282,7 +451,7 @@ defmodule GSMLG.AdminWeb.NoteSyncWebSocketTest do
 
     :ok =
       :gen_tcp.send(tcp, [
-        "GET /note-sync/websocket?vsn=2.0.0 HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n",
+        "GET /note-sync/websocket?vsn=2.0.0#{query} HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n",
         fields,
         "\r\n"
       ])
