@@ -10,7 +10,7 @@ defmodule GSMLG.GaoNote.Sync.Objects do
 
   def lease_expires_at, do: System.system_time(:millisecond) + @lease_millis
 
-  def renew_leases(peer) do
+  def renew_leases(peer, opts \\ []) do
     now = System.system_time(:millisecond)
     expires_at = now + @lease_millis
     updated_at = DateTime.utc_now()
@@ -20,6 +20,15 @@ defmodule GSMLG.GaoNote.Sync.Objects do
         where: r.kind == "lease" and r.peer_id == ^peer.id,
         where: fragment("?->>'session_id'", r.data) == ^peer.session_id
       )
+
+    {query, busy?} =
+      if Keyword.get(opts, :nonblocking, false) do
+        ids = Repo.all(from(r in query, select: r.id, lock: "FOR UPDATE SKIP LOCKED"))
+        busy? = Repo.exists?(from(r in query, where: r.id not in ^ids))
+        {from(r in query, where: r.id in ^ids), busy?}
+      else
+        {query, false}
+      end
 
     if Repo.exists?(
          from(r in query, where: fragment("(?->>'expires_at')::bigint <= ?", r.data, ^now))
@@ -40,7 +49,7 @@ defmodule GSMLG.GaoNote.Sync.Objects do
       []
     )
 
-    :ok
+    if busy?, do: :busy, else: :ok
   end
 
   def lock_objects(ids) do
@@ -56,11 +65,14 @@ defmodule GSMLG.GaoNote.Sync.Objects do
     end)
   end
 
-  def with_object_lock(id, operation) do
-    Store.transaction(fn ->
-      Store.lock("object", id)
-      operation.()
-    end)
+  def with_object_lock(id, operation, opts \\ []) do
+    Store.transaction(
+      fn ->
+        Store.lock("object", id)
+        operation.()
+      end,
+      opts
+    )
   end
 
   def referenced?(id) do

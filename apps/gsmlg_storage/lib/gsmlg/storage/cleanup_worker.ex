@@ -1,5 +1,5 @@
 defmodule GSMLG.Storage.CleanupWorker do
-  @moduledoc "Recovers expired S3 upload intents, purges tombstones and retries variants."
+  @moduledoc "Recovers expired processing intents, purges tombstones and retries variants."
 
   use GenServer
   require Logger
@@ -47,7 +47,7 @@ defmodule GSMLG.Storage.CleanupWorker do
       recoverable =
         Enum.filter(
           files,
-          &(expired_intent?(&1, now) or
+          &(expired_processing_intent?(&1, now) or
               (&1.status == "deleted" and DateTime.before?(&1.updated_at, cutoff)))
         )
 
@@ -66,7 +66,7 @@ defmodule GSMLG.Storage.CleanupWorker do
       (recovery_batch ++ variant_batch)
       |> Enum.each(fn file ->
         cond do
-          expired_intent?(file, now) ->
+          expired_processing_intent?(file, now) ->
             Storage.recover_upload(file)
 
           file.status == "deleted" and DateTime.before?(file.updated_at, cutoff) ->
@@ -107,6 +107,13 @@ defmodule GSMLG.Storage.CleanupWorker do
 
     {selected, next_cursor}
   end
+
+  # Active sync uploads have durable recovery jobs in their owning database.
+  # Another database sharing S3 cannot infer abandonment from its own references.
+  defp expired_processing_intent?(%{status: "processing"} = file, now),
+    do: expired_intent?(file, now)
+
+  defp expired_processing_intent?(_file, _now), do: false
 
   defp expired_intent?(file, now) do
     expiry =

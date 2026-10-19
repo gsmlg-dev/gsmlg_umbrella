@@ -20,6 +20,11 @@ defmodule GSMLG.GaoNote.Sync.SnapshotReadTest do
       "bytes=" <> bounds = range
       [first, last] = bounds |> String.split("-") |> Enum.map(&String.to_integer/1)
 
+      send(
+        Application.fetch_env!(:gsmlg_gao_note, :snapshot_test_owner),
+        {:object_range, first, last}
+      )
+
       if first >= byte_size(bytes) do
         send_resp(conn, 416, "")
       else
@@ -38,6 +43,7 @@ defmodule GSMLG.GaoNote.Sync.SnapshotReadTest do
   end
 
   setup do
+    Application.put_env(:gsmlg_gao_note, :snapshot_test_owner, self())
     {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(socket)
     :ok = :gen_tcp.close(socket)
@@ -62,15 +68,36 @@ defmodule GSMLG.GaoNote.Sync.SnapshotReadTest do
       end)
 
       Application.delete_env(:gsmlg_gao_note, :snapshot_test_bytes)
+      Application.delete_env(:gsmlg_gao_note, :snapshot_test_owner)
     end)
 
     :ok
   end
 
   test "reads multi-chunk objects and verifies a stored checksum" do
-    bytes = String.duplicate("a", 65_536) <> "final"
+    bytes = String.duplicate("a", 4_194_304) <> "final"
     file = insert_file(bytes, hash(bytes))
     assert {:ok, ^bytes} = Snapshot.read_object(file.id)
+
+    assert_receive {:object_range, 0, 4_194_303}
+    assert_receive {:object_range, 4_194_304, 4_194_308}
+    refute_received {:object_range, _, _}
+  end
+
+  test "reads a 10,449,995-byte attachment using three bounded S3 ranges" do
+    bytes = :binary.copy("attachment", 1_044_999) <> "final"
+    checksum = hash(bytes)
+    file = insert_file(bytes, checksum)
+
+    assert byte_size(bytes) == 10_449_995
+    assert {:ok, downloaded} = Snapshot.read_object(file.id)
+    assert downloaded == bytes
+    assert hash(downloaded) == checksum
+
+    assert_receive {:object_range, 0, 4_194_303}
+    assert_receive {:object_range, 4_194_304, 8_388_607}
+    assert_receive {:object_range, 8_388_608, 10_449_994}
+    refute_received {:object_range, _, _}
   end
 
   test "legacy checksum reads compute SHA256 without trusting obsolete digest metadata" do

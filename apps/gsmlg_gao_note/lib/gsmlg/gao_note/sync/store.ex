@@ -44,6 +44,10 @@ defmodule GSMLG.GaoNote.Sync.Store do
   alias GSMLG.GaoNote.Sync.Record
   alias GSMLG.Repo
 
+  # Session work can wait behind an apply's locks: 900 seconds plus 10 seconds
+  # for ordinary work. The channel enforces each operation's shorter deadline.
+  @session_transaction_timeout 910_000
+
   def key(kind, peer_id, identifier), do: Enum.join([kind, peer_id || "local", identifier], ":")
 
   def get(kind, identifier, peer_id \\ nil) do
@@ -85,11 +89,14 @@ defmodule GSMLG.GaoNote.Sync.Store do
     :ok
   end
 
-  def transaction(operation) do
-    Repo.transaction(operation)
+  def transaction(operation, opts \\ []) do
+    Repo.transaction(operation, opts)
   rescue
     error in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, {:storage, error}}
   end
+
+  def session_transaction(operation),
+    do: transaction(operation, timeout: @session_transaction_timeout)
 
   def unwrap({:ok, result}), do: result
   def unwrap({:error, _} = error), do: error

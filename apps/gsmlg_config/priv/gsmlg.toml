@@ -244,11 +244,6 @@ search_token = ""
 minimum_score = 0.01
 pdf_renderer_url = ""
 
-# The mTLS ingress requires a verified proxy with a private/firewalled backend.
+# Note sync uses the existing admin endpoint without transport authentication.
 [note_sync]
-enabled = false
-# Independent SSH ingress binds only to 127.0.0.1; access it through an SSH tunnel.
-ssh_enabled = false
-ssh_port = 4114
-trusted_proxy_ips = []
 max_blob_bytes = 536870912

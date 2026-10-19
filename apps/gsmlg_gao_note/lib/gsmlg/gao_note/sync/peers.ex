@@ -114,13 +114,32 @@ defmodule GSMLG.GaoNote.Sync.Peers do
 
   def join_ssh(_), do: {:error, :unauthorized}
 
+  def join(payload) do
+    if valid_join?(payload) do
+      Store.transaction(fn ->
+        id = payload["node_id"]
+
+        Repo.insert!(
+          %Peer{id: id, actor_id: "note_sync:#{id}", allowed_selectors: payload["selectors"]},
+          on_conflict: :nothing,
+          conflict_target: [:id]
+        )
+
+        current = Repo.one!(from(p in Peer, where: p.id == ^id, lock: "FOR UPDATE"))
+
+        join_current!(current, payload,
+          certificate_fingerprint: nil,
+          allowed_selectors: payload["selectors"]
+        )
+      end)
+    else
+      {:error, :invalid_join}
+    end
+  end
+
   def join(peer, payload) do
-    with true <-
-           Protocol.exact_keys?(payload, ~w(protocol_version node_id selectors max_blob_bytes)),
-         1 <- payload["protocol_version"],
-         true <- payload["node_id"] == peer.id,
-         limit when is_integer(limit) and limit > 0 <- payload["max_blob_bytes"],
-         :ok <- selectors(payload["selectors"]) do
+    with true <- valid_join?(payload),
+         true <- payload["node_id"] == peer.id do
       Store.transaction(fn ->
         current =
           Repo.one(from(p in Peer, where: p.id == ^peer.id, lock: "FOR UPDATE")) ||
@@ -130,31 +149,7 @@ defmodule GSMLG.GaoNote.Sync.Peers do
           do: Repo.rollback(:unauthorized)
 
         authorize!(current, payload["selectors"])
-        local = Store.node()["node_id"]
-        if local == peer.id, do: Repo.rollback(:invalid_peer)
-        changed = current.selectors != payload["selectors"]
-        release_peer_leases(current.id)
-
-        updated =
-          Repo.update!(
-            Ecto.Changeset.change(current,
-              selectors: payload["selectors"],
-              session_id: Ecto.UUID.generate(),
-              max_blob_bytes: min(limit, configured_limit())
-            )
-          )
-          |> establish_scope(changed)
-
-        %{
-          peer: updated,
-          response: %{
-            "protocol_version" => 1,
-            "node_id" => local,
-            "selectors" => updated.selectors,
-            "max_blob_bytes" => configured_limit()
-          },
-          changed: changed
-        }
+        join_current!(current, payload)
       end)
     else
       _ -> {:error, :unauthorized}
@@ -163,21 +158,73 @@ defmodule GSMLG.GaoNote.Sync.Peers do
 
   def current!(%Peer{id: id, session_id: token, selectors: selectors} = peer)
       when is_binary(token) do
-    case Repo.one(from(p in Peer, where: p.id == ^id, lock: "FOR UPDATE")) do
-      %Peer{session_id: ^token} = current ->
-        unless current.certificate_fingerprint == peer.certificate_fingerprint,
-          do: Repo.rollback(:unauthorized)
-
-        unless current.selectors == selectors, do: Repo.rollback(:obsolete_session)
-        authorize!(current, current.selectors)
-        with_scope(current)
-
-      _ ->
-        Repo.rollback(:obsolete_session)
-    end
+    current = Repo.one(from(p in Peer, where: p.id == ^id, lock: "FOR UPDATE"))
+    authorize_current!(current, peer, token, selectors)
   end
 
   def current!(_), do: Repo.rollback(:obsolete_session)
+
+  def try_current!(%Peer{id: id, session_id: token, selectors: selectors} = peer)
+      when is_binary(token) do
+    case Repo.one(from(p in Peer, where: p.id == ^id, lock: "FOR UPDATE SKIP LOCKED")) do
+      nil ->
+        # A locked row is not an authentication failure. Check the committed
+        # session before allowing its existing leases to be renewed without data.
+        authorize_current!(Repo.get(Peer, id), peer, token, selectors)
+        :busy
+
+      current ->
+        authorize_current!(current, peer, token, selectors)
+    end
+  end
+
+  def try_current!(_), do: Repo.rollback(:obsolete_session)
+
+  defp authorize_current!(%Peer{session_id: token} = current, peer, token, selectors) do
+    unless current.certificate_fingerprint == peer.certificate_fingerprint,
+      do: Repo.rollback(:unauthorized)
+
+    unless current.selectors == selectors, do: Repo.rollback(:obsolete_session)
+    authorize!(current, current.selectors)
+    with_scope(current)
+  end
+
+  defp authorize_current!(_current, _peer, _token, _selectors),
+    do: Repo.rollback(:obsolete_session)
+
+  defp valid_join?(payload) do
+    Protocol.exact_keys?(payload, ~w(protocol_version node_id selectors max_blob_bytes)) and
+      payload["protocol_version"] === 1 and Protocol.uuid?(payload["node_id"]) and
+      is_integer(payload["max_blob_bytes"]) and payload["max_blob_bytes"] > 0 and
+      selectors(payload["selectors"]) == :ok
+  end
+
+  defp join_current!(current, payload, attrs \\ []) do
+    local = Store.node()["node_id"]
+    if local == current.id, do: Repo.rollback(:invalid_peer)
+    changed = current.selectors != payload["selectors"]
+    release_peer_leases(current.id)
+
+    attrs =
+      Keyword.merge(attrs,
+        selectors: payload["selectors"],
+        session_id: Ecto.UUID.generate(),
+        max_blob_bytes: min(payload["max_blob_bytes"], configured_limit())
+      )
+
+    updated = Repo.update!(Ecto.Changeset.change(current, attrs)) |> establish_scope(changed)
+
+    %{
+      peer: updated,
+      response: %{
+        "protocol_version" => 1,
+        "node_id" => local,
+        "selectors" => updated.selectors,
+        "max_blob_bytes" => configured_limit()
+      },
+      changed: changed
+    }
+  end
 
   defp establish_scope(peer, changed) do
     if changed or is_nil(Store.get("scope", "current", peer.id)) do

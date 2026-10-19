@@ -1,72 +1,89 @@
 # GaoNote sync v1 ingress
 
-For the independent, certificate-free loopback listener behind a host-managed SSH
-tunnel, see [ssh-tunnel.md](ssh-tunnel.md). The mTLS requirements below still apply
-to the ordinary admin endpoint.
+GaoNote exposes the `note_sync:v1` Phoenix channel on the existing admin listener,
+port 4111 by default:
 
-The receiver is disabled by default. Provision a peer with
-`GSMLG.GaoNote.Sync.register_peer/1`, binding its certificate's SHA-256 fingerprint
-(64 lowercase hexadecimal characters), node UUID, GaoNote actor, and authorized
-selectors. The client node UUID must match this registered node; browser sessions,
-query parameters and forwarded source addresses confer no authority.
-
-```toml
-[note_sync]
-enabled = true
-trusted_proxy_ips = ["127.0.0.1", "::1"]
-max_blob_bytes = 536870912
+```text
+ws://10.100.10.10:4111/note-sync/websocket?vsn=2.0.0
 ```
 
-`trusted_proxy_ips` lists exact TCP peer addresses, not CIDRs or forwarded client
-addresses. Supply only addresses of the proxy that verifies client certificates.
-The proxy must overwrite the identity header, including removing duplicate
-client-supplied values. The receiver requires one lowercase fingerprint header.
-No longpoll transport is mounted; only Phoenix V2 JSON text frames are accepted.
+The WebSocket and channel join are unauthenticated. No browser login, peer
+preregistration, client certificate, fingerprint header, identity query parameter,
+or additional sync port is required. Sync does not require an enablement flag.
+An optional SSH forward uses this same admin listener; see
+[ssh-tunnel.md](ssh-tunnel.md).
 
-Example Caddy configuration (adapt paths and upstream listener to your host):
+## Connection and join
 
-```caddyfile
-admin.gsmlg.org {
-    tls {
-        client_auth {
-            mode require_and_verify
-            trust_pool file {
-                pem_file /etc/caddy/note-sync-client-ca.pem
-            }
-        }
-    }
+Use Phoenix V2 JSON text frames. Longpoll is not mounted. After the WebSocket
+upgrade, join `note_sync:v1` with exactly these four payload fields:
 
-    @note_sync path /note-sync/websocket
-    reverse_proxy @note_sync 127.0.0.1:4111 {
-        header_up -X-Note-Sync-Client-Fingerprint
-        header_up X-Note-Sync-Client-Fingerprint {http.request.tls.client.fingerprint}
-    }
+```json
+{
+  "protocol_version": 1,
+  "node_id": "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+  "selectors": ["project=bear_note"],
+  "max_blob_bytes": 536870912
 }
 ```
 
-A site-wide client authentication policy also applies to the site's other routes.
-Use a dedicated ingress listener/hostname if those routes require a different
-certificate policy. Preserve the protocol endpoint expected by provisioned clients.
-Validate the template against the deployed Caddy version and inspect the actual
-fingerprint format before enablement; the receiver never normalizes an unverified
-identity string.
+For a client that writes Phoenix frames directly, the join frame is:
 
-The backend listener must be private and firewalled against direct client access.
-A header from an untrusted TCP peer fails closed. A process able to connect from
-an allowlisted proxy host can impersonate that proxy; a fingerprint header alone
-cannot distinguish those processes. Enforce host/network isolation and protect
-proxy configuration and the client CA. Never publish port 4111 directly as an
-alternative path to `/note-sync`.
+```json
+["1", "1", "note_sync:v1", "phx_join", {"protocol_version": 1, "node_id": "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", "selectors": ["project=bear_note"], "max_blob_bytes": 536870912}]
+```
 
-Enablement requires positive and negative live certificate tests through the
-real ingress, including unregistered/revoked certificates, absent certificates,
-spoofed/duplicate headers, untrusted backend TCP peers, and wrong selectors/node
-IDs. Local channel or WebSocket tests establish wire behavior only; they do not
-qualify the deployed TLS ingress or firewall.
+`node_id` must be the client's stable, canonical lowercase UUID, distinct from
+GaoNote's own node UUID. `selectors` must be a nonempty, sorted, unique list of
+supported selector strings. Multiple selectors form an OR union; conditions
+inside each selector retain typed AND semantics. `max_blob_bytes` must be a
+positive integer. The receiver negotiates its configured aggregate limit, capped
+at 512 MiB. Invalid join payloads return `invalid_join`.
+
+The first valid join creates durable peer metadata automatically. Later joins
+with the same node UUID reuse its memberships and pending snapshots. Requested
+selectors define the sync profile directly; they are not checked against a
+provisioned allowlist. Each join creates a new current session and invalidates
+older operations for that node. See [receiver.md](receiver.md) for recovery and
+selector changes.
+
+## Routing and configuration
+
+The aggregate transfer limit remains configurable in the active TOML:
+
+```toml
+[note_sync]
+max_blob_bytes = 536870912
+```
+
+Use `wss://` when connecting through a TLS reverse proxy. The proxy must support
+WebSocket upgrade to `/note-sync/websocket` on the normal admin upstream. No
+client-certificate verification or identity-header injection is required by the
+receiver. Server TLS and any deployment network access rules are independent of
+the sync protocol.
+
+The sync endpoint accepts any reachable client with a valid join payload. Node
+UUIDs identify durable sync state and are not credentials; client-selected rules
+are filters, not authorization grants. Apply the deployment's intended access
+boundary to the existing admin listener or its reverse proxy. A browser session
+and forwarded source addresses do not restrict this endpoint.
+
+## Transfer lifecycle
 
 Transfers expire after ten seconds without progress. Temporary assembly files and
 read leases are released on channel exit; durable pending snapshots survive.
+Commit work has a separate size/object budget of 60 seconds plus 2 seconds per
+MiB (rounded up, including event metadata) and 5 seconds per attachment, capped
+at 900 seconds. The sender waits another 30 seconds for the commit reply while
+maintaining heartbeats; unrelated traffic does not reset this deadline.
+See [receiver.md](receiver.md) for phase timings and retry deduplication.
 Definitive `validation_failed`/`catalog_conflict` rejections retain pending work
 and are cached by event ID across reconnects; a new snapshot or operator retry
 makes the note eligible again. Oversized notes remain pending while other notes
 continue. ACKs release leases only after full durable descriptor matching.
+
+Validate the actual listener or reverse proxy using a new node UUID and no auth
+headers, then reconnect that UUID and exercise both directions of sync. The
+historical `validation*.md` reports describe the versions tested at their recorded
+dates; their older certificate and dedicated-port setup is not the current join
+contract.

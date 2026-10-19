@@ -1,5 +1,5 @@
 defmodule GSMLG.GaoNote.Sync do
-  @moduledoc "Durable, provisioned-peer GaoNote synchronization using protocol v1."
+  @moduledoc "Durable GaoNote synchronization using protocol v1."
   alias GSMLG.GaoNote.Sync.{Engine, Objects, Peers, Store}
 
   defdelegate register_peer(attrs), to: Peers, as: :register
@@ -7,7 +7,7 @@ defmodule GSMLG.GaoNote.Sync do
   defdelegate authenticate_peer(fingerprint), to: Peers, as: :authenticate
   defdelegate revoke_peer(peer_id), to: Peers, as: :revoke
   defdelegate lock_objects(ids), to: Objects
-  defdelegate with_object_lock(id, operation), to: Objects
+  defdelegate with_object_lock(id, operation, opts \\ []), to: Objects
   defdelegate object_referenced?(id), to: Objects, as: :referenced?
 
   def local_node_id, do: Store.transaction(fn -> Store.node()["node_id"] end)
@@ -16,6 +16,10 @@ defmodule GSMLG.GaoNote.Sync do
     with {:ok, {peer, changed}} <- Peers.select(peer_id, selectors),
          :ok <- Engine.seed(peer, changed),
          do: {:ok, peer}
+  end
+
+  def join(payload) do
+    with {:ok, joined} <- Peers.join(payload), do: {:ok, Map.delete(joined, :changed)}
   end
 
   def join(peer, payload) do

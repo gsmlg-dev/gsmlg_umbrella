@@ -7,8 +7,8 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
   end
 
   import Ecto.Query
-  alias GSMLG.GaoNote.{Attachment, Attachments, Compat}
-  alias GSMLG.GaoNote.Sync.{Pin, Record, Staging}
+  alias GSMLG.GaoNote.{Attachment, Attachments, Compat, Sync}
+  alias GSMLG.GaoNote.Sync.{Peer, Pin, Protocol, Record, Staging, Store}
   alias GSMLG.GaoNote.Workers.StorageFilePurgeWorker
   alias GSMLG.Repo
   alias GSMLG.Storage.StorageFile
@@ -25,6 +25,31 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
           :finish_upload -> :ok
         end
       end
+    end
+  end
+
+  defmodule BlockingCatalogStore do
+    alias GSMLG.Storage.TestCatalogClient
+
+    defdelegate get_object(backend, key), to: TestCatalogClient
+    defdelegate delete_object(backend, key), to: TestCatalogClient
+    defdelegate list_objects(backend), to: TestCatalogClient
+
+    def put_object(backend, key, data, content_type) do
+      :ok = TestCatalogClient.put_object(backend, key, data, content_type)
+      owner = Application.fetch_env!(:gsmlg_gao_note, :staging_test_owner)
+
+      if owner != self() and Process.alive?(owner) and
+           not Process.get({__MODULE__, :blocked}, false) do
+        Process.put({__MODULE__, :blocked}, true)
+        send(owner, {:catalog_put, self(), key})
+
+        receive do
+          :finish_catalog -> :ok
+        end
+      end
+
+      :ok
     end
   end
 
@@ -155,6 +180,145 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
     end)
   end
 
+  test "an upload beyond fifteen seconds retains its object lock and remains recoverable" do
+    unboxed(fn ->
+      task = upload_task()
+
+      try do
+        assert_receive {:object_put, uploader, key, "staged bytes"}, 5_000
+        file = Enum.find(GSMLG.Storage.TestCatalogClient.files(), &(&1.s3_key == key))
+        track(file)
+        assert file.status == "processing"
+
+        assert Repo.exists?(
+                 from(j in Oban.Job,
+                   where:
+                     j.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
+                       fragment("?->>'storage_file_id'", j.args) == ^file.id
+                 )
+               )
+
+        Process.sleep(16_100)
+
+        # A recovery worker must still be excluded by the uploader's real SQL lock.
+        assert %{rows: [[false]]} =
+                 Repo.query!(
+                   "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0))",
+                   ["gao-note-sync:object:" <> file.id]
+                 )
+
+        assert GSMLG.Storage.TestCatalogClient.get_file!(file.id).status == "processing"
+        send(uploader, :finish_upload)
+        assert_receive {:prepared, ^uploader, %{staged_files: [%StorageFile{id: id}]}}, 5_000
+        assert id == file.id
+        assert GSMLG.Storage.get_active(file.id)
+        send(uploader, :done)
+        assert {:ok, :ok} = Task.yield(task, 5_000)
+
+        assert {:snooze, _} = recover(file)
+        expire(file)
+        assert :ok = recover(file)
+        refute GSMLG.Storage.get(file.id)
+      after
+        send(task.pid, :finish_upload)
+        send(task.pid, :done)
+        Task.shutdown(task, 5_000)
+      end
+    end)
+  end
+
+  test "a reservation catalog write beyond fifteen seconds commits its recovery job" do
+    Application.put_env(:gsmlg_storage, :catalog_s3_client, BlockingCatalogStore)
+
+    unboxed(fn ->
+      task = upload_task()
+
+      try do
+        assert_receive {:catalog_put, uploader, _key}, 5_000
+        [file] = GSMLG.Storage.TestCatalogClient.files()
+        track(file)
+        assert file.status == "processing"
+
+        refute Repo.exists?(
+                 from(j in Oban.Job,
+                   where: fragment("?->>'storage_file_id'", j.args) == ^file.id
+                 )
+               )
+
+        Process.sleep(16_100)
+        send(uploader, :finish_catalog)
+        assert_receive {:object_put, ^uploader, _key, "staged bytes"}, 5_000
+
+        assert Repo.exists?(
+                 from(j in Oban.Job,
+                   where:
+                     j.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
+                       fragment("?->>'storage_file_id'", j.args) == ^file.id
+                 )
+               )
+
+        send(uploader, :finish_upload)
+        assert_receive {:prepared, ^uploader, %{staged_files: [%StorageFile{id: id}]}}, 5_000
+        assert id == file.id
+        assert GSMLG.Storage.get_active(file.id)
+        send(uploader, :done)
+        assert {:ok, :ok} = Task.yield(task, 5_000)
+        assert {:snooze, _} = recover(file)
+        expire(file)
+        assert :ok = recover(file)
+        refute GSMLG.Storage.get(file.id)
+      after
+        send(task.pid, :finish_catalog)
+        send(task.pid, :finish_upload)
+        send(task.pid, :done)
+        Task.shutdown(task, 5_000)
+      end
+    end)
+  end
+
+  test "finalized staging remains protected after the old minute while a long apply can commit" do
+    unboxed(fn ->
+      assert {:ok, file} =
+               Staging.upload(
+                 {"file.txt", "staged bytes"},
+                 Ecto.UUID.generate(),
+                 "gao_note_attachment",
+                 []
+               )
+
+      track(file)
+      current = GSMLG.Storage.TestCatalogClient.get_file!(file.id)
+      {:ok, expires_at, _} = DateTime.from_iso8601(current.metadata["sync_staging_expires_at"])
+
+      # Advance the reservation's age by 61 seconds without sleeping or altering the clock.
+      metadata =
+        Map.put(
+          current.metadata,
+          "sync_staging_expires_at",
+          DateTime.to_iso8601(DateTime.add(expires_at, -61))
+        )
+
+      GSMLG.Storage.TestCatalogClient.update_file!(
+        Ecto.Changeset.change(current, metadata: metadata)
+      )
+
+      assert {:snooze, _} = recover(file)
+      assert GSMLG.Storage.get_active(file.id)
+      assert DateTime.diff(expires_at, DateTime.utc_now()) in 928..930
+
+      job =
+        Repo.one!(
+          from(j in Oban.Job, where: fragment("?->>'storage_file_id'", j.args) == ^file.id)
+        )
+
+      assert abs(DateTime.diff(job.scheduled_at, expires_at)) <= 1
+
+      expire(file)
+      assert :ok = recover(file)
+      refute GSMLG.Storage.get(file.id)
+    end)
+  end
+
   test "expired recovery preserves a committed attachment and a durable read pin" do
     unboxed(fn ->
       task = upload_task()
@@ -188,6 +352,173 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
       Repo.delete_all(from(r in Record, where: r.id == ^owner))
       assert :ok = recover(file)
     end)
+  end
+
+  test "a validated committed replay returns its durable ACK without staging another object" do
+    unboxed(fn ->
+      {peer, event, bytes} = incoming_attachment()
+      assert {:ok, ack} = Sync.apply(peer, event, bytes)
+      assert_receive {:object_put, _, key, "staged bytes"}
+      file = Enum.find(GSMLG.Storage.TestCatalogClient.files(), &(&1.s3_key == key))
+      track(file)
+      receipt = Repo.get!(Record, Store.key("received", peer.id, event["event_id"]))
+
+      assert {:ok, ^ack} = Sync.apply(peer, event, bytes)
+      refute_receive {:object_put, _, _, _}
+      assert Repo.get!(Record, receipt.id) == receipt
+      assert [attachment] = Repo.all(from(a in Attachment, where: a.note_id == ^event["note_id"]))
+      assert attachment.storage_file_id == file.id
+
+      assert {:error, {:note_rejected, "validation_failed"}} = Sync.apply(peer, event, %{})
+      refute_receive {:object_put, _, _, _}
+
+      assert :ok = GSMLG.GaoNote.Sync.Peers.revoke(peer.id)
+      assert {:error, :obsolete_session} = Sync.apply(peer, event, bytes)
+      refute_receive {:object_put, _, _, _}
+    end)
+  end
+
+  test "a reused event ID with different validated bytes fails before staging" do
+    unboxed(fn ->
+      {peer, event, bytes} = incoming_attachment()
+      assert {:ok, _} = Sync.apply(peer, event, bytes)
+      assert_receive {:object_put, _, key, "staged bytes"}
+      track(Enum.find(GSMLG.Storage.TestCatalogClient.files(), &(&1.s3_key == key)))
+      [descriptor] = event["snapshot"]["attachments"]
+      replacement = "replacement bytes"
+
+      snapshot =
+        Map.put(event["snapshot"], "attachments", [
+          Map.merge(descriptor, %{
+            "size_bytes" => byte_size(replacement),
+            "checksum_sha256" => Protocol.sha256(replacement)
+          })
+        ])
+
+      conflict =
+        Map.merge(event, %{
+          "snapshot" => snapshot,
+          "snapshot_hash" => Protocol.snapshot_hash(snapshot)
+        })
+
+      assert {:error, :event_id_conflict} =
+               Sync.apply(peer, conflict, %{descriptor["id"] => replacement})
+
+      refute_receive {:object_put, _, _, _}
+    end)
+  end
+
+  test "a receipt arriving during staging is rechecked and staged objects are cleaned on conflict" do
+    unboxed(fn ->
+      {peer, event, bytes} = incoming_attachment()
+      handler = {__MODULE__, make_ref()}
+
+      :ok =
+        :telemetry.attach(
+          handler,
+          [:gsmlg, :gao_note, :sync, :apply, :stop],
+          fn _, _, metadata, _ ->
+            if metadata.event_id == event["event_id"] and metadata.phase == :prepare do
+              Enum.each(GSMLG.Storage.TestCatalogClient.files(), fn file ->
+                if file.metadata["note_id"] == event["note_id"], do: track(file)
+              end)
+
+              Store.put(
+                "received",
+                event["event_id"],
+                %{"event_hash" => "conflict"},
+                peer.id,
+                event["note_id"]
+              )
+            end
+          end,
+          nil
+        )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+
+      assert {:error, :event_id_conflict} = Sync.apply(peer, event, bytes)
+      assert_receive {:object_put, _, _, "staged bytes"}
+      refute Repo.get(GSMLG.GaoNote.Note, event["note_id"])
+
+      refute Enum.any?(GSMLG.Storage.TestCatalogClient.files(), fn file ->
+               file.metadata["note_id"] == event["note_id"] and file.status == "active"
+             end)
+    end)
+  end
+
+  defp incoming_attachment do
+    id = Ecto.UUID.generate()
+    value = Ecto.UUID.generate()
+
+    {:ok, registered} =
+      Sync.register_peer(%{
+        node_id: Ecto.UUID.generate(),
+        certificate_fingerprint: Protocol.sha256(value),
+        actor_id: "receipt-test",
+        allowed_selectors: ["sync_receipt_test=" <> value]
+      })
+
+    {:ok, %{peer: peer}} =
+      Sync.join(registered, %{
+        "protocol_version" => 1,
+        "node_id" => registered.id,
+        "selectors" => registered.allowed_selectors,
+        "max_blob_bytes" => 536_870_912
+      })
+
+    on_exit(fn ->
+      unboxed(fn ->
+        Repo.delete_all(from(a in Attachment, where: a.note_id == ^id))
+        Repo.delete_all(from(r in Record, where: r.peer_id == ^peer.id or r.note_id == ^id))
+        Repo.delete_all(from(n in GSMLG.GaoNote.Note, where: n.id == ^id))
+        Repo.delete_all(from(p in Peer, where: p.id == ^peer.id))
+      end)
+    end)
+
+    attachment_id = Ecto.UUID.generate()
+    content = "staged bytes"
+
+    snapshot = %{
+      "title" => "receipt test",
+      "content" => "body",
+      "created_at" => 1,
+      "updated_at" => 1,
+      "deleted_at" => nil,
+      "labels" => [
+        %{
+          "key" => "sync_receipt_test",
+          "value" => value,
+          "description" => "",
+          "value_type" => "text"
+        }
+      ],
+      "attachments" => [
+        %{
+          "id" => attachment_id,
+          "path" => "file.txt",
+          "mime" => "text/plain",
+          "description" => "",
+          "size_bytes" => byte_size(content),
+          "checksum_sha256" => Protocol.sha256(content)
+        }
+      ]
+    }
+
+    stamp = %{"millis" => 1000, "counter" => 0, "node_id" => peer.id}
+
+    event = %{
+      "event_id" => Ecto.UUID.generate(),
+      "note_id" => id,
+      "generation" => stamp,
+      "control" => stamp,
+      "version" => stamp,
+      "kind" => "attach",
+      "snapshot" => snapshot,
+      "snapshot_hash" => Protocol.snapshot_hash(snapshot)
+    }
+
+    {peer, event, %{attachment_id => content}}
   end
 
   defp upload_task do

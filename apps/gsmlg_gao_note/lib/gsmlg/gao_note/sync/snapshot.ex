@@ -7,7 +7,7 @@ defmodule GSMLG.GaoNote.Sync.Snapshot do
   alias GSMLG.Storage.{S3Client, StorageFile}
 
   @max_blob_bytes 536_870_912
-  @chunk_bytes 65_536
+  @read_chunk_bytes 4_194_304
   @sha256 ~r/\A[0-9a-fA-F]{64}\z/
 
   def build(note_id) do
@@ -18,7 +18,7 @@ defmodule GSMLG.GaoNote.Sync.Snapshot do
   end
 
   defp build_note(note) do
-    with {:ok, attachments, objects} <- attachment_manifest(note.attachments) do
+    with {:ok, attachments, objects} <- attachment_manifest(note.id, note.attachments) do
       labels =
         note.labels
         |> Enum.map(fn label ->
@@ -47,7 +47,7 @@ defmodule GSMLG.GaoNote.Sync.Snapshot do
     end
   end
 
-  defp attachment_manifest(attachments) do
+  defp attachment_manifest(note_id, attachments) do
     Enum.reduce_while(attachments, {:ok, [], %{}}, fn attachment, {:ok, manifest, objects} ->
       id = attachment.api_id || attachment.id
 
@@ -65,11 +65,33 @@ defmodule GSMLG.GaoNote.Sync.Snapshot do
 
         {:cont, {:ok, [descriptor | manifest], Map.put(objects, id, attachment.storage_file_id)}}
       else
-        true -> {:halt, {:error, :duplicate_attachment_id}}
-        {:error, _} = error -> {:halt, error}
+        true ->
+          {:halt, {:error, :duplicate_attachment_id}}
+
+        {:error, reason} = error ->
+          GSMLG.Telemetry.error("GaoNote sync attachment snapshot failed",
+            metadata: %{
+              note_id: note_id,
+              storage_file_id: attachment.storage_file_id,
+              storage_status: storage_status(attachment.storage_file),
+              reason: error_code(reason)
+            }
+          )
+
+          {:halt, error}
       end
     end)
   end
+
+  defp storage_status(%StorageFile{status: status})
+       when status in ["active", "processing", "deleted"],
+       do: status
+
+  defp storage_status(_file), do: "missing"
+
+  defp error_code(reason) when is_atom(reason), do: reason
+  defp error_code({reason, _}) when is_atom(reason), do: reason
+  defp error_code(_reason), do: :attachment_snapshot_failed
 
   defp object_metadata(%StorageFile{status: "active", size: size, checksum: checksum} = file)
        when is_integer(size) and size >= 0 do
@@ -120,7 +142,7 @@ defmodule GSMLG.GaoNote.Sync.Snapshot do
     do: {:ok, chunks |> Enum.reverse() |> IO.iodata_to_binary()}
 
   defp read_chunks(file, offset, chunks) do
-    last = min(offset + @chunk_bytes, file.size) - 1
+    last = min(offset + @read_chunk_bytes, file.size) - 1
 
     with {:ok, chunk} <- Storage.read_range(file, offset, last),
          true <- byte_size(chunk) == last - offset + 1 do

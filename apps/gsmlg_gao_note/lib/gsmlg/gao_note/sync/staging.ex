@@ -5,7 +5,12 @@ defmodule GSMLG.GaoNote.Sync.Staging do
   alias GSMLG.Repo
   alias GSMLG.Storage
   alias GSMLG.Storage.ContentType
-  @expiry_seconds 60
+  # Finalized objects remain unreferenced until apply commits. Protect them for
+  # the maximum 900-second apply budget plus a 30-second recovery margin.
+  @expiry_seconds 930
+  # These transactions include S3 calls and must retain their locks throughout
+  # the bounded apply task; ordinary object-lock callers keep Repo defaults.
+  @transaction_timeout 900_000
   @chunk_bytes 1_048_576
 
   def upload({filename, bytes}, tenant, type, opts) when is_binary(bytes) do
@@ -23,10 +28,14 @@ defmodule GSMLG.GaoNote.Sync.Staging do
          },
          {:ok, reservation} <- reserve(tenant, type, attrs, opts),
          {:ok, result} <-
-           Sync.with_object_lock(reservation.id, fn ->
-             with :ok <- write_chunks(reservation.id, bytes),
-                  do: Storage.finalize_upload(reservation.id)
-           end) do
+           Sync.with_object_lock(
+             reservation.id,
+             fn ->
+               with :ok <- write_chunks(reservation.id, bytes),
+                    do: Storage.finalize_upload(reservation.id)
+             end,
+             timeout: @transaction_timeout
+           ) do
       result
     end
   end
@@ -59,23 +68,29 @@ defmodule GSMLG.GaoNote.Sync.Staging do
   end
 
   defp reserve(tenant, type, attrs, opts) do
-    Repo.transaction(fn ->
-      with {:ok, file} <- Storage.prepare_upload(tenant, type, attrs, max_bytes: attrs.size),
-           metadata <-
-             file.metadata
-             |> Map.merge(opts[:metadata] || %{})
-             |> Map.put("sync_staging_expires_at", DateTime.to_iso8601(attrs.expires_at)),
-           {:ok, file} <-
-             Storage.update_metadata(file, %{metadata: metadata, uploaded_by: opts[:uploaded_by]}),
-           {:ok, _job} <-
-             %{storage_file_id: file.id}
-             |> StorageFilePurgeWorker.new(schedule_in: @expiry_seconds)
-             |> Oban.insert() do
-        file
-      else
-        {:error, reason} -> Repo.rollback(reason)
-      end
-    end)
+    Repo.transaction(
+      fn ->
+        with {:ok, file} <- Storage.prepare_upload(tenant, type, attrs, max_bytes: attrs.size),
+             metadata <-
+               file.metadata
+               |> Map.merge(opts[:metadata] || %{})
+               |> Map.put("sync_staging_expires_at", DateTime.to_iso8601(attrs.expires_at)),
+             {:ok, file} <-
+               Storage.update_metadata(file, %{
+                 metadata: metadata,
+                 uploaded_by: opts[:uploaded_by]
+               }),
+             {:ok, _job} <-
+               %{storage_file_id: file.id}
+               |> StorageFilePurgeWorker.new(schedule_in: @expiry_seconds)
+               |> Oban.insert() do
+          file
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end,
+      timeout: @transaction_timeout
+    )
   end
 
   defp write_chunks(_id, ""), do: :ok

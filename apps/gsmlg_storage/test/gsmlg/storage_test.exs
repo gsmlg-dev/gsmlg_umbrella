@@ -564,12 +564,15 @@ defmodule GSMLG.StorageTest do
     assert TestCatalogClient.count(status: "active") == 100
   end
 
-  test "cleanup rechecks a completed upload instead of deleting an expired stale processing snapshot" do
+  test "cleanup rechecks a finalized sync upload instead of deleting an expired stale processing snapshot" do
     file =
       insert_file(%{
         status: "processing",
         content_type: "text/plain",
-        metadata: %{"upload_expires_at" => "2020-01-01T00:00:00Z"}
+        metadata: %{
+          "upload_expires_at" => "2020-01-01T00:00:00Z",
+          "sync_staging_expires_at" => "2020-01-01T00:00:00Z"
+        }
       })
 
     {:ok, backend} = GSMLG.Storage.S3Client.capture_backend()

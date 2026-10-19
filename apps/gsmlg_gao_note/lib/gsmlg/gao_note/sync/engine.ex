@@ -2,7 +2,7 @@ defmodule GSMLG.GaoNote.Sync.Engine do
   @moduledoc false
   import Ecto.Query
   alias GSMLG.GaoNote.{Attachment, Attachments, Audit, Label, LabelSetting, Note}
-  alias GSMLG.GaoNote.Sync.{Objects, Peers, Protocol, Snapshot, Store}
+  alias GSMLG.GaoNote.Sync.{ApplyTelemetry, Objects, Peers, Protocol, Snapshot, StateQuery, Store}
   alias GSMLG.Repo
 
   @limit 536_870_912
@@ -139,7 +139,7 @@ defmodule GSMLG.GaoNote.Sync.Engine do
   end
 
   def inventory(peer) do
-    Store.transaction(fn ->
+    Store.session_transaction(fn ->
       Peers.current!(peer)
       members = Store.list("member", peer.id)
       candidates = Repo.all(from(n in Note, select: n.id))
@@ -147,23 +147,255 @@ defmodule GSMLG.GaoNote.Sync.Engine do
     end)
   end
 
+  # Capture durable descriptors without preparing any source object. Previously
+  # untracked notes are classified lazily on their audit turn, after pending work.
+  def inventory_plan(peer) do
+    with {:ok, ids} <- inventory(peer) do
+      Enum.reduce_while(ids, {:ok, []}, fn id, {:ok, slots} ->
+        case classify_inventory_note(peer, id, false) do
+          {:ok, nil} -> {:cont, {:ok, slots}}
+          {:ok, slot} -> {:cont, {:ok, [slot | slots]}}
+          {:error, _} = error -> {:halt, error}
+        end
+      end)
+      |> case do
+        {:ok, slots} -> {:ok, Enum.reverse(slots)}
+        error -> error
+      end
+    end
+  end
+
+  def classify_inventory_note(peer, id, prepare \\ true) do
+    Store.session_transaction(fn ->
+      current = Peers.current!(peer)
+      note = lock_note(id)
+      member = Store.get("member", id, peer.id)
+      source = Store.get("pending", id, peer.id) || member
+
+      authorized =
+        (not is_nil(member) and member["authorized"] == true) or
+          (not is_nil(note) and note_selected?(note, current))
+
+      unclassified = is_nil(source) or scope_pending?(current, id)
+
+      capture_result =
+        if prepare && note && authorized,
+          do: capture(id, peers: [current], historical: true),
+          else: :ok
+
+      member = Store.get("member", id, peer.id)
+      pending = Store.get("pending", id, peer.id)
+      source = pending || member
+
+      if authorized do
+        %{
+          note_id: id,
+          descriptor: if(source, do: Protocol.ack(source["event"])),
+          pending: pending != nil,
+          unclassified: not prepare and unclassified,
+          blocked: capture_result != :ok or (source != nil and rejected?(member, source["event"]))
+        }
+      end
+    end)
+  end
+
+  def query_state(peer, query) do
+    if StateQuery.valid_request?(query) do
+      Store.session_transaction(fn ->
+        current = Peers.current!(peer)
+        # Use the same lock order as ordinary apply/capture, without writing any
+        # heads, receipts, members, leases or pins during a probe.
+        notes =
+          query["items"]
+          |> Enum.sort_by(& &1["note_id"])
+          |> Map.new(fn requested ->
+            {requested["note_id"], lock_note(requested["note_id"])}
+          end)
+
+        states =
+          Enum.map(query["items"], fn requested ->
+            id = requested["note_id"]
+            member = Store.get("member", id, peer.id)
+            note = notes[id]
+
+            authorized =
+              (not is_nil(member) and member["authorized"] == true) or
+                (not is_nil(note) and note_selected?(note, current))
+
+            if (member || note) && not authorized, do: Repo.rollback(:unauthorized)
+
+            {requested, member,
+             if(member && member["attached"] && authorized, do: Store.get("head", id))}
+          end)
+
+        states
+        |> Enum.flat_map(fn
+          {_requested, _member, nil} -> []
+          {_requested, _member, head} -> Map.values(head["objects"])
+        end)
+        |> Enum.uniq()
+        |> Enum.sort()
+        |> Enum.each(&Store.lock("object", &1))
+
+        items =
+          Enum.map(states, fn {requested, member, head} ->
+            %{
+              "requested" => requested,
+              "association" =>
+                cond do
+                  is_nil(member) -> "missing"
+                  member["attached"] -> "attached"
+                  true -> "detached"
+                end,
+              "member" => if(member, do: Protocol.ack(member["event"])),
+              "head" =>
+                if(head,
+                  do: %{
+                    "version" => head["version"],
+                    "snapshot_hash" => head["hash"],
+                    "attachments_available" =>
+                      committed_objects_available(head, current.max_blob_bytes)
+                  }
+                )
+            }
+          end)
+
+        %{"query_id" => query["query_id"], "items" => items}
+      end)
+    else
+      {:error, :invalid_state_query}
+    end
+  end
+
+  def checkout_compared(peer, descriptor, remote) do
+    Store.session_transaction(fn ->
+      Peers.current!(peer)
+      id = descriptor["note_id"]
+      lock_note(id)
+      member = Store.get("member", id, peer.id)
+      pending = Store.get("pending", id, peer.id)
+      source = pending || member
+
+      cond do
+        is_nil(source) or Protocol.ack(source["event"]) != descriptor ->
+          :superseded
+
+        StateQuery.conflict?(descriptor, remote) ->
+          Repo.rollback(:version_conflict)
+
+        StateQuery.equal?(descriptor, pending != nil, remote) ->
+          :equal
+
+        true ->
+          if member["attached"] && descriptor["kind"] == "snapshot" &&
+               remote["association"] == "missing" do
+            # Recovery changes the event identity, never generation/control fences.
+            event =
+              Map.merge(source["event"], %{"kind" => "attach", "event_id" => Ecto.UUID.generate()})
+
+            put_member(
+              peer,
+              id,
+              Map.merge(member, %{"event" => event, "objects" => source["objects"]})
+            )
+
+            queue(peer, event, source["objects"])
+          end
+
+          case checkout(peer, id) do
+            {:ok, lease} = result ->
+              expected = Protocol.ack((Store.get("pending", id, peer.id) || member)["event"])
+
+              same_content =
+                Enum.all?(
+                  ~w(note_id generation control version snapshot_hash),
+                  &(expected[&1] == descriptor[&1])
+                )
+
+              if Protocol.ack(lease.event) == descriptor or
+                   (same_content and descriptor["kind"] == "snapshot" and
+                      lease.event["kind"] == "attach" and remote["association"] == "missing") do
+                result
+              else
+                Store.delete("lease", lease.lease_id, peer.id)
+                :superseded
+              end
+
+            {:error, reason} ->
+              Repo.rollback(reason)
+
+            result ->
+              result
+          end
+      end
+    end)
+    |> Store.unwrap()
+  end
+
+  defp committed_objects_available(head, limit) do
+    attachments = (head["snapshot"] || %{})["attachments"] || []
+
+    total =
+      byte_size(Jason.encode!(head["snapshot"])) +
+        Enum.reduce(attachments, 0, &(&1["size_bytes"] + &2))
+
+    if total > limit, do: nil, else: verify_committed_objects(head, attachments)
+  end
+
+  defp verify_committed_objects(head, attachments) do
+    results =
+      Enum.map(attachments, fn attachment ->
+        case head["objects"][attachment["id"]] do
+          nil -> false
+          storage_id -> committed_object_available(storage_id, attachment)
+        end
+      end)
+
+    cond do
+      false in results -> false
+      nil in results -> nil
+      true -> true
+    end
+  end
+
+  defp committed_object_available(storage_id, attachment) do
+    with {:ok, file} <- GSMLG.Storage.Catalog.fetch(storage_id),
+         true <-
+           file.status == "active" and file.size == attachment["size_bytes"] and
+             file.checksum == attachment["checksum_sha256"],
+         {:ok, backend} <- GSMLG.Storage.S3Client.capture_backend(),
+         true <- is_nil(file.backend_id) or file.backend_id == backend.id,
+         {:ok, object} <- GSMLG.Storage.S3Client.head_object(backend, file.s3_key) do
+      object.size == attachment["size_bytes"]
+    else
+      false -> false
+      {:error, :not_found} -> false
+      {:error, {:unexpected_response, %{status_code: 404}}} -> false
+      {:error, _} -> nil
+    end
+  end
+
   def pending_ids(peer), do: session_ids(peer, "pending")
 
   defp session_ids(peer, kind) do
-    Store.transaction(fn ->
-      Peers.current!(peer)
-      Objects.renew_leases(peer)
+    Store.session_transaction(fn ->
+      current = Peers.try_current!(peer)
+      renewal = Objects.renew_leases(peer, nonblocking: true)
 
-      Store.list(kind, peer.id)
-      |> Enum.reject(fn r ->
-        rejected?(Store.get("member", r.note_id, peer.id), r.data["event"])
-      end)
-      |> Enum.map(& &1.note_id)
+      if current == :busy or renewal == :busy do
+        :busy
+      else
+        Store.list(kind, peer.id)
+        |> Enum.reject(fn r ->
+          rejected?(Store.get("member", r.note_id, peer.id), r.data["event"])
+        end)
+        |> Enum.map(& &1.note_id)
+      end
     end)
   end
 
   def checkout(peer, id) do
-    Store.transaction(fn ->
+    Store.session_transaction(fn ->
       current = Peers.current!(peer)
       note = lock_note(id)
       member = Store.get("member", id, peer.id)
@@ -212,7 +444,7 @@ defmodule GSMLG.GaoNote.Sync.Engine do
   end
 
   def ack(peer, descriptor, lease_id) do
-    Store.transaction(fn ->
+    Store.session_transaction(fn ->
       Peers.current!(peer)
 
       case Store.get("lease", lease_id, peer.id) do
@@ -252,7 +484,7 @@ defmodule GSMLG.GaoNote.Sync.Engine do
   end
 
   def reject(peer, rejection, lease_id) do
-    Store.transaction(fn ->
+    Store.session_transaction(fn ->
       Peers.current!(peer)
       lease = Store.get("lease", lease_id, peer.id) || Repo.rollback(:rejection_mismatch)
 
@@ -329,22 +561,67 @@ defmodule GSMLG.GaoNote.Sync.Engine do
   end
 
   def apply(peer, event, bytes) do
+    with :ok <-
+           ApplyTelemetry.phase(peer, event, :validate, fn ->
+             validate_apply(peer, event, bytes)
+           end),
+         {:ok, receipt} <-
+           ApplyTelemetry.phase(peer, event, :receipt, fn -> received(peer, event) end) do
+      case receipt do
+        :received -> {:ok, Protocol.ack(event)}
+        :new -> prepare_and_apply(peer, event, bytes)
+      end
+    else
+      {:error, :validation_failed} -> {:error, {:note_rejected, "validation_failed"}}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp validate_apply(peer, event, bytes) do
     with :ok <- Protocol.validate_event(event),
          :ok <- validate_bytes(event, bytes),
          :ok <- authorized_snapshot(peer, event),
-         :ok <- Protocol.validate_storage_text(event),
-         {:ok, staged} <- prepare(event, bytes, peer.actor_id) do
+         do: Protocol.validate_storage_text(event)
+  end
+
+  defp received(peer, event) do
+    Store.session_transaction(fn ->
+      current = Peers.current!(peer)
+      note = lock_note(event["note_id"])
+      authorize_local_note!(current, note)
+      {:ok, received_status!(current, event)}
+    end)
+    |> Store.unwrap()
+  end
+
+  defp received_status!(peer, event) do
+    digest = Protocol.sha256(Protocol.canonical_json(event))
+
+    case Store.get("received", event["event_id"], peer.id) do
+      nil -> :new
+      %{"event_hash" => ^digest} -> :received
+      _ -> Repo.rollback(:event_id_conflict)
+    end
+  end
+
+  defp prepare_and_apply(peer, event, bytes) do
+    with {:ok, staged} <-
+           ApplyTelemetry.phase(peer, event, :prepare, fn ->
+             prepare(event, bytes, peer.actor_id)
+           end) do
       try do
-        Store.transaction(fn ->
-          current = Peers.current!(peer)
-          note = lock_note(event["note_id"])
-          authorize_local_note!(current, note)
-          apply_locked(current, event, staged)
-          {:ok, Protocol.ack(event)}
+        ApplyTelemetry.phase(peer, event, :transaction, fn ->
+          Store.session_transaction(fn ->
+            current = Peers.current!(peer)
+            note = lock_note(event["note_id"])
+            authorize_local_note!(current, note)
+            apply_locked(current, event, staged)
+            {:ok, Protocol.ack(event)}
+          end)
+          |> Store.unwrap()
         end)
-        |> Store.unwrap()
       after
-        cleanup_staging(staged)
+        ApplyTelemetry.phase(peer, event, :cleanup, fn -> cleanup_staging(staged) end)
       end
     else
       {:error, :validation_failed} -> {:error, {:note_rejected, "validation_failed"}}
@@ -354,16 +631,18 @@ defmodule GSMLG.GaoNote.Sync.Engine do
 
   defp apply_locked(peer, event, staged) do
     id = event["note_id"]
-    digest = Protocol.sha256(Protocol.canonical_json(event))
 
-    case Store.get("received", event["event_id"], peer.id) do
-      nil -> apply_new(peer, event, staged, digest)
-      %{"event_hash" => ^digest} -> :ok
-      _ -> Repo.rollback(:event_id_conflict)
+    case received_status!(peer, event) do
+      :new ->
+        digest = Protocol.sha256(Protocol.canonical_json(event))
+        apply_new(peer, event, staged, digest)
+
+        # No reply is returned until this transaction, including the receipt, has committed.
+        Store.put("received", event["event_id"], %{"event_hash" => digest}, peer.id, id)
+
+      :received ->
+        :ok
     end
-
-    # No reply is returned until this transaction, including the receipt, has committed.
-    Store.put("received", event["event_id"], %{"event_hash" => digest}, peer.id, id)
   end
 
   defp apply_new(peer, %{"kind" => "fence"} = event, _staged, _digest) do
@@ -458,14 +737,7 @@ defmodule GSMLG.GaoNote.Sync.Engine do
 
           event(id, winner, kind, event["generation"], event["control"])
         else
-          if event["kind"] == "detach",
-            do:
-              Map.merge(event, %{
-                "event_id" => Ecto.UUID.generate(),
-                "kind" => "fence",
-                "snapshot" => nil
-              }),
-            else: event
+          retire_control(%{"event" => event})["event"]
         end
 
       member_objects = if response_event["snapshot"], do: winner["objects"], else: %{}

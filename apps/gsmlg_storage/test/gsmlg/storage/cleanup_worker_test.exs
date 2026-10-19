@@ -49,11 +49,45 @@ defmodule GSMLG.Storage.CleanupWorkerTest do
     %{state: %{interval: :timer.hours(1), recovery_cursor: nil, variant_cursor: nil}}
   end
 
-  test "ticks rotate past a full batch of permanently referenced expired intents", %{state: state} do
+  @tag :cross_instance
+  test "global cleanup preserves expired active sync staging objects without local references" do
+    file =
+      manifest(1, %{
+        type: "gao_note_attachment",
+        metadata: %{
+          "upload_expires_at" => "2020-01-01T00:00:00Z",
+          "sync_staging_expires_at" => "2020-01-01T00:00:00Z"
+        }
+      })
+
+    # The owning instance's SQL attachments, pins and recovery jobs are absent
+    # from this instance's database even though the S3 catalog is shared.
+    assert %{rows: [[0, 0, 0]]} =
+             Repo.query!(
+               """
+               SELECT
+                 (SELECT count(*) FROM gao_note_attachments WHERE storage_file_id = $1::uuid),
+                 (SELECT count(*) FROM gao_note_sync_pins WHERE storage_file_id = $1::uuid),
+                 (SELECT count(*) FROM oban_jobs WHERE args->>'storage_file_id' = $2)
+               """,
+               [Ecto.UUID.dump!(file.id), file.id]
+             )
+
+    assert :ok = CleanupWorker.run_cleanup()
+    assert ^file = Storage.get(file.id)
+  end
+
+  test "ticks rotate past a full batch of permanently referenced expired processing intents", %{
+    state: state
+  } do
     note = Repo.insert!(%GSMLG.GaoNote.Note{title: "Protected cleanup intents", content: "body"})
 
     for n <- 1..100 do
-      file = manifest(n, %{metadata: %{"sync_staging_expires_at" => "2020-01-01T00:00:00Z"}})
+      file =
+        manifest(n, %{
+          status: "processing",
+          metadata: %{"upload_expires_at" => "2020-01-01T00:00:00Z"}
+        })
 
       Repo.insert!(%GSMLG.GaoNote.Attachment{
         id: "protected-#{n}",
@@ -78,7 +112,7 @@ defmodule GSMLG.Storage.CleanupWorkerTest do
     assert {:noreply, state} = CleanupWorker.handle_info(:cleanup, state)
     assert state.recovery_cursor == ordered_id(99)
     assert %StorageFile{status: "deleted"} = Storage.get(expired.id)
-    assert TestCatalogClient.count(status: "active") == 100
+    assert TestCatalogClient.count(status: "processing") == 100
   end
 
   test "variant retries rotate after fifty attempts even when no variants are produced", %{

@@ -56,6 +56,63 @@ defmodule GSMLG.GaoNote.Sync.EngineTest do
     assert Repo.get!(Note, event["note_id"]).title == "remote"
   end
 
+  test "apply emits bounded phase timings and replay skips prepare and write transaction", %{
+    peer: peer
+  } do
+    owner = self()
+    handler = {__MODULE__, make_ref()}
+
+    phases = [
+      [:gsmlg, :gao_note, :sync, :apply, :start],
+      [:gsmlg, :gao_note, :sync, :apply, :stop]
+    ]
+
+    :ok =
+      :telemetry.attach_many(
+        handler,
+        phases,
+        fn name, measurements, metadata, _ ->
+          send(owner, {:apply_phase, name, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    event = event(peer, Ecto.UUID.generate(), 1000)
+    assert {:ok, ack} = Sync.apply(peer, event, %{})
+
+    for phase <- [:validate, :receipt, :prepare, :transaction, :cleanup] do
+      assert_receive {:apply_phase, [:gsmlg, :gao_note, :sync, :apply, :start],
+                      %{monotonic_time: _}, metadata}
+
+      assert metadata == %{
+               peer_id: peer.id,
+               note_id: event["note_id"],
+               event_id: event["event_id"],
+               phase: phase
+             }
+
+      assert_receive {:apply_phase, [:gsmlg, :gao_note, :sync, :apply, :stop],
+                      %{duration: duration}, stop_metadata}
+
+      assert duration >= 0
+      assert stop_metadata == Map.put(metadata, :result, :ok)
+    end
+
+    assert {:ok, ^ack} = Sync.apply(peer, event, %{})
+
+    for phase <- [:validate, :receipt] do
+      assert_receive {:apply_phase, [:gsmlg, :gao_note, :sync, :apply, :start], _,
+                      %{phase: ^phase}}
+
+      assert_receive {:apply_phase, [:gsmlg, :gao_note, :sync, :apply, :stop], _,
+                      %{phase: ^phase}}
+    end
+
+    refute_receive {:apply_phase, _, _, _}
+  end
+
   test "an unassociated attach cannot read or overwrite an existing note outside peer scope", %{
     peer: peer
   } do
@@ -77,6 +134,22 @@ defmodule GSMLG.GaoNote.Sync.EngineTest do
       assert Store.get("received", incoming["event_id"], peer.id) == nil
       assert :empty = Sync.checkout(peer, private.id)
     end
+  end
+
+  test "a matching receipt cannot bypass current local note authorization", %{peer: peer} do
+    {:ok, private} = Compat.save_note(%{title: "private", content: "body"}, nil)
+    incoming = event(peer, private.id, 1000)
+
+    Store.put(
+      "received",
+      incoming["event_id"],
+      %{"event_hash" => Protocol.sha256(Protocol.canonical_json(incoming))},
+      peer.id,
+      private.id
+    )
+
+    assert {:error, :unauthorized} = Sync.apply(peer, incoming, %{})
+    assert Repo.get!(Note, private.id).title == "private"
   end
 
   test "catalog conflict rejects atomically with no receipt or note", %{peer: peer} do

@@ -1,97 +1,59 @@
-# GaoNote sync through an SSH tunnel
+# GaoNote sync through an optional SSH tunnel
 
-The dedicated SSH endpoint accepts the same Phoenix V2 `note_sync:v1` protocol
-as the [mTLS ingress](ingress.md). Agent Note opens one duplex WebSocket through
-a host-managed SSH tunnel. GaoNote does not start SSH, manage keys, accept reverse
-tunnels, or require an inbound Agent Note listener.
+SSH forwarding is optional. GaoNote's sync WebSocket uses the existing admin
+listener on port 4111; it does not need a separate SSH sync listener or sync
+credentials. Direct connections use the same [ingress contract](ingress.md).
+GaoNote does not start SSH, manage keys, accept reverse tunnels, or require an
+inbound Agent Note listener.
 
-## Configuration and provisioning
-
-Apply migration `20261015000000_allow_ssh_sync_peers` with
-`GSMLG.Release.migrate()`. It permits explicitly provisioned SSH peers to have no
-certificate fingerprint; existing mTLS peer identities and durable sync state
-remain intact. Rollback refuses to restore NOT NULL while SSH peers remain.
-
-```toml
-[note_sync]
-enabled = false
-ssh_enabled = true
-ssh_port = 4114
-max_blob_bytes = 536870912
-```
-
-`enabled` continues to control the mTLS ingress, independently of `ssh_enabled`.
-Both default to false. The SSH listener binds only `127.0.0.1`; its port defaults
-to 4114 and must be between 1 and 65535. Restart the service after changing
-listener settings. With SSH disabled, the supervised endpoint opens no listener.
-Only `/note-sync/websocket` is exposed; admin pages and longpoll return 404.
-
-Provision the client's stable node UUID and grants from a trusted release console:
-
-```elixir
-GSMLG.GaoNote.Sync.register_ssh_peer(%{
-  node_id: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
-  actor_id: "<provisioned GaoNote actor>",
-  allowed_selectors: ["project=bear_note"]
-})
-```
-
-The SSH registration API rejects certificate fingerprints. `register_peer/1`
-still requires a valid fingerprint and provisions an mTLS-only peer. Each entry
-can join only its matching transport. To change a peer's transport, revoke it
-first, then use a trusted operator update to restore grants and set the fingerprint
-to nil for SSH or to the verified certificate fingerprint for mTLS. Retain its UUID
-and durable state.
+## Forward the existing admin listener
 
 On the client host, an operator or service manager can establish a local forward:
 
 ```sh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:14114:127.0.0.1:4114 sync-host
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:14111:127.0.0.1:4111 sync-host
 ```
 
 Configure Agent Note to connect to:
 
 ```text
-ws://127.0.0.1:14114/note-sync/websocket?vsn=2.0.0
+ws://127.0.0.1:14111/note-sync/websocket?vsn=2.0.0
 ```
 
-Use the existing join payload with `protocol_version`, `node_id`, `selectors`, and
-`max_blob_bytes`. No identity query parameters, fingerprint headers, client
-certificates, or additional sync credentials are required. There is no automatic
-`wss://` downgrade; select the SSH endpoint explicitly.
+The target is the ordinary admin port as seen from the SSH server. If the admin
+listener uses a different address or port, update the forwarding target. For
+containers, forward to the host-published admin listener reachable by the SSH
+server; a container's own loopback is a different network namespace.
 
-## Authorization boundary
+No `[note_sync] ssh_enabled` or `ssh_port` setup is needed. Join `note_sync:v1`
+with `protocol_version`, stable canonical `node_id`, sorted nonempty `selectors`,
+and positive `max_blob_bytes`, as shown in [ingress.md](ingress.md). No peer
+registration, fingerprint header, client certificate, or identity query parameter
+is required. There is no automatic `wss://` downgrade; choose the forwarded
+`ws://` URL explicitly.
 
-SSH access and server loopback isolation are the transport's trust boundary.
-Local processes and users allowed to forward this port can select any provisioned
-SSH peer UUID. A UUID selects an identity; it is not a secret. Restrict SSH access
-and forwarding permissions to trusted operators/clients. The target loopback port
-must be reachable from the SSH daemon's network namespace. For containers, arrange
-that private network boundary explicitly; publishing a container port does not
-make its internal loopback listener reachable from the host.
+## Connection behavior
 
-GaoNote checks the actual TCP peer and ignores forwarded addresses, certificate
-headers, and query parameters on this endpoint. The channel validates the canonical
-node UUID, requires an SSH peer, and applies its registered actor and selector
-grants. The ordinary admin endpoint still requires the verified mTLS proxy and
-certificate identity, even when SSH sync is enabled.
+SSH protects this optional route using the host's ordinary SSH access and
+forwarding policy. It does not change GaoNote's unauthenticated sync join or
+turn the node UUID into a credential. The forward reaches the existing admin
+listener, including its other routes.
 
-Both transports share the existing snapshot, attachment, durable delivery, and
-read-lease engine. Only the current authorized session may operate. The SSH channel
-subscribes to peer revocations before the join transaction so a concurrent revoke
-cannot be missed. Revocation and selector changes close established WebSockets;
-session cleanup releases temporary assembly files and read leases while preserving
-pending snapshots. Use the [receiver operations](receiver.md) for recovery and
-credential/grant changes.
+A first join creates peer metadata automatically. Reconnecting the same node UUID
+resumes its durable pending state and memberships; a new session replaces older
+operations for that UUID. Both direct and forwarded connections use the same
+snapshot, attachment, delivery, and read-lease engine. Administrative revocation
+can interrupt an active session, but does not block a later anonymous reconnect.
 
 ## Validation
 
-Scoped regressions cover separate configuration, fixed loopback binding, explicit
-peer provisioning, transport isolation, real certificate-free V2 WebSocket join,
-duplex note transfer, revocation/selector disconnects, and existing mTLS behavior.
-Domain and channel tests retain attachment, delivery, lease, and stale-session
-coverage. See [validation-2026-10-15.md](validation-2026-10-15.md) for executed checks.
+Check that the forward targets the existing admin listener, then connect the
+actual Agent Note profile without sync-specific credentials. Verify the stable
+node UUID, selected profile, both directions of note and attachment transfer, and
+reconnect after interrupting the tunnel. Use [receiver.md](receiver.md) for
+recovery behavior.
 
-Before enabling a deployment, validate its SSH forwarding permissions and network
-namespace and connect the actual Agent Note profile through the managed tunnel.
-Local receiver tests do not qualify production SSH access or client configuration.
+The reports in `validation*.md` retain their historical evidence, including tests
+of older mTLS and dedicated loopback transports. They are not instructions for
+the current shared-port endpoint or evidence that a particular deployment's SSH
+forward has been qualified.

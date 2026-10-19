@@ -2,13 +2,9 @@ defmodule GSMLG.AdminWeb.NoteSyncSocketTest do
   use ExUnit.Case, async: false
   alias GSMLG.AdminWeb.{NoteSyncSocket, NoteSyncSerializer}
 
-  setup do
+  test "connects without credentials or sync configuration" do
     previous = Application.get_env(:gsmlg_gao_note, :note_sync)
-
-    Application.put_env(:gsmlg_gao_note, :note_sync, %{
-      enabled: true,
-      trusted_proxy_ips: ["127.0.0.1"]
-    })
+    Application.delete_env(:gsmlg_gao_note, :note_sync)
 
     on_exit(fn ->
       if is_nil(previous),
@@ -16,49 +12,30 @@ defmodule GSMLG.AdminWeb.NoteSyncSocketTest do
         else: Application.put_env(:gsmlg_gao_note, :note_sync, previous)
     end)
 
-    :ok
+    assert {:ok, socket} = NoteSyncSocket.connect(%{}, %Phoenix.Socket{}, %{})
+    assert NoteSyncSocket.id(socket) == nil
+    refute Map.has_key?(socket.assigns, :sync_peer)
   end
 
-  test "ingress is disabled by default and missing connection identity fails closed" do
-    Application.delete_env(:gsmlg_gao_note, :note_sync)
-
-    assert :error =
+  test "accepts direct remote connections without a proxy or certificate" do
+    assert {:ok, _} =
              NoteSyncSocket.connect(%{}, %Phoenix.Socket{}, %{
-               peer_data: %{address: {127, 0, 0, 1}},
-               x_headers: [{"x-note-sync-client-fingerprint", String.duplicate("a", 64)}]
+               peer_data: %{address: {10, 100, 10, 20}},
+               x_headers: []
              })
-
-    assert :error = NoteSyncSocket.connect(%{"actor_id" => "spoof"}, %Phoenix.Socket{}, %{})
   end
 
-  test "actual untrusted peer cannot spoof trusted address with forwarded header" do
-    info = %{
-      peer_data: %{address: {203, 0, 113, 4}},
-      x_headers: [
-        {"x-forwarded-for", "127.0.0.1"},
-        {"x-note-sync-client-fingerprint", String.duplicate("a", 64)}
-      ]
-    }
+  test "headers and query parameters do not bind a peer identity" do
+    assert {:ok, socket} =
+             NoteSyncSocket.connect(
+               %{"actor_id" => "spoof", "node_id" => "spoof"},
+               %Phoenix.Socket{},
+               %{
+                 x_headers: [{"x-note-sync-client-fingerprint", "ignored"}]
+               }
+             )
 
-    assert :error = NoteSyncSocket.connect(%{}, %Phoenix.Socket{}, info)
-  end
-
-  test "missing duplicate uppercase and malformed fingerprint headers fail closed" do
-    for headers <- [
-          [],
-          [{"x-note-sync-client-fingerprint", "a"}],
-          [{"x-note-sync-client-fingerprint", String.duplicate("A", 64)}],
-          [
-            {"x-note-sync-client-fingerprint", String.duplicate("a", 64)},
-            {"x-note-sync-client-fingerprint", String.duplicate("a", 64)}
-          ]
-        ] do
-      assert :error =
-               NoteSyncSocket.connect(%{}, %Phoenix.Socket{}, %{
-                 peer_data: %{address: {127, 0, 0, 1}},
-                 x_headers: headers
-               })
-    end
+    refute Map.has_key?(socket.assigns, :sync_peer)
   end
 
   test "V2 serializer preserves ref and join identity" do

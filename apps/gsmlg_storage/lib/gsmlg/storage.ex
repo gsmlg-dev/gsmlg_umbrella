@@ -179,28 +179,29 @@ defmodule GSMLG.Storage do
     end
   end
 
-  @doc "Recovers only intents that are still expired after acquiring the object lock."
+  @doc "Recovers only processing intents that are still expired after acquiring the object lock."
   def recover_upload(%StorageFile{} = file) do
     with_locked_file(
       file.id,
-      fn current, backend ->
-        expiry =
-          if current.status == "processing",
-            do: current.metadata["upload_expires_at"],
-            else: if(current.status == "active", do: current.metadata["sync_staging_expires_at"])
+      fn
+        %StorageFile{status: "processing"} = current, backend ->
+          expiry = current.metadata["upload_expires_at"]
 
-        case expiry && DateTime.from_iso8601(expiry) do
-          {:ok, expires_at, _} ->
-            if DateTime.after?(expires_at, DateTime.utc_now()) do
+          case expiry && DateTime.from_iso8601(expiry) do
+            {:ok, expires_at, _} ->
+              if DateTime.after?(expires_at, DateTime.utc_now()) do
+                {:ok, current}
+              else
+                ensure_unreferenced!(current, reference_tables())
+                reject_current_upload(current, backend)
+              end
+
+            _ ->
               {:ok, current}
-            else
-              ensure_unreferenced!(current, reference_tables())
-              reject_current_upload(current, backend)
-            end
+          end
 
-          _ ->
-            {:ok, current}
-        end
+        current, _backend ->
+          {:ok, current}
       end,
       protect: false,
       backend_id: file.backend_id

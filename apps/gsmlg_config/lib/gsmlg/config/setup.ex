@@ -1,22 +1,12 @@
 defmodule GSMLG.Config.Setup do
   def setup(config) do
     if config[:note_sync] != nil do
-      Application.put_env(:gsmlg_gao_note, :note_sync, config[:note_sync])
-    end
-
-    note_sync = config[:note_sync] || %{}
-    ssh_port = note_sync[:ssh_port] || 4114
-
-    Application.put_env(
-      :gsmlg_admin_web,
-      GSMLG.AdminWeb.NoteSyncSSHEndpoint,
-      Keyword.merge(
-        Application.get_env(:gsmlg_admin_web, GSMLG.AdminWeb.NoteSyncSSHEndpoint, []),
-        server: note_sync[:ssh_enabled] == true,
-        http: [ip: {127, 0, 0, 1}, port: ssh_port],
-        url: [scheme: "http", host: "localhost", port: ssh_port]
+      Application.put_env(
+        :gsmlg_gao_note,
+        :note_sync,
+        Map.take(config[:note_sync], [:max_blob_bytes])
       )
-    )
+    end
 
     if config[:gao_note] != nil do
       Application.put_env(:gsmlg_gao_note, :compat_services, config[:gao_note])

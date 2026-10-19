@@ -359,6 +359,8 @@ defmodule GSMLG.Storage.S3Client do
   Returns `{:ok, binary}` or `{:error, reason}`.
   """
   def get_object(%{client: client, bucket: bucket}, key) do
+    # TODO(upstream): gsmlg-dev/concord#98
+    # ESS metadata reads can stall while validating a retained VSR log.
     case AWS.S3.get_object(client, bucket, key) do
       {:ok, body, response} -> extract_body(body, response)
       {:error, _} = error -> error

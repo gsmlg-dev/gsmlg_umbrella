@@ -15,10 +15,6 @@ defmodule GSMLG.Config.Schema do
   ]
 
   @note_sync_schema [
-    enabled: [type: :boolean, default: false],
-    ssh_enabled: [type: :boolean, default: false],
-    ssh_port: [type: :pos_integer, default: 4114],
-    trusted_proxy_ips: [type: {:list, :string}, default: []],
     max_blob_bytes: [type: :pos_integer, default: 536_870_912]
   ]
 
@@ -964,6 +960,13 @@ defmodule GSMLG.Config.Schema do
 
       schema when is_list(schema) ->
         with {:ok, config_list} <- to_options(config) do
+          # Keep existing TOML files loadable after removing transport authentication settings.
+          config_list =
+            if section == :note_sync,
+              do:
+                Keyword.drop(config_list, [:enabled, :ssh_enabled, :ssh_port, :trusted_proxy_ips]),
+              else: config_list
+
           case NimbleOptions.validate(config_list, schema) do
             {:ok, validated} ->
               section
@@ -1121,27 +1124,9 @@ defmodule GSMLG.Config.Schema do
   end
 
   defp validate_section_contract(:note_sync, settings) do
-    valid_ips =
-      Enum.all?(settings.trusted_proxy_ips, fn ip ->
-        match?({:ok, _}, :inet.parse_strict_address(String.to_charlist(ip)))
-      end)
-
-    cond do
-      not valid_ips ->
-        {:error, "note_sync trusted_proxy_ips must contain exact IP addresses"}
-
-      settings.enabled and settings.trusted_proxy_ips == [] ->
-        {:error, "enabled note_sync requires trusted_proxy_ips"}
-
-      settings.max_blob_bytes > 536_870_912 ->
-        {:error, "note_sync max_blob_bytes exceeds 512 MiB"}
-
-      settings.ssh_port > 65_535 ->
-        {:error, "note_sync ssh_port must be between 1 and 65535"}
-
-      true ->
-        {:ok, settings}
-    end
+    if settings.max_blob_bytes > 536_870_912,
+      do: {:error, "note_sync max_blob_bytes exceeds 512 MiB"},
+      else: {:ok, settings}
   end
 
   defp validate_section_contract(_section, settings), do: {:ok, settings}

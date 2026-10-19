@@ -35,8 +35,7 @@ defmodule GSMLG.AdminWeb.Endpoint do
     websocket: [
       log: false,
       timeout: 60_000,
-      max_frame_size: 131_072,
-      connect_info: [:peer_data, :x_headers]
+      max_frame_size: 131_072
     ],
     longpoll: false,
     serializer: [{GSMLG.AdminWeb.NoteSyncSerializer, "~> 2.0.0"}]

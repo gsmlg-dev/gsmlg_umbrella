@@ -112,6 +112,53 @@ defmodule GSMLG.GaoNote.Sync.SnapshotTest do
     refute Repo.exists?(Note)
   end
 
+  test "a referenced deleted object reports its identity and status without exporting it" do
+    {:ok, note} = GaoNote.create_note(%{title: "Private title", content: "Private contents"}, nil)
+    file = insert_file(String.duplicate("a", 64), 4)
+
+    Repo.insert!(
+      Attachment.changeset(%Attachment{}, %{
+        id: "unavailable",
+        note_id: note.id,
+        storage_file_id: file.id,
+        path: "private.txt",
+        mime: "text/plain"
+      })
+    )
+
+    {:ok, _} =
+      file
+      |> GSMLG.Storage.StorageFile.status_changeset(%{status: "deleted"})
+      |> GSMLG.Storage.Catalog.update()
+
+    handler = "snapshot-failure-#{Ecto.UUID.generate()}"
+    owner = self()
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:gsmlg, :log],
+        fn _event, _measurements, metadata, _config ->
+          if metadata[:message] == "GaoNote sync attachment snapshot failed",
+            do: send(owner, {:snapshot_failure, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+    assert {:error, :object_unavailable} = Snapshot.build(note.id)
+
+    assert_receive {:snapshot_failure, metadata}
+
+    assert metadata == %{
+             message: "GaoNote sync attachment snapshot failed",
+             note_id: note.id,
+             storage_file_id: file.id,
+             storage_status: "deleted",
+             reason: :object_unavailable
+           }
+  end
+
   defp insert_file(checksum, size) do
     %StorageFile{}
     |> StorageFile.changeset(%{
