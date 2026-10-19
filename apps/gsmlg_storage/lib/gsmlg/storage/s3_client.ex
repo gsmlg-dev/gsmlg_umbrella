@@ -237,14 +237,24 @@ defmodule GSMLG.Storage.S3Client do
   end
 
   defp multipart_file_with_client(client, bucket, key, path, content_type) do
-    with {:ok, %{"UploadId" => upload_id}, _response} <-
+    with {:ok, result, _response} <-
            AWS.S3.create_multipart_upload(client, bucket, key, %{"ContentType" => content_type}),
-         {:ok, parts} <- upload_parts(client, bucket, key, upload_id, path) do
-      case AWS.S3.complete_multipart_upload(client, bucket, key, %{
-             "UploadId" => upload_id,
-             "MultipartUpload" => %{"Parts" => parts}
-           }) do
-        {:ok, _result, _response} ->
+         {:ok, upload_id} <- multipart_upload_id(result) do
+      result =
+        with {:ok, parts} <- upload_parts(client, bucket, key, upload_id, path),
+             {:ok, %{"CompleteMultipartUploadResult" => %{}}, _response} <-
+               AWS.S3.complete_multipart_upload(client, bucket, key, %{
+                 "UploadId" => upload_id,
+                 "CompleteMultipartUpload" => %{"Part" => parts}
+               }) do
+          :ok
+        else
+          {:ok, _result, _response} -> {:error, :invalid_s3_multipart_completion_response}
+          {:error, _reason} = error -> error
+        end
+
+      case result do
+        :ok ->
           :ok
 
         {:error, _reason} = error ->
@@ -253,6 +263,15 @@ defmodule GSMLG.Storage.S3Client do
       end
     end
   end
+
+  defp multipart_upload_id(%{"InitiateMultipartUploadResult" => result}),
+    do: multipart_upload_id(result)
+
+  defp multipart_upload_id(%{"UploadId" => upload_id})
+       when is_binary(upload_id) and upload_id != "",
+       do: {:ok, upload_id}
+
+  defp multipart_upload_id(_result), do: {:error, :invalid_s3_multipart_upload_id}
 
   defp upload_parts(client, bucket, key, upload_id, path) do
     with {:ok, io} <- File.open(path, [:read, :binary]) do
@@ -277,17 +296,29 @@ defmodule GSMLG.Storage.S3Client do
                "UploadId" => upload_id,
                "PartNumber" => number,
                "Body" => chunk,
-               "ContentLength" => byte_size(chunk)
+               "ContentLength" => Integer.to_string(byte_size(chunk))
              }) do
-          {:ok, %{"ETag" => etag}, _response} ->
-            upload_part_chunks(client, bucket, key, upload_id, io, number + 1, [
-              %{"ETag" => etag, "PartNumber" => number} | parts
-            ])
+          {:ok, result, response} ->
+            with {:ok, etag} <- multipart_part_etag(result, response) do
+              upload_part_chunks(client, bucket, key, upload_id, io, number + 1, [
+                %{"ETag" => etag, "PartNumber" => number} | parts
+              ])
+            end
 
           {:error, _reason} = error ->
-            _ = AWS.S3.abort_multipart_upload(client, bucket, key, %{"UploadId" => upload_id})
             error
         end
+    end
+  end
+
+  defp multipart_part_etag(%{"ETag" => etag}, _response)
+       when is_binary(etag) and etag != "",
+       do: {:ok, etag}
+
+  defp multipart_part_etag(_result, %{headers: headers}) do
+    case Enum.find(headers, fn {name, _value} -> String.downcase(name) == "etag" end) do
+      {_name, etag} when is_binary(etag) and etag != "" -> {:ok, etag}
+      _ -> {:error, :invalid_s3_multipart_etag}
     end
   end
 
