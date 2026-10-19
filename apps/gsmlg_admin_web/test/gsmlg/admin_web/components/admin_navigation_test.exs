@@ -108,6 +108,26 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
   end
 
   describe "Layouts.app/1" do
+    test "keeps Storage navigation available in the appbar menu" do
+      html =
+        render_component(&GSMLG.AdminWeb.Layouts.app/1,
+          flash: %{},
+          page_title: "Storage",
+          active_menu: "storage_files",
+          inner_block: [
+            %{
+              __slot__: :inner_block,
+              inner_block: fn _, _ -> "PAGE BODY" end
+            }
+          ]
+        )
+
+      document = Floki.parse_fragment!(html)
+      assert [popover] = Floki.find(document, "#admin-app-menu-popover")
+      assert [_files] = Floki.find(popover, ~s(a[href="/storage"][aria-current="page"]))
+      assert [_config] = Floki.find(popover, ~s(a[href="/storage/config"]))
+    end
+
     test "renders the global navigation and page body" do
       html =
         render_component(&GSMLG.AdminWeb.Layouts.app/1,

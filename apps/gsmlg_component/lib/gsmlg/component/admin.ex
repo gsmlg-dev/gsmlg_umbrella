@@ -8,6 +8,7 @@ defmodule GSMLG.Component.Admin do
   # alias Phoenix.LiveView.JS
 
   attr(:page_title, :string, default: "GSMLG Admin")
+  slot(:navigation)
 
   def local_app_bar(assigns) do
     ~H"""
@@ -22,7 +23,11 @@ defmodule GSMLG.Component.Admin do
             <span class="sr-only">Open admin navigation</span>
           </:trigger>
           <:content>
-            <.local_app_menus />
+            <%= if @navigation != [] do %>
+              {render_slot(@navigation)}
+            <% else %>
+              <.local_app_menus />
+            <% end %>
           </:content>
         </.dm_dropdown>
         <.dm_link navigate="/" class="hidden sm:inline-flex">
