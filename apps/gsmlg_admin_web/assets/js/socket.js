@@ -2,11 +2,15 @@ import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 
 import { hooks } from './hooks';
+import { readGaoNotePageSize } from './gao_note_page_size.js';
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
 // LiveSocket for LiveView — connects to /live
-const liveSocket = new LiveSocket("/live", Socket, { params: { _csrf_token: csrfToken }, hooks });
+const liveSocket = new LiveSocket("/live", Socket, {
+  params: () => ({ _csrf_token: csrfToken, gao_note_page_size: readGaoNotePageSize() }),
+  hooks,
+});
 
 // Separate raw Socket for custom channels — connects to /socket (UserSocket)
 const userSocket = new Socket("/socket", { params: { _csrf_token: csrfToken } });

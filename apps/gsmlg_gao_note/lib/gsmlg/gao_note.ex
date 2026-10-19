@@ -82,6 +82,12 @@ defmodule GSMLG.GaoNote do
     list_notes_from(active_note_query(), opts)
   end
 
+  def count_notes(opts \\ []) do
+    active_note_query()
+    |> filter_notes(normalize_opts(opts))
+    |> Repo.aggregate(:count, :id)
+  end
+
   def list_public_notes(opts \\ []) do
     list_notes_from(public_note_query(), opts)
   end
@@ -953,13 +959,18 @@ defmodule GSMLG.GaoNote do
     opts = normalize_opts(opts)
 
     queryable
-    |> filter_by_search(opts[:search])
-    |> filter_by_label(opts[:label])
+    |> filter_notes(opts)
     |> apply_order(opts[:order_by])
     |> limit(^limit_value(opts[:limit]))
     |> offset(^offset_value(opts[:offset]))
     |> Repo.all()
     |> preload_note()
+  end
+
+  defp filter_notes(query, opts) do
+    query
+    |> filter_by_search(opts[:search])
+    |> filter_by_label(opts[:label])
   end
 
   defp filter_by_search(query, nil), do: query
@@ -1042,10 +1053,10 @@ defmodule GSMLG.GaoNote do
   end
 
   defp apply_order(query, nil) do
-    order_by(query, [n], desc: n.updated_at)
+    order_by(query, [n], desc: n.updated_at, desc: n.id)
   end
 
-  defp apply_order(query, :updated_at), do: order_by(query, [n], desc: n.updated_at)
+  defp apply_order(query, :updated_at), do: apply_order(query, nil)
   defp apply_order(query, _other), do: apply_order(query, nil)
 
   defp maybe_limit(query, nil), do: query

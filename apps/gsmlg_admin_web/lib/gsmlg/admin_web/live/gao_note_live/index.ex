@@ -8,17 +8,26 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   alias GSMLG.Storage.ContentType
   alias Phoenix.LiveView.AsyncResult
 
+  @page_size 25
+  @page_sizes [10, 25, 50, 100]
   @batch_label_fields ~w(action match_label_setting_id match_value target_label_setting_id target_value)
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket), do: GaoNoteAttachmentTemp.sweep_stale()
+    default_page_size = parse_page_size((get_connect_params(socket) || %{})["gao_note_page_size"])
 
     {:ok,
      socket
      |> assign(
        active_menu: "gao_note_list",
        notes: AsyncResult.loading(),
+       page: 1,
+       page_size: default_page_size || @page_size,
+       default_page_size: default_page_size,
+       page_size_options: Enum.map(@page_sizes, &{&1, Integer.to_string(&1)}),
+       total_notes: 0,
+       total_pages: 1,
        filters: %{"search" => "", "labels" => []},
        active_filters: %{"search" => "", "labels" => []},
        label_filter_key: "",
@@ -55,23 +64,46 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   @impl true
   def handle_async(
         :load_batch_index,
-        {:ok, %{filters: filters, notes: notes, label_settings: label_settings}},
+        {:ok,
+         %{
+           filters: filters,
+           requested_page: requested_page,
+           page: page,
+           page_size: page_size,
+           total_notes: total_notes,
+           total_pages: total_pages,
+           notes: notes,
+           label_settings: label_settings
+         }},
         socket
       ) do
-    if socket.assigns.live_action == :index and filters == socket.assigns.active_filters do
+    if socket.assigns.live_action == :index and filters == socket.assigns.active_filters and
+         requested_page == socket.assigns.page and page_size == socket.assigns.page_size do
       loaded_ids = Enum.map(notes, & &1.id)
 
-      {:noreply,
-       assign(socket,
-         notes: AsyncResult.ok(socket.assigns.notes, notes),
-         batch_label_settings:
-           AsyncResult.ok(socket.assigns.batch_label_settings, label_settings),
-         batch_selected: BatchSelection.reconcile(socket.assigns.batch_selected, loaded_ids)
-       )}
+      socket =
+        assign(socket,
+          notes: AsyncResult.ok(socket.assigns.notes, notes),
+          page: page,
+          total_notes: total_notes,
+          total_pages: total_pages,
+          batch_label_settings:
+            AsyncResult.ok(socket.assigns.batch_label_settings, label_settings),
+          batch_selected: BatchSelection.reconcile(socket.assigns.batch_selected, loaded_ids)
+        )
+
+      socket =
+        if page == requested_page,
+          do: socket,
+          else: push_patch(socket, to: note_filter_path(filters, page, page_size), replace: true)
+
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
   end
+
+  def handle_async(:load_batch_index, {:ok, _stale_result}, socket), do: {:noreply, socket}
 
   def handle_async(:load_batch_index, {:exit, _reason}, socket) do
     if socket.assigns.live_action == :index do
@@ -88,21 +120,34 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
 
   defp apply_action(socket, :index, params) do
     active_filters = filter_params(params)
+    page = parse_page(params["page"])
+    url_page_size = parse_page_size(params["page_size"])
+    page_size = url_page_size || socket.assigns.default_page_size || @page_size
 
     socket =
-      if active_filters == socket.assigns.active_filters do
+      if active_filters == socket.assigns.active_filters and page == socket.assigns.page and
+           page_size == socket.assigns.page_size do
         socket
       else
         reset_batch_state(socket)
       end
 
-    socket
-    |> assign(:page_title, "GaoNote")
-    |> assign(:active_menu, "gao_note_list")
-    |> assign(:filters, active_filters)
-    |> assign(:active_filters, active_filters)
-    |> assign_attachment_editor([])
-    |> assign_notes_async(filter_opts(active_filters), active_filters)
+    socket =
+      socket
+      |> assign(:page_title, "GaoNote")
+      |> assign(:active_menu, "gao_note_list")
+      |> assign(:filters, active_filters)
+      |> assign(:active_filters, active_filters)
+      |> assign(:page, page)
+      |> assign(:page_size, page_size)
+      |> assign_attachment_editor([])
+
+    if connected?(socket) and is_nil(url_page_size) and
+         (Map.has_key?(params, "page_size") or not is_nil(socket.assigns.default_page_size)) do
+      push_patch(socket, to: note_filter_path(active_filters, page, page_size), replace: true)
+    else
+      assign_notes_async(socket, filter_opts(active_filters), active_filters)
+    end
   end
 
   defp apply_action(socket, :new, _params) do
@@ -170,7 +215,21 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
 
   def handle_event("search", %{"filters" => params}, socket) do
     filters = filter_params(params)
-    {:noreply, push_patch(socket, to: note_filter_path(filters))}
+    {:noreply, push_patch(socket, to: note_filter_path(filters, 1, socket.assigns.page_size))}
+  end
+
+  def handle_event("change_page_size", params, socket) do
+    case parse_page_size(params["page_size"]) do
+      nil ->
+        {:noreply, socket}
+
+      page_size ->
+        {:noreply,
+         socket
+         |> assign(:default_page_size, page_size)
+         |> push_event("gao-note-page-size", %{page_size: page_size})
+         |> push_patch(to: note_filter_path(socket.assigns.active_filters, 1, page_size))}
+    end
   end
 
   def handle_event("add_search_filter", _params, socket) do
@@ -195,7 +254,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
          label_filter_operator: "=",
          label_filter_value: ""
        )
-       |> push_patch(to: note_filter_path(filters))}
+       |> push_patch(to: note_filter_path(filters, 1, socket.assigns.page_size))}
     end
   end
 
@@ -208,7 +267,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
     {:noreply,
      socket
      |> assign(:filters, filters)
-     |> push_patch(to: note_filter_path(filters))}
+     |> push_patch(to: note_filter_path(filters, 1, socket.assigns.page_size))}
   end
 
   def handle_event("clear_search_filters", _params, socket) do
@@ -220,7 +279,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        label_filter_operator: "=",
        label_filter_value: ""
      )
-     |> push_patch(to: ~p"/gao_notes/notes")}
+     |> push_patch(to: note_filter_path(%{}, 1, socket.assigns.page_size))}
   end
 
   def handle_event(
@@ -619,7 +678,15 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
         {:noreply,
          socket
          |> put_flash(:info, "GaoNote deleted")
-         |> push_patch(to: ~p"/gao_notes/notes")}
+         |> push_patch(
+           to:
+             note_filter_path(
+               socket.assigns.active_filters,
+               socket.assigns.page,
+               socket.assigns.page_size
+             ),
+           replace: true
+         )}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Delete failed: #{inspect(reason)}")}
@@ -1735,14 +1802,41 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   defp filter_opts(filters) do
     [
       search: blank_to_nil(filters["search"]),
-      label: filters["labels"],
-      limit: 100
+      label: filters["labels"]
     ]
   end
 
-  defp note_filter_path(filters) do
-    NotesPath.index(filters)
+  defp note_filter_path(filters, page, page_size) do
+    filters
+    |> Map.put("page", page)
+    |> Map.put("page_size", page_size)
+    |> NotesPath.index()
   end
+
+  defp note_page_url(filters, page_size) do
+    path = note_filter_path(filters, 1, page_size)
+    path <> if(String.contains?(path, "?"), do: "&page={page}", else: "?page={page}")
+  end
+
+  defp parse_page(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {page, ""} when page > 0 -> page
+      _invalid -> 1
+    end
+  end
+
+  defp parse_page(_value), do: 1
+
+  defp parse_page_size(value) when value in @page_sizes, do: value
+
+  defp parse_page_size(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {page_size, ""} -> parse_page_size(page_size)
+      _invalid -> nil
+    end
+  end
+
+  defp parse_page_size(_value), do: nil
 
   defp normalize_label_filters(filters) do
     filters
@@ -1766,6 +1860,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        do: "#{name}=#{value || ""}"
 
   defp assign_notes_async(socket, opts, active_filters) do
+    requested_page = socket.assigns.page
+    page_size = socket.assigns.page_size
+
     socket
     |> cancel_async(:load_batch_index)
     |> assign(
@@ -1773,9 +1870,21 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
       batch_label_settings: AsyncResult.loading()
     )
     |> start_async(:load_batch_index, fn ->
+      total_notes = GaoNote.count_notes(opts)
+      total_pages = max(div(total_notes + page_size - 1, page_size), 1)
+      page = min(requested_page, total_pages)
+
       %{
         filters: active_filters,
-        notes: GaoNote.list_notes(opts),
+        requested_page: requested_page,
+        page: page,
+        page_size: page_size,
+        total_notes: total_notes,
+        total_pages: total_pages,
+        notes:
+          GaoNote.list_notes(
+            Keyword.merge(opts, limit: page_size, offset: (page - 1) * page_size)
+          ),
         label_settings: GaoNote.list_label_settings()
       }
     end)
@@ -2577,6 +2686,46 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
               </tr>
             </tbody>
           </table>
+        </div>
+        <div
+          :if={@notes.ok? and !async_loading?(@notes) and !async_failed?(@notes)}
+          class="flex flex-wrap items-center justify-between gap-3"
+        >
+          <div class="flex flex-wrap items-center gap-4">
+            <p id="gao-note-pagination-summary" class="text-sm text-on-surface-variant" role="status">
+              <%= if @total_notes == 0 do %>
+                0 notes
+              <% else %>
+                Showing {(@page - 1) * @page_size + 1}–{min(@page * @page_size, @total_notes)} of {@total_notes} notes
+              <% end %>
+            </p>
+            <form
+              id="gao-note-page-size-form"
+              phx-change="change_page_size"
+              phx-submit="change_page_size"
+            >
+              <.dm_select
+                id="gao-note-page-size"
+                name="page_size"
+                label="Notes per page"
+                value={@page_size}
+                options={@page_size_options}
+                size="sm"
+                horizontal
+                label_class="whitespace-nowrap text-sm"
+                select_class="h-8"
+              />
+            </form>
+          </div>
+          <.dm_pagination
+            id="gao-note-pagination"
+            page_num={@page}
+            page_size={@page_size}
+            total={@total_notes}
+            page_url={note_page_url(@active_filters, @page_size)}
+            pagination_label="Notes pagination"
+            el_size="sm"
+          />
         </div>
       </div>
 

@@ -4,11 +4,15 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.NotesPath do
   def index(filters \\ %{}) do
     search = filters |> value(:search, "") |> blank_to_nil()
     labels = filters |> value(:labels, []) |> normalize_labels()
+    page = value(filters, :page, 1)
+    page_size = value(filters, :page_size, nil)
 
     query =
       []
       |> maybe_put(:search, search)
       |> maybe_put(:labels, labels)
+      |> maybe_put(:page, if(is_integer(page) and page > 1, do: page))
+      |> maybe_put(:page_size, if(page_size in [10, 25, 50, 100], do: page_size))
 
     ~p"/gao_notes/notes?#{query}"
   end

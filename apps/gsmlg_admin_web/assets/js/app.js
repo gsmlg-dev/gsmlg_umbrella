@@ -5,5 +5,10 @@ import 'phoenix_html';
 import './socket';
 
 import { registerSW } from './register_sw.js';
+import { saveGaoNotePageSize } from './gao_note_page_size.js';
+
+window.addEventListener('phx:gao-note-page-size', (event) => {
+  saveGaoNotePageSize(event.detail?.page_size);
+});
 
 registerSW();

@@ -196,7 +196,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       |> form("#gao-note-filter-form", %{"filters" => %{"search" => "Other"}})
       |> render_submit()
 
-      assert_patch(view, ~p"/gao_notes/notes?search=Other")
+      assert_patch(
+        view,
+        GSMLG.AdminWeb.GaoNoteLive.NotesPath.index(%{search: "Other", page_size: 25})
+      )
+
       render_async(view)
       refute has_element?(view, "#gao-note-batch-toolbar")
 
@@ -204,7 +208,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       |> form("#gao-note-filter-form", %{"filters" => %{"search" => ""}})
       |> render_submit()
 
-      assert_patch(view, ~p"/gao_notes/notes")
+      assert_patch(view, GSMLG.AdminWeb.GaoNoteLive.NotesPath.index(%{page_size: 25}))
       render_async(view)
       render_click(view, "toggle_batch_note", %{"id" => selected.id})
 
@@ -280,7 +284,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       |> form("#gao-note-filter-form", %{"filters" => %{"search" => "Match"}})
       |> render_submit()
 
-      assert_patch(view, ~p"/gao_notes/notes?search=Match")
+      assert_patch(
+        view,
+        GSMLG.AdminWeb.GaoNoteLive.NotesPath.index(%{search: "Match", page_size: 25})
+      )
+
       html = render_async(view)
       assert html =~ selected.title
       refute html =~ hidden.title
@@ -1116,7 +1124,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     |> render_click()
 
     assert [] = GaoNote.list_notes(search: "List Delete Note")
-    assert_patch(view, ~p"/gao_notes/notes")
+    assert_patch(view, GSMLG.AdminWeb.GaoNoteLive.NotesPath.index(%{page_size: 25}))
   end
 
   test "admin deletes a note from a modal confirmation", %{conn: conn, user: user} do
@@ -1147,7 +1155,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     |> render_click()
 
     assert [] = GaoNote.list_notes(search: "Delete Modal Note")
-    assert_patch(view, ~p"/gao_notes/notes")
+    assert_patch(view, GSMLG.AdminWeb.GaoNoteLive.NotesPath.index(%{page_size: 25}))
   end
 
   test "admin can manage label settings", %{conn: conn} do
