@@ -35,14 +35,40 @@ defmodule GSMLG.AdminWeb.StorageLive.IndexTest do
       {:ok, bytes, conn} = Plug.Conn.read_body(conn)
       state = Application.fetch_env!(:gsmlg_storage, :inventory_test_state)
       key = object_key(conn)
-      {pid, _} = Agent.get(state, & &1)
-      send(pid, {:s3_put, key, bytes})
+      {pid, objects} = Agent.get(state, & &1)
 
-      Agent.update(state, fn {pid, objects} ->
-        {pid, [{key, byte_size(bytes)} | List.keydelete(objects, key, 0)]}
-      end)
+      case get_req_header(conn, "x-amz-copy-source") do
+        [source] ->
+          source_key =
+            source
+            |> String.trim_leading("/")
+            |> String.split("/", parts: 2)
+            |> List.last()
+            |> URI.decode()
 
-      send_resp(conn, 200, "")
+          {_, size} = List.keyfind(objects, source_key, 0)
+          send(pid, {:s3_copy, source_key, key})
+
+          Agent.update(state, fn {pid, current} ->
+            {pid, [{key, size} | List.keydelete(current, key, 0)]}
+          end)
+
+          conn
+          |> put_resp_content_type("application/xml")
+          |> send_resp(
+            200,
+            "<CopyObjectResult><ETag>&quot;test&quot;</ETag><LastModified>2026-10-14T09:00:00Z</LastModified></CopyObjectResult>"
+          )
+
+        [] ->
+          send(pid, {:s3_put, key, bytes})
+
+          Agent.update(state, fn {pid, current} ->
+            {pid, [{key, byte_size(bytes)} | List.keydelete(current, key, 0)]}
+          end)
+
+          send_resp(conn, 200, "")
+      end
     end
 
     delete "/*path" do
@@ -163,6 +189,313 @@ defmodule GSMLG.AdminWeb.StorageLive.IndexTest do
     refute_receive {:s3_list, _}, 100
   end
 
+  test "exposes an accessible client-side separator between folders and files", %{conn: conn} do
+    {:ok, view, _} = live(conn, ~p"/storage")
+
+    assert has_element?(view, "#storage-browser[phx-hook='StorageSplitPane']")
+
+    assert has_element?(
+             view,
+             "#storage-splitter[role='separator'][aria-orientation='vertical']" <>
+               "[aria-controls='storage-folder-tree'][aria-label='Resize folders panel'][tabindex='0']"
+           )
+
+    assert has_element?(view, "#storage-browser > #storage-files-panel")
+    assert has_element?(view, "#storage-files-panel #storage-objects")
+  end
+
+  test "leaf action forms bind exact folder keys to the current backend without navigating", %{
+    conn: conn
+  } do
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: "gaonote/note/"}}")
+    leaf = folder_id("gaonote/note/")
+    assert eventually(fn -> has_element?(view, "##{leaf}-actions-popover-trigger") end)
+    refute has_element?(view, "##{folder_id("gaonote/")}-actions-popover-trigger")
+
+    for action <- ["rename", "delete"] do
+      assert has_element?(
+               view,
+               "##{leaf}-#{action}-form input[name='folder[backend]'][value='#{GSMLG.Storage.Inventory.current_backend_id()}']"
+             )
+
+      assert has_element?(
+               view,
+               "##{leaf}-#{action}-form input[name='folder[prefix]'][value='#{GSMLG.Storage.Inventory.encode_key("gaonote/note/")}']"
+             )
+    end
+
+    assert has_element?(view, "##{leaf}-delete-dialog", "all 1 files, including subfolders")
+
+    render_click(view, "clear_folder_error", %{
+      "prefix" => GSMLG.Storage.Inventory.encode_key("gaonote/note/"),
+      "action" => "rename"
+    })
+
+    assert has_element?(view, "##{leaf}[aria-current='page']")
+    refute_receive {:s3_copy, _, _}
+    refute_receive {:s3_delete, _}
+  end
+
+  test "renames a populated leaf, refreshes the tree and follows its selected URL", %{
+    conn: conn,
+    s3_state: state
+  } do
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: "gaonote/note/"}}")
+    leaf = folder_id("gaonote/note/")
+    assert eventually(fn -> has_element?(view, "##{leaf}-rename-form") end)
+
+    view
+    |> form("##{leaf}-rename-form", folder: %{name: "renamed"})
+    |> render_submit()
+
+    render_async(view)
+    assert_receive {:s3_copy, "gaonote/note/image.png", "gaonote/renamed/image.png"}, 2_000
+    assert_receive {:s3_delete, "gaonote/note/image.png"}, 2_000
+    assert_patch(view, ~p"/storage?#{%{prefix: "gaonote/renamed/"}}")
+
+    assert eventually(fn ->
+             has_element?(view, "##{folder_id("gaonote/renamed/")}[aria-current='page']")
+           end)
+
+    assert has_element?(view, "#storage-objects", "gaonote/renamed/image.png")
+    refute has_element?(view, "##{leaf}")
+
+    dialog_id = leaf <> "-rename-dialog"
+
+    assert_push_event(view, "close-dialog", %{
+      id: ^dialog_id,
+      focus: "#storage-root-folder"
+    })
+
+    assert {_pid, objects} = Agent.get(state, & &1)
+    assert {"outside.txt", 1024} in objects
+  end
+
+  test "confirmed leaf deletion removes its marker and files and selects the parent", %{
+    conn: conn,
+    s3_state: state
+  } do
+    Agent.update(state, fn {pid, objects} ->
+      {pid, [{"gaonote/note/", 0}, {"gaonote/note/second.txt", 11} | objects]}
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: "gaonote/note/"}}")
+    leaf = folder_id("gaonote/note/")
+    assert eventually(fn -> has_element?(view, "##{leaf}-delete-form") end)
+    assert has_element?(view, "##{leaf}-delete-dialog", "all 2 files")
+
+    view |> form("##{leaf}-delete-form") |> render_submit()
+    render_async(view)
+
+    for key <- ["gaonote/note/", "gaonote/note/image.png", "gaonote/note/second.txt"] do
+      assert_receive {:s3_delete, ^key}, 2_000
+    end
+
+    assert_patch(view, ~p"/storage?#{%{prefix: "gaonote/"}}")
+    assert eventually(fn -> not has_element?(view, "##{leaf}") end)
+
+    dialog_id = leaf <> "-delete-dialog"
+
+    assert_push_event(view, "close-dialog", %{
+      id: ^dialog_id,
+      focus: "#storage-root-folder"
+    })
+
+    assert {_pid, [{"outside.txt", 1024}]} = Agent.get(state, & &1)
+  end
+
+  test "rename collisions stay in the dialog and leave the source unchanged", %{
+    conn: conn,
+    s3_state: state
+  } do
+    Agent.update(state, fn {pid, objects} -> {pid, [{"gaonote/taken/file.txt", 4} | objects]} end)
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: "gaonote/note/"}}")
+    leaf = folder_id("gaonote/note/")
+    assert eventually(fn -> has_element?(view, "##{leaf}-rename-form") end)
+
+    view |> form("##{leaf}-rename-form", folder: %{name: "taken"}) |> render_submit()
+    render_async(view)
+    assert has_element?(view, "##{leaf}-rename-dialog [role=alert]", "already exists")
+    assert has_element?(view, "##{leaf}[aria-current='page']")
+    assert {_pid, objects} = Agent.get(state, & &1)
+    assert {"gaonote/note/image.png", 2048} in objects
+    refute_receive {:s3_copy, _, _}
+    refute_receive {:s3_delete, _}
+  end
+
+  test "stale folder forms are rejected before copying or deleting objects", %{conn: conn} do
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: "gaonote/note/"}}")
+    leaf = folder_id("gaonote/note/")
+    assert eventually(fn -> has_element?(view, "##{leaf}-delete-form") end)
+    expected = GSMLG.Storage.Inventory.current_backend_id()
+    Application.put_env(:gsmlg_storage, :s3_bucket, "another-bucket")
+
+    html =
+      render_submit(view, "delete_folder", %{
+        "folder" => %{
+          "prefix" => GSMLG.Storage.Inventory.encode_key("gaonote/note/"),
+          "backend" => expected
+        }
+      })
+
+    assert html =~ "S3 configuration changed"
+
+    dialog_id = leaf <> "-delete-dialog"
+
+    assert_push_event(view, "close-dialog", %{
+      id: ^dialog_id,
+      focus: "#storage-root-folder"
+    })
+
+    refute_receive {:s3_copy, _, _}
+    refute_receive {:s3_delete, _}
+  end
+
+  test "deep links expand the folder hierarchy while retaining siblings and empty folders", %{
+    conn: conn,
+    s3_state: state
+  } do
+    Agent.update(state, fn {pid, _} ->
+      {pid,
+       [
+         {"a/deep/2026/image.txt", 10},
+         {"a/sibling/note.txt", 20},
+         {"z/empty/", 0}
+       ]}
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: "a/deep/"}}")
+    assert_receive {:s3_list, "/current-bucket"}, 2_000
+    assert eventually(fn -> has_element?(view, "##{folder_id("a/deep/")}") end)
+    assert has_element?(view, "##{folder_id("a/")}-toggle[aria-expanded='true']")
+    assert has_element?(view, "##{folder_id("a/deep/")}[aria-current='page']")
+    assert has_element?(view, "##{folder_id("a/deep/2026/")}")
+    assert has_element?(view, "##{folder_id("a/sibling/")}")
+    assert has_element?(view, "##{folder_id("z/")}")
+    assert has_element?(view, "#storage-root-folder [title='Files in this bucket']", "2")
+    refute has_element?(view, "#storage-folder-tree", "image.txt")
+
+    view |> element("##{folder_id("z/")}-toggle") |> render_click()
+    assert has_element?(view, "##{folder_id("z/empty/")}", "empty")
+    view |> element("##{folder_id("z/empty/")}") |> render_click()
+    assert_patch(view, ~p"/storage?#{%{prefix: "z/empty/"}}")
+    assert has_element?(view, "##{folder_id("z/empty/")}[aria-current='page']")
+    assert has_element?(view, "#storage-root-folder [title='Files in this bucket']", "2")
+    assert has_element?(view, "main p", "No files in this folder")
+    refute_receive {:s3_list, _}, 100
+  end
+
+  test "disclosure buttons toggle locally and directory links navigate the same snapshot", %{
+    conn: conn
+  } do
+    {:ok, view, _} = live(conn, ~p"/storage")
+    assert_receive {:s3_list, "/current-bucket"}, 2_000
+    toggle = "##{folder_id("gaonote/")}-toggle"
+    assert eventually(fn -> has_element?(view, toggle <> "[aria-expanded='false']") end)
+    refute has_element?(view, "##{folder_id("gaonote/note/")}")
+
+    view |> element(toggle) |> render_click()
+    assert has_element?(view, toggle <> "[aria-expanded='true']")
+    assert has_element?(view, "##{folder_id("gaonote/note/")}")
+    assert has_element?(view, "#storage-root-folder[aria-current='page']")
+    assert has_element?(view, "#storage-objects", "outside.txt")
+
+    view |> element(toggle) |> render_click()
+    assert has_element?(view, toggle <> "[aria-expanded='false']")
+    refute has_element?(view, "##{folder_id("gaonote/note/")}")
+
+    view |> element("##{folder_id("gaonote/")}") |> render_click()
+    assert_patch(view, ~p"/storage?#{%{prefix: "gaonote/"}}")
+    assert has_element?(view, "##{folder_id("gaonote/")}[aria-current='page']")
+    assert has_element?(view, "##{folder_id("gaonote/note/")}")
+    assert has_element?(view, "#storage-root-folder [title='Files in this bucket']", "2")
+
+    view |> form("#storage-search", %{search: "missing"}) |> render_submit()
+    assert_patch(view, ~p"/storage?#{[prefix: "gaonote/", search: "missing"]}")
+    assert has_element?(view, "##{folder_id("gaonote/note/")}")
+    refute_receive {:s3_list, _}, 100
+  end
+
+  test "a late subscription snapshot cannot replace a loaded deep link", %{conn: conn} do
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: "gaonote/note/"}}")
+    assert_receive {:s3_list, "/current-bucket"}, 2_000
+    assert eventually(fn -> has_element?(view, "#storage-objects", "image.png") end)
+
+    initial = %{
+      GSMLG.SessionProcess.StorageReducer.init_state()
+      | backend_id: GSMLG.Storage.Inventory.current_backend_id()
+    }
+
+    send(view.pid, {:storage_snapshot, initial})
+    assert has_element?(view, "##{folder_id("gaonote/note/")}[aria-current='page']")
+    assert has_element?(view, "#storage-objects", "image.png")
+    refute_receive {:s3_list, _}, 100
+  end
+
+  test "refresh updates branches, preserves expansion and forgets removed folders", %{
+    conn: conn,
+    s3_state: state
+  } do
+    Agent.update(state, fn {pid, _} -> {pid, [{"a/deep/old/file.txt", 1}]} end)
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: "a/deep/"}}")
+    assert_receive {:s3_list, "/current-bucket"}, 2_000
+    assert eventually(fn -> has_element?(view, "##{folder_id("a/deep/old/")}") end)
+
+    Agent.update(state, fn {pid, _} -> {pid, [{"a/new/file.txt", 2}, {"c/empty/", 0}]} end)
+    view |> element("#refresh-storage") |> render_click()
+    assert_receive {:s3_list, "/current-bucket"}, 2_000
+    assert eventually(fn -> has_element?(view, "##{folder_id("a/new/")}") end)
+    refute has_element?(view, "##{folder_id("a/deep/")}")
+    assert has_element?(view, "##{folder_id("c/")}")
+    assert has_element?(view, "##{folder_id("a/")}-toggle[aria-expanded='true']")
+
+    Agent.update(state, fn {pid, _} -> {pid, [{"a/deep/returned/file.txt", 3}]} end)
+    view |> element("#refresh-storage") |> render_click()
+    assert_receive {:s3_list, "/current-bucket"}, 2_000
+    assert eventually(fn -> has_element?(view, "##{folder_id("a/deep/")}-toggle") end)
+    assert has_element?(view, "##{folder_id("a/deep/")}-toggle[aria-expanded='false']")
+    refute has_element?(view, "##{folder_id("a/deep/returned/")}")
+
+    view |> element("##{folder_id("a/")}-toggle") |> render_click()
+    view |> element("#refresh-storage") |> render_click()
+    assert_receive {:s3_list, "/current-bucket"}, 2_000
+    assert eventually(fn -> not has_element?(view, "#refresh-storage[disabled]") end)
+    assert has_element?(view, "##{folder_id("a/")}-toggle[aria-expanded='false']")
+  end
+
+  test "tree navigation preserves exact prefixes containing special and empty segments", %{
+    conn: conn,
+    s3_state: state
+  } do
+    prefix = " 空格 +%&#?//中文/"
+    control_prefix = "line\rbreak/"
+
+    Agent.update(state, fn {pid, _} ->
+      {pid, [{prefix <> "file.txt", 1}, {control_prefix <> "child/file.txt", 1}]}
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/storage?#{%{prefix: prefix}}")
+    assert_receive {:s3_list, "/current-bucket"}, 2_000
+    selected = "##{folder_id(prefix)}"
+    assert eventually(fn -> has_element?(view, selected <> "[aria-current='page']") end)
+    assert has_element?(view, "##{folder_id(" 空格 +%&#?//")}", "/")
+
+    assert view
+           |> element(selected)
+           |> render()
+           |> Floki.parse_fragment!()
+           |> Floki.attribute("a", "href") ==
+             [~p"/storage?#{%{prefix: prefix}}"]
+
+    assert has_element?(view, "#storage-objects", prefix <> "file.txt")
+    encoded = GSMLG.Storage.Inventory.encode_key(control_prefix)
+    toggle = "##{folder_id(control_prefix)}-toggle"
+    assert has_element?(view, toggle <> "[phx-value-prefix='#{encoded}']")
+    view |> element(toggle) |> render_click()
+    assert has_element?(view, "##{folder_id(control_prefix <> "child/")}")
+    refute_receive {:s3_list, _}, 100
+  end
+
   test "connected mount rejects an invalid token after an authenticated HTTP render", %{
     conn: conn
   } do
@@ -198,7 +531,12 @@ defmodule GSMLG.AdminWeb.StorageLive.IndexTest do
     {:ok, view, _html} = live(conn, ~p"/storage")
     assert_receive {:s3_list, "/current-bucket"}, 2_000
     assert eventually(fn -> has_element?(view, "#storage-objects", "outside.txt") end)
-    Agent.update(state, fn {pid, _} -> {pid, [{"new-bucket-only.txt", 17}]} end)
+    view |> element("##{folder_id("gaonote/")}-toggle") |> render_click()
+    assert has_element?(view, "##{folder_id("gaonote/note/")}")
+
+    Agent.update(state, fn {pid, _} ->
+      {pid, [{"new-bucket-only.txt", 17}, {"gaonote/replacement/file.txt", 1}]}
+    end)
 
     assert {:ok, _config} =
              GSMLG.Storage.update_config(%{
@@ -209,6 +547,9 @@ defmodule GSMLG.AdminWeb.StorageLive.IndexTest do
     assert_receive {:s3_list, "/next-bucket"}, 2_000
     assert eventually(fn -> has_element?(view, "#storage-objects", "new-bucket-only.txt") end)
     refute has_element?(view, "#storage-objects", "outside.txt")
+    refute has_element?(view, "##{folder_id("gaonote/note/")}")
+    refute has_element?(view, "##{folder_id("gaonote/replacement/")}")
+    assert has_element?(view, "##{folder_id("gaonote/")}-toggle[aria-expanded='false']")
     assert render(view) =~ "next-bucket"
   end
 
@@ -433,6 +774,8 @@ defmodule GSMLG.AdminWeb.StorageLive.IndexTest do
     refute_receive {:s3_delete, _}
     refute_receive {:s3_head, _}
   end
+
+  defp folder_id(prefix), do: "storage-folder-" <> GSMLG.Storage.Inventory.encode_key(prefix)
 
   defp eventually(fun, attempts \\ 100)
   defp eventually(fun, 0), do: fun.()

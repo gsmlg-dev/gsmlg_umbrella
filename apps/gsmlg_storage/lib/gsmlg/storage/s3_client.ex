@@ -193,6 +193,38 @@ defmodule GSMLG.Storage.S3Client do
     end
   end
 
+  @doc "Copies exact bytes and metadata without replacing a destination or changed source."
+  def copy_object(%{client: client, bucket: bucket}, source, destination, etag)
+      when is_binary(etag) and etag != "" do
+    input = %{
+      "CopySource" => AWS.Util.encode_multi_segment_uri(bucket <> "/" <> source),
+      "CopySourceIfMatch" => etag,
+      "IfNoneMatch" => "*",
+      "MetadataDirective" => "COPY",
+      "TaggingDirective" => "COPY"
+    }
+
+    case AWS.S3.copy_object(client, bucket, destination, input) do
+      {:ok, %{"CopyObjectResult" => result}, _} when is_map(result) -> :ok
+      {:ok, result, _} -> {:error, {:invalid_s3_copy_response, result}}
+      {:error, _} = error -> error
+    end
+  end
+
+  def copy_object(_backend, _source, _destination, _etag),
+    do: {:error, :missing_object_etag}
+
+  @doc "Deletes only the object version observed by the folder operation."
+  def delete_object(%{client: client, bucket: bucket}, key, etag)
+      when is_binary(etag) and etag != "" do
+    case AWS.S3.delete_object(client, bucket, key, %{"IfMatch" => etag}) do
+      {:ok, _, _} -> :ok
+      {:error, _} = error -> error
+    end
+  end
+
+  def delete_object(_backend, _key, _etag), do: {:error, :missing_object_etag}
+
   @doc """
   Uploads an object to S3.
   Returns `:ok` or `{:error, reason}`.

@@ -3,6 +3,61 @@ body > .phx-connected {
   @apply min-h-screen flex flex-col;
 }
 
+.storage-browser {
+  --storage-tree-default-width: 320px;
+}
+
+.storage-splitter {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .storage-folder-tree {
+    width: var(--storage-tree-width, var(--storage-tree-default-width));
+  }
+
+  .storage-splitter {
+    display: flex;
+    flex: 0 0 12px;
+    width: 12px;
+    margin: 0;
+    gap: 0;
+    color: var(--color-outline-variant);
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .storage-splitter::before,
+  .storage-splitter::after {
+    background-color: currentColor;
+  }
+
+  .storage-splitter:hover,
+  .storage-splitter:focus-visible,
+  .storage-browser.is-resizing .storage-splitter {
+    color: var(--color-primary);
+    background-color: var(--color-surface-container);
+  }
+
+  .storage-splitter:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+
+  .storage-browser.is-resizing,
+  .storage-browser.is-resizing * {
+    cursor: col-resize;
+    user-select: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  .storage-browser {
+    --storage-tree-default-width: 384px;
+  }
+}
+
 /* ─── Auth Page ─────────────────────────────────────────────── */
 @keyframes auth-fade-up {
   from { opacity: 0; transform: translateY(18px); }

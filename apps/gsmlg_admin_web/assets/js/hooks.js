@@ -5,6 +5,8 @@ import { GaoNoteLabelsMultiSelect } from "./hooks/gao_note_labels_multi_select";
 import AccessibleDialog, { closeDialogAndFocus } from "./hooks/accessible_dialog";
 import IndeterminateCheckbox from "./hooks/indeterminate_checkbox";
 import ProxyRulesSourceViewer from "./hooks/proxy_rules_source_viewer";
+import StorageSplitPane from "./hooks/storage_split_pane";
+import StorageFolderActions from "./hooks/storage_folder_actions";
 import "./custom_elements/json_viewer";
 import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight } from "phoenix_duskmoon/hooks";
 
@@ -73,6 +75,8 @@ export const hooks = {
   AccessibleDialog,
   IndeterminateCheckbox,
   ProxyRulesSourceViewer,
+  StorageSplitPane,
+  StorageFolderActions,
   WebComponentHook,
   FormElementHook,
   ThemeSwitcher,

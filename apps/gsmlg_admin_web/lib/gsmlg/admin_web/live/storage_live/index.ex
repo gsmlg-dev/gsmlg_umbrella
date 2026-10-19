@@ -2,6 +2,7 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
   use GSMLG.AdminWeb, :user_live_view
 
   import GSMLG.AdminWeb.StorageLive.Helpers
+  import GSMLG.AdminWeb.StorageLive.FolderTree
 
   alias GSMLG.SessionProcess.{StorageBrowser, StorageReducer}
   alias GSMLG.Accounts.User
@@ -19,7 +20,12 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
         prefix: "",
         search: "",
         page: 1,
-        folders: [],
+        folder_tree: [],
+        folder_prefixes: MapSet.new(),
+        expanded_folders: MapSet.new(),
+        folder_errors: %{},
+        folder_operation: nil,
+        bucket_file_count: 0,
         stats: nil,
         files_result: nil,
         bucket: nil,
@@ -65,6 +71,7 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
         page: parse_page(params["page"])
       )
       |> project_snapshot(StorageBrowser.snapshot(socket.assigns.session_id))
+      |> expand_current_path()
 
     {:noreply, socket}
   end
@@ -72,7 +79,8 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
   @impl true
   def handle_info({:storage_snapshot, snapshot}, socket) do
     if snapshot.backend_id == Inventory.current_backend_id() do
-      {:noreply, project_snapshot(socket, snapshot)}
+      # Subscription messages queued during mount may contain an older listing.
+      {:noreply, project_snapshot(socket, StorageBrowser.snapshot(socket.assigns.session_id))}
     else
       {:noreply, refresh(socket)}
     end
@@ -80,6 +88,58 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
 
   def handle_info({:storage_backend_changed, _id}, socket),
     do: {:noreply, refresh(socket)}
+
+  @impl true
+  def handle_async(:folder_operation, {:ok, {:ok, result_prefix}}, socket) do
+    operation = socket.assigns.folder_operation
+    socket = assign(socket, folder_operation: nil)
+
+    case check_backend(socket, operation.backend_id) do
+      :ok ->
+        prefix =
+          if String.starts_with?(socket.assigns.prefix, operation.prefix) do
+            case operation.action do
+              :rename ->
+                String.replace_prefix(socket.assigns.prefix, operation.prefix, result_prefix)
+
+              :delete ->
+                parent_folder_prefix(operation.prefix)
+            end
+          else
+            socket.assigns.prefix
+          end
+
+        message = if operation.action == :rename, do: "Folder renamed", else: "Folder deleted"
+
+        socket =
+          socket
+          |> push_event("close-dialog", %{
+            id: folder_dialog_id(operation),
+            focus: "#storage-root-folder"
+          })
+          |> put_flash(:info, message)
+          |> refresh()
+
+        socket =
+          if prefix == socket.assigns.prefix,
+            do: socket,
+            else:
+              push_patch(socket,
+                to: ~p"/storage?#{filter_params(socket.assigns, prefix: prefix, page: 1)}"
+              )
+
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply, socket |> put_flash(:error, folder_mutation_error(reason)) |> refresh()}
+    end
+  end
+
+  def handle_async(:folder_operation, {:ok, {:error, reason}}, socket),
+    do: {:noreply, folder_operation_failed(socket, reason)}
+
+  def handle_async(:folder_operation, {:exit, _reason}, socket),
+    do: {:noreply, folder_operation_failed(socket, :folder_operation_failed)}
 
   @impl true
   def handle_event(_event, _params, %{assigns: %{current_user: user}} = socket)
@@ -97,6 +157,91 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
      push_patch(socket,
        to: ~p"/storage?#{filter_params(socket.assigns, search: search, page: 1)}"
      )}
+  end
+
+  def handle_event("toggle_folder", %{"prefix" => encoded}, socket) do
+    with {:ok, prefix} <- Inventory.decode_key(encoded),
+         true <- MapSet.member?(socket.assigns.folder_prefixes, prefix) do
+      expanded = socket.assigns.expanded_folders
+
+      expanded =
+        if MapSet.member?(expanded, prefix),
+          do: MapSet.delete(expanded, prefix),
+          else: MapSet.put(expanded, prefix)
+
+      {:noreply, assign(socket, expanded_folders: expanded)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event(
+        "clear_folder_error",
+        %{"prefix" => encoded, "action" => action},
+        socket
+      )
+      when is_binary(encoded) and action in ["rename", "delete"] do
+    case Inventory.decode_key(encoded) do
+      {:ok, prefix} ->
+        action = if action == "rename", do: :rename, else: :delete
+
+        {:noreply,
+         assign(socket, folder_errors: Map.delete(socket.assigns.folder_errors, {prefix, action}))}
+
+      {:error, _reason} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event(event, _params, %{assigns: %{folder_operation: operation}} = socket)
+      when event in ["rename_folder", "delete_folder", "delete", "create_folder", "save_upload"] and
+             not is_nil(operation),
+      do:
+        {:noreply, put_flash(socket, :error, "Wait for the current folder operation to finish.")}
+
+  def handle_event(event, %{"folder" => params}, socket)
+      when event in ["rename_folder", "delete_folder"] and is_map(params) do
+    expected = params["backend"]
+    action = if event == "rename_folder", do: :rename, else: :delete
+
+    with encoded when is_binary(encoded) <- params["prefix"],
+         {:ok, prefix} <- Inventory.decode_key(encoded),
+         true <- MapSet.member?(socket.assigns.folder_prefixes, prefix) do
+      name = params["name"]
+      operation = %{action: action, prefix: prefix, backend_id: expected}
+
+      case check_backend(socket, expected) do
+        :ok ->
+          {:noreply,
+           socket
+           |> assign(
+             folder_operation: operation,
+             folder_errors: Map.delete(socket.assigns.folder_errors, {prefix, action})
+           )
+           |> start_async(:folder_operation, fn ->
+             case action do
+               :rename -> Storage.rename_object_folder(prefix, name, expected)
+               :delete -> Storage.delete_object_folder(prefix, expected)
+             end
+           end)}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> push_event("close-dialog", %{
+             id: folder_dialog_id(operation),
+             focus: "#storage-root-folder"
+           })
+           |> put_flash(:error, folder_mutation_error(reason))
+           |> refresh()}
+      end
+    else
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, folder_mutation_error(reason))}
+
+      _invalid ->
+        {:noreply, put_flash(socket, :error, "Refresh the listing before changing folders.")}
+    end
   end
 
   def handle_event("delete", %{"key" => encoded, "backend" => expected}, socket) do
@@ -182,6 +327,31 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
        else: {:error, :backend_changed}
   end
 
+  defp folder_operation_failed(socket, reason) do
+    operation = socket.assigns.folder_operation
+    message = folder_mutation_error(reason)
+
+    socket
+    |> assign(
+      folder_operation: nil,
+      folder_errors:
+        Map.put(socket.assigns.folder_errors, {operation.prefix, operation.action}, message)
+    )
+    |> put_flash(:error, message)
+    |> refresh()
+  end
+
+  defp folder_dialog_id(operation),
+    do:
+      "storage-folder-" <> Inventory.encode_key(operation.prefix) <> "-#{operation.action}-dialog"
+
+  defp parent_folder_prefix(prefix) do
+    prefix
+    |> String.split("/", trim: false)
+    |> Enum.drop(-2)
+    |> Enum.map_join("", &(&1 <> "/"))
+  end
+
   defp refresh(socket) do
     case StorageBrowser.refresh(socket.assigns.session_id) do
       :ok -> project_snapshot(socket, StorageBrowser.snapshot(socket.assigns.session_id))
@@ -204,10 +374,32 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
         page: socket.assigns.page
       )
 
+    tree = Inventory.folder_tree(snapshot.objects)
+    prefixes = folder_prefixes(tree)
+
+    expanded =
+      if snapshot.backend_id == socket.assigns.backend_id,
+        do: socket.assigns.expanded_folders,
+        else: MapSet.new()
+
+    # Keep the URL's pending expansion until a completed refresh can validate it.
+    expanded =
+      if snapshot.refreshed_at && snapshot.refreshed_at != socket.assigns.refreshed_at,
+        do: MapSet.intersection(expanded, prefixes),
+        else: expanded
+
     socket
     |> assign(
       files_result: Map.drop(result, [:objects, :folders, :stats]),
-      folders: result.folders,
+      folder_tree: tree,
+      folder_prefixes: prefixes,
+      expanded_folders: expanded,
+      folder_errors:
+        if(snapshot.backend_id == socket.assigns.backend_id,
+          do: socket.assigns.folder_errors,
+          else: %{}
+        ),
+      bucket_file_count: Enum.count(snapshot.objects, &(not &1.folder?)),
       stats: result.stats,
       page: result.page,
       bucket: snapshot.bucket,
@@ -217,6 +409,27 @@ defmodule GSMLG.AdminWeb.StorageLive.Index do
       refreshed_at: snapshot.refreshed_at
     )
     |> stream(:objects, result.objects, reset: true)
+  end
+
+  defp expand_current_path(socket) do
+    {prefixes, _path} =
+      socket.assigns.prefix
+      |> String.split("/", trim: false)
+      |> Enum.drop(-1)
+      |> Enum.map_reduce("", fn name, parent ->
+        prefix = parent <> name <> "/"
+        {prefix, prefix}
+      end)
+
+    assign(socket,
+      expanded_folders: MapSet.union(socket.assigns.expanded_folders, MapSet.new(prefixes))
+    )
+  end
+
+  defp folder_prefixes(nodes, prefixes \\ MapSet.new()) do
+    Enum.reduce(nodes, prefixes, fn node, acc ->
+      folder_prefixes(node.children, MapSet.put(acc, node.prefix))
+    end)
   end
 
   defp session_error(socket),

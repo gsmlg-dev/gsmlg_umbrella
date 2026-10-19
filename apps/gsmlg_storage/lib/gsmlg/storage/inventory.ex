@@ -30,6 +30,36 @@ defmodule GSMLG.Storage.Inventory do
     end
   end
 
+  @doc "Projects exact S3 folder prefixes into a sorted tree with recursive file counts."
+  def folder_tree(objects) do
+    objects
+    |> Enum.reduce(%{}, fn object, tree ->
+      folders = object.key |> String.split("/", trim: false) |> Enum.drop(-1)
+      insert_folders(tree, folders, "", if(object.folder?, do: 0, else: 1))
+    end)
+    |> sort_folders()
+  end
+
+  defp insert_folders(tree, [], _prefix, _count), do: tree
+
+  defp insert_folders(tree, [name | rest], parent_prefix, count) do
+    prefix = parent_prefix <> name <> "/"
+    node = Map.get(tree, name, %{name: name, prefix: prefix, count: 0, children: %{}})
+
+    Map.put(tree, name, %{
+      node
+      | count: node.count + count,
+        children: insert_folders(node.children, rest, prefix, count)
+    })
+  end
+
+  defp sort_folders(tree) do
+    tree
+    |> Map.values()
+    |> Enum.sort_by(& &1.name)
+    |> Enum.map(fn node -> %{node | children: sort_folders(node.children)} end)
+  end
+
   def project(objects, opts \\ []) do
     prefix = Keyword.get(opts, :prefix, "")
     search = Keyword.get(opts, :search, "") || ""

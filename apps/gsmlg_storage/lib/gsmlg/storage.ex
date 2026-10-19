@@ -445,6 +445,306 @@ defmodule GSMLG.Storage do
 
   def create_object_folder(_prefix, _backend_id), do: {:error, :invalid_object_key}
 
+  @doc """
+  Renames one exact S3 folder segment, retaining managed UUIDs and logical metadata.
+
+  Referenced attachments and live sync readers prevent the operation, as with
+  object deletion. Copies complete before manifests change; a failed operation
+  keeps copies and original objects needed for recovery instead of rolling S3 back.
+  """
+  def rename_object_folder(prefix, new_name, backend_id) do
+    with :ok <- validate_folder_prefix(prefix),
+         {:ok, destination} <- renamed_folder_prefix(prefix, new_name),
+         :ok <- validate_folder_prefix(destination) do
+      with_object_folder(prefix, backend_id, fn files, objects, backend ->
+        with {:ok, all_files} <- Catalog.list(backend: backend),
+             :ok <- folder_destination_available(destination, all_files, objects),
+             :ok <- validate_folder_copies(prefix, destination, files, objects),
+             :ok <- copy_folder_objects(prefix, destination, objects, backend),
+             :ok <- rewrite_folder_manifests(prefix, destination, files, backend),
+             :ok <- remove_folder_objects(folder_objects(objects, prefix), backend),
+             :ok <- ensure_folder_removed(prefix, backend),
+             do: {:ok, destination}
+      end)
+    end
+  end
+
+  @doc """
+  Deletes an exact folder recursively, checking all managed references first.
+
+  Deleting a managed original also deletes its variants, including variants
+  outside the selected prefix. Failed purges retain the deleted manifest for retry.
+  """
+  def delete_object_folder(prefix, backend_id) do
+    with :ok <- validate_folder_prefix(prefix) do
+      with_object_folder(prefix, backend_id, fn files, objects, backend ->
+        with :ok <- delete_folder_managed_files(prefix, files, objects, backend),
+             managed_keys <- Enum.flat_map(files, &file_object_keys/1) |> MapSet.new(),
+             raw <-
+               objects
+               |> folder_objects(prefix)
+               |> Enum.reject(&MapSet.member?(managed_keys, &1.key)),
+             :ok <- remove_folder_objects(raw, backend),
+             :ok <- ensure_folder_removed(prefix, backend),
+             do: {:ok, prefix}
+      end)
+    end
+  end
+
+  defp with_object_folder(prefix, backend_id, operation) do
+    with {:ok, backend} <- capture_current_backend(backend_id),
+         {:ok, files} <- Catalog.list(backend: backend),
+         {:ok, objects} <- S3Client.list_objects(backend) do
+      affected = folder_files(files, prefix)
+
+      # The checkout deadline must not release UUID locks during a long S3 batch.
+      Repo.transaction(
+        fn ->
+          # Use the same sorted UUID locks as attachment and sync pin writers.
+          current = affected |> Enum.sort_by(& &1.id) |> Enum.map(&lock_file(&1.id, backend))
+
+          with :ok <- unchanged_folder_files(affected, current),
+               {:ok, fresh_files} <- Catalog.list(backend: backend),
+               :ok <- unchanged_folder_files(current, folder_files(fresh_files, prefix)),
+               {:ok, fresh_objects} <- S3Client.list_objects(backend),
+               selected <- folder_objects(fresh_objects, prefix),
+               :ok <- unchanged_folder_objects(folder_objects(objects, prefix), selected),
+               :ok <- folder_exists(selected, current),
+               :ok <- validate_folder_ownership(current, fresh_files),
+               :ok <- current_folder_backend(backend) do
+            tables = reference_tables()
+            Enum.each(current, &ensure_unreferenced!(&1, tables))
+            operation.(current, fresh_objects, backend)
+          end
+        end,
+        timeout: :infinity
+      )
+      |> case do
+        {:ok, result} -> result
+        {:error, _} = error -> error
+      end
+    end
+  end
+
+  defp validate_folder_prefix(prefix) when is_binary(prefix) and prefix not in ["", "/"] do
+    with :ok <- validate_object_key(prefix) do
+      if String.ends_with?(prefix, "/"), do: :ok, else: {:error, :invalid_folder_prefix}
+    end
+  end
+
+  defp validate_folder_prefix(_prefix), do: {:error, :invalid_folder_prefix}
+
+  defp renamed_folder_prefix(prefix, name) when is_binary(name) do
+    if String.valid?(name) and String.trim(name) != "" and name not in [".", ".."] and
+         not String.contains?(name, "/") and not Regex.match?(~r/\p{Cc}/u, name) do
+      segment = prefix |> String.split("/", trim: false) |> Enum.drop(-1) |> List.last()
+      parent_size = byte_size(prefix) - byte_size(segment) - 1
+      {:ok, binary_part(prefix, 0, parent_size) <> name <> "/"}
+    else
+      {:error, :invalid_folder_name}
+    end
+  end
+
+  defp renamed_folder_prefix(_prefix, _name), do: {:error, :invalid_folder_name}
+
+  defp folder_files(files, prefix),
+    do:
+      Enum.filter(files, fn file ->
+        Enum.any?(file_object_keys(file), &String.starts_with?(&1, prefix))
+      end)
+
+  defp file_object_keys(file),
+    do: [
+      file.s3_key | Enum.map(file.variants || %{}, fn {_name, variant} -> variant["s3_key"] end)
+    ]
+
+  defp folder_objects(objects, prefix),
+    do: Enum.filter(objects, &String.starts_with?(&1.key, prefix))
+
+  defp folder_exists([], []), do: {:error, :folder_not_found}
+  defp folder_exists(_objects, _files), do: :ok
+
+  defp unchanged_folder_files(before, after_files) do
+    cond do
+      Enum.any?(after_files, &(&1.status == "processing")) ->
+        {:error, :file_processing}
+
+      Enum.sort_by(before, & &1.id) != Enum.sort_by(after_files, & &1.id) ->
+        {:error, :folder_changed}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp unchanged_folder_objects(before, after_objects) do
+    if Enum.sort_by(before, & &1.key) == Enum.sort_by(after_objects, & &1.key),
+      do: :ok,
+      else: {:error, :folder_changed}
+  end
+
+  defp validate_folder_ownership(affected, files) do
+    keys = Enum.flat_map(affected, &file_object_keys/1)
+    affected_keys = MapSet.new(keys)
+
+    case Enum.find(keys, &Catalog.internal_key?/1) do
+      nil ->
+        owners =
+          Enum.flat_map(files, &file_object_keys/1)
+          |> Enum.filter(&MapSet.member?(affected_keys, &1))
+
+        if length(owners) == MapSet.size(affected_keys),
+          do: :ok,
+          else: {:error, :object_key_conflict}
+
+      _key ->
+        {:error, :reserved_storage_key}
+    end
+  end
+
+  defp folder_destination_available(destination, files, objects) do
+    if Enum.any?(objects, &String.starts_with?(&1.key, destination)) or
+         folder_files(files, destination) != [],
+       do: {:error, :folder_exists},
+       else: :ok
+  end
+
+  defp validate_folder_copies(prefix, destination, files, objects) do
+    keys = MapSet.new(objects, & &1.key)
+
+    managed =
+      Enum.flat_map(files, &file_object_keys/1) |> Enum.filter(&String.starts_with?(&1, prefix))
+
+    cond do
+      Enum.any?(managed, &(not MapSet.member?(keys, &1))) ->
+        {:error, :folder_changed}
+
+      Enum.any?(
+        folder_objects(objects, prefix),
+        &(byte_size(move_folder_key(&1.key, prefix, destination)) > 1024)
+      ) ->
+        {:error, :invalid_folder_name}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp copy_folder_objects(prefix, destination, objects, backend) do
+    objects
+    |> folder_objects(prefix)
+    |> Enum.reduce_while(:ok, fn object, :ok ->
+      result =
+        with :ok <- current_folder_backend(backend),
+             do:
+               S3Client.copy_object(
+                 backend,
+                 object.key,
+                 move_folder_key(object.key, prefix, destination),
+                 object.etag
+               )
+
+      folder_step(result, :copy, object.key)
+    end)
+  end
+
+  defp rewrite_folder_manifests(prefix, destination, files, backend) do
+    Enum.reduce_while(files, :ok, fn file, :ok ->
+      variants =
+        Map.new(file.variants || %{}, fn {name, variant} ->
+          {name, Map.update!(variant, "s3_key", &move_folder_key(&1, prefix, destination))}
+        end)
+
+      result =
+        with :ok <- current_folder_backend(backend) do
+          file
+          |> StorageFile.changeset(%{
+            s3_key: move_folder_key(file.s3_key, prefix, destination),
+            variants: variants
+          })
+          |> Catalog.update(backend: backend)
+        end
+
+      folder_step(result, :manifest, file.id)
+    end)
+  end
+
+  defp move_folder_key(key, prefix, destination),
+    do:
+      if(String.starts_with?(key, prefix),
+        do:
+          destination <> binary_part(key, byte_size(prefix), byte_size(key) - byte_size(prefix)),
+        else: key
+      )
+
+  defp remove_folder_objects(objects, backend) do
+    Enum.reduce_while(objects, :ok, fn object, :ok ->
+      result =
+        with :ok <- current_folder_backend(backend),
+             do: S3Client.delete_object(backend, object.key, object.etag)
+
+      folder_step(result, :delete, object.key)
+    end)
+  end
+
+  defp folder_step(:ok, _stage, _key), do: {:cont, :ok}
+  defp folder_step({:ok, _file}, _stage, _key), do: {:cont, :ok}
+
+  defp folder_step({:error, reason}, stage, key),
+    do: {:halt, {:error, {:folder_operation_failed, stage, key, reason}}}
+
+  defp delete_folder_managed_files(prefix, files, objects, backend) do
+    Enum.reduce_while(files, :ok, fn file, :ok ->
+      result = delete_folder_managed_file(prefix, file, objects, backend)
+      folder_step(result, :managed_delete, file.id)
+    end)
+  end
+
+  defp delete_folder_managed_file(prefix, file, objects, backend) do
+    if String.starts_with?(file.s3_key, prefix) do
+      with :ok <- current_folder_backend(backend),
+           {:ok, deleted} <-
+             file
+             |> StorageFile.status_changeset(%{status: "deleted"})
+             |> Catalog.update(backend: backend),
+           keys <- MapSet.new(file_object_keys(file)),
+           :ok <-
+             remove_folder_objects(Enum.filter(objects, &MapSet.member?(keys, &1.key)), backend),
+           :ok <- current_folder_backend(backend),
+           {:ok, _} <- Catalog.delete(deleted, backend: backend),
+           do: :ok
+    else
+      variants =
+        Map.reject(file.variants || %{}, fn {_name, variant} ->
+          String.starts_with?(variant["s3_key"], prefix)
+        end)
+
+      keys =
+        file_object_keys(file) |> Enum.filter(&String.starts_with?(&1, prefix)) |> MapSet.new()
+
+      with :ok <- current_folder_backend(backend),
+           {:ok, _} <-
+             file
+             |> StorageFile.variants_changeset(%{variants: variants})
+             |> Catalog.update(backend: backend),
+           do: remove_folder_objects(Enum.filter(objects, &MapSet.member?(keys, &1.key)), backend)
+    end
+  end
+
+  defp current_folder_backend(backend) do
+    if S3Client.current_backend_id() == backend.id, do: :ok, else: {:error, :backend_changed}
+  end
+
+  defp ensure_folder_removed(prefix, backend) do
+    with :ok <- current_folder_backend(backend),
+         {:ok, objects} <- S3Client.list_objects(backend),
+         {:ok, files} <- Catalog.list(backend: backend) do
+      if folder_objects(objects, prefix) == [] and folder_files(files, prefix) == [],
+        do: :ok,
+        else: {:error, {:folder_operation_failed, :cleanup, prefix, :folder_changed}}
+    end
+  end
+
   defp delete_managed_object(%{s3_key: key} = file, key, backend) do
     with {:ok, deleted} <-
            file

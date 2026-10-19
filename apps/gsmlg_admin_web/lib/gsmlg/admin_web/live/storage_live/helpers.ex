@@ -37,6 +37,38 @@ defmodule GSMLG.AdminWeb.StorageLive.Helpers do
   def mutation_error(%Ecto.Changeset{}), do: "Enter a valid tenant and file type."
   def mutation_error(_reason), do: "Could not change the S3 object. Try again."
 
+  def folder_mutation_error(:file_referenced),
+    do: "This folder contains a file still used by a note or sync reader."
+
+  def folder_mutation_error(:file_processing),
+    do: "An upload in this folder is still processing. Try again after it finishes."
+
+  def folder_mutation_error(:folder_exists), do: "A folder with this name already exists."
+
+  def folder_mutation_error(:folder_not_found),
+    do: "This folder no longer exists. Refresh the listing."
+
+  def folder_mutation_error(:folder_changed),
+    do: "The folder changed during this operation. Refresh the listing and try again."
+
+  def folder_mutation_error(:invalid_folder_name),
+    do: "Enter a folder name without / or control characters."
+
+  def folder_mutation_error(reason)
+      when reason in [:invalid_folder_prefix, :reserved_storage_key],
+      do: "This folder path cannot be changed."
+
+  def folder_mutation_error(:object_key_conflict),
+    do: "An object with this name already exists. Refresh the listing."
+
+  def folder_mutation_error({:folder_operation_failed, _stage, _key, _reason}),
+    do: "The operation stopped partway. Refresh the listing to check the remaining files."
+
+  def folder_mutation_error(:folder_operation_failed),
+    do: "The operation could not finish. Refresh the listing to check the remaining files."
+
+  def folder_mutation_error(reason), do: mutation_error(reason)
+
   def error_to_string(:too_large), do: "File is too large"
   def error_to_string(:too_many_files), do: "Too many files selected"
   def error_to_string(:not_accepted), do: "File type not accepted"

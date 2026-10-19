@@ -192,6 +192,121 @@ defmodule GSMLG.Storage.InventoryTest do
              Inventory.project(objects, prefix: "empty/")
   end
 
+  test "builds a sorted folder tree with recursive counts and explicit empty folders" do
+    objects = [
+      object("zeta/empty/", 0),
+      object("photos/trips/2026/a.jpg", 4),
+      object("photos/local.jpg", 3),
+      object("alpha/b.txt", 2),
+      object("photos/", 0),
+      object("photos/trips/", 0),
+      object("photos/trips/2026/b.jpg", 5),
+      object("root.txt", 6)
+    ]
+
+    assert Inventory.folder_tree(objects) == [
+             %{name: "alpha", prefix: "alpha/", count: 1, children: []},
+             %{
+               name: "photos",
+               prefix: "photos/",
+               count: 3,
+               children: [
+                 %{
+                   name: "trips",
+                   prefix: "photos/trips/",
+                   count: 2,
+                   children: [
+                     %{
+                       name: "2026",
+                       prefix: "photos/trips/2026/",
+                       count: 2,
+                       children: []
+                     }
+                   ]
+                 }
+               ]
+             },
+             %{
+               name: "zeta",
+               prefix: "zeta/",
+               count: 0,
+               children: [%{name: "empty", prefix: "zeta/empty/", count: 0, children: []}]
+             }
+           ]
+
+    assert Inventory.folder_tree([]) == []
+    assert Inventory.folder_tree([object("root.txt", 6)]) == []
+  end
+
+  test "folder tree preserves raw Unicode, reserved characters and empty slash segments" do
+    objects = [
+      object(" 空格 +%&#?/中文/file.txt", 1),
+      object("a//b/file.txt", 2),
+      object("a//", 0),
+      object("/leading/file.txt", 3),
+      object("//", 0)
+    ]
+
+    assert Inventory.folder_tree(objects) == [
+             %{
+               name: "",
+               prefix: "/",
+               count: 1,
+               children: [
+                 %{name: "", prefix: "//", count: 0, children: []},
+                 %{name: "leading", prefix: "/leading/", count: 1, children: []}
+               ]
+             },
+             %{
+               name: " 空格 +%&#?",
+               prefix: " 空格 +%&#?/",
+               count: 1,
+               children: [%{name: "中文", prefix: " 空格 +%&#?/中文/", count: 1, children: []}]
+             },
+             %{
+               name: "a",
+               prefix: "a/",
+               count: 1,
+               children: [
+                 %{
+                   name: "",
+                   prefix: "a//",
+                   count: 1,
+                   children: [%{name: "b", prefix: "a//b/", count: 1, children: []}]
+                 }
+               ]
+             }
+           ]
+  end
+
+  test "folder tree from a loaded inventory excludes internal catalog metadata" do
+    backend =
+      backend(fn _, _, _, _ ->
+        response(
+          page(
+            [
+              {".gsmlg-storage/files/id.json", 12},
+              {".gsmlg-storage/", 0},
+              {"visible/note.txt", 4},
+              {"visible/empty/", 0}
+            ],
+            false
+          )
+        )
+      end)
+
+    assert {:ok, snapshot} = Inventory.load(backend)
+
+    assert Inventory.folder_tree(snapshot.objects) == [
+             %{
+               name: "visible",
+               prefix: "visible/",
+               count: 1,
+               children: [%{name: "empty", prefix: "visible/empty/", count: 0, children: []}]
+             }
+           ]
+  end
+
   test "reads HEAD metadata and exact key from S3 response headers" do
     key = "a folder/+%?.txt"
 
