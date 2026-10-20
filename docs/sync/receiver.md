@@ -165,7 +165,7 @@ Cleanup reclaims expired read owners even if their peer stays
 offline after a VM crash. This preserves pending and membership pins; expiry
 does not record a successful ACK.
 
-Back up PostgreSQL, including all sync tables and Oban jobs, together with the
+Back up PostgreSQL, including all sync tables and Styx jobs, together with the
 object store. Preserve the node/clock, peers, memberships, receipts, pending
 snapshots and pins. Restoring only note rows loses replay and deletion fences.
 After restart, reconnect creates a fresh session and reclaims abandoned read

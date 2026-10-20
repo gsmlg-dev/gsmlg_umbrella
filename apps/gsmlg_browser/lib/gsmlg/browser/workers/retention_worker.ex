@@ -1,7 +1,7 @@
 defmodule GSMLG.Browser.Workers.RetentionWorker do
   @moduledoc false
 
-  use Oban.Worker,
+  use Styx.Worker,
     queue: :browser_maintenance,
     max_attempts: 3,
     unique: [period: 300, fields: [:worker], states: :incomplete]
@@ -14,7 +14,7 @@ defmodule GSMLG.Browser.Workers.RetentionWorker do
   @terminal ~w(completed failed cancelled)
   @batch_size 500
 
-  @impl Oban.Worker
+  @impl Styx.Worker
   def perform(_job) do
     with :ok <- Enabled.ensure(),
          {:ok, cutoff} <- retention_cutoff() do

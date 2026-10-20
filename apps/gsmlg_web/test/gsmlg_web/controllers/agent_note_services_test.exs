@@ -108,12 +108,12 @@ defmodule GSMLG.Web.AgentNoteServicesTest do
       Keyword.put(config, :index_url, index_url)
     )
 
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       {:ok, note} = GaoNote.create_note(%{title: "Index", content: "Markdown"}, nil)
 
-      assert [%Oban.Job{} = job] =
+      assert [%Styx.Job{} = job] =
                GSMLG.Repo.all(
-                 from(j in Oban.Job, where: j.worker == "GSMLG.GaoNote.Workers.IndexWorker")
+                 from(j in Styx.Job, where: j.worker == "GSMLG.GaoNote.Workers.IndexWorker")
                )
 
       assert :ok = GSMLG.GaoNote.Workers.IndexWorker.perform(job)

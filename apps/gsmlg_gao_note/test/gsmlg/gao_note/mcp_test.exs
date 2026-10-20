@@ -931,7 +931,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       string_actor_frame = admin_frame(%{"id" => "admin-1"})
 
       assert %{"structuredContent" => %{"attachment" => deleted}} =
-               Oban.Testing.with_testing_mode(:manual, fn ->
+               Styx.Testing.with_testing_mode(:manual, fn ->
                  call_tool(
                    GSMLG.GaoNote.MCP.AdminServer,
                    "gao_note.delete_attachment",

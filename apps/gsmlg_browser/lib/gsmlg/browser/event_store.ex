@@ -352,8 +352,8 @@ defmodule GSMLG.Browser.EventStore do
         "trigger_sequence" => event.sequence
       })
 
-    case Oban.insert(changeset) do
-      {:ok, _oban_job} -> :ok
+    case Styx.insert(changeset) do
+      {:ok, _styx_job} -> :ok
       {:error, _changeset} -> {:error, :reconcile_enqueue_failed}
     end
   end

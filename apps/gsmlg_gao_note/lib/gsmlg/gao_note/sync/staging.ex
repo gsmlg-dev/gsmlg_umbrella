@@ -83,7 +83,7 @@ defmodule GSMLG.GaoNote.Sync.Staging do
              {:ok, _job} <-
                %{storage_file_id: file.id}
                |> StorageFilePurgeWorker.new(schedule_in: @expiry_seconds)
-               |> Oban.insert() do
+               |> Styx.insert() do
           file
         else
           {:error, reason} -> Repo.rollback(reason)

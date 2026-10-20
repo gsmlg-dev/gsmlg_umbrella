@@ -1,6 +1,6 @@
 defmodule GSMLG.ContentTest do
   use GSMLG.DataCase
-  use Oban.Testing, repo: GSMLG.Repo
+  use Styx.Testing, repo: GSMLG.Repo
 
   alias GSMLG.Content
 
@@ -129,7 +129,7 @@ defmodule GSMLG.ContentTest do
     end
 
     test "create_blog/1 creates translation records for each non-source supported locale" do
-      # In Oban inline testing mode, jobs run immediately on insert.
+      # In Styx inline testing mode, jobs run immediately on insert.
       # We verify the outcome: translation records exist for all non-source locales.
       supported = GSMLG.Locale.supported()
 

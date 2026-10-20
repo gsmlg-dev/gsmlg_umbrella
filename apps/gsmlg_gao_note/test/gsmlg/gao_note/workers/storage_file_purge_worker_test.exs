@@ -6,7 +6,7 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
     :ok
   end
 
-  use Oban.Testing, repo: GSMLG.Repo
+  use Styx.Testing, repo: GSMLG.Repo
 
   defmodule S3Stub do
     use Plug.Router
@@ -44,17 +44,17 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
     assert job.max_attempts == 10
     assert %{fields: [:worker, :args], period: 86_400} = job.unique
 
-    Oban.Testing.with_testing_mode(:manual, fn ->
-      assert {:ok, first_job} = Oban.insert(changeset)
+    Styx.Testing.with_testing_mode(:manual, fn ->
+      assert {:ok, first_job} = Styx.insert(changeset)
 
       assert {:ok, duplicate_job} =
-               Oban.insert(StorageFilePurgeWorker.new(%{storage_file_id: storage_file_id}))
+               Styx.insert(StorageFilePurgeWorker.new(%{storage_file_id: storage_file_id}))
 
       refute first_job.conflict?
       assert duplicate_job.conflict?
       assert duplicate_job.id == first_job.id
 
-      assert [%Oban.Job{id: enqueued_id}] =
+      assert [%Styx.Job{id: enqueued_id}] =
                all_enqueued(
                  worker: StorageFilePurgeWorker,
                  args: %{storage_file_id: storage_file_id}
@@ -134,25 +134,25 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
                storage_file_id: file_with_variants.id
              })
 
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       assert {:ok, wrong_type_job} =
-               Oban.insert(
+               Styx.insert(
                  StorageFilePurgeWorker.new(%{
                    storage_file_id: wrong_type_file.id
                  })
                )
 
       assert {:ok, variants_job} =
-               Oban.insert(
+               Styx.insert(
                  StorageFilePurgeWorker.new(%{
                    storage_file_id: file_with_variants.id
                  })
                )
 
-      _summary = Oban.drain_queue(queue: :storage_cleanup)
+      _summary = Styx.drain_queue(queue: :storage_cleanup)
 
-      assert Repo.get!(Oban.Job, wrong_type_job.id).state == "cancelled"
-      assert Repo.get!(Oban.Job, variants_job.id).state == "cancelled"
+      assert Repo.get!(Styx.Job, wrong_type_job.id).state == "cancelled"
+      assert Repo.get!(Styx.Job, variants_job.id).state == "cancelled"
     end)
 
     assert %StorageFile{status: "active"} = Storage.get(wrong_type_file.id)
@@ -165,25 +165,25 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
       retryable_file = insert_file(%{status: "active"})
       exhausted_file = insert_file(%{status: "active"})
 
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         assert {:ok, retryable_job} =
-                 Oban.insert(StorageFilePurgeWorker.new(%{storage_file_id: retryable_file.id}))
+                 Styx.insert(StorageFilePurgeWorker.new(%{storage_file_id: retryable_file.id}))
 
         assert {:ok, discarded_job} =
-                 Oban.insert(
+                 Styx.insert(
                    StorageFilePurgeWorker.new(
                      %{storage_file_id: exhausted_file.id},
                      max_attempts: 1
                    )
                  )
 
-        _summary = Oban.drain_queue(queue: :storage_cleanup)
+        _summary = Styx.drain_queue(queue: :storage_cleanup)
 
-        persisted_retryable_job = Repo.get!(Oban.Job, retryable_job.id)
+        persisted_retryable_job = Repo.get!(Styx.Job, retryable_job.id)
         assert persisted_retryable_job.state == "retryable"
         assert persisted_retryable_job.attempt == 1
 
-        persisted_discarded_job = Repo.get!(Oban.Job, discarded_job.id)
+        persisted_discarded_job = Repo.get!(Styx.Job, discarded_job.id)
         assert persisted_discarded_job.state == "discarded"
         assert persisted_discarded_job.attempt == persisted_discarded_job.max_attempts
       end)
@@ -194,16 +194,16 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
   end
 
   test "cancels jobs with missing or malformed storage file IDs" do
-    Oban.Testing.with_testing_mode(:manual, fn ->
-      assert {:ok, missing_id_job} = Oban.insert(StorageFilePurgeWorker.new(%{}))
+    Styx.Testing.with_testing_mode(:manual, fn ->
+      assert {:ok, missing_id_job} = Styx.insert(StorageFilePurgeWorker.new(%{}))
 
       assert {:ok, malformed_id_job} =
-               Oban.insert(StorageFilePurgeWorker.new(%{storage_file_id: "not-a-uuid"}))
+               Styx.insert(StorageFilePurgeWorker.new(%{storage_file_id: "not-a-uuid"}))
 
-      _summary = Oban.drain_queue(queue: :storage_cleanup)
+      _summary = Styx.drain_queue(queue: :storage_cleanup)
 
-      assert Repo.get!(Oban.Job, missing_id_job.id).state == "cancelled"
-      assert Repo.get!(Oban.Job, malformed_id_job.id).state == "cancelled"
+      assert Repo.get!(Styx.Job, missing_id_job.id).state == "cancelled"
+      assert Repo.get!(Styx.Job, malformed_id_job.id).state == "cancelled"
     end)
 
     assert {:cancel, :invalid_storage_file_id} =

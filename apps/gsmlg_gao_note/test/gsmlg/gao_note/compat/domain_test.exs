@@ -128,7 +128,7 @@ defmodule GSMLG.GaoNote.Compat.DomainTest do
     Enum.each(values, fn {key, value} -> Application.put_env(:gsmlg_storage, key, value) end)
 
     try do
-      Oban.Testing.with_testing_mode(:manual, fun)
+      Styx.Testing.with_testing_mode(:manual, fun)
     after
       Enum.each(previous, fn
         {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)

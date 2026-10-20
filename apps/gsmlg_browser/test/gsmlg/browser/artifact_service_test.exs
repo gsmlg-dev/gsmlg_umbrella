@@ -395,7 +395,7 @@ defmodule GSMLG.Browser.ArtifactServiceTest do
     manifest = manifest(ctx, content, "report.json", "application/json", "report.json", "inline")
 
     artifact =
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         assert {:ok, %Artifact{ack_status: "pending", ack_attempts: 1} = artifact} =
                  ArtifactService.ingest_inline(
                    ctx.node.commander_id,
@@ -404,7 +404,7 @@ defmodule GSMLG.Browser.ArtifactServiceTest do
                    ack: fn _job, _artifact -> {:error, :node_offline} end
                  )
 
-        assert Repo.get_by!(Oban.Job,
+        assert Repo.get_by!(Styx.Job,
                  worker: inspect(ArtifactAckWorker),
                  args: %{"artifact_id" => artifact.id}
                )

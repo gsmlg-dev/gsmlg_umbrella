@@ -151,8 +151,8 @@ defmodule GSMLG.Browser.ContextTest do
     assert {:ok, %Job{id: same_id}} = Browser.create_job(actor, attrs)
     assert same_id == first.id
 
-    assert [%Oban.Job{args: %{"job_id" => job_id}, worker: worker}] =
-             Repo.all(from(job in Oban.Job, where: job.args["job_id"] == ^first.id))
+    assert [%Styx.Job{args: %{"job_id" => job_id}, worker: worker}] =
+             Repo.all(from(job in Styx.Job, where: job.args["job_id"] == ^first.id))
 
     assert job_id == first.id
     assert worker == "GSMLG.Browser.Workers.DispatchWorker"
@@ -879,7 +879,7 @@ defmodule GSMLG.Browser.ContextTest do
                ack: fn _agent, _ack -> :ok end
              )
 
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       assert {:ok, _} =
                GSMLG.Browser.EventStore.ingest(
                  node.commander_id,
@@ -958,13 +958,13 @@ defmodule GSMLG.Browser.ContextTest do
              Browser.create_job(actor, put_in(attrs, [:input, "prompt"], "changed"))
   end
 
-  test "a failed Oban insertion rolls back the job and profile lease" do
+  test "a failed Styx insertion rolls back the job and profile lease" do
     actor = actor_fixture()
     node = online_node_fixture()
     profile = profile_fixture(node)
 
     Repo.query!("""
-    ALTER TABLE oban_jobs
+    ALTER TABLE styx_jobs
     ADD CONSTRAINT browser_test_reject_dispatch
     CHECK (worker <> 'GSMLG.Browser.Workers.DispatchWorker')
     """)

@@ -107,7 +107,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
             GSMLG.Storage.TestCatalogClient.delete_file!(file)
 
             Repo.delete_all(
-              from(job in Oban.Job,
+              from(job in Styx.Job,
                 where: fragment("?->>'storage_file_id'", job.args) == ^file.id
               )
             )
@@ -142,7 +142,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
       assert file.status == "processing"
 
       assert Repo.exists?(
-               from(j in Oban.Job,
+               from(j in Styx.Job,
                  where:
                    j.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
                      fragment("?->>'storage_file_id'", j.args) == ^file.id
@@ -191,7 +191,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
         assert file.status == "processing"
 
         assert Repo.exists?(
-                 from(j in Oban.Job,
+                 from(j in Styx.Job,
                    where:
                      j.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
                        fragment("?->>'storage_file_id'", j.args) == ^file.id
@@ -240,7 +240,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
         assert file.status == "processing"
 
         refute Repo.exists?(
-                 from(j in Oban.Job,
+                 from(j in Styx.Job,
                    where: fragment("?->>'storage_file_id'", j.args) == ^file.id
                  )
                )
@@ -250,7 +250,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
         assert_receive {:object_put, ^uploader, _key, "staged bytes"}, 5_000
 
         assert Repo.exists?(
-                 from(j in Oban.Job,
+                 from(j in Styx.Job,
                    where:
                      j.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
                        fragment("?->>'storage_file_id'", j.args) == ^file.id
@@ -308,7 +308,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
 
       job =
         Repo.one!(
-          from(j in Oban.Job, where: fragment("?->>'storage_file_id'", j.args) == ^file.id)
+          from(j in Styx.Job, where: fragment("?->>'storage_file_id'", j.args) == ^file.id)
         )
 
       assert abs(DateTime.diff(job.scheduled_at, expires_at)) <= 1
@@ -525,7 +525,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
     owner = self()
 
     Task.Supervisor.async_nolink(GSMLG.TaskSupervisor, fn ->
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         unboxed(fn ->
           {:ok, plan} =
             Attachments.prepare_sync(
@@ -553,12 +553,12 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
   end
 
   defp recover(file),
-    do: StorageFilePurgeWorker.perform(%Oban.Job{args: %{"storage_file_id" => file.id}})
+    do: StorageFilePurgeWorker.perform(%Styx.Job{args: %{"storage_file_id" => file.id}})
 
   defp recovery_jobs,
     do:
       Repo.all(
-        from(job in Oban.Job,
+        from(job in Styx.Job,
           where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker",
           order_by: job.id,
           select: job.id
@@ -587,7 +587,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
         Repo.delete_all(from(p in Pin, where: p.storage_file_id == ^file.id))
 
         Repo.delete_all(
-          from(j in Oban.Job, where: fragment("?->>'storage_file_id'", j.args) == ^file.id)
+          from(j in Styx.Job, where: fragment("?->>'storage_file_id'", j.args) == ^file.id)
         )
 
         if current = GSMLG.Storage.get(file.id) do
@@ -600,7 +600,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
 
   defp unboxed(work),
     do:
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, work)
       end)
 end

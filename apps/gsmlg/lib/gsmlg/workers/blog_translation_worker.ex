@@ -1,6 +1,6 @@
 defmodule GSMLG.Workers.BlogTranslationWorker do
   @moduledoc """
-  Oban worker that translates a blog post into a target locale using the configured provider.
+  Styx worker that translates a blog post into a target locale using the configured provider.
 
   ## Job Args
   - `"blog_id"` — ID of the blog to translate
@@ -9,19 +9,19 @@ defmodule GSMLG.Workers.BlogTranslationWorker do
 
   ## Retry Behaviour
   - `{:snooze, 60}` for rate-limit errors (retries after 60 seconds)
-  - `{:error, reason}` for retriable failures (Oban retries with exponential backoff)
+  - `{:error, reason}` for retriable failures (Styx retries with exponential backoff)
   - `{:cancel, reason}` for unrecoverable errors (blog not found)
   - On last attempt failure: marks translation as `"failed"` before returning `{:error, _}`
   """
 
-  use Oban.Worker, queue: :translations, max_attempts: 3
+  use Styx.Worker, queue: :translations, max_attempts: 3
 
   alias GSMLG.Content
   alias GSMLG.Content.{Blog, BlogTranslation}
   alias GSMLG.Repo
 
-  @impl Oban.Worker
-  def perform(%Oban.Job{
+  @impl Styx.Worker
+  def perform(%Styx.Job{
         args: %{"blog_id" => blog_id, "locale" => locale, "source_locale" => source_locale},
         attempt: attempt,
         max_attempts: max_attempts

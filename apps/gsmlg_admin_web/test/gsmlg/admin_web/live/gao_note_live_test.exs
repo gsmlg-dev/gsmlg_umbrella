@@ -1372,7 +1372,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     } do
       note = deleted_note_fixture(user, "Recycle Malformed Submit")
       Repo.delete_all(Log)
-      Repo.delete_all(Oban.Job)
+      Repo.delete_all(Styx.Job)
       {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
       render_async(view)
       select_recycle_notes(view, [note])
@@ -1390,7 +1390,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
         assert %Note{} = GaoNote.get_deleted_note(note.id)
         assert GaoNote.list_logs() == []
 
-        assert Oban.Testing.all_enqueued(GSMLG.Repo,
+        assert Styx.Testing.all_enqueued(GSMLG.Repo,
                  worker: GSMLG.GaoNote.Workers.StorageFilePurgeWorker
                ) == []
 
@@ -1471,9 +1471,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       attachment = attachment_by_id(note, "recycle-purge-file")
       assert {:ok, %Note{}} = GaoNote.delete_note(note, user)
       Repo.delete_all(Log)
-      Repo.delete_all(Oban.Job)
+      Repo.delete_all(Styx.Job)
 
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
         render_async(view)
         put_live_testing_mode(view, :manual)
@@ -1483,8 +1483,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
         submit_batch_purge(view, "DELETE")
         render_async(view)
 
-        assert [%Oban.Job{}] =
-                 Oban.Testing.all_enqueued(GSMLG.Repo,
+        assert [%Styx.Job{}] =
+                 Styx.Testing.all_enqueued(GSMLG.Repo,
                    worker: GSMLG.GaoNote.Workers.StorageFilePurgeWorker,
                    args: %{storage_file_id: attachment.storage_file_id}
                  )
@@ -1508,7 +1508,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       change_batch_purge(view, "DELETE")
       assert {:ok, %Note{}} = GaoNote.restore_note(stale, user)
       Repo.delete_all(Log)
-      Repo.delete_all(Oban.Job)
+      Repo.delete_all(Styx.Job)
 
       html = submit_batch_purge(view, "DELETE")
 
@@ -1517,7 +1517,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       assert %Note{} = GaoNote.get_note(stale.id)
       assert GaoNote.list_logs() == []
 
-      assert Oban.Testing.all_enqueued(GSMLG.Repo,
+      assert Styx.Testing.all_enqueued(GSMLG.Repo,
                worker: GSMLG.GaoNote.Workers.StorageFilePurgeWorker
              ) == []
 
@@ -1534,7 +1534,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     } do
       note = deleted_note_fixture(user, "Recycle Forged Selection")
       Repo.delete_all(Log)
-      Repo.delete_all(Oban.Job)
+      Repo.delete_all(Styx.Job)
       {:ok, view, _html} = live(conn, ~p"/gao_notes/recycle_bin")
       render_async(view)
       put_live_assign(view, :batch_selected, MapSet.new([Ecto.UUID.generate()]))
@@ -1546,7 +1546,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       assert %Note{} = GaoNote.get_deleted_note(note.id)
       assert GaoNote.list_logs() == []
 
-      assert Oban.Testing.all_enqueued(GSMLG.Repo,
+      assert Styx.Testing.all_enqueued(GSMLG.Repo,
                worker: GSMLG.GaoNote.Workers.StorageFilePurgeWorker
              ) == []
 
@@ -1603,7 +1603,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
     } do
       note = deleted_note_fixture(user, "Recycle Safe Audit Failure")
       Repo.delete_all(Log)
-      Repo.delete_all(Oban.Job)
+      Repo.delete_all(Styx.Job)
       constraint = "gao_note_live_batch_purge_#{System.unique_integer([:positive])}"
 
       Repo.query!(
@@ -2798,7 +2798,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
   defp put_live_testing_mode(view, mode) do
     :sys.replace_state(view.pid, fn state ->
-      Process.put(:oban_testing, mode)
+      Process.put(:styx_testing, mode)
       state
     end)
   end

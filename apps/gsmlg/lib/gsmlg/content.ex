@@ -134,7 +134,7 @@ defmodule GSMLG.Content do
           })
         end)
 
-      inserted = Oban.insert_all(jobs)
+      inserted = Styx.insert_all(jobs)
       {:ok, length(inserted)}
     end)
     |> Repo.transaction()
@@ -202,7 +202,7 @@ defmodule GSMLG.Content do
           })
         end)
 
-      if jobs != [], do: Oban.insert_all(jobs)
+      if jobs != [], do: Styx.insert_all(jobs)
       {:ok, length(jobs)}
     end)
     |> Repo.transaction()

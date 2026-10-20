@@ -89,7 +89,7 @@ defmodule GSMLG.Browser.OrchestrationTest do
       set: [inserted_at: old]
     )
 
-    assert :ok = RetentionWorker.perform(%Oban.Job{args: %{}})
+    assert :ok = RetentionWorker.perform(%Styx.Job{args: %{}})
     refute Repo.get(JobEvent, terminal_event.id)
     assert Repo.get(JobEvent, active_event.id)
   end
@@ -115,7 +115,7 @@ defmodule GSMLG.Browser.OrchestrationTest do
     })
     |> Repo.insert!()
 
-    assert :ok = ReconcileSweepWorker.perform(%Oban.Job{args: %{}})
+    assert :ok = ReconcileSweepWorker.perform(%Styx.Job{args: %{}})
   end
 
   defp event_fixture(job, remote_id) do

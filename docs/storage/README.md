@@ -42,7 +42,7 @@ Uploads write a recoverable `processing` manifest before uploading bytes, then
 mark the manifest `active`. The cleanup worker reads S3 manifests, recovers
 expired intents, retries image variants and purges retained tombstones. Its
 bounded batches rotate between objects so protected or failed entries cannot
-starve later work. No SQL inventory or committed Oban recovery job is required
+starve later work. No SQL inventory or committed Styx recovery job is required
 to discover an interrupted upload.
 
 GaoNote note/attachment relationships, sync pins, leases and business

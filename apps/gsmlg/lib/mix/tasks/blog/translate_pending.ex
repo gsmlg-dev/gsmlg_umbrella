@@ -1,6 +1,6 @@
 defmodule Mix.Tasks.Blog.TranslatePending do
   @moduledoc """
-  Enqueues Oban translation jobs for all blogs with pending, failed, or outdated
+  Enqueues Styx translation jobs for all blogs with pending, failed, or outdated
   translations, as well as any missing translation pairs.
 
   By default this is a dry-run — no jobs are inserted into the database.
@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Blog.TranslatePending do
 
   ## Options
 
-    * `--confirm` — actually insert Oban jobs
+    * `--confirm` — actually insert Styx jobs
     * `--dry-run` — explicit dry-run (default behaviour, no DB writes)
 
   """
@@ -63,7 +63,7 @@ defmodule Mix.Tasks.Blog.TranslatePending do
           })
         end)
 
-      Oban.insert_all(jobs)
+      Styx.insert_all(jobs)
 
       IO.puts("#{count} jobs enqueued")
     else

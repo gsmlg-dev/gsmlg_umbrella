@@ -1,7 +1,7 @@
 defmodule GSMLG.Browser.Workers.ArtifactTransferWorker do
   @moduledoc false
 
-  use Oban.Worker,
+  use Styx.Worker,
     queue: :browser_artifacts,
     max_attempts: 10,
     unique: [period: 60, fields: [:worker, :args], states: :incomplete]
@@ -9,8 +9,8 @@ defmodule GSMLG.Browser.Workers.ArtifactTransferWorker do
   alias GSMLG.Browser.{Artifact, ArtifactService, Enabled}
   alias GSMLG.Repo
 
-  @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"artifact_id" => artifact_id}}) do
+  @impl Styx.Worker
+  def perform(%Styx.Job{args: %{"artifact_id" => artifact_id}}) do
     with :ok <- Enabled.ensure() do
       case Repo.get(Artifact, artifact_id) do
         %Artifact{status: "pending", transfer_mode: "remote_pending"} = artifact ->

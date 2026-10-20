@@ -1,6 +1,6 @@
 defmodule GSMLG.Workers.BlogTranslationWorkerTest do
   use GSMLG.DataCase
-  use Oban.Testing, repo: GSMLG.Repo
+  use Styx.Testing, repo: GSMLG.Repo
 
   import Mox
   import GSMLG.ContentFixtures
@@ -21,7 +21,7 @@ defmodule GSMLG.Workers.BlogTranslationWorkerTest do
         {:ok, %{title: "Translated Title", content: "Translated Content"}}
       end)
 
-      job = %Oban.Job{
+      job = %Styx.Job{
         args: %{"blog_id" => blog.id, "locale" => "en", "source_locale" => "zh-Hans"},
         attempt: 1,
         max_attempts: 3
@@ -36,7 +36,7 @@ defmodule GSMLG.Workers.BlogTranslationWorkerTest do
     end
 
     test "returns {:cancel, _} when blog not found" do
-      job = %Oban.Job{
+      job = %Styx.Job{
         args: %{"blog_id" => 999_999, "locale" => "en", "source_locale" => "zh-Hans"},
         attempt: 1,
         max_attempts: 3
@@ -54,7 +54,7 @@ defmodule GSMLG.Workers.BlogTranslationWorkerTest do
         {:error, :api_error}
       end)
 
-      job = %Oban.Job{
+      job = %Styx.Job{
         args: %{"blog_id" => blog.id, "locale" => "en", "source_locale" => "zh-Hans"},
         attempt: 3,
         max_attempts: 3
@@ -75,7 +75,7 @@ defmodule GSMLG.Workers.BlogTranslationWorkerTest do
         {:error, :rate_limited}
       end)
 
-      job = %Oban.Job{
+      job = %Styx.Job{
         args: %{"blog_id" => blog.id, "locale" => "en", "source_locale" => "zh-Hans"},
         attempt: 1,
         max_attempts: 3
@@ -94,7 +94,7 @@ defmodule GSMLG.Workers.BlogTranslationWorkerTest do
         {:error, :api_error}
       end)
 
-      job = %Oban.Job{
+      job = %Styx.Job{
         args: %{"blog_id" => blog.id, "locale" => "en", "source_locale" => "zh-Hans"},
         attempt: 1,
         max_attempts: 3

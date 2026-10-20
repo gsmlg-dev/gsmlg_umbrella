@@ -6,7 +6,7 @@ defmodule GSMLG.GaoNoteTest do
     :ok
   end
 
-  use Oban.Testing, repo: GSMLG.Repo
+  use Styx.Testing, repo: GSMLG.Repo
 
   defmodule S3Stub do
     use Plug.Router
@@ -554,7 +554,7 @@ defmodule GSMLG.GaoNoteTest do
         upload = plug_upload(tmp_dir, "replace.txt", "new upload bytes", "text/html")
         flush_storage_messages()
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:ok, %Note{} = updated} =
                    GaoNote.update_note(
                      note,
@@ -951,7 +951,7 @@ defmodule GSMLG.GaoNoteTest do
         Application.put_env(:gsmlg_gao_note, :storage_path, "sync-notes")
         note_id = Ecto.UUID.generate()
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:ok, %{staged_files: [file]} = plan} =
                    GSMLG.GaoNote.Attachments.prepare_sync(
                      note_id,
@@ -1452,7 +1452,7 @@ defmodule GSMLG.GaoNoteTest do
         old_storage_file_id = old_attachment.storage_file_id
         flush_storage_messages()
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:ok, %Note{} = updated} =
                    GaoNote.update_note(
                      note,
@@ -1492,7 +1492,7 @@ defmodule GSMLG.GaoNoteTest do
         kept = attachment_by_id(note, "keep")
         removed = attachment_by_id(note, "remove")
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:ok, %Note{attachments: [%Attachment{id: "keep"}]}} =
                    GaoNote.update_note(
                      note,
@@ -1528,7 +1528,7 @@ defmodule GSMLG.GaoNoteTest do
         kept = attachment_by_id(note, "rollback-keep")
         removed = attachment_by_id(note, "rollback-remove")
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:error, :deliberate_rollback} =
                    Repo.transaction(fn ->
                      assert {:ok, %Note{attachments: [%Attachment{id: "rollback-keep"}]}} =
@@ -1699,7 +1699,7 @@ defmodule GSMLG.GaoNoteTest do
         assert {:ok, %Note{}} = GaoNote.delete_note(restored, actor())
         recycled = GaoNote.get_deleted_note(note_id)
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:ok, %Note{id: ^note_id}} =
                    GaoNote.permanently_delete_note(recycled, actor())
 
@@ -1866,7 +1866,7 @@ defmodule GSMLG.GaoNoteTest do
         }
 
         replaced =
-          Oban.Testing.with_testing_mode(:manual, fn ->
+          Styx.Testing.with_testing_mode(:manual, fn ->
             assert {:ok, %Attachment{} = replaced} =
                      GaoNote.put_attachment(
                        note.id,
@@ -2011,7 +2011,7 @@ defmodule GSMLG.GaoNoteTest do
         flush_storage_messages()
 
         replaced =
-          Oban.Testing.with_testing_mode(:manual, fn ->
+          Styx.Testing.with_testing_mode(:manual, fn ->
             assert {:ok,
                     %Attachment{
                       id: "standalone-replace",
@@ -2094,7 +2094,7 @@ defmodule GSMLG.GaoNoteTest do
         flush_storage_messages()
 
         replaced =
-          Oban.Testing.with_testing_mode(:manual, fn ->
+          Styx.Testing.with_testing_mode(:manual, fn ->
             assert {:ok,
                     %Attachment{
                       id: "standalone-base64-replace",
@@ -2176,7 +2176,7 @@ defmodule GSMLG.GaoNoteTest do
 
         flush_storage_messages()
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:error,
                   {:attachment,
                    %{
@@ -2487,7 +2487,7 @@ defmodule GSMLG.GaoNoteTest do
         other_note = note_fixture(%{title: "Wrong delete owner"})
         flush_storage_messages()
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:ok,
                   %Attachment{
                     id: "standalone-delete",
@@ -2577,7 +2577,7 @@ defmodule GSMLG.GaoNoteTest do
 
         flush_storage_messages()
 
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           assert {:error,
                   {:attachment,
                    %{
@@ -2761,7 +2761,7 @@ defmodule GSMLG.GaoNoteTest do
       )
 
     Repo.delete_all(
-      from(job in Oban.Job,
+      from(job in Styx.Job,
         where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker",
         where: fragment("?->>'storage_file_id'", job.args) in ^storage_ids
       )

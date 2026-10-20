@@ -568,7 +568,7 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
   end
 
   defp purge_scheduled?(id) do
-    Repo.exists?(from(job in Oban.Job, where: fragment("?->>'storage_file_id'", job.args) == ^id))
+    Repo.exists?(from(job in Styx.Job, where: fragment("?->>'storage_file_id'", job.args) == ^id))
   end
 
   defp blocked?(pid, deadline) do
@@ -651,7 +651,7 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
     Enum.each(values, fn {key, value} -> Application.put_env(:gsmlg_storage, key, value) end)
 
     try do
-      Oban.Testing.with_testing_mode(:manual, fun)
+      Styx.Testing.with_testing_mode(:manual, fun)
     after
       Application.delete_env(:gsmlg_gao_note, :shared_writer_read_failure)
 

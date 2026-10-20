@@ -250,7 +250,7 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     refute newer["event_id"] == sent["event_id"]
     assert newer["snapshot"]["attachments"] == []
 
-    job = %Oban.Job{args: %{"storage_file_id" => attachment.storage_file_id}}
+    job = %Styx.Job{args: %{"storage_file_id" => attachment.storage_file_id}}
     assert {:snooze, 60} = StorageFilePurgeWorker.perform(job)
     descriptor = Map.delete(sent, "snapshot")
 
@@ -286,7 +286,7 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     [attachment] = note.attachments
 
     assert {:snooze, 60} =
-             StorageFilePurgeWorker.perform(%Oban.Job{
+             StorageFilePurgeWorker.perform(%Styx.Job{
                args: %{"storage_file_id" => attachment.storage_file_id}
              })
 
@@ -294,7 +294,7 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     assert {:ok, _} = GaoNote.delete_attachment(note.id, attachment.id, nil)
 
     assert :ok =
-             StorageFilePurgeWorker.perform(%Oban.Job{
+             StorageFilePurgeWorker.perform(%Styx.Job{
                args: %{"storage_file_id" => attachment.storage_file_id}
              })
 
@@ -312,7 +312,7 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     {:ok, lease} = Sync.checkout(session, note.id)
     assert {:ok, _} = GaoNote.delete_attachment(note.id, attachment.id, nil)
     [newer] = Sync.pending(peer.id)
-    job = %Oban.Job{args: %{"storage_file_id" => attachment.storage_file_id}}
+    job = %Styx.Job{args: %{"storage_file_id" => attachment.storage_file_id}}
     assert {:snooze, 60} = StorageFilePurgeWorker.perform(job)
 
     data = Store.get("lease", lease.lease_id, peer.id)
@@ -353,7 +353,7 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     assert renewed_expiry > short_expiry
 
     assert {:snooze, 60} =
-             StorageFilePurgeWorker.perform(%Oban.Job{
+             StorageFilePurgeWorker.perform(%Styx.Job{
                args: %{"storage_file_id" => attachment.storage_file_id}
              })
 
@@ -362,7 +362,7 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     assert {:error, :lease_expired} = Sync.pending_ids(session)
 
     assert :ok =
-             StorageFilePurgeWorker.perform(%Oban.Job{
+             StorageFilePurgeWorker.perform(%Styx.Job{
                args: %{"storage_file_id" => attachment.storage_file_id}
              })
 

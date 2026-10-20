@@ -89,7 +89,7 @@ Uses BCP 47 tags: `zh-Hans` (Simplified Chinese) and `zh-Hant` (Traditional Chin
 To add Korean support later:
 
 1. Add `"ko" => "한국어"` to `@locale_names` and `"ko"` to config
-2. Run batch translation task → enqueues Oban jobs for `"ko"` across all posts
+2. Run batch translation task → enqueues Styx jobs for `"ko"` across all posts
 3. Done. No migrations, no code changes.
 
 The `locale` column is a free-form `varchar(10)` — no DB enum, no check constraint on specific values. Validation happens at the application layer via `Locale.supported?/1`.
@@ -245,7 +245,7 @@ translation_status(blog)
 3. **Manual trigger** — admin UI button to force re-translate
 4. **Batch job** — translate all `"pending"` or `"stale"` translations
 
-### Oban Worker
+### Styx Worker
 
 ```
 TranslateBlogWorker
@@ -431,13 +431,13 @@ All locale lists MUST come from GSMLG.Blog.Locale module, never hardcoded.
    - Show "AI translated" indicator when serving translation
 ```
 
-### Prompt 3: Translation Worker (Oban)
+### Prompt 3: Translation Worker (Styx)
 
 ```
 Project: gsmlg_umbrella  
 Depends on: Prompts 1-2
 
-Create an Oban worker for AI blog translation.
+Create an Styx worker for AI blog translation.
 Use GSMLG.Blog.Locale for all locale lists.
 
 1. TranslateBlogWorker:
@@ -456,12 +456,12 @@ Use GSMLG.Blog.Locale for all locale lists.
           "Traditional Chinese" explicitly to avoid ambiguity
      e. Call AI API (make the API module configurable/injectable for testing)
      f. Parse response, upsert translation with status "completed"
-     g. On API error: set status "failed", let Oban retry
+     g. On API error: set status "failed", let Styx retry
 
 2. Helper to enqueue translations:
    - enqueue_translations(blog) — creates a job per Locale.target_locales(blog.source_locale)
 
-3. Batch task (Mix task or Oban cron):
+3. Batch task (Mix task or Styx cron):
    - For each blog, compute Locale.target_locales(blog.source_locale)
    - Find missing or stale translations for each pair
    - Enqueue jobs

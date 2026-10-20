@@ -1,11 +1,7 @@
 defmodule GSMLG.Repo.Migrations.UpdateObanJobsToV14 do
   use Ecto.Migration
 
-  def up do
-    Oban.Migration.up(version: 14)
-  end
-
-  def down do
-    Oban.Migration.down(version: 12)
-  end
+  # Styx's initial schema already includes the former Oban v14 changes.
+  def up, do: :ok
+  def down, do: :ok
 end

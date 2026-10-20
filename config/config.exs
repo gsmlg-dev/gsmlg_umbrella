@@ -15,11 +15,11 @@ config :gsmlg,
        :translation_encryption_key,
        System.get_env("GSMLG_TRANSLATION_KEY", "dev_only_key_do_not_use_in_prod_!")
 
-config :gsmlg, Oban,
+config :gsmlg, Styx,
   repo: GSMLG.Repo,
   queues: [translations: 5, storage_cleanup: 2, gao_note_index: 2],
   plugins: [
-    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7}
+    {Styx.Pruner, max_age: 60 * 60 * 24 * 7}
   ]
 
 # Setup guardian

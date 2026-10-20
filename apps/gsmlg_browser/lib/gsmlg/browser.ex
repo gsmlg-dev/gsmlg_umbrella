@@ -797,8 +797,8 @@ defmodule GSMLG.Browser do
       )
     )
     |> Enum.reduce_while(:ok, fn artifact_id, :ok ->
-      case Oban.insert(ArtifactTransferWorker.new(%{"artifact_id" => artifact_id})) do
-        {:ok, _oban_job} -> {:cont, :ok}
+      case Styx.insert(ArtifactTransferWorker.new(%{"artifact_id" => artifact_id})) do
+        {:ok, _styx_job} -> {:cont, :ok}
         {:error, _changeset} -> {:halt, {:error, :artifact_transfer_enqueue_failed}}
       end
     end)
@@ -1984,8 +1984,8 @@ defmodule GSMLG.Browser do
   defp action_artifact_kind(_action_type), do: nil
 
   defp enqueue_artifact_transfer(%Artifact{id: artifact_id}) do
-    case Oban.insert(ArtifactTransferWorker.new(%{"artifact_id" => artifact_id})) do
-      {:ok, _oban_job} -> :ok
+    case Styx.insert(ArtifactTransferWorker.new(%{"artifact_id" => artifact_id})) do
+      {:ok, _styx_job} -> :ok
       {:error, _changeset} -> {:error, :artifact_transfer_enqueue_failed}
     end
   end

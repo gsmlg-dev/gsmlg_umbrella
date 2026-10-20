@@ -1,7 +1,7 @@
 defmodule GSMLG.Browser.Workers.ReconcileSweepWorker do
   @moduledoc false
 
-  use Oban.Worker,
+  use Styx.Worker,
     queue: :browser_reconcile,
     max_attempts: 1,
     unique: [period: 30, fields: [:worker], states: :incomplete]
@@ -15,8 +15,8 @@ defmodule GSMLG.Browser.Workers.ReconcileSweepWorker do
   @active ~w(accepted unknown running waiting_human collecting_artifacts)
   @batch_size 100
 
-  @impl Oban.Worker
-  def perform(_oban_job) do
+  @impl Styx.Worker
+  def perform(_styx_job) do
     with :ok <- Enabled.ensure(),
          :ok <- enqueue_jobs(),
          :ok <- enqueue_ack_retries(),
@@ -67,7 +67,7 @@ defmodule GSMLG.Browser.Workers.ReconcileSweepWorker do
 
   defp enqueue(ids, builder) do
     Enum.reduce_while(ids, :ok, fn id, :ok ->
-      case Oban.insert(builder.(id)) do
+      case Styx.insert(builder.(id)) do
         {:ok, _job} -> {:cont, :ok}
         {:error, _changeset} -> {:halt, {:error, "browser_sweep_enqueue_failed"}}
       end

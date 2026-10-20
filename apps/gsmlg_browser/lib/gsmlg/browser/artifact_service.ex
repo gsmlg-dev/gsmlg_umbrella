@@ -903,8 +903,8 @@ defmodule GSMLG.Browser.ArtifactService do
   defp maybe_enqueue_ack_retry(%Artifact{}), do: :ok
 
   defp enqueue_ack_retry(artifact) do
-    case Oban.insert(ArtifactAckWorker.new(%{"artifact_id" => artifact.id})) do
-      {:ok, _oban_job} -> :ok
+    case Styx.insert(ArtifactAckWorker.new(%{"artifact_id" => artifact.id})) do
+      {:ok, _styx_job} -> :ok
       {:error, _changeset} -> {:error, :artifact_ack_enqueue_failed}
     end
   end

@@ -747,7 +747,7 @@ defmodule GSMLG.AdminWeb.BrowserLiveTest do
 
   defp put_live_testing_mode(view, mode) do
     :sys.replace_state(view.pid, fn state ->
-      Process.put(:oban_testing, mode)
+      Process.put(:styx_testing, mode)
       state
     end)
   end

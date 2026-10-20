@@ -68,7 +68,7 @@ defmodule GSMLG.Storage.CleanupWorkerTest do
                SELECT
                  (SELECT count(*) FROM gao_note_attachments WHERE storage_file_id = $1::uuid),
                  (SELECT count(*) FROM gao_note_sync_pins WHERE storage_file_id = $1::uuid),
-                 (SELECT count(*) FROM oban_jobs WHERE args->>'storage_file_id' = $2)
+                 (SELECT count(*) FROM styx_jobs WHERE args->>'storage_file_id' = $2)
                """,
                [Ecto.UUID.dump!(file.id), file.id]
              )

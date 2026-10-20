@@ -23,7 +23,7 @@ defmodule GSMLG.Application do
       {Task.Supervisor, name: GSMLG.TaskSupervisor},
       # Start the Ecto repository
       GSMLG.Repo,
-      {Oban, Application.fetch_env!(:gsmlg, Oban)},
+      {Styx, Application.fetch_env!(:gsmlg, Styx)},
       # Start the PubSub system
       {Phoenix.PubSub, name: GSMLG.PubSub, adapter: Phoenix.PubSub.PG2},
       # API provider vault — auto-unseals if GSMLG_API_PROVIDER_KEY is configured

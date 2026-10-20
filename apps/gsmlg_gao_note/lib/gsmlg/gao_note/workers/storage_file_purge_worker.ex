@@ -3,7 +3,7 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorker do
   Permanently removes storage files after their GaoNote attachment is purged.
   """
 
-  use Oban.Worker,
+  use Styx.Worker,
     queue: :storage_cleanup,
     max_attempts: 10,
     unique: [period: 86_400, fields: [:worker, :args]]
@@ -13,15 +13,15 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorker do
   alias GSMLG.Storage
   alias GSMLG.Storage.{Catalog, StorageFile}
 
-  @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"storage_file_id" => id}}) when is_binary(id) do
+  @impl Styx.Worker
+  def perform(%Styx.Job{args: %{"storage_file_id" => id}}) when is_binary(id) do
     case Ecto.UUID.cast(id) do
       {:ok, id} -> perform_for_id(id)
       :error -> {:cancel, :invalid_storage_file_id}
     end
   end
 
-  def perform(%Oban.Job{}), do: {:cancel, :invalid_storage_file_id}
+  def perform(%Styx.Job{}), do: {:cancel, :invalid_storage_file_id}
 
   defp perform_for_id(id) do
     case Sync.with_object_lock(id, fn ->

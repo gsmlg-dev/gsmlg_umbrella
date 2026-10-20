@@ -113,7 +113,7 @@ defmodule GSMLG.Browser.SessionContextTest do
 
   test "public open, observe, screenshot, and download durably register only safe artifact references",
        ctx do
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       assert {:ok, %Session{status: "ready", revision: 0} = session} =
                Browser.create_session(ctx.actor, %{
                  node_id: ctx.node.id,
@@ -166,7 +166,7 @@ defmodule GSMLG.Browser.SessionContextTest do
                Repo.get!(Artifact, artifact_id)
 
       assert session_id == session.id
-      assert Repo.get_by!(Oban.Job, args: %{"artifact_id" => artifact_id})
+      assert Repo.get_by!(Styx.Job, args: %{"artifact_id" => artifact_id})
 
       assert {:ok, %{session: %Session{revision: 3}, result: download_result}} =
                Browser.execute_action(ctx.actor, session.id, %{
@@ -197,7 +197,7 @@ defmodule GSMLG.Browser.SessionContextTest do
       assert %Artifact{session_id: ^session_id, job_id: nil, status: "pending"} =
                Repo.get!(Artifact, download_id)
 
-      assert Repo.get_by!(Oban.Job, args: %{"artifact_id" => download_id})
+      assert Repo.get_by!(Styx.Job, args: %{"artifact_id" => download_id})
 
       send(ctx.channel, {:set_action_mode, self(), {:artifact_as, "download"}})
       assert_receive :action_mode_set

@@ -157,7 +157,7 @@ defmodule GSMLG.GaoNote.Attachments do
     |> Enum.reduce_while({:ok, []}, fn storage_file_id, {:ok, jobs} ->
       storage_file_id
       |> then(&StorageFilePurgeWorker.new(%{storage_file_id: &1}))
-      |> Oban.insert()
+      |> Styx.insert()
       |> case do
         {:ok, job} -> {:cont, {:ok, [job | jobs]}}
         {:error, reason} -> {:halt, {:error, reason}}

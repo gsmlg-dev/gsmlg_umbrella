@@ -32,7 +32,7 @@ defmodule GSMLG.Browser.MixProject do
       {:gsmlg_commander_protocol, in_umbrella: true},
       {:gsmlg_storage, in_umbrella: true},
       {:ecto_sql, "~> 3.0"},
-      {:oban, "~> 2.18"}
+      {:styx, "~> 0.1.1"}
     ]
   end
 end

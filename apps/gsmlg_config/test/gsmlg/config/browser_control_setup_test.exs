@@ -5,19 +5,19 @@ defmodule GSMLG.Config.BrowserControlSetupTest do
 
   setup do
     previous_browser = Application.get_env(:gsmlg_browser, :settings)
-    previous_oban = Application.get_env(:gsmlg, Oban)
+    previous_styx = Application.get_env(:gsmlg, Styx)
     previous_commander = Application.get_env(:gsmlg_commander, GSMLG.Commander)
 
     on_exit(fn ->
       restore_env(:gsmlg_browser, :settings, previous_browser)
-      restore_env(:gsmlg, Oban, previous_oban)
+      restore_env(:gsmlg, Styx, previous_styx)
       restore_env(:gsmlg_commander, GSMLG.Commander, previous_commander)
     end)
 
     :ok
   end
 
-  test "configures central Browser limits and its finite Oban queues" do
+  test "configures central Browser limits and its finite Styx queues" do
     config = %{
       enabled: true,
       default_node: "gemini-browser-01",
@@ -47,7 +47,7 @@ defmodule GSMLG.Config.BrowserControlSetupTest do
     assert Application.fetch_env!(:gsmlg_browser, :default_deadline_ms) == 7_200_000
     assert Application.fetch_env!(:gsmlg_browser, :max_artifact_bytes) == 104_857_600
 
-    queues = Application.fetch_env!(:gsmlg, Oban)[:queues]
+    queues = Application.fetch_env!(:gsmlg, Styx)[:queues]
     assert queues[:browser_dispatch] == 2
     assert queues[:browser_reconcile] == 1
     assert queues[:browser_retention] == 1

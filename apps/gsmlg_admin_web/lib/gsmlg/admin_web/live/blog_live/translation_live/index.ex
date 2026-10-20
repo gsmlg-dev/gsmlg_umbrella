@@ -50,7 +50,7 @@ defmodule GSMLG.AdminWeb.BlogLive.TranslationLive.Index do
     translation = Content.get_translation(blog.id, locale)
 
     if translation do
-      Oban.insert(
+      Styx.insert(
         GSMLG.Workers.BlogTranslationWorker.new(%{
           "blog_id" => blog.id,
           "locale" => locale,
@@ -89,7 +89,7 @@ defmodule GSMLG.AdminWeb.BlogLive.TranslationLive.Index do
     if translation do
       {:ok, updated} = Content.retranslate(translation)
 
-      Oban.insert(
+      Styx.insert(
         GSMLG.Workers.BlogTranslationWorker.new(%{
           "blog_id" => socket.assigns.blog.id,
           "locale" => updated.locale,

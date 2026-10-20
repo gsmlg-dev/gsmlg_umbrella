@@ -8,7 +8,7 @@ defmodule GSMLG.GaoNote.Compat.Index do
     if configured?() do
       case Compat.get_note(note_id) do
         nil -> {:ok, nil}
-        note -> %{note_id: note.id, revision: note.revision} |> IndexWorker.new() |> Oban.insert()
+        note -> %{note_id: note.id, revision: note.revision} |> IndexWorker.new() |> Styx.insert()
       end
     else
       {:ok, nil}

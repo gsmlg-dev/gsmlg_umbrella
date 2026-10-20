@@ -226,7 +226,7 @@ defmodule GSMLG.GaoNote.Sync.PendingPollTest do
 
   defp unboxed(work),
     do:
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         Ecto.Adapters.SQL.Sandbox.unboxed_run(Repo, work)
       end)
 end

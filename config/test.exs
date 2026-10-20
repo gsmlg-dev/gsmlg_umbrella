@@ -57,7 +57,7 @@ config :proxy_rules, initial_fetch: false
 
 config :gsmlg, GSMLG.Mailer, adapter: Swoosh.Adapters.Test
 
-config :gsmlg, Oban, testing: :inline
+config :gsmlg, Styx, testing: :inline
 
 config :gsmlg, :translation_provider, GSMLG.Translation.MockProvider
 

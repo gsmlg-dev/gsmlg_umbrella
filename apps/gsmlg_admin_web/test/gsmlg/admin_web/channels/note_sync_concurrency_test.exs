@@ -48,7 +48,7 @@ defmodule GSMLG.AdminWeb.NoteSyncConcurrencyTest do
         | Repo.all(from(l in Label, where: l.label_setting_id in ^settings, select: l.note_id))
       ]
 
-      Repo.delete_all(from(j in Oban.Job, where: fragment("?->>'note_id'", j.args) in ^ids))
+      Repo.delete_all(from(j in Styx.Job, where: fragment("?->>'note_id'", j.args) in ^ids))
       Repo.delete_all(from(l in Log, where: l.note_id in ^ids or l.entity_id in ^settings))
       Repo.delete_all(from(r in Record, where: r.peer_id == ^peer_id or r.note_id in ^ids))
       Repo.delete_all(from(n in Note, where: n.id in ^ids))
@@ -57,7 +57,7 @@ defmodule GSMLG.AdminWeb.NoteSyncConcurrencyTest do
     end)
 
     {:ok, note} =
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         Compat.save_note(%{title: "duplex", content: "local", labels: [[label, "selected"]]}, nil)
       end)
 
@@ -71,7 +71,7 @@ defmodule GSMLG.AdminWeb.NoteSyncConcurrencyTest do
 
   test "duplex confirmation and pending renewal survive an apply holding the peer lock beyond ten seconds",
        %{socket: socket, peer: peer, remote: remote} do
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       {outgoing, commit_ref} = outgoing_commit(socket)
       transfer = stage(socket, remote)
       install_apply_barrier(remote["event_id"])
@@ -137,7 +137,7 @@ defmodule GSMLG.AdminWeb.NoteSyncConcurrencyTest do
     peer: peer,
     remote: remote
   } do
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       {outgoing, commit_ref} = outgoing_commit(socket)
       lease_id = state(socket).assigns.outgoing.lease
       owner = self()
@@ -205,7 +205,7 @@ defmodule GSMLG.AdminWeb.NoteSyncConcurrencyTest do
     peer: peer,
     note: note
   } do
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       descriptor = Protocol.ack(Store.get("member", note.id, peer.id)["event"])
       query = %{"query_id" => Ecto.UUID.generate(), "items" => [descriptor]}
 

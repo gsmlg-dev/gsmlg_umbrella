@@ -1,6 +1,6 @@
 defmodule Mix.Tasks.Blog.TranslatePendingTest do
   use GSMLG.DataCase
-  use Oban.Testing, repo: GSMLG.Repo
+  use Styx.Testing, repo: GSMLG.Repo
 
   alias Mix.Tasks.Blog.TranslatePending
   alias GSMLG.Content.Blog
@@ -89,11 +89,11 @@ defmodule Mix.Tasks.Blog.TranslatePendingTest do
   end
 
   describe "run/1 with --confirm" do
-    test "inserts Oban jobs for all pending translations" do
+    test "inserts Styx jobs for all pending translations" do
       blog = insert_blog(%{source_locale: "zh-Hans"})
       insert_translation(blog, "en", "pending")
 
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         ExUnit.CaptureIO.capture_io(fn ->
           TranslatePending.run(["--confirm"])
         end)
@@ -110,7 +110,7 @@ defmodule Mix.Tasks.Blog.TranslatePendingTest do
       insert_translation(blog, "en", "pending")
 
       output =
-        Oban.Testing.with_testing_mode(:manual, fn ->
+        Styx.Testing.with_testing_mode(:manual, fn ->
           ExUnit.CaptureIO.capture_io(fn ->
             TranslatePending.run(["--confirm"])
           end)
@@ -151,7 +151,7 @@ defmodule Mix.Tasks.Blog.TranslatePendingTest do
         end
       end)
 
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         ExUnit.CaptureIO.capture_io(fn ->
           TranslatePending.run(["--confirm"])
         end)

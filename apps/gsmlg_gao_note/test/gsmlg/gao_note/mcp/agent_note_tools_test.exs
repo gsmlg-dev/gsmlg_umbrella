@@ -337,7 +337,7 @@ defmodule GSMLG.GaoNote.MCP.AgentNoteToolsTest do
     Enum.each(values, fn {key, value} -> Application.put_env(:gsmlg_storage, key, value) end)
 
     try do
-      Oban.Testing.with_testing_mode(:manual, fun)
+      Styx.Testing.with_testing_mode(:manual, fun)
     after
       GenServer.stop(stub)
 

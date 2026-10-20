@@ -32,7 +32,7 @@ defmodule GSMLG.DataCase do
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
 
     # Provide a default stub for the translation provider so tests that don't care
-    # about translation don't fail when Oban inline mode runs jobs immediately.
+    # about translation don't fail when Styx inline mode runs jobs immediately.
     # Tests that need specific behavior should use Mox.expect/3 to override.
     if Code.ensure_loaded?(GSMLG.Translation.MockProvider) do
       Mox.stub(GSMLG.Translation.MockProvider, :translate, fn _title,

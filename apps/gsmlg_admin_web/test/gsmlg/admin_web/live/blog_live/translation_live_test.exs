@@ -40,7 +40,7 @@ defmodule GSMLG.AdminWeb.BlogLive.TranslationLiveTest do
     end
 
     test "shows translation status for each locale", %{conn: conn, blog: blog} do
-      # In inline mode, Oban runs jobs immediately, so translations are already completed.
+      # In inline mode, Styx runs jobs immediately, so translations are already completed.
       {:ok, _view, html} = live(conn, ~p"/blogs/#{blog.id}/translations")
 
       # The status column is rendered — in inline mode all statuses will be "completed"
@@ -56,7 +56,7 @@ defmodule GSMLG.AdminWeb.BlogLive.TranslationLiveTest do
       %{blog: blog, translation: translation}
     end
 
-    test "inserts a new Oban job and resets status to pending", %{
+    test "inserts a new Styx job and resets status to pending", %{
       conn: conn,
       blog: blog,
       translation: translation

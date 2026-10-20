@@ -30,7 +30,7 @@ defmodule GSMLG.Storage.CleanupWorker do
     {:noreply, next_state}
   end
 
-  @doc "Scans durable S3 intents, including reservations with no committed Oban recovery job."
+  @doc "Scans durable S3 intents, including reservations with no committed Styx recovery job."
   def run_cleanup do
     case scan(%{recovery_cursor: nil, variant_cursor: nil}) do
       {:ok, _state} -> :ok

@@ -6,7 +6,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
     :ok
   end
 
-  use Oban.Testing, repo: GSMLG.Repo
+  use Styx.Testing, repo: GSMLG.Repo
 
   alias GSMLG.GaoNote
 
@@ -31,7 +31,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
     Repo.delete_all(Note)
 
     Repo.delete_all(
-      from(job in Oban.Job, where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker")
+      from(job in Styx.Job, where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker")
     )
 
     :ok
@@ -551,7 +551,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
       attachment = attachment_fixture(note)
       clear_logs()
 
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         assert {:ok, %{selected: 1, deleted: 1}} =
                  GaoNote.batch_delete_notes([note.id], actor())
 
@@ -609,7 +609,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
       assert {:ok, %Note{}} = GaoNote.delete_note(second, actor())
       clear_logs()
 
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         assert {:ok, %{selected: 2, purged: 2}} =
                  GaoNote.batch_permanently_delete_notes([second.id, first.id], actor())
 
@@ -696,7 +696,7 @@ defmodule GSMLG.GaoNote.BatchActionsTest do
       assert {:ok, %Note{}} = GaoNote.delete_note(deleted, actor())
       clear_logs()
 
-      Oban.Testing.with_testing_mode(:manual, fn ->
+      Styx.Testing.with_testing_mode(:manual, fn ->
         assert {:error, {:notes_unavailable, %{state: :deleted, ids: unavailable_ids}}} =
                  GaoNote.batch_permanently_delete_notes([deleted.id, active.id], actor())
 
@@ -1016,7 +1016,7 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
     assert [] = persisted_logs(fixture)
   end
 
-  test "a purge audit failure rolls back deleted notes and already-inserted Oban jobs" do
+  test "a purge audit failure rolls back deleted notes and already-inserted Styx jobs" do
     fixture = prepare_deleted_attachment_fixture("purge-audit-failure")
     constraint = "gao_note_batch_purge_audit_reject_#{fixture.suffix}"
 
@@ -1038,9 +1038,9 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
     assert {:error,
             {:batch_audit_failed,
              %{note_id: ^note_id, reason: %{type: :constraint, constraint: ^constraint}}}} =
-             Oban.Testing.with_testing_mode(:manual, fn ->
+             Styx.Testing.with_testing_mode(:manual, fn ->
                outside_sandbox(fn ->
-                 Oban.Testing.with_testing_mode(:manual, fn ->
+                 Styx.Testing.with_testing_mode(:manual, fn ->
                    GaoNote.batch_permanently_delete_notes([note_id], actor())
                  end)
                end)
@@ -1411,7 +1411,7 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
 
   defp persisted_purge_jobs(storage_file_ids) do
     outside_sandbox(fn ->
-      Oban.Job
+      Styx.Job
       |> where(
         [job],
         job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
@@ -1444,7 +1444,7 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
 
   defp delete_purge_jobs(storage_file_ids) do
     Repo.delete_all(
-      from(job in Oban.Job,
+      from(job in Styx.Job,
         where:
           job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker" and
             fragment("(?->>'storage_file_id') = ANY(?)", job.args, ^storage_file_ids)
@@ -1454,7 +1454,7 @@ defmodule GSMLG.GaoNote.BatchActionsDatabaseTest do
 
   defp delete_all_purge_jobs do
     Repo.delete_all(
-      from(job in Oban.Job,
+      from(job in Styx.Job,
         where: job.worker == "GSMLG.GaoNote.Workers.StorageFilePurgeWorker"
       )
     )

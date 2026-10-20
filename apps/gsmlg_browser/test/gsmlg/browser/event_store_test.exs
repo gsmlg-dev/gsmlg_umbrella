@@ -166,7 +166,7 @@ defmodule GSMLG.Browser.EventStoreTest do
       set: [automation_status: "leased"]
     )
 
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       assert {:ok, %{highest_contiguous_sequence: 1}} =
                EventStore.ingest(
                  ctx.node.commander_id,
@@ -186,10 +186,10 @@ defmodule GSMLG.Browser.EventStoreTest do
     assert %Profile{automation_status: "manual"} = Repo.get!(Profile, ctx.profile.id)
 
     assert Repo.aggregate(
-             from(oban_job in Oban.Job,
+             from(styx_job in Styx.Job,
                where:
-                 oban_job.worker == ^inspect(ReconcileWorker) and
-                   oban_job.args["job_id"] == ^ctx.job.id
+                 styx_job.worker == ^inspect(ReconcileWorker) and
+                   styx_job.args["job_id"] == ^ctx.job.id
              ),
              :count
            ) == 1
@@ -266,7 +266,7 @@ defmodule GSMLG.Browser.EventStoreTest do
         "transfer_mode" => "remote_pending"
       })
 
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       assert {:ok, %{highest_contiguous_sequence: 0}} =
                EventStore.ingest(ctx.node.commander_id, completed, ack: ack_event)
     end)
@@ -278,10 +278,10 @@ defmodule GSMLG.Browser.EventStoreTest do
     refute Repo.get(Artifact, artifact_id)
 
     assert Repo.aggregate(
-             from(oban_job in Oban.Job,
+             from(styx_job in Styx.Job,
                where:
-                 oban_job.worker == ^inspect(ReconcileWorker) and
-                   oban_job.args["job_id"] == ^ctx.job.id
+                 styx_job.worker == ^inspect(ReconcileWorker) and
+                   styx_job.args["job_id"] == ^ctx.job.id
              ),
              :count
            ) == 1
@@ -350,7 +350,7 @@ defmodule GSMLG.Browser.EventStoreTest do
 
     assert Repo.get!(Profile, ctx.profile.id).automation_status == "leased"
 
-    Oban.Testing.with_testing_mode(:manual, fn ->
+    Styx.Testing.with_testing_mode(:manual, fn ->
       assert {:ok, %{highest_contiguous_sequence: 1}} =
                EventStore.ingest(ctx.node.commander_id, event(ctx, 1, "workflow.started"),
                  ack: ack_event
@@ -366,10 +366,10 @@ defmodule GSMLG.Browser.EventStoreTest do
     end)
 
     assert Repo.aggregate(
-             from(oban_job in Oban.Job,
+             from(styx_job in Styx.Job,
                where:
-                 oban_job.worker == ^inspect(ReconcileWorker) and
-                   oban_job.args["job_id"] == ^ctx.job.id
+                 styx_job.worker == ^inspect(ReconcileWorker) and
+                   styx_job.args["job_id"] == ^ctx.job.id
              ),
              :count
            ) == 3

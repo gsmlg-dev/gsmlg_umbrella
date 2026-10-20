@@ -104,7 +104,7 @@ defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
       })
 
     refute Repo.exists?(
-             from(job in Oban.Job,
+             from(job in Styx.Job,
                where: fragment("?->>'storage_file_id'", job.args) == ^file.id
              )
            )
@@ -131,7 +131,7 @@ defmodule GSMLG.GaoNote.Sync.StorageCleanupTest do
       )
 
       Repo.delete_all(
-        from(job in Oban.Job,
+        from(job in Styx.Job,
           where: fragment("?->>'storage_file_id'", job.args) == ^file.id
         )
       )

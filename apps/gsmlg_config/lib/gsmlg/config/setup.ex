@@ -343,7 +343,7 @@ defmodule GSMLG.Config.Setup do
   defp valid_runtime_credential?(_entry), do: false
 
   defp configure_browser_queues(enabled?) do
-    config = Application.get_env(:gsmlg, Oban, [])
+    config = Application.get_env(:gsmlg, Styx, [])
     queues = Keyword.get(config, :queues, [])
     queues = Keyword.drop(queues, [:browser_dispatch, :browser_reconcile, :browser_retention])
 
@@ -358,7 +358,7 @@ defmodule GSMLG.Config.Setup do
         queues
       end
 
-    Application.put_env(:gsmlg, Oban, Keyword.put(config, :queues, queues))
+    Application.put_env(:gsmlg, Styx, Keyword.put(config, :queues, queues))
   end
 
   defp commander_platform_url(%{platform_url: platform_url})

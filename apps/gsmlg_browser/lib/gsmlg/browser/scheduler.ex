@@ -22,7 +22,7 @@ defmodule GSMLG.Browser.Scheduler do
           :interval_ms,
           Application.get_env(:gsmlg_browser, :reconcile_interval_ms, 30_000)
         ),
-      insert: Keyword.get(opts, :insert, &Oban.insert/1)
+      insert: Keyword.get(opts, :insert, &Styx.insert/1)
     }
 
     if Enabled.ensure() == :ok, do: send(self(), :tick)
