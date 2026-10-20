@@ -50,6 +50,59 @@ The workflow publishes:
 - `gsmlg_scout_agent.tar.gz`
 - `ghcr.io/gsmlg-dev/gsmlg-umbrella:v<version>`
 - `ghcr.io/gsmlg-dev/gsmlg-umbrella:latest`
+- Every enabled Hex package at the same `<version>`, plus its `.tar` candidate
+  archive and `manifest.json` checksums as GitHub release assets.
+
+The root Mix version and every `apps/*/mix.exs` must match. For local changes,
+use `scripts/update_version.sh <version>` and check with
+`scripts/update_version.sh --check`. The updater discovers new applications
+automatically; CI runs the check without starting services.
+
+The release workflow stamps the input version and creates an annotated
+`v<version>` tag pointing to the versioned source commit. All Docker, Elixir,
+Commander and Hex jobs check out that immutable commit. The version commit is
+published through the release tag; preparation does not push a development
+branch. Tags are never overwritten. A failed build can leave a prepared tag;
+retry with the same source tree and version, or use that tag as `revision`.
+
+Hex publication opts in through a child's explicit `package:` metadata. The
+current set is `gsmlg_aws`, `gsmlg_couchdb`, `gsmlg_ip_geo`, `gsmlg_logger`,
+`gsmlg_mac`, `gsmlg_socket`, `gsmlg_telemetry`, `gsmlg_toml`, `gsmlg_tor` and
+`gsmlg_whois`. Other applications are not automatically published. New opt-ins
+must include valid metadata/assets and publishable internal dependencies.
+Internal Hex requirements use the exact shared version; AWS/logger publish
+before telemetry, which publishes before socket.
+
+The workflow builds every Hex archive before any package publication, then
+waits for the other artifact builds before publishing packages. It verifies
+archive checksums and the complete package set before the first publication,
+and verifies downloaded archives after publication. A retry skips existing
+versions only when the archive bytes match; conflicting existing versions and
+network failures stop the release. Choose a new version for a changed package
+set. Multiple registry writes are not atomic: a failure may leave earlier
+packages published, and rerunning completes the remaining matching candidates.
+Release runs are serialized and an active publication is not cancelled by a
+new run. GitHub release creation requires successful Hex publication.
+
+Set the Actions secret `HEX_API_KEY` to a Hex key allowed to publish all enabled
+packages and create the previously unpublished packages. Existing Docker/GHCR
+credentials remain required. This workflow publishes packages without invoking
+documentation generation. A full product release is still dispatched explicitly;
+ordinary pushes and the separate Alpine image build do not publish Hex packages.
+Product release versions must also form a valid Docker tag (`v<version>` is at
+most 128 characters). Prereleases such as `2.0.0-rc.1` are supported; SemVer
+build metadata containing `+` is rejected before preparing a release tag.
+
+To build package candidates locally without publishing:
+
+```bash
+elixir scripts/hex_packages.exs build <version> _build/hex
+```
+
+Use the repository version for this command, or first stamp the desired version
+with the updater. `manifest.json` records the package set, dependency order and
+SHA-256 of each archive. The packaging runner selects ordinary Hex dependencies
+for distribution; source development continues to resolve umbrella siblings.
 
 Download release tarballs from:
 

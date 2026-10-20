@@ -1,10 +1,12 @@
 defmodule GSMLG.Socket.MixProject do
   use Mix.Project
 
+  @version "1.0.0"
+
   def project do
     [
       app: :gsmlg_socket,
-      version: "0.1.0",
+      version: @version,
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -29,13 +31,24 @@ defmodule GSMLG.Socket.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:gsmlg_telemetry, in_umbrella: true},
+      internal_dependency(:gsmlg_telemetry),
       {:ex_doc, "~> 0.18", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"},
     ]
+  end
+
+  defp internal_dependency(app) do
+    # Hex excludes in_umbrella dependencies from package requirements.
+    if System.get_env("GSMLG_HEX_BUILD") != "1" and
+         Path.basename(Path.dirname(__DIR__)) == "apps" and
+         File.regular?(Path.join([__DIR__, "..", Atom.to_string(app), "mix.exs"])) do
+      {app, @version, in_umbrella: true}
+    else
+      {app, @version}
+    end
   end
 
   defp package do

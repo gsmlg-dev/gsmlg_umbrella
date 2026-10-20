@@ -5,21 +5,104 @@ on:
       release-version:
         required: true
         description: 'The version of the release'
-        default: '5.2.0'
+        type: string
       revision:
         required: true
         description: 'The git ref to build from'
         default: 'main'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_VERSION: ${{ inputs.release-version }}
+  HEX_MIRROR: https://repo.hex.pm
 
 jobs:
+  prepare-release:
+    name: Prepare versioned release source
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      source-sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Checkout requested revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision }}
+          fetch-depth: 0
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.18.4"
+
+      - name: Check Hex credentials
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEX_API_KEY" ]; then
+            echo "HEX_API_KEY must allow publication of every enabled package." >&2
+            exit 1
+          fi
+
+      - name: Prepare source commit and tag
+        id: source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bash scripts/prepare_release.sh "$RELEASE_VERSION"
+
+  build-hex:
+    name: Build all Hex packages
+    needs: [prepare-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare-release.outputs.source-sha }}
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.18.4"
+
+      - name: Build package archives and checksum manifest
+        run: |
+          mix local.hex --force
+          bash scripts/update_version.sh --check "$RELEASE_VERSION"
+          elixir scripts/hex_packages.exs build "$RELEASE_VERSION" _build/hex
+
+      - name: Upload Hex package candidates
+        uses: actions/upload-artifact@v7
+        with:
+          name: hex-packages
+          path: |
+            _build/hex/*.tar
+            _build/hex/manifest.json
+          if-no-files-found: error
+
   build-docker:
     name: Build Docker image
+    needs: [prepare-release, build-hex]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.inputs.revision }}
+          ref: ${{ needs.prepare-release.outputs.source-sha }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -59,7 +142,7 @@ jobs:
 
       - name: Write Docker image info
         run: |
-          VERSION=${{ github.event.inputs.release-version }}
+          VERSION="$RELEASE_VERSION"
           cat > docker-image-info.md <<EOF
           ## Docker Image
 
@@ -85,12 +168,13 @@ jobs:
 
   build-elixir:
     name: Build Elixir releases (linux/amd64)
+    needs: [prepare-release, build-hex]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.inputs.revision }}
+          ref: ${{ needs.prepare-release.outputs.source-sha }}
 
       - name: Setup Elixir
         uses: erlef/setup-beam@v1
@@ -121,6 +205,7 @@ jobs:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
           BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          bash scripts/update_version.sh --check "$RELEASE_VERSION"
           mix deps.get
           mix compile
           bun install --frozen-lockfile
@@ -131,7 +216,7 @@ jobs:
           RELEASE_VERSION: ${{ github.event.inputs.release-version }}
           DATABASE_URL: "ecto://USER:PASS@HOST/DATABASE"
         run: |
-          bash scripts/update_version.sh ${RELEASE_VERSION}
+          bash scripts/update_version.sh --check "$RELEASE_VERSION"
           mix prerelease
           mix release gsmlg_umbrella
           mix release gsmlg_scout_agent
@@ -148,6 +233,7 @@ jobs:
 
   build-commander:
     name: Build Commander (${{ matrix.target }})
+    needs: [prepare-release, build-hex]
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -175,7 +261,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.inputs.revision }}
+          ref: ${{ needs.prepare-release.outputs.source-sha }}
 
       - name: Setup Elixir
         if: ${{ matrix.freebsd == false }}
@@ -192,6 +278,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
         run: |
+          bash scripts/update_version.sh --check "$RELEASE_VERSION"
           mix deps.get
 
       - name: Build Commander release
@@ -202,7 +289,7 @@ jobs:
           RELEASE_VERSION: ${{ github.event.inputs.release-version }}
           DATABASE_URL: "ecto://USER:PASS@HOST/DATABASE"
         run: |
-          bash scripts/update_version.sh "${RELEASE_VERSION}"
+          bash scripts/update_version.sh --check "$RELEASE_VERSION"
           mix deps.compile --include-children phoenix phoenix_live_view telemetry
           (
             cd apps/gsmlg_commander
@@ -237,8 +324,8 @@ jobs:
             export PATH="/usr/local/lib/erlang28/bin:$PATH"
             mix local.hex --force
             mix local.rebar --force
+            bash scripts/update_version.sh --check "$RELEASE_VERSION"
             mix deps.get
-            bash scripts/update_version.sh "${RELEASE_VERSION}"
             mix deps.compile --include-children phoenix phoenix_live_view telemetry
             (
               cd apps/gsmlg_commander
@@ -259,10 +346,42 @@ jobs:
           name: commander-release-${{ matrix.target }}
           path: commander-${{ matrix.target }}.tar.gz
 
+  publish-hex:
+    name: Publish and verify Hex packages
+    needs: [prepare-release, build-hex, build-docker, build-elixir, build-commander]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare-release.outputs.source-sha }}
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.18.4"
+
+      - name: Download Hex package candidates
+        uses: actions/download-artifact@v8
+        with:
+          name: hex-packages
+          path: _build/hex
+
+      - name: Publish packages in dependency order
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          mix local.hex --force
+          bash scripts/update_version.sh --check "$RELEASE_VERSION"
+          elixir scripts/hex_packages.exs publish "$RELEASE_VERSION" _build/hex
+
   create-release:
     name: Create GitHub release v${{ github.event.inputs.release-version }}
     runs-on: ubuntu-latest
-    needs: [build-docker, build-elixir, build-commander]
+    needs: [prepare-release, build-docker, build-elixir, build-commander, publish-hex]
+    permissions:
+      contents: write
     steps:
       - name: Download Elixir release tarballs
         uses: actions/download-artifact@v8
@@ -280,12 +399,22 @@ jobs:
         with:
           name: docker-image-info
 
+      - name: Download Hex package archives and manifest
+        uses: actions/download-artifact@v8
+        with:
+          name: hex-packages
+          path: hex-packages
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ github.event.inputs.release-version }}
+          target_commitish: ${{ needs.prepare-release.outputs.source-sha }}
           name: v${{ github.event.inputs.release-version }}
           body_path: docker-image-info.md
           generate_release_notes: true
-          files: "*.tar.gz"
+          files: |
+            *.tar.gz
+            hex-packages/*.tar
+            hex-packages/manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}

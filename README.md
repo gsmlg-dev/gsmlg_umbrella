@@ -129,8 +129,19 @@ Then edit the generated `.po` files under `priv/gettext/<locale>/LC_MESSAGES/`.
 
 ## Releases
 
-Releases are automated via GitHub Actions (`release` workflow). Trigger manually with a version number — it builds the Docker image and Elixir tarballs in parallel, then publishes a GitHub release.
+The root project and every application under `apps/` share one version. Child
+projects keep their own version literals so published Hex packages work without
+this repository. CI rejects version drift, including newly added applications.
 
 ```shell
-scripts/update_version.sh 1.2.3   # bump version in all mix.exs files
+scripts/update_version.sh 1.2.3   # update root and every apps/*/mix.exs
+scripts/update_version.sh --check
 ```
+
+The manual GitHub `release` workflow stamps the requested version into a source
+commit and tag, builds all targets from that commit, and publishes opted-in Hex
+packages at the same version before creating the GitHub release. Configure
+`HEX_API_KEY` with publishing access to all enabled packages, including permission
+to create new packages. Publication failure fails the release; matching package
+archives can be safely retried. See [the release guide](docs/deploy.md#github-release-workflow)
+for package selection, archives and retry behavior.

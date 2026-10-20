@@ -6,7 +6,39 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  release-tooling:
+    name: Shared versions and release scripts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '28'
+
+      - name: Check shared application versions
+        run: bash scripts/update_version.sh --check
+
+      - name: Test release scripts without starting the umbrella
+        run: |
+          elixir scripts/test/release_versions_test.exs
+          elixir scripts/test/prepare_release_test.exs
+          elixir scripts/test/hex_packages_test.exs
+          elixir scripts/test/hex_package_metadata_test.exs
+
   compile:
     name: Compile
     runs-on: ubuntu-latest

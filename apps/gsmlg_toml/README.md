@@ -78,7 +78,11 @@ TOML specification test.
 Within this umbrella, `gsmlg_config` uses `{:gsmlg_toml, in_umbrella: true}` and
 retains the GSMLG-specific configuration loader, schema, transforms and setup.
 External consumers use `{:gsmlg_toml, "~> 1.0"}` as shown above. The package
-version remains 1.0.0; this extraction does not publish a new release.
+version follows the shared root and application version. Each product release
+publishes the enabled Hex packages at that same version; source pushes alone
+do not publish packages. The 1.x installation example above remains usable for
+the existing standalone release. See the repository's release guide for the
+shared version policy.
 
 ## License and provenance
 

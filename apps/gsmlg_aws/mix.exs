@@ -4,13 +4,15 @@ defmodule GSMLG.AWS.MixProject do
   def project do
     [
       app: :gsmlg_aws,
-      version: "0.1.0",
+      version: "1.0.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
+      description: "AWS S3, Route53 and DynamoDB helpers with caching and Finch transport",
+      package: package(),
       aliases: aliases(),
       deps: deps()
     ]
@@ -32,6 +34,17 @@ defmodule GSMLG.AWS.MixProject do
       {:tesla, "~> 1.11"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Jonathan Gao"],
+      licenses: ["MIT"],
+      files: ~w(lib LICENSE mix.exs README.md),
+      links: %{
+        GitHub: "https://github.com/gsmlg-dev/gsmlg_umbrella/tree/main/apps/gsmlg_aws"
+      }
     ]
   end
 

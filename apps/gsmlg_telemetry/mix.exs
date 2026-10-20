@@ -1,7 +1,7 @@
 defmodule GSMLG.Telemetry.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "1.0.0"
 
   def project do
     [
@@ -41,8 +41,8 @@ defmodule GSMLG.Telemetry.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.4"},
-      {:gsmlg_aws, in_umbrella: true},
-      {:gsmlg_logger, in_umbrella: true},
+      internal_dependency(:gsmlg_aws),
+      internal_dependency(:gsmlg_logger),
       {:stream_data, "~> 1.0", only: [:dev, :test]},
       {:castore, "~> 1.0", only: [:dev, :test]},
       {:excoveralls, ">= 0.15.0", only: [:dev, :test]},
@@ -51,6 +51,17 @@ defmodule GSMLG.Telemetry.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
+  end
+
+  defp internal_dependency(app) do
+    # Hex excludes in_umbrella dependencies from package requirements.
+    if System.get_env("GSMLG_HEX_BUILD") != "1" and
+         Path.basename(Path.dirname(__DIR__)) == "apps" and
+         File.regular?(Path.join([__DIR__, "..", Atom.to_string(app), "mix.exs"])) do
+      {app, @version, in_umbrella: true}
+    else
+      {app, @version}
+    end
   end
 
   defp package do
