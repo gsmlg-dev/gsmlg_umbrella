@@ -1,5 +1,12 @@
 # Configuration System Migration Guide
 
+> **Historical guide:** The steps below describe the 2025 configuration-system
+> migration. As of 2026-10-20, the parser is maintained independently in
+> [`packages/gsmlg_toml`](../../packages/gsmlg_toml), and `gsmlg_config` consumes
+> Hex `gsmlg_toml` (`~> 1.0`). Its business configuration remains in `gsmlg_config`.
+> See the [current configuration README](../../apps/gsmlg_config/README.md) for
+> the active configuration-file paths.
+
 ## Overview
 
 This document describes the migration from the old gsmlg_toml + gsmlg_config architecture to the new unified configuration system.

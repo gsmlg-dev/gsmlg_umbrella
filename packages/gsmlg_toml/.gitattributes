@@ -1,0 +1,2 @@
+# Preserve raw fixture bytes, including invalid UTF-8, line endings and intentional whitespace.
+test/fixtures/** -text -whitespace

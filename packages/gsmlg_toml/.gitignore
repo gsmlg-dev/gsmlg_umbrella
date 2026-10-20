@@ -1,0 +1,8 @@
+/_build/
+/deps/
+/cover/
+/doc/
+/tmp/
+/gsmlg_toml-*.tar
+/erl_crash.dump
+*.ez
