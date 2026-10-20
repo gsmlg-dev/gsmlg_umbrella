@@ -2,6 +2,16 @@
 
 Layered TOML configuration system for GSMLG applications with support for environment-specific configs, environment variable overrides, and custom config file paths.
 
+## TOML dependency
+
+TOML parsing is provided by the Hex package `gsmlg_toml` (`~> 1.0`). Its standalone
+source and regression suite live in [`packages/gsmlg_toml`](../../packages/gsmlg_toml).
+The parser is maintained outside the umbrella's `apps` directory so the umbrella
+uses the same published dependency as other consumers.
+
+Other packages that only need TOML parsing can depend on `gsmlg_toml` directly.
+This application retains the GSMLG-specific loader, schema, transforms and setup.
+
 ## Features
 
 - **TOML-based configuration** - Human-readable configuration format
