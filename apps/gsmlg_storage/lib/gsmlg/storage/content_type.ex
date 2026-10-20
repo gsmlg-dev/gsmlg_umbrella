@@ -33,6 +33,60 @@ defmodule GSMLG.Storage.ContentType do
     end
   end
 
+  @doc "Detects a file using bounded reads and validates text through EOF."
+  def detect_file(path, filename) do
+    with {:ok, io} <- File.open(path, [:read, :binary]) do
+      try do
+        detect_file_chunks(io, filename, <<>>, {:text, <<>>})
+      after
+        File.close(io)
+      end
+    end
+  end
+
+  defp detect_file_chunks(io, filename, head, text_state) do
+    case IO.binread(io, 1_048_576) do
+      :eof ->
+        type =
+          if text_state == {:text, <<>>},
+            do: active_text_type(head) || text_type_for_filename(filename),
+            else: "application/octet-stream"
+
+        {:ok, type}
+
+      {:error, _reason} = error ->
+        error
+
+      chunk ->
+        head =
+          if head == <<>>,
+            do: binary_part(chunk, 0, min(@detect_head_size, byte_size(chunk))),
+            else: head
+
+        case magic_type(head) do
+          nil -> detect_file_chunks(io, filename, head, text_chunk(text_state, chunk))
+          type -> {:ok, type}
+        end
+    end
+  end
+
+  defp text_chunk(:binary, _chunk), do: :binary
+
+  defp text_chunk({:text, carry}, chunk) do
+    # A read may end within a UTF-8 codepoint. Keep only that incomplete suffix;
+    # malformed sequences, disallowed controls, and an incomplete EOF stay binary.
+    case :unicode.characters_to_binary(carry <> chunk) do
+      valid when is_binary(valid) ->
+        if safe_text?(valid), do: {:text, <<>>}, else: :binary
+
+      {:incomplete, valid, rest} ->
+        if safe_text?(valid), do: {:text, rest}, else: :binary
+
+      {:error, _valid, _rest} ->
+        :binary
+    end
+  end
+
   defp magic_type(<<0xFF, 0xD8, 0xFF, _::binary>>), do: "image/jpeg"
 
   defp magic_type(<<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, _::binary>>),
@@ -47,9 +101,10 @@ defmodule GSMLG.Storage.ContentType do
   defp magic_type(<<0x42, 0x4D, _::binary>>), do: "image/bmp"
   defp magic_type(<<0x49, 0x49, 0x2A, 0x00, _::binary>>), do: "image/tiff"
   defp magic_type(<<0x4D, 0x4D, 0x00, 0x2A, _::binary>>), do: "image/tiff"
+
   defp magic_type(
-         <<box_size::unsigned-big-integer-size(32), "ftyp",
-           major_brand::binary-size(4), _minor_version::32, rest::binary>>
+         <<box_size::unsigned-big-integer-size(32), "ftyp", major_brand::binary-size(4),
+           _minor_version::32, rest::binary>>
        )
        when box_size == 0 or box_size >= 16 do
     compatible_brands = compatible_brand_bytes(box_size, rest)

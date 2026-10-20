@@ -173,6 +173,54 @@ defmodule GSMLG.Storage.ContentTypeTest do
     end
   end
 
+  describe "detect_file/2" do
+    @describetag :tmp_dir
+
+    test "preserves UTF-8 text across sniff and stream boundaries", %{tmp_dir: directory} do
+      path = Path.join(directory, "report.csv")
+
+      for boundary <- [4096, 1_048_576], character <- ["é", "中", "😀"] do
+        bytes = String.duplicate("a", boundary - 1) <> character <> ",value\n"
+        File.write!(path, bytes)
+
+        assert ContentType.detect_file(path, "report.csv") ==
+                 ContentType.detect(bytes, "report.csv")
+      end
+    end
+
+    test "rejects invalid or incomplete UTF-8 and controls after the header", %{
+      tmp_dir: directory
+    } do
+      path = Path.join(directory, "report.csv")
+
+      for boundary <- [4096, 1_048_576],
+          suffix <- [<<0xFF>>, <<0xE4, 0x20>>, <<0xF0, 0x9F>>, <<0>>, <<0x01>>, <<0xC2, 0x85>>] do
+        bytes = String.duplicate("a", boundary - 1) <> suffix
+        File.write!(path, bytes)
+        assert ContentType.detect_file(path, "report.csv") == {:ok, "application/octet-stream"}
+      end
+    end
+
+    test "matches in-memory sniffing for binary magic, active text, and empty files", %{
+      tmp_dir: directory
+    } do
+      path = Path.join(directory, "report.csv")
+
+      for bytes <- [
+            "",
+            <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xFF>>,
+            "<svg></svg>",
+            "<!DOCTYPE html><html></html>",
+            String.duplicate("a", 4096) <> "<svg></svg>"
+          ] do
+        File.write!(path, bytes)
+
+        assert ContentType.detect_file(path, "report.csv") ==
+                 ContentType.detect(bytes, "report.csv")
+      end
+    end
+  end
+
   describe "image?/1" do
     test "returns true for image types" do
       assert ContentType.image?("image/jpeg")

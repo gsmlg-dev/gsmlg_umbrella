@@ -89,5 +89,46 @@ defmodule GSMLG.Storage.UploadReservationTest do
     refute_received {:put_file, _, _, _, _}
   end
 
+  test "finalizes UTF-8 CSV whose sampled header ends within a character" do
+    content = String.duplicate("a", 4095) <> "中,value\n"
+    refute String.valid?(binary_part(content, 0, 4096))
+
+    reservation = reserve_csv(content)
+    assert :ok = Storage.write_upload(reservation.id, content)
+
+    assert {:ok, %StorageFile{status: "active", content_type: "text/csv"}} =
+             Storage.finalize_upload(reservation.id, s3_client: ObjectStore)
+
+    assert_received {:put_file, _, _, ^content, "text/csv"}
+  end
+
+  test "rejects invalid UTF-8 beyond the sampled header despite matching size and checksum" do
+    for suffix <- [<<0xFF>>, <<0xE4, 0xB8>>, <<0>>, <<0x01>>] do
+      content = String.duplicate("a", 4096) <> suffix
+      reservation = reserve_csv(content)
+      assert :ok = Storage.write_upload(reservation.id, content)
+
+      assert {:error, :upload_integrity_failed} =
+               Storage.finalize_upload(reservation.id, s3_client: ObjectStore)
+
+      refute_received {:put_file, _, _, _, _}
+    end
+  end
+
+  defp reserve_csv(content) do
+    attrs = %{
+      filename: "report.csv",
+      content_type: "text/csv",
+      size: byte_size(content),
+      checksum: sha256(content),
+      expires_at: DateTime.add(DateTime.utc_now(), 300, :second)
+    }
+
+    {:ok, reservation} =
+      Storage.prepare_upload("sync", "gao_note_attachment", attrs, max_bytes: byte_size(content))
+
+    reservation
+  end
+
   defp sha256(content), do: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
 end

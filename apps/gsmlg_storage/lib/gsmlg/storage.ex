@@ -125,10 +125,10 @@ defmodule GSMLG.Storage do
 
     with true <- not upload_expired?(reservation),
          path <- reservation_path(reservation.id),
-         {:ok, %{size: size, checksum: checksum, head: head}} <- hash_file(path),
+         {:ok, %{size: size, checksum: checksum}} <- hash_file(path),
          true <- size == reservation.size,
          true <- Plug.Crypto.secure_compare(checksum, reservation.checksum),
-         {:ok, detected} <- ContentType.detect(head, reservation.filename),
+         {:ok, detected} <- ContentType.detect_file(path, reservation.filename),
          true <- detected == reservation.content_type,
          target <- if(client == S3Client, do: backend, else: backend.bucket),
          :ok <- client.put_file(target, reservation.s3_key, path, reservation.content_type),
@@ -1437,7 +1437,7 @@ defmodule GSMLG.Storage do
   defp hash_file(path) do
     with {:ok, io} <- File.open(path, [:read, :binary]) do
       try do
-        hash_file_chunks(io, :crypto.hash_init(:sha256), 0, <<>>)
+        hash_file_chunks(io, :crypto.hash_init(:sha256), 0)
       after
         File.close(io)
       end
@@ -1446,26 +1446,20 @@ defmodule GSMLG.Storage do
     end
   end
 
-  defp hash_file_chunks(io, hash, size, head) do
+  defp hash_file_chunks(io, hash, size) do
     case IO.binread(io, 1_048_576) do
       :eof ->
         {:ok,
          %{
            size: size,
-           checksum: :crypto.hash_final(hash) |> Base.encode16(case: :lower),
-           head: head
+           checksum: :crypto.hash_final(hash) |> Base.encode16(case: :lower)
          }}
 
       {:error, _reason} ->
         {:error, :upload_read_failed}
 
       chunk ->
-        next_head =
-          if byte_size(head) < 4_096,
-            do: binary_part(head <> chunk, 0, min(4_096, byte_size(head <> chunk))),
-            else: head
-
-        hash_file_chunks(io, :crypto.hash_update(hash, chunk), size + byte_size(chunk), next_head)
+        hash_file_chunks(io, :crypto.hash_update(hash, chunk), size + byte_size(chunk))
     end
   end
 
