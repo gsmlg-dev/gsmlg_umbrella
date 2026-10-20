@@ -53,8 +53,9 @@ The workflow publishes:
 - Every enabled Hex package at the same `<version>`, plus its `.tar` candidate
   archive and `manifest.json` checksums as GitHub release assets.
 
-The root Mix version and every `apps/*/mix.exs` must match. For local changes,
-use `scripts/update_version.sh <version>` and check with
+The root Mix version, every `apps/*/mix.exs` and explicit root/application
+`package.json` versions must match. Dependency versions are not changed. For
+local changes, use `scripts/update_version.sh <version>` and check with
 `scripts/update_version.sh --check`. The updater discovers new applications
 automatically; CI runs the check without starting services.
 

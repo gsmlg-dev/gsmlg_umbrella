@@ -4,7 +4,7 @@ defmodule GSMLG.ProxyRules.MixProject do
   def project do
     [
       app: :proxy_rules,
-      version: "1.0.0",
+      version: "5.13.8",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",

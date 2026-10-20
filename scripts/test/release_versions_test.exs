@@ -137,6 +137,88 @@ defmodule GSMLG.Release.VersionsTest do
     assert {_, 1} = System.cmd("bash", [script, "1.0.0", "extra"], options)
   end
 
+  test "updates root and child JSON versions without changing dependencies or formatting", %{
+    root: root
+  } do
+    write_project(root, "mix.exs", literal("1.0.0"))
+    write_project(root, "apps/new_child/mix.exs", attribute("0.1.0"))
+
+    root_json =
+      "{\n  \"name\": \"umbrella\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {\"version\": \"1.0.0\"}\n}\n"
+
+    child_json =
+      "{\"dependencies\":{\"version\":\"0.1.0\"}, \"version\" : \"0.1.0\",\"nested\":{\"version\":\"9.0.0\"}}\r\n"
+
+    write_project(root, "package.json", root_json)
+    write_project(root, "apps/new_child/package.json", child_json)
+    write_project(root, "deps/external/package.json", "{\"version\":\"9.0.0\"}\n")
+
+    assert :ok = Versions.update(root, "5.13.8")
+
+    assert File.read!(Path.join(root, "package.json")) ==
+             String.replace(root_json, "\"version\": \"1.0.0\"", "\"version\": \"5.13.8\"",
+               global: false
+             )
+
+    assert File.read!(Path.join(root, "apps/new_child/package.json")) ==
+             String.replace(child_json, "\"version\" : \"0.1.0\"", "\"version\" : \"5.13.8\"")
+
+    assert File.read!(Path.join(root, "deps/external/package.json")) ==
+             "{\"version\":\"9.0.0\"}\n"
+
+    assert {:ok, "5.13.8"} = Versions.check(root)
+  end
+
+  test "JSON version mismatches are checked read-only against root or explicit version", %{
+    root: root
+  } do
+    write_project(root, "mix.exs", literal("5.13.8"))
+    write_project(root, "apps/child/package.json", "{\"version\": \"1.0.0\"}\n")
+    before = snapshot(root)
+
+    for expected <- [nil, "5.13.8"] do
+      assert {:error, message} = Versions.check(root, expected)
+      assert message =~ "apps/child/package.json"
+      assert message =~ "version 1.0.0, expected 5.13.8"
+      assert snapshot(root) == before
+    end
+  end
+
+  test "versionless JSON manifests remain unchanged", %{root: root} do
+    write_project(root, "mix.exs", literal("1.0.0"))
+    root_json = "{\"private\":true,\"dependencies\":{\"version\":\"0.1.0\"}}\n"
+    child_json = "{\"name\":\"child\",\"nested\":{\"version\":\"0.2.0\"}}\n"
+    write_project(root, "package.json", root_json)
+    write_project(root, "apps/child/package.json", child_json)
+
+    assert :ok = Versions.update(root, "5.13.8")
+    assert File.read!(Path.join(root, "package.json")) == root_json
+    assert File.read!(Path.join(root, "apps/child/package.json")) == child_json
+    assert {:ok, "5.13.8"} = Versions.check(root)
+  end
+
+  test "invalid JSON or JSON versions prevent every Mix and JSON edit", %{root: root} do
+    write_project(root, "mix.exs", literal("1.0.0"))
+    write_project(root, "apps/a_valid/mix.exs", attribute("0.1.0"))
+    write_project(root, "package.json", "{\"version\":\"1.0.0\"}\n")
+
+    for invalid <- [
+          "{\"version\":\"1.0.0\",}",
+          "{",
+          "{\"version\":\"invalid\"}",
+          "{\"version\":12}",
+          "{\"version\":null}"
+        ] do
+      write_project(root, "apps/z_invalid/package.json", invalid)
+      before = snapshot(root)
+      assert {:error, message} = Versions.update(root, "5.13.8")
+      assert message =~ "apps/z_invalid/package.json"
+      assert snapshot(root) == before
+      assert {:error, _} = Versions.check(root)
+      assert snapshot(root) == before
+    end
+  end
+
   defp write_project(root, path, content) do
     file = Path.join(root, path)
     File.mkdir_p!(Path.dirname(file))
@@ -152,9 +234,8 @@ defmodule GSMLG.Release.VersionsTest do
   end
 
   defp snapshot(root) do
-    root
-    |> Path.join("**/mix.exs")
-    |> Path.wildcard()
+    ["**/mix.exs", "**/package.json"]
+    |> Enum.flat_map(&Path.wildcard(Path.join(root, &1)))
     |> Map.new(&{&1, File.read!(&1)})
   end
 end

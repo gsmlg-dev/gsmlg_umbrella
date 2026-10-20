@@ -24,9 +24,9 @@ fi
 bash "$script_dir/update_version.sh" "$version"
 
 files=(mix.exs)
-for app_file in "$root"/apps/*/mix.exs; do
-  if [[ -f "$app_file" ]]; then
-    files+=("${app_file#"$root"/}")
+for version_file in "$root"/apps/*/mix.exs "$root"/package.json "$root"/apps/*/package.json; do
+  if [[ -f "$version_file" ]]; then
+    files+=("${version_file#"$root"/}")
   fi
 done
 git -C "$root" add -- "${files[@]}"

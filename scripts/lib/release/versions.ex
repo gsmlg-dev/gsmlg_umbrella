@@ -44,6 +44,10 @@ defmodule GSMLG.Release.Versions do
 
   defp read_projects!(root) do
     root = Path.expand(root)
+    read_mix_projects!(root) ++ read_json_projects!(root)
+  end
+
+  defp read_mix_projects!(root) do
     files = [Path.join(root, "mix.exs") | Path.wildcard(Path.join(root, "apps/*/mix.exs"))]
 
     Enum.map(files, fn file ->
@@ -123,6 +127,74 @@ defmodule GSMLG.Release.Versions do
           raise ArgumentError, "#{path}: @version must be a string literal"
       end
     end)
+  end
+
+  defp read_json_projects!(root) do
+    files =
+      Path.wildcard(Path.join(root, "package.json")) ++
+        Path.wildcard(Path.join(root, "apps/*/package.json"))
+
+    Enum.flat_map(files, fn file ->
+      path = Path.relative_to(file, root)
+      source = File.read!(file)
+
+      manifest =
+        case JSON.decode(source) do
+          {:ok, manifest} when is_map(manifest) -> manifest
+          {:ok, _} -> raise ArgumentError, "#{path}: expected a JSON object"
+          {:error, error} -> raise ArgumentError, "#{path}: invalid JSON #{inspect(error)}"
+        end
+
+      case Map.fetch(manifest, "version") do
+        :error ->
+          []
+
+        {:ok, version} ->
+          validate_version!(version, path)
+
+          # Token offsets let us change only the top-level value and preserve JSON formatting.
+          tokens =
+            Regex.scan(~r/"(?:[^"\\]|\\.)*"|[{}\[\]:,]/, source, return: :index)
+            |> Enum.map(fn [{offset, length}] ->
+              {binary_part(source, offset, length), offset}
+            end)
+
+          case json_version_tokens(tokens, 0, []) do
+            [{literal, offset}] ->
+              [
+                %{
+                  file: file,
+                  path: path,
+                  source: source,
+                  version: version,
+                  offset: offset,
+                  literal: literal
+                }
+              ]
+
+            _ ->
+              raise ArgumentError, "#{path}: expected one top-level version declaration"
+          end
+      end
+    end)
+  end
+
+  defp json_version_tokens([], _depth, versions), do: versions
+
+  defp json_version_tokens([{key, _}, {":", _}, value | rest], 1, versions) do
+    versions = if JSON.decode!(key) == "version", do: [value | versions], else: versions
+    json_version_tokens([value | rest], 1, versions)
+  end
+
+  defp json_version_tokens([{token, _} | rest], depth, versions) do
+    depth =
+      case token do
+        opening when opening in ["{", "["] -> depth + 1
+        closing when closing in ["}", "]"] -> depth - 1
+        _ -> depth
+      end
+
+    json_version_tokens(rest, depth, versions)
   end
 
   defp validate_version!(version, path \\ nil) do

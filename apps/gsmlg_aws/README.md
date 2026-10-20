@@ -8,7 +8,7 @@ the AWS SDK through a Tesla/Finch transport; selected listing calls use Cachex.
 Add the package to your dependencies:
 
 ```elixir
-{:gsmlg_aws, "~> 1.0"}
+{:gsmlg_aws, "~> 5.13.8"}
 ```
 
 The package follows the GSMLG umbrella release version. Inside this repository,

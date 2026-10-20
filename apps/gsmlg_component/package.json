@@ -1,6 +1,6 @@
 {
   "name": "gsmlg_component",
-  "version": "1.0.0",
+  "version": "5.13.8",
   "type": "module",
   "dependencies": {
     "@tailwindcss/typography": "0.5.20",

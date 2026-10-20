@@ -78,6 +78,30 @@ defmodule GSMLG.Release.PrepareReleaseTest do
     assert remote_ref(fixture, "refs/heads/main") == fixture.baseline
   end
 
+  test "release source includes root and child frontend package versions", fixture do
+    for file <- ["package.json", "apps/child/package.json"] do
+      File.write!(
+        Path.join(fixture.root, file),
+        ~s({"version":"1.0.0","dependencies":{"external":"1.0.0"}}\n)
+      )
+    end
+
+    git!(fixture.root, ["add", "package.json", "apps/child/package.json"])
+    git!(fixture.root, ["commit", "-m", "Add frontend metadata"])
+
+    assert {_, 0} = prepare(fixture, "5.13.8")
+    sha = git!(fixture.root, ["rev-parse", "HEAD"])
+
+    for file <- ["package.json", "apps/child/package.json"] do
+      assert git!(fixture.root, ["show", "#{sha}:#{file}"]) ==
+               ~s({"version":"5.13.8","dependencies":{"external":"1.0.0"}})
+    end
+
+    assert remote_ref(fixture, "refs/tags/v5.13.8^{}") == sha
+    assert remote_ref(fixture, "refs/heads/main") == fixture.baseline
+    assert git!(fixture.root, ["status", "--porcelain"]) == ""
+  end
+
   test "a conflicting release tag leaves tag and remote refs unchanged", fixture do
     assert {_, 0} = prepare(fixture, "2.0.0")
     tag_object = git!(fixture.root, ["rev-parse", "refs/tags/v2.0.0"])

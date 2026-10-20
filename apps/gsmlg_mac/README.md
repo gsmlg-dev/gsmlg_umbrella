@@ -20,7 +20,7 @@ Add `gsmlg_mac` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_mac, "~> 0.1.0"}
+    {:gsmlg_mac, "~> 5.13.8"}
   ]
 end
 ```
@@ -268,8 +268,8 @@ GSMLG.MAC emits telemetry events when integrated with GSMLG.Telemetry. To enable
 ```elixir
 def deps do
   [
-    {:gsmlg_mac, "~> 0.1.0"},
-    {:gsmlg_telemetry, "~> 0.1.0"}
+    {:gsmlg_mac, "~> 5.13.8"},
+    {:gsmlg_telemetry, "~> 5.13.8"}
   ]
 end
 ```

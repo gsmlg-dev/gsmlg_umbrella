@@ -1,7 +1,7 @@
 defmodule Toml.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "5.13.8"
   @source_url "https://github.com/gsmlg-dev/gsmlg_umbrella/tree/main/apps/gsmlg_toml"
 
   def project do

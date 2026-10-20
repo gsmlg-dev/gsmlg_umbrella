@@ -132,6 +132,8 @@ Then edit the generated `.po` files under `priv/gettext/<locale>/LC_MESSAGES/`.
 The root project and every application under `apps/` share one version. Child
 projects keep their own version literals so published Hex packages work without
 this repository. CI rejects version drift, including newly added applications.
+Root and application `package.json` files with their own version share it too;
+dependency version requirements are preserved.
 
 ```shell
 scripts/update_version.sh 1.2.3   # update root and every apps/*/mix.exs
