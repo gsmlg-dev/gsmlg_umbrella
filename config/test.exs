@@ -37,7 +37,8 @@ db_config =
     _ -> db_config
   end
 
-db_config = db_config ++ [pool_size: 10]
+# Async Sandbox tasks may share a connection during multi-second attachment processing.
+db_config = db_config ++ [pool_size: 10, queue_target: 5_000]
 
 config :gsmlg, GSMLG.Repo, Keyword.merge(db_config, pool_opt)
 

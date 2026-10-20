@@ -106,8 +106,8 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     transfer = stage(socket, event)
     ref = push(socket, "transfer_commit", %{"transfer_id" => transfer})
     expected = Protocol.ack(event)
-    assert_reply(ref, :ok, ^expected)
-    assert_push("ack", ^expected)
+    assert_reply(ref, :ok, ^expected, 1_000)
+    assert_push("ack", ^expected, 1_000)
     assert %Note{id: id, title: "remote"} = GSMLG.Repo.get(Note, event["note_id"])
     assert id == event["note_id"]
     assert socket.assigns.session_peer.actor_id == "note_sync:#{peer.id}"
@@ -147,7 +147,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
       Enum.each(attachments, fn {id, bytes} ->
         blob = "attachment:" <> id
         ref = push(socket, "attachment_begin", %{"transfer_id" => transfer, "blob_id" => blob})
-        assert_reply(ref, :ok, %{})
+        assert_reply(ref, :ok, %{}, 1_000)
         stage_chunks(socket, transfer, blob, bytes, 0)
         ref = push(socket, "blob_end", %{"transfer_id" => transfer, "blob_id" => blob})
         assert_reply(ref, :ok, %{}, 2000)
@@ -166,7 +166,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
         assert_receive {:commit_budget_held, worker}, 10_000
         assert worker == task.pid
         heartbeat = push(socket, "inventory_complete", %{})
-        assert_reply(heartbeat, :ok, %{})
+        assert_reply(heartbeat, :ok, %{}, 1_000)
         ack = Protocol.ack(event)
         refute_reply(ref, :ok, ^ack, 10)
         refute_push("ack", ^ack, 10)
@@ -287,12 +287,12 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     assert worker == task.pid
     assert Process.read_timer(task.timer) > 10_000
     heartbeat = push(socket, "inventory_complete", %{})
-    assert_reply(heartbeat, :ok, %{})
+    assert_reply(heartbeat, :ok, %{}, 1_000)
     ack = Protocol.ack(event)
     refute_reply(ref, :ok, ^ack, 10)
     send(worker, :continue_cleanup)
-    assert_reply(ref, :ok, ^ack)
-    assert_push("ack", ^ack)
+    assert_reply(ref, :ok, ^ack, 1_000)
+    assert_push("ack", ^ack, 1_000)
     assert Process.read_timer(task.timer) == false
   end
 
@@ -307,7 +307,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
         "checksum_sha256" => Protocol.sha256(bytes)
       })
 
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
     monitor = Process.monitor(socket.channel_pid)
     push(socket, "transfer_commit", %{"transfer_id" => transfer})
     assert_receive {:DOWN, ^monitor, :process, _, {:shutdown, :sync_session_error}}, 1000
@@ -329,12 +329,16 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
       payload: %{"transfer_id" => transfer}
     })
 
-    assert_push("note_rejected", %{
-      "code" => "note_rejected",
-      "event_id" => event_id,
-      "note_id" => note_id,
-      "reason" => "catalog_conflict"
-    })
+    assert_push(
+      "note_rejected",
+      %{
+        "code" => "note_rejected",
+        "event_id" => event_id,
+        "note_id" => note_id,
+        "reason" => "catalog_conflict"
+      },
+      1_000
+    )
 
     assert event_id == bad["event_id"] and note_id == bad["note_id"]
     refute GSMLG.Repo.get(Note, note_id)
@@ -351,7 +355,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     })
 
     expected = Protocol.ack(good)
-    assert_push("ack", ^expected)
+    assert_push("ack", ^expected, 1_000)
     assert GSMLG.Repo.get(Note, good["note_id"])
   end
 
@@ -371,7 +375,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
       "reason" => "validation_failed"
     }
 
-    assert_reply(ref, :error, ^expected)
+    assert_reply(ref, :error, ^expected, 1_000)
     refute GSMLG.Repo.get(Note, bad["note_id"])
     refute GSMLG.GaoNote.Sync.Store.get("received", bad["event_id"], peer.id)
     assert Process.alive?(socket.channel_pid)
@@ -386,7 +390,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
       payload: %{"transfer_id" => transfer}
     })
 
-    assert_push("note_rejected", ^expected)
+    assert_push("note_rejected", ^expected, 1_000)
     refute GSMLG.GaoNote.Sync.Store.get("received", bad["event_id"], peer.id)
 
     good = event(peer)
@@ -394,7 +398,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     ref = push(socket, "transfer_commit", %{"transfer_id" => transfer})
     ack = Protocol.ack(good)
     assert_reply(ref, :ok, ^ack, 2000)
-    assert_push("ack", ^ack)
+    assert_push("ack", ^ack, 1_000)
     assert %Note{content: "body"} = GSMLG.Repo.get(Note, good["note_id"])
   end
 
@@ -413,7 +417,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
       )
 
     ref = push(socket, "inventory_start", %{})
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
 
     assert_receive %Phoenix.Socket.Message{
                      event: "transfer_begin",
@@ -428,7 +432,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     commit_ref = push(socket, "transfer_commit", %{"transfer_id" => transfer})
     ack = Protocol.ack(incoming)
     assert_reply(commit_ref, :ok, ^ack, 2000)
-    assert_push("ack", ^ack)
+    assert_push("ack", ^ack, 1_000)
     reply(socket, begin_ref, %{})
     metadata = collect_blob(socket, begin_payload["transfer_id"], "event", [])
     outgoing = Jason.decode!(metadata)
@@ -466,7 +470,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     capture_log_telemetry()
     monitor = Process.monitor(socket.channel_pid)
     ref = push(socket, "inventory_start", %{})
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
 
     assert_receive {:telemetry, [:gsmlg, :log], %{level: :error},
                     %{message: "GaoNote sync operation failed"} = metadata},
@@ -485,7 +489,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
 
     refute_receive {:DOWN, ^monitor, :process, _, _}, 50
     heartbeat = push(socket, "inventory_complete", %{})
-    assert_reply(heartbeat, :ok, %{})
+    assert_reply(heartbeat, :ok, %{}, 1_000)
     assert Store.get("pending", note.id, peer.id)
     assert [] = Store.list("lease", peer.id)
   end
@@ -542,7 +546,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
       assert is_pid(task.pid)
       assert Process.read_timer(task.timer) in 1..10_000
       duplicate = push(socket, "inventory_start", %{})
-      assert_reply(duplicate, :ok, %{})
+      assert_reply(duplicate, :ok, %{}, 1_000)
       assert channel_state(socket).assigns.inventory_task.ref == task.ref
       refute_reply(ref, :ok, %{}, 10)
       stage(socket, event(peer))
@@ -625,7 +629,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
         "checksum_sha256" => Protocol.sha256(bytes)
       })
 
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
 
     push(socket, "blob_chunk", %{
       "transfer_id" => transfer,
@@ -661,7 +665,7 @@ while time.monotonic() < end:
       assert is_pid(task.pid)
       refute_reply(ref, :ok, %{}, 10)
       heartbeat = push(socket, "inventory_complete", %{})
-      assert_reply(heartbeat, :ok, %{})
+      assert_reply(heartbeat, :ok, %{}, 1_000)
       monitor = Process.monitor(socket.channel_pid)
       send(socket.channel_pid, {:task_deadline, task.ref})
       assert_receive {:DOWN, ^monitor, :process, _, {:shutdown, :sync_session_error}}, 1000
@@ -707,7 +711,7 @@ while time.monotonic() < end:
 
       {:ok, _} = Compat.patch_note(note.id, note.revision, %{content: "attachment body"}, nil)
       ref = push(socket, "inventory_start", %{})
-      assert_reply(ref, :ok, %{})
+      assert_reply(ref, :ok, %{}, 1_000)
 
       assert_receive {:attachment_range, _reader, 0, _last}, 2000
       refute_receive %Phoenix.Socket.Message{event: "transfer_begin"}, 10
@@ -751,7 +755,7 @@ while time.monotonic() < end:
       send(socket.channel_pid, {:task_deadline, task.ref})
       send(socket.channel_pid, {:preparation_deadline, elem(state.assigns.preparation_timer, 0)})
       heartbeat = push(socket, "inventory_complete", %{})
-      assert_reply(heartbeat, :ok, %{})
+      assert_reply(heartbeat, :ok, %{}, 1_000)
 
       if size == 0 do
         :sys.replace_state(socket.channel_pid, fn current ->
@@ -847,7 +851,7 @@ while time.monotonic() < end:
     assert state.assigns.outgoing.phase == :preparing
     assert state.assigns.read_task.ref == task.ref
     heartbeat = push(socket, "inventory_complete", %{})
-    assert_reply(heartbeat, :ok, %{})
+    assert_reply(heartbeat, :ok, %{}, 1_000)
     send(reader, :continue_read)
 
     assert_receive %Phoenix.Socket.Message{event: "transfer_begin", ref: ref, payload: payload},
@@ -889,7 +893,7 @@ while time.monotonic() < end:
     assert Process.read_timer(waiting.timer) == false
     send(socket.channel_pid, {:request_deadline, waiting.ref})
     heartbeat = push(socket, "inventory_complete", %{})
-    assert_reply(heartbeat, :ok, %{})
+    assert_reply(heartbeat, :ok, %{}, 1_000)
     assert Sync.pending(peer.id) == []
     await_state(socket, &is_nil(&1.assigns.outgoing))
     refute File.exists?(staged.directory)
@@ -958,7 +962,7 @@ while time.monotonic() < end:
       end
 
       ref = push(socket, "inventory_start", %{})
-      assert_reply(ref, :ok, %{})
+      assert_reply(ref, :ok, %{}, 1_000)
       assert_receive {:attachment_range, first, 0, _last}, 2000
       state = channel_state(socket)
       lease_id = state.assigns.outgoing.lease
@@ -975,7 +979,7 @@ while time.monotonic() < end:
       end
 
       heartbeat = push(socket, "inventory_complete", %{})
-      assert_reply(heartbeat, :ok, %{})
+      assert_reply(heartbeat, :ok, %{}, 1_000)
       send(first, :continue_read)
       assert_receive {:attachment_range, second, 0, _last}, 2000
       refute_receive %Phoenix.Socket.Message{event: "transfer_begin"}, 50
@@ -1014,7 +1018,7 @@ while time.monotonic() < end:
           assert recovered.assigns.preparation_retries[note.id].attempts == 1
           assert Store.get("pending", note.id, peer.id)
           heartbeat = push(socket, "inventory_complete", %{})
-          assert_reply(heartbeat, :ok, %{})
+          assert_reply(heartbeat, :ok, %{}, 1_000)
         end
 
         refute File.exists?(partial.directory)
@@ -1073,7 +1077,7 @@ while time.monotonic() < end:
       )
 
     ref = push(socket, "inventory_start", %{})
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
 
     assert_receive %Phoenix.Socket.Message{
                      event: "transfer_begin",
@@ -1092,7 +1096,7 @@ while time.monotonic() < end:
     assert Process.read_timer(waiting.timer) == false
     reply(socket, commit_ref, Protocol.ack(outgoing))
     ref = push(socket, "inventory_complete", %{})
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
   end
 
   test "blocked committed ACK coalesces duplicate confirmations and services inbound frames", %{
@@ -1106,7 +1110,7 @@ while time.monotonic() < end:
       )
 
     ref = push(socket, "inventory_start", %{})
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
 
     assert_receive %Phoenix.Socket.Message{
                      event: "transfer_begin",
@@ -1260,7 +1264,7 @@ while time.monotonic() < end:
         "checksum_sha256" => Protocol.sha256(bytes)
       })
 
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
 
     push(socket, "blob_chunk", %{
       "transfer_id" => transfer,
@@ -1270,7 +1274,7 @@ while time.monotonic() < end:
     })
 
     ref = push(socket, "blob_end", %{"transfer_id" => transfer, "blob_id" => "event"})
-    assert_reply(ref, :ok, %{})
+    assert_reply(ref, :ok, %{}, 1_000)
     transfer
   end
 
