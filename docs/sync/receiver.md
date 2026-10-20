@@ -228,7 +228,9 @@ recorded versions rather than defining the current authentication behavior.
 ## Incremental state queries
 
 The four-field v1 join request is unchanged. The channel adds
-`"capabilities":["state_query_v1"]` to its successful join reply. A capable client
+`"capabilities":["state_query_v1","task_sync_v1"]` to its successful join reply.
+The following request/reply behavior describes clients selecting only
+`state_query_v1`. A capable legacy client
 must send `sync_negotiate` with exactly `{"capabilities":["state_query_v1"]}` and
 validate the echoed reply before sending `inventory_start {}`. Capabilities are
 immutable once inventory begins. Clients that omit negotiation keep the legacy
@@ -278,3 +280,46 @@ and count describe that GaoNote round's distinct authorized classified notes.
 The legacy completion payload remains `{}`. New durable work starts another
 round; an idle session reconciles periodically. A completion message is a round
 boundary, not proof that blocked or newly edited notes were delivered.
+
+## Task transport and paged managers
+
+Upgraded peers select both `state_query_v1` and `task_sync_v1` in
+`sync_negotiate`. They retain one WebSocket and exchange `task_submit`,
+`task_status`, `task_get`, `task_cancel` and `task_error` messages for business
+operations. Business operation duration does not fail the connection; heartbeats
+continue independently while database and object-store workers run. Task failures
+retain pending events and remain visible on the same connection.
+
+Tasks use `<origin-node-UUID>:<contiguous-positive-sequence>` identities scoped to
+the current join. Each peer retains four active operation slots, 64 terminal
+snapshots and a high-water sequence, so an evicted task cannot execute again.
+Exact replays return the existing state; conflicting payloads are rejected.
+Terminal states are immutable. Failed states contain sanitized stable codes;
+cancelled states have null result and error. Durable apply owns its resources
+until it settles, including after a socket closes. An uncertain commit remains
+nonterminal until its exact durable receipt establishes the outcome.
+
+The initial manager enumerates a finite read snapshot with SQL keyset pages of
+at most 32 IDs, published atomically to a session-owned disk spool. Comparison
+and per-note work begin with the first available page, while local discovery
+continues independently of the network. The producer releases its read snapshot
+after local enumeration. Page readers preserve authorization, UUID/HLC/LWW,
+generation fences and exact final ACK rules. Pending and audit lanes retain
+eight-to-one fairness. After the initial comparison, paged durable change passes
+replace periodic whole-library audits on the healthy session.
+
+`sync_manager_status` pushes the round UUID, monotonic session status sequence
+and progress: source/comparison pages, discovered and checked note counts,
+source cursor, scan completion and the last actual progress time. Totals remain
+unknown until local enumeration completes. Manager failures remain separate
+from connection health. Heartbeats do not advance progress counters.
+
+Metadata and attachments use at most 64 KiB raw chunks, with one unconfirmed
+chunk per direction. Each chunk task confirms the exact transfer/blob identity
+and cumulative received byte offset. Final size/hash verification and the exact
+durable commit ACK still determine note delivery. A reconnect restarts partial
+blobs and reconciles durable events; it does not promise partial-byte resumption.
+
+The complete wire codecs and ownership rules are maintained in Agent Note's
+`docs/sync/gaonote-protocol-v1.md` and
+`docs/superpowers/specs/2026-10-20-task-driven-note-sync-design.md`.

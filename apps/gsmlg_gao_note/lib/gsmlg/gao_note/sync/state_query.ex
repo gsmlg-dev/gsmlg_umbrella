@@ -9,7 +9,10 @@ defmodule GSMLG.GaoNote.Sync.StateQuery do
     do:
       Protocol.exact_keys?(payload, ["capabilities"]) and
         is_list(payload["capabilities"]) and
-        payload["capabilities"] in [[], ["state_query_v1"]]
+        Enum.all?(payload["capabilities"], &(&1 in ["state_query_v1", "task_sync_v1"])) and
+        length(Enum.uniq(payload["capabilities"])) == length(payload["capabilities"]) and
+        ("task_sync_v1" not in payload["capabilities"] or
+           "state_query_v1" in payload["capabilities"])
 
   def descriptor?(value) do
     Protocol.exact_keys?(value, @descriptor_keys) and

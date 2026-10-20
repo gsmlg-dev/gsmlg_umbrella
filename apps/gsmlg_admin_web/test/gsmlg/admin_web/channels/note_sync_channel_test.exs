@@ -6,6 +6,15 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
 
   alias GSMLG.Storage.TestCatalogClient
 
+  defmodule CommitBudgetStore do
+    def put_file(_bucket, key, path, _mime) do
+      objects = Application.fetch_env!(:gsmlg_storage, :commit_budget_objects)
+      bytes = File.read!(path)
+      Agent.update(objects, &Map.put(&1, key, bytes))
+      :ok
+    end
+  end
+
   defmodule AttachmentObjectStub do
     import Plug.Conn
 
@@ -111,7 +120,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
         {List.duplicate(0, 168), 900_000}
       ] do
     @tag attachment_sizes: sizes, commit_deadline: deadline
-    test "commit budget accounts for #{length(sizes)} attachments totalling #{Enum.sum(sizes)} bytes and cancels blocked work",
+    test "commit budget accounts for #{length(sizes)} attachments totalling #{Enum.sum(sizes)} bytes and drains durable work",
          %{socket: socket, peer: peer, attachment_sizes: sizes, commit_deadline: deadline} do
       attachments =
         sizes
@@ -132,6 +141,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
 
       event = put_in(event(peer), ["snapshot", "attachments"], descriptors)
       event = Map.put(event, "snapshot_hash", Protocol.snapshot_hash(event["snapshot"]))
+      objects = commit_budget_barrier(event)
       transfer = stage(socket, event)
 
       Enum.each(attachments, fn {id, bytes} ->
@@ -144,12 +154,17 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
       end)
 
       incoming = channel_state(socket).assigns.incoming
-      blocker = hold_database()
+      lease_id = Ecto.UUID.generate()
+      Store.put("lease", lease_id, %{"session_id" => peer.session_id}, peer.id)
+      ref = push(socket, "transfer_commit", %{"transfer_id" => transfer})
+      task = channel_state(socket).assigns.apply_task
+      task_monitor = Process.monitor(task.pid)
+      guard_monitor = Process.monitor(socket.assigns.guard)
 
       try do
-        ref = push(socket, "transfer_commit", %{"transfer_id" => transfer})
-        task = channel_state(socket).assigns.apply_task
         assert Process.read_timer(task.timer) in (deadline - 2_000)..deadline
+        assert_receive {:commit_budget_held, worker}, 10_000
+        assert worker == task.pid
         heartbeat = push(socket, "inventory_complete", %{})
         assert_reply(heartbeat, :ok, %{})
         ack = Protocol.ack(event)
@@ -158,19 +173,84 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
         send(socket.channel_pid, {:task_deadline, make_ref()})
         assert channel_state(socket).assigns.apply_task.ref == task.ref
         monitor = Process.monitor(socket.channel_pid)
-        task_monitor = Process.monitor(task.pid)
         send(socket.channel_pid, {:task_deadline, task.ref})
         assert_receive {:DOWN, ^monitor, :process, _, {:shutdown, :sync_session_error}}, 1000
-        assert_receive {:DOWN, ^task_monitor, :process, _, _}, 1000
-      after
-        release_database(blocker)
-      end
+        refute_receive {:DOWN, ^task_monitor, :process, _, _}, 10
+        assert Process.alive?(worker)
+        assert Process.alive?(socket.assigns.guard)
+        assert File.exists?(incoming.directory)
+        assert File.exists?(socket.assigns.staging_root)
+        assert Store.get("lease", lease_id, peer.id)
+        assert Store.get("received", event["event_id"], peer.id) == nil
 
-      guard_monitor = Process.monitor(socket.assigns.guard)
-      assert_receive {:DOWN, ^guard_monitor, :process, _, _}, 2000
-      refute File.exists?(incoming.directory)
-      refute GSMLG.Repo.get(Note, event["note_id"])
+        send(worker, :release_commit_budget)
+        assert_receive {:DOWN, ^task_monitor, :process, ^worker, :normal}, 5_000
+        assert_receive {:DOWN, ^guard_monitor, :process, _, :normal}, 5_000
+        assert %Note{id: id} = GSMLG.Repo.get(Note, event["note_id"])
+        assert id == event["note_id"]
+
+        assert Store.get("received", event["event_id"], peer.id) == %{
+                 "event_hash" => Protocol.sha256(Protocol.canonical_json(event))
+               }
+
+        assert {:ok, ^ack} = Sync.apply(peer, event, Map.new(attachments))
+        assert Agent.get(objects, &map_size(&1)) == length(attachments)
+        assert Store.get("lease", lease_id, peer.id) == nil
+        refute File.exists?(incoming.directory)
+        refute File.exists?(socket.assigns.staging_root)
+      after
+        # Keep storage and Sandbox fixtures alive until any published apply settles,
+        # including when an assertion fails before the normal release above.
+        send(task.pid, :release_commit_budget)
+        await_process_exit(task.pid)
+        await_process_exit(socket.assigns.guard)
+      end
     end
+  end
+
+  defp commit_budget_barrier(event) do
+    objects = start_supervised!({Agent, fn -> %{} end})
+    config = %{upload_s3_client: CommitBudgetStore, commit_budget_objects: objects}
+
+    previous =
+      Map.new(config, fn {key, _} -> {key, Application.fetch_env(:gsmlg_storage, key)} end)
+
+    Enum.each(config, fn {key, value} -> Application.put_env(:gsmlg_storage, key, value) end)
+    owner = self()
+    handler = {__MODULE__, make_ref()}
+
+    :telemetry.attach(
+      handler,
+      [:gsmlg, :gao_note, :sync, :apply, :start],
+      fn _, _, metadata, _ ->
+        if metadata.event_id == event["event_id"] and metadata.phase == :transaction do
+          send(owner, {:commit_budget_held, self()})
+
+          receive do
+            :release_commit_budget -> :ok
+          after
+            30_000 -> raise "commit budget barrier timed out"
+          end
+        end
+      end,
+      nil
+    )
+
+    on_exit(fn ->
+      :telemetry.detach(handler)
+
+      Enum.each(previous, fn
+        {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
+        {key, :error} -> Application.delete_env(:gsmlg_storage, key)
+      end)
+    end)
+
+    objects
+  end
+
+  defp await_process_exit(pid) do
+    monitor = Process.monitor(pid)
+    assert_receive {:DOWN, ^monitor, :process, ^pid, _}, 5_000
   end
 
   test "commit cleanup stays within the task budget while the channel remains responsive", %{

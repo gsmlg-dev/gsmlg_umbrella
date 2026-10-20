@@ -298,6 +298,174 @@ defmodule GSMLG.AdminWeb.NoteSyncConcurrencyTest do
     end)
   end
 
+  @tag task_sync: true
+  test "task inventory stays responsive beyond ten seconds without apply or query deadlines", %{
+    socket: socket,
+    peer: peer,
+    note: note
+  } do
+    ref = push(socket, "sync_negotiate", %{"capabilities" => ["state_query_v1", "task_sync_v1"]})
+    assert_reply(ref, :ok, %{"capabilities" => ["state_query_v1", "task_sync_v1"]})
+    install_source_barrier(peer.id)
+    id = "#{peer.id}:1"
+    command = %{"task_id" => id, "operation" => "inventory_start", "payload" => %{}}
+    push(socket, "task_submit", command)
+    assert_push("task_status", %{"task_id" => ^id, "state" => "queued"}, 1_000)
+    assert_receive {:query_peer_locked, worker}, 2_000
+
+    try do
+      assert_push("task_status", %{"task_id" => ^id, "state" => "running"}, 1_000)
+      initial = state(socket).assigns.inventory_task
+      assert initial.pid == worker
+      assert state(socket).assigns.query_task == nil
+      assert state(socket).assigns.apply_task == nil
+      Process.sleep(10_100)
+      assert Process.alive?(worker)
+      assert state(socket).assigns.inventory_task.ref == initial.ref
+      push(socket, "task_submit", command)
+      assert_push("task_status", %{"task_id" => ^id, "state" => "running"}, 1_000)
+      push(socket, "task_get", %{"task_id" => id})
+      assert_push("task_status", %{"task_id" => ^id, "state" => "running"}, 1_000)
+
+      push(socket, "task_submit", %{
+        "task_id" => "#{peer.id}:2",
+        "operation" => "inventory_complete",
+        "payload" => %{"inventory_id" => Ecto.UUID.generate(), "total_notes" => 0}
+      })
+
+      assert_push("task_status", %{"task_id" => _, "state" => "succeeded"}, 1_000)
+      send(worker, :release_query)
+
+      assert_push(
+        "task_status",
+        %{
+          "task_id" => ^id,
+          "state" => "succeeded",
+          "progress" => %{"notes_scanned" => 1, "total_notes" => 1}
+        },
+        2_000
+      )
+
+      assert_receive %Phoenix.Socket.Message{
+                       event: "task_submit",
+                       payload: %{"operation" => "state_query", "payload" => query}
+                     },
+                     2_000
+
+      assert hd(query["items"])["note_id"] == note.id
+      assert Process.alive?(socket.channel_pid)
+    after
+      send(worker, :release_query)
+    end
+  end
+
+  for ending <- [:disconnect, :revocation] do
+    @tag task_sync: true, ending: ending
+    test "task inventory is canceled on #{ending}", %{socket: socket, peer: peer, ending: ending} do
+      ref =
+        push(socket, "sync_negotiate", %{"capabilities" => ["state_query_v1", "task_sync_v1"]})
+
+      assert_reply(ref, :ok, %{"capabilities" => ["state_query_v1", "task_sync_v1"]})
+      install_source_barrier(peer.id)
+      id = "#{peer.id}:1"
+
+      push(socket, "task_submit", %{
+        "task_id" => id,
+        "operation" => "inventory_start",
+        "payload" => %{}
+      })
+
+      assert_push("task_status", %{"task_id" => ^id, "state" => "queued"}, 1_000)
+      assert_receive {:query_peer_locked, worker}, 2_000
+
+      try do
+        monitor = Process.monitor(worker)
+
+        case ending do
+          :disconnect ->
+            Process.exit(socket.channel_pid, :shutdown)
+
+          :revocation ->
+            topic = "note_sync:#{peer.id}"
+
+            Phoenix.PubSub.broadcast(GSMLG.PubSub, topic, %Phoenix.Socket.Broadcast{
+              topic: topic,
+              event: "disconnect",
+              payload: %{}
+            })
+        end
+
+        assert_receive {:DOWN, ^monitor, :process, ^worker, _}, 2_000
+        refute Process.alive?(socket.channel_pid)
+      after
+        send(worker, :release_query)
+      end
+    end
+  end
+
+  @tag task_sync: true
+  test "explicit inventory cancellation settles workers and cleans its spool before retry", %{
+    socket: socket,
+    peer: peer
+  } do
+    caps = %{"capabilities" => ["state_query_v1", "task_sync_v1"]}
+    ref = push(socket, "sync_negotiate", caps)
+    assert_reply(ref, :ok, ^caps)
+    install_source_barrier(peer.id)
+    id = "#{peer.id}:1"
+
+    push(socket, "task_submit", %{
+      "task_id" => id,
+      "operation" => "inventory_start",
+      "payload" => %{}
+    })
+
+    assert_receive {:query_peer_locked, producer}, 2_000
+    directory = state(socket).assigns.sync_manager.directory
+    push(socket, "task_cancel", %{"task_id" => id})
+    assert_push("task_status", %{"task_id" => ^id, "state" => "cancelled"}, 5_000)
+    refute Process.alive?(producer)
+    refute File.exists?(directory)
+    assert state(socket).assigns.sync_manager.state == "failed"
+    assert Process.alive?(socket.channel_pid)
+    next_id = "#{peer.id}:2"
+
+    push(socket, "task_submit", %{
+      "task_id" => next_id,
+      "operation" => "inventory_start",
+      "payload" => %{}
+    })
+
+    assert_push("task_status", %{"task_id" => ^next_id, "state" => "succeeded"}, 5_000)
+  end
+
+  defp install_source_barrier(peer_id) do
+    owner = self()
+    handler = {__MODULE__, make_ref()}
+    held = :atomics.new(1, [])
+    peer_id = Ecto.UUID.dump!(peer_id)
+
+    :telemetry.attach(
+      handler,
+      [:gsmlg, :repo, :query],
+      fn _, _, metadata, _ ->
+        if String.contains?(metadata.query, ") cohort") and peer_id in metadata.params and
+             :atomics.compare_exchange(held, 1, 0, 1) == :ok do
+          send(owner, {:query_peer_locked, self()})
+
+          receive do
+            :release_query -> :ok
+          after
+            30_000 -> raise "source barrier timed out"
+          end
+        end
+      end,
+      nil
+    )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+  end
+
   defp install_query_barrier(peer_id) do
     owner = self()
     handler = {__MODULE__, make_ref()}
@@ -406,6 +574,8 @@ defmodule GSMLG.AdminWeb.NoteSyncConcurrencyTest do
         "checksum_sha256" => Protocol.sha256(bytes)
       })
 
+    # Observe completed filesystem staging before checking the already-sent reply.
+    assert state(socket).assigns.incoming.id == transfer
     assert_reply(ref, :ok, %{})
 
     push(socket, "blob_chunk", %{

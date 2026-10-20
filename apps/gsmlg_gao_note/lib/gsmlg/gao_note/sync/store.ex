@@ -81,6 +81,61 @@ defmodule GSMLG.GaoNote.Sync.Store do
     )
   end
 
+  # Only the source producer owns this read-only snapshot; it never waits on the network.
+  def inventory_snapshot(peer, operation) do
+    session_transaction(fn ->
+      Repo.query!("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+      current = Repo.get(GSMLG.GaoNote.Sync.Peer, peer.id)
+
+      unless current && current.session_id == peer.session_id &&
+               current.selectors == peer.selectors,
+             do: Repo.rollback(:obsolete_session)
+
+      operation.()
+    end)
+  end
+
+  def inventory_id_page(peer_id, cursor, limit, lane \\ :all) when limit in 1..32 do
+    lane_filter =
+      case lane do
+        :all ->
+          "TRUE"
+
+        :pending ->
+          "EXISTS (SELECT 1 FROM gao_note_sync_records p WHERE p.kind = 'pending' AND p.peer_id = $1 AND p.note_id = cohort.id)"
+
+        :audit ->
+          "NOT EXISTS (SELECT 1 FROM gao_note_sync_records p WHERE p.kind = 'pending' AND p.peer_id = $1 AND p.note_id = cohort.id)"
+      end
+
+    query = """
+    SELECT id FROM (
+      SELECT id FROM gao_notes
+      UNION
+      SELECT note_id AS id FROM gao_note_sync_records
+      WHERE kind = 'member' AND peer_id = $1 AND note_id IS NOT NULL
+    ) cohort
+    WHERE ($2::uuid IS NULL OR id > $2) AND (#{lane_filter})
+    ORDER BY id LIMIT $3
+    """
+
+    params = [Ecto.UUID.dump!(peer_id), if(cursor, do: Ecto.UUID.dump!(cursor)), limit]
+    %{rows: rows} = Repo.query!(query, params)
+    Enum.map(rows, fn [id] -> Ecto.UUID.load!(id) end)
+  end
+
+  def list_page(kind, peer_id, cursor, limit) when limit in 1..32 do
+    query =
+      from(r in Record,
+        where: r.kind == ^kind and r.peer_id == ^peer_id,
+        order_by: r.note_id,
+        limit: ^limit
+      )
+
+    query = if cursor, do: from(r in query, where: r.note_id > ^cursor), else: query
+    Repo.all(query)
+  end
+
   def lock(namespace, id) do
     Ecto.Adapters.SQL.query!(Repo, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
       "gao-note-sync:" <> namespace <> ":" <> id

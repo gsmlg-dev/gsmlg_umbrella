@@ -2,6 +2,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
   @moduledoc "Duplex sync transport; outbound requests advance one frame at a time."
   use Phoenix.Channel
   alias GSMLG.GaoNote.Sync
+  alias GSMLG.AdminWeb.NoteSync.{InventoryManager, TaskSync}
   alias GSMLG.GaoNote.Sync.{ApplyTelemetry, Engine, Outbound, Protocol, StateQuery, Transfer}
   @deadline 10_000
   @commit_reply_margin 30_000
@@ -22,6 +23,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
   ]
   @task_operations [
     query_task: :state_query,
+    manager_page_task: :manager_page,
     inventory_task: :inventory,
     pending_task: :pending,
     blob_task: :blob,
@@ -82,16 +84,143 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
           queue: [],
           inventory_started: false,
           inventory_done: false,
-          sequence: 0
+          sequence: 0,
+          local_node_id: response["node_id"],
+          task_ledger: TaskSync.new(peer.id),
+          task_workers: %{},
+          outgoing_tasks: %{},
+          outgoing_task_history: %{},
+          outgoing_task_order: [],
+          task_sequence: 0,
+          abort_waiters: [],
+          sync_manager: nil,
+          manager_page_task: nil,
+          manager_task_id: nil,
+          manager_status_seq: 0,
+          manager_last_status: nil,
+          manager_last_push_at: nil,
+          manager_progress_timer: nil,
+          remote_manager_status: nil,
+          pending_cursor: nil
         )
 
-      {:ok, Map.put(response, "capabilities", ["state_query_v1"]), socket}
+      {:ok, Map.put(response, "capabilities", ["state_query_v1", "task_sync_v1"]), socket}
     else
       _ -> {:error, %{code: "invalid_join"}}
     end
   end
 
   @impl true
+  def handle_in("task_submit", command, socket) do
+    if task_mode?(socket) and frame_fits?(socket, "task_submit", command, socket.ref) do
+      case TaskSync.admit(socket.assigns.task_ledger, command) do
+        {kind, ledger, status} when kind in [:new, :replay, :busy] ->
+          socket = assign(socket, :task_ledger, ledger)
+          push(socket, "task_status", status)
+          if kind == :new, do: launch_wire_task(socket, command), else: {:noreply, socket}
+
+        {:error, code} ->
+          task_error(socket, command["task_id"], code)
+      end
+    else
+      stop(socket)
+    end
+  end
+
+  def handle_in("task_get", payload, socket) do
+    if task_mode?(socket) and Protocol.exact_keys?(payload, ["task_id"]) do
+      case TaskSync.get(socket.assigns.task_ledger, payload["task_id"]) do
+        {:ok, status} ->
+          push(socket, "task_status", status)
+
+          case socket.assigns.task_workers[payload["task_id"]] do
+            %{operation: "reconcile_commit"} = worker ->
+              if Process.alive?(worker.pid),
+                do: {:noreply, socket},
+                else: reconcile_commit(socket, payload["task_id"], worker)
+
+            _ ->
+              {:noreply, socket}
+          end
+
+        {:error, code} ->
+          task_error(socket, payload["task_id"], code)
+      end
+    else
+      stop(socket)
+    end
+  end
+
+  def handle_in("task_cancel", payload, socket) do
+    if task_mode?(socket) and Protocol.exact_keys?(payload, ["task_id"]) do
+      id = payload["task_id"]
+
+      case TaskSync.get(socket.assigns.task_ledger, id) do
+        {:ok, status} ->
+          worker = socket.assigns.task_workers[id]
+
+          cond do
+            TaskSync.terminal?(status["state"]) ->
+              push(socket, "task_status", status)
+              {:noreply, socket}
+
+            worker &&
+                worker.operation in ["transfer_commit", "reconcile_commit", "inventory_cleanup"] ->
+              {:noreply,
+               wire_status(socket, id, "running", "cancellation_pending", status["progress"])}
+
+            worker ->
+              Process.exit(worker.pid, :kill)
+
+              workers =
+                Map.put(socket.assigns.task_workers, id, Map.put(worker, :cancelling, true))
+
+              {:noreply, assign(socket, :task_workers, workers)}
+
+            true ->
+              {:noreply, wire_status(socket, id, "cancelled", "cancelled", %{})}
+          end
+
+        {:error, code} ->
+          task_error(socket, id, code)
+      end
+    else
+      stop(socket)
+    end
+  end
+
+  def handle_in("sync_manager_status", payload, socket) do
+    if task_mode?(socket) do
+      case InventoryManager.accept_status(socket.assigns.remote_manager_status, payload) do
+        {:ok, accepted} -> {:noreply, assign(socket, :remote_manager_status, accepted)}
+        {:error, code} -> task_error(socket, "invalid", code)
+      end
+    else
+      stop(socket)
+    end
+  end
+
+  def handle_in("task_status", status, socket), do: receive_task_status(socket, status)
+
+  def handle_in("task_error", error, socket) do
+    if task_mode?(socket) and Protocol.exact_keys?(error, ~w(task_id code)) and
+         is_binary(error["code"]) and byte_size(error["code"]) <= 64 do
+      case socket.assigns.outgoing_tasks[error["task_id"]] do
+        %{operation: "transfer_commit"} ->
+          # The remote outcome is unresolved. Keep the exact event pending.
+          {:noreply, socket}
+
+        nil ->
+          {:noreply, socket}
+
+        task ->
+          outgoing_task_failed(socket, error["task_id"], task, error["code"])
+      end
+    else
+      stop(socket)
+    end
+  end
+
   def handle_in("sync_negotiate", payload, socket) do
     if not socket.assigns.inventory_started and StateQuery.capabilities?(payload) do
       {:reply, {:ok, payload}, assign(socket, :capabilities, payload["capabilities"])}
@@ -224,7 +353,8 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
 
           if cleanup == :ok, do: result, else: cleanup
         end,
-        commit_deadline(incoming.event, incoming.event_size)
+        commit_deadline(incoming.event, incoming.event_size),
+        true
       )
 
     reply_to = reply_ref(socket)
@@ -246,11 +376,11 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     if Protocol.exact_keys?(payload, ~w(status response)) and payload["status"] == "ok" and
          StateQuery.valid_response?(waiting.query, payload["response"]) and
          frame_fits?(socket, "phx_reply", payload, ref) do
-      Process.cancel_timer(waiting.timer)
+      cancel_timer(waiting.timer)
       [remote] = payload["response"]["items"]
 
       checkout_note(
-        assign(socket, :query_waiting, nil),
+        assign(socket, :query_waiting, nil) |> manager_progress(),
         waiting.descriptor["note_id"],
         socket.assigns.queue,
         {waiting.descriptor, remote}
@@ -296,14 +426,17 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     {:stop, {:shutdown, :disconnected}, socket}
   end
 
+  def handle_info(:send_next, %{assigns: %{sync_manager: %{state: "failed"}}} = socket),
+    do: {:noreply, socket}
+
   def handle_info(:send_next, %{assigns: %{inventory_started: false}} = socket),
     do: {:noreply, socket}
 
   def handle_info(
         :send_next,
-        %{assigns: %{capabilities: ["state_query_v1"], inventory_task: task}} = socket
+        %{assigns: %{inventory_task: task}} = socket
       )
-      when not is_nil(task),
+      when not is_nil(task) and is_nil(socket.assigns.sync_manager),
       do: {:noreply, socket}
 
   def handle_info(
@@ -318,7 +451,12 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
       {:noreply, assign(socket, :queue, rest)}
     else
       case socket.assigns.round_slots[id] do
-        %{unclassified: true} when socket.assigns.capabilities == ["state_query_v1"] ->
+        %{unclassified: true}
+        when socket.assigns.capabilities in [
+               ["state_query_v1"],
+               ["state_query_v1", "task_sync_v1"],
+               ["task_sync_v1", "state_query_v1"]
+             ] ->
           peer = socket.assigns.session_peer
 
           task =
@@ -332,7 +470,12 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
 
           {:noreply, assign(socket, queue: rest, checkout_task: Map.put(task, :note_id, id))}
 
-        %{descriptor: descriptor} when socket.assigns.capabilities == ["state_query_v1"] ->
+        %{descriptor: descriptor}
+        when socket.assigns.capabilities in [
+               ["state_query_v1"],
+               ["state_query_v1", "task_sync_v1"],
+               ["task_sync_v1", "state_query_v1"]
+             ] ->
           query_note(assign(socket, :queue, rest), descriptor)
 
         _ ->
@@ -340,6 +483,39 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
       end
     end
   end
+
+  def handle_info(
+        :send_next,
+        %{
+          assigns: %{
+            sync_manager: %{mode: "initial_scan"} = manager,
+            outgoing: nil,
+            checkout_task: nil,
+            query_waiting: nil,
+            queue: [],
+            manager_page_task: nil
+          }
+        } = socket
+      ) do
+    manager = InventoryManager.page_done(manager)
+    socket = assign(socket, :sync_manager, manager) |> publish_manager_status()
+    peer = socket.assigns.session_peer
+    task = start_task(socket, fn -> InventoryManager.read_page(peer, manager) end)
+    {:noreply, assign(socket, :manager_page_task, task)}
+  end
+
+  def handle_info(
+        :send_next,
+        %{assigns: %{sync_manager: %{mode: "changes"} = manager, queue: [], outgoing: nil}} =
+          socket
+      ),
+      do:
+        {:noreply,
+         assign(socket, :sync_manager, %{manager | state: "idle"}) |> publish_manager_status()}
+
+  def handle_info(:send_next, %{assigns: %{sync_manager: manager}} = socket)
+      when not is_nil(manager),
+      do: {:noreply, socket}
 
   def handle_info(
         :send_next,
@@ -363,9 +539,23 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
         },
         else: %{}
 
-    push(socket, "inventory_complete", payload)
+    socket =
+      if task_mode?(socket) do
+        case submit_outgoing_task(socket, "inventory_complete", payload) do
+          {:ok, _, updated} -> updated
+          {:error, updated} -> updated
+        end
+      else
+        push(socket, "inventory_complete", payload)
+        socket
+      end
+
     {:noreply, socket |> assign(:inventory_done, true) |> schedule_reconciliation()}
   end
+
+  def handle_info(:reconcile_inventory, %{assigns: %{sync_manager: manager}} = socket)
+      when not is_nil(manager),
+      do: {:noreply, socket}
 
   def handle_info(
         :reconcile_inventory,
@@ -380,7 +570,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
           }
         } = socket
       ) do
-    if socket.assigns.reconcile_timer, do: Process.cancel_timer(socket.assigns.reconcile_timer)
+    if socket.assigns.reconcile_timer, do: cancel_timer(socket.assigns.reconcile_timer)
     peer = socket.assigns.session_peer
     capable = negotiated?(socket)
 
@@ -407,13 +597,53 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
 
   def handle_info(:poll_pending, %{assigns: %{pending_task: nil}} = socket) do
     peer = socket.assigns.session_peer
-    task = start_task(socket, fn -> Sync.pending_ids(peer) end)
+    cursor = socket.assigns.pending_cursor
+
+    task =
+      start_task(socket, fn ->
+        if task_mode?(socket), do: Engine.pending_page(peer, cursor), else: Sync.pending_ids(peer)
+      end)
+
     {:noreply, assign(socket, :pending_task, task)}
   end
 
   def handle_info(:poll_pending, socket), do: {:noreply, socket}
 
-  def handle_info({ref, result}, %{assigns: %{query_task: %{ref: ref} = task}} = socket) do
+  def handle_info({:wire_progress, id, progress}, socket) do
+    case socket.assigns.task_workers[id] do
+      nil ->
+        {:noreply, socket}
+
+      _ ->
+        manager = socket.assigns.sync_manager
+
+        if (id == socket.assigns.manager_task_id and manager) && manager.state != "failed" do
+          manager = InventoryManager.observe_source(manager, progress)
+          socket = assign(socket, :sync_manager, manager) |> publish_manager_status()
+
+          {:noreply,
+           wire_status(socket, id, "running", "checking", InventoryManager.progress(manager))}
+        else
+          {:noreply, wire_status(socket, id, "running", "checking", progress)}
+        end
+    end
+  end
+
+  def handle_info({ref, result}, %{assigns: %{task_workers: workers}} = socket)
+      when is_reference(ref) and map_size(workers) > 0 do
+    case Enum.find(workers, fn {_, worker} -> worker.ref == ref end) do
+      {id, worker} -> finish_wire_task(socket, id, worker, result)
+      nil -> handle_local_task_result(ref, result, socket)
+    end
+  end
+
+  def handle_info({ref, result}, socket) when is_reference(ref),
+    do: handle_local_task_result(ref, result, socket)
+
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{query_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     socket = assign(socket, :query_task, nil)
 
@@ -433,7 +663,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{inventory_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{inventory_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     socket = assign(socket, :inventory_task, nil)
 
@@ -471,7 +704,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{pending_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{pending_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     socket = assign(socket, :pending_task, nil)
 
@@ -479,6 +715,28 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
       {:ok, :busy} ->
         Process.send_after(self(), :poll_pending, 1_000)
         {:noreply, socket}
+
+      {:ok, %{ids: ids, cursor: cursor}} ->
+        Process.send_after(self(), :poll_pending, 1_000)
+
+        if socket.assigns.inventory_done and socket.assigns.queue == [] and
+             is_nil(socket.assigns.outgoing) and
+             is_nil(socket.assigns.checkout_task) and is_nil(socket.assigns.query_waiting) do
+          manager = %{
+            socket.assigns.sync_manager
+            | state: if(ids == [], do: "idle", else: "running")
+          }
+
+          socket =
+            assign(socket, pending_cursor: cursor, round_slots: %{}, sync_manager: manager)
+            |> publish_manager_status()
+            |> enqueue(ids, true)
+
+          send(self(), :send_next)
+          {:noreply, socket}
+        else
+          {:noreply, socket}
+        end
 
       {:ok, ids} ->
         Process.send_after(self(), :poll_pending, 1_000)
@@ -496,7 +754,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{blob_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{blob_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     socket = assign(socket, :blob_task, nil)
 
@@ -510,7 +771,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{confirmation_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{confirmation_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     socket = assign(socket, :confirmation_task, nil)
 
@@ -520,7 +784,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{checkout_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{checkout_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     socket = assign(socket, :checkout_task, nil)
 
@@ -555,7 +822,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{apply_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{apply_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     incoming = socket.assigns.incoming
     socket = assign(socket, incoming: nil, apply_task: nil)
@@ -593,7 +863,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{read_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{read_task: %{ref: ref} = task}} = socket
+      ) do
     case result do
       {:ok, file} ->
         finish_task(socket, task)
@@ -613,7 +886,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{recovery_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{recovery_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     socket = assign(socket, :recovery_task, nil)
 
@@ -627,7 +903,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     end
   end
 
-  def handle_info({ref, result}, %{assigns: %{chunk_task: %{ref: ref} = task}} = socket) do
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{chunk_task: %{ref: ref} = task}} = socket
+      ) do
     finish_task(socket, task)
     socket = assign(socket, :chunk_task, nil)
 
@@ -640,6 +919,20 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
         fail(socket, :read_chunk, reason, task)
     end
   end
+
+  def handle_info({kind, _}, %{assigns: %{capabilities: capabilities}} = socket)
+      when kind in [
+             :task_deadline,
+             :query_deadline,
+             :request_deadline,
+             :incoming_deadline,
+             :preparation_deadline
+           ] and
+             capabilities in [
+               ["state_query_v1", "task_sync_v1"],
+               ["task_sync_v1", "state_query_v1"]
+             ],
+      do: {:noreply, socket}
 
   def handle_info({:task_deadline, ref}, socket) do
     case active_task(socket, ref) do
@@ -659,15 +952,9 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
   end
 
   def handle_info({:DOWN, ref, :process, _pid, reason}, socket) do
-    case active_task(socket, ref) do
-      {:read, task} ->
-        preparation_failure(socket, :read, reason, Map.put(task, :failure_type, :task_exit))
-
-      {operation, task} ->
-        fail(socket, operation, reason, Map.put(task, :failure_type, :task_exit))
-
-      nil ->
-        {:noreply, socket}
+    case Enum.find(socket.assigns[:task_workers] || %{}, fn {_, task} -> task.ref == ref end) do
+      {id, worker} -> wire_task_down(socket, id, worker, reason)
+      nil -> local_task_down(socket, ref, reason)
     end
   end
 
@@ -703,7 +990,81 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
   def handle_info({:preparation_deadline, _}, socket), do: {:noreply, socket}
 
   # A cancelled task may already have sent its result before its monitor was removed.
-  def handle_info({ref, _result}, socket) when is_reference(ref), do: {:noreply, socket}
+  def handle_info(
+        {:local_result, ref, result},
+        %{assigns: %{manager_page_task: %{ref: ref} = task}} = socket
+      ) do
+    finish_task(socket, task)
+    socket = assign(socket, :manager_page_task, nil)
+
+    case result do
+      {:ok, :waiting} ->
+        Process.send_after(self(), :send_next, 100)
+        {:noreply, socket}
+
+      {:ok, {:done, source}} ->
+        manager = InventoryManager.observe_source(socket.assigns.sync_manager, source)
+        manager = %{manager | mode: "changes"}
+
+        payload = %{
+          "inventory_id" => manager.round_id,
+          "total_notes" => manager.source["notes_scanned"]
+        }
+
+        socket =
+          assign(socket,
+            sync_manager: manager,
+            inventory_done: true,
+            round_slots: %{},
+            classified_ids: MapSet.new()
+          )
+          |> publish_manager_status()
+
+        case submit_outgoing_task(socket, "inventory_complete", payload) do
+          {:ok, _, updated} -> {:noreply, updated}
+          {:error, updated} -> {:noreply, updated}
+        end
+
+      {:ok, %{ids: ids, slots: slots, source: source}} ->
+        manager =
+          socket.assigns.sync_manager
+          |> InventoryManager.observe_source(source)
+          |> InventoryManager.page_loaded(length(ids), length(slots))
+
+        pending = slots |> Enum.filter(&(&1.pending and not &1.blocked)) |> Enum.map(& &1.note_id)
+
+        socket =
+          socket
+          |> assign(sync_manager: manager, round_slots: Map.new(slots, &{&1.note_id, &1}))
+          |> enqueue(pending, true)
+          |> enqueue(slots |> Enum.reject(& &1.blocked) |> Enum.map(& &1.note_id))
+
+        send(self(), :send_next)
+        {:noreply, socket}
+
+      {:error, reason} ->
+        fail(socket, :manager_page, reason)
+    end
+  end
+
+  def handle_info(
+        {:publish_manager, token},
+        %{assigns: %{manager_progress_timer: {token, _}}} = socket
+      ),
+      do: {:noreply, assign(socket, :manager_progress_timer, nil) |> publish_manager_status()}
+
+  def handle_info({:publish_manager, _token}, socket), do: {:noreply, socket}
+
+  def handle_info({:manager_ready, round_id}, socket) do
+    if socket.assigns.sync_manager && socket.assigns.sync_manager.state != "failed" &&
+         socket.assigns.sync_manager.round_id == round_id,
+       do: send(self(), :send_next)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:local_result, ref, _result}, socket) when is_reference(ref),
+    do: {:noreply, socket}
 
   defp checkout_note(socket, id, rest, compared \\ nil) do
     peer = socket.assigns.session_peer
@@ -741,13 +1102,36 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
   end
 
   defp schedule_reconciliation(socket) do
-    if socket.assigns.reconcile_timer, do: Process.cancel_timer(socket.assigns.reconcile_timer)
+    if socket.assigns.reconcile_timer, do: cancel_timer(socket.assigns.reconcile_timer)
     assign(socket, :reconcile_timer, Process.send_after(self(), :reconcile_inventory, 60_000))
   end
 
-  defp negotiated?(socket), do: socket.assigns.capabilities == ["state_query_v1"]
+  defp negotiated?(socket), do: "state_query_v1" in (socket.assigns[:capabilities] || [])
+  defp task_mode?(socket), do: "task_sync_v1" in (socket.assigns[:capabilities] || [])
 
   defp query_note(socket, descriptor) do
+    if task_mode?(socket) do
+      query = %{"query_id" => Ecto.UUID.generate(), "items" => [descriptor]}
+
+      case submit_outgoing_task(socket, "state_query", query) do
+        {:ok, id, socket} ->
+          {:noreply,
+           assign(socket, :query_waiting, %{
+             task_id: id,
+             query: query,
+             descriptor: descriptor,
+             timer: nil
+           })}
+
+        {:error, socket} ->
+          {:noreply, socket}
+      end
+    else
+      legacy_query_note(socket, descriptor)
+    end
+  end
+
+  defp legacy_query_note(socket, descriptor) do
     sequence = socket.assigns.sequence + 1
     ref = "sync-#{sequence}"
     query = %{"query_id" => Ecto.UUID.generate(), "items" => [descriptor]}
@@ -773,6 +1157,884 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
       stop(socket)
     end
   end
+
+  defp local_task_down(socket, ref, reason) do
+    case active_task(socket, ref) do
+      {:read, task} ->
+        preparation_failure(socket, :read, reason, Map.put(task, :failure_type, :task_exit))
+
+      {operation, task} ->
+        fail(socket, operation, reason, Map.put(task, :failure_type, :task_exit))
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  defp publish_manager_status(%{assigns: %{sync_manager: nil}} = socket), do: socket
+
+  defp publish_manager_status(socket) do
+    progress = InventoryManager.progress(socket.assigns.sync_manager)
+
+    if progress == socket.assigns.manager_last_status do
+      socket
+    else
+      sequence = socket.assigns.manager_status_seq + 1
+
+      payload = %{
+        "round_id" => socket.assigns.sync_manager.round_id,
+        "status_seq" => sequence,
+        "progress" => progress
+      }
+
+      push(socket, "sync_manager_status", payload)
+
+      if socket.assigns.manager_progress_timer,
+        do: cancel_timer(elem(socket.assigns.manager_progress_timer, 1))
+
+      assign(socket,
+        manager_status_seq: sequence,
+        manager_last_status: progress,
+        manager_last_push_at: System.monotonic_time(:millisecond),
+        manager_progress_timer: nil
+      )
+    end
+  end
+
+  defp manager_progress(%{assigns: %{sync_manager: nil}} = socket), do: socket
+  defp manager_progress(%{assigns: %{sync_manager: %{state: "failed"}}} = socket), do: socket
+
+  defp manager_progress(socket) do
+    manager = %{
+      socket.assigns.sync_manager
+      | last_progress_at: System.system_time(:millisecond),
+        state: "running"
+    }
+
+    socket = assign(socket, :sync_manager, manager)
+    elapsed = System.monotonic_time(:millisecond) - (socket.assigns.manager_last_push_at || 0)
+
+    cond do
+      elapsed >= 250 ->
+        publish_manager_status(socket)
+
+      socket.assigns.manager_progress_timer ->
+        socket
+
+      true ->
+        token = make_ref()
+        timer = Process.send_after(self(), {:publish_manager, token}, 250 - elapsed)
+        assign(socket, :manager_progress_timer, {token, timer})
+    end
+  end
+
+  defp manager_failed(%{assigns: %{sync_manager: nil}} = socket, _error), do: socket
+
+  defp manager_failed(socket, error) do
+    manager = %{socket.assigns.sync_manager | state: "failed", error: error}
+    assign(socket, :sync_manager, manager) |> publish_manager_status()
+  end
+
+  defp task_error(socket, id, code) do
+    id = if is_binary(id) and byte_size(id) <= 57, do: id, else: "invalid"
+    push(socket, "task_error", %{"task_id" => id, "code" => code})
+    {:noreply, socket}
+  end
+
+  defp wire_status(socket, id, state, phase, progress, result \\ nil, error \\ nil) do
+    candidate = %{
+      "task_id" => id,
+      "status_seq" => 18_446_744_073_709_551_615,
+      "state" => state,
+      "phase" => phase,
+      "progress" => progress,
+      "result" => result,
+      "error" => error
+    }
+
+    {state, phase, progress, result, error} =
+      if frame_fits?(socket, "task_status", candidate, nil) do
+        {state, phase, progress, result, error}
+      else
+        {"failed", "failed", %{}, nil, %{"code" => "response_too_large", "retryable" => false}}
+      end
+
+    {ledger, status} =
+      TaskSync.update(socket.assigns.task_ledger, id, state, phase, progress, result, error)
+
+    if frame_fits?(socket, "task_status", status, nil) do
+      push(socket, "task_status", status)
+      assign(socket, :task_ledger, ledger)
+    else
+      {ledger, failed} =
+        TaskSync.update(socket.assigns.task_ledger, id, "failed", "failed", %{}, nil, %{
+          "code" => "response_too_large",
+          "retryable" => false
+        })
+
+      push(socket, "task_status", failed)
+      assign(socket, :task_ledger, ledger)
+    end
+  end
+
+  defp launch_wire_task(socket, command) do
+    id = command["task_id"]
+    operation = command["operation"]
+    payload = command["payload"]
+    peer = socket.assigns.session_peer
+    incoming = socket.assigns.incoming
+    owner = self()
+
+    manager =
+      if operation == "inventory_start",
+        do: InventoryManager.new(socket.assigns.staging_root, Ecto.UUID.generate()),
+        else: nil
+
+    work =
+      case operation do
+        "inventory_start" when map_size(payload) == 0 ->
+          if socket.assigns.inventory_started and not socket.assigns.inventory_done and
+               socket.assigns.sync_manager.state != "failed" do
+            :busy
+          else
+            fn ->
+              notify = fn progress ->
+                if progress["pages_scanned"] == 1,
+                  do: send(owner, {:manager_ready, manager.round_id})
+
+                now = System.monotonic_time(:millisecond)
+                previous = Process.get(:inventory_progress_at)
+
+                if is_nil(previous) or progress["scan_complete"] or now - previous >= 250 do
+                  send(owner, {:wire_progress, id, progress})
+                  Process.put(:inventory_progress_at, now)
+                end
+              end
+
+              previous = socket.assigns.sync_manager
+
+              with {:ok, _} <- if(previous, do: File.rm_rf(previous.directory), else: {:ok, []}) do
+                InventoryManager.scan(peer, manager, notify)
+              end
+            end
+          end
+
+        "state_query" ->
+          if StateQuery.valid_request?(payload),
+            do: fn -> Engine.query_state(peer, payload) end,
+            else: :invalid
+
+        "transfer_begin" ->
+          if is_nil(incoming),
+            do: fn ->
+              Transfer.begin(payload, socket.assigns.limit, socket.assigns.staging_root)
+            end,
+            else: :busy
+
+        "attachment_begin" when not is_nil(incoming) ->
+          fn -> Transfer.attachment_begin(incoming, payload) end
+
+        "blob_chunk" when not is_nil(incoming) ->
+          fn -> Transfer.chunk(incoming, payload) end
+
+        "blob_end" when not is_nil(incoming) ->
+          fn -> Transfer.blob_end(incoming, payload) end
+
+        "transfer_commit" when not is_nil(incoming) ->
+          fn ->
+            with {:ok, event, objects} <- Transfer.commit(incoming, payload) do
+              case Sync.apply(peer, event, objects) do
+                {:ok, ack} ->
+                  Transfer.cleanup(incoming)
+                  {:ok, ack}
+
+                {:error, _} = error ->
+                  if exact_receipt?(peer, event) do
+                    Transfer.cleanup(incoming)
+                    {:ok, Protocol.ack(event)}
+                  else
+                    error
+                  end
+              end
+            end
+          end
+
+        "inventory_complete" ->
+          if Protocol.exact_keys?(payload, ~w(inventory_id total_notes)) and
+               Protocol.uuid?(payload["inventory_id"]) and
+               is_integer(payload["total_notes"]) and
+               payload["total_notes"] in 0..18_446_744_073_709_551_615,
+             do: fn -> {:ok, %{}} end,
+             else: :invalid
+
+        "transfer_abort" ->
+          cond do
+            not Protocol.exact_keys?(payload, ["transfer_id"]) or
+                not Protocol.uuid?(payload["transfer_id"]) ->
+              :invalid
+
+            Enum.any?(socket.assigns.task_workers, fn {_, w} ->
+              w.operation in ~w(transfer_begin attachment_begin blob_chunk blob_end transfer_commit reconcile_commit) and
+                  w.payload["transfer_id"] == payload["transfer_id"]
+            end) ->
+              :await_apply
+
+            is_nil(incoming) ->
+              fn -> {:ok, %{}} end
+
+            incoming.id != payload["transfer_id"] ->
+              :invalid
+
+            true ->
+              fn -> with :ok <- Transfer.cleanup(incoming), do: {:ok, %{}} end
+          end
+
+        _ ->
+          :invalid
+      end
+
+    case work do
+      :await_apply ->
+        {:noreply,
+         socket
+         |> wire_status(id, "running", "cancellation_pending", %{})
+         |> assign(:abort_waiters, socket.assigns.abort_waiters ++ [id])}
+
+      status when status in [:invalid, :busy] ->
+        {:noreply,
+         wire_status(socket, id, "failed", "failed", %{}, nil, %{
+           "code" => if(status == :busy, do: "busy", else: "validation_failed"),
+           "retryable" => status == :busy
+         })}
+
+      work ->
+        task = start_task(socket, work, @deadline, operation == "transfer_commit")
+
+        worker =
+          Map.merge(task, %{
+            operation: operation,
+            payload: Map.take(payload, ~w(transfer_id blob_id inventory_id total_notes)),
+            incoming: incoming,
+            cancelling: false
+          })
+
+        socket = assign(socket, :task_workers, Map.put(socket.assigns.task_workers, id, worker))
+
+        socket =
+          if operation == "inventory_start" do
+            assign(socket,
+              inventory_started: true,
+              inventory_done: false,
+              inventory_task: task,
+              round_id: manager.round_id,
+              sync_manager: manager,
+              manager_task_id: id,
+              classified_ids: MapSet.new(),
+              round_slots: %{}
+            )
+          else
+            socket
+          end
+
+        progress = if manager, do: InventoryManager.progress(manager), else: %{}
+        {:noreply, wire_status(socket, id, "running", TaskSync.phase(operation), progress)}
+    end
+  end
+
+  defp finish_wire_task(
+         socket,
+         id,
+         %{operation: "reconcile_commit"} = worker,
+         {:reconciled, received}
+       ) do
+    finish_task(socket, worker)
+
+    if received do
+      socket = assign(socket, :task_workers, Map.delete(socket.assigns.task_workers, id))
+
+      wire_task_success(
+        socket,
+        id,
+        %{worker | operation: "transfer_commit"},
+        Protocol.ack(worker.incoming.event)
+      )
+    else
+      # No durable receipt proves success. Keep this bounded slot quarantined.
+      {:noreply, socket}
+    end
+  end
+
+  defp finish_wire_task(socket, id, %{operation: "inventory_cleanup"} = worker, result) do
+    finish_task(socket, worker)
+    socket = assign(socket, :task_workers, Map.delete(socket.assigns.task_workers, id))
+
+    {state, error} =
+      if match?({:ok, _}, result),
+        do: {worker.terminal_state, worker.terminal_error},
+        else: {"failed", %{"code" => "storage", "retryable" => true}}
+
+    socket = if error, do: manager_failed(socket, error), else: socket
+    {:noreply, wire_status(socket, id, state, state, %{}, nil, error)}
+  end
+
+  defp finish_wire_task(socket, id, worker, result) do
+    finish_task(socket, worker)
+    socket = assign(socket, :task_workers, Map.delete(socket.assigns.task_workers, id))
+
+    cond do
+      worker.cancelling ->
+        cancel_wire_task(socket, id, worker, result)
+
+      worker.operation == "inventory_start" and not match?({:ok, _}, result) ->
+        begin_inventory_cleanup(socket, id, "failed", wire_error(result))
+
+      match?({:ok, _}, result) ->
+        {:ok, value} = result
+        wire_task_success(socket, id, worker, value)
+
+      true ->
+        reason =
+          case result do
+            {:error, reason} -> reason
+            _ -> :task_failed
+          end
+
+        socket = cleanup_failed_wire(socket, worker)
+        {:noreply, wire_status(socket, id, "failed", "failed", %{}, nil, wire_error(reason))}
+    end
+  end
+
+  defp wire_task_success(socket, id, %{operation: "inventory_start"}, source) do
+    manager = InventoryManager.observe_source(socket.assigns.sync_manager, source)
+
+    socket =
+      assign(socket, inventory_task: nil, sync_manager: manager) |> publish_manager_status()
+
+    socket =
+      wire_status(socket, id, "succeeded", "complete", InventoryManager.progress(manager), %{})
+
+    send(self(), :send_next)
+    {:noreply, socket}
+  end
+
+  defp wire_task_success(socket, id, %{operation: op} = worker, value)
+       when op in ~w(transfer_begin attachment_begin blob_chunk blob_end) do
+    socket = assign(socket, :incoming, value)
+
+    result =
+      if op == "blob_chunk" do
+        %{
+          "transfer_id" => value.id,
+          "blob_id" => worker.payload["blob_id"],
+          "received_bytes" => value.blobs[worker.payload["blob_id"]].received
+        }
+      else
+        %{}
+      end
+
+    progress =
+      if op == "blob_chunk",
+        do: Map.put(result, "total_bytes", value.blobs[worker.payload["blob_id"]].size),
+        else: %{}
+
+    socket = wire_status(socket, id, "succeeded", "complete", progress, result)
+
+    case socket.assigns.abort_waiters do
+      [abort_id] ->
+        socket = assign(socket, :abort_waiters, [])
+
+        launch_wire_task(socket, %{
+          "task_id" => abort_id,
+          "operation" => "transfer_abort",
+          "payload" => %{"transfer_id" => value.id}
+        })
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  defp wire_task_success(socket, id, %{operation: "transfer_commit"} = worker, ack) do
+    # The durable receipt is committed before the exact ACK status is published.
+    :ok = Transfer.cleanup(worker.incoming)
+
+    socket =
+      socket |> assign(:incoming, nil) |> wire_status(id, "succeeded", "complete", %{}, ack)
+
+    socket =
+      Enum.reduce(socket.assigns.abort_waiters, socket, fn waiter, state ->
+        wire_status(state, waiter, "succeeded", "complete", %{}, %{})
+      end)
+
+    {:noreply, assign(socket, :abort_waiters, [])}
+  end
+
+  defp wire_task_success(socket, id, %{operation: "transfer_abort"}, _) do
+    {:noreply,
+     socket |> assign(:incoming, nil) |> wire_status(id, "succeeded", "complete", %{}, %{})}
+  end
+
+  defp wire_task_success(socket, id, %{operation: "inventory_complete", payload: payload}, result) do
+    {:noreply,
+     socket
+     |> assign(:received_inventory, payload)
+     |> wire_status(id, "succeeded", "complete", %{}, result)}
+  end
+
+  defp wire_task_success(socket, id, _worker, value),
+    do: {:noreply, wire_status(socket, id, "succeeded", "complete", %{}, value)}
+
+  defp wire_task_down(socket, id, %{operation: "transfer_commit"} = worker, _reason) do
+    finish_task(socket, worker)
+
+    socket =
+      wire_status(socket, id, "running", "outcome_unknown", %{}, nil, %{
+        "code" => "outcome_unknown",
+        "retryable" => false
+      })
+
+    reconcile_commit(socket, id, worker)
+  end
+
+  defp wire_task_down(socket, id, %{operation: "reconcile_commit"} = worker, _reason) do
+    finish_task(socket, worker)
+
+    {:noreply,
+     wire_status(socket, id, "running", "outcome_unknown", %{}, nil, %{
+       "code" => "outcome_unknown",
+       "retryable" => false
+     })}
+  end
+
+  defp wire_task_down(socket, id, %{operation: "inventory_start"} = worker, reason) do
+    finish_task(socket, worker)
+    socket = assign(socket, :task_workers, Map.delete(socket.assigns.task_workers, id))
+    state = if worker.cancelling, do: "cancelled", else: "failed"
+    error = if worker.cancelling, do: nil, else: wire_error(reason)
+    begin_inventory_cleanup(socket, id, state, error)
+  end
+
+  defp wire_task_down(socket, id, worker, reason) do
+    finish_task(socket, worker)
+    socket = assign(socket, :task_workers, Map.delete(socket.assigns.task_workers, id))
+    socket = cleanup_failed_wire(socket, worker)
+
+    if worker.cancelling do
+      {:noreply, wire_status(socket, id, "cancelled", "cancelled", %{})}
+    else
+      {:noreply, wire_status(socket, id, "failed", "failed", %{}, nil, wire_error(reason))}
+    end
+  end
+
+  defp reconcile_commit(socket, id, worker) do
+    peer = socket.assigns.session_peer
+    event = worker.incoming.event
+
+    task =
+      start_task(
+        socket,
+        fn ->
+          received = exact_receipt?(peer, event)
+          if received, do: Transfer.cleanup(worker.incoming)
+          {:reconciled, received}
+        end,
+        @deadline,
+        true
+      )
+
+    updated = Map.merge(worker, task) |> Map.put(:operation, "reconcile_commit")
+    {:noreply, assign(socket, :task_workers, Map.put(socket.assigns.task_workers, id, updated))}
+  end
+
+  defp cancel_wire_task(socket, id, %{operation: "inventory_start"}, _result),
+    do: begin_inventory_cleanup(socket, id, "cancelled", nil)
+
+  defp cancel_wire_task(socket, id, worker, result) do
+    # A disposable worker might have completed before cancellation reached it.
+    if worker.operation in ~w(transfer_begin attachment_begin blob_chunk blob_end) do
+      case result do
+        {:ok, transfer} -> Transfer.cleanup(transfer)
+        _ -> :ok
+      end
+    end
+
+    socket = cleanup_failed_wire(socket, worker)
+    {:noreply, wire_status(socket, id, "cancelled", "cancelled", %{})}
+  end
+
+  defp begin_inventory_cleanup(socket, id, terminal_state, terminal_error) do
+    if socket.assigns.manager_page_task do
+      Task.Supervisor.terminate_child(GSMLG.TaskSupervisor, socket.assigns.manager_page_task.pid)
+      finish_task(socket, socket.assigns.manager_page_task)
+    end
+
+    manager = socket.assigns.sync_manager
+
+    task =
+      start_task(socket, fn ->
+        if manager, do: File.rm_rf(manager.directory), else: {:ok, []}
+      end)
+
+    worker =
+      Map.merge(task, %{
+        operation: "inventory_cleanup",
+        cancelling: false,
+        terminal_state: terminal_state,
+        terminal_error: terminal_error
+      })
+
+    {:noreply,
+     assign(socket,
+       inventory_task: nil,
+       inventory_started: false,
+       inventory_done: false,
+       manager_page_task: nil,
+       sync_manager:
+         if(manager,
+           do: %{
+             manager
+             | state: "failed",
+               error: terminal_error || %{"code" => "cancelled", "retryable" => true}
+           }
+         ),
+       manager_task_id: nil,
+       queue: [],
+       round_slots: %{},
+       pending_priority: MapSet.new(),
+       task_workers: Map.put(socket.assigns.task_workers, id, worker)
+     )
+     |> publish_manager_status()}
+  end
+
+  defp cleanup_failed_wire(socket, %{operation: op, incoming: incoming})
+       when op in ~w(transfer_begin attachment_begin blob_chunk blob_end transfer_commit transfer_abort) do
+    Transfer.cleanup(incoming)
+    socket = assign(socket, :incoming, nil)
+
+    socket =
+      Enum.reduce(socket.assigns.abort_waiters, socket, fn id, state ->
+        wire_status(state, id, "succeeded", "complete", %{}, %{})
+      end)
+
+    assign(socket, :abort_waiters, [])
+  end
+
+  defp cleanup_failed_wire(socket, _), do: socket
+
+  defp wire_error(reason) do
+    code =
+      case reason do
+        {:note_rejected, code}
+        when code in [
+               "validation_failed",
+               "catalog_conflict",
+               :validation_failed,
+               :catalog_conflict
+             ] ->
+          to_string(code)
+
+        :validation_failed ->
+          "validation_failed"
+
+        :unauthorized ->
+          "unauthorized"
+
+        :obsolete_session ->
+          "obsolete_session"
+
+        :event_id_conflict ->
+          "event_id_conflict"
+
+        :busy ->
+          "busy"
+
+        _ ->
+          "operation_failed"
+      end
+
+    %{"code" => code, "retryable" => code in ["busy", "operation_failed"]}
+  end
+
+  defp exact_receipt?(peer, event) do
+    alias GSMLG.GaoNote.Sync.Store
+    digest = Protocol.sha256(Protocol.canonical_json(event))
+
+    case Store.transaction(fn -> Store.get("received", event["event_id"], peer.id) end) do
+      {:ok, %{"event_hash" => ^digest}} -> true
+      _ -> false
+    end
+  end
+
+  defp submit_outgoing_task(socket, operation, payload) do
+    sequence = socket.assigns.task_sequence + 1
+    id = "#{socket.assigns.local_node_id}:#{sequence}"
+    command = %{"task_id" => id, "operation" => operation, "payload" => payload}
+
+    if map_size(socket.assigns.outgoing_tasks) < 4 and
+         frame_fits?(socket, "task_submit", command, nil) do
+      push(socket, "task_submit", command)
+      task = %{operation: operation, payload: Map.drop(payload, ["data"]), status: nil}
+
+      {:ok, id,
+       assign(socket,
+         task_sequence: sequence,
+         outgoing_tasks: Map.put(socket.assigns.outgoing_tasks, id, task)
+       )}
+    else
+      {:error, socket}
+    end
+  end
+
+  defp receive_task_status(socket, status) do
+    id = status["task_id"]
+    task = socket.assigns.outgoing_tasks[id]
+    previous = if task, do: task.status, else: socket.assigns.outgoing_task_history[id]
+
+    cond do
+      not task_mode?(socket) or not frame_fits?(socket, "task_status", status, nil) ->
+        stop(socket)
+
+      is_nil(task) and is_nil(previous) ->
+        task_error(socket, id, "unknown_task")
+
+      task && not valid_task_result?(socket, task, status) ->
+        task_error(socket, id, "invalid_result")
+
+      true ->
+        case TaskSync.accept_status(previous, status) do
+          {:error, _} ->
+            task_error(socket, id, "invalid_status")
+
+          {:ok, accepted} when accepted != status ->
+            {:noreply, socket}
+
+          {:ok, _} when is_nil(task) ->
+            {:noreply, socket}
+
+          {:ok, accepted} ->
+            socket =
+              assign(
+                socket,
+                :outgoing_tasks,
+                Map.put(socket.assigns.outgoing_tasks, id, %{task | status: accepted})
+              )
+
+            if TaskSync.terminal?(accepted["state"]) do
+              socket = retire_outgoing_task(socket, id, accepted)
+
+              if accepted["state"] == "succeeded",
+                do: outgoing_task_succeeded(socket, id, task, accepted["result"]),
+                else:
+                  outgoing_task_failed(
+                    socket,
+                    id,
+                    task,
+                    get_in(accepted, ["error", "code"]) || "cancelled"
+                  )
+            else
+              {:noreply, socket}
+            end
+        end
+    end
+  end
+
+  defp valid_task_result?(socket, task, %{"state" => "succeeded", "result" => result}) do
+    case task.operation do
+      "state_query" ->
+        StateQuery.valid_response?(task.payload, result)
+
+      "transfer_commit" ->
+        socket.assigns.outgoing && result == Protocol.ack(socket.assigns.outgoing.event)
+
+      "blob_chunk" ->
+        expected =
+          Map.take(task.payload, ~w(transfer_id blob_id))
+          |> Map.put(
+            "received_bytes",
+            socket.assigns.waiting && socket.assigns.waiting[:received_bytes]
+          )
+
+        result == expected
+
+      _ ->
+        result == %{}
+    end
+  end
+
+  defp valid_task_result?(_socket, _task, _status), do: true
+
+  defp retire_outgoing_task(socket, id, status) do
+    order = socket.assigns.outgoing_task_order ++ [id]
+    history = Map.put(socket.assigns.outgoing_task_history, id, status)
+
+    {order, history} =
+      if length(order) > 64 do
+        [old | rest] = order
+        {rest, Map.delete(history, old)}
+      else
+        {order, history}
+      end
+
+    assign(socket,
+      outgoing_tasks: Map.delete(socket.assigns.outgoing_tasks, id),
+      outgoing_task_order: order,
+      outgoing_task_history: history
+    )
+  end
+
+  defp outgoing_task_succeeded(socket, id, %{operation: "state_query"}, result) do
+    waiting = socket.assigns.query_waiting
+
+    if (waiting && waiting[:task_id] == id) and StateQuery.valid_response?(waiting.query, result) do
+      [remote] = result["items"]
+
+      checkout_note(
+        assign(socket, :query_waiting, nil),
+        waiting.descriptor["note_id"],
+        socket.assigns.queue,
+        {waiting.descriptor, remote}
+      )
+    else
+      task_error(socket, id, "invalid_result")
+    end
+  end
+
+  defp outgoing_task_succeeded(socket, _id, %{operation: "inventory_complete"}, result) do
+    if result == %{}, do: {:noreply, socket}, else: stop(socket)
+  end
+
+  defp outgoing_task_succeeded(socket, _id, %{operation: "transfer_abort"}, result) do
+    if result == %{}, do: recover_outgoing(socket, :remote_task_failed), else: stop(socket)
+  end
+
+  defp outgoing_task_succeeded(socket, id, %{operation: "blob_chunk", payload: payload}, result) do
+    waiting = socket.assigns.waiting
+
+    expected = %{
+      "transfer_id" => payload["transfer_id"],
+      "blob_id" => payload["blob_id"],
+      "received_bytes" => waiting && waiting[:received_bytes]
+    }
+
+    if (waiting && waiting[:task_id] == id) and result == expected do
+      outgoing = %{socket.assigns.outgoing | offset: result["received_bytes"]}
+      send(self(), :outbound_step)
+      {:noreply, socket |> clear_waiting() |> assign(:outgoing, outgoing) |> manager_progress()}
+    else
+      task_error(socket, id, "invalid_result")
+    end
+  end
+
+  defp outgoing_task_succeeded(socket, id, %{operation: "transfer_commit"}, result) do
+    if socket.assigns.waiting && socket.assigns.waiting[:task_id] == id,
+      do: acknowledge(result, socket),
+      else: task_error(socket, id, "invalid_result")
+  end
+
+  defp outgoing_task_succeeded(socket, id, _task, result) do
+    waiting = socket.assigns.waiting
+
+    if (waiting && waiting[:task_id] == id) and result == %{} do
+      send(self(), :outbound_step)
+
+      {:noreply,
+       socket
+       |> clear_waiting()
+       |> assign(:outgoing, %{socket.assigns.outgoing | phase: waiting.next})}
+    else
+      task_error(socket, id, "invalid_result")
+    end
+  end
+
+  defp outgoing_task_failed(socket, id, %{operation: "state_query"}, code) do
+    descriptor = socket.assigns.query_waiting && socket.assigns.query_waiting.descriptor
+
+    socket =
+      assign(socket,
+        outgoing_tasks: Map.delete(socket.assigns.outgoing_tasks, id),
+        query_waiting: nil
+      )
+
+    if descriptor,
+      do: defer_checkout(socket, descriptor["note_id"], code),
+      else: {:noreply, socket}
+  end
+
+  defp outgoing_task_failed(socket, id, %{operation: op}, _code)
+       when op in ~w(inventory_complete transfer_abort) do
+    socket = assign(socket, :outgoing_tasks, Map.delete(socket.assigns.outgoing_tasks, id))
+
+    if op == "transfer_abort",
+      do: recover_outgoing(socket, :remote_task_failed),
+      else: {:noreply, socket}
+  end
+
+  defp outgoing_task_failed(socket, id, _task, _code) do
+    socket = assign(socket, :outgoing_tasks, Map.delete(socket.assigns.outgoing_tasks, id))
+
+    case submit_outgoing_task(socket, "transfer_abort", %{
+           "transfer_id" => socket.assigns.outgoing.transfer
+         }) do
+      {:ok, _, socket} -> {:noreply, socket}
+      {:error, socket} -> {:noreply, socket}
+    end
+  end
+
+  defp recover_outgoing(%{assigns: %{outgoing: nil}} = socket, _), do: {:noreply, socket}
+
+  defp recover_outgoing(socket, reason) do
+    outgoing = socket.assigns.outgoing
+    peer = socket.assigns.session_peer
+    socket = clear_waiting(socket)
+
+    task =
+      start_task(socket, fn ->
+        with :ok <- Transfer.cleanup(outgoing), do: Sync.release_lease(peer, outgoing.lease)
+      end)
+
+    {:noreply,
+     socket
+     |> assign(outgoing: %{outgoing | phase: :recovering}, recovery_task: task)
+     |> assign(
+       :preparation_retries,
+       Map.put(socket.assigns.preparation_retries, outgoing.event["note_id"], %{
+         attempts: 1,
+         reason: reason,
+         retry_at: System.monotonic_time(:millisecond) + @preparation_retry_base
+       })
+     )}
+  end
+
+  defp local_task_failure(socket, operation, reason, context) do
+    case operation do
+      :manager_page ->
+        manager = %{
+          socket.assigns.sync_manager
+          | state: "failed",
+            error: %{"code" => "inventory_page_failed", "retryable" => true}
+        }
+
+        {:noreply,
+         assign(socket, manager_page_task: nil, sync_manager: manager) |> publish_manager_status()}
+
+      :inventory ->
+        {:noreply,
+         assign(socket, inventory_task: nil, inventory_done: true) |> schedule_reconciliation()}
+
+      :pending ->
+        Process.send_after(self(), :poll_pending, 1_000)
+        {:noreply, assign(socket, :pending_task, nil) |> manager_failed(wire_error(reason))}
+
+      :checkout ->
+        defer_checkout(assign(socket, :checkout_task, nil), context[:note_id], reason)
+
+      _ ->
+        recover_outgoing(socket, reason)
+    end
+  end
+
+  defp handle_local_task_result(ref, result, socket),
+    do: handle_info({:local_result, ref, result}, socket)
 
   defp select_next(socket) do
     pending = socket.assigns.pending_priority
@@ -833,7 +2095,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     }
 
     socket =
-      if attachments == [] do
+      if attachments == [] or task_mode?(socket) do
         socket
       else
         token = make_ref()
@@ -871,7 +2133,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
   defp step(%{phase: :prepare, preparing: []} = outgoing, socket) do
     if socket.assigns.preparation_timer do
       {_token, timer} = socket.assigns.preparation_timer
-      Process.cancel_timer(timer)
+      cancel_timer(timer)
 
       GSMLG.Telemetry.info("GaoNote sync attachment preparation finished",
         metadata: %{
@@ -978,17 +2240,40 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     }
 
     if frame_fits?(socket, "blob_chunk", payload, nil) do
-      push(socket, "blob_chunk", payload)
-      Process.send_after(self(), :outbound_step, 1)
+      if task_mode?(socket) do
+        {:noreply, socket} = request(socket, "blob_chunk", payload, :chunks)
 
-      {:noreply,
-       assign(socket, :outgoing, %{outgoing | offset: outgoing.offset + byte_size(bytes)})}
+        waiting =
+          Map.put(socket.assigns.waiting, :received_bytes, outgoing.offset + byte_size(bytes))
+
+        {:noreply, assign(socket, :waiting, waiting)}
+      else
+        push(socket, "blob_chunk", payload)
+        Process.send_after(self(), :outbound_step, 1)
+
+        {:noreply,
+         assign(socket, :outgoing, %{outgoing | offset: outgoing.offset + byte_size(bytes)})}
+      end
     else
       stop(socket)
     end
   end
 
   defp request(socket, event, payload, next, deadline \\ @deadline) do
+    if task_mode?(socket) do
+      case submit_outgoing_task(socket, event, payload) do
+        {:ok, id, socket} ->
+          {:noreply, assign(socket, :waiting, %{task_id: id, next: next, timer: nil})}
+
+        {:error, socket} ->
+          {:noreply, socket}
+      end
+    else
+      legacy_request(socket, event, payload, next, deadline)
+    end
+  end
+
+  defp legacy_request(socket, event, payload, next, deadline) do
     sequence = socket.assigns.sequence + 1
     ref = "sync-#{sequence}"
 
@@ -1070,6 +2355,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
 
     {:noreply,
      socket
+     |> manager_progress()
      |> clear_preparation_retry(socket.assigns.outgoing.event["note_id"])
      |> clear_waiting()
      |> assign(
@@ -1149,13 +2435,13 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
        when phase in [:prepare, :preparing] do
     if socket.assigns.preparation_timer do
       {_token, timer} = socket.assigns.preparation_timer
-      Process.cancel_timer(timer)
+      cancel_timer(timer)
     end
 
     read_task = socket.assigns.read_task
 
     if read_task do
-      Process.cancel_timer(read_task.timer)
+      cancel_timer(read_task.timer)
       Process.demonitor(read_task.ref, [:flush])
     end
 
@@ -1210,7 +2496,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     do: fail(socket, operation, reason, context)
 
   defp clear_waiting(%{assigns: %{waiting: %{timer: timer}}} = socket) do
-    Process.cancel_timer(timer)
+    cancel_timer(timer)
     assign(socket, :waiting, nil)
   end
 
@@ -1246,7 +2532,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
       end)
 
     if remaining > 0 do
-      Process.cancel_timer(task.timer)
+      cancel_timer(task.timer)
       timer = Process.send_after(self(), {:task_deadline, task.ref}, remaining + @deadline)
       deferred = Map.merge(task, %{timer: timer, session_deadline_deferred: true})
       {key, ^operation} = List.keyfind(@task_operations, operation, 1)
@@ -1274,7 +2560,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     @read_base_deadline + seconds * 1_000
   end
 
-  defp start_task(socket, work, deadline \\ @deadline) do
+  defp start_task(socket, work, deadline \\ @deadline, durable \\ false) do
     owner = self()
 
     task =
@@ -1291,33 +2577,46 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
         end
       end)
 
-    send(socket.assigns.guard, {:task, task.pid})
+    send(socket.assigns.guard, {:task, task.pid, durable})
     send(task.pid, :begin_work)
-    timer = Process.send_after(self(), {:task_deadline, task.ref}, deadline)
+
+    timer =
+      if task_mode?(socket),
+        do: nil,
+        else: Process.send_after(self(), {:task_deadline, task.ref}, deadline)
+
     %{ref: task.ref, pid: task.pid, timer: timer}
   end
 
   defp finish_task(socket, task) do
     Process.demonitor(task.ref, [:flush])
-    Process.cancel_timer(task.timer)
+    cancel_timer(task.timer)
     send(socket.assigns.guard, {:task_done, task.pid})
   end
 
   defp touch_incoming(socket) do
     cancel_incoming_timer(socket)
     token = make_ref()
-    timer = Process.send_after(self(), {:incoming_deadline, token}, @deadline)
-    assign(socket, :incoming_timer, {token, timer})
+
+    if task_mode?(socket) do
+      assign(socket, :incoming_timer, nil)
+    else
+      timer = Process.send_after(self(), {:incoming_deadline, token}, @deadline)
+      assign(socket, :incoming_timer, {token, timer})
+    end
   end
 
   defp cancel_incoming_timer(%{assigns: %{incoming_timer: {_token, timer}}}),
-    do: Process.cancel_timer(timer)
+    do: cancel_timer(timer)
 
   defp cancel_incoming_timer(_socket), do: :ok
 
   defp fail(socket, operation, reason, context \\ %{}) do
     log_failure(socket, operation, reason, context)
-    stop(socket)
+
+    if task_mode?(socket),
+      do: local_task_failure(socket, operation, reason, context),
+      else: stop(socket)
   end
 
   defp log_failure(socket, operation, reason, context, extra \\ %{}) do
@@ -1351,6 +2650,9 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
 
   defp failure_reason(_reason), do: :unspecified_error
 
+  defp cancel_timer(nil), do: false
+  defp cancel_timer(timer), do: Process.cancel_timer(timer)
+
   defp stop(socket), do: {:stop, {:shutdown, :sync_session_error}, socket}
 
   # The monitor also runs after untrappable channel exits; a session token ensures
@@ -1362,14 +2664,32 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
 
   defp monitor_loop(ref, peer, directories, tasks) do
     receive do
-      {:task, pid} ->
-        monitor_loop(ref, peer, directories, [pid | tasks])
+      {:task, pid, durable} ->
+        monitor_loop(ref, peer, directories, [{pid, durable} | tasks])
 
       {:task_done, pid} ->
-        monitor_loop(ref, peer, directories, List.delete(tasks, pid))
+        monitor_loop(
+          ref,
+          peer,
+          directories,
+          Enum.reject(tasks, fn {owned, _} -> owned == pid end)
+        )
 
       {:DOWN, ^ref, :process, _pid, _reason} ->
-        Enum.each(tasks, &Task.Supervisor.terminate_child(GSMLG.TaskSupervisor, &1))
+        Enum.each(tasks, fn {pid, durable} ->
+          unless durable, do: Task.Supervisor.terminate_child(GSMLG.TaskSupervisor, pid)
+        end)
+
+        Enum.each(tasks, fn {pid, durable} ->
+          if durable do
+            task_ref = Process.monitor(pid)
+
+            receive do
+              {:DOWN, ^task_ref, :process, ^pid, _} -> :ok
+            end
+          end
+        end)
+
         Enum.each(directories, &Transfer.cleanup(%{directory: &1}))
         Sync.release_session(peer)
     end

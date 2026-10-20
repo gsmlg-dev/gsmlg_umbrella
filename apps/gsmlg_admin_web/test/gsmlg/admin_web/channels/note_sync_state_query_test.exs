@@ -33,7 +33,7 @@ defmodule GSMLG.AdminWeb.NoteSyncStateQueryTest do
     socket: socket,
     response: response
   } do
-    assert response["capabilities"] == ["state_query_v1"]
+    assert response["capabilities"] == ["state_query_v1", "task_sync_v1"]
     ref = push(socket, "sync_negotiate", %{"capabilities" => ["state_query_v1"]})
     assert_reply(ref, :ok, %{"capabilities" => ["state_query_v1"]})
     refute_receive %Phoenix.Socket.Message{event: "state_query"}, 50

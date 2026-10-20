@@ -149,9 +149,17 @@ defmodule GSMLG.GaoNote.Sync.Engine do
 
   # Capture durable descriptors without preparing any source object. Previously
   # untracked notes are classified lazily on their audit turn, after pending work.
-  def inventory_plan(peer) do
+  def inventory_plan(peer, progress \\ fn _, _ -> :ok end) do
+    progress.(0, nil)
+
     with {:ok, ids} <- inventory(peer) do
-      Enum.reduce_while(ids, {:ok, []}, fn id, {:ok, slots} ->
+      total = length(ids)
+      progress.(0, total)
+
+      Enum.with_index(ids, 1)
+      |> Enum.reduce_while({:ok, []}, fn {id, checked}, {:ok, slots} ->
+        progress.(checked - 1, total)
+
         case classify_inventory_note(peer, id, false) do
           {:ok, nil} -> {:cont, {:ok, slots}}
           {:ok, slot} -> {:cont, {:ok, [slot | slots]}}
@@ -159,10 +167,23 @@ defmodule GSMLG.GaoNote.Sync.Engine do
         end
       end)
       |> case do
-        {:ok, slots} -> {:ok, Enum.reverse(slots)}
-        error -> error
+        {:ok, slots} ->
+          progress.(total, total)
+          {:ok, Enum.reverse(slots)}
+
+        error ->
+          error
       end
     end
+  end
+
+  # Runs inside the source producer's read-only snapshot, before any ID is exposed.
+  def inventory_authorized?(peer, id) do
+    member = Store.get("member", id, peer.id)
+    note = Repo.one(from(n in Note, where: n.id == ^id, select: struct(n, [:id])))
+
+    (not is_nil(member) and member["authorized"] == true) or
+      (not is_nil(note) and note_selected?(note, peer))
   end
 
   def classify_inventory_note(peer, id, prepare \\ true) do
@@ -375,6 +396,29 @@ defmodule GSMLG.GaoNote.Sync.Engine do
     end
   end
 
+  def pending_page(peer, cursor) do
+    Store.session_transaction(fn ->
+      current = Peers.try_current!(peer)
+      renewal = Objects.renew_leases(peer, nonblocking: true)
+
+      if current == :busy or renewal == :busy do
+        :busy
+      else
+        records = Store.list_page("pending", peer.id, cursor, 32)
+
+        %{
+          ids:
+            records
+            |> Enum.reject(fn r ->
+              rejected?(Store.get("member", r.note_id, peer.id), r.data["event"])
+            end)
+            |> Enum.map(& &1.note_id),
+          cursor: if(records == [], do: nil, else: List.last(records).note_id)
+        }
+      end
+    end)
+  end
+
   def pending_ids(peer), do: session_ids(peer, "pending")
 
   defp session_ids(peer, kind) do
@@ -550,10 +594,13 @@ defmodule GSMLG.GaoNote.Sync.Engine do
 
   def release_session(peer) do
     Store.transaction(fn ->
-      Store.list("lease", peer.id)
-      |> Enum.each(fn r ->
-        if r.data["session_id"] == peer.session_id, do: Repo.delete!(r)
-      end)
+      Repo.delete_all(
+        from(r in GSMLG.GaoNote.Sync.Record,
+          where:
+            r.kind == "lease" and r.peer_id == ^peer.id and
+              fragment("?->>'session_id' = ?", r.data, ^peer.session_id)
+        )
+      )
 
       :ok
     end)
