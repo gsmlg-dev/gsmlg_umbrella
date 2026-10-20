@@ -2717,8 +2717,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
               />
             </form>
           </div>
+          <%!-- TODO(upstream): duskmoon-dev/phoenix-duskmoon-ui#206 --%>
+          <%!-- WORKAROUND(upstream): duskmoon-dev/phoenix-duskmoon-ui#206 contains hidden labels. --%>
           <.dm_pagination
             id="gao-note-pagination"
+            class="relative [&>ul]:flex-wrap"
             page_num={@page}
             page_size={@page_size}
             total={@total_notes}
