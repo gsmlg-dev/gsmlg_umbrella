@@ -6,6 +6,54 @@ defmodule GSMLG.AdminWeb.NoteSyncInventoryManagerTest do
   alias GSMLG.GaoNote.Sync.{Engine, Store}
   alias GSMLG.Repo
 
+  test "round classifications count each note once and replace a recovered blocked outcome" do
+    root = Path.join(System.tmp_dir!(), "gaonote-classifications-" <> Ecto.UUID.generate())
+    manager = InventoryManager.new(root, Ecto.UUID.generate())
+    on_exit(fn -> File.rm_rf(root) end)
+
+    manager =
+      manager
+      |> InventoryManager.classify(id(1), :equal)
+      |> InventoryManager.classify(id(2), :planned)
+      |> InventoryManager.classify(id(3), :superseded)
+      |> InventoryManager.classify(id(4), :blocked)
+
+    expected = %{
+      "equal_notes" => 1,
+      "planned_notes" => 2,
+      "superseded_notes" => 1,
+      "blocked_notes" => 1
+    }
+
+    assert Map.take(InventoryManager.progress(manager), Map.keys(expected)) == expected
+
+    retried =
+      manager
+      |> InventoryManager.classify(id(1), :equal)
+      |> InventoryManager.classify(id(2), :planned)
+      |> InventoryManager.classify(id(3), :superseded)
+      |> InventoryManager.classify(id(4), :blocked)
+
+    assert InventoryManager.progress(retried) == InventoryManager.progress(manager)
+
+    recovered = InventoryManager.classify(retried, id(4), :planned)
+    progress = InventoryManager.progress(recovered)
+    assert progress["planned_notes"] == 2
+    assert progress["blocked_notes"] == 0
+    assert InventoryManager.valid_progress?(progress)
+
+    # Completing a page must not discard the deduplication evidence for later
+    # pending polls, and a new round must start with fresh classification counts.
+    next_page = recovered |> InventoryManager.page_loaded(4, 4) |> InventoryManager.page_done()
+    assert InventoryManager.classify(next_page, id(1), :equal) == next_page
+    fresh = InventoryManager.new(root, Ecto.UUID.generate())
+    assert InventoryManager.progress(fresh)["equal_notes"] == 0
+
+    assert InventoryManager.progress(InventoryManager.classify(fresh, id(1), :equal))[
+             "equal_notes"
+           ] == 1
+  end
+
   test "snapshot lanes preserve exact authorized identities and prioritize pending before lower audit IDs",
        %{label: label} do
     setting = Repo.insert!(%LabelSetting{name: label})
@@ -99,6 +147,75 @@ defmodule GSMLG.AdminWeb.NoteSyncInventoryManagerTest do
       send(worker.pid, :continue_scan)
       Task.shutdown(worker, :brutal_kill)
     end
+  end
+
+  test "post-scan classifications expand totals while preserving the original scanned cohort" do
+    root = Path.join(System.tmp_dir!(), "gaonote-classification-totals-" <> Ecto.UUID.generate())
+    manager = InventoryManager.new(root, Ecto.UUID.generate())
+    on_exit(fn -> File.rm_rf(root) end)
+
+    source = %{
+      manager.source
+      | "scan_complete" => true,
+        "notes_scanned" => 2,
+        "pages_scanned" => 1
+    }
+
+    manager =
+      manager
+      |> InventoryManager.observe_source(source)
+      |> InventoryManager.page_loaded(2, 2)
+      |> InventoryManager.page_done()
+      |> InventoryManager.classify(id(1), :equal)
+      |> InventoryManager.classify(id(2), :planned)
+
+    assert InventoryManager.progress(manager)["total_notes"] == 2
+    assert InventoryManager.progress(manager)["checked_notes"] == 2
+    manager = InventoryManager.classify(manager, id(3), :planned)
+    progress = InventoryManager.progress(manager)
+    assert progress["total_notes"] == 3
+    assert progress["checked_notes"] == 3
+    assert progress["notes_scanned"] == 2
+    assert progress["equal_notes"] + progress["planned_notes"] + progress["superseded_notes"] == 3
+
+    manager = InventoryManager.classify(manager, id(2), :equal)
+    progress = InventoryManager.progress(manager)
+    assert progress["total_notes"] == 3
+    assert progress["checked_notes"] == 3
+    assert progress["equal_notes"] == 2
+    assert progress["planned_notes"] == 1
+  end
+
+  test "a delivered note stays resolved during audit while a later blocked retry remains visible" do
+    root =
+      Path.join(System.tmp_dir!(), "gaonote-delivered-classifications-" <> Ecto.UUID.generate())
+
+    manager = InventoryManager.new(root, Ecto.UUID.generate())
+    on_exit(fn -> File.rm_rf(root) end)
+
+    delivered =
+      manager
+      |> InventoryManager.classify(id(1), :planned)
+      |> InventoryManager.classify(id(1), :delivered)
+
+    assert InventoryManager.classify(delivered, id(1), :equal) == delivered
+    assert InventoryManager.classify(delivered, id(1), :superseded) == delivered
+    progress = InventoryManager.progress(delivered)
+    assert progress["equal_notes"] == 0
+    assert progress["planned_notes"] == 1
+    assert progress["superseded_notes"] == 0
+
+    blocked = InventoryManager.classify(delivered, id(1), :blocked)
+    progress = InventoryManager.progress(blocked)
+    assert progress["planned_notes"] == 1
+    assert progress["blocked_notes"] == 1
+    assert InventoryManager.classify(blocked, id(1), :superseded) == blocked
+
+    recovered = InventoryManager.classify(blocked, id(1), :planned)
+    progress = InventoryManager.progress(recovered)
+    assert progress["planned_notes"] == 1
+    assert progress["blocked_notes"] == 0
+    assert InventoryManager.classify(recovered, id(1), :equal) == recovered
   end
 
   defp insert_note(number, setting, value) do

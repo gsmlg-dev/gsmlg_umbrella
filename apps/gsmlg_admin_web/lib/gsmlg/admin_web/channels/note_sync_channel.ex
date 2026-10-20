@@ -779,8 +779,16 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     socket = assign(socket, :confirmation_task, nil)
 
     case result do
-      :ok -> next_note(socket)
-      {:error, reason} -> fail(socket, :confirmation, reason)
+      :ok ->
+        socket =
+          if task[:delivery_confirmed],
+            do: classify_note(socket, socket.assigns.outgoing.event["note_id"], :delivered),
+            else: socket
+
+        next_note(socket)
+
+      {:error, reason} ->
+        fail(socket, :confirmation, reason)
     end
   end
 
@@ -797,19 +805,25 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
         slots = Map.put(socket.assigns.round_slots, task.note_id, slot)
         query_note(assign(socket, :round_slots, slots), descriptor)
 
-      {:classified, {:ok, _blocked_or_superseded}} ->
+      {:classified, {:ok, slot}} ->
         send(self(), :send_next)
-        {:noreply, socket}
+        outcome = if slot && slot.blocked, do: :blocked, else: :superseded
+        {:noreply, classify_note(socket, task.note_id, outcome)}
 
       {:classified, {:error, reason}} ->
         fail(socket, :checkout, reason, task)
 
       {:ok, checkout} ->
-        prepare_outgoing(checkout, socket)
+        prepare_outgoing(checkout, classify_note(socket, task.note_id, :planned))
 
       result when result in [:equal, :superseded, :empty] ->
         send(self(), :send_next)
-        {:noreply, clear_preparation_retry(socket, task.note_id)}
+        outcome = if result == :equal, do: :equal, else: :superseded
+
+        {:noreply,
+         socket
+         |> clear_preparation_retry(task.note_id)
+         |> classify_note(task.note_id, outcome)}
 
       {:error, reason} when reason in @source_preparation_errors or is_binary(reason) ->
         defer_checkout(socket, task.note_id, reason)
@@ -1036,6 +1050,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
         socket =
           socket
           |> assign(sync_manager: manager, round_slots: Map.new(slots, &{&1.note_id, &1}))
+          |> classify_page(ids)
           |> enqueue(pending, true)
           |> enqueue(slots |> Enum.reject(& &1.blocked) |> Enum.map(& &1.note_id))
 
@@ -1199,6 +1214,26 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
         manager_progress_timer: nil
       )
     end
+  end
+
+  defp classify_page(socket, ids) do
+    Enum.reduce(ids, socket, fn id, current ->
+      case current.assigns.round_slots[id] do
+        nil -> classify_note(current, id, :superseded)
+        %{blocked: true} -> classify_note(current, id, :blocked)
+        _ -> current
+      end
+    end)
+  end
+
+  defp classify_note(%{assigns: %{sync_manager: nil}} = socket, _id, _outcome), do: socket
+
+  defp classify_note(socket, id, outcome) do
+    manager = InventoryManager.classify(socket.assigns.sync_manager, id, outcome)
+
+    if manager == socket.assigns.sync_manager,
+      do: socket,
+      else: assign(socket, :sync_manager, manager) |> manager_progress()
   end
 
   defp manager_progress(%{assigns: %{sync_manager: nil}} = socket), do: socket
@@ -2002,7 +2037,8 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
          reason: reason,
          retry_at: System.monotonic_time(:millisecond) + @preparation_retry_base
        })
-     )}
+     )
+     |> classify_note(outgoing.event["note_id"], :blocked)}
   end
 
   defp local_task_failure(socket, operation, reason, context) do
@@ -2316,7 +2352,10 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
           with :ok <- Sync.ack(peer, payload, outgoing.lease), do: Transfer.cleanup(outgoing)
         end)
 
-      {:noreply, socket |> clear_waiting() |> assign(:confirmation_task, task)}
+      {:noreply,
+       socket
+       |> clear_waiting()
+       |> assign(:confirmation_task, Map.put(task, :delivery_confirmed, true))}
     else
       {:noreply, socket}
     end
@@ -2342,7 +2381,11 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
           with :ok <- Sync.reject(peer, payload, outgoing.lease), do: Transfer.cleanup(outgoing)
         end)
 
-      {:noreply, socket |> clear_waiting() |> assign(:confirmation_task, task)}
+      {:noreply,
+       socket
+       |> clear_waiting()
+       |> assign(:confirmation_task, task)
+       |> classify_note(outgoing.event["note_id"], :blocked)}
     else
       {:noreply, socket}
     end
@@ -2410,7 +2453,9 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
     send(self(), :send_next)
 
     {:noreply,
-     assign(socket, preparation_retries: Map.put(socket.assigns.preparation_retries, id, retry))}
+     socket
+     |> assign(preparation_retries: Map.put(socket.assigns.preparation_retries, id, retry))
+     |> classify_note(id, :blocked)}
   end
 
   defp preparation_deferred?(socket, id) do
@@ -2489,7 +2534,8 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
        recovery_task: Map.put(task, :note_id, note_id),
        preparation_retries: Map.put(socket.assigns.preparation_retries, note_id, retry),
        queue: Enum.reject(socket.assigns.queue, &(&1 == note_id))
-     )}
+     )
+     |> classify_note(note_id, :blocked)}
   end
 
   defp preparation_failure(socket, operation, reason, context),

@@ -192,6 +192,7 @@ defmodule GSMLG.AdminWeb.NoteSyncTasksChannelTest do
 
     assert_receive %Phoenix.Socket.Message{event: "task_submit", payload: begin}, 2_000
     assert begin["operation"] == "transfer_begin"
+    assert state(socket).assigns.sync_manager.planned_notes == 1
     settle(socket, begin, %{})
     bytes = receive_chunks(socket, [])
     outgoing = Jason.decode!(bytes)
@@ -204,7 +205,117 @@ defmodule GSMLG.AdminWeb.NoteSyncTasksChannelTest do
     assert complete["operation"] == "inventory_complete"
     settle(socket, complete, %{})
     assert Sync.pending(peer.id) == []
+    marker = Path.join([state(socket).assigns.sync_manager.directory, "classifications", note.id])
+    assert File.read!(marker) == "delivered"
+    assert_push("sync_manager_status", %{"progress" => %{"planned_notes" => 1}}, 2_000)
     assert Process.alive?(socket.channel_pid)
+  end
+
+  test "manager publishes equal and blocked classifications without retransmitting equal notes",
+       %{
+         socket: socket,
+         peer: peer
+       } do
+    notes =
+      for _ <- 1..2 do
+        {:ok, note} =
+          Compat.save_note(
+            %{
+              title: "classification",
+              content: "body",
+              labels: [String.split(hd(peer.selectors), "=", parts: 2)]
+            },
+            nil
+          )
+
+        {:ok, lease} = Sync.checkout(peer, note.id)
+        :ok = Sync.ack(peer, Protocol.ack(lease.event), lease.lease_id)
+        note
+      end
+
+    [equal, blocked] = notes
+    member = Store.get("member", blocked.id, peer.id)
+
+    Store.put(
+      "member",
+      blocked.id,
+      Map.put(member, "rejected_event_id", member["event"]["event_id"]),
+      peer.id,
+      blocked.id
+    )
+
+    done(socket, 1, "inventory_start", %{})
+    assert_receive %Phoenix.Socket.Message{event: "task_submit", payload: query}, 2_000
+    assert query["operation"] == "state_query"
+    [descriptor] = query["payload"]["items"]
+    assert descriptor["note_id"] == equal.id
+
+    settle(socket, query, %{
+      "query_id" => query["payload"]["query_id"],
+      "items" => [equal_item(descriptor)]
+    })
+
+    assert_receive %Phoenix.Socket.Message{event: "task_submit", payload: complete}, 2_000
+    assert complete["operation"] == "inventory_complete"
+    settle(socket, complete, %{})
+
+    assert_push(
+      "sync_manager_status",
+      %{
+        "progress" => %{
+          "checked_notes" => 2,
+          "equal_notes" => 1,
+          "planned_notes" => 1,
+          "superseded_notes" => 0,
+          "blocked_notes" => 1
+        }
+      },
+      2_000
+    )
+
+    refute_receive %Phoenix.Socket.Message{
+                     event: "task_submit",
+                     payload: %{"operation" => "transfer_begin"}
+                   },
+                   50
+  end
+
+  test "manager classifies a stale queried descriptor as superseded without claiming equality", %{
+    socket: socket,
+    peer: peer
+  } do
+    {:ok, note} =
+      Compat.save_note(
+        %{
+          title: "stale",
+          content: "before",
+          labels: [String.split(hd(peer.selectors), "=", parts: 2)]
+        },
+        nil
+      )
+
+    {:ok, lease} = Sync.checkout(peer, note.id)
+    :ok = Sync.ack(peer, Protocol.ack(lease.event), lease.lease_id)
+    done(socket, 1, "inventory_start", %{})
+    assert_receive %Phoenix.Socket.Message{event: "task_submit", payload: query}, 2_000
+    [descriptor] = query["payload"]["items"]
+    {:ok, _} = Compat.patch_note(note.id, note.revision, %{content: "after"}, nil)
+
+    settle(socket, query, %{
+      "query_id" => query["payload"]["query_id"],
+      "items" => [equal_item(descriptor)]
+    })
+
+    assert_receive %Phoenix.Socket.Message{event: "task_submit", payload: complete}, 2_000
+    assert complete["operation"] == "inventory_complete"
+
+    assert_push(
+      "sync_manager_status",
+      %{"progress" => %{"superseded_notes" => 1, "equal_notes" => 0}},
+      2_000
+    )
+
+    assert Sync.pending(peer.id) != []
   end
 
   @tag timeout: 120_000
@@ -457,6 +568,18 @@ defmodule GSMLG.AdminWeb.NoteSyncTasksChannelTest do
         chunks |> Enum.reverse() |> IO.iodata_to_binary()
     end
   end
+
+  defp equal_item(descriptor),
+    do: %{
+      "requested" => descriptor,
+      "association" => "attached",
+      "member" => descriptor,
+      "head" => %{
+        "version" => descriptor["version"],
+        "snapshot_hash" => descriptor["snapshot_hash"],
+        "attachments_available" => true
+      }
+    }
 
   defp done(socket, sequence, operation, payload) do
     command = command(socket, sequence, operation, payload)

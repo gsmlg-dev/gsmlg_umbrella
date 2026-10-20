@@ -12,6 +12,10 @@ defmodule GSMLG.AdminWeb.NoteSync.InventoryManager do
       eligible_notes: 0,
       page_active: false,
       checked_notes: 0,
+      equal_notes: 0,
+      planned_notes: 0,
+      superseded_notes: 0,
+      blocked_notes: 0,
       pages_checked: 0,
       mode: "initial_scan",
       state: "running",
@@ -146,6 +150,7 @@ defmodule GSMLG.AdminWeb.NoteSync.InventoryManager do
 
   def progress(manager) do
     source = manager.source
+    classified = manager.equal_notes + manager.planned_notes + manager.superseded_notes
 
     Map.merge(source, %{
       "mode" => manager.mode,
@@ -154,8 +159,14 @@ defmodule GSMLG.AdminWeb.NoteSync.InventoryManager do
       "last_progress_at" => max(source["last_progress_at"], manager.last_progress_at),
       "page_size" => @page_size,
       "pages_checked" => manager.pages_checked,
-      "checked_notes" => manager.checked_notes,
-      "total_notes" => if(source["scan_complete"], do: source["notes_scanned"], else: nil)
+      "checked_notes" => max(manager.checked_notes, classified),
+      "equal_notes" => manager.equal_notes,
+      "planned_notes" => manager.planned_notes,
+      "superseded_notes" => manager.superseded_notes,
+      "blocked_notes" => manager.blocked_notes,
+      # Changes after the frozen scan still belong to this session's round.
+      "total_notes" =>
+        if(source["scan_complete"], do: max(source["notes_scanned"], classified), else: nil)
     })
   end
 
@@ -186,6 +197,65 @@ defmodule GSMLG.AdminWeb.NoteSync.InventoryManager do
         page_notes: count,
         eligible_notes: manager.eligible_notes + eligible
     }
+
+  # The session owns these small disk markers, so retries across page boundaries
+  # never require retaining the whole cohort in the channel process.
+  def classify(manager, note_id, outcome)
+      when outcome in [:equal, :planned, :superseded, :blocked, :delivered] do
+    directory = Path.join(manager.directory, "classifications")
+    path = Path.join(directory, note_id)
+
+    previous =
+      case File.read(path) do
+        {:ok, value} -> value
+        {:error, :enoent} -> nil
+      end
+
+    current = next_classification(previous, outcome)
+
+    if previous == current do
+      manager
+    else
+      File.mkdir_p!(directory)
+      File.write!(path, current)
+
+      manager
+      |> adjust_classification(previous, -1)
+      |> adjust_classification(current, 1)
+      |> Map.put(:last_progress_at, System.system_time(:millisecond))
+    end
+  end
+
+  # A confirmed note must not be counted again as equal/superseded during an
+  # overlapping audit. Later failures remain visible until its next retry.
+  defp next_classification(previous, outcome)
+       when previous in ["delivered", "delivered_blocked"] do
+    case outcome do
+      :blocked -> "delivered_blocked"
+      kind when kind in [:equal, :superseded] -> previous
+      _ -> "delivered"
+    end
+  end
+
+  defp next_classification(_previous, outcome), do: Atom.to_string(outcome)
+
+  defp adjust_classification(manager, nil, _delta), do: manager
+
+  defp adjust_classification(manager, kind, delta) when kind in ["blocked", "delivered_blocked"],
+    do: %{
+      manager
+      | planned_notes: manager.planned_notes + delta,
+        blocked_notes: manager.blocked_notes + delta
+    }
+
+  defp adjust_classification(manager, "equal", delta),
+    do: %{manager | equal_notes: manager.equal_notes + delta}
+
+  defp adjust_classification(manager, kind, delta) when kind in ["planned", "delivered"],
+    do: %{manager | planned_notes: manager.planned_notes + delta}
+
+  defp adjust_classification(manager, "superseded", delta),
+    do: %{manager | superseded_notes: manager.superseded_notes + delta}
 
   def page_done(%{page_active: false} = manager), do: manager
 
