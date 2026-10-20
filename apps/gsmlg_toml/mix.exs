@@ -2,12 +2,16 @@ defmodule Toml.MixProject do
   use Mix.Project
 
   @version "1.0.0"
-  @source_url "https://github.com/gsmlg-dev/gsmlg_umbrella/tree/main/packages/gsmlg_toml"
+  @source_url "https://github.com/gsmlg-dev/gsmlg_umbrella/tree/main/apps/gsmlg_toml"
 
   def project do
     [
       app: :gsmlg_toml,
       version: @version,
+      build_path: "../../_build",
+      config_path: "../../config/config.exs",
+      deps_path: "../../deps",
+      lockfile: "../../mix.lock",
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,

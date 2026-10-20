@@ -29,7 +29,7 @@ defmodule GSMLG.Config.MixProject do
     [
       {:gsmlg_logger, in_umbrella: true},
       {:gsmlg_telemetry, in_umbrella: true},
-      {:gsmlg_toml, "~> 1.0"},
+      {:gsmlg_toml, in_umbrella: true},
       {:libcluster, "~> 3.5"},
       {:nimble_options, "~> 1.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

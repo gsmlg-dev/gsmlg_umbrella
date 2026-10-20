@@ -4,13 +4,17 @@ Layered TOML configuration system for GSMLG applications with support for enviro
 
 ## TOML dependency
 
-TOML parsing is provided by the Hex package `gsmlg_toml` (`~> 1.0`). Its standalone
-source and regression suite live in [`packages/gsmlg_toml`](../../packages/gsmlg_toml).
-The parser is maintained outside the umbrella's `apps` directory so the umbrella
-uses the same published dependency as other consumers.
+TOML parsing is provided by the umbrella application
+[`apps/gsmlg_toml`](../gsmlg_toml), declared as
+`{:gsmlg_toml, in_umbrella: true}`. Its parser source and regression suite are
+maintained separately from this application's GSMLG-specific loader, schema,
+transforms and setup. The parser uses the shared umbrella build, dependency,
+configuration and root lockfile paths.
 
-Other packages that only need TOML parsing can depend on `gsmlg_toml` directly.
-This application retains the GSMLG-specific loader, schema, transforms and setup.
+External applications that only need TOML parsing can use the independently
+Hex-buildable `gsmlg_toml` package with `{:gsmlg_toml, "~> 1.0"}`. It has no
+runtime dependencies. For scoped parser tests, run
+`cd apps/gsmlg_toml && mix test --no-start` from the repository root.
 
 ## Features
 

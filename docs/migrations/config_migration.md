@@ -1,11 +1,18 @@
 # Configuration System Migration Guide
 
 > **Historical guide:** The steps below describe the 2025 configuration-system
-> migration. As of 2026-10-20, the parser is maintained independently in
-> [`packages/gsmlg_toml`](../../packages/gsmlg_toml), and `gsmlg_config` consumes
-> Hex `gsmlg_toml` (`~> 1.0`). Its business configuration remains in `gsmlg_config`.
+> migration and are retained as historical instructions, including removal of
+> the former parser app. They do not describe the current layout. As of
+> 2026-10-20, parser source and regression tests live in
+> [`apps/gsmlg_toml`](../../apps/gsmlg_toml), and `gsmlg_config` uses
+> `{:gsmlg_toml, in_umbrella: true}`. Business configuration remains in
+> `gsmlg_config`. The parser shares the umbrella's build, dependency,
+> configuration and root lockfile paths; external consumers can use Hex
+> `{:gsmlg_toml, "~> 1.0"}` without runtime dependencies. Run scoped parser
+> tests with `cd apps/gsmlg_toml && mix test --no-start` from the repository root.
 > See the [current configuration README](../../apps/gsmlg_config/README.md) for
-> the active configuration-file paths.
+> the active configuration-file paths. Do not apply the historical removal steps
+> to the current `apps/gsmlg_toml` application.
 
 ## Overview
 

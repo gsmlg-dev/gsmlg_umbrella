@@ -46,20 +46,28 @@ config_providers: [
 The provider expects root tables named for applications. See the `Toml.Provider`
 and `Toml.Transform` module documentation for options and examples.
 
-## Standalone development
+## Development in the umbrella
 
-This directory is an independent Mix project outside the umbrella's `apps/`
-directory. Run commands here; it uses its own `_build`, `deps` and `mix.lock`
-and does not load the umbrella configuration or start its applications:
+The maintained source and regression suite live in `apps/gsmlg_toml`. This Mix
+project uses the standard umbrella paths: `../../_build`, `../../deps`,
+`../../mix.lock` and `../../config/config.exs`. Dependencies and configuration
+are shared with the umbrella; there is no package-local lockfile.
+
+Run scoped parser checks from the application directory:
 
 ```sh
-cd packages/gsmlg_toml
+cd apps/gsmlg_toml
 HEX_MIRROR=https://repo.hex.pm mix deps.get
 mix compile --warnings-as-errors
 mix format --check-formatted
-mix test
+mix test --no-start
 mix hex.build
 ```
+
+The parser remains independently Hex-buildable: its archive includes `lib`,
+`mix.exs`, `README.md` and `LICENSE`, with no runtime dependencies or umbrella
+application dependencies. External applications can consume the Hex package
+without the GSMLG umbrella.
 
 Jason is used only by the test suite to compare decoded fixtures with expected
 JSON values. Tests cover decoding, errors, lexing, transforms, the provider,
@@ -67,9 +75,10 @@ and the historical fixture and adapted `toml-test` suites. These historical
 fixtures are regression coverage, not a claim of conformance to every current
 TOML specification test.
 
-The umbrella's `gsmlg_config` consumes the existing Hex `gsmlg_toml` 1.0.0
-release, rather than a path dependency on this directory. This source extraction
-preserves parser behavior and does not publish a new release.
+Within this umbrella, `gsmlg_config` uses `{:gsmlg_toml, in_umbrella: true}` and
+retains the GSMLG-specific configuration loader, schema, transforms and setup.
+External consumers use `{:gsmlg_toml, "~> 1.0"}` as shown above. The package
+version remains 1.0.0; this extraction does not publish a new release.
 
 ## License and provenance
 
