@@ -9,9 +9,9 @@ defmodule GSMLG.Web.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      elixir: "~> 1.18",
+      elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
-      compilers: Mix.compilers(),
+      compilers: Mix.compilers() ++ [:hologram],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps()
@@ -38,6 +38,7 @@ defmodule GSMLG.Web.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.8"},
+      {:hologram, "~> 0.12.2"},
       {:phoenix_ecto, "~> 4.5"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.6", only: :dev},
@@ -83,7 +84,8 @@ defmodule GSMLG.Web.MixProject do
       setup: ["deps.get"],
       # Database setup is handled at umbrella level in CI
       # For local development, run `mix ecto.create && mix ecto.migrate` first
-      test: ["test"],
+      test: [&enable_hologram/1, "test"],
+      "phx.server": [&enable_hologram/1, "phx.server"],
       "assets.deploy": [
         "phx.digest.clean --no-compile",
         "tailwind gsmlg_web --minify",
@@ -93,4 +95,6 @@ defmodule GSMLG.Web.MixProject do
       lint: ["credo --strict", "dialyzer"]
     ]
   end
+
+  defp enable_hologram(_args), do: System.put_env("HOLOGRAM_START", "1")
 end

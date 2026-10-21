@@ -64,9 +64,7 @@ defmodule GSMLG.Umbrella.MixProject do
             targets: [
               linux_amd64: [
                 os: :linux,
-                cpu: :x86_64,
-                custom_erts:
-                  "https://github.com/Gao-OS/otp-release/releases/download/main/OTP-27.1.2-linux-amd64.tar.gz"
+                cpu: :x86_64
               ]
             ]
           ]
@@ -98,11 +96,15 @@ defmodule GSMLG.Umbrella.MixProject do
       # run `mix setup` in all child apps
       setup: ["cmd mix setup"],
       prerelease: [&build_assets/1],
+      test: [&enable_hologram/1, "test"],
+      "phx.server": [&enable_hologram/1, "phx.server"],
       "service.run": ["phx.server"],
       "commander.run": ["app.config", &run_commander/1],
       "scout_agent.run": ["app.config", &run_scout_agent/1]
     ]
   end
+
+  defp enable_hologram(_args), do: System.put_env("HOLOGRAM_START", "1")
 
   defp run_commander(_args) do
     prepare_commander_run(Mix.env())

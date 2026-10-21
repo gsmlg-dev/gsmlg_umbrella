@@ -1,4 +1,4 @@
-FROM elixir:1.18.4-otp-28-alpine AS builder
+FROM elixir:1.19.5-otp-28-alpine AS builder
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg_umbrella
@@ -19,7 +19,7 @@ ARG XLA_BUILD=true
 ARG TARGETARCH
 
 # Install build tools + bun (musl build for Alpine)
-RUN apk add --no-cache curl unzip bash vips-dev build-base
+RUN apk add --no-cache curl unzip bash vips-dev build-base nodejs npm
 
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
       curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-aarch64-musl.zip -o /tmp/bun.zip \

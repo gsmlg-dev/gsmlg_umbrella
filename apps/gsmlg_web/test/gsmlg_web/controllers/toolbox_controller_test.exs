@@ -16,7 +16,7 @@ defmodule GSMLG.Web.ToolboxControllerTest do
       assert document |> Floki.find("h1") |> Floki.text() |> String.trim() == "IP Geo"
       assert [_form] = Floki.find(document, "form#ip-geo-form")
       assert [_input] = Floki.find(document, "#ip-geo-form input#ip-input[name=ip]")
-      assert [_submit] = Floki.find(document, "#ip-geo-form el-dm-button#ip-submit[type=submit]")
+      assert [_submit] = Floki.find(document, "#ip-geo-form button#ip-submit[type=submit]")
       assert [_result] = Floki.find(document, "#ip-result")
     end
   end
@@ -28,6 +28,13 @@ defmodule GSMLG.Web.ToolboxControllerTest do
 
       assert %{"data" => %{"country" => "France", "country_code" => "FR"}} =
                json_response(conn, 200)
+
+      assert %{next_action: %{name: :loaded, params: %{result: %{country: "France"}}}} =
+               GSMLG.Web.Hologram.Pages.IpGeo.command(
+                 :lookup,
+                 %{ip: "2.4.6.8"},
+                 %Hologram.Server{}
+               )
     end
 
     test "returns an error JSON response when the IP is invalid", %{conn: conn} do

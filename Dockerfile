@@ -1,4 +1,11 @@
-FROM elixir:1.18 AS builder
+FROM node:22-bookworm-slim AS node
+
+FROM elixir:1.19.5-otp-28 AS builder
+
+# Hologram installs esbuild with npm while compiling the release.
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg_umbrella

@@ -555,7 +555,8 @@ defmodule GSMLG.BrowserAgent.WorkflowRunner do
         )
         |> Map.put_new("preconditions", [])
 
-      pending = %Decision{state.checkpoint.pending_decision | action: action}
+      %Decision{} = pending_decision = checkpoint.pending_decision
+      pending = %Decision{pending_decision | action: action}
       updated = %{checkpoint | pending_decision: pending}
 
       case persist(state, updated) do

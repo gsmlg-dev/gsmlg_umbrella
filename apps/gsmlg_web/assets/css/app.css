@@ -1,4 +1,5 @@
 @source "../js/**/*.js";
+@source "../../lib/gsmlg/web/hologram/**/*.{ex,holo}";
 @source "../../lib/*_web.ex";
 @source "../../lib/*_web/**/*.*ex";
 @source "../../../gsmlg_component/assets/**/*.js";

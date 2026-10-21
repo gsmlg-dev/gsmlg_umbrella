@@ -37,6 +37,7 @@ defmodule GSMLG.Web.Endpoint do
     gzip: false,
     only: ~w(
       assets
+      hologram
       favicon.ico
       images
       robots.txt
@@ -67,5 +68,6 @@ defmodule GSMLG.Web.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+  plug GSMLG.Web.Hologram.Router
   plug GSMLG.Web.Router
 end

@@ -26,7 +26,7 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
+          elixir-version: '1.19.5'
           otp-version: '28'
 
       - name: Check shared application versions
@@ -47,10 +47,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
       - name: Set up Elixir
+        id: beam
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
+          elixir-version: '1.19.5'
           otp-version: '28'
 
       - name: Restore dependencies cache
@@ -59,8 +65,8 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-mix-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-
 
       - name: Install dependencies
         run: mix deps.get
@@ -76,10 +82,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
       - name: Set up Elixir
+        id: beam
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
+          elixir-version: '1.19.5'
           otp-version: '28'
 
       - name: Restore dependencies cache
@@ -88,8 +100,8 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-mix-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-
 
       - name: Install dependencies
         run: mix deps.get
@@ -105,10 +117,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
       - name: Set up Elixir
+        id: beam
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
+          elixir-version: '1.19.5'
           otp-version: '28'
 
       - name: Restore dependencies cache
@@ -117,8 +135,8 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-mix-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-
 
       - name: Install dependencies
         run: mix deps.get
@@ -134,10 +152,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
       - name: Set up Elixir
+        id: beam
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
+          elixir-version: '1.19.5'
           otp-version: '28'
 
       - name: Restore dependencies cache
@@ -146,8 +170,8 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-mix-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-
 
       - name: Install dependencies
         run: mix deps.get
@@ -156,8 +180,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: priv/plts
-          key: ${{ runner.os }}-dialyzer-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-dialyzer-
+          key: ${{ runner.os }}-dialyzer-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-dialyzer-elixir-${{ steps.beam.outputs.elixir-version }}-otp-${{ steps.beam.outputs.otp-version }}-
 
       - name: Run Dialyzer
         # Note: Dialyzer warnings are pre-existing in the codebase.

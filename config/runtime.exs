@@ -1,5 +1,8 @@
 import Config
 
+# Releases do not carry MIX_ENV; Hologram needs the runtime environment explicitly.
+System.put_env("HOLOGRAM_ENV", Atom.to_string(config_env()))
+
 # Load GSMLG configuration from TOML files
 # This happens before any applications start, ensuring configuration is available
 # Configuration sources (in precedence order):
@@ -96,6 +99,14 @@ end
 
 if key = System.get_env("GSMLG_API_PROVIDER_KEY") do
   config :gsmlg, :api_provider_encryption_key, key
+end
+
+# Reuse the existing TOML-backed public endpoint key for Hologram signing.
+if config_env() == :prod and is_nil(System.get_env("SECRET_KEY_BASE")) do
+  case Application.get_env(:gsmlg_web, GSMLG.Web.Endpoint, [])[:secret_key_base] do
+    key when is_binary(key) -> System.put_env("SECRET_KEY_BASE", key)
+    _ -> :ok
+  end
 end
 
 if System.get_env("MIX_BUN_PATH") do

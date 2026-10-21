@@ -94,15 +94,15 @@ defmodule GSMLG.Web.Router do
     get("/blogs", BlogController, :index)
     get("/blogs/:slug", BlogController, :show)
 
-    get("/toolbox", ToolboxController, :index)
-    get("/toolbox/ip_geo", ToolboxController, :ip_geo)
-    get("/toolbox/whois", ToolboxController, :whois)
-    get("/toolbox/svg2react", ToolboxController, :svg2react)
+    get("/toolbox", ToolboxController, :hologram)
+    get("/toolbox/ip_geo", ToolboxController, :hologram)
+    get("/toolbox/whois", ToolboxController, :hologram)
+    get("/toolbox/svg2react", ToolboxController, :hologram)
     post("/toolbox/svg2react", ToolboxController, :svg2react_convert)
-    get("/toolbox/svg_autocrop", ToolboxController, :svg_autocrop)
-    get("/toolbox/mac_manufacturer", ToolboxController, :mac_manufacturer)
-    get("/toolbox/ip_to_geomap", ToolboxController, :ip_to_geomap)
-    get("/toolbox/screensaver", ToolboxController, :screensaver)
+    get("/toolbox/svg_autocrop", ToolboxController, :hologram)
+    get("/toolbox/mac_manufacturer", ToolboxController, :hologram)
+    get("/toolbox/ip_to_geomap", ToolboxController, :hologram)
+    get("/toolbox/screensaver", ToolboxController, :hologram)
   end
 
   scope "/", GSMLG.Web do
