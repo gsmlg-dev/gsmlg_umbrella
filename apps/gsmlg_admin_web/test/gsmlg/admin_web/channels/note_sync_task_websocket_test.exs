@@ -4,16 +4,22 @@ defmodule GSMLG.AdminWeb.NoteSyncTaskWebSocketTest do
   alias GSMLG.GaoNote.Compat
 
   setup do
-    listener =
-      start_supervised!({Bandit, plug: GSMLG.AdminWeb.Endpoint, ip: {127, 0, 0, 1}, port: 0})
+    endpoint = GSMLG.AdminWeb.Endpoint
 
-    {:ok, {{127, 0, 0, 1}, port}} = ThousandIsland.listener_info(listener)
+    [listener] =
+      Gaoxy.PhoenixAdapter.child_specs(endpoint,
+        server: true,
+        http: [ip: {127, 0, 0, 1}, port: 0]
+      )
+
+    start_supervised!(listener)
+    {:ok, {{127, 0, 0, 1}, port}} = Gaoxy.PhoenixAdapter.server_info(endpoint, :http)
 
     %{
       peer: %{id: Ecto.UUID.generate()},
       port: port,
       headers: [],
-      endpoint: GSMLG.AdminWeb.Endpoint,
+      endpoint: endpoint,
       socket_module: GSMLG.AdminWeb.NoteSyncSocket
     }
   end

@@ -24,10 +24,10 @@ defmodule GSMLG.BrowserAgent.MixProject do
 
   defp deps do
     [
-      {:finch, "~> 0.20"},
-      {:mint, "~> 1.9"},
+      {:finch, "~> 0.24"},
+      {:mint, "~> 1.11"},
       {:mint_web_socket, "~> 1.0"},
-      {:telemetry, "~> 1.0"},
+      {:telemetry, "~> 1.4"},
       {:gsmlg_commander, in_umbrella: true},
       {:gsmlg_commander_protocol, in_umbrella: true}
     ]

@@ -73,7 +73,7 @@ config :gsmlg_web, :phoenix_generators,
 
 # Configures the endpoint
 config :gsmlg_web, GSMLG.Web.Endpoint,
-  adapter: Bandit.PhoenixAdapter,
+  adapter: Gaoxy.PhoenixAdapter,
   render_errors: [
     formats: [html: GSMLG.Web.ErrorHTML, json: GSMLG.Web.ErrorJSON],
     layout: false
@@ -83,7 +83,7 @@ config :gsmlg_web, GSMLG.Web.Endpoint,
 
 # Configures the endpoint
 config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
-  adapter: Bandit.PhoenixAdapter,
+  adapter: Gaoxy.PhoenixAdapter,
   render_errors: [
     formats: [html: GSMLG.AdminWeb.ErrorHTML, json: GSMLG.AdminWeb.ErrorJSON],
     layout: false

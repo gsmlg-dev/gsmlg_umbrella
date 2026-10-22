@@ -23,7 +23,7 @@ defmodule Toml.MixProject do
         licenses: ["Apache-2.0", "MIT"],
         links: %{"GitHub" => @source_url}
       ],
-      deps: [{:jason, "~> 1.0", only: :test}]
+      deps: [{:jason, "~> 1.4", only: :test}]
     ]
   end
 

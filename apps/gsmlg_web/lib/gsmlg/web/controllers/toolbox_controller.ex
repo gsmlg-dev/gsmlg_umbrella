@@ -72,13 +72,8 @@ defmodule GSMLG.Web.ToolboxController do
       }
     }
 
-    case GSMLG.SVG2React.convert(data) do
-      {:ok, result} ->
-        conn |> json(%{data: result})
-
-      {:error, error} ->
-        conn |> put_status(422) |> json(%{error: error})
-    end
+    {:error, error} = GSMLG.SVG2React.convert(data)
+    conn |> put_status(:service_unavailable) |> json(%{error: error})
   end
 
   def mac_manufacturer_json(conn, %{"mac" => mac}) do

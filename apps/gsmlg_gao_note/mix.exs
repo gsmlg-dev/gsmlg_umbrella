@@ -30,12 +30,12 @@ defmodule GSMLG.GaoNote.MixProject do
     [
       {:gsmlg, in_umbrella: true},
       {:gsmlg_storage, in_umbrella: true},
-      {:styx, "~> 0.1.1"},
-      {:bandit, "~> 1.0", only: :test},
-      {:plug, "~> 1.18"},
-      {:backplane_mcp_protocol, ">= 1.10.16 and < 2.0.0"},
-      {:jason, "~> 1.2"},
-      {:finch, "~> 0.19"},
+      {:styx, "~> 0.1"},
+      {:bandit, "~> 1.13", only: :test},
+      {:plug, "~> 1.20"},
+      {:backplane_mcp_protocol, "~> 1.10"},
+      {:jason, "~> 1.4"},
+      {:finch, "~> 0.24"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

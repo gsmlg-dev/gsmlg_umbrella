@@ -175,6 +175,7 @@ defmodule GSMLG.Config.Setup do
     check_origin = parse_check_origin(config[:check_origin])
 
     update_env(:gsmlg_web, GSMLG.Web.Endpoint,
+      adapter: Gaoxy.PhoenixAdapter,
       secret_key_base: config[:secret_key_base],
       check_origin: check_origin,
       http: [
@@ -195,7 +196,7 @@ defmodule GSMLG.Config.Setup do
     check_origin = parse_check_origin(config[:check_origin])
 
     update_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
-      adapter: Bandit.PhoenixAdapter,
+      adapter: Gaoxy.PhoenixAdapter,
       secret_key_base: config[:secret_key_base],
       check_origin: check_origin,
       http: [

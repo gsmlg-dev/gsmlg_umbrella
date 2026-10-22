@@ -164,6 +164,15 @@ defmodule GSMLG.Web.Hologram.LookupPagesTest do
            }
   end
 
+  test "SVG conversion attempts return a temporary unavailable error" do
+    error = GSMLG.SVG2React.unavailable_message()
+
+    assert GSMLG.SVG2React.convert(Svg2React.conversion_data("<svg />")) == {:error, error}
+
+    assert %{next_action: %{name: :failed, params: %{error: ^error}}} =
+             Svg2React.command(:lookup, %{code: "<svg />"}, %Server{})
+  end
+
   test "malformed optional RDAP values cannot crash result normalization" do
     assert %{name: "", events: [], nameservers: [], dnssec: nil, entities: [], links: []} =
              Whois.rdap_view(nil)

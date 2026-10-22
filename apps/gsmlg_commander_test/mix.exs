@@ -39,13 +39,13 @@ defmodule GSMLG.CommanderTest.MixProject do
       {:gsmlg_config, in_umbrella: true},
 
       # WebSocket client for test agents
-      {:http_web_socket, "~> 0.17.1"},
+      {:http_web_socket, "~> 0.21"},
 
       # JSON encoding/decoding
       {:jason, "~> 1.4"},
 
       # PTY handling via erlexec
-      {:erlexec, "~> 2.0"},
+      {:erlexec, "~> 2.5"},
 
       # Development and test tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

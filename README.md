@@ -22,6 +22,21 @@ mix setup           # install deps, create DB, run migrations
 mix phx.server      # http://localhost:4110 and http://localhost:4111
 ```
 
+Both Phoenix endpoints use `Gaoxy.PhoenixAdapter` from `gaoxy_http`. Explicit
+`websock_adapter` overrides select the matching `gaoxy_websock_adapter` Hex
+distribution for LiveView and Channels. TOML still controls each endpoint's
+port and `server` flag. Bandit is a test-only dependency for HTTP fixtures.
+
+Direct Hex dependencies use `~> major.minor` requirements. Resolved versions
+are recorded in `mix.lock`.
+
+The SVG-to-React toolbox entry and page remain available, with conversion
+temporarily disabled and Babel/SVGR dependencies removed.
+
+Concord 2.4.1 and ExTurso 0.3.2 remain in use pending
+[concord#103](https://github.com/gsmlg-dev/concord/issues/103): Concord 3.1.5
+rejects the process-local controller PIDs required by PTY session attachment.
+
 ## Database
 
 ```shell

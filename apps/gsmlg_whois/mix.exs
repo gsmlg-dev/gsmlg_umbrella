@@ -33,15 +33,14 @@ defmodule GSMLG.Whois.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:telemetry, "~> 1.2"},
-      {:http_fetch, "~> 0.10"},
-      {:postgrex, "~> 0.21", optional: true},
-      {:concord, "~> 2.0", optional: true},
-      # TODO(upstream): gsmlg-dev/concord#92
-      # WORKAROUND(upstream): gsmlg-dev/concord#92 - constrain ExTurso's compatible API;
-      # Concord starts the application through its own runtime dependency.
-      {:ex_turso, "~> 0.3.0", optional: true, runtime: false},
-      {:ex_doc, ">= 0.0.0", runtime: false},
+      {:telemetry, "~> 1.4"},
+      {:http_fetch, "~> 0.21"},
+      {:postgrex, "~> 0.22", optional: true},
+      {:concord, "~> 2.4", optional: true},
+      # TODO(upstream): gsmlg-dev/concord#103 - retain the v2-compatible ExTurso API
+      # while the umbrella's PTY controller PID migration is blocked.
+      {:ex_turso, "~> 0.3", optional: true, runtime: false},
+      {:ex_doc, "~> 0.40", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

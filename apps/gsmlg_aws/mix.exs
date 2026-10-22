@@ -29,9 +29,9 @@ defmodule GSMLG.AWS.MixProject do
   defp deps do
     [
       {:aws, "~> 1.0"},
-      {:cachex, "~> 4.0"},
-      {:finch, "~> 0.19"},
-      {:tesla, "~> 1.11"},
+      {:cachex, "~> 4.1"},
+      {:finch, "~> 0.24"},
+      {:tesla, "~> 1.22"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

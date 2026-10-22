@@ -11,12 +11,6 @@ defmodule GSMLG.Umbrella.MixProject do
       deps: deps(),
       aliases: aliases(),
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test
-      ],
       coveralls: [minimum_coverage: 0],
       listeners: [Phoenix.CodeReloader],
       releases: [
@@ -81,13 +75,25 @@ defmodule GSMLG.Umbrella.MixProject do
     ]
   end
 
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
+    ]
+  end
+
   defp deps do
     [
-      {:burrito, "~> 1.0", runtime: false},
+      {:burrito, "~> 1.6", runtime: false},
       {:excoveralls, "~> 0.18", only: [:dev, :test]},
       {:phoenix, "~> 1.8"},
-      {:phoenix_live_view, "~> 1.0"},
-      {:telemetry, "~> 1.0", override: true}
+      {:phoenix_live_view, "~> 1.2"},
+      {:websock_adapter, "~> 0.12", hex: :gaoxy_websock_adapter, override: true},
+      {:telemetry, "~> 1.4", override: true}
     ]
   end
 

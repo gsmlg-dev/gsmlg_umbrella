@@ -28,8 +28,8 @@ defmodule GSMLG.Scout.MixProject do
 
   defp deps do
     [
-      {:amqp, "~> 4.1"},
-      {:jason, "~> 1.2"}
+      {:amqp, "~> 4.3"},
+      {:jason, "~> 1.4"}
     ]
   end
 

@@ -11,6 +11,12 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
       document = Floki.parse_fragment!(html)
       popover_id = "admin-app-menu-popover"
 
+      assert [_dropdown] =
+               Floki.find(
+                 document,
+                 ~s([phx-hook="DuskmoonPopover"][data-popover-id="#{popover_id}"])
+               )
+
       assert [_trigger] =
                Floki.find(
                  document,

@@ -37,8 +37,14 @@ defmodule GSMLG.AdminWeb.NoteSyncWebSocketTest do
     peer = %{id: Ecto.UUID.generate()}
     endpoint = GSMLG.AdminWeb.Endpoint
 
-    listener = start_supervised!({Bandit, plug: endpoint, ip: {127, 0, 0, 1}, port: 0})
-    assert {:ok, {{127, 0, 0, 1}, port}} = ThousandIsland.listener_info(listener)
+    [listener] =
+      Gaoxy.PhoenixAdapter.child_specs(endpoint,
+        server: true,
+        http: [ip: {127, 0, 0, 1}, port: 0]
+      )
+
+    start_supervised!(listener)
+    assert {:ok, {{127, 0, 0, 1}, port}} = Gaoxy.PhoenixAdapter.server_info(endpoint, :http)
 
     %{
       peer: peer,
@@ -542,7 +548,8 @@ defmodule GSMLG.AdminWeb.NoteSyncWebSocketTest do
 
     case :gen_tcp.recv(tcp, 2, 2000) do
       {:ok, <<0x88, size>>} ->
-        assert {:ok, <<1001::16, _::binary>>} = :gen_tcp.recv(tcp, size, 2000)
+        assert {:ok, <<code::16, _::binary>>} = :gen_tcp.recv(tcp, size, 2000)
+        assert code in [1000, 1001]
 
       {:ok, <<0x81, size>>} when size < 126 ->
         assert {:ok, _payload} = :gen_tcp.recv(tcp, size, 2000)

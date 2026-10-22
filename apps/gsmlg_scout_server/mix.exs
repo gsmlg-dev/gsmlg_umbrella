@@ -31,7 +31,7 @@ defmodule GSMLG.ScoutServer.MixProject do
     [
       {:gsmlg, in_umbrella: true},
       {:gsmlg_scout, in_umbrella: true},
-      {:phoenix_pubsub, "~> 2.1"}
+      {:phoenix_pubsub, "~> 2.4"}
     ]
   end
 

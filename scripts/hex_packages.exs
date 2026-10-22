@@ -2,15 +2,8 @@ Code.require_file("lib/release/hex_packages.ex", __DIR__)
 
 try do
   case System.argv() do
-    [command, version, output] when command in ["build", "publish"] ->
-      root = Path.expand("..", __DIR__)
-      packages = GSMLG.Release.HexPackages.discover!(root, version)
-      output = Path.expand(output)
-
-      case command do
-        "build" -> GSMLG.Release.HexPackages.build!(packages, version, output)
-        "publish" -> GSMLG.Release.HexPackages.publish!(packages, version, output)
-      end
+    [command, _version, _output] when command in ["build", "publish"] ->
+      raise "Hex packaging and publication for apps/ are suspended; release Docker images and application tarballs instead"
 
     _ ->
       raise ArgumentError,

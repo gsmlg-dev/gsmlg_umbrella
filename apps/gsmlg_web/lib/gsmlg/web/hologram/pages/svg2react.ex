@@ -9,7 +9,12 @@ defmodule GSMLG.Web.Hologram.Pages.Svg2React do
   def init(_params, component, server) do
     component
     |> Messages.init(server)
-    |> put_state(loading: false, result: nil, error: nil)
+    |> put_state(
+      loading: false,
+      result: nil,
+      error: nil,
+      unavailable: GSMLG.SVG2React.unavailable_message()
+    )
   end
 
   def action(:lookup, params, component) do
@@ -32,10 +37,8 @@ defmodule GSMLG.Web.Hologram.Pages.Svg2React do
     if String.trim(code) == "" do
       put_action(server, :failed, error: :invalid_input)
     else
-      case GSMLG.SVG2React.convert(conversion_data(code)) do
-        {:ok, result} -> put_action(server, :loaded, result: result)
-        {:error, reason} -> put_action(server, :failed, error: inspect(reason))
-      end
+      {:error, reason} = GSMLG.SVG2React.convert(conversion_data(code))
+      put_action(server, :failed, error: reason)
     end
   rescue
     error in RuntimeError -> put_action(server, :failed, error: Exception.message(error))
@@ -74,6 +77,7 @@ defmodule GSMLG.Web.Hologram.Pages.Svg2React do
     ~HOLO"""
     <section class="container mx-auto px-6 my-12">
       <h1 class="text-4xl font-bold mb-8">{@text.svg2react}</h1>
+      <p role="status" class="alert alert-info mb-6">{@unavailable}</p>
       <form $submit="lookup" class="flex flex-col gap-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="flex flex-col gap-2">
@@ -85,7 +89,7 @@ defmodule GSMLG.Web.Hologram.Pages.Svg2React do
             <textarea id="svg-output" class="textarea textarea-primary w-full font-mono" rows="20" readonly value={@result || ""}></textarea>
           </div>
         </div>
-        <button id="svg-convert" type="submit" class="btn btn-primary w-full max-w-xs mx-auto" disabled={@loading}>
+        <button id="svg-convert" type="submit" class="btn btn-primary w-full max-w-xs mx-auto" disabled>
           {%if @loading}{@text.loading}{%else}{@text.convert}{/if}
         </button>
       </form>

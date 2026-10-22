@@ -156,6 +156,23 @@ defmodule GSMLG.Release.HexPackagesTest do
     end
   end
 
+  test "manual packaging and publication are suspended before discovery or external commands", %{
+    output: output
+  } do
+    script = Path.expand("../hex_packages.exs", __DIR__)
+
+    for command <- ["build", "publish"] do
+      {message, status} =
+        System.cmd(System.find_executable("elixir"), [script, command, "1.2.3", output],
+          stderr_to_stdout: true
+        )
+
+      assert status == 1
+      assert message =~ "Hex packaging and publication for apps/ are suspended"
+      refute File.exists?(output)
+    end
+  end
+
   defp package(app, deps \\ []) do
     %{app: app, name: app, version: "1.2.3", path: "/fixture/#{app}", deps: deps}
   end

@@ -260,6 +260,7 @@ defmodule GSMLG.Config.SetupTest do
       Setup.setup_web(config)
 
       endpoint_config = Application.get_env(:gsmlg_web, GSMLG.Web.Endpoint)
+      assert endpoint_config[:adapter] == Gaoxy.PhoenixAdapter
       assert endpoint_config[:secret_key_base] == "test_secret"
       assert endpoint_config[:http][:port] == 8080
       assert endpoint_config[:server] == true
@@ -301,6 +302,7 @@ defmodule GSMLG.Config.SetupTest do
       Setup.setup_admin_web(config)
 
       endpoint_config = Application.get_env(:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint)
+      assert endpoint_config[:adapter] == Gaoxy.PhoenixAdapter
       assert endpoint_config[:secret_key_base] == "admin_secret"
       assert endpoint_config[:http][:port] == 8081
       assert endpoint_config[:server] == true

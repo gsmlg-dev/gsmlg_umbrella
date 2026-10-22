@@ -25,13 +25,22 @@ defmodule GSMLG.Web.Hologram.ToolboxTest do
     assert html_response(response, 200) =~ ~s(lang="en")
   end
 
-  test "legacy SVG conversion POST retains its JSON response", %{conn: conn} do
+  test "SVG conversion keeps its page entry and explains temporary unavailability", %{conn: conn} do
+    index_html = conn |> get("/toolbox?lang=en") |> html_response(200)
+    assert index_html =~ "/toolbox/svg2react"
+
+    html = conn |> get("/toolbox/svg2react?lang=en") |> html_response(200)
+    assert html =~ GSMLG.SVG2React.unavailable_message()
+    assert html |> Floki.parse_document!() |> Floki.find("#svg-convert[disabled]") != []
+  end
+
+  test "legacy SVG conversion POST returns an unavailable JSON error", %{conn: conn} do
     response =
       post(conn, "/toolbox/svg2react", code: "<svg viewBox=\"0 0 10 10\" />", options: %{})
 
-    assert %{"data" => code} = json_response(response, 200)
-    assert code =~ "SvgIcon"
-    assert code =~ "forwardRef"
+    assert json_response(response, 503) == %{
+             "error" => GSMLG.SVG2React.unavailable_message()
+           }
   end
 
   test "legacy SVG POST and Hologram commands reject missing CSRF tokens", %{conn: conn} do

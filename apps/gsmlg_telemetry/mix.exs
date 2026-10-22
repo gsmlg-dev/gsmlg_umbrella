@@ -37,31 +37,20 @@ defmodule GSMLG.Telemetry.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:telemetry, "~> 1.2"},
-      {:telemetry_metrics, "~> 1.0"},
-      {:telemetry_poller, "~> 1.0"},
+      {:telemetry, "~> 1.4"},
+      {:telemetry_metrics, "~> 1.2"},
+      {:telemetry_poller, "~> 1.3"},
       {:jason, "~> 1.4"},
-      internal_dependency(:gsmlg_aws),
-      internal_dependency(:gsmlg_logger),
-      {:stream_data, "~> 1.0", only: [:dev, :test]},
+      {:gsmlg_aws, in_umbrella: true},
+      {:gsmlg_logger, in_umbrella: true},
+      {:stream_data, "~> 1.4", only: [:dev, :test]},
       {:castore, "~> 1.0", only: [:dev, :test]},
-      {:excoveralls, ">= 0.15.0", only: [:dev, :test]},
-      {:junit_formatter, "~> 3.3", only: [:test]},
-      {:ex_doc, ">= 0.15.0", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18", only: [:dev, :test]},
+      {:junit_formatter, "~> 3.4", only: [:test]},
+      {:ex_doc, "~> 0.40", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
-  end
-
-  defp internal_dependency(app) do
-    # Hex excludes in_umbrella dependencies from package requirements.
-    if System.get_env("GSMLG_HEX_BUILD") != "1" and
-         Path.basename(Path.dirname(__DIR__)) == "apps" and
-         File.regular?(Path.join([__DIR__, "..", Atom.to_string(app), "mix.exs"])) do
-      {app, @version, in_umbrella: true}
-    else
-      {app, @version}
-    end
   end
 
   defp package do

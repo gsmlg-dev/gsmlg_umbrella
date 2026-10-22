@@ -31,8 +31,8 @@ defmodule GSMLG.Browser.MixProject do
       {:gsmlg, in_umbrella: true},
       {:gsmlg_commander_protocol, in_umbrella: true},
       {:gsmlg_storage, in_umbrella: true},
-      {:ecto_sql, "~> 3.0"},
-      {:styx, "~> 0.1.1"}
+      {:ecto_sql, "~> 3.14"},
+      {:styx, "~> 0.1"}
     ]
   end
 end

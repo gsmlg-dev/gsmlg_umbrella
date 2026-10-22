@@ -29,8 +29,8 @@ defmodule GSMLG.Tor.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:http_fetch, "~> 0.10"},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:http_fetch, "~> 0.21"},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

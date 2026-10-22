@@ -37,15 +37,15 @@ defmodule GSMLG.Logger.MixProject do
   defp deps do
     [
       {:jason, "~> 1.4"},
-      {:plug, "~> 1.15", optional: true},
-      {:decimal, ">= 0.0.0", optional: true},
-      {:ecto, "~> 3.11", optional: true},
-      {:telemetry, "~> 1.0", optional: true},
-      {:stream_data, "~> 1.0", only: [:dev, :test]},
+      {:plug, "~> 1.20", optional: true},
+      {:decimal, "~> 3.2", optional: true},
+      {:ecto, "~> 3.14", optional: true},
+      {:telemetry, "~> 1.4", optional: true},
+      {:stream_data, "~> 1.4", only: [:dev, :test]},
       {:castore, "~> 1.0", only: [:dev, :test]},
-      {:excoveralls, ">= 0.15.0", only: [:dev, :test]},
-      {:junit_formatter, "~> 3.3", only: [:test]},
-      {:ex_doc, ">= 0.15.0", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18", only: [:dev, :test]},
+      {:junit_formatter, "~> 3.4", only: [:test]},
+      {:ex_doc, "~> 0.40", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

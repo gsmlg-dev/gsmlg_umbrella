@@ -30,9 +30,9 @@ defmodule GSMLG.CouchDB.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jason, "~> 1.2"},
-      {:mint, "~> 1.0"},
-      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:jason, "~> 1.4"},
+      {:mint, "~> 1.11"},
+      {:ex_doc, "~> 0.40", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

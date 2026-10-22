@@ -1,7 +1,7 @@
 defmodule GSMLG.CommandPlatform.PTYSessionRecordTest do
   use ExUnit.Case, async: false
 
-  alias GSMLG.CommandPlatform.PTYSessionRecord
+  alias GSMLG.CommandPlatform.{PTYSessionRecord, SessionTracker}
 
   setup do
     :ok = PTYSessionRecord.create_table()
@@ -48,6 +48,47 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecordTest do
 
     assert :ok = PTYSessionRecord.delete(session_id)
     assert {:error, :not_found} = PTYSessionRecord.read(session_id)
+  end
+
+  test "roundtrips a local controller PID in PTY session records", %{
+    agent_id: agent_id,
+    session_id: session_id
+  } do
+    controller_pid = self()
+
+    assert :ok =
+             PTYSessionRecord.write(%{
+               session_id: session_id,
+               agent_id: agent_id,
+               state: :attached,
+               controller_pid: controller_pid
+             })
+
+    assert {:ok, %PTYSessionRecord{controller_pid: ^controller_pid, state: :attached}} =
+             PTYSessionRecord.read(session_id)
+
+    assert [%PTYSessionRecord{controller_pid: ^controller_pid}] =
+             PTYSessionRecord.list(agent_id: agent_id)
+  end
+
+  test "SessionTracker persists controller attachment and clearing", %{
+    agent_id: agent_id,
+    session_id: session_id
+  } do
+    controller_pid = self()
+    assert :ok = SessionTracker.register_session(agent_id, session_id, %{state: :running})
+
+    assert :ok = SessionTracker.set_controller(session_id, controller_pid)
+    :sys.get_state(SessionTracker)
+
+    assert {:ok, %PTYSessionRecord{controller_pid: ^controller_pid, state: :attached}} =
+             SessionTracker.find_session(session_id)
+
+    assert :ok = SessionTracker.clear_controller(session_id)
+    :sys.get_state(SessionTracker)
+
+    assert {:ok, %PTYSessionRecord{controller_pid: nil, state: :detached}} =
+             SessionTracker.find_session(session_id)
   end
 
   test "cleans up old closed sessions", %{agent_id: agent_id, session_id: session_id} do

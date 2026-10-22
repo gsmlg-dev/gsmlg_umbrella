@@ -27,11 +27,11 @@ defmodule GSMLG.Component.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:phoenix_duskmoon, ">= 9.12.2 and < 10.0.0"},
+      {:phoenix_duskmoon, "~> 10.0"},
       {:phoenix_react_server, "~> 0.7"},
-      {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_view, "~> 1.0"},
-      {:gettext, "~> 0.18 or ~> 1.0"},
+      {:phoenix_html, "~> 4.3"},
+      {:phoenix_live_view, "~> 1.2"},
+      {:gettext, "~> 1.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

@@ -1,6 +1,6 @@
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
-import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight } from "phoenix_duskmoon/hooks";
+import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight, DuskmoonPopover } from "phoenix_duskmoon/hooks";
 
 // Register duskmoon custom elements
 import "@duskmoon-dev/elements/register";
@@ -53,7 +53,7 @@ const ThemeSwitcher = {
   },
 };
 
-const hooks = { WebComponentHook, FormElementHook, ThemeSwitcher, PageHeader, Spotlight };
+const hooks = { WebComponentHook, FormElementHook, ThemeSwitcher, PageHeader, Spotlight, DuskmoonPopover };
 
 let token;
 

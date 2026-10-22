@@ -17,6 +17,7 @@ pool_size = 5
 url = "http://localhost:4112"
 secret_key_base = "test_secret_key_base_test_secret_key_base_test_secret_key_base_test"
 port = 4112
+server = false
 user_register = false
 enable_adsense = false
 show_icp = false
@@ -25,6 +26,7 @@ show_icp = false
 url = "http://localhost:4113"
 secret_key_base = "test_secret_key_base_test_secret_key_base_test_secret_key_base_test"
 port = 4113
+server = false
 user_register = false
 client_certificate_auth = false
 

@@ -30,8 +30,8 @@ defmodule GSMLG.ScoutAgent.MixProject do
   defp deps do
     [
       {:gsmlg_scout, in_umbrella: true},
-      {:amqp, "~> 4.1"},
-      {:jason, "~> 1.2"},
+      {:amqp, "~> 4.3"},
+      {:jason, "~> 1.4"},
       {:nimble_pool, "~> 1.1"}
     ]
   end
