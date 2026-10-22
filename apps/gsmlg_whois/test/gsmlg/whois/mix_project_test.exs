@@ -2,7 +2,7 @@ defmodule GSMLG.Whois.MixProjectTest do
   use ExUnit.Case, async: true
 
   test "package constrains Concord to the compatible ExTurso release line" do
-    assert {:ex_turso, "~> 0.3", options} =
+    assert {:ex_turso, "~> 3.1", options} =
              List.keyfind(Mix.Project.config()[:deps], :ex_turso, 0)
 
     assert options[:runtime] == false
@@ -11,7 +11,7 @@ defmodule GSMLG.Whois.MixProjectTest do
   end
 
   test "Concord is optional and starts when the host opts into it" do
-    assert {:concord, "~> 2.4", options} =
+    assert {:concord, "~> 3.1", options} =
              List.keyfind(Mix.Project.config()[:deps], :concord, 0)
 
     assert options[:optional] == true

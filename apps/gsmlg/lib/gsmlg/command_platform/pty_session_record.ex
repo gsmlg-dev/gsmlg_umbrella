@@ -49,7 +49,6 @@ defmodule GSMLG.CommandPlatform.PTYSessionRecord do
 
     with :ok <- validate_session_id(record.session_id),
          :ok <- ensure_store() do
-      # TODO(upstream): gsmlg-dev/concord#103 - retain v2 until local PID values are supported.
       case Concord.Local.put(key(record.session_id), record) do
         :ok ->
           :ok

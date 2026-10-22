@@ -1,4 +1,12 @@
+FROM rust:1.95.0-alpine AS rust
+
 FROM elixir:1.19.5-otp-28-alpine AS builder
+
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo \
+    RUSTUP_HOME=/usr/local/rustup \
+    PATH=/usr/local/cargo/bin:$PATH
 
 ARG MIX_ENV=prod
 ARG NAME=gsmlg_umbrella
@@ -19,7 +27,7 @@ ARG XLA_BUILD=true
 ARG TARGETARCH
 
 # Install build tools + bun (musl build for Alpine)
-RUN apk add --no-cache curl unzip bash vips-dev build-base nodejs npm
+RUN apk add --no-cache curl unzip bash vips-dev build-base nodejs npm perl cmake
 
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
       curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-aarch64-musl.zip -o /tmp/bun.zip \

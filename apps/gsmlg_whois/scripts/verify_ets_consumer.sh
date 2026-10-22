@@ -24,7 +24,7 @@ printf 'import Config\n' > "$consumer_root/config/config.exs"
 cat > "$consumer_root/audit_deps.exs" <<'ELIXIR'
 deps = Mix.Dep.Lock.read() |> Map.keys() |> Enum.sort()
 IO.inspect(deps, label: "ETS-only resolved dependencies")
-for app <- [:concord, :ex_turso, :ra, :libcluster, :postgrex] do
+for app <- [:concord, :ex_turso, :viewstamped_replication, :ra, :libcluster, :postgrex] do
   if app in deps, do: raise("Unexpected ETS-only dependency: #{app}")
 end
 ELIXIR
@@ -35,7 +35,7 @@ IO.inspect(apps, label: "ETS-only started applications")
 for app <- [:gsmlg_whois, :http_fetch, :telemetry] do
   if app not in apps, do: raise("Missing required ETS-only application: #{app}")
 end
-for app <- [:concord, :ex_turso, :ra, :libcluster, :postgrex] do
+for app <- [:concord, :ex_turso, :viewstamped_replication, :ra, :libcluster, :postgrex] do
   if app in apps, do: raise("Unexpected ETS-only runtime: #{app}")
 end
 GSMLG.Whois.Cache.ETS = GSMLG.Whois.Cache.impl()
@@ -55,7 +55,7 @@ mix run --no-compile --no-deps-check --no-start audit_deps.exs
 mix compile --warnings-as-errors
 mix run smoke.exs
 mix release
-for app in concord ex_turso ra libcluster postgrex; do
+for app in concord ex_turso viewstamped_replication ra libcluster postgrex; do
   if compgen -G "_build/prod/rel/whois_consumer/lib/$app-*" >/dev/null; then
     printf 'Unexpected ETS-only release application: %s\n' "$app" >&2
     exit 1

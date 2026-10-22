@@ -105,7 +105,7 @@ server = %GSMLG.Whois.Server{host: "whois.markmonitor.com", port: 43}
 
 ## Caching
 
-GSMLG.Whois includes intelligent caching to improve performance and reduce load on WHOIS servers. The default ETS backend needs no additional package and does not install Concord, ExTurso, Ra, Libcluster, or Postgrex. The optional PostgreSQL backend requires the host application to add `{:postgrex, "~> 0.21"}` and configure a connection pool. To use the Concord backend, add `{:concord, "~> 2.0"}` to the host application's dependencies and ensure its application is started before selecting `GSMLG.Whois.Cache.Concord`. ExTurso's compatible 0.3.x constraint applies when Concord is selected; it is also optional for ETS-only consumers.
+GSMLG.Whois includes intelligent caching to improve performance and reduce load on WHOIS servers. The default ETS backend needs no additional package and does not install Concord, ExTurso, Viewstamped Replication, or Postgrex. The optional PostgreSQL backend requires the host application to add `{:postgrex, "~> 0.21"}` and configure a connection pool. To use the Concord backend, add `{:concord, "~> 3.1"}` to the host application's dependencies, configure and enable its VSR cluster with explicit membership, and start its application before selecting `GSMLG.Whois.Cache.Concord`. This backend uses Concord's clustered API and requires a running VSR cluster even when `Concord.Local` is available. Concord starts its compatible ExTurso runtime; the `~> 3.1` ExTurso dependency is optional for ETS-only consumers.
 
 ### Enabling Cache
 

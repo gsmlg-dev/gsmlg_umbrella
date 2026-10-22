@@ -2,8 +2,10 @@ defmodule GSMLG.Whois.Cache.Concord do
   @moduledoc """
   Concord-backed cache backend for GSMLG.Whois.
 
-  Requires the host to add the optional `concord` hex package (`~> 2.0`)
-  and its application to be started by the host.
+  Requires the host to add the optional `concord` hex package (`~> 3.1`)
+  and its VSR cluster to be configured and started by the host. This backend
+  uses Concord's clustered API; `cluster_enabled: false` does not provide a
+  fallback to `Concord.Local`.
 
   Concord's `ttl:` option accepts seconds (integer). This backend converts
   the behaviour's `ttl_ms` (milliseconds) to seconds automatically.
@@ -12,7 +14,7 @@ defmodule GSMLG.Whois.Cache.Concord do
 
       config :gsmlg_whois, cache: GSMLG.Whois.Cache.Concord
 
-  Ensure Concord is started before use:
+  Configure Concord's VSR membership and enable its cluster before starting it:
 
       Application.ensure_all_started(:concord)
   """

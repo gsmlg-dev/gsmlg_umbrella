@@ -90,6 +90,7 @@ defmodule GSMLG.Umbrella.MixProject do
     [
       {:burrito, "~> 1.6", runtime: false},
       {:excoveralls, "~> 0.18", only: [:dev, :test]},
+      {:jason, "~> 1.4"},
       {:phoenix, "~> 1.8"},
       {:phoenix_live_view, "~> 1.2"},
       {:websock_adapter, "~> 0.12", hex: :gaoxy_websock_adapter, override: true},

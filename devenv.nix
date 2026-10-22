@@ -15,6 +15,10 @@ in
     figlet
     lolcat
     watchman
+    rustc
+    cargo
+    perl
+    cmake
     tailwindcss_4
     beam28Packages.elixir-ls
     vips          # libvips for image processing (gsmlg_storage)

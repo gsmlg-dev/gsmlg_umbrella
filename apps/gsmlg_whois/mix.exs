@@ -36,10 +36,8 @@ defmodule GSMLG.Whois.MixProject do
       {:telemetry, "~> 1.4"},
       {:http_fetch, "~> 0.21"},
       {:postgrex, "~> 0.22", optional: true},
-      {:concord, "~> 2.4", optional: true},
-      # TODO(upstream): gsmlg-dev/concord#103 - retain the v2-compatible ExTurso API
-      # while the umbrella's PTY controller PID migration is blocked.
-      {:ex_turso, "~> 0.3", optional: true, runtime: false},
+      {:concord, "~> 3.1", optional: true},
+      {:ex_turso, "~> 3.1", optional: true, runtime: false},
       {:ex_doc, "~> 0.40", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

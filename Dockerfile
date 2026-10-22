@@ -1,6 +1,13 @@
 FROM node:22-bookworm-slim AS node
+FROM rust:1.95.0-slim-bookworm AS rust
 
 FROM elixir:1.19.5-otp-28 AS builder
+
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo \
+    RUSTUP_HOME=/usr/local/rustup \
+    PATH=/usr/local/cargo/bin:$PATH
 
 # Hologram installs esbuild with npm while compiling the release.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
@@ -23,8 +30,8 @@ ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/down
 
 ARG TARGETARCH
 
-# Install bun and tailwind
-RUN apt-get update && apt-get install -y --no-install-recommends unzip curl ca-certificates python3 && rm -rf /var/lib/apt/lists/*
+# Install native build tools, bun and tailwind
+RUN apt-get update && apt-get install -y --no-install-recommends unzip curl ca-certificates python3 build-essential perl cmake && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip -o /tmp/bun.zip \
     && unzip /tmp/bun.zip -d /tmp/ \

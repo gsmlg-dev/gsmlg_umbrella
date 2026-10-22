@@ -33,9 +33,13 @@ are recorded in `mix.lock`.
 The SVG-to-React toolbox entry and page remain available, with conversion
 temporarily disabled and Babel/SVGR dependencies removed.
 
-Concord 2.4.1 and ExTurso 0.3.2 remain in use pending
-[concord#103](https://github.com/gsmlg-dev/concord/issues/103): Concord 3.1.5
-rejects the process-local controller PIDs required by PTY session attachment.
+Concord and ExTurso use the 3.1 release line. Concord 3.1.6 supports the
+process-local controller PIDs required by PTY session attachment through
+`Concord.Local`; these session records remain local to the current BEAM node.
+
+ExTurso builds its native library from source and requires Rust/Cargo 1.91 or
+newer, a C compiler, Make, Perl, and CMake. The devenv shell and Docker builders
+provide these tools.
 
 ## Database
 

@@ -41,8 +41,7 @@ defmodule GSMLG.MixProject do
       {:finch, "~> 0.24"},
       {:libcluster, "~> 3.5"},
       {:cachex, "~> 4.1"},
-      # TODO(upstream): gsmlg-dev/concord#103 - v3 rejects local PTY controller PIDs.
-      {:concord, "~> 2.4"},
+      {:concord, "~> 3.1"},
       {:gsmlg_config, in_umbrella: true},
       {:gsmlg_commander_protocol, in_umbrella: true},
       {:gsmlg_aws, in_umbrella: true},
