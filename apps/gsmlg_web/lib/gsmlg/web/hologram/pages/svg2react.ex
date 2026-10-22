@@ -4,7 +4,7 @@ defmodule GSMLG.Web.Hologram.Pages.Svg2React do
   alias GSMLG.Web.Hologram.Messages
 
   route("/toolbox/svg2react")
-  layout(GSMLG.Web.Hologram.Shell)
+  layout(GSMLG.Web.Hologram.Shell, title_key: :svg2react)
 
   def init(_params, component, server) do
     component
@@ -76,7 +76,6 @@ defmodule GSMLG.Web.Hologram.Pages.Svg2React do
   def template do
     ~HOLO"""
     <section class="container mx-auto px-6 my-12">
-      <h1 class="text-4xl font-bold mb-8">{@text.svg2react}</h1>
       <p role="status" class="alert alert-info mb-6">{@unavailable}</p>
       <form $submit="lookup" class="flex flex-col gap-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

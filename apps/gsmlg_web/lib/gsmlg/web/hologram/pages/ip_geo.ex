@@ -4,7 +4,7 @@ defmodule GSMLG.Web.Hologram.Pages.IpGeo do
   alias GSMLG.Web.Hologram.{Browser, Messages}
 
   route("/toolbox/ip_geo")
-  layout(GSMLG.Web.Hologram.Shell)
+  layout(GSMLG.Web.Hologram.Shell, title_key: :ip_geo)
 
   def init(_params, component, server) do
     component
@@ -60,7 +60,6 @@ defmodule GSMLG.Web.Hologram.Pages.IpGeo do
   def template do
     ~HOLO"""
     <section class="container mx-auto px-6 my-12">
-      <h1 class="text-4xl font-bold mb-8">{@text.ip_geo}</h1>
       <form id="ip-geo-form" $submit="lookup" class="flex flex-col gap-4 max-w-sm mx-auto">
         <label for="ip-input">{@text.ip}</label>
         <input id="ip-input" name="ip" class="input input-primary w-full" required maxlength="45" />

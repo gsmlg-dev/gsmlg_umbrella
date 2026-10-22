@@ -4,7 +4,7 @@ defmodule GSMLG.Web.Hologram.Pages.Index do
   alias GSMLG.Web.Hologram.Messages
 
   route("/toolbox")
-  layout(GSMLG.Web.Hologram.Shell)
+  layout(GSMLG.Web.Hologram.Shell, title_key: :toolbox)
 
   def init(_params, component, server) do
     component = Messages.init(component, server)
@@ -44,7 +44,6 @@ defmodule GSMLG.Web.Hologram.Pages.Index do
   def template do
     ~HOLO"""
     <section class="w-full max-w-screen-xl px-6 mx-auto my-12">
-      <h1 class="text-4xl font-bold mb-8">{@text.toolbox}</h1>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {%for tool <- @tools}
           <article class="card border border-base-300 shadow-sm transition-transform hover:-translate-y-1">

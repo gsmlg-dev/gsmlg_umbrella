@@ -4,7 +4,7 @@ defmodule GSMLG.Web.Hologram.Pages.IpToGeomap do
   alias GSMLG.Web.Hologram.{Browser, Messages, Shell}
 
   route("/toolbox/ip_to_geomap")
-  layout(Shell)
+  layout(Shell, title_key: :ip_to_geomap)
 
   @impl true
   def init(_params, component, server) do
@@ -74,15 +74,16 @@ defmodule GSMLG.Web.Hologram.Pages.IpToGeomap do
   @impl true
   def template do
     ~HOLO"""
-    <h1 class="header-hero-text mb-10">{@text.ip_to_geomap}</h1>
-    <form class="flex flex-col gap-4" $submit="lookup">
-      <label for="ip-data">{@text.ip}</label>
-      <textarea id="ip-data" name="ips" rows="6" class="textarea textarea-primary w-full" value={@ips} $input="edit_ips"></textarea>
-      <button id="submit-ip" type="submit" class="btn btn-primary self-start" disabled={@loading}>{@text.lookup}</button>
-    </form>
-    {%if @loading}<p role="status" class="my-4">{@text.loading}</p>{/if}
-    {%if @error}<p role="alert" class="alert alert-error my-4">{@error}</p>{/if}
-    <d3-world-map id="ip-geo-map" class="block w-full aspect-2/1 my-8" points="[]"></d3-world-map>
+    <div class="container mx-auto px-6 my-12">
+      <form class="flex flex-col gap-4" $submit="lookup">
+        <label for="ip-data">{@text.ip}</label>
+        <textarea id="ip-data" name="ips" rows="6" class="textarea textarea-primary w-full" value={@ips} $input="edit_ips"></textarea>
+        <button id="submit-ip" type="submit" class="btn btn-primary self-start" disabled={@loading}>{@text.lookup}</button>
+      </form>
+      {%if @loading}<p role="status" class="my-4">{@text.loading}</p>{/if}
+      {%if @error}<p role="alert" class="alert alert-error my-4">{@error}</p>{/if}
+      <d3-world-map id="ip-geo-map" class="block w-full aspect-2/1 my-8" points="[]"></d3-world-map>
+    </div>
     """
   end
 end

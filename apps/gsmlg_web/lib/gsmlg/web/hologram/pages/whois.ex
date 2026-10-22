@@ -4,7 +4,7 @@ defmodule GSMLG.Web.Hologram.Pages.Whois do
   alias GSMLG.Web.Hologram.Messages
 
   route("/toolbox/whois")
-  layout(GSMLG.Web.Hologram.Shell)
+  layout(GSMLG.Web.Hologram.Shell, title_key: :whois)
 
   def init(_params, component, server) do
     component
@@ -174,7 +174,6 @@ defmodule GSMLG.Web.Hologram.Pages.Whois do
   def template do
     ~HOLO"""
     <section class="container mx-auto px-6 my-12">
-      <h1 class="text-4xl font-bold mb-8">{@text.whois}</h1>
       <form id="whois-form" $submit="lookup" class="flex flex-col gap-4 max-w-sm mx-auto">
         <fieldset class="flex gap-4">
           <legend class="sr-only">{@text.protocol}</legend>

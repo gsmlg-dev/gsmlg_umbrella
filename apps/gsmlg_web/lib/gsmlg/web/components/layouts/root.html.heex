@@ -43,38 +43,6 @@
     "overflow-x-hidden antialiased"
   ]}>
     {@inner_content}
-    <.dm_page_footer class={[
-      "bg-gradient-to-tl from-secondary to-accent",
-      "text-neutral"
-    ]}>
-      <:section title={gettext("Language")}>
-        <.language_switcher
-          locale={assigns[:current_locale] || "zh-Hans"}
-          supported_locales={GSMLG.Locale.supported()}
-        />
-      </:section>
-
-      <:section title="Site Map">
-        <.dm_link href={~p"/"}>{dgettext("menu", "Home")}</.dm_link>
-        <.dm_link href={~p"/blogs"}>{dgettext("menu", "Blog")}</.dm_link>
-        <.dm_link href={~p"/toolbox"}>{dgettext("menu", "Toolbox")}</.dm_link>
-        <div class="w-24 h-[1px] bg-primary my-2"></div>
-        <.dm_link href="/sign_in" class="uppercase">{dgettext("menu", "Sign In")}</.dm_link>
-      </:section>
-
-      <:section title="Toolbox">
-        <.dm_link href="/toolbox/ip_geo">{dgettext("menu", "IP Geo Database")}</.dm_link>
-        <.dm_link href="/toolbox/whois">{dgettext("menu", "Domain/IP/ASN Whois")}</.dm_link>
-        <.dm_link href="/toolbox/svg2react">{dgettext("menu", "SVG to React")}</.dm_link>
-        <.dm_link href="/toolbox/svg_autocrop">{dgettext("menu", "SVG AutoCrop")}</.dm_link>
-        <.dm_link href="/toolbox/mac_manufacturer">
-          {dgettext("menu", "Lookup MAC Manufacturer")}
-        </.dm_link>
-      </:section>
-
-      <:copyright title="Copyright">
-        <span>{gettext("Copyright© Jonathan Gao. All rights reserved")}</span>
-      </:copyright>
-    </.dm_page_footer>
+    <.footer locale={assigns[:current_locale] || GSMLG.Locale.default()} />
   </body>
 </html>

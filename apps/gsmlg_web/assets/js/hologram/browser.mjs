@@ -1,4 +1,6 @@
 // Browser rendering stays here; Hologram owns forms, results and tool state.
+export { mountLayout, unmountLayout } from './layout.mjs';
+
 // Hologram bundles this adapter separately per page and replaces JS bindings
 // during navigation. Restored pages must share records with the latest binding.
 const screensaverState = globalThis[Symbol.for('gsmlg.toolbox.screensavers')] ??= {

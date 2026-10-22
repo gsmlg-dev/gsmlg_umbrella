@@ -4,7 +4,7 @@ defmodule GSMLG.Web.Hologram.Pages.MacManufacturer do
   alias GSMLG.Web.Hologram.Messages
 
   route("/toolbox/mac_manufacturer")
-  layout(GSMLG.Web.Hologram.Shell)
+  layout(GSMLG.Web.Hologram.Shell, title_key: :mac_manufacturer)
 
   def init(_params, component, server) do
     component
@@ -43,7 +43,6 @@ defmodule GSMLG.Web.Hologram.Pages.MacManufacturer do
   def template do
     ~HOLO"""
     <section class="container mx-auto px-6 my-12">
-      <h1 class="text-4xl font-bold mb-8">{@text.mac_manufacturer}</h1>
       <form id="mac-form" $submit="lookup" class="flex flex-col gap-4 max-w-sm mx-auto">
         <label for="mac-input">MAC</label>
         <input id="mac-input" name="mac" class="input input-primary w-full" required maxlength="64" />

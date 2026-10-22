@@ -7,6 +7,9 @@ defmodule GSMLG.Web.Hologram.Browser do
   js_import(:autocropSvg, from: "../../../../assets/js/hologram/browser.mjs")
   js_import(:mountScreensaver, from: "../../../../assets/js/hologram/browser.mjs")
   js_import(:startFullscreen, from: "../../../../assets/js/hologram/browser.mjs")
+  js_import(:mountLayout, from: "../../../../assets/js/hologram/browser.mjs")
+
+  def mount_layout, do: JS.call(:mountLayout, [])
 
   def mount_map(id), do: JS.call(:mountMap, [id]) |> Task.await()
 
@@ -21,25 +24,4 @@ defmodule GSMLG.Web.Hologram.Browser do
   end
 
   def start_fullscreen(canvas_id), do: JS.call(:startFullscreen, [canvas_id]) |> Task.await()
-
-  def stored_theme do
-    case JS.call(:localStorage, :getItem, ["theme"]) do
-      theme when theme in ["moonlight", "sunshine"] ->
-        theme
-
-      _ ->
-        preference = JS.call(:globalThis, :matchMedia, ["(prefers-color-scheme: dark)"])
-        if JS.get(preference, :matches), do: "moonlight", else: "sunshine"
-    end
-  end
-
-  def toggle_theme do
-    document = JS.get(:globalThis, :document)
-    root = JS.get(document, :documentElement)
-    current = JS.call(root, :getAttribute, ["data-theme"])
-    theme = if current == "moonlight", do: "sunshine", else: "moonlight"
-    JS.call(root, :setAttribute, ["data-theme", theme])
-    JS.call(:localStorage, :setItem, ["theme", theme])
-    theme
-  end
 end

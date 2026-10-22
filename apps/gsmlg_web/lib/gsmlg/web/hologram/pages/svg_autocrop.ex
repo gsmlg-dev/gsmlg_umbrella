@@ -4,7 +4,7 @@ defmodule GSMLG.Web.Hologram.Pages.SvgAutocrop do
   alias GSMLG.Web.Hologram.{Browser, Messages, Shell}
 
   route("/toolbox/svg_autocrop")
-  layout(Shell)
+  layout(Shell, title_key: :svg_autocrop)
 
   @impl true
   def init(_params, component, server) do
@@ -41,20 +41,21 @@ defmodule GSMLG.Web.Hologram.Pages.SvgAutocrop do
   @impl true
   def template do
     ~HOLO"""
-    <h1 class="header-hero-text mb-10">{@text.svg_autocrop}</h1>
-    <form class="flex flex-col gap-6" $submit="convert">
-      <div class="grid gap-6 md:grid-cols-2">
-        <label class="flex flex-col gap-2">{@text.origin_svg}
-          <textarea id="svg-input" name="code" class="textarea textarea-primary w-full" rows="20" value={@source} $input="edit_source"></textarea>
-        </label>
-        <label class="flex flex-col gap-2">{@text.optimized_svg}
-          <textarea id="svg-output" class="textarea textarea-primary w-full" rows="20" readonly value={@output}></textarea>
-        </label>
-      </div>
-      <button id="svg-convert" type="submit" class="btn btn-primary self-center" disabled={@loading}>{@text.optimize}</button>
-      {%if @loading}<p role="status">{@text.loading}</p>{/if}
-      {%if @error}<p role="alert" class="alert alert-error">{@error}</p>{/if}
-    </form>
+    <div class="container mx-auto px-6 my-12">
+      <form class="flex flex-col gap-6" $submit="convert">
+        <div class="grid gap-6 md:grid-cols-2">
+          <label class="flex flex-col gap-2">{@text.origin_svg}
+            <textarea id="svg-input" name="code" class="textarea textarea-primary w-full" rows="20" value={@source} $input="edit_source"></textarea>
+          </label>
+          <label class="flex flex-col gap-2">{@text.optimized_svg}
+            <textarea id="svg-output" class="textarea textarea-primary w-full" rows="20" readonly value={@output}></textarea>
+          </label>
+        </div>
+        <button id="svg-convert" type="submit" class="btn btn-primary self-center" disabled={@loading}>{@text.optimize}</button>
+        {%if @loading}<p role="status">{@text.loading}</p>{/if}
+        {%if @error}<p role="alert" class="alert alert-error">{@error}</p>{/if}
+      </form>
+    </div>
     """
   end
 end
