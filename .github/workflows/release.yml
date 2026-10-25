@@ -42,7 +42,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           otp-version: "28"
-          elixir-version: "1.19.5"
+          elixir-version: "1.18.4"
 
       - name: Prepare source commit and tag
         id: source
@@ -140,7 +140,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           otp-version: "28"
-          elixir-version: "1.19.5"
+          elixir-version: "1.18.4"
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
@@ -227,7 +227,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           otp-version: "28"
-          elixir-version: "1.19.5"
+          elixir-version: "1.18.4"
 
       - name: Install deps
         if: ${{ matrix.freebsd == false }}

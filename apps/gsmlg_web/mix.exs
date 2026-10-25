@@ -9,7 +9,7 @@ defmodule GSMLG.Web.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      elixir: "~> 1.19",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       # TODO(upstream): duskmoon-dev/duskmoon-bundler#7 (umbrella reload ownership)
       compilers: Mix.compilers() ++ [:hologram],

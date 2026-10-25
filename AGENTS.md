@@ -66,13 +66,13 @@ scripts/update_version.sh 1.2.3
 Uses [devenv](https://devenv.sh/) (Nix-based). `devenv shell` automatically:
 - Starts PostgreSQL with Unix socket (sets `PGHOST`, `DATABASE_URL`)
 - Creates `gsmlg_dev` and `gsmlg_test` databases with `gsmlg_dev` user
-- Provides Elixir 1.19.6, OTP 28 (at least 28.1), Node.js 22/npm, Bun, Tailwind CLI
+- Provides Elixir 1.18.5, OTP 28, Node.js 22/npm, Bun, Tailwind CLI
 
 ## CI
 
-GitHub Actions runs on every push: `compile --warnings-as-errors`, `format --check-formatted`, `credo --strict`, and `dialyzer` (non-blocking). Tests run on pushes to main/develop and PRs to main. CI uses Elixir 1.19.5 + OTP 28 (at least 28.1), Node.js 22/npm, PostgreSQL 16.
+GitHub Actions runs on every push: `compile --warnings-as-errors`, `format --check-formatted`, `credo --strict`, and `dialyzer` (non-blocking). Tests run on pushes to main/develop and PRs to main. CI uses Elixir 1.18.4 + OTP 28, Node.js 22/npm, PostgreSQL 16.
 
-Development uses the locked Nix Elixir 1.19.6 package. CI and Docker builders use Elixir 1.19.5 because its regular and Alpine images support both amd64 and arm64; the 1.19.6 Alpine image currently lacks amd64.
+The project requires Elixir >= 1.18.0 and OTP >= 28.0. Development uses the locked Nix Elixir 1.18.5 package. CI and Docker builders use Elixir 1.18.4, whose regular and Alpine images support both amd64 and arm64.
 
 Releases are triggered manually via the `release` workflow dispatch (inputs: `release-version`, `revision`). It builds the Docker image and Elixir tarballs in parallel, then creates a GitHub release with auto-generated notes.
 

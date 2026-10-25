@@ -14,7 +14,9 @@ Docker image: [ghcr.io/gsmlg-dev/gsmlg-umbrella](https://github.com/gsmlg-dev/gs
 
 ## Quick Start
 
-Requires [devenv](https://devenv.sh/) (Nix-based):
+Requires Elixir >= 1.18.0 and Erlang/OTP >= 28.0. The
+[devenv](https://devenv.sh/) environment provides Elixir 1.18.5 on OTP 28;
+CI and Docker builders use Elixir 1.18.4 on OTP 28.
 
 ```shell
 devenv shell        # starts PostgreSQL, sets DATABASE_URL

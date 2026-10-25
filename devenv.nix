@@ -28,7 +28,7 @@ in
   ];
 
   languages.elixir.enable = true;
-  languages.elixir.package = pkgs-stable.beam28Packages.elixir_1_19;
+  languages.elixir.package = pkgs-stable.beam28Packages.elixir_1_18;
 
   languages.javascript.enable = true;
   languages.javascript.package = pkgs-stable.nodejs_22; # frontend tooling
