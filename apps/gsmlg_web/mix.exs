@@ -11,6 +11,7 @@ defmodule GSMLG.Web.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
+      # TODO(upstream): duskmoon-dev/duskmoon-bundler#7 (umbrella reload ownership)
       compilers: Mix.compilers() ++ [:hologram],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -38,7 +39,7 @@ defmodule GSMLG.Web.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.8"},
-      {:hologram, "~> 0.12"},
+      {:duskmoon_hologram, "~> 10.0"},
       {:phoenix_ecto, "~> 4.7"},
       {:phoenix_html, "~> 4.3"},
       {:phoenix_live_reload, "~> 1.7", only: :dev},
@@ -49,7 +50,7 @@ defmodule GSMLG.Web.MixProject do
       {:bandit, "~> 1.13", only: :test},
       {:floki, "~> 0.38"},
       {:mdex, "~> 0.14"},
-      {:lazy_html, "~> 0.1", only: :test},
+      {:lazy_html, "~> 0.1"},
       {:phoenix_live_dashboard, "~> 0.9"},
       {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
       {:bun, "~> 2.0", runtime: Mix.env() == :dev},

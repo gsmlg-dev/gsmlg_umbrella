@@ -47,7 +47,7 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:websock_adapter, "~> 0.12", hex: :gaoxy_websock_adapter, override: true},
       {:bandit, "~> 1.13", only: :test},
       {:floki, "~> 0.38"},
-      {:lazy_html, "~> 0.1", only: :test},
+      {:lazy_html, "~> 0.1"},
       {:phoenix_live_dashboard, "~> 0.9"},
       {:ecto_psql_extras, "~> 0.8"},
       {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},

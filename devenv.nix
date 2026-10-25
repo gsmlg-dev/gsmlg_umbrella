@@ -31,7 +31,7 @@ in
   languages.elixir.package = pkgs-stable.beam28Packages.elixir_1_19;
 
   languages.javascript.enable = true;
-  languages.javascript.package = pkgs-stable.nodejs_22; # Node/npm for Hologram
+  languages.javascript.package = pkgs-stable.nodejs_22; # frontend tooling
   languages.javascript.pnpm.enable = true;
   languages.javascript.bun.enable = true;
   languages.javascript.bun.package = pkgs-stable.bun;

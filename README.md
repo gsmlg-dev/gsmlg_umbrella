@@ -33,6 +33,13 @@ are recorded in `mix.lock`.
 The SVG-to-React toolbox entry and page remain available, with conversion
 temporarily disabled and Babel/SVGR dependencies removed.
 
+Toolbox pages use `duskmoon_hologram` 10.0 with the existing `Hologram.*` API,
+`:hologram` compiler and `/hologram/` routes. Configure the fork under
+`:duskmoon_hologram`; the upstream `hologram` package must not be installed
+alongside it. `mix phx.server` and `mix test` enable it with `HOLOGRAM_START=1`
+from either the umbrella root or `apps/gsmlg_web`. JavaScript dependencies and
+bundles are built by `duskmoon_npm` and the native DuskMoon bundler.
+
 Concord and ExTurso use the 3.1 release line. Concord 3.1.6 supports the
 process-local controller PIDs required by PTY session attachment through
 `Concord.Local`; these session records remain local to the current BEAM node.
