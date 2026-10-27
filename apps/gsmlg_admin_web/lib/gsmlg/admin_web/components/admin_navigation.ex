@@ -7,6 +7,8 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigation do
 
   alias GSMLG.AdminWeb.AdminMenu
 
+  attr :id, :string, default: "admin-sidebar"
+  attr :collapsible, :boolean, default: true
   attr :active_menu, :string, default: nil
   attr :current_path, :string, default: nil
   attr :class, :any, default: nil
@@ -21,47 +23,42 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigation do
       )
 
     ~H"""
-    <aside class={[
-      "admin-left-menu bg-secondary text-secondary-content w-72 shrink-0 border-r border-outline-variant",
-      @class
-    ]}>
-      <div class="sticky top-0 h-[calc(100vh-3.5rem)] overflow-y-auto p-3">
-        <.dm_left_menu active={@resolved_active_menu || ""} size="sm" nav_label="Admin navigation">
-          <:title class="px-2 py-3">
-            <div class="font-mono text-xs tracking-widest uppercase">GSMLG Admin</div>
-          </:title>
-          <:menu :for={section <- @sections}>
-            <li class="nested-menu-title" data-menu-section={section.id}>{section.title}</li>
-            <details
-              :for={group <- section.groups}
-              data-menu-group={group.id}
-              open={AdminMenu.group_open?(group, @resolved_active_menu)}
-            >
-              <summary>{group.title}</summary>
-              <ul role="list">
-                <li :for={item <- group.items} class={[item[:disabled] && "disabled"]}>
-                  <span
-                    :if={item[:disabled]}
-                    class="opacity-50 cursor-not-allowed"
-                    aria-disabled="true"
-                  >
-                    {item.label}
-                  </span>
-                  <.link
-                    :if={!item[:disabled]}
-                    navigate={item.path}
-                    class={[AdminMenu.active?(item, @resolved_active_menu) && "active"]}
-                    aria-current={AdminMenu.active?(item, @resolved_active_menu) && "page"}
-                  >
-                    {item.label}
-                  </.link>
-                </li>
-              </ul>
-            </details>
+    <.dm_left_menu
+      id={@id}
+      collapsible={@collapsible}
+      storage_key={if @collapsible, do: "gsmlg:admin-sidebar-collapsed"}
+      active={@resolved_active_menu || ""}
+      size="sm"
+      nav_label="Admin navigation"
+      class={[
+        "admin-left-menu h-full bg-surface-container-low text-on-surface border-r border-outline-variant",
+        !@collapsible && "w-72",
+        @class
+      ]}
+    >
+      <:menu :for={section <- @sections}>
+        <div class="nested-menu-title" data-menu-section={section.id}>{section.title}</div>
+        <.dm_left_menu_group
+          :for={group <- section.groups}
+          id={"#{@id}-#{group.id}"}
+          data-menu-group={group.id}
+          active={@resolved_active_menu || ""}
+          open={AdminMenu.group_open?(group, @resolved_active_menu)}
+        >
+          <:title>{group.title}</:title>
+          <:menu
+            :for={item <- group.items}
+            id={item.id}
+            to={item.path}
+            icon={item.icon}
+            label={item.label}
+            disabled={item[:disabled]}
+          >
+            {item.label}
           </:menu>
-        </.dm_left_menu>
-      </div>
-    </aside>
+        </.dm_left_menu_group>
+      </:menu>
+    </.dm_left_menu>
     """
   end
 end

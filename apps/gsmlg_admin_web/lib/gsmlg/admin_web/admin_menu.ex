@@ -15,8 +15,13 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           id: "dashboard_overview",
           title: "Overview",
           items: [
-            %{id: "admin_home", label: "Admin Home", path: "/"},
-            %{id: "live_dashboard", label: "Live Dashboard", path: "/live_dashboard"}
+            %{id: "admin_home", icon: "home-outline", label: "Admin Home", path: "/"},
+            %{
+              id: "live_dashboard",
+              icon: "chart-box-outline",
+              label: "Live Dashboard",
+              path: "/live_dashboard"
+            }
           ]
         }
       ]
@@ -29,44 +34,86 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           id: "users",
           title: "Users",
           items: [
-            %{id: "user_list", label: "User List", path: "/users"},
-            %{id: "user_token_list", label: "User Tokens", path: "/user_tokens"}
+            %{id: "user_list", icon: "account-group-outline", label: "User List", path: "/users"},
+            %{
+              id: "user_token_list",
+              icon: "account-key-outline",
+              label: "User Tokens",
+              path: "/user_tokens"
+            }
           ]
         },
         %{
           id: "blogs",
           title: "Blogs",
           items: [
-            %{id: "blog_list", label: "Blog List", path: "/blogs"},
-            %{id: "blog_import", label: "Import", path: "/blogs/import"},
-            %{id: "blog_new", label: "New Blog", path: "/blogs/new"},
-            %{id: "blog_settings", label: "Settings", path: "/blogs/settings"}
+            %{id: "blog_list", icon: "post-outline", label: "Blog List", path: "/blogs"},
+            %{id: "blog_import", icon: "import", label: "Import", path: "/blogs/import"},
+            %{
+              id: "blog_new",
+              icon: "text-box-plus-outline",
+              label: "New Blog",
+              path: "/blogs/new"
+            },
+            %{
+              id: "blog_settings",
+              icon: "cog-outline",
+              label: "Settings",
+              path: "/blogs/settings"
+            }
           ]
         },
         %{
           id: "gao_notes",
           title: "GaoNote",
           items: [
-            %{id: "gao_note_dashboard", label: "Dashboard", path: "/gao_notes", exact: true},
-            %{id: "gao_note_list", label: "Note List", path: "/gao_notes/notes"},
+            %{
+              id: "gao_note_dashboard",
+              icon: "notebook-outline",
+              label: "Dashboard",
+              path: "/gao_notes",
+              exact: true
+            },
+            %{
+              id: "gao_note_list",
+              icon: "note-multiple-outline",
+              label: "Note List",
+              path: "/gao_notes/notes"
+            },
             %{
               id: "gao_note_label_settings",
+              icon: "label-outline",
               label: "Label Settings",
               path: "/gao_notes/label_settings"
             },
-            %{id: "gao_note_recycle_bin", label: "Recycle Bin", path: "/gao_notes/recycle_bin"},
-            %{id: "gao_note_logs", label: "Log", path: "/gao_notes/logs"},
-            %{id: "gao_note_mcp", label: "MCP", path: "/gao_notes/mcp"},
-            %{id: "gao_note_settings", label: "Settings", path: "/gao_notes/settings"}
+            %{
+              id: "gao_note_recycle_bin",
+              icon: "delete-outline",
+              label: "Recycle Bin",
+              path: "/gao_notes/recycle_bin"
+            },
+            %{id: "gao_note_logs", icon: "history", label: "Log", path: "/gao_notes/logs"},
+            %{id: "gao_note_mcp", icon: "api", label: "MCP", path: "/gao_notes/mcp"},
+            %{
+              id: "gao_note_settings",
+              icon: "cog-outline",
+              label: "Settings",
+              path: "/gao_notes/settings"
+            }
           ]
         },
         %{
           id: "integrations",
           title: "Integrations",
           items: [
-            %{id: "web_push_list", label: "Web Push", path: "/web_push"},
-            %{id: "api_providers", label: "API Providers", path: "/api_providers"},
-            %{id: "github", label: "Github", path: "/github"}
+            %{id: "web_push_list", icon: "bell-outline", label: "Web Push", path: "/web_push"},
+            %{
+              id: "api_providers",
+              icon: "puzzle-outline",
+              label: "API Providers",
+              path: "/api_providers"
+            },
+            %{id: "github", icon: "github", label: "Github", path: "/github"}
           ]
         }
       ]
@@ -79,19 +126,31 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           id: "aws",
           title: "AWS",
           items: [
-            %{id: "dynamo_db", label: "DynamoDB: Table List", path: "/aws/dynamo_db"},
+            %{
+              id: "dynamo_db",
+              icon: "table",
+              label: "DynamoDB: Table List",
+              path: "/aws/dynamo_db"
+            },
             %{
               id: "lightsail_instance",
+              icon: "server-outline",
               label: "Lightsail: Instance",
               path: nil,
               disabled: true
             },
             %{
               id: "route53_hosted_zone_list",
+              icon: "dns-outline",
               label: "Route53: Hosted Zones",
               path: "/aws/route53/hosted_zones"
             },
-            %{id: "s3_buckets_list", label: "S3: Bucket List", path: "/aws/s3/buckets"}
+            %{
+              id: "s3_buckets_list",
+              icon: "bucket-outline",
+              label: "S3: Bucket List",
+              path: "/aws/s3/buckets"
+            }
           ]
         }
       ]
@@ -104,61 +163,132 @@ defmodule GSMLG.AdminWeb.AdminMenu do
           id: "cluster",
           title: "Cluster",
           items: [
-            %{id: "node_management", label: "Node Management", path: "/node_management"}
+            %{
+              id: "node_management",
+              icon: "sitemap-outline",
+              label: "Node Management",
+              path: "/node_management"
+            }
           ]
         },
         %{
           id: "command_platform",
           title: "Command Platform",
           items: [
-            %{id: "commander_list", label: "Commanders", path: "/commander/list"},
-            %{id: "commander_tokens", label: "Agent Tokens", path: "/commander/tokens"}
+            %{
+              id: "commander_list",
+              icon: "console",
+              label: "Commanders",
+              path: "/commander/list"
+            },
+            %{
+              id: "commander_tokens",
+              icon: "key-outline",
+              label: "Agent Tokens",
+              path: "/commander/tokens"
+            }
           ]
         },
         %{
           id: "browser_control",
           title: "Browser Control",
           items: [
-            %{id: "browser_dashboard", label: "Dashboard", path: "/browser", exact: true},
-            %{id: "browser_nodes", label: "Nodes", path: "/browser/nodes"},
-            %{id: "browser_profiles", label: "Profiles", path: "/browser/profiles"},
-            %{id: "browser_sessions", label: "Sessions", path: "/browser/sessions"},
-            %{id: "browser_jobs", label: "Jobs", path: "/browser/jobs"},
-            %{id: "browser_settings", label: "Settings", path: "/browser/settings"}
+            %{
+              id: "browser_dashboard",
+              icon: "web",
+              label: "Dashboard",
+              path: "/browser",
+              exact: true
+            },
+            %{id: "browser_nodes", icon: "lan", label: "Nodes", path: "/browser/nodes"},
+            %{
+              id: "browser_profiles",
+              icon: "account-box-outline",
+              label: "Profiles",
+              path: "/browser/profiles"
+            },
+            %{
+              id: "browser_sessions",
+              icon: "monitor",
+              label: "Sessions",
+              path: "/browser/sessions"
+            },
+            %{
+              id: "browser_jobs",
+              icon: "briefcase-outline",
+              label: "Jobs",
+              path: "/browser/jobs"
+            },
+            %{
+              id: "browser_settings",
+              icon: "cog-outline",
+              label: "Settings",
+              path: "/browser/settings"
+            }
           ]
         },
         %{
           id: "scout",
           title: "Scout",
           items: [
-            %{id: "scout_dashboard", label: "Scout Dashboard", path: "/scout"}
+            %{id: "scout_dashboard", icon: "radar", label: "Scout Dashboard", path: "/scout"}
           ]
         },
         %{
           id: "proxy_rules",
           title: "Proxy Rules",
           items: [
-            %{id: "proxy_rules_dashboard", label: "Dashboard", path: "/proxy-rules"}
+            %{
+              id: "proxy_rules_dashboard",
+              icon: "routes",
+              label: "Dashboard",
+              path: "/proxy-rules"
+            }
           ]
         },
         %{
           id: "caddy",
           title: "Caddy",
           items: [
-            %{id: "caddy_dashboard", label: "Dashboard", path: "/caddy"},
-            %{id: "caddy_config", label: "Configuration", path: "/caddy/config"},
-            %{id: "caddy_server", label: "Server Control", path: "/caddy/server"},
-            %{id: "caddy_runtime", label: "Runtime Config", path: "/caddy/runtime"},
-            %{id: "caddy_metrics", label: "Metrics", path: "/caddy/metrics"},
-            %{id: "caddy_logs", label: "Logs", path: "/caddy/logs"}
+            %{
+              id: "caddy_dashboard",
+              icon: "view-dashboard-outline",
+              label: "Dashboard",
+              path: "/caddy"
+            },
+            %{
+              id: "caddy_config",
+              icon: "file-document-outline",
+              label: "Configuration",
+              path: "/caddy/config"
+            },
+            %{id: "caddy_server", icon: "server", label: "Server Control", path: "/caddy/server"},
+            %{
+              id: "caddy_runtime",
+              icon: "cog-outline",
+              label: "Runtime Config",
+              path: "/caddy/runtime"
+            },
+            %{id: "caddy_metrics", icon: "chart-line", label: "Metrics", path: "/caddy/metrics"},
+            %{id: "caddy_logs", icon: "text-box-outline", label: "Logs", path: "/caddy/logs"}
           ]
         },
         %{
           id: "storage",
           title: "Storage",
           items: [
-            %{id: "storage_files", label: "File Browser", path: "/storage"},
-            %{id: "storage_config", label: "S3 Configuration", path: "/storage/config"}
+            %{
+              id: "storage_files",
+              icon: "folder-outline",
+              label: "File Browser",
+              path: "/storage"
+            },
+            %{
+              id: "storage_config",
+              icon: "cloud-outline",
+              label: "S3 Configuration",
+              path: "/storage/config"
+            }
           ]
         }
       ]

@@ -40,6 +40,8 @@ defmodule GSMLG.AdminWeb.Layouts do
       <.local_app_bar page_title={@page_title}>
         <:navigation>
           <GSMLG.AdminWeb.Components.AdminNavigation.left_menu
+            id="admin-mobile-menu"
+            collapsible={false}
             active_menu={@active_menu}
             current_path={@current_path}
             class="border-r-0"
@@ -53,7 +55,7 @@ defmodule GSMLG.AdminWeb.Layouts do
         <GSMLG.AdminWeb.Components.AdminNavigation.left_menu
           active_menu={@active_menu}
           current_path={@current_path}
-          class="hidden lg:block"
+          class="hidden lg:flex"
         />
         <main class="flex-1 min-w-0 bg-surface text-on-surface overflow-auto">
           {render_slot(@inner_block)}

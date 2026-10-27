@@ -6,40 +6,58 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
   alias GSMLG.AdminWeb.Components.AdminNavigation
 
   describe "local_app_bar/1" do
-    test "keeps the app menu in a native popover controlled by its button" do
+    test "omits the quick-page menu when no navigation slot is supplied" do
       html = render_component(&GSMLG.Component.Admin.local_app_bar/1, page_title: "Home")
       document = Floki.parse_fragment!(html)
-      popover_id = "admin-app-menu-popover"
 
-      assert [_dropdown] =
-               Floki.find(
-                 document,
-                 ~s([phx-hook="DuskmoonPopover"][data-popover-id="#{popover_id}"])
-               )
-
-      assert [_trigger] =
-               Floki.find(
-                 document,
-                 ~s(button[type="button"][command="toggle-popover"][commandfor="#{popover_id}"][aria-controls="#{popover_id}"])
-               )
-
-      assert [popover] = Floki.find(document, ~s(##{popover_id}[popover="auto"]))
-      assert [_users] = Floki.find(popover, ~s(a[href="/users"]))
-      assert [_commander] = Floki.find(popover, ~s(a[href="/commander/list"]))
-      assert [_caddy] = Floki.find(popover, ~s(a[href="/caddy"]))
+      assert Floki.find(document, "#admin-app-menu") == []
+      assert Floki.find(document, "#admin-app-menu-popover") == []
+      assert Floki.find(document, ~s(button[commandfor="admin-app-menu-popover"])) == []
+      assert Floki.find(document, ~s(a[href="/users"])) == []
+      assert Floki.find(document, ~s(a[href="/commander/list"])) == []
+      assert Floki.find(document, ~s(a[href="/caddy"])) == []
     end
 
-    test "does not render mobile navigation when no appbar menu entries are supplied" do
+    test "keeps theme and sign-out controls without an appbar menu" do
       html = render_component(&GSMLG.Component.Admin.local_app_bar/1, page_title: "Home")
       document = Floki.parse_fragment!(html)
 
       assert Floki.find(document, ~s(button[aria-label="Toggle mobile menu"])) == []
       assert Floki.find(document, "#appbar-mobile-menu") == []
-      assert [_admin_menu] = Floki.find(document, ~s(#admin-app-menu-popover[popover="auto"]))
+      assert [_theme_switcher] = Floki.find(document, ~s([phx-hook="ThemeSwitcher"]))
+
+      assert [sign_out] =
+               Floki.find(document, ~s(a[href="/sign_out"][data-admin-sign-out="true"]))
+
+      assert Floki.text(sign_out) =~ "Sign Out"
     end
   end
 
   describe "left_menu/1" do
+    test "provides a persistent collapse control and named icon links" do
+      html = render_component(&AdminNavigation.left_menu/1, active_menu: "gao_note_list")
+      document = Floki.parse_fragment!(html)
+
+      assert [navigation] =
+               Floki.find(document, ~s(#admin-sidebar[phx-hook="DuskmoonLeftMenu"]))
+
+      assert Floki.attribute(navigation, "data-storage-key") == ["gsmlg:admin-sidebar-collapsed"]
+
+      assert [_toggle] =
+               Floki.find(
+                 navigation,
+                 ~s(button[data-left-menu-toggle][aria-controls="admin-sidebar-scroll"][aria-expanded="true"])
+               )
+
+      for item <- GSMLG.AdminWeb.AdminMenu.enabled_items() do
+        assert [link] = Floki.find(navigation, ~s(a[href="#{item.path}"]))
+        assert Floki.attribute(link, "aria-label") == [item.label]
+        assert [_icon] = Floki.find(link, "svg")
+        assert [_label] = Floki.find(link, "[data-left-menu-label]")
+        assert [_hint] = Floki.attribute(link, "data-left-menu-tooltip")
+      end
+    end
+
     test "renders the active branch and current page state" do
       html = render_component(&AdminNavigation.left_menu/1, active_menu: "caddy_dashboard")
 
@@ -114,6 +132,31 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
   end
 
   describe "Layouts.app/1" do
+    test "keeps mobile navigation expanded with separate component ids" do
+      html =
+        render_component(&GSMLG.AdminWeb.Layouts.app/1,
+          flash: %{},
+          active_menu: "gao_note_list",
+          inner_block: [
+            %{
+              __slot__: :inner_block,
+              inner_block: fn _, _ -> "PAGE BODY" end
+            }
+          ]
+        )
+
+      document = Floki.parse_fragment!(html)
+      assert [desktop] = Floki.find(document, "#admin-sidebar")
+      assert [_toggle] = Floki.find(desktop, "[data-left-menu-toggle]")
+      assert [mobile] = Floki.find(document, "#admin-mobile-menu")
+      assert Floki.find(mobile, "[data-left-menu-toggle]") == []
+      assert Floki.attribute(mobile, "data-storage-key") == []
+      assert [_notes] = Floki.find(mobile, ~s(a[href="/gao_notes/notes"][aria-current="page"]))
+
+      ids = Floki.find(document, "[id]") |> Enum.flat_map(&Floki.attribute(&1, "id"))
+      assert Enum.uniq(ids) == ids
+    end
+
     test "keeps Storage navigation available in the appbar menu" do
       html =
         render_component(&GSMLG.AdminWeb.Layouts.app/1,

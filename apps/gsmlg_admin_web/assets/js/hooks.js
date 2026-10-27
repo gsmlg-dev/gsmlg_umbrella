@@ -8,7 +8,7 @@ import ProxyRulesSourceViewer from "./hooks/proxy_rules_source_viewer";
 import StorageSplitPane from "./hooks/storage_split_pane";
 import StorageFolderActions from "./hooks/storage_folder_actions";
 import "./custom_elements/json_viewer";
-import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight, DuskmoonPopover } from "phoenix_duskmoon/hooks";
+import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight, DuskmoonPopover, DuskmoonLeftMenu } from "phoenix_duskmoon/hooks";
 
 // Register duskmoon custom elements
 import "@duskmoon-dev/elements/register";
@@ -83,4 +83,5 @@ export const hooks = {
   PageHeader,
   Spotlight,
   DuskmoonPopover,
+  DuskmoonLeftMenu,
 };
