@@ -276,7 +276,7 @@ jobs:
           sync: rsync
           envs: "MIX_ENV RELEASE_VERSION DATABASE_URL"
           prepare: |
-            pkg install -y bash ca_root_nss elixir-devel erlang-runtime28 git gmake
+            pkg install -y bash ca_root_nss cmake elixir-devel erlang-runtime28 git gmake
           run: |
             set -eu
             export PATH="/usr/local/lib/erlang28/bin:$PATH"
