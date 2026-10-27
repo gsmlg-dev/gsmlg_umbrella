@@ -1085,6 +1085,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
 
     refute html =~ ~s(<el-dm-markdown)
     assert html =~ ~s(id="gao-note-content-#{note.id}")
+    assert has_element?(view, "#gao-note-content-#{note.id}.markdown-body")
     assert has_element?(view, "#gao-note-content-#{note.id} h2", "Rendered markdown")
     refute html =~ "Add attachment"
     refute html =~ ~s(href="/gao_notes/notes/#{note.id}/attachments")

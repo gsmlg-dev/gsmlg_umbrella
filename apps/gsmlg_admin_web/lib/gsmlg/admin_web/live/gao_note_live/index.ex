@@ -1351,8 +1351,6 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   defp editable_text_mime?("application/xml"), do: true
   defp editable_text_mime?(_mime), do: false
 
-  defp rendered_note_content(%Note{} = note), do: GaoNoteMarkdown.render(note)
-
   defp show_attachment_cards(%Note{} = note) do
     note.attachments
     |> loaded_list()
@@ -2930,12 +2928,11 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           </.dm_badge>
         </div>
 
-        <div
+        <GaoNoteMarkdown.body
           id={"gao-note-content-#{@note.id}"}
-          class="prose block w-full max-w-none text-on-surface"
-        >
-          {rendered_note_content(@note)}
-        </div>
+          note={@note}
+          class="block w-full max-w-none text-on-surface"
+        />
 
         <section
           :if={show_attachment_cards(@note) != []}

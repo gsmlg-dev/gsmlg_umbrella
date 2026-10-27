@@ -1,6 +1,8 @@
 defmodule GSMLG.AdminWeb.GaoNoteMarkdownAttributeSafetyTest do
   use ExUnit.Case, async: true
 
+  import Phoenix.LiveViewTest, only: [render_component: 2]
+
   alias GSMLG.AdminWeb.GaoNoteMarkdown
 
   test "final HTML cannot synthesize attributes from titles, alt text, raw HTML, or IALs" do
@@ -16,7 +18,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdownAttributeSafetyTest do
       """)
 
     document = Floki.parse_fragment!(html)
-    attributes = all_attributes(document)
+    attributes = document |> Floki.find(".markdown-body > *") |> all_attributes()
 
     refute Enum.any?(attributes, fn {name, _value} ->
              String.starts_with?(String.downcase(name), "on") or
@@ -86,9 +88,9 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdownAttributeSafetyTest do
   end
 
   defp render(content, attachments \\ [%{path: "./image.png"}]) do
-    %{id: "note-id", content: content, attachments: attachments}
-    |> GaoNoteMarkdown.render()
-    |> Phoenix.HTML.safe_to_string()
+    render_component(&GaoNoteMarkdown.body/1,
+      note: %{id: "note-id", content: content, attachments: attachments}
+    )
   end
 
   defp raw_url(path), do: GaoNoteMarkdown.attachment_url("note-id", path)

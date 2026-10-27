@@ -29,7 +29,6 @@ defmodule GSMLG.WebPush.MixProject do
       {:jose, "~> 1.11"},
       {:jason, "~> 1.4"},
       {:phoenix, "~> 1.8"},
-      {:earmark, "~> 1.4", only: :dev},
       {:ex_doc, "~> 0.40", only: :dev},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

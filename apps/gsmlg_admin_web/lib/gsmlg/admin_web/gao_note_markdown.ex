@@ -1,7 +1,10 @@
 defmodule GSMLG.AdminWeb.GaoNoteMarkdown do
   @moduledoc false
 
+  use Phoenix.Component
+
   alias GSMLG.GaoNote.Attachment
+  alias PhoenixDuskmoon.Component.DataDisplay.Markdown
 
   @safe_link_schemes ~w(http https mailto tel)
   @safe_image_schemes ~w(http https)
@@ -9,28 +12,66 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdown do
   @allowed_tags ~w(
     p br hr h1 h2 h3 h4 h5 h6 blockquote
     ul ol li pre code em strong del
-    a img
+    a img input
     table thead tbody tr th td
   )
   @allowed_attributes %{
     "a" => ~w(href title),
-    "img" => ~w(src title),
+    "img" => ~w(src title alt),
+    "input" => ~w(type checked disabled),
     "code" => ~w(class),
     "ol" => ~w(start),
     "th" => ~w(align),
     "td" => ~w(align)
   }
 
-  def render(%{id: note_id, content: content} = note) do
-    routes = attachment_routes(note_id, Map.get(note, :attachments, []))
-    {_, ast, _messages} = Earmark.Parser.as_ast(content || "", escape: true)
+  @markdown_options [
+    extension: [front_matter_delimiter: nil],
+    render: [unsafe: false, github_pre_lang: false, full_info_string: false],
+    sanitize: [
+      tags: @allowed_tags,
+      tag_attributes: @allowed_attributes,
+      tag_attribute_values: %{"input" => %{"type" => ["checkbox"]}},
+      generic_attributes: [],
+      generic_attribute_prefixes: [],
+      url_schemes: @safe_link_schemes,
+      link_rel: nil
+    ]
+  ]
 
-    ast = sanitize_nodes(ast, routes)
+  attr :note, :map, required: true
+  attr :id, :string, default: nil
+  attr :class, :any, default: nil
 
-    # WORKAROUND(upstream): duskmoon-dev/duskmoon-elements#70
-    ast
-    |> Earmark.transform(escape: true)
-    |> Phoenix.HTML.raw()
+  def body(assigns) do
+    routes = attachment_routes(assigns.note.id, Map.get(assigns.note, :attachments, []))
+
+    assigns =
+      assign(assigns,
+        source: assigns.note.content || "",
+        plugins: [MDExGFM, {__MODULE__, routes: routes}],
+        options: @markdown_options
+      )
+
+    ~H"""
+    <Markdown.dm_markdown_body
+      id={@id}
+      class={@class}
+      source={@source}
+      plugins={@plugins}
+      options={@options}
+    />
+    """
+  end
+
+  def attach(document, options) do
+    routes = Keyword.fetch!(options, :routes)
+
+    MDEx.Document.append_steps(document,
+      gao_note_destinations: fn document ->
+        MDEx.traverse_and_update(document, &sanitize_node(&1, routes))
+      end
+    )
   end
 
   def attachment_url(note_id, canonical_path)
@@ -40,7 +81,10 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdown do
       encoded_path =
         relative_path
         |> String.split("/", trim: false)
-        |> Enum.map_join("/", &URI.encode(&1, fn character -> URI.char_unreserved?(character) end))
+        |> Enum.map_join(
+          "/",
+          &URI.encode(&1, fn character -> URI.char_unreserved?(character) end)
+        )
 
       encoded_note_id =
         note_id
@@ -82,182 +126,25 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdown do
     end)
   end
 
-  defp sanitize_nodes(nodes, routes) when is_list(nodes) do
-    Enum.flat_map(nodes, &sanitize_node(&1, routes))
-  end
+  defp sanitize_node(%MDEx.Link{} = node, routes),
+    do: sanitize_destination_node(node, :link, routes)
 
-  defp sanitize_nodes(node, routes), do: sanitize_node(node, routes)
+  defp sanitize_node(%MDEx.Image{} = node, routes),
+    do: sanitize_destination_node(node, :image, routes)
 
-  defp sanitize_node(text, _routes) when is_binary(text), do: [text]
-  defp sanitize_node({:comment, _attributes, _children, _meta}, _routes), do: []
+  defp sanitize_node(node, _routes), do: node
 
-  defp sanitize_node({tag, attributes, children, meta}, routes) when is_binary(tag) do
-    tag = String.downcase(tag)
-
-    cond do
-      verbatim?(meta) and tag != "code" ->
-        []
-
-      tag in @allowed_tags ->
-        safe_children = sanitize_nodes(children, routes)
-
-        safe_attributes =
-          tag
-          |> sanitize_attributes(attributes, routes)
-          |> put_image_alt(tag, safe_children, attributes)
-
-        [
-          {
-            tag,
-            safe_attributes,
-            safe_children,
-            %{}
-          }
-        ]
-
-      true ->
-        []
-    end
-  end
-
-  defp sanitize_node(_unknown, _routes), do: []
-
-  defp sanitize_attributes(tag, attributes, routes) do
-    allowed = Map.get(@allowed_attributes, tag, [])
-
-    attributes
-    |> Enum.reduce([], fn
-      {name, value}, sanitized when is_binary(name) and is_binary(value) ->
-        name = String.downcase(name)
-
-        if name in allowed and not List.keymember?(sanitized, name, 0) do
-          case sanitize_attribute(tag, name, value, routes) do
-            {:ok, value} -> [{name, escape_attribute(value)} | sanitized]
-            :drop -> sanitized
-          end
-        else
-          sanitized
-        end
-
-      _attribute, sanitized ->
-        sanitized
-    end)
-    |> Enum.reverse()
-  end
-
-  defp put_image_alt(attributes, "img", children, parser_attributes) do
-    alt =
-      case safe_child_text(children) do
-        "" -> parser_image_alt(parser_attributes)
-        child_text -> {:ok, child_text}
+  defp sanitize_destination_node(node, kind, routes) do
+    url =
+      case sanitize_destination(node.url, kind, routes) do
+        {:ok, url} -> url
+        # The final sanitizer removes this disallowed scheme, including its href/src attribute.
+        :drop -> "about:invalid"
       end
 
-    case alt do
-      {:ok, alt} ->
-        alt =
-          alt
-          |> String.replace("\r\n", "\n")
-          |> String.replace("\r", "\n")
-
-        if safe_text_attribute?(alt) do
-          [{"alt", escape_attribute(alt)} | attributes]
-        else
-          attributes
-        end
-
-      :error ->
-        attributes
-    end
+    title = if safe_text_attribute?(node.title), do: node.title, else: ""
+    %{node | url: url, title: title, attrs: nil}
   end
-
-  defp put_image_alt(attributes, _tag, _children, _parser_attributes), do: attributes
-
-  defp parser_image_alt([{"src", source}, {"alt", alt} | _rest])
-       when is_binary(source) and is_binary(alt) do
-    decode_parser_alt(alt)
-  end
-
-  defp parser_image_alt(_attributes), do: :error
-
-  defp decode_parser_alt(alt) do
-    normalized =
-      Regex.replace(
-        ~r/&(?:amp|quot|apos|lt|gt|#[0-9]+|#[xX][0-9a-fA-F]+);/,
-        alt,
-        &decode_parser_alt_entity/1
-      )
-
-    if String.valid?(normalized), do: {:ok, normalized}, else: :error
-  catch
-    :invalid_parser_alt_entity -> :error
-  end
-
-  defp decode_parser_alt_entity("&amp;"), do: "&"
-  defp decode_parser_alt_entity("&quot;"), do: "\""
-  defp decode_parser_alt_entity("&apos;"), do: "'"
-  defp decode_parser_alt_entity("&lt;"), do: "<"
-  defp decode_parser_alt_entity("&gt;"), do: ">"
-
-  defp decode_parser_alt_entity("&#x" <> encoded),
-    do: decode_parser_alt_codepoint(encoded, 16)
-
-  defp decode_parser_alt_entity("&#X" <> encoded),
-    do: decode_parser_alt_codepoint(encoded, 16)
-
-  defp decode_parser_alt_entity("&#" <> encoded),
-    do: decode_parser_alt_codepoint(encoded, 10)
-
-  defp decode_parser_alt_codepoint(encoded, base) do
-    encoded = String.trim_trailing(encoded, ";")
-
-    case Integer.parse(encoded, base) do
-      {codepoint, ""}
-      when codepoint <= 0x10FFFF and not (codepoint in 0xD800..0xDFFF) ->
-        <<codepoint::utf8>>
-
-      _invalid ->
-        throw(:invalid_parser_alt_entity)
-    end
-  end
-
-  defp safe_child_text(nodes) when is_list(nodes),
-    do: Enum.map_join(nodes, "", &safe_child_text/1)
-
-  defp safe_child_text(node) when is_binary(node), do: node
-  defp safe_child_text({_tag, _attributes, children, _meta}), do: safe_child_text(children)
-  defp safe_child_text(_node), do: ""
-
-  defp escape_attribute(value) do
-    value
-    |> Phoenix.HTML.html_escape()
-    |> Phoenix.HTML.safe_to_string()
-  end
-
-  defp sanitize_attribute("a", "href", destination, routes),
-    do: sanitize_destination(destination, :link, routes)
-
-  defp sanitize_attribute("img", "src", destination, routes),
-    do: sanitize_destination(destination, :image, routes)
-
-  defp sanitize_attribute("code", "class", class, _routes) do
-    if Regex.match?(~r/\A(?:language-)?[a-zA-Z0-9_+-]+\z/, class),
-      do: {:ok, class},
-      else: :drop
-  end
-
-  defp sanitize_attribute("ol", "start", start, _routes) do
-    if Regex.match?(~r/\A[1-9][0-9]*\z/, start), do: {:ok, start}, else: :drop
-  end
-
-  defp sanitize_attribute(tag, "align", align, _routes) when tag in ["th", "td"] do
-    if align in ["left", "center", "right"], do: {:ok, align}, else: :drop
-  end
-
-  defp sanitize_attribute(_tag, name, value, _routes) when name in ["title", "alt"] do
-    if safe_text_attribute?(value), do: {:ok, value}, else: :drop
-  end
-
-  defp sanitize_attribute(_tag, _name, _value, _routes), do: :drop
 
   defp sanitize_destination(destination, kind, routes) do
     case attachment_route(destination, routes) do
@@ -353,7 +240,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdown do
       Regex.replace(pattern, destination, fn _, digits ->
         case Integer.parse(digits, base) do
           {codepoint, ""}
-          when codepoint <= 0x10FFFF and not (codepoint in 0xD800..0xDFFF) ->
+          when codepoint <= 0x10FFFF and codepoint not in 0xD800..0xDFFF ->
             <<codepoint::utf8>>
 
           _invalid ->
@@ -378,9 +265,6 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdown do
 
   defp malformed_percent_encoding?(destination),
     do: Regex.match?(~r/%(?![[:xdigit:]]{2})/, destination)
-
-  defp verbatim?(meta) when is_map(meta), do: Map.get(meta, :verbatim, false) == true
-  defp verbatim?(_meta), do: false
 
   defp safe_schemes(:link), do: @safe_link_schemes
   defp safe_schemes(:image), do: @safe_image_schemes

@@ -1,7 +1,21 @@
 defmodule GSMLG.AdminWeb.GaoNoteMarkdownTest do
   use ExUnit.Case, async: true
 
+  import Phoenix.LiveViewTest, only: [render_component: 2]
+
   alias GSMLG.AdminWeb.GaoNoteMarkdown
+
+  test "renders GitHub Markdown with DuskMoon body styles" do
+    document =
+      %{id: "note-gfm", content: "## Tasks\n\n- [x] Complete\n\n~~Removed~~", attachments: []}
+      |> safe_html()
+      |> Floki.parse_fragment!()
+
+    assert [_body] = Floki.find(document, "div.markdown-body")
+    assert Floki.find(document, ".markdown-body h2") |> Floki.text() == "Tasks"
+    assert [_checkbox] = Floki.find(document, ~s(input[type="checkbox"][disabled][checked]))
+    assert Floki.find(document, "del") |> Floki.text() == "Removed"
+  end
 
   test "drops raw HTML and removes mixed-case, encoded, and malformed destinations" do
     note = %{
@@ -65,7 +79,8 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdownTest do
 
     html = safe_html(note)
     document = Floki.parse_fragment!(html)
-    allowed_tags = ~w(h2 p a table thead tbody tr th td pre code)
+    allowed_tags = ~w(div h2 p br a table thead tbody tr th td pre code)
+
     attribute_names =
       document
       |> Floki.find("*")
@@ -172,8 +187,6 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdownTest do
   end
 
   defp safe_html(note) do
-    note
-    |> GaoNoteMarkdown.render()
-    |> Phoenix.HTML.safe_to_string()
+    render_component(&GaoNoteMarkdown.body/1, note: note)
   end
 end
