@@ -5,8 +5,8 @@ import { startSocket, joinChannels } from "./user_socket.js";
 
 import { registerSW } from './register_sw.js';
 
-if (process.env.NODE_ENV === 'development') {
-  console.log('NODE_ENV: ', process.env.NODE_ENV);
+if (import.meta.env.DEV) {
+  console.log('NODE_ENV: ', import.meta.env.MODE);
 }
 
 // Start LiveSocket immediately so hooks (ThemeSwitcher, PageHeader) work on all pages,
@@ -33,7 +33,7 @@ window.addEventListener('socket:stop', (event) => {
 const id = Math.random() * 10e16;
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
-const worker = new SharedWorker('./assets/worker.js', { name: 'gsmlg_shared_worker', type: 'module' });
+const worker = new SharedWorker(new URL('./worker.js', import.meta.url), { name: 'gsmlg_shared_worker', type: 'module' });
 worker.onerror = (e) => {
   console.error('SharedWorker error:', e);
 };
@@ -44,14 +44,14 @@ worker.port.postMessage({
   data: { csrfToken },
 });
 worker.port.onmessage = (msg) => {
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.DEV) {
     console.log('SharedWorker message:', msg);
     if (msg.data.type === 'connected') {
       console.log('SharedWorker connected:', msg.data);
     }
   }
 };
-if (process.env.NODE_ENV === 'development') {
+if (import.meta.env.DEV) {
   console.log('connect to shared worker', worker);
 }
 

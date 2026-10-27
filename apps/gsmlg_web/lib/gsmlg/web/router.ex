@@ -224,6 +224,6 @@ defmodule GSMLG.Web.Router do
   # Private function to set the header for serviceworker
   defp put_sw_header(conn, _opts) do
     conn
-    |> Plug.Conn.put_resp_header("link", ~s[</assets/sw.js>; rel="serviceworker"; scope="/"])
+    |> Plug.Conn.put_resp_header("link", ~s[</sw.js>; rel="serviceworker"; scope="/"])
   end
 end

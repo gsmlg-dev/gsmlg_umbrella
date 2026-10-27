@@ -19,14 +19,12 @@ ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm/
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
 ARG BUN_VERSION=1.3.4
-ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-x64-musl
-ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-arm64-musl
 
 ARG XLA_BUILD=true
 
 ARG TARGETARCH
 
-# Install build tools + bun (musl build for Alpine)
+# Bun is retained for React SSR (musl build for Alpine).
 RUN apk add --no-cache curl unzip bash vips-dev build-base nodejs npm perl cmake
 
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
@@ -37,7 +35,6 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
       && unzip /tmp/bun.zip -d /tmp/ && mv /tmp/bun-linux-x64-musl/bun /usr/local/bin/bun; \
     fi && rm -rf /tmp/bun.zip /tmp/bun-linux-*
 
-ARG MIX_TAILWIND_PATH=/tmp/tailwindcss
 ARG MIX_BUN_PATH=/usr/local/bin/bun
 
 COPY . /build
@@ -48,21 +45,8 @@ RUN <<EOF
 set -evx
 cd /build
 
-if [ "$TARGETARCH" = "arm64" ]; then
-  TAILWIND_URL="${TAILWIND_URL_ARM64}"
-  TAILWIND_ARCH="arm64"
-else
-  TAILWIND_URL="${TAILWIND_URL_AMD64}"
-  TAILWIND_ARCH="x64"
-fi
-
-curl -fsSL "${TAILWIND_URL}" -o /tmp/tailwindcss
-chmod +x /tmp/tailwindcss
-
 mix deps.get
-bun install
-install -m 755 -D /tmp/tailwindcss /build/_build/tailwind-linux-${TAILWIND_ARCH}-musl
-install -m 755 -D $MIX_BUN_PATH /build/_build/bun
+mix npm.ci
 
 bash scripts/update_version.sh $RELEASE_VERSION
 

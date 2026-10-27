@@ -29,7 +29,8 @@ defmodule GSMLG.Web.Hologram.LayoutTest do
       assert [_sign_in] = Floki.find(document, "footer a[href='/sign_in']")
       assert [_tool_link] = Floki.find(document, "footer a[href='/toolbox/ip_geo']")
       assert [_language] = Floki.find(document, "footer a[href='?lang=en'][aria-current=true]")
-      assert Floki.find(document, "script[src$='/assets/app.js']") == []
+      assert [_stylesheet] = Floki.find(document, "link[rel=stylesheet][href^='/assets/css/app']")
+      assert Floki.find(document, "script[src*='/assets/js/app']") == []
     end
   end
 

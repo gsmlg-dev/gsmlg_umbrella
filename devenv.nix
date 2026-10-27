@@ -7,7 +7,6 @@ in
 {
   env.GREET = "GSMLG Umbrella";
   env.MIX_BUN_PATH = lib.getExe pkgs-stable.bun;
-  env.MIX_TAILWIND_PATH = lib.getExe pkgs-stable.tailwindcss_4;
   env.NODE_PATH = "${config.git.root}/deps";
 
   packages = with pkgs-stable; [
@@ -19,7 +18,6 @@ in
     cargo
     perl
     cmake
-    tailwindcss_4
     beam28Packages.elixir-ls
     vips          # libvips for image processing (gsmlg_storage)
     pkg-config    # needed by Vix NIF to find libvips

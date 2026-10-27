@@ -3,8 +3,8 @@
   "version": "5.13.8",
   "type": "module",
   "dependencies": {
-    "@duskmoon-dev/core": "1.20.7",
-    "@duskmoon-dev/css-art": "1.20.7",
+    "@duskmoon-dev/core": "1.20.8",
+    "@duskmoon-dev/css-art": "1.20.8",
     "@duskmoon-dev/elements": "1.10.2",
     "github-markdown-css": "^5.9.0",
     "gsmlg_component": "file:../gsmlg_component",

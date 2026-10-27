@@ -1,6 +1,6 @@
 const CACHE_VERSION = 1;
 const CURRENT_CACHES = {
-  gsmlg: `gsmlg-admin-web-cache-v${CACHE_VERSION}`,
+  gsmlg: `gsmlg-web-cache-v${CACHE_VERSION}`,
 };
 
 console.log('serviceWorker', 'running');
@@ -44,13 +44,15 @@ self.addEventListener("fetch", (event) => {
           // (see https://developer.mozilla.org/en-US/docs/Web/API/Request/clone)
           return fetch(event.request.clone()).then((response) => {
             if (
-              method === "GET" && 
+              method === "GET" &&
               response.status < 400 &&
               response.headers.has("content-type") &&
               response.headers.get("content-type").match(/(^font\/)|(^text\/)|(^image\/)/i)
             ) {
+              if (/worker.js/.test(event.request.url)) {
+                return response;
+              }
               console.log("  Caching the response to", event.request.url);
-
               cache.put(event.request, response.clone());
             }
 
@@ -87,7 +89,7 @@ self.addEventListener('message', (event) => {
   }
 });
 
-self.addEventListener('push', event => {
+self.addEventListener('push', (event) => {
   console.log('Handling push event for', event.data, event);
   const data = event.data.json();
   console.log('Push data:', data);

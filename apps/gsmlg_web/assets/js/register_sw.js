@@ -2,7 +2,7 @@
 export const registerSW = () => {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register("/assets/sw.js", {
+      .register("/sw.js", {
         scope: "/",
         updateViaCache: 'imports',
       })

@@ -28,11 +28,11 @@ export const blogFormHook = {
 
         const data = useSyncExternalStore(formState.subscribe, formState.getSnapshot, formState.getServerSnapshot);
         return (
-          <BlogForm 
-            blog={data} 
+          <BlogForm
+            blog={data}
             update={formState.setData}
-            submit={submit} 
-            pending={false} 
+            submit={submit}
+            pending={false}
           />
         );
       }

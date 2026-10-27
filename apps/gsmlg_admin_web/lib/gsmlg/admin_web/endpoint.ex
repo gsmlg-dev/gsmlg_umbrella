@@ -46,6 +46,13 @@ defmodule GSMLG.AdminWeb.Endpoint do
     longpoll: @websocket_options
   )
 
+  if code_reloading? do
+    plug DuskmoonBundler.DevServer,
+      profile: :gsmlg_admin_web,
+      root: Path.expand("../../../assets/js", __DIR__),
+      prefix: "/assets/js"
+  end
+
   plug Plug.Static,
     at: "/",
     from: :gsmlg_admin_web,
@@ -66,6 +73,7 @@ defmodule GSMLG.AdminWeb.Endpoint do
       tools.html
       webgl
       robot.txt
+      sw.js
       cache_manifest.json
     )
 

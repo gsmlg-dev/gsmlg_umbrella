@@ -36,7 +36,7 @@ liveSocket.connect();
 
 joinChannels();
 
-if (process.env.NODE_ENV === 'development') {
+if (import.meta.env.DEV) {
   // expose liveSocket on window for web console debug logs and latency simulation:
   // >> liveSocket.enableDebug()
   // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

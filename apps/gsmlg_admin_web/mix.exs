@@ -50,8 +50,8 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:lazy_html, "~> 0.1"},
       {:phoenix_live_dashboard, "~> 0.9"},
       {:ecto_psql_extras, "~> 0.8"},
-      {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
-      {:bun, "~> 2.0", runtime: Mix.env() == :dev},
+      {:duskmoon_bundler_runtime, "~> 10.0.8"},
+      {:duskmoon_bundler, "~> 10.0.8", runtime: Mix.env() == :dev},
       {:cachex, "~> 4.1"},
       {:earmark, "~> 1.4"},
       {:telemetry_metrics, "~> 1.2"},
@@ -85,10 +85,11 @@ defmodule GSMLG.AdminWeb.MixProject do
       # Database setup is handled at umbrella level in CI
       # For local development, run `mix ecto.create && mix ecto.migrate` first
       test: ["test"],
+      "assets.setup": ["npm.install"],
+      "assets.build": ["duskmoon_bundler.build gsmlg_admin_web --tailwind --no-minify"],
       "assets.deploy": [
         "phx.digest.clean --no-compile",
-        "tailwind gsmlg_admin_web --minify",
-        "bun gsmlg_admin_web --minify",
+        "duskmoon_bundler.build gsmlg_admin_web --tailwind",
         "phx.digest --no-compile"
       ],
       lint: ["credo --strict", "dialyzer"]

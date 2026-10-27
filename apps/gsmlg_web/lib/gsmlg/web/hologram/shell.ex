@@ -24,7 +24,10 @@ defmodule GSMLG.Web.Hologram.Shell do
       end)
 
     component
-    |> put_state(:stylesheet, GSMLG.Web.Endpoint.static_path("/assets/app.css"))
+    |> put_state(
+      :stylesheet,
+      DuskmoonBundler.static_path(GSMLG.Web.Endpoint, "/assets/css/app.css", profile: :gsmlg_web)
+    )
     |> put_state(:theme, "sunshine")
     |> put_state(:title, title)
     |> put_state(:layout_dom, layout_dom)

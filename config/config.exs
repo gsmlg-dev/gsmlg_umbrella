@@ -91,38 +91,38 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   pubsub_server: GSMLG.PubSub,
   live_view: [signing_salt: "gmmaSSOy"]
 
-config :bun,
-  version: "1.3.4",
-  gsmlg_web: [
-    args:
-      ~w(build assets/js/app.js assets/js/sw.js assets/js/worker.js --root assets/js --outdir=priv/static/assets --external /fonts/* --external /images/* --external https://*),
-    cd: Path.expand("../apps/gsmlg_web", __DIR__),
-    env: %{}
-  ],
-  gsmlg_admin_web: [
-    args:
-      ~w(build assets/js/app.js assets/js/sw.js --outdir=priv/static/assets --external /fonts/* --external /images/*),
-    cd: Path.expand("../apps/gsmlg_admin_web", __DIR__),
-    env: %{}
-  ]
+# Vize's GNU prebuilts require glibc 2.43; build for our Nix and Debian environments.
+config :rustler_precompiled, :force_build, duskmoon_vize: true
 
-# Configure tailwind (the version is required)
-config :tailwind,
-  version: "4.1.11",
-  gsmlg_web: [
-    args: ~w(
-      --input=assets/css/app.css
-      --output=priv/static/assets/app.css
-    ),
-    cd: Path.expand("../apps/gsmlg_web", __DIR__)
-  ],
-  gsmlg_admin_web: [
-    args: ~w(
-      --input=assets/css/app.css
-      --output=priv/static/assets/app.css
-    ),
-    cd: Path.expand("../apps/gsmlg_admin_web", __DIR__)
-  ]
+for app <- [:gsmlg_web, :gsmlg_admin_web] do
+  app_dir = Path.expand("../apps/#{app}", __DIR__)
+  component_dir = Path.expand("../apps/gsmlg_component", __DIR__)
+  duskmoon_dir = Path.expand("../deps/phoenix_duskmoon/lib", __DIR__)
+
+  config :duskmoon_bundler, app,
+    root: Path.join(app_dir, "assets"),
+    entry: Path.join(app_dir, "assets/js/app.js"),
+    outdir: Path.join(app_dir, "priv/static/assets"),
+    target: :es2020,
+    format: :esm,
+    sourcemap: :hidden,
+    resolve_dirs: [Path.expand("../apps", __DIR__), Path.expand("../deps", __DIR__)],
+    external: ~w(/fonts/* /images/* https://*),
+    tailwind: [
+      css: Path.join(app_dir, "assets/css/app.css"),
+      sources: [
+        %{base: Path.join(app_dir, "lib"), pattern: "**/*.{ex,exs,heex,holo}"},
+        %{base: Path.join(app_dir, "assets"), pattern: "**/*.{css,js,mjs,ts,jsx,tsx}"},
+        %{base: Path.join(component_dir, "lib"), pattern: "**/*.{ex,exs,heex}"},
+        %{base: Path.join(component_dir, "assets"), pattern: "**/*.{css,js,ts,jsx,tsx}"},
+        %{base: duskmoon_dir, pattern: "**/*.{ex,heex}"}
+      ]
+    ],
+    server: [watch_dirs: [Path.join(app_dir, "lib"), component_dir, duskmoon_dir]]
+
+  # Resolve manifests relative to the installed OTP app in a release.
+  config :duskmoon_bundler_runtime, app, outdir: "priv/static/assets"
+end
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

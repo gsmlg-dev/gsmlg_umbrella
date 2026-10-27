@@ -102,6 +102,9 @@ defmodule GSMLG.Umbrella.MixProject do
     [
       # run `mix setup` in all child apps
       setup: ["cmd mix setup"],
+      "assets.setup": ["npm.install"],
+      "assets.build": ["do --app gsmlg_web --app gsmlg_admin_web cmd mix assets.build"],
+      "assets.deploy": ["do --app gsmlg_web --app gsmlg_admin_web cmd mix assets.deploy"],
       prerelease: [&build_assets/1],
       test: [&enable_hologram/1, "test"],
       "phx.server": [&enable_hologram/1, "phx.server"],

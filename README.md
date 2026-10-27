@@ -39,8 +39,39 @@ Toolbox pages use `duskmoon_hologram` 10.0 with the existing `Hologram.*` API,
 `:hologram` compiler and `/hologram/` routes. Configure the fork under
 `:duskmoon_hologram`; the upstream `hologram` package must not be installed
 alongside it. `mix phx.server` and `mix test` enable it with `HOLOGRAM_START=1`
-from either the umbrella root or `apps/gsmlg_web`. JavaScript dependencies and
-bundles are built by `duskmoon_npm` and the native DuskMoon bundler.
+from either the umbrella root or `apps/gsmlg_web`.
+
+Both web apps use `duskmoon_bundler` 10.0.8 for JavaScript, Tailwind CSS v4 and
+development HMR. Run `mix npm.install` at the umbrella root to install the
+workspace dependencies; commit `package-lock.json` and use `mix npm.ci` for
+frozen installs. When migrating an existing Bun checkout, remove the generated
+`node_modules` directories in the three JS workspaces before installing; stale
+Bun workspace copies can shadow the new root workspace links.
+`mix assets.build` builds both apps, and `mix assets.deploy`
+builds production assets with manifests and Phoenix digests. Each app also
+provides these aliases when run from its directory. The development endpoints
+serve JavaScript modules at `/assets/js/` and watcher-built CSS at `/assets/css/`.
+Service workers are static files at `/sw.js`.
+
+Vize uses its supported source build mode because the published GNU binaries
+require glibc 2.43. The existing Rust/Cargo toolchain builds it for the host
+environment, including Nix and the Debian Docker builder.
+
+Version 10.0.8 includes fixes for minified SharedWorker URLs
+([#11](https://github.com/duskmoon-dev/duskmoon-bundler/issues/11)), scope-aware
+`process.env.NODE_ENV` replacement in development
+([#12](https://github.com/duskmoon-dev/duskmoon-bundler/issues/12)), and worker-safe
+development bootstrap
+([#13](https://github.com/duskmoon-dev/duskmoon-bundler/issues/13)).
+
+Source environment checks use `import.meta.env.DEV` / `import.meta.env.MODE`.
+
+Bun is still required by `phoenix_react_server` for React server-side rendering
+and its release bundle, and by the existing JavaScript tests. Frontend asset
+builds and npm dependency installs use Mix. Set `MIX_BUN_PATH`, `BUN_BIN`, or
+the TOML `gsmlg.bun_path` to configure the SSR executable, in that order.
+The legacy TOML `tailwind_path` is accepted but ignored; no Tailwind CLI is
+required.
 
 Concord and ExTurso use the 3.1 release line. Concord 3.1.6 supports the
 process-local controller PIDs required by PTY session attachment through

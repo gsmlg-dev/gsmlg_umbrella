@@ -21,11 +21,11 @@ defmodule GSMLG.Config.Schema do
   @gsmlg_schema [
     tailwind_path: [
       type: :string,
-      doc: "Path to tailwindcss executable"
+      doc: "Deprecated and ignored; Tailwind is built by DuskmoonBundler"
     ],
     bun_path: [
       type: :string,
-      doc: "Path to bun executable"
+      doc: "Path to the Bun executable for React server-side rendering"
     ]
   ]
 

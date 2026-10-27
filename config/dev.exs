@@ -48,8 +48,7 @@ config :gsmlg_web, GSMLG.Web.Endpoint,
   code_reloader: true,
   check_origin: false,
   watchers: [
-    tailwind: {Tailwind, :install_and_run, [:gsmlg_web, ~w(--watch)]},
-    bun: {Bun, :install_and_run, [:gsmlg_web, ~w(--sourcemap=inline --watch)]}
+    duskmoon_bundler: {Mix.Tasks.DuskmoonBundler.Dev, :run, [~w(gsmlg_web --tailwind)]}
   ],
   live_reload: [
     web_console_logger: true,
@@ -66,8 +65,7 @@ config :gsmlg_admin_web, GSMLG.AdminWeb.Endpoint,
   code_reloader: true,
   check_origin: false,
   watchers: [
-    tailwind: {Tailwind, :install_and_run, [:gsmlg_admin_web, ~w(--watch)]},
-    bun: {Bun, :install_and_run, [:gsmlg_admin_web, ~w(--sourcemap=inline --watch)]}
+    duskmoon_bundler: {Mix.Tasks.DuskmoonBundler.Dev, :run, [~w(gsmlg_admin_web --tailwind)]}
   ],
   live_reload: [
     web_console_logger: true,

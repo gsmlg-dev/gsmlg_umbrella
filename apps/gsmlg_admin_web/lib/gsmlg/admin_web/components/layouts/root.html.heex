@@ -28,11 +28,28 @@
     </.live_title>
     <script async type="module" src="https://esm-run.gsmlg.dev/@gsmlg/lit">
     </script>
-    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <link
+      phx-track-static
+      rel="stylesheet"
+      href={
+        DuskmoonBundler.static_path(GSMLG.AdminWeb.Endpoint, "/assets/css/app.css",
+          profile: :gsmlg_admin_web
+        )
+      }
+    />
     <script type="module">
       document.querySelector('meta[name=theme-color]').setAttribute('content', getComputedStyle(document.body).getPropertyValue('--color-primary'));
     </script>
-    <script defer phx-track-static type="module" src={~p"/assets/app.js"}>
+    <script
+      defer
+      phx-track-static
+      type="module"
+      src={
+        DuskmoonBundler.static_path(GSMLG.AdminWeb.Endpoint, "/assets/js/app.js",
+          profile: :gsmlg_admin_web
+        )
+      }
+    >
     </script>
   </head>
   <body class="bg-surface text-on-surface antialiased flex flex-col overflow-x-hidden w-svw min-h-screen">

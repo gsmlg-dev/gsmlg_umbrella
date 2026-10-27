@@ -22,11 +22,26 @@
     <.live_title suffix="">
       {assigns[:page_title] || gettext("default page title")}
     </.live_title>
-    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <link
+      phx-track-static
+      rel="stylesheet"
+      href={
+        DuskmoonBundler.static_path(GSMLG.Web.Endpoint, "/assets/css/app.css",
+          profile: :gsmlg_web
+        )
+      }
+    />
     <script type="module">
       document.querySelector('meta[name=theme-color]').setAttribute('content', getComputedStyle(document.body).getPropertyValue('--color-primary'));
     </script>
-    <script defer phx-track-static type="module" src={~p"/assets/app.js"}>
+    <script
+      defer
+      phx-track-static
+      type="module"
+      src={
+        DuskmoonBundler.static_path(GSMLG.Web.Endpoint, "/assets/js/app.js", profile: :gsmlg_web)
+      }
+    >
     </script>
     <%= if (Application.get_env(:gsmlg_web, GSMLG.Web.Endpoint) || []) |> Keyword.get(:enable_adsense) == true do %>
       <script

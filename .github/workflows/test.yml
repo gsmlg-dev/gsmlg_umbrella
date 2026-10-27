@@ -97,7 +97,7 @@ jobs:
           mix deps.get
 
       - name: Install JavaScript dependencies
-        run: bun install
+        run: mix npm.ci
 
       - name: Setup database
         env:

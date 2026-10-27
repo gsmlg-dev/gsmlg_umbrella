@@ -6,14 +6,14 @@ defmodule GSMLG.Config.SetupTest do
 
   setup do
     database_env =
-      Map.new(~w(DATABASE_URL PGHOST PGPORT POSTGRES_PORT), fn name ->
+      Map.new(~w(DATABASE_URL PGHOST PGPORT POSTGRES_PORT MIX_BUN_PATH BUN_BIN), fn name ->
         {name, System.get_env(name)}
       end)
 
     application_env =
       for {app, key} <- [
             {:tailwind, :path},
-            {:bun, :path},
+            {:phoenix_react_server, Phoenix.React.Runtime.Bun},
             {:gsmlg, GSMLG.Repo},
             {:gsmlg_web, GSMLG.Web.Endpoint},
             {:gsmlg_admin_web, GSMLG.AdminWeb.Endpoint},
@@ -111,30 +111,21 @@ defmodule GSMLG.Config.SetupTest do
   end
 
   describe "setup_gsmlg/1" do
-    test "sets up tailwind path" do
-      config = %{tailwind_path: "/usr/bin/tailwindcss"}
+    test "accepts the legacy tailwind path without configuring a CLI" do
+      previous = Application.fetch_env(:tailwind, :path)
 
-      Setup.setup_gsmlg(config)
+      Setup.setup_gsmlg(%{tailwind_path: "/usr/bin/tailwindcss"})
 
-      assert Application.get_env(:tailwind, :path) == "/usr/bin/tailwindcss"
+      assert Application.fetch_env(:tailwind, :path) == previous
     end
 
-    test "finds tailwind path when not specified" do
-      config = %{}
+    test "sets the React runtime command and preserves other runtime settings" do
+      Application.put_env(:phoenix_react_server, Phoenix.React.Runtime.Bun, port: 4632)
 
-      Setup.setup_gsmlg(config)
+      Setup.setup_gsmlg(%{bun_path: "/usr/bin/bun"})
 
-      # Should find the executable or set to nil
-      tailwind_path = Application.get_env(:tailwind, :path)
-      assert is_binary(tailwind_path) or tailwind_path == nil
-    end
-
-    test "sets up bun path" do
-      config = %{bun_path: "/usr/bin/bun"}
-
-      Setup.setup_gsmlg(config)
-
-      assert Application.get_env(:bun, :path) == "/usr/bin/bun"
+      assert Application.fetch_env!(:phoenix_react_server, Phoenix.React.Runtime.Bun) ==
+               [cmd: "/usr/bin/bun", port: 4632]
     end
 
     test "finds bun path when not specified" do
@@ -142,9 +133,22 @@ defmodule GSMLG.Config.SetupTest do
 
       Setup.setup_gsmlg(config)
 
-      # Should find the executable or set to nil
-      bun_path = Application.get_env(:bun, :path)
-      assert is_binary(bun_path) or bun_path == nil
+      runtime = Application.fetch_env!(:phoenix_react_server, Phoenix.React.Runtime.Bun)
+      assert runtime[:cmd] == System.find_executable("bun")
+    end
+
+    test "environment overrides the TOML React runtime path" do
+      System.put_env("BUN_BIN", "/runtime/bun")
+      Setup.setup_gsmlg(%{bun_path: "/toml/bun"})
+
+      assert Application.fetch_env!(:phoenix_react_server, Phoenix.React.Runtime.Bun)[:cmd] ==
+               "/runtime/bun"
+
+      System.put_env("MIX_BUN_PATH", "/devenv/bun")
+      Setup.setup_gsmlg(%{bun_path: "/toml/bun"})
+
+      assert Application.fetch_env!(:phoenix_react_server, Phoenix.React.Runtime.Bun)[:cmd] ==
+               "/devenv/bun"
     end
   end
 

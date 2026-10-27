@@ -9,7 +9,7 @@ ENV CARGO_HOME=/usr/local/cargo \
     RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH
 
-# Node/npm for frontend tooling; DuskMoon Hologram uses the native bundler.
+# Node is available for project scripts; asset installation and builds use Mix.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
@@ -25,12 +25,9 @@ ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm/
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
 ARG BUN_VERSION=1.3.4
-ARG TAILWIND_URL_AMD64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-x64
-ARG TAILWIND_URL_ARM64=https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.11/tailwindcss-linux-arm64
-
 ARG TARGETARCH
 
-# Install native build tools, bun and tailwind
+# Bun is retained for phoenix_react_server's server-side renderer and bundle.
 RUN apt-get update && apt-get install -y --no-install-recommends unzip curl ca-certificates python3 build-essential perl cmake && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip -o /tmp/bun.zip \
@@ -38,13 +35,6 @@ RUN curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSI
     && mv /tmp/bun-linux-x64/bun /usr/local/bin/bun \
     && rm -rf /tmp/bun.zip /tmp/bun-linux-x64
 
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-      curl -fsSL ${TAILWIND_URL_ARM64} -o /usr/local/bin/tailwind; \
-    else \
-      curl -fsSL ${TAILWIND_URL_AMD64} -o /usr/local/bin/tailwind; \
-    fi && chmod +x /usr/local/bin/tailwind
-
-ARG MIX_TAILWIND_PATH=/usr/local/bin/tailwind
 ARG MIX_BUN_PATH=/usr/local/bin/bun
 
 COPY . /build
@@ -56,9 +46,7 @@ set -evx
 cd /build
 
 mix deps.get
-bun install --frozen-lockfile --linker hoisted --backend copyfile
-install -m 755 -D $MIX_TAILWIND_PATH /build/_build/tailwind-linux-x64
-install -m 755 -D $MIX_BUN_PATH /build/_build/bun
+mix npm.ci
 python3 - <<'PY'
 from pathlib import Path
 

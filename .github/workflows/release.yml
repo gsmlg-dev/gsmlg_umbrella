@@ -167,7 +167,7 @@ jobs:
           bash scripts/update_version.sh --check "$RELEASE_VERSION"
           mix deps.get
           mix compile
-          bun install --frozen-lockfile
+          mix npm.ci
 
       - name: Build release
         env:

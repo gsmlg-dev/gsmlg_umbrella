@@ -90,21 +90,17 @@ defmodule GSMLG.Config.Setup do
   end
 
   def setup_gsmlg(config) do
-    if config[:tailwind_path] != nil do
-      tailwind_path = config[:tailwind_path]
-      Application.put_env(:tailwind, :path, tailwind_path)
-    else
-      tailwind_path = System.find_executable("tailwindcss")
-      Application.put_env(:tailwind, :path, tailwind_path)
-    end
+    bun_path =
+      System.get_env("MIX_BUN_PATH") || System.get_env("BUN_BIN") || config[:bun_path] ||
+        System.find_executable("bun")
 
-    if config[:bun_path] != nil do
-      bun_path = config[:bun_path]
-      Application.put_env(:bun, :path, bun_path)
-    else
-      bun_path = System.find_executable("bun")
-      Application.put_env(:bun, :path, bun_path)
-    end
+    runtime_config = Application.get_env(:phoenix_react_server, Phoenix.React.Runtime.Bun, [])
+
+    Application.put_env(
+      :phoenix_react_server,
+      Phoenix.React.Runtime.Bun,
+      Keyword.put(runtime_config, :cmd, bun_path)
+    )
   end
 
   def setup_logger(config) do

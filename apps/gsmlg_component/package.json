@@ -15,6 +15,6 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "0.5.20",
-    "@duskmoon-dev/core": "1.20.7"
+    "@duskmoon-dev/core": "1.20.8"
   }
 }

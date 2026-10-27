@@ -33,7 +33,11 @@ mix credo --strict
 mix ecto.create && mix ecto.migrate
 mix ecto.gen.migration <name> -r GSMLG.Repo
 
-# Build assets
+# Install JavaScript workspace dependencies (frozen install: mix npm.ci)
+mix npm.install
+
+# Build assets with DuskmoonBundler
+mix assets.build
 mix assets.deploy
 
 # Build Docker image (local, bypassing nexus mirror)
@@ -66,7 +70,7 @@ scripts/update_version.sh 1.2.3
 Uses [devenv](https://devenv.sh/) (Nix-based). `devenv shell` automatically:
 - Starts PostgreSQL with Unix socket (sets `PGHOST`, `DATABASE_URL`)
 - Creates `gsmlg_dev` and `gsmlg_test` databases with `gsmlg_dev` user
-- Provides Elixir 1.18.5, OTP 28, Node.js 22/npm, Bun, Tailwind CLI
+- Provides Elixir 1.18.5, OTP 28, Node.js 22 and Bun (React SSR and JS tests)
 
 ## CI
 
@@ -130,7 +134,7 @@ PostgreSQL in production and CI. Dev supports both TCP (`POSTGRES_HOST`) and Uni
 
 ### Frontend
 
-Hybrid rendering: Phoenix LiveView for most pages, React components via `phoenix_react_server` (Bun runtime). Shared components live in `apps/gsmlg_component/assets/component/`. Assets built with Tailwind CSS v4 and Bun.
+Hybrid rendering: Phoenix LiveView for most pages, React components via `phoenix_react_server` (Bun runtime and SSR release bundle). Shared components live in `apps/gsmlg_component/assets/component/`. Both web apps use DuskmoonBundler 10.0 for JavaScript, Tailwind CSS v4, manifests and development HMR. Named profiles are `gsmlg_web` and `gsmlg_admin_web`. Serve source JS under `/assets/js/`, generated CSS under `/assets/css/`, and static service workers at `/sw.js`.
 
 ### UI Framework: Duskmoon
 
@@ -173,9 +177,11 @@ If you encounter missing features, bugs, or need functionality not yet available
 - `GSMLG_CONFIG_PATH` must be set in docker-compose to point to the TOML config file
 - `Dockerfile` base image (`ghcr.io/gsmlg-dev/phoenix`) must be pinned to a specific version tag (e.g. `1.8.5`), not `:latest` — GHCR CDN inconsistency after a rebuild causes the `latest` manifest SHA to resolve but its content to 404
 
-### Bun / JS Package Management
-- `bun.lock` is **git-ignored**. CI regenerates it on every run via `bun install --frozen-lockfile` — this uses the committed `package.json` files, not a lockfile
-- If a JS file directly imports a package (e.g. `@duskmoon-dev/elements/register`), that package **must be listed as a direct dependency** in the app's `package.json` (`apps/gsmlg_web`, `apps/gsmlg_admin_web`). Bun 1.3.x's bundler does not walk up past a workspace's own `node_modules/` to find transitive-only deps when the workspace directory has its own `node_modules/`
+### JS Package Management
+- Use `mix npm.install` from the umbrella root (`duskmoon_npm`); commit the root `package-lock.json`. CI and Docker use `mix npm.ci` for frozen installs. `node_modules/` and the unused legacy `bun.lock` remain ignored.
+- List directly imported packages in the owning app's `package.json`. Use `.jsx` for files containing JSX.
+- Vize uses its supported Rust source build via `config :rustler_precompiled, :force_build, duskmoon_vize: true`; GNU prebuilts require glibc 2.43, which is newer than the Nix and Debian build environments.
+- Bun remains required for `phoenix_react_server` and JavaScript tests. `MIX_BUN_PATH`, `BUN_BIN`, then TOML `gsmlg.bun_path` select the SSR executable. The legacy TOML `tailwind_path` is ignored.
 
 ### Telemetry File Backend
 - The file backend JSON-encodes all telemetry events. Phoenix events include `%Plug.Conn{}` in metadata, which has no `Jason.Encoder` implementation.
