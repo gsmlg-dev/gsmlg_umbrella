@@ -30,13 +30,6 @@ defmodule GSMLG.BrowserAgent.Supervisor do
 
   defp children(%Settings{} = settings) do
     [
-      {Finch,
-       name: GSMLG.BrowserAgent.Finch,
-       pools: %{
-         default: [
-           conn_opts: [transport_opts: [timeout: settings.manager_connect_timeout_ms]]
-         ]
-       }},
       {Journal,
        path: Path.join(settings.state_dir, "journal.dets"),
        journal_terminal_max_records: settings.journal_terminal_max_records,

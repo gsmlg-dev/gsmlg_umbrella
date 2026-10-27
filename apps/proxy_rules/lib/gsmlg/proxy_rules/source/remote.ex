@@ -22,7 +22,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(options) do
-    transport = Keyword.get(options, :transport, GSMLG.ProxyRules.Transport.Finch)
+    transport = Keyword.get(options, :transport, GSMLG.ProxyRules.Transport.HTTPFetch)
 
     if valid_transport?(transport) do
       {gen_options, options} = Keyword.split(options, [:name])
@@ -73,7 +73,7 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     Process.flag(:trap_exit, true)
     config = Keyword.fetch!(options, :config)
     true = match?(%Configuration{}, config)
-    transport = Keyword.get(options, :transport, GSMLG.ProxyRules.Transport.Finch)
+    transport = Keyword.get(options, :transport, GSMLG.ProxyRules.Transport.HTTPFetch)
 
     if valid_transport?(transport) do
       {:ok, initial_state(options, config, transport), {:continue, :restore}}
@@ -214,7 +214,6 @@ defmodule GSMLG.ProxyRules.Source.Remote do
     headers = conditional_headers(state.source)
     options = transport_options(state.config, state.transport_options)
     transport = state.transport
-    options = request_options(transport, options)
     url = state.config.source_url
     max_body_size = state.config.remote_max_body_size
     started = System.monotonic_time()
@@ -505,14 +504,6 @@ defmodule GSMLG.ProxyRules.Source.Remote do
       extra
     )
   end
-
-  # Finch connection establishment is configured on its pool child. The
-  # per-request transport boundary retains connect_timeout for injected
-  # transports, while the Finch adapter receives only options it can apply.
-  defp request_options(GSMLG.ProxyRules.Transport.Finch, options),
-    do: Keyword.delete(options, :connect_timeout)
-
-  defp request_options(_transport, options), do: options
 
   defp valid_headers?(headers) do
     Enum.reduce_while(headers, 0, fn

@@ -38,7 +38,6 @@ defmodule GSMLG.MixProject do
       {:caddy, "~> 2.3"},
       {:swoosh, "~> 1.29"},
       {:tesla, "~> 1.22"},
-      {:finch, "~> 0.24"},
       {:libcluster, "~> 3.5"},
       {:cachex, "~> 4.1"},
       {:concord, "~> 3.1"},

@@ -34,7 +34,7 @@ defmodule GSMLG.GaoNote.Sync.AttachmentWritersTest do
     {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(socket)
     :ok = :gen_tcp.close(socket)
-    start_supervised!({Bandit, plug: ObjectStub, port: port, startup_log: false})
+    start_supervised!({Gaoxy.HTTP, plug: {ObjectStub, []}, port: port})
 
     config = %{
       allowed_types: %{"gao_note_attachment" => :any},

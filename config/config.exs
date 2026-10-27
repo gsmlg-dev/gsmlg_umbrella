@@ -144,7 +144,7 @@ config :gsmlg_tor, GSMLG.Tor.Config,
   conf: nil
 
 config :tesla,
-  adapter: {Tesla.Adapter.Finch, name: GSMLG.Finch}
+  adapter: GSMLG.AWS.HTTPFetchAdapter
 
 # Add mime type to upload notebooks with `Phoenix.LiveView.Upload`
 config :mime, :types, %{

@@ -105,7 +105,7 @@ defmodule GSMLG.Translation.ClaudeProvider do
       Application.get_env(
         :gsmlg,
         :claude_tesla_adapter,
-        {Tesla.Adapter.Finch, name: GSMLG.Finch, receive_timeout: 30_000}
+        {GSMLG.AWS.HTTPFetchAdapter, receive_timeout: 30_000}
       )
 
     Tesla.client(

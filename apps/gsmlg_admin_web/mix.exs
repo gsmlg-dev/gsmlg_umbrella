@@ -45,7 +45,6 @@ defmodule GSMLG.AdminWeb.MixProject do
       {:phoenix_duskmoon, "~> 10.0"},
       {:gaoxy_http, "~> 0.12"},
       {:websock_adapter, "~> 0.12", hex: :gaoxy_websock_adapter, override: true},
-      {:bandit, "~> 1.13", only: :test},
       {:floki, "~> 0.38"},
       {:lazy_html, "~> 0.1"},
       {:phoenix_live_dashboard, "~> 0.9"},

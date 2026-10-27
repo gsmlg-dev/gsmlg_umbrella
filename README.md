@@ -27,7 +27,15 @@ mix phx.server      # http://localhost:4110 and http://localhost:4111
 Both Phoenix endpoints use `Gaoxy.PhoenixAdapter` from `gaoxy_http`. Explicit
 `websock_adapter` overrides select the matching `gaoxy_websock_adapter` Hex
 distribution for LiveView and Channels. TOML still controls each endpoint's
-port and `server` flag. Bandit is a test-only dependency for HTTP fixtures.
+port and `server` flag. HTTP test fixtures also use Gaoxy. HTTP clients use
+http_fetch through Tesla or direct streaming transports, and CDP uses
+http_web_socket.
+
+Finch and Mint remain indirect dependencies: `backplane_mcp_protocol` requires
+Finch ([upstream tracking](https://github.com/gsmlg-opt/backplane/issues/120)),
+and the Burrito build tool requires Req, which also requires Finch. Complete
+removal awaits supported upstream releases for these paths. Bandit and
+mint_web_socket are no longer required.
 
 Direct Hex dependencies use `~> major.minor` requirements. Resolved versions
 are recorded in `mix.lock`.

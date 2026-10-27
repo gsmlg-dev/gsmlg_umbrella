@@ -12,8 +12,7 @@ defmodule GSMLG.AWS do
   @impl true
   def init(_arg) do
     children = [
-      {Cachex, name: :aws_cache},
-      {Finch, name: GSMLG.AWS.Finch}
+      {Cachex, name: :aws_cache}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

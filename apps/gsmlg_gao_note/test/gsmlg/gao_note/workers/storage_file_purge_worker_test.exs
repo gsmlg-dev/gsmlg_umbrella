@@ -255,7 +255,7 @@ defmodule GSMLG.GaoNote.Workers.StorageFilePurgeWorkerTest do
     keys = [:s3_bucket, :s3_endpoint, :storage_purge_worker_test_fail]
     original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     port = available_port()
-    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
+    {:ok, s3_stub} = Gaoxy.HTTP.start_link(plug: {S3Stub, []}, port: port)
 
     Application.put_env(:gsmlg_storage, :s3_bucket, "gsmlg-storage")
     Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")

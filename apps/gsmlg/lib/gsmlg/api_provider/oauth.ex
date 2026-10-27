@@ -185,12 +185,11 @@ defmodule GSMLG.ApiProvider.OAuth do
   defp post_json(url, body) do
     headers = [{"accept", "application/json"}, {"content-type", "application/json"}]
 
-    case Finch.build(:post, url, headers, Jason.encode!(body))
-         |> Finch.request(GSMLG.Finch) do
-      {:ok, %Finch.Response{status: status, body: body}} when status in 200..299 ->
+    case Tesla.request(method: :post, url: url, headers: headers, body: Jason.encode!(body)) do
+      {:ok, %Tesla.Env{status: status, body: body}} when status in 200..299 ->
         {:ok, Jason.decode!(body)}
 
-      {:ok, %Finch.Response{status: status, body: body}} ->
+      {:ok, %Tesla.Env{status: status, body: body}} ->
         Logger.error("[ApiProvider.OAuth] Token request failed #{status}: #{body}")
         {:error, {:http_error, status}}
 

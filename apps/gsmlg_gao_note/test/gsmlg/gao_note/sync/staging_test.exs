@@ -64,7 +64,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
     {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(listener)
     :ok = :gen_tcp.close(listener)
-    start_supervised!({Bandit, plug: DeleteStore, port: port, startup_log: false})
+    start_supervised!({Gaoxy.HTTP, plug: {DeleteStore, []}, port: port})
 
     config = %{
       s3_access_key_id: "test",

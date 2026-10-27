@@ -154,8 +154,7 @@ defmodule GSMLG.Storage.Migration do
   end
 
   defp ensure_transport do
-    {:ok, _apps} = Application.ensure_all_started(:finch)
-    if is_nil(Process.whereis(GSMLG.AWS.Finch)), do: Finch.start_link(name: GSMLG.AWS.Finch)
+    {:ok, _apps} = Application.ensure_all_started(:http_fetch)
     :ok
   end
 end

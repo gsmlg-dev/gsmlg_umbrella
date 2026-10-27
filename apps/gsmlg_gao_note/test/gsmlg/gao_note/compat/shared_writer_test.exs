@@ -635,7 +635,7 @@ defmodule GSMLG.GaoNote.Compat.SharedWriterTest do
     {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(socket)
     :gen_tcp.close(socket)
-    {:ok, stub} = Bandit.start_link(plug: StorageStub, port: port, startup_log: false)
+    {:ok, stub} = Gaoxy.HTTP.start_link(plug: {StorageStub, []}, port: port)
 
     values = %{
       allowed_types: %{"gao_note_attachment" => :any},

@@ -58,7 +58,7 @@ defmodule GSMLG.Web.AgentNoteServicesTest do
     {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(listener)
     :gen_tcp.close(listener)
-    start_supervised!({Bandit, plug: ServiceStub, port: port, startup_log: false})
+    start_supervised!({Gaoxy.HTTP, plug: {ServiceStub, []}, port: port})
     base = "http://127.0.0.1:#{port}"
 
     Application.put_env(:gsmlg_gao_note, :compat_services,

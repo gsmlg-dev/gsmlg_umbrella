@@ -46,7 +46,7 @@ defmodule GSMLG.Storage.MigrationTest do
     {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(listener)
     :ok = :gen_tcp.close(listener)
-    start_supervised!({Bandit, plug: {ObjectStore, objects}, port: port, startup_log: false})
+    start_supervised!({Gaoxy.HTTP, plug: {ObjectStore, objects}, port: port})
 
     config = %{s3_endpoint: "http://127.0.0.1:#{port}", s3_bucket: "export-test"}
 

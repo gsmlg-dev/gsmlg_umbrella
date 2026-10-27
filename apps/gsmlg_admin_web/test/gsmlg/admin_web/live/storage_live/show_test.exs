@@ -36,7 +36,7 @@ defmodule GSMLG.AdminWeb.StorageLive.ShowTest do
     {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(listener)
     :ok = :gen_tcp.close(listener)
-    start_supervised!({Bandit, plug: ObjectStub, port: port, startup_log: false})
+    start_supervised!({Gaoxy.HTTP, plug: {ObjectStub, []}, port: port})
     Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
     Application.put_env(:gsmlg_storage, :s3_bucket, "show-test")
     Application.put_env(:gsmlg_storage, :show_test_s3_metadata, %{})

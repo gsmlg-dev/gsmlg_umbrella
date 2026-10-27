@@ -113,7 +113,7 @@ When adding new config fields: update the TOML file, add to schema.ex, add to se
 ### Supervision Tree
 
 `GSMLG.Application` (core app) starts sequentially:
-`SimpleCache → AWS → SessionProcess.Supervisor → TaskSupervisor → Repo → PubSub → CommandPlatform.Supervisor → Finch → WebPush.Subscriptions → Node.Supervisor → Chess.Supervisor`
+`SimpleCache → AWS → SessionProcess.Supervisor → TaskSupervisor → Repo → PubSub → CommandPlatform.Supervisor → WebPush.Subscriptions → Node.Supervisor → Chess.Supervisor`
 
 `GSMLG.Web.Application`: `Telemetry → Endpoint`
 `GSMLG.AdminWeb.Application`: `Telemetry → Endpoint → Guardian.DB.Sweeper`
@@ -191,7 +191,7 @@ If you encounter missing features, bugs, or need functionality not yet available
 ## Active Technologies
 - Elixir 1.18 / OTP 28 (001-blog-multilang)
 - PostgreSQL via `GSMLG.Repo`. Two schema changes: new `source_locale` column on `blogs`; new `blog_translations` table. (001-blog-multilang)
-- Elixir 1.18 / OTP 28 + Ecto, Styx 0.1, Tesla + Finch (HTTP), Phoenix.PubSub, phoenix_duskmoon, Mox (test) (001-blog-multilang)
+- Elixir 1.18 / OTP 28 + Ecto, Styx 0.1, Tesla + http_fetch (HTTP), Phoenix.PubSub, phoenix_duskmoon, Mox (test) (001-blog-multilang)
 - PostgreSQL (Ecto). Styx uses same Repo. No Mnesia or CouchDB required for this feature. (001-blog-multilang)
 
 ## Recent Changes

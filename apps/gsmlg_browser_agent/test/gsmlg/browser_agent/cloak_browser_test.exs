@@ -2,9 +2,14 @@ defmodule GSMLG.BrowserAgent.Backends.CloakBrowserTest do
   use ExUnit.Case, async: true
 
   alias GSMLG.BrowserAgent.Backends.CloakBrowser
-  alias GSMLG.BrowserAgent.Backends.CloakBrowser.Transport.Finch, as: FinchTransport
+  alias GSMLG.BrowserAgent.Backends.CloakBrowser.Transport.HTTPFetch
   alias GSMLG.BrowserAgent.Backend.ControlConnection
   alias GSMLG.BrowserAgent.Settings
+
+  setup_all do
+    {:ok, _started} = Application.ensure_all_started(:http_fetch)
+    :ok
+  end
 
   defmodule Transport do
     @behaviour GSMLG.BrowserAgent.Backends.CloakBrowser.Transport
@@ -375,20 +380,18 @@ defmodule GSMLG.BrowserAgent.Backends.CloakBrowserTest do
     refute_receive {:manager_request, _, _, _, _, _}
   end
 
-  test "Finch streaming reducer rejects over-limit bodies without retaining the overflow" do
-    initial = FinchTransport.initial_accumulator()
-    assert {:cont, state} = FinchTransport.reduce_response({:status, 200}, initial, 5)
-    assert {:cont, state} = FinchTransport.reduce_response({:data, "12345"}, state, 5)
+  test "HTTP streaming reducer rejects over-limit bodies without retaining the overflow" do
+    initial = HTTPFetch.initial_accumulator()
+    assert {:cont, state} = HTTPFetch.reduce_response({:status, 200}, initial, 5)
+    assert {:cont, state} = HTTPFetch.reduce_response({:data, "12345"}, state, 5)
 
     assert {:halt, %{error: :body_too_large, body_size: 5}} =
-             FinchTransport.reduce_response({:data, "sensitive-overflow"}, state, 5)
+             HTTPFetch.reduce_response({:data, "sensitive-overflow"}, state, 5)
   end
 
-  test "Finch transport returns a successful bounded response when no reducer error exists" do
+  test "HTTP transport returns a successful bounded response when no reducer error exists" do
     {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true])
     {:ok, {_address, port}} = :inet.sockname(listener)
-    finch_name = __MODULE__.SuccessFinch
-    {:ok, _finch} = Finch.start_link(name: finch_name)
 
     server =
       Task.async(fn ->
@@ -409,18 +412,98 @@ defmodule GSMLG.BrowserAgent.Backends.CloakBrowserTest do
     end)
 
     assert {:ok, %{status: 200, body: "{\"ok\":true}"}} =
-             FinchTransport.request(
+             HTTPFetch.request(
                :get,
                "http://127.0.0.1:#{port}/health",
                [],
                "",
-               finch_name: finch_name,
                connect_timeout: 500,
                receive_timeout: 500,
                max_body_bytes: 1_024
              )
 
     assert :ok = Task.await(server)
+  end
+
+  test "transport cancels an unknown-length response when streamed bytes exceed the cap" do
+    {url, server} =
+      start_http_server(
+        "HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\n" <>
+          "5\r\n12345\r\n6\r\nsecret\r\n"
+      )
+
+    assert {:error, :body_too_large} =
+             HTTPFetch.request(:get, url, [], "", network_options(5))
+
+    assert_receive {:http_peer_closed, ^server}, 1_000
+  end
+
+  test "transport returns redirects without replaying credentials to the location" do
+    {url, server} =
+      start_http_server(
+        "HTTP/1.1 302 Found\r\nlocation: http://127.0.0.1:1/private\r\n" <>
+          "content-length: 0\r\n\r\n"
+      )
+
+    assert {:ok, %{status: 302, body: ""}} =
+             HTTPFetch.request(
+               :get,
+               url,
+               [{"authorization", "Bearer private-manager-token"}],
+               "",
+               network_options(5)
+             )
+
+    assert_receive {:http_peer_closed, ^server}, 1_000
+  end
+
+  test "transport preserves oversized response-header failures and closes the connection" do
+    {url, server} =
+      start_http_server(
+        "HTTP/1.1 200 OK\r\nx-private: " <>
+          String.duplicate("x", 65_537) <> "\r\ncontent-length: 0\r\n\r\n"
+      )
+
+    assert {:error, :headers_too_large} =
+             HTTPFetch.request(:get, url, [], "", network_options(5))
+
+    assert_receive {:http_peer_closed, ^server}, 1_000
+  end
+
+  defp start_http_server(response) do
+    {:ok, listener} =
+      :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, ip: {127, 0, 0, 1}])
+
+    {:ok, {_address, port}} = :inet.sockname(listener)
+    parent = self()
+
+    server =
+      spawn(fn ->
+        {:ok, socket} = :gen_tcp.accept(listener)
+        {:ok, _request} = :gen_tcp.recv(socket, 0, 1_000)
+        :ok = :gen_tcp.send(socket, response)
+
+        case :gen_tcp.recv(socket, 0, 2_000) do
+          {:error, reason} when reason in [:closed, :econnreset] ->
+            send(parent, {:http_peer_closed, self()})
+
+          _other ->
+            :ok
+        end
+
+        :gen_tcp.close(socket)
+      end)
+
+    on_exit(fn ->
+      Process.exit(server, :kill)
+      :gen_tcp.close(listener)
+    end)
+
+    {"http://127.0.0.1:#{port}/private-manager-path", server}
+  end
+
+  defp network_options(max_body_bytes) do
+    [connect_timeout: 500, receive_timeout: 500, max_body_bytes: max_body_bytes]
   end
 
   defp respond(responses), do: Process.put({Transport, :responses}, responses)

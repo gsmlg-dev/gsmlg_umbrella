@@ -11,7 +11,7 @@ defmodule GSMLG.AWS.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
-      description: "AWS S3, Route53 and DynamoDB helpers with caching and Finch transport",
+      description: "AWS S3, Route53 and DynamoDB helpers with caching and HTTPFetch transport",
       package: package(),
       aliases: aliases(),
       deps: deps()
@@ -30,7 +30,7 @@ defmodule GSMLG.AWS.MixProject do
     [
       {:aws, "~> 1.0"},
       {:cachex, "~> 4.1"},
-      {:finch, "~> 0.24"},
+      {:http_fetch, "~> 0.21.16"},
       {:tesla, "~> 1.22"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

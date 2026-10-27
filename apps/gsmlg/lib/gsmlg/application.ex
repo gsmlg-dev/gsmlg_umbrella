@@ -29,9 +29,8 @@ defmodule GSMLG.Application do
       # API provider vault — auto-unseals if GSMLG_API_PROVIDER_KEY is configured
       GSMLG.ApiProvider.Vault,
       {GSMLG.CommandPlatform.Supervisor, name: GSMLG.CommandPlatform.Supervisor},
-      # Start distribute Node
-      {Finch, name: GSMLG.Finch},
       GSMLG.WebPush.Subscriptions,
+      # Start distributed Node
       {GSMLG.Node.Supervisor, name: GSMLG.Node.Supervisor},
       {GSMLG.Chess.Supervisor, name: GSMLG.Chess.Supervisor}
       # Telemetry system starts automatically as an OTP application

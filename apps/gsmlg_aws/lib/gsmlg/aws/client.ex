@@ -133,7 +133,7 @@ defmodule GSMLG.AWS.HttpClient do
           # {Tesla.Middleware.Headers, [{"Accept", "application/json"}]},
           {Tesla.Middleware.Logger, debug: false, filter_headers: ["authorization"]}
         ],
-      {Tesla.Adapter.Finch, name: GSMLG.AWS.Finch}
+      GSMLG.AWS.HTTPFetchAdapter
     )
   end
 end

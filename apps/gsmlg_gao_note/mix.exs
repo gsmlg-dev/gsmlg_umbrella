@@ -31,11 +31,12 @@ defmodule GSMLG.GaoNote.MixProject do
       {:gsmlg, in_umbrella: true},
       {:gsmlg_storage, in_umbrella: true},
       {:styx, "~> 0.1"},
-      {:bandit, "~> 1.13", only: :test},
+      {:gaoxy_http, "~> 0.12", only: :test},
       {:plug, "~> 1.20"},
+      # TODO(upstream): gsmlg-opt/backplane#120 still requires Finch/Mint transitively.
       {:backplane_mcp_protocol, "~> 1.10"},
       {:jason, "~> 1.4"},
-      {:finch, "~> 0.24"},
+      {:tesla, "~> 1.22"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

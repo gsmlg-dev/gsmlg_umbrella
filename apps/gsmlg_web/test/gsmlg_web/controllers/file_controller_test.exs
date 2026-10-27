@@ -37,7 +37,7 @@ defmodule GSMLG.Web.FileControllerTest do
     {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(socket)
     :gen_tcp.close(socket)
-    start_supervised!({Bandit, plug: S3Stub, port: port, startup_log: false})
+    start_supervised!({Gaoxy.HTTP, plug: {S3Stub, []}, port: port})
     Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
     Application.put_env(:gsmlg_storage, :s3_bucket, "controller-test")
 

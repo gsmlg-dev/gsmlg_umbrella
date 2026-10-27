@@ -47,9 +47,7 @@ defmodule GSMLG.GaoNoteTest do
             :normal
           )
 
-          notify(
-            {:s3_get_blocked, self(), conn.request_path, range}
-          )
+          notify({:s3_get_blocked, self(), conn.request_path, range})
 
           receive do
             {:release_s3_get, status, body} ->
@@ -78,7 +76,7 @@ defmodule GSMLG.GaoNoteTest do
       send_resp(conn, 204, "")
     end
 
-    match _, do: send_resp(conn, 200, "")
+    match(_, do: send_resp(conn, 200, ""))
 
     defp notify(message) do
       if pid = Application.get_env(:gsmlg_storage, :gao_note_test_pid) do
@@ -436,9 +434,7 @@ defmodule GSMLG.GaoNoteTest do
 
     test "rejects tuple uploads and mixed Plug.Upload content sources" do
       with_storage_test_config(fn ->
-        assert {:error,
-                {:attachment,
-                 %{code: :unsupported_content_source, id: "tuple-upload"}}} =
+        assert {:error, {:attachment, %{code: :unsupported_content_source, id: "tuple-upload"}}} =
                  GaoNote.create_note(
                    %{
                      title: "Tuple upload",
@@ -461,9 +457,7 @@ defmodule GSMLG.GaoNoteTest do
           content_type: "text/plain"
         }
 
-        assert {:error,
-                {:attachment,
-                 %{code: :multiple_content_sources, id: "mixed-upload"}}} =
+        assert {:error, {:attachment, %{code: :multiple_content_sources, id: "mixed-upload"}}} =
                  GaoNote.create_note(
                    %{
                      title: "Mixed upload",
@@ -506,13 +500,12 @@ defmodule GSMLG.GaoNoteTest do
                       id: "trusted-upload",
                       path: "./trusted.txt",
                       mime: "text/plain",
-                      storage_file:
-                        %StorageFile{
-                          type: "gao_note_attachment",
-                          filename: "trusted.txt",
-                          content_type: "text/plain",
-                          variants: %{}
-                        }
+                      storage_file: %StorageFile{
+                        type: "gao_note_attachment",
+                        filename: "trusted.txt",
+                        content_type: "text/plain",
+                        variants: %{}
+                      }
                     }
                   ]
                 }} =
@@ -754,9 +747,7 @@ defmodule GSMLG.GaoNoteTest do
                  Repo.transaction(fn ->
                    assert Repo.in_transaction?()
 
-                   assert {:error,
-                           {:attachments,
-                            %{code: :external_transaction_not_supported}}} =
+                   assert {:error, {:attachments, %{code: :external_transaction_not_supported}}} =
                             GaoNote.create_note(
                               %{
                                 title: title,
@@ -801,9 +792,7 @@ defmodule GSMLG.GaoNoteTest do
                  Repo.transaction(fn ->
                    assert Repo.in_transaction?()
 
-                   assert {:error,
-                           {:attachments,
-                            %{code: :external_transaction_not_supported}}} =
+                   assert {:error, {:attachments, %{code: :external_transaction_not_supported}}} =
                             GaoNote.update_note(
                               note,
                               %{
@@ -1001,8 +990,7 @@ defmodule GSMLG.GaoNoteTest do
 
     test "rejects a new attachment without content" do
       with_storage_test_config(fn ->
-        assert {:error,
-                {:attachment, %{code: :content_required, id: "missing-content"}}} =
+        assert {:error, {:attachment, %{code: :content_required, id: "missing-content"}}} =
                  GaoNote.create_note(
                    %{
                      title: "Missing content",
@@ -1093,9 +1081,7 @@ defmodule GSMLG.GaoNoteTest do
 
     test "a mid-batch staging failure purges every earlier staged file" do
       with_storage_test_config(fn ->
-        assert {:error,
-                {:attachment,
-                 %{code: :mime_mismatch, id: "batch-second"}}} =
+        assert {:error, {:attachment, %{code: :mime_mismatch, id: "batch-second"}}} =
                  GaoNote.create_note(
                    %{
                      title: "Mid-batch failure",
@@ -1137,8 +1123,7 @@ defmodule GSMLG.GaoNoteTest do
           text_attachment("second", "./docs//file.txt", "two")
         ]
 
-        assert {:error,
-                {:attachments, %{code: :duplicate_path, path: "./docs/file.txt"}}} =
+        assert {:error, {:attachments, %{code: :duplicate_path, path: "./docs/file.txt"}}} =
                  GaoNote.create_note(
                    %{title: "Duplicate path", content: "Body", attachments: duplicate_path},
                    actor()
@@ -1176,9 +1161,7 @@ defmodule GSMLG.GaoNoteTest do
 
         other = note_fixture(%{title: "Other"})
 
-        assert {:error,
-                {:attachment,
-                 %{code: :owned_by_another_note, id: "global-id"}}} =
+        assert {:error, {:attachment, %{code: :owned_by_another_note, id: "global-id"}}} =
                  GaoNote.update_note(
                    other,
                    %{
@@ -1683,7 +1666,9 @@ defmodule GSMLG.GaoNoteTest do
                  deleted_note = GaoNote.get_deleted_note(note_id)
 
         assert %StorageFile{status: "active"} = Storage.get(attachment.storage_file_id)
-        assert {:error, :not_found} = GaoNote.get_attachment_by_path(note_id, "docs/lifecycle.txt")
+
+        assert {:error, :not_found} =
+                 GaoNote.get_attachment_by_path(note_id, "docs/lifecycle.txt")
 
         assert {:ok, %Attachment{id: "lifecycle"}} =
                  GaoNote.get_deleted_attachment_by_path(note_id, "./docs/lifecycle.txt")
@@ -1881,8 +1866,7 @@ defmodule GSMLG.GaoNoteTest do
             assert_enqueued(
               worker: StorageFilePurgeWorker,
               args: %{
-                storage_file_id:
-                  original.storage_file_id
+                storage_file_id: original.storage_file_id
               }
             )
 
@@ -1964,9 +1948,7 @@ defmodule GSMLG.GaoNoteTest do
           "original bytes"
         )
 
-        assert {:ok,
-                %Attachment{storage_file_id: ^storage_file_id},
-                "original bytes"} =
+        assert {:ok, %Attachment{storage_file_id: ^storage_file_id}, "original bytes"} =
                  GaoNote.get_attachment_with_content(
                    note.id,
                    updated.id
@@ -2046,8 +2028,7 @@ defmodule GSMLG.GaoNoteTest do
           "replacement bytes"
         )
 
-        assert {:ok,
-                %Attachment{storage_file_id: replacement_storage_file_id},
+        assert {:ok, %Attachment{storage_file_id: replacement_storage_file_id},
                 "replacement bytes"} =
                  GaoNote.get_attachment_with_content(
                    note.id,
@@ -2099,10 +2080,9 @@ defmodule GSMLG.GaoNoteTest do
                     %Attachment{
                       id: "standalone-base64-replace",
                       mime: "application/octet-stream",
-                      storage_file:
-                        %StorageFile{
-                          content_type: "application/octet-stream"
-                        }
+                      storage_file: %StorageFile{
+                        content_type: "application/octet-stream"
+                      }
                     } = replaced} =
                      GaoNote.put_attachment(
                        note.id,
@@ -2112,8 +2092,7 @@ defmodule GSMLG.GaoNoteTest do
                          mime: "application/octet-stream",
                          description: "Binary replacement",
                          update_content: true,
-                         content_base64:
-                           Base.encode64(replacement_bytes)
+                         content_base64: Base.encode64(replacement_bytes)
                        }),
                        actor("base64-editor")
                      )
@@ -2200,8 +2179,7 @@ defmodule GSMLG.GaoNoteTest do
                    all_enqueued(
                      worker: StorageFilePurgeWorker,
                      args: %{
-                       storage_file_id:
-                         original.storage_file_id
+                       storage_file_id: original.storage_file_id
                      }
                    )
         end)
@@ -2286,8 +2264,7 @@ defmodule GSMLG.GaoNoteTest do
                 Base.encode64("unexpected")
               )
             ] do
-          assert {:error,
-                  {:attachment, %{code: :content_not_allowed}}} =
+          assert {:error, {:attachment, %{code: :content_not_allowed}}} =
                    GaoNote.put_attachment(
                      note.id,
                      attachment.id,
@@ -2296,8 +2273,7 @@ defmodule GSMLG.GaoNoteTest do
                    )
         end
 
-        assert {:error,
-                {:attachment, %{code: :content_required}}} =
+        assert {:error, {:attachment, %{code: :content_required}}} =
                  GaoNote.put_attachment(
                    note.id,
                    attachment.id,
@@ -2305,9 +2281,7 @@ defmodule GSMLG.GaoNoteTest do
                    actor()
                  )
 
-        assert {:error,
-                {:attachment,
-                 %{code: :multiple_content_sources}}} =
+        assert {:error, {:attachment, %{code: :multiple_content_sources}}} =
                  GaoNote.put_attachment(
                    note.id,
                    attachment.id,
@@ -2321,9 +2295,7 @@ defmodule GSMLG.GaoNoteTest do
                    actor()
                  )
 
-        assert {:error,
-                {:attachment_input,
-                 %{code: :invalid, changeset: changeset}}} =
+        assert {:error, {:attachment_input, %{code: :invalid, changeset: changeset}}} =
                  GaoNote.put_attachment(
                    note.id,
                    attachment.id,
@@ -2336,12 +2308,9 @@ defmodule GSMLG.GaoNoteTest do
                    actor()
                  )
 
-        assert "must be standard padded Base64" in
-                 errors_on(changeset).content_base64
+        assert "must be standard padded Base64" in errors_on(changeset).content_base64
 
-        assert {:error,
-                {:attachment_input,
-                 %{code: :required, fields: [:update_content]}}} =
+        assert {:error, {:attachment_input, %{code: :required, fields: [:update_content]}}} =
                  GaoNote.put_attachment(
                    note.id,
                    attachment.id,
@@ -2349,9 +2318,7 @@ defmodule GSMLG.GaoNoteTest do
                    actor()
                  )
 
-        assert {:error,
-                {:attachment_input,
-                 %{code: :invalid, field: :update_content}}} =
+        assert {:error, {:attachment_input, %{code: :invalid, field: :update_content}}} =
                  GaoNote.put_attachment(
                    note.id,
                    attachment.id,
@@ -2402,9 +2369,7 @@ defmodule GSMLG.GaoNoteTest do
 
         assert owner_note_id == owner.id
 
-        assert {:error,
-                {:attachment,
-                 %{code: :not_found, id: "missing-standalone"}}} =
+        assert {:error, {:attachment, %{code: :not_found, id: "missing-standalone"}}} =
                  GaoNote.put_attachment(
                    owner.id,
                    "missing-standalone",
@@ -2515,17 +2480,14 @@ defmodule GSMLG.GaoNoteTest do
           )
         end)
 
-        assert {:error,
-                {:attachment,
-                 %{code: :owned_by_another_note}}} =
+        assert {:error, {:attachment, %{code: :owned_by_another_note}}} =
                  GaoNote.delete_attachment(
                    other_note.id,
                    kept.id,
                    actor()
                  )
 
-        assert {:error,
-                {:attachment, %{code: :not_found}}} =
+        assert {:error, {:attachment, %{code: :not_found}}} =
                  GaoNote.delete_attachment(
                    note.id,
                    "missing-delete",
@@ -2594,8 +2556,7 @@ defmodule GSMLG.GaoNoteTest do
                    all_enqueued(
                      worker: StorageFilePurgeWorker,
                      args: %{
-                       storage_file_id:
-                         attachment.storage_file_id
+                       storage_file_id: attachment.storage_file_id
                      }
                    )
         end)
@@ -2665,9 +2626,7 @@ defmodule GSMLG.GaoNoteTest do
         assert [{"topic", "after"}] =
                  Enum.map(updated.labels, fn label ->
                    {
-                     LabelSetting.normalized_key(
-                       label.label_setting.name
-                     ),
+                     LabelSetting.normalized_key(label.label_setting.name),
                      label.value
                    }
                  end)
@@ -2817,7 +2776,7 @@ defmodule GSMLG.GaoNoteTest do
 
     original = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     port = available_port()
-    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
+    {:ok, s3_stub} = Gaoxy.HTTP.start_link(plug: {S3Stub, []}, port: port)
 
     Application.put_env(:gsmlg_storage, :allowed_types, %{"gao_note_attachment" => :any})
     Application.put_env(:gsmlg_storage, :gao_note_test_get_mode, :normal)

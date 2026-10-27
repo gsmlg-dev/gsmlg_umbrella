@@ -209,11 +209,9 @@ defmodule GSMLG.GaoNote.Sync.StateQueryTest do
     {:ok, state} = Agent.start_link(fn -> %{status: 200, size: 4} end)
 
     server =
-      start_supervised!(
-        {Bandit, plug: {HeadStub, owner: self(), state: state}, port: 0, startup_log: false}
-      )
+      start_supervised!({Gaoxy.HTTP, plug: {HeadStub, owner: self(), state: state}, port: 0})
 
-    {:ok, {_, port}} = ThousandIsland.listener_info(server)
+    {:ok, {_, port}} = Gaoxy.info(server, :http).local
     previous = Application.fetch_env(:gsmlg_storage, :s3_endpoint)
     Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
 

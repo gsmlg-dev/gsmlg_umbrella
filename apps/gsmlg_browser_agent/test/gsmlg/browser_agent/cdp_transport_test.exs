@@ -4,7 +4,7 @@ defmodule GSMLG.BrowserAgent.CDPTransportTest do
   alias GSMLG.BrowserAgent.CDP.Transport.HTTPWebSocket
 
   setup_all do
-    {:ok, _started} = Application.ensure_all_started(:telemetry)
+    {:ok, _started} = Application.ensure_all_started(:http_web_socket)
     :ok
   end
 
@@ -17,6 +17,49 @@ defmodule GSMLG.BrowserAgent.CDPTransportTest do
     [:http_web_socket, :close, :start],
     [:http_web_socket, :close, :stop]
   ]
+
+  test "emits sanitized websocket lifecycle telemetry and stops the client with its owner" do
+    sentinel = "observable-owner-secret"
+    {url, _server} = start_websocket_server(:idle, sentinel)
+    owner = spawn(fn -> Process.sleep(:infinity) end)
+    handler_id = {__MODULE__, make_ref()}
+
+    :ok =
+      :telemetry.attach_many(
+        handler_id,
+        @telemetry_events,
+        &__MODULE__.handle_lifecycle_telemetry/4,
+        self()
+      )
+
+    on_exit(fn ->
+      :telemetry.detach(handler_id)
+      Process.exit(owner, :kill)
+    end)
+
+    assert {:ok, socket} = HTTPWebSocket.connect(url, auth_headers(), owner, transport_opts())
+    assert_receive {:server_request, _request}, 1_000
+    client = :sys.get_state(socket).websocket.pid
+
+    assert_receive {:websocket_lifecycle, ^client, [:http_web_socket, :connect, :start], start},
+                   1_000
+
+    assert_receive {:websocket_lifecycle, ^client, [:http_web_socket, :connect, :stop], stop},
+                   1_000
+
+    for metadata <- [start, stop] do
+      refute Map.has_key?(metadata, :url)
+      refute inspect(metadata) =~ sentinel
+      refute inspect(metadata) =~ "bearer secret"
+    end
+
+    wrapper_monitor = Process.monitor(socket)
+    client_monitor = Process.monitor(client)
+    Process.exit(owner, :kill)
+
+    assert_receive {:DOWN, ^wrapper_monitor, :process, ^socket, _reason}, 1_000
+    assert_receive {:DOWN, ^client_monitor, :process, ^client, _reason}, 1_000
+  end
 
   test "connect telemetry never receives the raw CDP target URL" do
     sentinel = "connect-profile-secret"
@@ -100,6 +143,17 @@ defmodule GSMLG.BrowserAgent.CDPTransportTest do
     assert_receive_event(socket, :error)
   end
 
+  test "answers protocol pings and still delivers the next CDP message" do
+    payload = ~s({"id":1,"result":{"pong":true}})
+    {url, _server} = start_websocket_server({:ping_then_text, payload}, "ping-lifecycle")
+
+    assert {:ok, socket} = HTTPWebSocket.connect(url, auth_headers(), self(), transport_opts())
+    assert_receive {:server_request, _request}, 1_000
+    assert_receive_event(socket, :open)
+    assert_receive_event(socket, {:text, payload})
+    assert :ok = HTTPWebSocket.close(socket)
+  end
+
   test "outgoing messages remain bounded" do
     {url, _server} = start_websocket_server(:idle, "bounded-send")
     opts = Keyword.put(transport_opts(), :max_send_queue_bytes, 32)
@@ -108,6 +162,31 @@ defmodule GSMLG.BrowserAgent.CDPTransportTest do
     assert_receive {:server_request, _request}, 1_000
     assert_receive_event(socket, :open)
     assert {:error, :send_queue_full} = HTTPWebSocket.send(socket, String.duplicate("x", 33))
+  end
+
+  test "aggregate pending sends fail closed when their combined bytes exceed the queue cap" do
+    {url, _server} = start_websocket_server(:drain_until_close, "aggregate-send-cap")
+    opts = Keyword.put(transport_opts(), :max_send_queue_bytes, 32)
+
+    assert {:ok, socket} = HTTPWebSocket.connect(url, auth_headers(), self(), opts)
+    assert_receive {:server_request, _request}, 1_000
+    assert_receive_event(socket, :open)
+    monitor = Process.monitor(socket)
+    :ok = :sys.suspend(socket)
+
+    try do
+      first = Task.async(fn -> HTTPWebSocket.send(socket, String.duplicate("x", 20)) end)
+      await_queued_calls(socket, 1)
+      second = Task.async(fn -> HTTPWebSocket.send(socket, String.duplicate("y", 20)) end)
+      await_queued_calls(socket, 2)
+      :ok = :sys.resume(socket)
+
+      assert {:error, :send_queue_full} = Task.await(second)
+      assert Task.await(first) in [:ok, {:error, :closed}]
+      assert_receive {:DOWN, ^monitor, :process, ^socket, _reason}, 1_000
+    after
+      if Process.alive?(socket), do: :sys.resume(socket)
+    end
   end
 
   test "the private connection stops when its owner exits" do
@@ -195,6 +274,13 @@ defmodule GSMLG.BrowserAgent.CDPTransportTest do
     :ok
   end
 
+  defp run_server_script(socket, :drain_until_close) do
+    case :gen_tcp.recv(socket, 0, 2_000) do
+      {:ok, _frame} -> run_server_script(socket, :drain_until_close)
+      {:error, _reason} -> :ok
+    end
+  end
+
   defp run_server_script(socket, {:send_text, payload}) do
     :ok = :gen_tcp.send(socket, text_frame(payload))
     _ = :gen_tcp.recv(socket, 0, 2_000)
@@ -218,8 +304,32 @@ defmodule GSMLG.BrowserAgent.CDPTransportTest do
     Process.sleep(50)
   end
 
+  defp run_server_script(socket, {:ping_then_text, payload}) do
+    :ok = :gen_tcp.send(socket, <<0x89, 0>>)
+    {:ok, <<0x8A, 0x80, _mask::binary-size(4)>>} = :gen_tcp.recv(socket, 6, 1_000)
+    :ok = :gen_tcp.send(socket, text_frame(payload))
+    _ = :gen_tcp.recv(socket, 0, 1_000)
+    :ok
+  end
+
   defp text_frame(payload) when byte_size(payload) <= 125,
     do: <<0x81, byte_size(payload), payload::binary>>
+
+  defp await_queued_calls(socket, count, attempts \\ 100)
+
+  defp await_queued_calls(socket, count, attempts) when attempts > 0 do
+    case Process.info(socket, :message_queue_len) do
+      {:message_queue_len, size} when size >= count ->
+        :ok
+
+      _other ->
+        Process.sleep(5)
+        await_queued_calls(socket, count, attempts - 1)
+    end
+  end
+
+  defp await_queued_calls(_socket, count, 0),
+    do: flunk("timed out queuing #{count} concurrent transport sends")
 
   defp attach_transport_telemetry(sentinel) do
     handler_id = "cdp-transport-no-raw-url-#{sentinel}-#{System.unique_integer([:positive])}"
@@ -238,6 +348,10 @@ defmodule GSMLG.BrowserAgent.CDPTransportTest do
 
   def handle_transport_telemetry(event, _measurements, metadata, pid) do
     send(pid, {:transport_telemetry, event, metadata})
+  end
+
+  def handle_lifecycle_telemetry(event, _measurements, metadata, pid) do
+    send(pid, {:websocket_lifecycle, self(), event, metadata})
   end
 
   defp refute_telemetry_leak(sentinel) do

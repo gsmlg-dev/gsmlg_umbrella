@@ -1,12 +1,12 @@
 # GSMLG.CouchDB
 
-**Elixir HTTP client for Apache CouchDB with persistent connections and built-in telemetry**
+**Elixir HTTP client for Apache CouchDB with concurrent requests and built-in telemetry**
 
-GSMLG.CouchDB is a lightweight, production-ready HTTP client for Apache CouchDB built on top of Mint for HTTP/1.1 persistent connections. It provides a clean Elixir API for all CouchDB operations including databases, documents, Mango queries, indexes, and attachments.
+GSMLG.CouchDB is a lightweight, production-ready HTTP client for Apache CouchDB built on HTTPFetch for concurrent HTTP/1.1 requests. It provides a clean Elixir API for all CouchDB operations including databases, documents, Mango queries, indexes, and attachments.
 
 ## Features
 
-- **Persistent HTTP/1.1 connections** - Single GenServer manages connection lifecycle
+- **Concurrent HTTP/1.1 requests** - Single GenServer coordinates request lifecycles
 - **Complete CouchDB API coverage** - Databases, documents, queries, indexes, attachments
 - **Mango query support** - Declarative JSON querying with full parameter support
 - **Bulk operations** - Efficient batch document operations
@@ -637,28 +637,16 @@ Emitted when connection to CouchDB is established.
 
 ## Connection Model
 
-GSMLG.CouchDB uses a single GenServer to manage a persistent HTTP/1.1 connection via Mint:
+GSMLG.CouchDB uses a single `GSMLG.CouchDB.Connection` GenServer to coordinate
+concurrent HTTPFetch requests. Each request owns its connection and response
+stream. Replies are correlated with their callers even when requests complete
+out of order.
 
-**Architecture:**
-- Single `GSMLG.CouchDB.Connection` GenServer per application
-- Persistent connection with HTTP/1.1 keep-alive
-- Automatic request/response correlation
-- Basic authentication on every request
-- Asynchronous request handling
-
-**Benefits:**
-- Connection reuse (no TCP handshake overhead)
-- Simple architecture (no connection pool complexity)
-- Predictable behavior (serialized requests)
-
-**Trade-offs:**
-- Serial request processing (one at a time)
-- Single point of failure (connection restart on error)
-
-**For high concurrency:**
-- Use external connection pooling (Poolboy, NimblePool)
-- Run multiple Connection processes
-- Consider CouchDB clustering for horizontal scaling
+Basic authentication is sent with every request. JSON request encoding and
+response decoding keep the existing public API. Redirects are returned directly.
+Transport failures return error tuples without restarting the coordinator.
+Stopping the coordinator cancels pending requests, closes their network resources,
+and replies to waiting callers with `{:error, :closed}`.
 
 ## Error Handling
 
@@ -683,7 +671,7 @@ All functions return `{:ok, result}` or `{:error, reason}` tuples.
 {:error, %{error: "unauthorized", reason: "Authentication required"}}
 
 # Connection error
-{:error, %Mint.TransportError{reason: :econnrefused}}
+{:error, :econnrefused}
 ```
 
 **Bang variants** raise on error:
@@ -969,7 +957,7 @@ end
 
 ### Connection refused
 
-**Error:** `{:error, %Mint.TransportError{reason: :econnrefused}}`
+**Error:** `{:error, :econnrefused}`
 
 **Causes:**
 1. CouchDB is not running
@@ -1053,18 +1041,18 @@ Docs.put_doc("myapp", "doc123", Map.put(doc, :field, "new_value"))
 
 | Feature | GSMLG.CouchDB | Couchex | Raw HTTP |
 |---------|---------------|---------|----------|
-| **Connection** | Persistent (Mint) | Per-request | Per-request |
+| **Connection** | Per-request (HTTPFetch) | Per-request | Per-request |
 | **API Style** | Function-based | Function-based | Manual |
 | **Auth** | Built-in Basic | Built-in | Manual headers |
 | **Telemetry** | Built-in | None | Manual |
-| **Dependencies** | Jason, Mint | HTTPoison, Jason | HTTPoison |
+| **Dependencies** | Jason, HTTPFetch | HTTPoison, Jason | HTTPoison |
 | **Complexity** | Low | Low | High |
-| **Performance** | High (persistent) | Medium | Low-Medium |
+| **Performance** | Concurrent requests | Medium | Low-Medium |
 
 **When to use GSMLG.CouchDB:**
-- Need persistent connections for better performance
+- Need concurrent requests through a single coordinator
 - Want built-in telemetry and monitoring
-- Prefer lightweight dependencies (Mint vs HTTPoison)
+- Prefer an HTTPFetch-based client
 - Need production-ready client with good defaults
 
 **When to use alternatives:**

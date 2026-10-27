@@ -865,7 +865,7 @@ while time.monotonic() < end:
              Bitwise.band(File.stat!(file.path).mode, 0o777) == 0o600
            end)
 
-    stop_supervised!(Bandit)
+    stop_supervised!({Gaoxy.HTTP, :http})
     begin_timer = channel_state(socket).assigns.waiting.timer
     assert Process.read_timer(begin_timer) in 1..10_000
     reply(socket, ref, %{})
@@ -1038,7 +1038,7 @@ while time.monotonic() < end:
         prepared = channel_state(socket).assigns.outgoing
         assert map_size(prepared.prepared) == 2
         assert channel_state(socket).assigns.preparation_timer == nil
-        stop_supervised!(Bandit)
+        stop_supervised!({Gaoxy.HTTP, :http})
         reply(socket, ref, %{})
         event = socket |> collect_blob(payload["transfer_id"], "event", []) |> Jason.decode!()
 
@@ -1166,12 +1166,11 @@ while time.monotonic() < end:
   defp attachment_server(bytes) do
     server =
       start_supervised!(
-        {Bandit,
-         plug: {AttachmentObjectStub, owner: self(), bytes: bytes}, port: 0, startup_log: false},
-        id: Bandit
+        {Gaoxy.HTTP, plug: {AttachmentObjectStub, owner: self(), bytes: bytes}, port: 0},
+        id: {Gaoxy.HTTP, :http}
       )
 
-    {:ok, {_, port}} = ThousandIsland.listener_info(server)
+    {:ok, {_, port}} = Gaoxy.info(server, :http).local
     keys = [:s3_bucket, :s3_endpoint]
     previous = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     Application.put_env(:gsmlg_storage, :s3_bucket, "channel-read-test")

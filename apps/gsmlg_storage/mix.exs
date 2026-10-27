@@ -32,6 +32,7 @@ defmodule GSMLG.Storage.MixProject do
       {:gsmlg, in_umbrella: true},
       {:gsmlg_aws, in_umbrella: true},
       {:vix, "~> 0.42"},
+      {:gaoxy_http, "~> 0.12", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

@@ -1,7 +1,7 @@
 # GSMLG.AWS
 
 AWS helpers for S3 objects, Route53 DNS records and DynamoDB tables. Requests use
-the AWS SDK through a Tesla/Finch transport; selected listing calls use Cachex.
+the AWS SDK through a Tesla/http_fetch transport; selected listing calls use Cachex.
 
 ## Installation
 
@@ -16,7 +16,7 @@ use `{:gsmlg_aws, in_umbrella: true}` instead.
 
 ## Usage
 
-Add `{GSMLG.AWS, []}` to your supervision tree to start the cache and Finch pool.
+Add `{GSMLG.AWS, []}` to your supervision tree to start the cache. The http_fetch application supervises HTTP transport resources.
 Supply credentials under a named provider in application configuration:
 
 ```elixir

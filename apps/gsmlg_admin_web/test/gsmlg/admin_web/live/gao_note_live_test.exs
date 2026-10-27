@@ -77,7 +77,7 @@ defmodule GSMLG.AdminWeb.GaoNoteLiveTest do
       Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
 
     port = available_port()
-    {:ok, s3_stub} = Bandit.start_link(plug: S3Stub, port: port, startup_log: false)
+    {:ok, s3_stub} = Gaoxy.HTTP.start_link(plug: {S3Stub, []}, port: port)
 
     Application.put_env(:gsmlg_storage, :allowed_types, %{"gao_note_attachment" => :any})
     Application.put_env(:gsmlg_storage, :gao_note_live_test_object, "")

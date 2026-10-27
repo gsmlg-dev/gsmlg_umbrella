@@ -110,13 +110,11 @@ defmodule GSMLG.Storage.FolderOperationsTest do
 
     server =
       start_supervised!(
-        {Bandit,
-         plug: {ObjectStore, %{pid: self(), objects: objects, faults: faults}},
-         port: 0,
-         startup_log: false}
+        {Gaoxy.HTTP,
+         plug: {ObjectStore, %{pid: self(), objects: objects, faults: faults}}, port: 0}
       )
 
-    {:ok, {_, port}} = ThousandIsland.listener_info(server)
+    {:ok, {_, port}} = Gaoxy.info(server, :http).local
     Application.put_env(:gsmlg_storage, :s3_bucket, "folders-test")
     Application.put_env(:gsmlg_storage, :s3_endpoint, "http://127.0.0.1:#{port}")
 

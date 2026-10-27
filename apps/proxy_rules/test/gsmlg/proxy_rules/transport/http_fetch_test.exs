@@ -1,17 +1,16 @@
-defmodule GSMLG.ProxyRules.Transport.FinchTest do
+defmodule GSMLG.ProxyRules.Transport.HTTPFetchTest do
   use ExUnit.Case, async: true
 
   alias GSMLG.ProxyRules.Transport
-  alias GSMLG.ProxyRules.Transport.Finch, as: FinchTransport
+  alias GSMLG.ProxyRules.Transport.HTTPFetch, as: HTTPFetchTransport
   alias GSMLG.ProxyRules.Snapshot
 
-  setup do
-    finch_name = String.to_atom("proxy_rules_finch_#{System.unique_integer([:positive])}")
-    start_supervised!({Finch, name: finch_name})
-    %{finch_name: finch_name}
+  setup_all do
+    {:ok, _applications} = Application.ensure_all_started(:http_fetch)
+    :ok
   end
 
-  test "streams a small chunked response and preserves binary headers", %{finch_name: finch_name} do
+  test "streams a small chunked response and preserves binary headers" do
     {url, server} =
       start_server(fn socket, parent ->
         recv_request(socket)
@@ -29,8 +28,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
       end)
 
     assert {:ok, %{status: 200, headers: headers, body: "hello world"}} =
-             FinchTransport.get(url, [{"accept", "text/plain"}],
-               finch_name: finch_name,
+             HTTPFetchTransport.get(url, [{"accept", "text/plain"}],
                receive_timeout: 1_000,
                max_body_size: 32
              )
@@ -44,9 +42,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     await_server(server)
   end
 
-  test "halts an oversized chunked response before the server releases the remainder", %{
-    finch_name: finch_name
-  } do
+  test "halts an oversized chunked response before the server releases the remainder" do
     parent = self()
 
     {url, server} =
@@ -68,8 +64,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
       end)
 
     assert {:error, :body_too_large} =
-             FinchTransport.get(url, [],
-               finch_name: finch_name,
+             HTTPFetchTransport.get(url, [],
                receive_timeout: 1_000,
                max_body_size: 5
              )
@@ -80,7 +75,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     await_server(server)
   end
 
-  test "accepts the exact body limit and rejects limit plus one", %{finch_name: finch_name} do
+  test "accepts the exact body limit and rejects limit plus one" do
     for {body, expected} <- [{"12345", {:ok, "12345"}}, {"123456", {:error, :body_too_large}}] do
       {url, server} =
         start_server(fn socket, _parent ->
@@ -101,20 +96,18 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
       case expected do
         {:ok, expected_body} ->
           assert {:ok, %{body: ^expected_body}} =
-                   FinchTransport.get(url, [], transport_options(finch_name, 5))
+                   HTTPFetchTransport.get(url, [], transport_options(5))
 
         {:error, reason} ->
           assert {:error, ^reason} =
-                   FinchTransport.get(url, [], transport_options(finch_name, 5))
+                   HTTPFetchTransport.get(url, [], transport_options(5))
       end
 
       await_server(server)
     end
   end
 
-  test "supports content-length bodies and empty 204 and 304 responses", %{
-    finch_name: finch_name
-  } do
+  test "supports content-length bodies and empty 204 and 304 responses" do
     for {status, body} <- [{200, "content"}, {204, ""}, {304, ""}] do
       {url, server} =
         start_server(fn socket, _parent ->
@@ -129,8 +122,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
         end)
 
       assert {:ok, %{status: ^status, body: ^body}} =
-               FinchTransport.get(url, [],
-                 finch_name: finch_name,
+               HTTPFetchTransport.get(url, [],
                  receive_timeout: 1_000,
                  max_body_size: 32
                )
@@ -139,9 +131,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     end
   end
 
-  test "discards interim response headers and body accounting before the final response", %{
-    finch_name: finch_name
-  } do
+  test "discards interim response headers and body accounting before the final response" do
     {url, server} =
       start_server(fn socket, _parent ->
         recv_request(socket)
@@ -160,14 +150,14 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
       end)
 
     assert {:ok, %{status: 200, headers: headers, body: "ok"}} =
-             FinchTransport.get(url, [], transport_options(finch_name, 8))
+             HTTPFetchTransport.get(url, [], transport_options(8))
 
     assert header_value(headers, "etag") == "final"
     refute Enum.any?(headers, fn {_name, value} -> value == "interim" end)
     await_server(server)
   end
 
-  test "halts when aggregate response headers exceed the fixed limit", %{finch_name: finch_name} do
+  test "halts when aggregate response headers exceed the fixed limit" do
     large_headers =
       for index <- 1..70 do
         ["X-Large-", Integer.to_string(index), ": ", :binary.copy("x", 1_000), "\r\n"]
@@ -186,7 +176,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
       end)
 
     assert {:error, :headers_too_large} =
-             FinchTransport.get(url, [], transport_options(finch_name, 1))
+             HTTPFetchTransport.get(url, [], transport_options(1))
 
     await_server(server)
   end
@@ -195,23 +185,22 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     exact_headers = [{"x", :binary.copy("v", 65_531)}]
     over_headers = [{"x", :binary.copy("v", 65_532)}]
 
-    assert FinchTransport.header_bytes(exact_headers) == 65_536
-    assert :ok = FinchTransport.validate_response_headers(exact_headers)
+    assert HTTPFetchTransport.header_bytes(exact_headers) == 65_536
+    assert :ok = HTTPFetchTransport.validate_response_headers(exact_headers)
 
-    assert FinchTransport.header_bytes(over_headers) == 65_537
+    assert HTTPFetchTransport.header_bytes(over_headers) == 65_537
 
     assert {:error, :headers_too_large} =
-             FinchTransport.validate_response_headers(over_headers)
+             HTTPFetchTransport.validate_response_headers(over_headers)
   end
 
-  test "normalizes connection failure and receive timeout", %{finch_name: finch_name} do
+  test "normalizes connection failure and receive timeout" do
     {:ok, listener} = listen()
     {:ok, port} = :inet.port(listener)
     :ok = :gen_tcp.close(listener)
 
     assert {:error, :connection_failed} =
-             FinchTransport.get("http://127.0.0.1:#{port}/", [],
-               finch_name: finch_name,
+             HTTPFetchTransport.get("http://127.0.0.1:#{port}/", [],
                receive_timeout: 100,
                max_body_size: 32
              )
@@ -229,8 +218,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
 
     task =
       Task.async(fn ->
-        FinchTransport.get(url, [],
-          finch_name: finch_name,
+        HTTPFetchTransport.get(url, [],
           receive_timeout: 25,
           max_body_size: 32
         )
@@ -242,43 +230,36 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     await_server(server)
   end
 
-  test "rejects malformed options and request arguments without raising", %{
-    finch_name: finch_name
-  } do
-    assert {:error, :invalid_options} = FinchTransport.get("http://example.com", [], [])
+  test "rejects malformed options and request arguments without raising" do
+    assert {:error, :invalid_options} = HTTPFetchTransport.get("http://example.com", [], [])
 
     assert {:error, :invalid_options} =
-             FinchTransport.get("http://example.com", [],
-               finch_name: finch_name,
+             HTTPFetchTransport.get("http://example.com", [],
                receive_timeout: 0,
                max_body_size: 1
              )
 
     assert {:error, :invalid_options} =
-             FinchTransport.get("http://example.com", [],
-               finch_name: finch_name,
+             HTTPFetchTransport.get("http://example.com", [],
                receive_timeout: 1,
                max_body_size: -1
              )
 
     assert {:error, :invalid_options} =
-             FinchTransport.get("http://example.com", [],
-               finch_name: finch_name,
+             HTTPFetchTransport.get("http://example.com", [],
                receive_timeout: 1,
                max_body_size: 1,
                unknown: :value
              )
 
     assert {:error, :invalid_url} =
-             FinchTransport.get("not a URL", [],
-               finch_name: finch_name,
+             HTTPFetchTransport.get("not a URL", [],
                receive_timeout: 1,
                max_body_size: 1
              )
 
     assert {:error, :invalid_headers} =
-             FinchTransport.get("http://example.com", [{:authorization, "secret"}],
-               finch_name: finch_name,
+             HTTPFetchTransport.get("http://example.com", [{:authorization, "secret"}],
                receive_timeout: 1,
                max_body_size: 1
              )
@@ -293,7 +274,7 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
           "http://example.com/\nsecret"
         ] do
       assert {:error, :invalid_url} =
-               FinchTransport.get(invalid_url, [], transport_options(finch_name, 1))
+               HTTPFetchTransport.get(invalid_url, [], transport_options(1))
     end
 
     for invalid_headers <- [
@@ -303,46 +284,59 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
           [{"x-test", <<0, 1>>}]
         ] do
       assert {:error, :invalid_headers} =
-               FinchTransport.get(
+               HTTPFetchTransport.get(
                  "http://example.com/rules",
                  invalid_headers,
-                 transport_options(finch_name, 1)
+                 transport_options(1)
                )
     end
   end
 
-  test "returns bounded failures for missing, wrong, and terminated Finch registrations", %{
-    finch_name: finch_name
-  } do
-    missing_name = unique_name("missing_finch")
-    wrong_name = unique_name("wrong_finch")
-    {:ok, wrong_pid} = Agent.start_link(fn -> nil end, name: wrong_name)
-    on_exit(fn -> if Process.alive?(wrong_pid), do: Agent.stop(wrong_pid) end)
+  test "rejects Content-Length before waiting for the body and closes the socket" do
+    {url, server} =
+      start_server(fn socket, parent ->
+        recv_request(socket)
+        :ok = :gen_tcp.send(socket, "HTTP/1.1 200 OK\r\nContent-Length: 999999\r\n\r\n")
+        send(parent, {:peer_closed, :gen_tcp.recv(socket, 0, 1_000)})
+      end)
 
-    assert {:error, :connection_failed} =
-             FinchTransport.get(
-               "http://127.0.0.1:1/",
-               [],
-               transport_options(missing_name, 1)
-             )
+    assert {:error, :body_too_large} = HTTPFetchTransport.get(url, [], transport_options(5))
+    assert_receive {:peer_closed, {:error, :closed}}, 1_000
+    await_server(server)
+  end
 
-    assert {:error, bounded_reason} =
-             FinchTransport.get(
-               "http://127.0.0.1:1/",
-               [],
-               transport_options(wrong_name, 1)
-             )
+  test "returns redirects without contacting their destination" do
+    {url, server} =
+      start_server(fn socket, _parent ->
+        recv_request(socket)
 
-    assert bounded_reason in [:connection_failed, :transport_error]
+        :ok =
+          :gen_tcp.send(
+            socket,
+            "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:1/secret\r\nContent-Length: 0\r\n\r\n"
+          )
+      end)
 
-    :ok = stop_supervised(finch_name)
+    assert {:ok, %{status: 302, body: ""}} = HTTPFetchTransport.get(url, [], transport_options(5))
+    await_server(server)
+  end
 
-    assert {:error, :connection_failed} =
-             FinchTransport.get(
-               "http://127.0.0.1:1/",
-               [],
-               transport_options(finch_name, 1)
-             )
+  test "preserves compressed wire bytes without decoding" do
+    body = :zlib.gzip("raw rule source")
+
+    {url, server} =
+      start_server(fn socket, _parent ->
+        recv_request(socket)
+
+        :ok =
+          :gen_tcp.send(socket, [
+            "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: #{byte_size(body)}\r\n\r\n",
+            body
+          ])
+      end)
+
+    assert {:ok, %{body: ^body}} = HTTPFetchTransport.get(url, [], transport_options(100))
+    await_server(server)
   end
 
   test "transport response contract requires a positive HTTP status" do
@@ -398,18 +392,14 @@ defmodule GSMLG.ProxyRules.Transport.FinchTest do
     assert request =~ "GET /rules HTTP/1.1"
   end
 
-  defp transport_options(finch_name, max_body_size) do
-    [finch_name: finch_name, receive_timeout: 1_000, max_body_size: max_body_size]
+  defp transport_options(max_body_size) do
+    [receive_timeout: 1_000, max_body_size: max_body_size]
   end
 
   defp header_value(headers, expected_name) do
     Enum.find_value(headers, fn {name, value} ->
       if String.downcase(name) == expected_name, do: value
     end)
-  end
-
-  defp unique_name(prefix) do
-    String.to_atom("#{prefix}_#{System.unique_integer([:positive])}")
   end
 
   defp transport_error_atoms do

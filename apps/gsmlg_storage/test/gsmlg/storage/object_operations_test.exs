@@ -80,8 +80,7 @@ defmodule GSMLG.Storage.ObjectOperationsTest do
     objects = :ets.new(:object_operation_bytes, [:set, :public])
 
     start_supervised!(
-      {Bandit,
-       plug: {ObjectStore, %{pid: self(), objects: objects}}, port: port, startup_log: false}
+      {Gaoxy.HTTP, plug: {ObjectStore, %{pid: self(), objects: objects}}, port: port}
     )
 
     Application.put_env(:gsmlg_storage, :s3_bucket, "objects-test")

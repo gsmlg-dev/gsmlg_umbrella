@@ -165,7 +165,7 @@ defmodule GSMLG.BrowserAgent.ArtifactTransfer do
         end
 
       _missing ->
-        upload_with_finch(url, content, transport_opts, opts)
+        upload_with_http_fetch(url, content, transport_opts)
     end
   rescue
     _exception -> {:error, :artifact_transport_failed}
@@ -173,14 +173,13 @@ defmodule GSMLG.BrowserAgent.ArtifactTransfer do
     _kind, _reason -> {:error, :artifact_transport_failed}
   end
 
-  defp upload_with_finch(url, content, transport_opts, opts) do
+  defp upload_with_http_fetch(url, content, transport_opts) do
     result =
-      GSMLG.BrowserAgent.Backends.CloakBrowser.Transport.Finch.request(
+      GSMLG.BrowserAgent.Backends.CloakBrowser.Transport.HTTPFetch.request(
         :put,
         url,
         transport_opts[:headers],
         content,
-        finch_name: Keyword.get(opts, :finch_name, GSMLG.BrowserAgent.Finch),
         connect_timeout: transport_opts[:timeout_ms],
         receive_timeout: transport_opts[:timeout_ms],
         max_body_bytes: transport_opts[:max_response_bytes]

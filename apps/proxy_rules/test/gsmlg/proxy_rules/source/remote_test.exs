@@ -265,10 +265,10 @@ defmodule GSMLG.ProxyRules.Source.RemoteTest do
   end
 
   @tag :tmp_dir
-  test "defaults to the Finch transport behavior module", %{tmp_dir: dir} do
+  test "defaults to the HTTPFetch transport behavior module", %{tmp_dir: dir} do
     options = remote_options(dir, [], transport: GSMLG.ProxyRules.TestTransport)
     assert {:ok, server} = Remote.start_link(Keyword.delete(options, :transport))
-    assert %{transport: GSMLG.ProxyRules.Transport.Finch} = :sys.get_state(server)
+    assert %{transport: GSMLG.ProxyRules.Transport.HTTPFetch} = :sys.get_state(server)
     GenServer.stop(server)
   end
 

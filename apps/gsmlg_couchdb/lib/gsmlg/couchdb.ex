@@ -1,15 +1,15 @@
 defmodule GSMLG.CouchDB do
   @moduledoc """
-  Elixir HTTP client for Apache CouchDB with persistent connections.
+  Elixir HTTP client for Apache CouchDB using HTTPFetch.
 
   GSMLG.CouchDB provides a complete interface to Apache CouchDB's HTTP API
-  using Mint for persistent HTTP/1.1 connections. The client manages a single
+  using HTTPFetch for concurrent HTTP/1.1 requests. The client manages a single
   GenServer connection process that handles request/response correlation
   and basic authentication.
 
   ## Features
 
-  - Persistent HTTP/1.1 connections via Mint
+  - Concurrent HTTP/1.1 requests via HTTPFetch
   - Complete CouchDB API coverage (databases, documents, queries, indexes, attachments)
   - Mango query support with full selector syntax
   - Bulk operations for efficient batch processing

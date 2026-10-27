@@ -204,35 +204,15 @@ defmodule GSMLG.Web.AgentNotePDF do
       String.trim_trailing(Search.config()[:pdf_renderer_url], "/") <>
         "/forms/chromium/convert/html"
 
-    request =
-      Finch.build(
-        :post,
-        url,
-        [{"content-type", "multipart/form-data; boundary=#{boundary}"}],
-        body
-      )
-
-    # Stream and bound the renderer response rather than buffering an arbitrary response.
-    case Finch.stream(
-           request,
-           GSMLG.Finch,
-           %{status: nil, headers: [], bytes: 0, chunks: []},
-           fn
-             {:status, status}, acc ->
-               %{acc | status: status}
-
-             {:headers, headers}, acc ->
-               %{acc | headers: headers}
-
-             {:data, chunk}, acc ->
-               size = acc.bytes + byte_size(chunk)
-               if size > 33_554_432, do: throw(:pdf_limit)
-               %{acc | bytes: size, chunks: [chunk | acc.chunks]}
-           end,
-           receive_timeout: 30_000
+    case Tesla.request(
+           method: :post,
+           url: url,
+           headers: [{"content-type", "multipart/form-data; boundary=#{boundary}"}],
+           body: body,
+           opts: [adapter: [receive_timeout: 30_000, max_body_bytes: @max_package_bytes]]
          ) do
       {:ok, %{status: 200} = result} ->
-        bytes = result.chunks |> Enum.reverse() |> IO.iodata_to_binary()
+        bytes = result.body
         type = result.headers |> List.keyfind("content-type", 0, {"", ""}) |> elem(1)
 
         if String.starts_with?(type, "application/pdf") and String.starts_with?(bytes, "%PDF-"),
@@ -245,14 +225,15 @@ defmodule GSMLG.Web.AgentNotePDF do
       {:ok, _} ->
         {:error, :renderer}
 
-      {:error, %Mint.TransportError{reason: :timeout}} ->
+      {:error, :response_limit} ->
+        {:error, :limit}
+
+      {:error, :timeout} ->
         {:error, :timeout}
 
       {:error, _} ->
         {:error, :unavailable}
     end
-  catch
-    :pdf_limit -> {:error, :limit}
   end
 
   defp error(conn, status, code, message, retryable \\ false, details \\ %{}),

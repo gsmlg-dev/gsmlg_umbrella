@@ -3,7 +3,7 @@ defmodule GSMLG.BrowserAgent.Backends.CloakBrowser do
 
   @behaviour GSMLG.BrowserAgent.Backend
 
-  alias GSMLG.BrowserAgent.Backends.CloakBrowser.Transport.Finch, as: FinchTransport
+  alias GSMLG.BrowserAgent.Backends.CloakBrowser.Transport.HTTPFetch
   alias GSMLG.BrowserAgent.Backend.ControlConnection
   alias GSMLG.BrowserAgent.Settings
 
@@ -123,11 +123,10 @@ defmodule GSMLG.BrowserAgent.Backends.CloakBrowser do
     do: error("manager_invalid_request", false)
 
   defp request(settings, method, path, opts) do
-    transport = Keyword.get(opts, :transport, FinchTransport)
+    transport = Keyword.get(opts, :transport, HTTPFetch)
     headers = [{"authorization", "Bearer #{settings.manager_token}"}]
 
     options = [
-      finch_name: Keyword.get(opts, :finch_name, GSMLG.BrowserAgent.Finch),
       connect_timeout: settings.manager_connect_timeout_ms,
       receive_timeout: settings.request_timeout_ms,
       max_body_bytes: settings.max_response_bytes

@@ -24,7 +24,7 @@ defmodule GSMLG.Storage.CatalogHTTPTest do
     {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false])
     {:ok, {_, port}} = :inet.sockname(socket)
     :ok = :gen_tcp.close(socket)
-    start_supervised!({Bandit, plug: {ObjectStore, objects}, port: port, startup_log: false})
+    start_supervised!({Gaoxy.HTTP, plug: {ObjectStore, objects}, port: port})
 
     {:ok, backend} =
       S3Client.capture_backend(

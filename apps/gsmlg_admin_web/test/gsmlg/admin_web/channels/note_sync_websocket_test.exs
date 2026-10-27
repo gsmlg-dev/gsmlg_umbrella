@@ -606,15 +606,12 @@ defmodule GSMLG.AdminWeb.NoteSyncWebSocketTest do
   defp stalled_attachment_server(bytes) do
     listener =
       start_supervised!(
-        {Bandit,
-         plug: {StalledAttachmentStub, owner: self(), bytes: bytes},
-         ip: {127, 0, 0, 1},
-         port: 0,
-         startup_log: false},
+        {Gaoxy.HTTP,
+         plug: {StalledAttachmentStub, owner: self(), bytes: bytes}, ip: {127, 0, 0, 1}, port: 0},
         id: :stalled_attachment
       )
 
-    {:ok, {_, port}} = ThousandIsland.listener_info(listener)
+    {:ok, {_, port}} = Gaoxy.info(listener, :http).local
 
     previous =
       Map.new([:s3_bucket, :s3_endpoint], &{&1, Application.fetch_env(:gsmlg_storage, &1)})

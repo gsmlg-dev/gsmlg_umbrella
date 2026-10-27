@@ -19,29 +19,12 @@ defmodule GSMLG.ProxyRules.Supervisor do
 
     children = [
       {Task.Supervisor, name: GSMLG.ProxyRules.TaskSupervisor},
-      %{
-        id: Finch,
-        start:
-          {Finch, :start_link,
-           [
-             [
-               name: GSMLG.ProxyRules.Finch,
-               pools: %{
-                 default: [
-                   conn_opts: [transport_opts: [timeout: config.remote_connect_timeout]]
-                 ]
-               }
-             ]
-           ]},
-        type: :supervisor
-      },
       {Store, state_directory: config.state_directory},
       {Remote,
        name: Remote,
        config: config,
        notify: Coordinator,
        task_supervisor: GSMLG.ProxyRules.TaskSupervisor,
-       transport_options: [finch_name: GSMLG.ProxyRules.Finch],
        initial_fetch: initial_fetch},
       {Local, name: Local, config: config, notify: Coordinator},
       {Coordinator,

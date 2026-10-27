@@ -89,12 +89,8 @@ defmodule GSMLG.Storage.MultipartUploadTest do
   setup context do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
     TestCatalogClient.setup!()
-    {:ok, _} = Application.ensure_all_started(:bandit)
-    {:ok, _} = Application.ensure_all_started(:finch)
-
-    if is_nil(Process.whereis(GSMLG.AWS.Finch)) do
-      start_supervised!({Finch, name: GSMLG.AWS.Finch})
-    end
+    {:ok, _} = Application.ensure_all_started(:gaoxy_http)
+    {:ok, _} = Application.ensure_all_started(:http_fetch)
 
     content = "%PDF-1.7\n" <> :binary.copy("attachment-content\n", 300_000)
     <<first::binary-size(@part_size), second::binary>> = content
@@ -117,9 +113,11 @@ defmodule GSMLG.Storage.MultipartUploadTest do
       )
 
     server =
-      start_supervised!({Bandit, plug: {S3Server, options}, port: 0, startup_log: false})
+      start_supervised!(
+        {Gaoxy.HTTP, plug: {S3Server, options}, port: 0, limits: %{max_bytes: 8_388_608}}
+      )
 
-    {:ok, {_, port}} = ThousandIsland.listener_info(server)
+    {:ok, {_, port}} = Gaoxy.info(server, :http).local
     keys = [:s3_bucket, :s3_endpoint, :upload_reservation_dir]
     previous = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     Application.put_env(:gsmlg_storage, :s3_bucket, "multipart-test")

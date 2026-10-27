@@ -319,8 +319,8 @@ defmodule GSMLG.GaoNote.MCP.AgentNoteToolsTest do
   end
 
   defp with_storage(fun) do
-    {:ok, stub} = Bandit.start_link(plug: StorageStub, port: 0, startup_log: false)
-    {:ok, {_address, port}} = ThousandIsland.listener_info(stub)
+    {:ok, stub} = Gaoxy.HTTP.start_link(plug: {StorageStub, []}, port: 0)
+    {:ok, {_address, port}} = Gaoxy.info(stub, :http).local
 
     values = %{
       allowed_types: %{"gao_note_attachment" => :any},

@@ -1,16 +1,16 @@
 defmodule GSMLG.CouchDB.Connection do
   @moduledoc """
-  HTTP connection manager for Apache CouchDB using Mint.
+  HTTP request manager for Apache CouchDB using HTTPFetch.
 
-  This GenServer maintains a persistent HTTP/1.1 connection to a CouchDB server
+  This GenServer coordinates concurrent HTTP/1.1 requests to a CouchDB server
   and handles request/response correlation. It provides a clean API for making
   HTTP requests (GET, POST, PUT, DELETE, COPY) with automatic JSON encoding/decoding.
 
   ## Architecture
 
-  - Single persistent connection per application instance
+  - Single request coordinator per application instance
   - Asynchronous request handling with `GenServer.call/2`
-  - Automatic request/response correlation via Mint
+  - Automatic request/response correlation via HTTPFetch
   - Basic authentication on every request
   - JSON response parsing when `Content-Type: application/json`
 
@@ -42,9 +42,9 @@ defmodule GSMLG.CouchDB.Connection do
 
   ## Connection Lifecycle
 
-  The connection is established during GenServer initialization and maintained
-  throughout the application lifecycle. If the connection drops, the GenServer
-  will crash and be restarted by its supervisor, re-establishing the connection.
+  Each request owns its HTTPFetch connection and body stream. Transport errors
+  are returned to the caller without restarting the coordinator. Shutdown
+  cancels pending requests and waits for their network resources to close.
 
   ## Bang Variants
 
@@ -53,8 +53,6 @@ defmodule GSMLG.CouchDB.Connection do
       Connection.get!("/_all_dbs")  # Returns data directly or raises
   """
   use GenServer
-
-  require Logger
 
   defstruct [:conn, :username, :password, :authorization, requests: %{}]
 
@@ -256,87 +254,124 @@ defmodule GSMLG.CouchDB.Connection do
 
   @impl true
   def init({scheme, host, port, username, password}) do
-    case Mint.HTTP.connect(scheme, host, port) do
-      {:ok, conn} ->
-        state = %__MODULE__{
-          conn: conn,
-          username: username,
-          password: password,
-          authorization: "Basic " <> Base.encode64("#{username}:#{password}")
-        }
+    Process.flag(:trap_exit, true)
 
-        {:ok, state}
-
-      {:error, reason} ->
-        {:stop, reason}
-    end
+    {:ok,
+     %__MODULE__{
+       conn: %URI{scheme: to_string(scheme), host: host, port: port},
+       username: username,
+       password: password,
+       authorization: "Basic " <> Base.encode64("#{username}:#{password}")
+     }}
   end
 
   @impl true
   def handle_call({:request, method, path, headers, body}, from, state) do
-    headers = headers ++ [{"Authorization", state.authorization}]
-    # In both the successful case and the error case, we make sure to update the connection
-    # struct in the state since the connection is an immutable data structure.
-    case Mint.HTTP.request(state.conn, method, path, headers, body) do
-      {:ok, conn, request_ref} ->
-        state = put_in(state.conn, conn)
-        # We store the caller this request belongs to and an empty map as the response.
-        # The map will be filled with status code, headers, and so on.
-        state = put_in(state.requests[request_ref], %{from: from, response: %{}})
-        {:noreply, state}
+    uri = URI.parse(path)
+    url = %{state.conn | path: uri.path, query: uri.query}
 
-      {:error, conn, reason} ->
-        state = put_in(state.conn, conn)
-        {:reply, {:error, reason}, state}
-    end
+    promise =
+      HTTP.fetch(url,
+        method: method,
+        request_mode: :proxy,
+        headers: headers ++ [{"Authorization", state.authorization}],
+        body: body,
+        http_version: :http1,
+        tls_backend: :ssl,
+        redirect: :manual,
+        decode_body: false,
+        stream_response: true
+      )
+
+    request = %{from: from, completion: HTTP.Promise.completion(promise)}
+    {:noreply, put_in(state.requests[promise.task.ref], request)}
   end
 
   def handle_call({:get_state}, _from, state) do
-    rs = %__MODULE__{
-      conn: state.conn,
-      requests: state.requests
-    }
-
-    {:reply, rs, state}
+    {:reply, %__MODULE__{conn: state.conn, requests: state.requests}, state}
   end
 
   @impl true
-  def handle_info(message, state) do
-    # We should handle the error case here as well, but we're omitting it for brevity.
-    case Mint.HTTP.stream(state.conn, message) do
-      :unknown ->
-        _ = Logger.error(fn -> "Received unknown message: " <> inspect(message) end)
-        {:noreply, state}
+  def handle_info({ref, %HTTP.Response{} = response}, state) when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+    {request, requests} = Map.pop(state.requests, ref)
+    state = %{state | requests: requests}
 
-      {:ok, conn, responses} ->
-        state = put_in(state.conn, conn)
-        state = Enum.reduce(responses, state, &process_response/2)
-        {:noreply, state}
+    headers =
+      Enum.map(HTTP.Headers.to_list(response.headers), fn {name, value} ->
+        {String.downcase(name), value}
+      end)
+
+    result = %{status: response.status, headers: headers, data: ""}
+
+    if is_pid(response.body) do
+      stream = response.body
+      monitor = Process.monitor(stream)
+      send(stream, {:read_chunk, self(), :ack})
+      request = Map.merge(request, %{response: result, chunks: [], monitor: monitor})
+      {:noreply, put_in(state.requests[stream], request)}
+    else
+      finish_request(request, {:ok, %{result | data: response.body}})
+      {:noreply, state}
     end
   end
 
-  defp process_response({:status, request_ref, status}, state) do
-    put_in(state.requests[request_ref].response[:status], status)
+  def handle_info({ref, {:error, reason}}, state) when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+    {request, requests} = Map.pop(state.requests, ref)
+    finish_request(request, {:error, reason})
+    {:noreply, %{state | requests: requests}}
   end
 
-  defp process_response({:headers, request_ref, headers}, state) do
-    put_in(state.requests[request_ref].response[:headers], headers)
+  def handle_info({:stream_chunk, stream, chunk, ack_ref}, state) do
+    state = update_in(state.requests[stream].chunks, &[chunk | &1])
+    send(stream, {:stream_chunk_ack, ack_ref})
+    {:noreply, state}
   end
 
-  defp process_response({:data, request_ref, new_data}, state) do
-    update_in(state.requests[request_ref].response[:data], fn data -> (data || "") <> new_data end)
+  def handle_info({:stream_end, stream}, state) do
+    {request, requests} = Map.pop(state.requests, stream)
+    Process.demonitor(request.monitor, [:flush])
+    data = request.chunks |> Enum.reverse() |> IO.iodata_to_binary()
+    finish_request(request, {:ok, %{request.response | data: data}})
+    {:noreply, %{state | requests: requests}}
   end
 
-  # When the request is done, we use GenServer.reply/2 to reply to the caller that was
-  # blocked waiting on this request.
-  defp process_response({:done, request_ref}, state) do
-    {%{response: response, from: from}, state} = pop_in(state.requests[request_ref])
-    GenServer.reply(from, {:ok, response})
-    state
+  def handle_info({:stream_error, stream, reason}, state) do
+    {request, requests} = Map.pop(state.requests, stream)
+    Process.demonitor(request.monitor, [:flush])
+    finish_request(request, {:error, reason})
+    {:noreply, %{state | requests: requests}}
   end
 
-  # A request can also error, but we're not handling the erroneous responses for
-  # brevity.
+  def handle_info({:DOWN, ref, :process, pid, reason}, state) do
+    key = if Map.has_key?(state.requests, ref), do: ref, else: pid
+
+    case Map.pop(state.requests, key) do
+      {nil, _requests} ->
+        {:noreply, state}
+
+      {request, requests} ->
+        finish_request(request, {:error, reason})
+        {:noreply, %{state | requests: requests}}
+    end
+  end
+
+  def handle_info(_message, state), do: {:noreply, state}
+
+  @impl true
+  def terminate(_reason, state) do
+    Enum.each(state.requests, fn {_key, request} ->
+      finish_request(request, {:error, :closed})
+    end)
+  end
+
+  defp finish_request(request, result) do
+    case HTTP.RequestCompletion.abort_and_await(request.completion, 1_000) do
+      :ok -> GenServer.reply(request.from, result)
+      {:error, _reason} -> GenServer.reply(request.from, {:error, :transport_error})
+    end
+  end
 
   # parse data if response is json
   defp parse_response_data(headers, data) do

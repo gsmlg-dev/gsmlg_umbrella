@@ -65,7 +65,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentContentControllerTest do
 
     original = Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
     port = available_port()
-    start_supervised!({Bandit, plug: S3Stub, port: port, startup_log: false})
+    start_supervised!({Gaoxy.HTTP, plug: {S3Stub, []}, port: port})
 
     Application.put_env(:gsmlg_storage, :gao_note_http_admin_fail_ranges, [])
     Application.put_env(:gsmlg_storage, :gao_note_http_admin_object, "")

@@ -84,8 +84,8 @@ defmodule GSMLG.GaoNote.MCPTest do
     Repo.delete_all(Note)
 
     original = Map.new(@storage_keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
-    s3_stub = start_supervised!({Bandit, plug: S3Stub, port: 0, startup_log: false})
-    {:ok, {_address, port}} = ThousandIsland.listener_info(s3_stub)
+    s3_stub = start_supervised!({Gaoxy.HTTP, plug: {S3Stub, []}, port: 0})
+    {:ok, {_address, port}} = Gaoxy.info(s3_stub, :http).local
 
     Application.put_env(:gsmlg_storage, :allowed_types, %{"gao_note_attachment" => :any})
     Application.put_env(:gsmlg_storage, :gao_note_mcp_test_object, "")

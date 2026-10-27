@@ -30,16 +30,12 @@ defmodule GSMLG.Storage.InventoryTest do
   end
 
   test "scans through the production HTTP transport and signs every request" do
-    {:ok, _} = Application.ensure_all_started(:bandit)
-    {:ok, _} = Application.ensure_all_started(:finch)
-
-    if is_nil(Process.whereis(GSMLG.AWS.Finch)) do
-      start_supervised!({Finch, name: GSMLG.AWS.Finch})
-    end
+    {:ok, _} = Application.ensure_all_started(:gaoxy_http)
+    {:ok, _} = Application.ensure_all_started(:http_fetch)
 
     server =
       start_supervised!(
-        {Bandit,
+        {Gaoxy.HTTP,
          plug:
            {S3Server,
             test_pid: self(),
@@ -47,11 +43,10 @@ defmodule GSMLG.Storage.InventoryTest do
               nil => page([{"outside &+.txt", 4}], true, "next&token"),
               "next&token" => page([{"folder/file.txt", 8}], false)
             }},
-         port: 0,
-         startup_log: false}
+         port: 0}
       )
 
-    {:ok, {_, port}} = ThousandIsland.listener_info(server)
+    {:ok, {_, port}} = Gaoxy.info(server, :http).local
 
     {:ok, backend} =
       Inventory.backend(
