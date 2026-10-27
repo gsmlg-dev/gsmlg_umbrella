@@ -1,6 +1,6 @@
 {
   "name": "gsmlg_admin_web",
-  "version": "5.13.8",
+  "version": "5.13.9",
   "type": "module",
   "dependencies": {
     "@duskmoon-dev/core": "1.20.8",

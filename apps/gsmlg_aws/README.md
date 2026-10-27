@@ -8,7 +8,7 @@ the AWS SDK through a Tesla/http_fetch transport; selected listing calls use Cac
 Add the package to your dependencies:
 
 ```elixir
-{:gsmlg_aws, "~> 5.13.8"}
+{:gsmlg_aws, "~> 5.13.9"}
 ```
 
 The package follows the GSMLG umbrella release version. Inside this repository,

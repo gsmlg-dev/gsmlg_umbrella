@@ -25,7 +25,7 @@ Add `gsmlg_whois` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_whois, "~> 5.13.8"}
+    {:gsmlg_whois, "~> 5.13.9"}
   ]
 end
 ```

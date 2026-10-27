@@ -12,7 +12,7 @@ transforms and setup. The parser uses the shared umbrella build, dependency,
 configuration and root lockfile paths.
 
 External applications that only need TOML parsing can use the independently
-Hex-buildable `gsmlg_toml` package with `{:gsmlg_toml, "~> 5.13.8"}`. It has no
+Hex-buildable `gsmlg_toml` package with `{:gsmlg_toml, "~> 5.13.9"}`. It has no
 runtime dependencies. For scoped parser tests, run
 `cd apps/gsmlg_toml && mix test --no-start` from the repository root.
 
@@ -163,7 +163,7 @@ Add `gsmlg_config` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_config, "~> 5.13.8"}
+    {:gsmlg_config, "~> 5.13.9"}
   ]
 end
 ```

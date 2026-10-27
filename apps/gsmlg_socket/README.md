@@ -22,7 +22,7 @@ Add `gsmlg_socket` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_socket, "~> 5.13.8"}
+    {:gsmlg_socket, "~> 5.13.9"}
   ]
 end
 ```

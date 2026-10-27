@@ -1,7 +1,7 @@
 defmodule GSMLG.Umbrella.MixProject do
   use Mix.Project
 
-  @version "5.13.8"
+  @version "5.13.9"
 
   def project do
     [

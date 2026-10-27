@@ -10,7 +10,7 @@ by adding `gsmlg_component` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_component, "~> 5.13.8"}
+    {:gsmlg_component, "~> 5.13.9"}
   ]
 end
 ```
