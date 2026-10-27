@@ -33,7 +33,7 @@ Add `gsmlg_couchdb` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_couchdb, "~> 5.13.9"}
+    {:gsmlg_couchdb, "~> 5.13.10"}
   ]
 end
 ```

@@ -10,7 +10,7 @@ It has no runtime dependencies and requires Elixir 1.14 or later.
 Add the package to your application's dependencies:
 
 ```elixir
-{:gsmlg_toml, "~> 5.13.9"}
+{:gsmlg_toml, "~> 5.13.10"}
 ```
 
 The package name is `gsmlg_toml`; its public module remains `Toml`.
@@ -77,7 +77,7 @@ TOML specification test.
 
 Within this umbrella, `gsmlg_config` uses `{:gsmlg_toml, in_umbrella: true}` and
 retains the GSMLG-specific configuration loader, schema, transforms and setup.
-External consumers use `{:gsmlg_toml, "~> 5.13.9"}` as shown above. The package
+External consumers use `{:gsmlg_toml, "~> 5.13.10"}` as shown above. The package
 version follows the shared root and application version. Each product release
 publishes the enabled Hex packages at that same version; source pushes alone
 do not publish packages. See the repository's release guide for the shared

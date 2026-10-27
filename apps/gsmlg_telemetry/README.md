@@ -24,7 +24,7 @@ Add `gsmlg_telemetry` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_telemetry, "~> 5.13.9", in_umbrella: true}
+    {:gsmlg_telemetry, "~> 5.13.10", in_umbrella: true}
   ]
 end
 ```

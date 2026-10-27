@@ -17,7 +17,7 @@ Add `gsmlg_logger` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_logger, "~> 5.13.9"}
+    {:gsmlg_logger, "~> 5.13.10"}
   ]
 end
 ```

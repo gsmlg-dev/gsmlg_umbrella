@@ -10,7 +10,7 @@ by adding `gsmlg_commander_test` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gsmlg_commander_test, "~> 5.13.9"}
+    {:gsmlg_commander_test, "~> 5.13.10"}
   ]
 end
 ```

@@ -58,7 +58,7 @@ Add `gsmlg_commander` to your dependencies:
 ```elixir
 def deps do
   [
-    {:gsmlg_commander, "~> 5.13.9"}
+    {:gsmlg_commander, "~> 5.13.10"}
   ]
 end
 ```

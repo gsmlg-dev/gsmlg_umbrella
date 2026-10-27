@@ -9,7 +9,7 @@ and country-name/code helpers.
 Add the package to your dependencies:
 
 ```elixir
-{:gsmlg_ip_geo, "~> 5.13.9"}
+{:gsmlg_ip_geo, "~> 5.13.10"}
 ```
 
 The package follows the GSMLG umbrella release version. Inside this repository,
