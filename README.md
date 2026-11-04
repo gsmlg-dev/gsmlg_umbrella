@@ -103,7 +103,7 @@ mix ecto.gen.migration <name> -r GSMLG.Repo
 ```shell
 docker pull ghcr.io/gsmlg-dev/gsmlg-umbrella:latest
 
-docker exec <container> /app/bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
+docker exec <container> /app/bin/gsmlg_umbrella migrate
 docker exec <container> /app/bin/gsmlg_umbrella eval "GSMLG.Release.list_users()"
 docker exec <container> /app/bin/gsmlg_umbrella eval 'GSMLG.Release.reset_password("admin@example.com", "newpassword")'
 ```
@@ -114,8 +114,11 @@ Requires `GSMLG_CONFIG_PATH` env var pointing to a TOML config file (see `apps/g
 
 ```shell
 MIX_ENV=prod mix release gsmlg_umbrella
-./bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
+./bin/gsmlg_umbrella migrate
 ```
+
+The `migrate` command runs pending migrations through `GSMLG.Release.migrate/0`.
+It accepts no arguments; set `GSMLG_CONFIG_PATH` to use a custom TOML config file.
 
 ### Standalone Binary (Burrito)
 

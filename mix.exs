@@ -32,7 +32,7 @@ defmodule GSMLG.Umbrella.MixProject do
         ],
         gsmlg_umbrella: [
           include_executables_for: [:unix],
-          steps: [&build_assets/1, :assemble, :tar],
+          steps: [&build_assets/1, :assemble, &add_migrate_help/1, :tar],
           applications: [
             gsmlg_commander_protocol: :permanent,
             gsmlg: :permanent,
@@ -53,7 +53,7 @@ defmodule GSMLG.Umbrella.MixProject do
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ],
-          steps: [&build_assets/1, :assemble, &Burrito.wrap/1],
+          steps: [&build_assets/1, :assemble, &add_migrate_help/1, &Burrito.wrap/1],
           burrito: [
             targets: [
               linux_amd64: [
@@ -149,6 +149,27 @@ defmodule GSMLG.Umbrella.MixProject do
     end)
 
     Process.sleep(:infinity)
+  end
+
+  defp add_migrate_help(release) do
+    path = Path.join([release.path, "bin", Atom.to_string(release.name)])
+    script = File.read!(path)
+    marker = "    eval \\\"EXPR\\\""
+
+    unless String.contains?(script, marker) do
+      raise "Could not locate eval command in release launcher help: #{path}"
+    end
+
+    script =
+      String.replace(
+        script,
+        marker,
+        "    migrate        Runs pending database migrations\n" <> marker,
+        global: false
+      )
+
+    File.write!(path, script)
+    release
   end
 
   defp build_assets(release) do

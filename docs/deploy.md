@@ -443,7 +443,7 @@ Run migrations before starting a new version:
 ```bash
 sudo --user=gsmlg --group=gsmlg -- \
   env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml \
-  /opt/gsmlg/gsmlg/bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
+  /opt/gsmlg/gsmlg/bin/gsmlg_umbrella migrate
 ```
 
 Start the service:
@@ -498,7 +498,7 @@ docker run --rm \
   -v /etc/gsmlg/gsmlg_umbrella.toml:/etc/gsmlg_umbrella.toml:ro \
   -e GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml \
   "ghcr.io/gsmlg-dev/gsmlg-umbrella:v${VERSION}" \
-  /app/bin/gsmlg_umbrella eval "GSMLG.Release.migrate()"
+  /app/bin/gsmlg_umbrella migrate
 ```
 
 ## Deploy Commander
