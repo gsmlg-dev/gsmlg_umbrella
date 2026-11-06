@@ -4,7 +4,7 @@ defmodule GSMLG.CommanderProtocol.MixProject do
   def project do
     [
       app: :gsmlg_commander_protocol,
-      version: "5.13.10",
+      version: "5.13.11",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
