@@ -117,8 +117,18 @@ MIX_ENV=prod mix release gsmlg_umbrella
 ./bin/gsmlg_umbrella migrate
 ```
 
-The `migrate` command runs pending migrations through `GSMLG.Release.migrate/0`.
-It accepts no arguments; set `GSMLG_CONFIG_PATH` to use a custom TOML config file.
+The `migrate` command runs pending SQL migrations through `GSMLG.Release.migrate/0`.
+It starts only the database dependencies and repository, without starting the
+application or connecting to S3. It accepts no arguments; set `GSMLG_CONFIG_PATH`
+to use a custom TOML config file.
+
+Exporting the legacy SQL storage catalog to S3 is a separate, explicit operation:
+
+```shell
+./bin/gsmlg_umbrella eval 'GSMLG.Release.migrate_storage()'
+```
+
+This export requires S3 access. See [the storage upgrade procedure](docs/storage/README.md#upgrading-an-existing-installation).
 
 ### Standalone Binary (Burrito)
 

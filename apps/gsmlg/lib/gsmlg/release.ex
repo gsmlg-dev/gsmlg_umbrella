@@ -1,16 +1,25 @@
 defmodule GSMLG.Release do
   @app :gsmlg
 
+  @doc "Runs pending SQL migrations without starting the application or accessing S3."
   def migrate do
     load_app()
 
     for repo <- repos() do
-      {:ok, _, _} =
-        Ecto.Migrator.with_repo(repo, fn repo ->
-          :ok = apply(GSMLG.Storage.Migration, :export_if_needed, [])
-          Ecto.Migrator.run(repo, :up, all: true)
-        end)
+      {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
     end
+  end
+
+  @doc "Explicitly exports legacy SQL storage metadata to S3; requires an available bucket."
+  def migrate_storage do
+    load_app()
+
+    {:ok, :ok, _} =
+      Ecto.Migrator.with_repo(GSMLG.Repo, fn _repo ->
+        apply(GSMLG.Storage.Migration, :export_if_needed, [])
+      end)
+
+    :ok
   end
 
   def rollback(repo, version) do

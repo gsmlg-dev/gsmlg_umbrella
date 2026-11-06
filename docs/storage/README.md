@@ -54,26 +54,38 @@ continues to soft-delete for retention-based cleanup.
 
 ## Upgrading an existing installation
 
-Back up the database and bucket, stop old application writers, and run the new
-release's existing migration command before starting the new application:
+Back up the database and bucket and stop old application writers. Run the new
+release's SQL migrations:
 
 ```sh
-./bin/gsmlg_umbrella eval 'GSMLG.Release.migrate()'
+./bin/gsmlg_umbrella migrate
 ```
 
-The command first exports legacy file/folder metadata to S3 using the configured
-bucket and credentials. It preserves the original UUIDs, keys and timestamps,
-verifies active object sizes, and resumes without overwriting an existing file
-manifest. Missing active bytes, conflicting keys, malformed manifests or S3
-errors stop the export. Only a complete export writes
+`migrate` starts only the repository and its database dependencies. It does not
+start the application, export storage data or connect to S3, so an unavailable
+bucket cannot block unrelated SQL migrations. The storage SQL migration removes
+only the attachment and sync-pin foreign keys pointing to `storage_files`; it
+retains the old tables and data.
+
+When upgrading from the SQL storage catalog, explicitly export the legacy
+metadata once S3 is available, before using the new S3-only storage runtime:
+
+```sh
+./bin/gsmlg_umbrella eval 'GSMLG.Release.migrate_storage()'
+```
+
+This separate operation exports legacy file/folder metadata to S3 using the
+configured bucket and credentials. It preserves the original UUIDs, keys and
+timestamps, verifies active object sizes, and resumes without overwriting an
+existing file manifest. Missing active bytes, conflicting keys, malformed
+manifests or S3 errors stop the export. Only a complete export writes
 `.gsmlg-storage/migrations/catalog-v1.json`.
 
-The subsequent SQL migration removes only the attachment and sync-pin foreign
-keys pointing to `storage_files`; it retains the old tables and data. Those
-tables are historical backup/export sources after the upgrade. New files exist
-only in S3, so rolling back to a release that needs SQL file records also needs a
-matching database/bucket restore. Switching to a different bucket requires
-copying both payloads and manifests to retain existing attachment access.
+The retained SQL tables are historical backup/export sources after the upgrade.
+New files exist only in S3, so rolling back to a release that needs SQL file
+records also needs a matching database/bucket restore. Switching to a different
+bucket requires copying both payloads and manifests to retain existing attachment
+access.
 
 The runtime needs S3 list, read, write and delete access for the configured
 bucket, including the reserved manifest namespace. This document describes the

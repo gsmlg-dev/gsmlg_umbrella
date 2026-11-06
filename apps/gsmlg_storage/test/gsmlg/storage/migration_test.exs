@@ -8,7 +8,17 @@ defmodule GSMLG.Storage.MigrationTest do
     import Plug.Conn
     def init(objects), do: objects
 
-    def call(%{method: "HEAD"} = conn, objects) do
+    def call(conn, objects) do
+      :ets.update_counter(objects, :request_count, 1, {:request_count, 0})
+
+      if :ets.member(objects, :unavailable) do
+        send_resp(conn, 503, "ServiceUnavailable")
+      else
+        handle_request(conn, objects)
+      end
+    end
+
+    defp handle_request(%{method: "HEAD"} = conn, objects) do
       case :ets.lookup(objects, conn.request_path) do
         [{_, bytes}] ->
           conn
@@ -20,13 +30,13 @@ defmodule GSMLG.Storage.MigrationTest do
       end
     end
 
-    def call(%{method: "PUT"} = conn, objects) do
+    defp handle_request(%{method: "PUT"} = conn, objects) do
       {:ok, bytes, conn} = read_body(conn)
       :ets.insert(objects, {conn.request_path, bytes})
       send_resp(conn, 200, "")
     end
 
-    def call(%{method: "GET"} = conn, objects) do
+    defp handle_request(%{method: "GET"} = conn, objects) do
       case :ets.lookup(objects, conn.request_path) do
         [{_, bytes}] -> send_resp(conn, 200, bytes)
         [] -> send_resp(conn, 404, "")
@@ -63,6 +73,41 @@ defmodule GSMLG.Storage.MigrationTest do
     end)
 
     %{objects: objects}
+  end
+
+  @tag :sql_migration
+  test "SQL release migrations do not contact unavailable S3 or modify legacy storage", %{
+    objects: objects
+  } do
+    Repo.query!(
+      "CREATE TEMP TABLE schema_migrations (LIKE public.schema_migrations INCLUDING ALL)"
+    )
+
+    Repo.query!("INSERT INTO schema_migrations SELECT * FROM public.schema_migrations")
+    original = legacy_file("active")
+    folder = Repo.insert!(%StorageFolder{tenant: "legacy", type: "document"})
+    :ets.insert(objects, {:unavailable, true})
+
+    assert [{:ok, [], _started_apps}] = GSMLG.Release.migrate()
+
+    assert :ets.lookup(objects, :request_count) == []
+    assert Repo.get!(StorageFile, original.id) == original
+    assert Repo.get!(StorageFolder, folder.id) == folder
+    assert TestCatalogClient.count() == 0
+  end
+
+  test "explicit release storage export fails when S3 is unavailable", %{objects: objects} do
+    original = legacy_file("active")
+    :ets.insert(objects, {:unavailable, true})
+
+    error = assert_raise MatchError, fn -> GSMLG.Release.migrate_storage() end
+
+    assert {:ok, {:error, {:unexpected_response, %{status_code: 503}}}, _started_apps} =
+             error.term
+
+    assert Repo.get!(StorageFile, original.id) == original
+    assert TestCatalogClient.count() == 0
+    assert :ets.lookup(objects, "/export-test/.gsmlg-storage/migrations/catalog-v1.json") == []
   end
 
   test "export preserves UUIDs, keys, timestamps and SQL data and resumes without overwriting manifests",
@@ -128,14 +173,16 @@ defmodule GSMLG.Storage.MigrationTest do
     assert Repo.get!(StorageFile, id) == original
   end
 
-  test "automatic export publishes a versioned checkpoint only after success", %{objects: objects} do
+  test "explicit release storage export publishes a versioned checkpoint only after success", %{
+    objects: objects
+  } do
     original = legacy_file("active")
     :ets.insert(objects, {"/export-test/#{original.s3_key}", "legacy"})
-    assert :ok = Migration.export_if_needed()
+    assert :ok = GSMLG.Release.migrate_storage()
     [{_, body}] = :ets.lookup(objects, "/export-test/.gsmlg-storage/migrations/catalog-v1.json")
     assert %{"version" => 1, "exported" => 1, "skipped" => 0, "folders" => 0} = JSON.decode!(body)
     assert {:ok, _} = Catalog.fetch(original.id)
-    assert :ok = Migration.export_if_needed()
+    assert :ok = GSMLG.Release.migrate_storage()
 
     assert :ets.lookup(objects, "/export-test/.gsmlg-storage/migrations/catalog-v1.json") == [
              {"/export-test/.gsmlg-storage/migrations/catalog-v1.json", body}
