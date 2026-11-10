@@ -14,8 +14,8 @@ in
     figlet
     lolcat
     watchman
-    rustc
-    cargo
+    pkgs-unstable.rustc
+    pkgs-unstable.cargo
     perl
     cmake
     beam28Packages.elixir-ls
