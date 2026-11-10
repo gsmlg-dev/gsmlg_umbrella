@@ -4,10 +4,13 @@ defmodule GSMLG.Storage.InventoryTest do
   alias GSMLG.Storage.{Inventory, S3Client}
 
   defmodule HTTPClient do
-    @behaviour AWS.HTTPClient
+    @behaviour ExAws.Request.HttpClient
 
     def request(method, url, body, headers, options) do
-      options[:handler].(method, url, body, headers)
+      case options[:handler].(method, url, body, headers) do
+        {:error, reason} -> {:error, %{reason: reason}}
+        response -> response
+      end
     end
   end
 
@@ -140,6 +143,26 @@ defmodule GSMLG.Storage.InventoryTest do
 
     assert {:error, :repeated_s3_continuation_token} =
              Inventory.load(backend(fn _, _, _, _ -> response(page([], true, "same")) end))
+  end
+
+  test "rejects listing XML with trailing documents, trailing garbage or DTD entities" do
+    valid = page([{"visible.txt", 4}], false)
+
+    malformed = [
+      valid <> "<Error><Code>InternalError</Code></Error>",
+      valid <> "garbage",
+      ~s(<!DOCTYPE ListBucketResult [<!ENTITY encoding "url">]>) <>
+        String.replace(
+          valid,
+          "<EncodingType>url</EncodingType>",
+          "<EncodingType>&encoding;</EncodingType>"
+        )
+    ]
+
+    for xml <- malformed do
+      assert {:error, :invalid_s3_list_response} =
+               Inventory.load(backend(fn _, _, _, _ -> response(xml) end))
+    end
   end
 
   test "malformed later page fails the whole snapshot" do
@@ -352,7 +375,8 @@ defmodule GSMLG.Storage.InventoryTest do
 
     %{
       backend
-      | client: AWS.Client.put_http_client(backend.client, {HTTPClient, [handler: handler]})
+      | client:
+          Map.merge(backend.client, %{http_client: HTTPClient, http_opts: [handler: handler]})
     }
   end
 

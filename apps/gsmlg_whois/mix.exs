@@ -34,7 +34,7 @@ defmodule GSMLG.Whois.MixProject do
   defp deps do
     [
       {:telemetry, "~> 1.4"},
-      {:http_fetch, "~> 0.21"},
+      {:http_fetch, "~> 1.0.0-rc.8"},
       {:postgrex, "~> 0.22", optional: true},
       {:concord, "~> 3.1", optional: true},
       {:ex_turso, "~> 3.1", optional: true, runtime: false},

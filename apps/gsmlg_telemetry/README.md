@@ -12,7 +12,7 @@ GSMLG.Telemetry provides a unified interface for structured logging, custom even
 - **Custom Events**: Emit business logic events for tracking and analysis
 - **Span Tracking**: Measure operation durations with automatic error handling
 - **Metrics Collection**: Built-in aggregation and reporting of key metrics
-- **Multiple Backends**: Console, file, and AWS CloudWatch Logs support
+- **Multiple Backends**: Console and file backends
 - **Phoenix Integration**: Automatic collection of web request metrics
 - **Ecto Integration**: Database query performance tracking
 - **LiveView Integration**: Client-side interaction metrics
@@ -162,15 +162,6 @@ config :gsmlg_telemetry,
       compress: true,
       buffer_size: 100,
       flush_interval: 5_000
-    ],
-    cloudwatch: [
-      enabled: false, # Enable in production
-      log_group_name: "/my_app/production",
-      log_stream_name: "web-server-#{System.get_env("HOSTNAME")}",
-      region: "us-east-1",
-      buffer_size: 100,
-      flush_interval: 5_000,
-      # AWS credentials are handled by gsmlg_aws
     ]
   ],
 
@@ -194,9 +185,6 @@ config :gsmlg_telemetry,
     ],
     file: [
       enabled: false
-    ],
-    cloudwatch: [
-      enabled: false
     ]
   ]
 ```
@@ -213,13 +201,6 @@ config :gsmlg_telemetry,
       enabled: true,
       path: "/var/log/my_app/app.log",
       format: :json
-    ],
-    cloudwatch: [
-      enabled: true,
-      log_group_name: "/my_app/production",
-      log_stream_name: "#{node()}",
-      buffer_size: 500,
-      flush_interval: 10_000
     ]
   ]
 ```
@@ -399,40 +380,10 @@ end)
 # Duration and error handling are automatic
 ```
 
-## CloudWatch Integration
-
-### Setup
-
-1. Configure AWS credentials via `gsmlg_aws` or environment variables
-2. Enable CloudWatch backend in production configuration
-3. Set appropriate log group and stream names
-
-### Example CloudWatch Queries
-
-Using CloudWatch Insights:
-
-```sql
--- Find all error events
-fields @timestamp, metadata.message, metadata.error
-| filter level = "error"
-| sort @timestamp desc
-| limit 100
-
--- Calculate average response times
-stats avg(measurements.duration) as avg_duration
-| filter event_name = "my_app.web.request.duration"
-| bin @timestamp 1m
-
--- Find slow database queries
-fields @timestamp, metadata.query, measurements.total_time
-| filter event_name = "ecto.repo.query" and measurements.total_time > 1000
-| sort measurements.total_time desc
-```
-
 ## Performance Considerations
 
 - **Async Logging**: All backends use async logging to avoid blocking application code
-- **Batching**: File and CloudWatch backends batch events for efficiency
+- **Batching**: The file backend batches events for efficiency
 - **Buffer Management**: Configurable buffer sizes prevent memory issues
 - **Backpressure**: Failed backend operations don't block the application
 - **Resource Usage**: Minimal overhead when telemetry is disabled
@@ -442,9 +393,8 @@ fields @timestamp, metadata.query, measurements.total_time
 ### Common Issues
 
 1. **Events not appearing**: Check log levels and backend configuration
-2. **CloudWatch errors**: Verify AWS credentials and permissions
-3. **Performance issues**: Reduce buffer sizes or flush intervals
-4. **Missing metrics**: Ensure event handlers are properly attached
+2. **Performance issues**: Reduce buffer sizes or flush intervals
+3. **Missing metrics**: Ensure event handlers are properly attached
 
 ### Debug Mode
 
@@ -472,9 +422,6 @@ GSMLG.Telemetry.Backends.Console.get_config()
 
 # Get file backend stats
 GSMLG.Telemetry.Backends.File.get_stats()
-
-# Get CloudWatch backend stats
-GSMLG.Telemetry.Backends.CloudWatch.get_stats()
 
 # Get metrics collector stats
 GSMLG.Telemetry.Metrics.get_summary()

@@ -30,7 +30,7 @@ defmodule GSMLG.CouchDB.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:http_fetch, "~> 0.21.16"},
+      {:http_fetch, "~> 1.0.0-rc.8"},
       {:jason, "~> 1.4"},
       {:ex_doc, "~> 0.40", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

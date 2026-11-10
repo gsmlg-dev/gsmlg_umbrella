@@ -115,7 +115,7 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
     refute GSMLG.GaoNote.MCP.Tools.description("gao_note.update_note") =~ "attachment"
 
     assert {:error, _errors} =
-             Peri.validate(
+             Backplane.Schema.validate(
                GSMLG.GaoNote.MCP.Tools.UpdateNote.__mcp_raw_schema__(),
                %{"id" => "note-1", "attachments" => []}
              )
@@ -171,36 +171,38 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
       "description" => "Data"
     }
 
-    assert {:ok, _args} = Peri.validate(schema, Map.put(base, "update_content", false))
+    assert {:ok, _args} =
+             Backplane.Schema.validate(schema, Map.put(base, "update_content", false))
 
     assert {:error, _errors} =
-             Peri.validate(
+             Backplane.Schema.validate(
                schema,
                Map.merge(base, %{"update_content" => false, "content" => "raw"})
              )
 
     assert {:error, _errors} =
-             Peri.validate(
+             Backplane.Schema.validate(
                schema,
                Map.merge(base, %{"update_content" => false, "content_base64" => "cmF3"})
              )
 
-    assert {:error, _errors} = Peri.validate(schema, Map.put(base, "update_content", true))
+    assert {:error, _errors} =
+             Backplane.Schema.validate(schema, Map.put(base, "update_content", true))
 
     assert {:ok, _args} =
-             Peri.validate(
+             Backplane.Schema.validate(
                schema,
                Map.merge(base, %{"update_content" => true, "content" => "raw"})
              )
 
     assert {:ok, _args} =
-             Peri.validate(
+             Backplane.Schema.validate(
                schema,
                Map.merge(base, %{"update_content" => true, "content_base64" => "cmF3"})
              )
 
     assert {:error, _errors} =
-             Peri.validate(
+             Backplane.Schema.validate(
                schema,
                Map.merge(base, %{
                  "update_content" => true,
@@ -210,13 +212,13 @@ defmodule GSMLG.GaoNote.MCP.AggregateContractTest do
              )
 
     assert {:error, _errors} =
-             Peri.validate(
+             Backplane.Schema.validate(
                schema,
                Map.merge(base, %{"update_content" => true, "content_base64" => "cmF3="})
              )
 
     assert {:error, _errors} =
-             Peri.validate(schema, Map.put(base, "unexpected", "field"))
+             Backplane.Schema.validate(schema, Map.put(base, "unexpected", "field"))
   end
 
   test "standalone attachment tools expose exact access annotations" do

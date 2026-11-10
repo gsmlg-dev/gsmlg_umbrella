@@ -19,4 +19,8 @@ defmodule GSMLG.AdminWeb.PageController do
       }
     )
   end
+
+  def caddy_disabled(conn, _params) do
+    send_resp(conn, :not_found, "Not Found")
+  end
 end

@@ -42,15 +42,6 @@ config :gsmlg_telemetry,
       compress: true,
       buffer_size: 500,
       flush_interval: 10_000
-    ],
-    cloudwatch: [
-      enabled: false,
-      log_group_name: "/gsmlg/production",
-      log_stream_name: "#{node()}-#{System.get_env("HOSTNAME", "unknown")}",
-      region: System.get_env("AWS_REGION", "us-east-1"),
-      buffer_size: 500,
-      flush_interval: 10_000,
-      max_retries: 3
     ]
   ],
   report_interval: 60_000,

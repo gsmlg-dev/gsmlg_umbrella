@@ -36,21 +36,6 @@ platform_key = "your-secret-key"
 features = ["pty"]
 ```
 
-## Planned: Jido Agent Integration
-
-This package includes [Jido](https://hexdocs.pm/jido) - an autonomous agent framework for Elixir. Future versions will support:
-
-- **Autonomous Agents**: Stateful entities that can plan and execute actions
-- **Dynamic Workflows**: Composable actions that agents can combine to solve problems
-- **Distributed Execution**: Run thousands of lightweight agents (25KB each)
-- **AI Integration**: Actions designed to support AI agent decision-making
-
-### Resources
-
-- [Jido Documentation](https://hexdocs.pm/jido)
-- [Jido GitHub](https://github.com/agentjido/jido)
-- [Agent Jido Website](https://agentjido.xyz)
-
 ## Installation
 
 Add `gsmlg_commander` to your dependencies:

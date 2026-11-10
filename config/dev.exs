@@ -125,9 +125,6 @@ config :gsmlg_telemetry,
       compress: false,
       buffer_size: 50,
       flush_interval: 2_000
-    ],
-    cloudwatch: [
-      enabled: false
     ]
   ],
   report_interval: 30_000

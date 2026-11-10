@@ -65,7 +65,7 @@ defmodule GSMLG.AdminWeb.Live.Hooks.AssignCurrentUserTest do
 
     assert %{log: false} = GSMLG.AdminWeb.ProxyRulesLive.Index.__live__()
     assert %{log: false} = GSMLG.AdminWeb.GaoNoteLive.DashboardLive.__live__()
-    assert %{log: false} = GSMLG.AdminWeb.S3Live.Index.__live__()
+    assert %{log: false} = GSMLG.AdminWeb.StorageLive.Index.__live__()
   end
 
   test "connected GaoNote LiveView does not log the certificate session", %{conn: conn} do
@@ -215,13 +215,13 @@ defmodule GSMLG.AdminWeb.Live.Hooks.AssignCurrentUserTest do
     )
   end
 
-  test "aws_live_view macro validates certificate reconnects", %{conn: conn} do
+  test "Storage LiveView validates certificate reconnects", %{conn: conn} do
     {conn, _user, _certificate} = certificate_conn(conn)
 
     assert_certificate_expired(
       conn
       |> put_private(:live_view_connect_info, %{x_headers: []})
-      |> live(~p"/aws/s3/buckets")
+      |> live(~p"/storage")
     )
   end
 

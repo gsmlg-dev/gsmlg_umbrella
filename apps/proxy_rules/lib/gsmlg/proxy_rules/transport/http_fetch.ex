@@ -44,7 +44,6 @@ defmodule GSMLG.ProxyRules.Transport.HTTPFetch do
       HTTP.fetch(url,
         headers: headers,
         http_version: :http1,
-        tls_backend: :ssl,
         redirect: :manual,
         decode_body: false,
         stream_response: true,

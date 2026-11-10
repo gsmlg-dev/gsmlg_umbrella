@@ -21,8 +21,7 @@ Telemetry is automatically enabled when GSMLG.Telemetry is available. Configure 
 config :gsmlg_telemetry,
   level: :info,
   backends: [
-    console: [enabled: true, colored: true],
-    cloudwatch: [enabled: true, log_group_name: "/gsmlg/production"]
+    console: [enabled: true, colored: true]
   ]
 ```
 
@@ -289,65 +288,9 @@ end
 
 ## Production Monitoring
 
-### CloudWatch Integration
+The built-in backends write to the console and rotating JSON files. CloudWatch integration has been removed. Collect these logs with your deployment's log collector.
 
-When CloudWatch backend is enabled, all telemetry events are sent to CloudWatch Logs:
-
-```elixir
-config :gsmlg_telemetry,
-  backends: [
-    cloudwatch: [
-      enabled: true,
-      log_group_name: "/gsmlg/production",
-      log_stream_prefix: "socket-",
-      batch_size: 100,
-      flush_interval_ms: 5000
-    ]
-  ]
-```
-
-### Recommended CloudWatch Metrics
-
-Create metric filters for:
-
-1. **Connection Success Rate**
-   - Filter: `{ $.socket_type = * && $.success = true }`
-   - Metric: Count of successful connections
-
-2. **SSL/TLS Handshake Failures**
-   - Filter: `{ $.operation = "handshake" && $.success = false }`
-   - Metric: Count of handshake failures
-
-3. **Connection Errors by Type**
-   - Filter: `{ $.error_type = * }`
-   - Metric: Count grouped by error_type
-
-4. **WebSocket Frame Rates**
-   - Filter: `{ $.socket_type = "websocket" && $.direction = "recv" }`
-   - Metric: Count of frames received
-
-### Example Queries
-
-**Find all SSL connection failures:**
-```
-fields @timestamp, host, port, reason, error_type
-| filter socket_type = "ssl" and success = false
-| sort @timestamp desc
-```
-
-**Calculate average connection time:**
-```
-fields @timestamp, host, port, duration
-| filter operation = "connect" and success = true
-| stats avg(duration) by host
-```
-
-**Find retryable errors:**
-```
-fields @timestamp, host, port, error_message, suggestions
-| filter retryable = true
-| sort @timestamp desc
-```
+Useful fields for monitoring include `socket_type`, `operation`, `success`, `error_type`, `retryable` and `duration`. Track connection success rates, handshake failures, error counts by type and connection duration.
 
 ## Best Practices
 

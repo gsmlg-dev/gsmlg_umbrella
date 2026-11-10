@@ -79,7 +79,7 @@
           type="text"
           label="Provider"
           class="w-full"
-          placeholder="openai, github, aws, cloudflare, deepseek …"
+          placeholder="openai, github, cloudflare, deepseek …"
         />
         <.dm_input
           field={f[:name]}
@@ -117,9 +117,7 @@
             <span class="label-text-alt text-base-content/50">
               Stored encrypted. Examples: <code>{"api_key"}</code>
               for OpenAI/DeepSeek, <code>{"token"}</code>
-              for GitHub, <code>{"access_key_id"}</code>
-              + <code>{"secret_access_key"}</code>
-              for AWS.
+              for GitHub.
             </span>
           </label>
         </div>
@@ -131,7 +129,7 @@
           <textarea
             name="api_provider[metadata_json]"
             class="textarea textarea-bordered font-mono text-sm h-24 w-full"
-            placeholder={"{\n  \"region\": \"us-east-1\"\n}"}
+            placeholder="{}"
           ><%= @metadata_json %></textarea>
         </div>
 

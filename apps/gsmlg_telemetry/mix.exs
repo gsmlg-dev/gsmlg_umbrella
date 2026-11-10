@@ -41,7 +41,6 @@ defmodule GSMLG.Telemetry.MixProject do
       {:telemetry_metrics, "~> 1.2"},
       {:telemetry_poller, "~> 1.3"},
       {:jason, "~> 1.4"},
-      {:gsmlg_aws, in_umbrella: true},
       {:gsmlg_logger, in_umbrella: true},
       {:stream_data, "~> 1.4", only: [:dev, :test]},
       {:castore, "~> 1.0", only: [:dev, :test]},

@@ -9,7 +9,7 @@ Docker image: [ghcr.io/gsmlg-dev/gsmlg-umbrella](https://github.com/gsmlg-dev/gs
 | App | Port | Purpose |
 |-----|------|---------|
 | `gsmlg_web` | 4110 | Public-facing Phoenix app (LiveView + React) |
-| `gsmlg_admin_web` | 4111 | Admin dashboard (Mnesia browser, AWS, Commander) |
+| `gsmlg_admin_web` | 4111 | Admin dashboard (Mnesia browser, storage, GaoNote, Commander) |
 | `gsmlg_commander` | — | Dual-mode command system (WebSocket agent or session server) |
 
 ## Quick Start

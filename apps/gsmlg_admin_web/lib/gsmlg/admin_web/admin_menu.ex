@@ -119,43 +119,6 @@ defmodule GSMLG.AdminWeb.AdminMenu do
       ]
     },
     %{
-      id: "cloud",
-      title: "Cloud",
-      groups: [
-        %{
-          id: "aws",
-          title: "AWS",
-          items: [
-            %{
-              id: "dynamo_db",
-              icon: "table",
-              label: "DynamoDB: Table List",
-              path: "/aws/dynamo_db"
-            },
-            %{
-              id: "lightsail_instance",
-              icon: "server-outline",
-              label: "Lightsail: Instance",
-              path: nil,
-              disabled: true
-            },
-            %{
-              id: "route53_hosted_zone_list",
-              icon: "dns-outline",
-              label: "Route53: Hosted Zones",
-              path: "/aws/route53/hosted_zones"
-            },
-            %{
-              id: "s3_buckets_list",
-              icon: "bucket-outline",
-              label: "S3: Bucket List",
-              path: "/aws/s3/buckets"
-            }
-          ]
-        }
-      ]
-    },
-    %{
       id: "service",
       title: "Service",
       groups: [
@@ -244,33 +207,6 @@ defmodule GSMLG.AdminWeb.AdminMenu do
               label: "Dashboard",
               path: "/proxy-rules"
             }
-          ]
-        },
-        %{
-          id: "caddy",
-          title: "Caddy",
-          items: [
-            %{
-              id: "caddy_dashboard",
-              icon: "view-dashboard-outline",
-              label: "Dashboard",
-              path: "/caddy"
-            },
-            %{
-              id: "caddy_config",
-              icon: "file-document-outline",
-              label: "Configuration",
-              path: "/caddy/config"
-            },
-            %{id: "caddy_server", icon: "server", label: "Server Control", path: "/caddy/server"},
-            %{
-              id: "caddy_runtime",
-              icon: "cog-outline",
-              label: "Runtime Config",
-              path: "/caddy/runtime"
-            },
-            %{id: "caddy_metrics", icon: "chart-line", label: "Metrics", path: "/caddy/metrics"},
-            %{id: "caddy_logs", icon: "text-box-outline", label: "Logs", path: "/caddy/logs"}
           ]
         },
         %{

@@ -93,7 +93,7 @@ end
 
 **TELEMETRY.md** - Comprehensive telemetry guide:
 - Event reference with metadata schemas
-- CloudWatch integration examples
+- Console and file logging examples
 - Metric filter configurations
 - Monitoring best practices
 - Troubleshooting queries
@@ -165,7 +165,7 @@ end
    - Security event alerts
 
 3. **Operations**
-   - CloudWatch integration for centralized logging
+   - Structured file output for log collection
    - Metric filters for alerting
    - Structured logs for analysis
 
@@ -219,8 +219,7 @@ end
    config :gsmlg_telemetry,
      level: :info,
      backends: [
-       console: [enabled: true, colored: true],
-       cloudwatch: [enabled: true, log_group_name: "/gsmlg/production"]
+       console: [enabled: true, colored: true]
      ]
    ```
 

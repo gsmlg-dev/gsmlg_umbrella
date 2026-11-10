@@ -727,8 +727,11 @@ defmodule GSMLG.GaoNote.MCP.AgentNoteToolComponent do
         do: GSMLG.GaoNote.MCP.AgentNoteTools.validate_output(unquote(name), params)
 
       # TODO(upstream): gsmlg-opt/backplane#58
-      def mcp_schema(params), do: Peri.validate(__mcp_raw_schema__(), params)
-      def mcp_output_schema(params), do: Peri.validate(__mcp_output_schema__(), params)
+      def mcp_schema(params), do: Backplane.Schema.validate(__mcp_raw_schema__(), params)
+
+      def mcp_output_schema(params),
+        do: Backplane.Schema.validate(__mcp_output_schema__(), params)
+
       @impl true
       def annotations, do: GSMLG.GaoNote.MCP.AgentNoteTools.annotations(unquote(name))
       @impl true

@@ -1,6 +1,8 @@
 defmodule GSMLG.Storage.MultipartUploadTest do
   use ExUnit.Case, async: false
 
+  import SweetXml, only: [sigil_x: 2]
+
   alias GSMLG.Repo
   alias GSMLG.Storage
   alias GSMLG.Storage.{S3Client, StorageFile, TestCatalogClient}
@@ -47,25 +49,45 @@ defmodule GSMLG.Storage.MultipartUploadTest do
       case options[:etag] do
         :missing -> send_resp(conn, 200, "")
         :empty -> conn |> put_resp_header("etag", "") |> send_resp(200, "")
+        {:value, value} -> conn |> put_resp_header("etag", value) |> send_resp(200, "")
         _ -> conn |> put_resp_header("etag", etag(body)) |> send_resp(200, "")
       end
     end
 
     defp respond(%{method: "POST", query_params: %{"uploadId" => _}} = conn, body, options) do
       cond do
-        AWS.XML.decode!(body) != options[:complete] or options[:fail_complete] == true ->
+        GSMLG.Storage.MultipartUploadTest.complete_parts(body) != options[:complete] or
+            options[:fail_complete] == true ->
           xml(conn, 400, "<Error><Code>MalformedXML</Code></Error>")
 
         options[:fail_complete] == :embedded ->
           xml(conn, 200, "<Error><Code>InternalError</Code></Error>")
 
         true ->
-          xml(conn, 200, """
+          result = """
           <CompleteMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
             <Location>http://localhost/multipart-test/attachment.pdf</Location>
             <Bucket>multipart-test</Bucket><Key>attachment.pdf</Key><ETag>"complete"</ETag>
           </CompleteMultipartUploadResult>
-          """)
+          """
+
+          result =
+            case options[:complete_response] do
+              :trailing_root ->
+                result <> "<Error><Code>InternalError</Code></Error>"
+
+              :trailing_garbage ->
+                result <> "garbage"
+
+              :dtd ->
+                ~s(<!DOCTYPE CompleteMultipartUploadResult [<!ENTITY etag "complete">]>) <>
+                  String.replace(result, ~s(<ETag>"complete"</ETag>), "<ETag>&etag;</ETag>")
+
+              _ ->
+                result
+            end
+
+          xml(conn, 200, result)
       end
     end
 
@@ -97,11 +119,18 @@ defmodule GSMLG.Storage.MultipartUploadTest do
     path = Path.join(context.tmp_dir, "attachment.pdf")
     File.write!(path, content)
 
+    part_etag = fn bytes ->
+      case context[:etag] do
+        {:value, value} -> value
+        _ -> etag(bytes)
+      end
+    end
+
     complete = %{
       "CompleteMultipartUpload" => %{
         "Part" => [
-          %{"PartNumber" => "1", "ETag" => etag(first)},
-          %{"PartNumber" => "2", "ETag" => etag(second)}
+          %{"PartNumber" => "1", "ETag" => part_etag.(first)},
+          %{"PartNumber" => "2", "ETag" => part_etag.(second)}
         ]
       }
     }
@@ -109,7 +138,9 @@ defmodule GSMLG.Storage.MultipartUploadTest do
     options =
       Keyword.merge(
         [test_pid: self(), complete: complete],
-        context |> Map.take([:initiate, :etag, :fail_complete]) |> Map.to_list()
+        context
+        |> Map.take([:initiate, :etag, :fail_complete, :complete_response])
+        |> Map.to_list()
       )
 
     server =
@@ -184,7 +215,25 @@ defmodule GSMLG.Storage.MultipartUploadTest do
     assert_receive {:s3_request, "POST", %{"uploadId" => "test-upload-id"}, complete_body,
                     ["AWS4-HMAC-SHA256 " <> _]}
 
-    assert AWS.XML.decode!(complete_body) == context.complete
+    assert complete_parts(complete_body) == context.complete
+    refute_received {:s3_request, "DELETE", _, _, _}
+  end
+
+  @tag etag: {:value, ~s("a&b")}
+  test "multipart completion XML round-trips ETag entities without changing ordered parts",
+       context do
+    assert :ok =
+             S3Client.put_file(context.backend, "attachment.pdf", context.path, "application/pdf")
+
+    assert_receive {:s3_request, "POST", %{"uploadId" => "test-upload-id"}, complete_body, _}
+    assert complete_body =~ "a&amp;b"
+    assert complete_parts(complete_body) == context.complete
+
+    assert context.complete["CompleteMultipartUpload"]["Part"] == [
+             %{"PartNumber" => "1", "ETag" => ~s("a&b")},
+             %{"PartNumber" => "2", "ETag" => ~s("a&b")}
+           ]
+
     refute_received {:s3_request, "DELETE", _, _, _}
   end
 
@@ -237,6 +286,38 @@ defmodule GSMLG.Storage.MultipartUploadTest do
 
     assert_receive {:s3_request, "POST", %{"uploadId" => "test-upload-id"}, _, _}
     assert_receive {:s3_request, "DELETE", %{"uploadId" => "test-upload-id"}, _, _}
+  end
+
+  for malformed <- [:trailing_root, :trailing_garbage, :dtd] do
+    @tag complete_response: malformed
+    test "aborts an upload when completion XML contains #{malformed}", context do
+      assert {:error, :invalid_s3_multipart_completion_response} =
+               S3Client.put_file(
+                 context.backend,
+                 "attachment.pdf",
+                 context.path,
+                 "application/pdf"
+               )
+
+      assert_receive {:s3_request, "POST", %{"uploadId" => "test-upload-id"}, _, _}
+      assert_receive {:s3_request, "DELETE", %{"uploadId" => "test-upload-id"}, _, _}
+    end
+  end
+
+  def complete_parts(xml) do
+    parts =
+      SweetXml.xpath(
+        xml,
+        ~x"/*[local-name()='CompleteMultipartUpload']/*[local-name()='Part']"l,
+        part_number: ~x"./*[local-name()='PartNumber']/text()"s,
+        etag: ~x"./*[local-name()='ETag']/text()"s
+      )
+
+    %{
+      "CompleteMultipartUpload" => %{
+        "Part" => Enum.map(parts, &%{"PartNumber" => &1.part_number, "ETag" => &1.etag})
+      }
+    }
   end
 
   defp etag(body), do: "\"" <> Base.encode16(:crypto.hash(:md5, body), case: :lower) <> "\""

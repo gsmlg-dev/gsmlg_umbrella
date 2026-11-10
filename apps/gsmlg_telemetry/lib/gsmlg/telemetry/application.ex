@@ -9,7 +9,7 @@ defmodule GSMLG.Telemetry.Application do
   use Application
 
   alias GSMLG.Telemetry.{Handler, Reporter, Metrics}
-  alias GSMLG.Telemetry.Backends.{Console, File, CloudWatch}
+  alias GSMLG.Telemetry.Backends.{Console, File}
 
   @impl true
   def start(_type, _args) do
@@ -65,7 +65,6 @@ defmodule GSMLG.Telemetry.Application do
       []
       |> maybe_add_console_backend(backends_config)
       |> maybe_add_file_backend(backends_config)
-      |> maybe_add_cloudwatch_backend(backends_config)
 
     # Wrap each backend in a supervisor to handle failures
     Enum.map(backends, fn backend_config ->
@@ -104,24 +103,6 @@ defmodule GSMLG.Telemetry.Application do
           id: File,
           module: File,
           opts: file_config
-        }
-        | backends
-      ]
-    else
-      backends
-    end
-  end
-
-  defp maybe_add_cloudwatch_backend(backends, backends_config) do
-    cloudwatch_config = Keyword.get(backends_config, :cloudwatch, [])
-    enabled = Keyword.get(cloudwatch_config, :enabled, false)
-
-    if enabled do
-      [
-        %{
-          id: CloudWatch,
-          module: CloudWatch,
-          opts: cloudwatch_config
         }
         | backends
       ]

@@ -4,7 +4,7 @@ defmodule GSMLG.ApiProvider do
 
   Each record represents one named instance of an external API service.
   Multiple instances of the same provider type are supported (e.g., two
-  different AWS accounts).
+  different GitHub accounts).
 
   ## Auth types
 
@@ -13,7 +13,6 @@ defmodule GSMLG.ApiProvider do
     - openai:     `%{api_key: "sk-..."}`
     - deepseek:   `%{api_key: "..."}`
     - cloudflare: `%{api_token: "..."}` or `%{api_key: "...", email: "..."}`
-    - aws:        `%{access_key_id: "AKIA...", secret_access_key: "..."}`
 
   - `"oauth"` — token obtained via OAuth2 flow. Credentials map keys:
     `%{client_id: "...", client_secret: "...", access_token: "...",

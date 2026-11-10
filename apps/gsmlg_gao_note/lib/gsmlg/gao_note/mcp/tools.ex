@@ -201,7 +201,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   def validate_attachment_input(attachment) when is_map(attachment) do
     with {:ok, _attachment} <- Schema.validator(@strict_attachment_map_schema).(attachment),
          :ok <- validate_attachment_content(attachment),
-         {:ok, attachment} <- Peri.validate(@attachment_input_fields, attachment) do
+         {:ok, attachment} <- Backplane.Schema.validate(@attachment_input_fields, attachment) do
       {:ok, attachment}
     end
   end
@@ -632,7 +632,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
   end
 
   defp validate_aggregate_arguments("gao_note.put_attachment", args) do
-    case Peri.validate(@strict_put_attachment_input_fields, args) do
+    case Backplane.Schema.validate(@strict_put_attachment_input_fields, args) do
       {:ok, args} -> {:ok, stringify_keys(args)}
       {:error, errors} -> {:error, Presenter.error_text(errors)}
     end
@@ -644,7 +644,7 @@ defmodule GSMLG.GaoNote.MCP.Tools do
     attachments
     |> Enum.with_index()
     |> Enum.reduce_while({:ok, []}, fn {attachment, index}, {:ok, validated} ->
-      case Peri.validate(@strict_attachment_input_fields, attachment) do
+      case Backplane.Schema.validate(@strict_attachment_input_fields, attachment) do
         {:ok, attachment} ->
           {:cont, {:ok, [attachment | validated]}}
 
@@ -856,7 +856,7 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
           {:custom,
            Backplane.McpProtocol.Server.Component.Schema.validator(unquote(Macro.escape(schema)))}
 
-      def mcp_schema(params), do: Peri.validate(__mcp_raw_schema__(), params)
+      def mcp_schema(params), do: Backplane.Schema.validate(__mcp_raw_schema__(), params)
     end
   end
 
@@ -892,7 +892,7 @@ defmodule GSMLG.GaoNote.MCP.ToolComponent do
           {:custom,
            Backplane.McpProtocol.Server.Component.Schema.validator(unquote(Macro.escape(schema)))}
 
-      def mcp_schema(params), do: Peri.validate(__mcp_raw_schema__(), params)
+      def mcp_schema(params), do: Backplane.Schema.validate(__mcp_raw_schema__(), params)
     end
   end
 

@@ -337,7 +337,7 @@ If using the GSMLG umbrella project's telemetry system:
 
 ```elixir
 # Events are automatically logged to configured backends
-# (console, file, CloudWatch, etc.)
+# (console and file)
 
 # View metrics
 GSMLG.Telemetry.Metrics.get_summary()

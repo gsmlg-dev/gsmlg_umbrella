@@ -74,7 +74,6 @@ defmodule GSMLG.Config.Transforms do
     Transform that resolves secret references.
 
     Currently supports reading from files with the syntax: SECRET:file:/path/to/secret
-    Can be extended to support AWS Secrets Manager, HashiCorp Vault, etc.
     """
     use Toml.Transform
 

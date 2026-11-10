@@ -33,8 +33,8 @@ defmodule GSMLG.GaoNote.MixProject do
       {:styx, "~> 0.1"},
       {:gaoxy_http, "~> 0.12", only: :test},
       {:plug, "~> 1.20"},
-      # TODO(upstream): gsmlg-opt/backplane#120 still requires Finch/Mint transitively.
-      {:backplane_mcp_protocol, "~> 1.10"},
+      {:backplane_mcp_protocol, "~> 1.10.60"},
+      {:backplane_schema, "~> 1.10.60"},
       {:jason, "~> 1.4"},
       {:tesla, "~> 1.22"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

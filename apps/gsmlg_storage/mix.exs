@@ -30,7 +30,15 @@ defmodule GSMLG.Storage.MixProject do
   defp deps do
     [
       {:gsmlg, in_umbrella: true},
-      {:gsmlg_aws, in_umbrella: true},
+      # TODO(upstream): gsmlg-opt/ex_storage_service#25
+      # WORKAROUND(upstream): gsmlg-opt/ex_storage_service#25
+      # Replace this temporary S3 SDK after the standalone ESS SDK is published
+      # and passes the storage/attachment compatibility suite.
+      {:ex_aws, "~> 2.7"},
+      {:ex_aws_s3, "~> 2.5"},
+      {:aws_signature, "~> 0.4"},
+      {:sweet_xml, "~> 0.7"},
+      {:tesla, "~> 1.22"},
       {:vix, "~> 0.42"},
       {:gaoxy_http, "~> 0.12", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

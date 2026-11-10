@@ -59,15 +59,24 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
     end
 
     test "renders the active branch and current page state" do
-      html = render_component(&AdminNavigation.left_menu/1, active_menu: "caddy_dashboard")
+      html = render_component(&AdminNavigation.left_menu/1, active_menu: "storage_files")
 
       assert html =~ ~s(aria-label="Admin navigation")
-      assert html =~ "Caddy"
-      assert html =~ "Dashboard"
-      assert html =~ ~s(data-menu-group="caddy")
-      assert html =~ ~r/<details(?=[^>]*data-menu-group="caddy")(?=[^>]*open)/
-      refute html =~ ~r/<details(?=[^>]*data-menu-group="aws")(?=[^>]*open)/
+      assert html =~ "Storage"
+      assert html =~ "File Browser"
+      assert html =~ ~s(data-menu-group="storage")
+      assert html =~ ~r/<details(?=[^>]*data-menu-group="storage")(?=[^>]*open)/
+      refute html =~ ~r/<details(?=[^>]*data-menu-group="blogs")(?=[^>]*open)/
       assert html =~ ~s(aria-current="page")
+    end
+
+    test "does not render disabled Caddy management" do
+      html = render_component(&AdminNavigation.left_menu/1, active_menu: nil)
+      document = Floki.parse_fragment!(html)
+
+      refute html =~ "Caddy"
+      assert Floki.find(document, ~s([data-menu-group="caddy"])) == []
+      assert Floki.find(document, ~s(a[href^="/caddy"])) == []
     end
 
     test "does not render the removed PKI module" do
@@ -82,12 +91,15 @@ defmodule GSMLG.AdminWeb.Components.AdminNavigationTest do
       refute html =~ ~s(href="/pki/analytics")
     end
 
-    test "renders disabled placeholders without navigation targets" do
-      html = render_component(&AdminNavigation.left_menu/1, active_menu: "dynamo_db")
+    test "does not render removed AWS management" do
+      html = render_component(&AdminNavigation.left_menu/1, active_menu: "storage_files")
+      document = Floki.parse_fragment!(html)
 
-      assert html =~ "Lightsail: Instance"
-      assert html =~ ~s(aria-disabled="true")
-      refute html =~ ~s(href="/aws/lightsail")
+      refute html =~ "AWS"
+      refute html =~ "Lightsail"
+      assert Floki.find(document, ~s([data-menu-group="aws"])) == []
+      assert Floki.find(document, ~s(a[href^="/aws"])) == []
+      assert [_storage] = Floki.find(document, ~s(a[href="/storage"][aria-current="page"]))
     end
 
     test "renders GaoNote in the content navigation group" do

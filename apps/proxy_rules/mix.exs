@@ -24,7 +24,7 @@ defmodule GSMLG.ProxyRules.MixProject do
 
   defp deps do
     [
-      {:http_fetch, "~> 0.21.16"},
+      {:http_fetch, "~> 1.0.0-rc.8"},
       {:file_system, "~> 1.1"},
       {:idna, "~> 7.1"},
       {:telemetry, "~> 1.4"},

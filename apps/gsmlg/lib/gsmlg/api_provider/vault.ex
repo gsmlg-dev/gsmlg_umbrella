@@ -192,33 +192,11 @@ defmodule GSMLG.ApiProvider.Vault do
     :ets.delete_all_objects(@ets_table)
     :ets.insert(@ets_table, {:__status__, :unsealed})
     Enum.each(providers, &ets_put/1)
-    apply_app_env(providers)
   end
 
   defp do_seal do
     :ets.delete_all_objects(@ets_table)
     :ets.insert(@ets_table, {:__status__, :sealed})
-    Application.delete_env(:gsmlg_aws, :aws_credentials)
-  end
-
-  # Push AWS credentials into :gsmlg_aws Application env so GSMLG.AWS.Client
-  # can read them without a direct dependency on :gsmlg.
-  defp apply_app_env(providers) do
-    aws_creds =
-      providers
-      |> Enum.filter(&(&1.provider == "aws"))
-      |> Map.new(fn p ->
-        region = p.metadata["region"] || p.metadata[:region]
-
-        {p.name,
-         %{
-           access_key_id: p.credentials[:access_key_id],
-           secret_access_key: p.credentials[:secret_access_key],
-           region: region
-         }}
-      end)
-
-    Application.put_env(:gsmlg_aws, :aws_credentials, aws_creds)
   end
 
   defp ets_put(provider) do

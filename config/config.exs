@@ -144,7 +144,7 @@ config :gsmlg_tor, GSMLG.Tor.Config,
   conf: nil
 
 config :tesla,
-  adapter: GSMLG.AWS.HTTPFetchAdapter
+  adapter: GSMLG.HTTPFetchAdapter
 
 # Add mime type to upload notebooks with `Phoenix.LiveView.Upload`
 config :mime, :types, %{
@@ -280,14 +280,6 @@ config :gsmlg_telemetry,
       max_file_size: 50 * 1024 * 1024,
       max_files: 5,
       compress: true,
-      buffer_size: 100,
-      flush_interval: 5_000
-    ],
-    cloudwatch: [
-      enabled: false,
-      log_group_name: "/gsmlg/development",
-      log_stream_name: "gsmlg-#{node()}",
-      region: "us-east-1",
       buffer_size: 100,
       flush_interval: 5_000
     ]

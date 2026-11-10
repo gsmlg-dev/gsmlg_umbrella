@@ -82,19 +82,19 @@ Releases are triggered manually via the `release` workflow dispatch (inputs: `re
 
 ## Project Architecture
 
-**Elixir umbrella** with 22 apps under `apps/`. The key ones:
+**Elixir umbrella** with apps under `apps/`. The key ones:
 
 | App | Purpose |
 |-----|---------|
 | `gsmlg` | Core domain: Ecto schemas, Repo, PubSub, supervision tree for all business services |
 | `gsmlg_web` | Public Phoenix app (port 4110). LiveView + React via `phoenix_react_server` |
-| `gsmlg_admin_web` | Admin Phoenix app (port 4111). AWS dashboards, Commander control |
+| `gsmlg_admin_web` | Admin Phoenix app (port 4111). Storage and GaoNote management, Commander control |
 | `gsmlg_config` | TOML-based config system. Loads config, validates via NimbleOptions, applies to Application env |
 | `gsmlg_commander` | Dual-mode command system: agent (outbound WebSocket) or server (session management) |
 | `gsmlg_component` | Shared React components rendered server-side via Bun |
-| `gsmlg_telemetry` | Structured logging, metrics collection, file/console/CloudWatch backends |
+| `gsmlg_telemetry` | Structured logging, metrics collection, file/console backends |
 
-Other utility apps: `gsmlg_aws`, `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
+Other utility apps: `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
 
 ### Configuration System
 
@@ -113,7 +113,7 @@ When adding new config fields: update the TOML file, add to schema.ex, add to se
 ### Supervision Tree
 
 `GSMLG.Application` (core app) starts sequentially:
-`SimpleCache → AWS → SessionProcess.Supervisor → TaskSupervisor → Repo → PubSub → CommandPlatform.Supervisor → WebPush.Subscriptions → Node.Supervisor → Chess.Supervisor`
+`SimpleCache → SessionProcess.Supervisor → TaskSupervisor → Repo → PubSub → CommandPlatform.Supervisor → WebPush.Subscriptions → Node.Supervisor → Chess.Supervisor`
 
 `GSMLG.Web.Application`: `Telemetry → Endpoint`
 `GSMLG.AdminWeb.Application`: `Telemetry → Endpoint → Guardian.DB.Sweeper`
@@ -128,13 +128,17 @@ Auth methods: username/password (`GSMLG.Accounts.Auth`), GitHub OAuth2 (optional
 
 Router pipelines: `maybe_browser_auth` / `maybe_api_auth` (optional auth), `ensure_authed_access` (required auth). Admin routes also use `ensure_session_process_started` for `phoenix_session_process` integration.
 
+### Storage
+
+`gsmlg_storage` owns the S3-compatible client for file storage and GaoNote attachments. It temporarily uses `ex_aws_s3` operation builders with a storage-local executor, the existing `aws_signature` signer and HTTPFetch transport to preserve exact object keys. Replace this bridge after the standalone ESS SDK requested in [ex_storage_service#25](https://github.com/gsmlg-opt/ex_storage_service/issues/25) is published and passes downstream storage/attachment/sync tests. The full `aws` SDK, retired AWS management app, dashboards, credential bridge and CloudWatch integration are removed; storage credentials and custom S3 endpoints remain supported.
+
 ### Database
 
 PostgreSQL in production and CI. Dev supports both TCP (`POSTGRES_HOST`) and Unix socket (`PGHOST` env var set by devenv/nix). Ecto repo is `GSMLG.Repo` in the `gsmlg` app.
 
 ### Frontend
 
-Hybrid rendering: Phoenix LiveView for most pages, React components via `phoenix_react_server` (Bun runtime and SSR release bundle). Shared components live in `apps/gsmlg_component/assets/component/`. Both web apps use DuskmoonBundler 10.0 for JavaScript, Tailwind CSS v4, manifests and development HMR. Named profiles are `gsmlg_web` and `gsmlg_admin_web`. Serve source JS under `/assets/js/`, generated CSS under `/assets/css/`, and static service workers at `/sw.js`.
+Hybrid rendering: Phoenix LiveView for most pages, React components via `phoenix_react_server` (Bun runtime and SSR release bundle). Shared components live in `apps/gsmlg_component/assets/component/`. Both web apps use DuskmoonBundler 10.1 for JavaScript, Tailwind CSS v4, manifests and development HMR. Named profiles are `gsmlg_web` and `gsmlg_admin_web`. Serve source JS under `/assets/js/`, generated CSS under `/assets/css/`, and static service workers at `/sw.js`.
 
 ### UI Framework: Duskmoon
 
@@ -146,7 +150,6 @@ This project uses the DuskMoon UI system:
 
 - **`phoenix_duskmoon`** — Phoenix LiveView UI component library (primary web UI)
 - **`@duskmoon-dev/core`** — Core Tailwind CSS plugin and utilities
-- **`@duskmoon-dev/css-art`** — CSS art utilities
 - **`@duskmoon-dev/elements`** — Base web components
 - **`@duskmoon-dev/art-elements`** — Art/decorative web components
 
@@ -181,6 +184,7 @@ If you encounter missing features, bugs, or need functionality not yet available
 - Use `mix npm.install` from the umbrella root (`duskmoon_npm`); commit the root `package-lock.json`. CI and Docker use `mix npm.ci` for frozen installs. `node_modules/` and the unused legacy `bun.lock` remain ignored.
 - List directly imported packages in the owning app's `package.json`. Use `.jsx` for files containing JSX.
 - Vize uses its supported Rust source build via `config :rustler_precompiled, :force_build, duskmoon_vize: true`; GNU prebuilts require glibc 2.43, which is newer than the Nix and Debian build environments.
+- Native dependency builds require Rust 1.99.0 or later. `rust-toolchain.toml` pins the Rustup toolchain used by CI and matches the Docker builder stages. Devenv takes Rust from its dedicated `nixpkgs-unstable` input.
 - Bun remains required for `phoenix_react_server` and JavaScript tests. `MIX_BUN_PATH`, `BUN_BIN`, then TOML `gsmlg.bun_path` select the SSR executable. The legacy TOML `tailwind_path` is ignored.
 
 ### Telemetry File Backend

@@ -1,4 +1,4 @@
-defmodule GSMLG.AWS.HTTPFetchAdapter do
+defmodule GSMLG.HTTPFetchAdapter do
   @moduledoc """
   Tesla adapter backed by http_fetch, with optional bounded response bodies.
 
@@ -20,7 +20,6 @@ defmodule GSMLG.AWS.HTTPFetchAdapter do
         headers: env.headers,
         body: IO.iodata_to_binary(env.body || ""),
         http_version: :http1,
-        tls_backend: :ssl,
         http1_reuse: true,
         redirect: :manual,
         telemetry: false,

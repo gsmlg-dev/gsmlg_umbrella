@@ -277,7 +277,6 @@ defmodule GSMLG.CouchDB.Connection do
         headers: headers ++ [{"Authorization", state.authorization}],
         body: body,
         http_version: :http1,
-        tls_backend: :ssl,
         redirect: :manual,
         decode_body: false,
         stream_response: true

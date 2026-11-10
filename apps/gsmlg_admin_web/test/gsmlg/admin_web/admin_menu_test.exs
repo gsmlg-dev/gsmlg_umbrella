@@ -5,7 +5,7 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
 
   describe "sections/0" do
     test "returns the approved top-level sections" do
-      assert ["Dashboard", "Content", "Cloud", "Service"] =
+      assert ["Dashboard", "Content", "Service"] =
                AdminMenu.sections() |> Enum.map(& &1.title)
     end
 
@@ -16,6 +16,16 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
 
       assert_raise ArgumentError, fn -> AdminMenu.find_group!("pki") end
       assert AdminMenu.active_id(nil, "/pki/ca") == nil
+    end
+
+    test "does not expose disabled Caddy management" do
+      refute Enum.any?(AdminMenu.sections(), fn section ->
+               Enum.any?(section.groups, &(&1.id == "caddy"))
+             end)
+
+      refute Enum.any?(AdminMenu.enabled_items(), &String.starts_with?(&1.path, "/caddy"))
+      assert AdminMenu.active_id(nil, "/caddy") == nil
+      assert AdminMenu.active_id(nil, "/caddy/config") == nil
     end
 
     test "does not expose removed legacy platform and mnesia modules" do
@@ -87,22 +97,35 @@ defmodule GSMLG.AdminWeb.AdminMenuTest do
     end
   end
 
-  describe "disabled placeholders" do
-    test "keeps Lightsail visible but disabled" do
-      assert %{id: "lightsail_instance", disabled: true, path: nil} =
-               AdminMenu.find_item!("lightsail_instance")
+  describe "removed AWS management" do
+    test "does not expose AWS or Lightsail navigation" do
+      refute Enum.any?(AdminMenu.sections(), &(&1.id == "cloud"))
+      assert_raise ArgumentError, fn -> AdminMenu.find_group!("aws") end
+      assert_raise ArgumentError, fn -> AdminMenu.find_item!("lightsail_instance") end
+      refute Enum.any?(AdminMenu.enabled_items(), &String.starts_with?(&1.path, "/aws"))
+      assert AdminMenu.active_id(nil, "/aws/dynamo_db") == nil
+
+      for id <- [
+            "storage_files",
+            "storage_config",
+            "gao_note_list",
+            "scout_dashboard",
+            "commander_list"
+          ] do
+        assert %{id: ^id} = AdminMenu.find_item!(id)
+      end
     end
   end
 
   describe "active branch matching" do
     test "opens only the group containing the active item" do
-      assert AdminMenu.group_open?(AdminMenu.find_group!("caddy"), "caddy_dashboard")
-      refute AdminMenu.group_open?(AdminMenu.find_group!("aws"), "caddy_dashboard")
+      assert AdminMenu.group_open?(AdminMenu.find_group!("storage"), "storage_files")
+      refute AdminMenu.group_open?(AdminMenu.find_group!("blogs"), "storage_files")
     end
 
     test "prefers explicit active menu and falls back to path matching" do
-      assert AdminMenu.active_id(nil, "/aws/dynamo_db") == "dynamo_db"
-      assert AdminMenu.active_id("caddy_dashboard", "/aws/dynamo_db") == "caddy_dashboard"
+      assert AdminMenu.active_id(nil, "/blogs/import") == "blog_import"
+      assert AdminMenu.active_id("storage_files", "/blogs/import") == "storage_files"
     end
 
     test "matches GaoNote routes to their content menu items" do

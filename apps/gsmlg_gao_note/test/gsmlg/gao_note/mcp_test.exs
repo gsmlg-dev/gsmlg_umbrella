@@ -818,7 +818,7 @@ defmodule GSMLG.GaoNote.MCPTest do
       schema = GSMLG.GaoNote.MCP.Tools.PutAttachment.__mcp_raw_schema__()
 
       for {args, expected_message} <- invalid_cases do
-        assert {:error, _errors} = Peri.validate(schema, args)
+        assert {:error, _errors} = Backplane.Schema.validate(schema, args)
 
         assert %{"isError" => true, "content" => [%{"text" => message}]} =
                  call_tool(
@@ -838,7 +838,7 @@ defmodule GSMLG.GaoNote.MCPTest do
           "content" => "plain text"
         })
 
-      assert {:ok, _args} = Peri.validate(schema, mime_mismatch)
+      assert {:ok, _args} = Backplane.Schema.validate(schema, mime_mismatch)
 
       assert %{"isError" => true, "content" => [%{"text" => mime_message}]} =
                call_tool(

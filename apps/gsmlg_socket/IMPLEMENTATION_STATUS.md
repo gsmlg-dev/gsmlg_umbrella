@@ -183,7 +183,7 @@ All three major documentation files are comprehensive and production-ready:
 
 1. **TELEMETRY.md**
    - Complete event reference
-   - CloudWatch integration examples
+   - Console and file logging examples
    - Production monitoring strategies
    - Troubleshooting queries
 

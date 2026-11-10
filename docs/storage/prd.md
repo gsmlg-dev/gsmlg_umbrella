@@ -229,7 +229,7 @@ Admin views file detail at /admin/storage/{id}
 
 | Phase | Scope | Depends On |
 |-------|-------|------------|
-| **1 — Core Library** | `gsmlg_storage` app: S3 module, content-type detection, DB schema, upload/get/stream/delete API, E2E tests | `gsmlg_aws` |
+| **1 — Core Library** | `gsmlg_storage` app: S3 module, content-type detection, DB schema, upload/get/stream/delete API, E2E tests | `ex_aws_s3` temporary S3 client |
 | **2 — Public Serving** | `gsmlg_web` FileController: streaming proxy, caching headers, ETag/304, Range support | Phase 1 |
 | **3 — Admin UI** | `gsmlg_admin_web` LiveViews: file browser, upload, detail, delete, stats | Phase 1 |
 | **4 — Image Processing** | Vix pipeline, async variant generation, variant serving, admin regeneration | Phase 1+2 |
@@ -268,11 +268,14 @@ Phases 2, 3, 4, 5 can proceed in parallel after Phase 1 is complete.
 
 | Dependency | Purpose | Risk |
 |------------|---------|------|
-| `gsmlg_aws` (umbrella) | S3 client configuration, credentials | Low — existing, stable |
-| `ex_aws_s3` | S3 API operations | Low — mature library |
+| `ex_aws_s3` / `ex_aws` | S3 operation builders; storage owns configuration, exact-key request execution and HTTP transport | Temporary bridge pending ESS SDK |
+| `aws_signature` | Existing public SigV4 signer; preserves the encoded S3 path | Low — existing, qualified signer |
+| `sweet_xml` | Strict S3 XML responses with DTD processing disabled | Covered by storage protocol tests |
 | `vix` / libvips | Image processing | Medium — NIF, requires libvips system package |
 | Shared `GSMLG.Repo` | DB index persistence | Low — existing infrastructure |
 | S3 bucket provisioning | Storage backend | Requires infra setup per environment |
+
+The temporary client tracks [ex_storage_service#25](https://github.com/gsmlg-opt/ex_storage_service/issues/25). Replace it when ESS publishes a standalone SDK with compatible dependencies and the required operations, then qualify that released package against storage, GaoNote attachments and sync. No full `aws` SDK or ESS CLI dependency is required.
 
 ### Environment Requirements
 

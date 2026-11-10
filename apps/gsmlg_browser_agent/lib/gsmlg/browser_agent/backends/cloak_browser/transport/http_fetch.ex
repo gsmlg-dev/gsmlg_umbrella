@@ -19,7 +19,6 @@ defmodule GSMLG.BrowserAgent.Backends.CloakBrowser.Transport.HTTPFetch do
         decode_body: false,
         telemetry: false,
         http_version: :http1,
-        tls_backend: :ssl,
         connect_timeout: Keyword.fetch!(options, :connect_timeout),
         timeout: timeout,
         read_idle_timeout: timeout,

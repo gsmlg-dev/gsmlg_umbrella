@@ -181,27 +181,14 @@ defmodule GSMLG.AdminWeb.Router do
 
     live("/github", GithubLive.Index, :index)
 
-    live("/aws/route53/hosted_zones", Route53Live.Index, :list_zones)
-    live("/aws/route53/hosted_zones/:id/records", Route53Live.Index, :list_records)
-
-    live("/aws/dynamo_db", DynamoDBLive.Index, :index)
-    live("/aws/dynamo_db/:table/scan", DynamoDBLive.Index, :scan)
-
-    live("/aws/s3/buckets", S3Live.Index, :list_buckets)
-
     # Storage Management
     live("/storage", StorageLive.Index, :index)
     live("/storage/config", StorageLive.Config, :index)
     live("/storage/:id", StorageLive.Show, :show)
 
-    # Caddy Management Routes
-    live("/caddy", CaddyLive.DashboardLive, :index)
-    live("/caddy/config", CaddyLive.ConfigLive, :index)
-    live("/caddy/server", CaddyLive.ServerLive, :index)
-    live("/caddy/server/settings", CaddyLive.ServerSettingsLive, :index)
-    live("/caddy/metrics", CaddyLive.MetricsLive, :index)
-    live("/caddy/runtime", CaddyLive.RuntimeLive, :index)
-    live("/caddy/logs", CaddyLive.LogsLive, :index)
+    # Keep retained Caddy modules' verified paths valid while management is disabled.
+    get("/caddy", PageController, :caddy_disabled)
+    get("/caddy/*path", PageController, :caddy_disabled)
 
     import Phoenix.LiveDashboard.Router
 

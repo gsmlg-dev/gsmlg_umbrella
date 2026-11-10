@@ -52,7 +52,7 @@ To create a versatile, self-hosted platform that serves as a personal digital wo
 ├─────────────────────────────────────────────────────────────────┤
 │  Infrastructure Libraries                                       │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐  │
-│  │gsmlg_config│ │  concord   │ │ gsmlg_aws  │ │gsmlg_socket│  │
+│  │gsmlg_config│ │  concord   │ │   storage  │ │gsmlg_socket│  │
 │  └────────────┘ └────────────┘ └────────────┘ └────────────┘  │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐  │
 │  │gsmlg_teleme│ │gsmlg_logger│ │gsmlg_webpus│ │gsmlg_compon│  │

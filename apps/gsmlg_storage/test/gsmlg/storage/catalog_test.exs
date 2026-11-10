@@ -3,7 +3,7 @@ defmodule GSMLG.Storage.CatalogTest do
   alias GSMLG.Storage.{Catalog, S3Client, StorageFile}
 
   defmodule HTTPClient do
-    @behaviour AWS.HTTPClient
+    @behaviour ExAws.Request.HttpClient
     def request(method, url, body, _headers, options) do
       store = options[:store]
       key = URI.parse(url).path |> String.replace_prefix("/catalog-test/", "") |> URI.decode()
@@ -39,7 +39,7 @@ defmodule GSMLG.Storage.CatalogTest do
 
     backend = %{
       backend
-      | client: AWS.Client.put_http_client(backend.client, {HTTPClient, [store: store]})
+      | client: Map.merge(backend.client, %{http_client: HTTPClient, http_opts: [store: store]})
     }
 
     %{backend: backend, store: store}

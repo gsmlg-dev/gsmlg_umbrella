@@ -78,19 +78,19 @@ Releases are triggered manually via the `release` workflow dispatch (inputs: `re
 
 ## Project Architecture
 
-**Elixir umbrella** with 22 apps under `apps/`. The key ones:
+**Elixir umbrella** with apps under `apps/`. The key ones:
 
 | App | Purpose |
 |-----|---------|
 | `gsmlg` | Core domain: Ecto schemas, Repo, PubSub, supervision tree for all business services |
 | `gsmlg_web` | Public Phoenix app (port 4110). LiveView + React via `phoenix_react_server` |
-| `gsmlg_admin_web` | Admin Phoenix app (port 4111). AWS dashboards, Commander control |
+| `gsmlg_admin_web` | Admin Phoenix app (port 4111). Storage and GaoNote management, Commander control |
 | `gsmlg_config` | TOML-based config system. Loads config, validates via NimbleOptions, applies to Application env |
 | `gsmlg_commander` | Dual-mode command system: agent (outbound WebSocket) or server (session management) |
 | `gsmlg_component` | Shared React components rendered server-side via Bun |
-| `gsmlg_telemetry` | Structured logging, metrics collection, file/console/CloudWatch backends |
+| `gsmlg_telemetry` | Structured logging, metrics collection, file/console backends |
 
-Other utility apps: `gsmlg_aws`, `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
+Other utility apps: `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
 
 ### Configuration System
 
@@ -109,7 +109,7 @@ When adding new config fields: update the TOML file, add to schema.ex, add to se
 ### Supervision Tree
 
 `GSMLG.Application` (core app) starts sequentially:
-`SimpleCache → AWS → SessionProcess.Supervisor → TaskSupervisor → Repo → PubSub → CommandPlatform.Supervisor → WebPush.Subscriptions → Node.Supervisor → Chess.Supervisor`
+`SimpleCache → SessionProcess.Supervisor → TaskSupervisor → Repo → PubSub → CommandPlatform.Supervisor → WebPush.Subscriptions → Node.Supervisor → Chess.Supervisor`
 
 `GSMLG.Web.Application`: `Telemetry → Endpoint`
 `GSMLG.AdminWeb.Application`: `Telemetry → Endpoint → Guardian.DB.Sweeper`
@@ -142,7 +142,6 @@ This project uses the DuskMoon UI system:
 
 - **`phoenix_duskmoon`** — Phoenix LiveView UI component library (primary web UI)
 - **`@duskmoon-dev/core`** — Core Tailwind CSS plugin and utilities
-- **`@duskmoon-dev/css-art`** — CSS art utilities
 - **`@duskmoon-dev/elements`** — Base web components
 - **`@duskmoon-dev/art-elements`** — Art/decorative web components
 

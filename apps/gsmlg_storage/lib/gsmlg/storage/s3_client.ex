@@ -2,11 +2,13 @@ defmodule GSMLG.Storage.S3Client do
   @moduledoc """
   S3 client for storage operations.
 
-  Creates its own AWS client that respects the storage-specific S3 endpoint
-  configuration, enabling use with Minio and other S3-compatible services.
+  Captures an independent S3 connection using ExAws operation builders and the
+  public AWS signer, with storage-specific endpoints for Minio and compatible services.
   """
 
   require Logger
+
+  alias GSMLG.Storage.S3Request
 
   @doc "Captures one immutable S3 connection for an entire inventory operation."
   def capture_backend(config \\ Application.get_all_env(:gsmlg_storage)) do
@@ -14,9 +16,16 @@ defmodule GSMLG.Storage.S3Client do
 
     with {:ok, access, secret} <- backend_credentials(config),
          client <-
-           access
-           |> AWS.Client.create(secret, config.region)
-           |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, [decode_json: false]}),
+           ExAws.Config.new(:s3,
+             access_key_id: access,
+             secret_access_key: secret,
+             region: config.region,
+             http_client: GSMLG.Storage.HTTPClient,
+             http_opts: [decode_json: false],
+             normalize_path: false,
+             retries: [max_attempts: 1],
+             refreshable: false
+           ),
          {:ok, client} <- configure_endpoint(client, config.endpoint) do
       {:ok, %{bucket: config.bucket, client: client, id: fingerprint(config)}}
     end
@@ -33,7 +42,7 @@ defmodule GSMLG.Storage.S3Client do
 
   @doc "Reads object details from the captured backend."
   def head_object(%{client: client, bucket: bucket}, key) do
-    with {:ok, _decoded, response} <- AWS.S3.head_object(client, bucket, key, %{}),
+    with {:ok, _decoded, response} <- request(client, ExAws.S3.head_object(bucket, key), :empty),
          headers <-
            Map.new(response.headers, fn {name, value} -> {String.downcase(name), value} end),
          {:ok, size} <- nonnegative_integer(headers["content-length"]) do
@@ -96,7 +105,9 @@ defmodule GSMLG.Storage.S3Client do
 
   defp list_page(client, bucket, token) do
     # URL encoding keeps whitespace and XML-invalid characters in keys intact.
-    AWS.S3.list_objects_v2(client, bucket, token, nil, "url")
+    options = [encoding_type: "url"]
+    options = if token, do: Keyword.put(options, :continuation_token, token), else: options
+    request(client, ExAws.S3.list_objects_v2(bucket, options), :list)
   rescue
     _error -> {:error, :invalid_s3_list_response}
   catch
@@ -175,9 +186,11 @@ defmodule GSMLG.Storage.S3Client do
 
   @doc "Creates a directory marker without overwriting an existing object's bytes."
   def put_folder_marker(%{client: client, bucket: bucket} = backend, key) do
-    input = %{"Body" => "", "ContentType" => "application/x-directory", "IfNoneMatch" => "*"}
+    operation =
+      ExAws.S3.put_object(bucket, key, "", content_type: "application/x-directory")
+      |> put_headers(%{"if-none-match" => "*"})
 
-    case AWS.S3.put_object(client, bucket, key, input) do
+    case request(client, operation, :empty) do
       {:ok, _, _} ->
         :ok
 
@@ -196,15 +209,22 @@ defmodule GSMLG.Storage.S3Client do
   @doc "Copies exact bytes and metadata without replacing a destination or changed source."
   def copy_object(%{client: client, bucket: bucket}, source, destination, etag)
       when is_binary(etag) and etag != "" do
-    input = %{
-      "CopySource" => AWS.Util.encode_multi_segment_uri(bucket <> "/" <> source),
-      "CopySourceIfMatch" => etag,
-      "IfNoneMatch" => "*",
-      "MetadataDirective" => "COPY",
-      "TaggingDirective" => "COPY"
-    }
+    operation =
+      ExAws.S3.put_object_copy(bucket, destination, bucket, source,
+        copy_source_if_match: etag,
+        metadata_directive: "COPY",
+        tagging_directive: "COPY"
+      )
+      |> put_headers(%{
+        "x-amz-copy-source" =>
+          S3Request.object_path(bucket, source) |> String.replace_prefix("/", ""),
+        "x-amz-copy-source-if-match" => etag,
+        "if-none-match" => "*",
+        "x-amz-metadata-directive" => "COPY",
+        "x-amz-tagging-directive" => "COPY"
+      })
 
-    case AWS.S3.copy_object(client, bucket, destination, input) do
+    case request(client, operation, :copy) do
       {:ok, %{"CopyObjectResult" => result}, _} when is_map(result) -> :ok
       {:ok, result, _} -> {:error, {:invalid_s3_copy_response, result}}
       {:error, _} = error -> error
@@ -217,7 +237,9 @@ defmodule GSMLG.Storage.S3Client do
   @doc "Deletes only the object version observed by the folder operation."
   def delete_object(%{client: client, bucket: bucket}, key, etag)
       when is_binary(etag) and etag != "" do
-    case AWS.S3.delete_object(client, bucket, key, %{"IfMatch" => etag}) do
+    operation = ExAws.S3.delete_object(bucket, key) |> put_headers(%{"if-match" => etag})
+
+    case request(client, operation, :empty) do
       {:ok, _, _} -> :ok
       {:error, _} = error -> error
     end
@@ -230,23 +252,17 @@ defmodule GSMLG.Storage.S3Client do
   Returns `:ok` or `{:error, reason}`.
   """
   def put_object(%{client: client, bucket: bucket}, key, data, content_type) do
-    case AWS.S3.put_object(client, bucket, key, %{"Body" => data, "ContentType" => content_type}) do
+    operation = ExAws.S3.put_object(bucket, key, data, content_type: content_type)
+
+    case request(client, operation, :empty) do
       {:ok, _, _} -> :ok
       {:error, _} = error -> error
     end
   end
 
   def put_object(bucket, key, data, content_type) do
-    with {:ok, client} <- get_client() do
-      case client
-           |> AWS.S3.put_object(bucket, key, %{
-             "Body" => data,
-             "ContentType" => content_type
-           }) do
-        {:ok, _, _} -> :ok
-        {:error, _} = error -> error
-      end
-    end
+    with {:ok, client} <- get_client(),
+         do: put_object(%{client: client, bucket: bucket}, key, data, content_type)
   end
 
   @doc "Uploads a file using bounded 5 MiB chunks."
@@ -270,15 +286,20 @@ defmodule GSMLG.Storage.S3Client do
 
   defp multipart_file_with_client(client, bucket, key, path, content_type) do
     with {:ok, result, _response} <-
-           AWS.S3.create_multipart_upload(client, bucket, key, %{"ContentType" => content_type}),
+           request(
+             client,
+             ExAws.S3.initiate_multipart_upload(bucket, key, content_type: content_type),
+             :multipart_init
+           ),
          {:ok, upload_id} <- multipart_upload_id(result) do
       result =
         with {:ok, parts} <- upload_parts(client, bucket, key, upload_id, path),
              {:ok, %{"CompleteMultipartUploadResult" => %{}}, _response} <-
-               AWS.S3.complete_multipart_upload(client, bucket, key, %{
-                 "UploadId" => upload_id,
-                 "CompleteMultipartUpload" => %{"Part" => parts}
-               }) do
+               request(
+                 client,
+                 ExAws.S3.complete_multipart_upload(bucket, key, upload_id, parts),
+                 :multipart_complete
+               ) do
           :ok
         else
           {:ok, _result, _response} -> {:error, :invalid_s3_multipart_completion_response}
@@ -290,7 +311,7 @@ defmodule GSMLG.Storage.S3Client do
           :ok
 
         {:error, _reason} = error ->
-          _ = AWS.S3.abort_multipart_upload(client, bucket, key, %{"UploadId" => upload_id})
+          _ = request(client, ExAws.S3.abort_multipart_upload(bucket, key, upload_id), :empty)
           error
       end
     end
@@ -324,16 +345,13 @@ defmodule GSMLG.Storage.S3Client do
         {:error, reason}
 
       chunk ->
-        case AWS.S3.upload_part(client, bucket, key, %{
-               "UploadId" => upload_id,
-               "PartNumber" => number,
-               "Body" => chunk,
-               "ContentLength" => Integer.to_string(byte_size(chunk))
-             }) do
+        operation = ExAws.S3.upload_part(bucket, key, upload_id, number, chunk)
+
+        case request(client, operation, :empty) do
           {:ok, result, response} ->
             with {:ok, etag} <- multipart_part_etag(result, response) do
               upload_part_chunks(client, bucket, key, upload_id, io, number + 1, [
-                %{"ETag" => etag, "PartNumber" => number} | parts
+                {number, S3Request.escape_xml(etag)} | parts
               ])
             end
 
@@ -361,7 +379,7 @@ defmodule GSMLG.Storage.S3Client do
   def get_object(%{client: client, bucket: bucket}, key) do
     # TODO(upstream): gsmlg-dev/concord#98
     # ESS metadata reads can stall while validating a retained VSR log.
-    case AWS.S3.get_object(client, bucket, key) do
+    case request(client, ExAws.S3.get_object(bucket, key), :raw) do
       {:ok, body, response} -> extract_body(body, response)
       {:error, _} = error -> error
     end
@@ -369,7 +387,7 @@ defmodule GSMLG.Storage.S3Client do
 
   def get_object(bucket, key) do
     with {:ok, client} <- get_client() do
-      case client |> AWS.S3.get_object(bucket, key) do
+      case request(client, ExAws.S3.get_object(bucket, key), :raw) do
         {:ok, body, response} -> extract_body(body, response)
         {:error, _} = error -> error
       end
@@ -407,7 +425,7 @@ defmodule GSMLG.Storage.S3Client do
   Returns `:ok` or `{:error, reason}`.
   """
   def delete_object(%{client: client, bucket: bucket}, key) do
-    case AWS.S3.delete_object(client, bucket, key, %{}, []) do
+    case request(client, ExAws.S3.delete_object(bucket, key), :empty) do
       {:ok, _, _} -> :ok
       {:error, _} = error -> error
     end
@@ -415,7 +433,7 @@ defmodule GSMLG.Storage.S3Client do
 
   def delete_object(bucket, key) do
     with {:ok, client} <- get_client() do
-      case client |> AWS.S3.delete_object(bucket, key, %{}, []) do
+      case request(client, ExAws.S3.delete_object(bucket, key), :empty) do
         {:ok, _, _} ->
           :ok
 
@@ -427,53 +445,28 @@ defmodule GSMLG.Storage.S3Client do
   end
 
   defp get_object_with_range(client, bucket, key, range) do
-    arguments = [client, bucket, key] ++ List.duplicate(nil, 14) ++ [range]
-    apply(AWS.S3, :get_object, arguments)
+    request(client, ExAws.S3.get_object(bucket, key, range: range), :raw)
   end
 
-  # AWS omits the decoded Body for a successful zero-byte object response.
-  defp extract_body(_decoded, %{body: ""}), do: {:ok, ""}
-  defp extract_body(%{"Body" => body}, _response) when is_binary(body), do: {:ok, body}
+  # Preserve raw object bytes, including successful zero-byte responses.
   defp extract_body(body, _response) when is_binary(body), do: {:ok, body}
   defp extract_body(_body, _response), do: {:error, :invalid_s3_response_body}
 
-  # Build an AWS client for storage operations.
-  # When a custom S3 endpoint is configured (e.g. Minio), creates a client
-  # pointing at that endpoint. Otherwise falls back to the shared AWS client.
-  defp get_client do
-    endpoint = Application.get_env(:gsmlg_storage, :s3_endpoint)
-    region = Application.get_env(:gsmlg_storage, :s3_region, "us-east-1")
+  defp request(client, operation, response_kind),
+    do: S3Request.request(client, operation, response_kind)
 
-    with {:ok, access_key_id, secret_access_key} <- credentials(),
-         client <-
-           access_key_id
-           |> AWS.Client.create(secret_access_key, region)
-           |> AWS.Client.put_http_client({GSMLG.AWS.HttpClient, [decode_json: false]}) do
-      configure_endpoint(client, endpoint)
-    end
+  defp put_headers(operation, headers),
+    do: %{operation | headers: Map.merge(operation.headers, headers)}
+
+  defp get_client do
+    with {:ok, backend} <- capture_backend(), do: {:ok, backend.client}
   end
 
   defp configure_endpoint(client, endpoint) when endpoint in [nil, ""], do: {:ok, client}
 
   defp configure_endpoint(client, endpoint_url) do
     with {:ok, uri} <- parse_endpoint(endpoint_url) do
-      {:ok, %{client | endpoint: uri.host, proto: uri.scheme, port: uri.port}}
-    end
-  end
-
-  defp credentials do
-    access_key_id =
-      Application.get_env(:gsmlg_storage, :s3_access_key_id) ||
-        System.get_env("AWS_ACCESS_KEY_ID")
-
-    secret_access_key =
-      Application.get_env(:gsmlg_storage, :s3_secret_access_key) ||
-        System.get_env("AWS_SECRET_ACCESS_KEY")
-
-    case {access_key_id, secret_access_key} do
-      {value, _secret} when value in [nil, ""] -> {:error, :missing_s3_access_key_id}
-      {_access, value} when value in [nil, ""] -> {:error, :missing_s3_secret_access_key}
-      {access, secret} -> {:ok, access, secret}
+      {:ok, %{client | host: uri.host, scheme: uri.scheme <> "://", port: uri.port}}
     end
   end
 
