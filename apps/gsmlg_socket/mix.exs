@@ -1,7 +1,7 @@
 defmodule GSMLG.Socket.MixProject do
   use Mix.Project
 
-  @version "5.13.11"
+  @version "5.13.12"
 
   def project do
     [

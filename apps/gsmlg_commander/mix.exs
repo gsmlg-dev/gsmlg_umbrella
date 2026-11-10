@@ -4,7 +4,7 @@ defmodule GSMLG.Commander.MixProject do
   def project do
     [
       app: :gsmlg_commander,
-      version: "5.13.11",
+      version: "5.13.12",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
