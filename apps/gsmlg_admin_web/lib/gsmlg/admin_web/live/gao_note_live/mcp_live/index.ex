@@ -139,7 +139,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.MCPLive.Index do
     %{
       name: tool.name,
       description: tool.description,
-      read_only?: Map.get(annotations, "readOnlyHint", Map.get(annotations, :readOnlyHint, false)),
+      read_only?:
+        Map.get(annotations, "readOnlyHint", Map.get(annotations, :readOnlyHint, false)),
       destructive?:
         Map.get(annotations, "destructiveHint", Map.get(annotations, :destructiveHint, false))
     }

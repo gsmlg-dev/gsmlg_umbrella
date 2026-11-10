@@ -261,6 +261,7 @@ defmodule GSMLG.AdminWeb.GaoNoteAttachmentTempTest do
   end
 
   defp assert_eventually(fun, attempts \\ 50)
+
   defp assert_eventually(fun, attempts) when attempts > 0 do
     if fun.() do
       assert true

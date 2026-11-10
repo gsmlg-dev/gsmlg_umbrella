@@ -1368,7 +1368,9 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
 
   defp remove_attachment_draft(socket, ref) do
     case Map.get(socket.assigns.attachment_drafts, ref) do
-      nil -> socket
+      nil ->
+        socket
+
       draft ->
         GaoNoteAttachmentTemp.cleanup_file(
           socket.assigns.attachment_temp_dir,
@@ -1433,10 +1435,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
   defp attachment_error_text({:attachment, %{code: :owned_by_another_note, id: id}}),
     do: "Attachment ID #{id} already belongs to another note. Choose a globally unique ID."
 
-  defp attachment_error_text(
-         {:attachment, %{code: :mime_mismatch, id: id, detected: detected}}
-       ),
-       do: "Attachment #{id} was detected as #{detected}. Restage its content."
+  defp attachment_error_text({:attachment, %{code: :mime_mismatch, id: id, detected: detected}}),
+    do: "Attachment #{id} was detected as #{detected}. Restage its content."
 
   defp attachment_error_text({:attachment, %{code: :content_required, id: id}}),
     do: "Attachment #{id} needs file or text content."
@@ -1450,7 +1450,8 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
        when code in [:content_read_failed, :staging_failed],
        do: "Attachment #{id} could not be staged: #{inspect(reason)}"
 
-  defp attachment_error_text(reason), do: "Attachments could not be saved: #{Presenter.error_text(reason)}"
+  defp attachment_error_text(reason),
+    do: "Attachments could not be saved: #{Presenter.error_text(reason)}"
 
   defp attachment_errors_for(errors, field), do: Map.get(errors, field, [])
 
@@ -1517,142 +1518,141 @@ defmodule GSMLG.AdminWeb.GaoNoteLive.Index do
           phx-submit="stage_attachment"
           class="grid gap-4"
         >
-              <div
-                :if={attachment_errors_for(@errors, "base") != []}
-                class="rounded-xl bg-error-container p-3 text-sm text-on-error-container"
-                role="alert"
-              >
-                <p :for={message <- attachment_errors_for(@errors, "base")}>{message}</p>
+          <div
+            :if={attachment_errors_for(@errors, "base") != []}
+            class="rounded-xl bg-error-container p-3 text-sm text-on-error-container"
+            role="alert"
+          >
+            <p :for={message <- attachment_errors_for(@errors, "base")}>{message}</p>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <.dm_input
+              field={@form[:id]}
+              label="Globally unique ID"
+              readonly={@modal.immutable_id}
+              errors={attachment_errors_for(@errors, "id")}
+            />
+            <.dm_input
+              field={@form[:path]}
+              label="Canonical path"
+              placeholder="./data.txt"
+              errors={attachment_errors_for(@errors, "path")}
+            />
+          </div>
+
+          <.dm_input
+            field={@form[:description]}
+            label="Description"
+            errors={attachment_errors_for(@errors, "description")}
+          />
+
+          <.dm_input
+            id="gao-note-attachment-mime"
+            name="attachment_detected_mime"
+            label="Verified MIME"
+            value={@modal.mime || "Detected from staged bytes"}
+            readonly
+          />
+
+          <div :if={@modal.operation in [:new, :replace]} class="grid gap-4">
+            <.dm_select
+              field={@form[:source]}
+              label="Source"
+              options={[{"file", "File"}, {"text", "UTF-8 text"}]}
+              errors={attachment_errors_for(@errors, "source")}
+            />
+
+            <div
+              :if={@form[:source].value == "file"}
+              class="grid gap-3 rounded-xl border border-dashed border-outline bg-surface-container p-4"
+              phx-drop-target={@upload.ref}
+            >
+              <div class="flex items-center gap-2 text-sm text-on-surface-variant">
+                <.dm_mdi name="cloud-upload-outline" class="h-5 w-5" />
+                <span>Drop one file here or browse.</span>
               </div>
-
-              <div class="grid gap-4 sm:grid-cols-2">
-                <.dm_input
-                  field={@form[:id]}
-                  label="Globally unique ID"
-                  readonly={@modal.immutable_id}
-                  errors={attachment_errors_for(@errors, "id")}
-                />
-                <.dm_input
-                  field={@form[:path]}
-                  label="Canonical path"
-                  placeholder="./data.txt"
-                  errors={attachment_errors_for(@errors, "path")}
-                />
-              </div>
-
-              <.dm_input
-                field={@form[:description]}
-                label="Description"
-                errors={attachment_errors_for(@errors, "description")}
+              <.live_file_input
+                upload={@upload}
+                class="file-input file-input-bordered w-full"
               />
-
-              <.dm_input
-                id="gao-note-attachment-mime"
-                name="attachment_detected_mime"
-                label="Verified MIME"
-                value={@modal.mime || "Detected from staged bytes"}
-                readonly
-              />
-
-              <div :if={@modal.operation in [:new, :replace]} class="grid gap-4">
-                <.dm_select
-                  field={@form[:source]}
-                  label="Source"
-                  options={[{"file", "File"}, {"text", "UTF-8 text"}]}
-                  errors={attachment_errors_for(@errors, "source")}
-                />
-
-                <div
-                  :if={@form[:source].value == "file"}
-                  class="grid gap-3 rounded-xl border border-dashed border-outline bg-surface-container p-4"
-                  phx-drop-target={@upload.ref}
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs text-on-surface-variant">
+                  Need an intentionally empty file?
+                </span>
+                <.dm_btn
+                  id="gao-note-stage-empty-attachment"
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  phx-click="stage_empty_attachment"
                 >
-                  <div class="flex items-center gap-2 text-sm text-on-surface-variant">
-                    <.dm_mdi name="cloud-upload-outline" class="h-5 w-5" />
-                    <span>Drop one file here or browse.</span>
-                  </div>
-                  <.live_file_input
-                    upload={@upload}
-                    class="file-input file-input-bordered w-full"
-                  />
-                  <div class="flex flex-wrap items-center justify-between gap-2">
-                    <span class="text-xs text-on-surface-variant">
-                      Need an intentionally empty file?
-                    </span>
-                    <.dm_btn
-                      id="gao-note-stage-empty-attachment"
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      phx-click="stage_empty_attachment"
-                    >
-                      Stage empty file
-                    </.dm_btn>
-                  </div>
-
-                  <div
-                    :for={entry <- @upload.entries}
-                    class="grid gap-2 rounded-lg bg-surface-container-high p-3"
-                  >
-                    <div class="flex items-center gap-2 text-sm">
-                      <span class="min-w-0 flex-1 truncate font-mono">{entry.client_name}</span>
-                      <span class="text-xs tabular-nums text-on-surface-variant">
-                        {entry.progress}%
-                      </span>
-                      <.dm_btn
-                        type="button"
-                        size="xs"
-                        variant="ghost"
-                        class="text-error"
-                        phx-click="cancel_attachment_upload"
-                        phx-value-ref={entry.ref}
-                        aria-label={"Cancel upload #{entry.client_name}"}
-                      >
-                        <.dm_mdi name="close" class="h-4 w-4" />
-                      </.dm_btn>
-                    </div>
-                    <progress
-                      class="progress progress-secondary w-full"
-                      value={entry.progress}
-                      max="100"
-                    >
-                    </progress>
-                    <.dm_error :for={error <- upload_errors(@upload, entry)}>
-                      {upload_error_text(error)}
-                    </.dm_error>
-                  </div>
-
-                  <.dm_error :for={message <- attachment_errors_for(@errors, "file")}>
-                    {message}
-                  </.dm_error>
-                  <.dm_error :for={error <- upload_errors(@upload)}>
-                    {upload_error_text(error)}
-                  </.dm_error>
-                </div>
-
-                <.dm_textarea
-                  :if={@form[:source].value == "text"}
-                  field={@form[:text]}
-                  label="UTF-8 text"
-                  rows={9}
-                  errors={attachment_errors_for(@errors, "text")}
-                />
+                  Stage empty file
+                </.dm_btn>
               </div>
 
-              <:actions>
-                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <div
+                :for={entry <- @upload.entries}
+                class="grid gap-2 rounded-lg bg-surface-container-high p-3"
+              >
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="min-w-0 flex-1 truncate font-mono">{entry.client_name}</span>
+                  <span class="text-xs tabular-nums text-on-surface-variant">
+                    {entry.progress}%
+                  </span>
                   <.dm_btn
                     type="button"
+                    size="xs"
                     variant="ghost"
-                    phx-click="cancel_attachment_modal"
+                    class="text-error"
+                    phx-click="cancel_attachment_upload"
+                    phx-value-ref={entry.ref}
+                    aria-label={"Cancel upload #{entry.client_name}"}
                   >
-                    Cancel
+                    <.dm_mdi name="close" class="h-4 w-4" />
                   </.dm_btn>
-                  <button type="submit" class="btn btn-secondary">
-                    {attachment_modal_submit_label(@modal)}
-                  </button>
                 </div>
-              </:actions>
+                <progress
+                  class="progress progress-secondary w-full"
+                  value={entry.progress}
+                  max="100"
+                ></progress>
+                <.dm_error :for={error <- upload_errors(@upload, entry)}>
+                  {upload_error_text(error)}
+                </.dm_error>
+              </div>
+
+              <.dm_error :for={message <- attachment_errors_for(@errors, "file")}>
+                {message}
+              </.dm_error>
+              <.dm_error :for={error <- upload_errors(@upload)}>
+                {upload_error_text(error)}
+              </.dm_error>
+            </div>
+
+            <.dm_textarea
+              :if={@form[:source].value == "text"}
+              field={@form[:text]}
+              label="UTF-8 text"
+              rows={9}
+              errors={attachment_errors_for(@errors, "text")}
+            />
+          </div>
+
+          <:actions>
+            <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <.dm_btn
+                type="button"
+                variant="ghost"
+                phx-click="cancel_attachment_modal"
+              >
+                Cancel
+              </.dm_btn>
+              <button type="submit" class="btn btn-secondary">
+                {attachment_modal_submit_label(@modal)}
+              </button>
+            </div>
+          </:actions>
         </.dm_form>
       </section>
 

@@ -7,8 +7,7 @@ defmodule GSMLG.Repo.Migrations.RedesignGaoNoteAttachments do
     create table(:gao_note_attachments, primary_key: false) do
       add :id, :text, primary_key: true
 
-      add :note_id, references(:gao_notes, type: :binary_id, on_delete: :delete_all),
-        null: false
+      add :note_id, references(:gao_notes, type: :binary_id, on_delete: :delete_all), null: false
 
       add :storage_file_id,
           references(:storage_files, type: :binary_id, on_delete: :restrict),
