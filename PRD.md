@@ -98,6 +98,8 @@ To create a versatile, self-hosted platform that serves as a personal digital wo
 
 #### 3.1.2 Toolbox Utilities
 
+IP geolocation (including IP to GeoMap), WHOIS/RDAP and MAC lookup services are temporarily unavailable while their service apps move to another project. The public UI remains visible with disabled lookup controls; existing lookup APIs return HTTP 503 with `service_unavailable`. The capabilities below describe the retained UI and intended services.
+
 **IP Geolocation Tool:**
 - Lookup geographic location from IP addresses
 - Display country, region, city, and ISP information
@@ -433,9 +435,11 @@ Blog:
   DELETE /api/posts/:id           - Delete post (admin)
 
 Toolbox:
-  GET    /api/tools/ip/:ip        - IP geolocation
-  GET    /api/tools/whois/:domain - WHOIS lookup
-  GET    /api/tools/mac/:mac      - MAC vendor lookup
+  GET    /api/toolbox/ip_geo           - IP geolocation (503)
+  GET    /api/toolbox/ip_to_geomap     - IP map lookup (503)
+  GET    /api/toolbox/whois            - WHOIS lookup (503)
+  GET    /api/toolbox/whois/rdap       - RDAP lookup (503)
+  GET    /api/toolbox/mac_manufacturer - MAC vendor lookup (503)
   GET    /api/tools/dns/:domain   - DNS lookup
 ```
 

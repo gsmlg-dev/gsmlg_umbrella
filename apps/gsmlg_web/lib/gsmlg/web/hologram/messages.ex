@@ -24,6 +24,7 @@ defmodule GSMLG.Web.Hologram.Messages do
     loading: {"toolbox", "Loading"},
     error: {"toolbox", "Error"},
     invalid_input: {"toolbox", "Invalid input"},
+    service_unavailable: {"toolbox", "Service temporarily unavailable."},
     browser_unavailable: {"toolbox", "Browser feature unavailable. Please try again."},
     open: {"default", "Open"},
     home: {"menu", "Home"},
@@ -68,5 +69,9 @@ defmodule GSMLG.Web.Hologram.Messages do
       end)
 
     Hologram.Component.put_state(component, text: text, locale: locale)
+  end
+
+  def service_unavailable do
+    Gettext.dgettext(GSMLG.Web.Gettext, "toolbox", "Service temporarily unavailable.")
   end
 end

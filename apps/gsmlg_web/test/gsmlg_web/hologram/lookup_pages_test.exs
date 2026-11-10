@@ -1,7 +1,7 @@
 defmodule GSMLG.Web.Hologram.LookupPagesTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.Web.Hologram.Pages.{Index, IpGeo, MacManufacturer, Svg2React, Whois}
+  alias GSMLG.Web.Hologram.Pages.{Index, IpGeo, IpToGeomap, MacManufacturer, Svg2React, Whois}
   alias Hologram.{Component, Server}
 
   test "index and lookup pages retain their public routes" do
@@ -67,11 +67,6 @@ defmodule GSMLG.Web.Hologram.LookupPagesTest do
 
   test "commands reject invalid input without accessing backend services" do
     for {page, params} <- [
-          {IpGeo, %{ip: "not an ip"}},
-          {IpGeo, %{ip: %{unexpected: "shape"}}},
-          {MacManufacturer, %{mac: "invalid"}},
-          {Whois, %{look_for: "example.com\r\ninjected", protocol: "whois"}},
-          {Whois, %{look_for: "example.com", protocol: "unknown"}},
           {Svg2React, %{code: ""}},
           {Svg2React, %{code: %{unexpected: "shape"}}}
         ] do
@@ -97,14 +92,18 @@ defmodule GSMLG.Web.Hologram.LookupPagesTest do
              MacManufacturer.action(:loaded, %{result: result}, component)
   end
 
-  test "MAC commands use the actual manufacturer database" do
-    assert %{next_action: %{name: :loaded, params: %{result: result}}} =
-             MacManufacturer.command(:lookup, %{mac: "00:00:0A:BB:28:FC"}, %Server{})
-
-    assert result == %{short: "OmronTat", full: "Omron Tateisi Electronics Co."}
-
-    assert %{next_action: %{name: :failed, params: %{error: :unknown}}} =
-             MacManufacturer.command(:lookup, %{mac: "FF:FF:FF:FF:FF:FF"}, %Server{})
+  test "retained lookup commands report unavailability for valid and malformed input" do
+    for {page, params} <- [
+          {IpGeo, %{ip: "8.8.8.8"}},
+          {MacManufacturer, %{mac: "00:00:0A:BB:28:FC"}},
+          {Whois, %{look_for: "example.com", protocol: "whois"}},
+          {Whois, %{look_for: "example.com", protocol: "rdap"}},
+          {IpToGeomap, %{ip: "8.8.8.8"}}
+        ],
+        input <- [params, %{}, %{ip: %{}, mac: nil, look_for: []}] do
+      assert %{next_action: %{name: :failed, params: %{error: :service_unavailable}}} =
+               page.command(:lookup, input, %Server{})
+    end
   end
 
   test "RDAP display retains registration, DNSSEC, registrar and nested abuse information" do

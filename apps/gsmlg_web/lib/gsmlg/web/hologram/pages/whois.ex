@@ -34,46 +34,8 @@ defmodule GSMLG.Web.Hologram.Pages.Whois do
     put_state(component, loading: false, result: nil, error: error)
   end
 
-  def command(:lookup, %{look_for: query, protocol: protocol} = params, server)
-      when is_binary(query) and byte_size(query) in 1..253 and protocol in ["whois", "rdap"] do
-    if String.trim(query) == "" or Regex.match?(~r/[\x00-\x1f\x7f]/, query) do
-      put_action(server, :failed, error: :invalid_input)
-    else
-      lookup(protocol, query, params, server)
-    end
-  end
-
-  def command(:lookup, _params, server), do: put_action(server, :failed, error: :invalid_input)
-
-  defp lookup("whois", query, _params, server) do
-    case GSMLG.Whois.lookup_raw(query) do
-      {:ok, entries} ->
-        data =
-          entries |> Enum.reverse() |> Enum.map(fn {host, info} -> %{host: host, info: info} end)
-
-        put_action(server, :loaded, result: %{protocol: "whois", data: data})
-
-      {:error, reason} ->
-        put_action(server, :failed, error: inspect(reason))
-    end
-  end
-
-  defp lookup("rdap", query, params, server) do
-    type =
-      case Map.get(params, :type, "domain") do
-        "ip" -> :ip
-        "asn" -> :asn
-        _ -> :domain
-      end
-
-    case GSMLG.Whois.rdap_lookup(query, type: type) do
-      {:ok, data} ->
-        put_action(server, :loaded, result: %{protocol: "rdap", data: rdap_view(data)})
-
-      {:error, reason} ->
-        put_action(server, :failed, error: inspect(reason))
-    end
-  end
+  def command(:lookup, _params, server),
+    do: put_action(server, :failed, error: :service_unavailable)
 
   @doc false
   def rdap_view(data) when is_map(data) do
@@ -174,15 +136,16 @@ defmodule GSMLG.Web.Hologram.Pages.Whois do
   def template do
     ~HOLO"""
     <section class="container mx-auto px-6 my-12">
+      <p role="status" class="alert alert-info mb-6">{@text.service_unavailable}</p>
       <form id="whois-form" $submit="lookup" class="flex flex-col gap-4 max-w-sm mx-auto">
-        <fieldset class="flex gap-4">
+        <fieldset class="flex gap-4" disabled>
           <legend class="sr-only">{@text.protocol}</legend>
           <label class="flex items-center gap-2"><input type="radio" name="protocol" value="whois" checked={@protocol == "whois"} $change={:protocol_changed, protocol: "whois"} class="radio radio-primary" /> WHOIS</label>
           <label class="flex items-center gap-2"><input type="radio" name="protocol" value="rdap" checked={@protocol == "rdap"} $change={:protocol_changed, protocol: "rdap"} class="radio radio-primary" /> RDAP</label>
         </fieldset>
         <label for="whois-input">{@text.query}</label>
-        <input id="whois-input" name="look_for" class="input input-primary w-full" required maxlength="253" />
-        <button id="whois-submit" type="submit" class="btn btn-primary" disabled={@loading}>
+        <input id="whois-input" name="look_for" class="input input-primary w-full" disabled required maxlength="253" />
+        <button id="whois-submit" type="submit" class="btn btn-primary" disabled>
           {%if @loading}{@text.loading}{%else}{@text.lookup}{/if}
         </button>
       </form>

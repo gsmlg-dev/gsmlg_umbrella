@@ -55,30 +55,28 @@ defmodule GSMLG.Web.Hologram.Pages.IpToGeomap do
     end
   end
 
-  @impl true
-  def command(:lookup, %{ip: ip}, server) when is_binary(ip) do
-    point =
-      case GSMLG.IpGeo.lookup(ip) do
-        {:ok, %{latitude: lat, longitude: lon}} when is_number(lat) and is_number(lon) ->
-          [lon, lat]
-
-        _ ->
-          nil
-      end
-
-    put_action(server, :located, point: point)
+  def action(:failed, %{error: error}, component) do
+    put_state(component,
+      loading: false,
+      remaining: [],
+      points: [],
+      error: component.state.text[error]
+    )
   end
 
-  def command(:lookup, _params, server), do: put_action(server, :located, point: nil)
+  @impl true
+  def command(:lookup, _params, server),
+    do: put_action(server, :failed, error: :service_unavailable)
 
   @impl true
   def template do
     ~HOLO"""
     <div class="container mx-auto px-6 my-12">
+      <p role="status" class="alert alert-info mb-6">{@text.service_unavailable}</p>
       <form class="flex flex-col gap-4" $submit="lookup">
         <label for="ip-data">{@text.ip}</label>
-        <textarea id="ip-data" name="ips" rows="6" class="textarea textarea-primary w-full" value={@ips} $input="edit_ips"></textarea>
-        <button id="submit-ip" type="submit" class="btn btn-primary self-start" disabled={@loading}>{@text.lookup}</button>
+        <textarea disabled id="ip-data" name="ips" rows="6" class="textarea textarea-primary w-full" value={@ips} $input="edit_ips"></textarea>
+        <button id="submit-ip" type="submit" class="btn btn-primary self-start" disabled>{@text.lookup}</button>
       </form>
       {%if @loading}<p role="status" class="my-4">{@text.loading}</p>{/if}
       {%if @error}<p role="alert" class="alert alert-error my-4">{@error}</p>{/if}

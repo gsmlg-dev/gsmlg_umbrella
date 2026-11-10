@@ -72,7 +72,28 @@ defmodule GSMLG.Web.Hologram.ToolboxTest do
            } =
              IpToGeomap.action(:lookup, %{event: %{"ips" => " 1.1.1.1\n8.8.8.8 "}}, component)
 
-    assert %{next_action: %{name: :located, params: %{point: nil}}} =
+    assert %{next_action: %{name: :failed, params: %{error: :service_unavailable}}} =
              IpToGeomap.command(:lookup, %{ip: %{}}, %Server{})
+  end
+
+  test "map unavailability clears a pending address batch" do
+    component = %Component{
+      state: %{
+        loading: true,
+        remaining: ["8.8.8.8"],
+        points: [[1, 2]],
+        text: %{service_unavailable: "Service temporarily unavailable."}
+      }
+    }
+
+    assert %{
+             state: %{
+               loading: false,
+               remaining: [],
+               points: [],
+               error: "Service temporarily unavailable."
+             },
+             next_command: nil
+           } = IpToGeomap.action(:failed, %{error: :service_unavailable}, component)
   end
 end

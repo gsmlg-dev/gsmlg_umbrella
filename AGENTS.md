@@ -94,7 +94,9 @@ Releases are triggered manually via the `release` workflow dispatch (inputs: `re
 | `gsmlg_component` | Shared React components rendered server-side via Bun |
 | `gsmlg_telemetry` | Structured logging, metrics collection, file/console backends |
 
-Other utility apps: `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_whois`, `gsmlg_mac`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
+Other utility apps: `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
+
+The `gsmlg_mac`, `gsmlg_ip_geo` and `gsmlg_whois` service apps have been removed for extraction to another project. Their public toolbox UI remains, with disabled lookup controls and a temporary-unavailability notice; the existing lookup APIs return HTTP 503.
 
 ### Configuration System
 

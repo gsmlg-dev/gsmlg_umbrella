@@ -45,25 +45,17 @@ defmodule GSMLG.Web.Hologram.Pages.IpGeo do
     put_state(component, loading: false, result: nil, error: error)
   end
 
-  def command(:lookup, %{ip: ip}, server) when is_binary(ip) and byte_size(ip) <= 45 do
-    with {:ok, _address} <- :inet.parse_address(String.to_charlist(ip)),
-         {:ok, result} <- GSMLG.IpGeo.lookup(ip) do
-      put_action(server, :loaded, result: result)
-    else
-      {:error, :einval} -> put_action(server, :failed, error: :invalid_input)
-      {:error, reason} -> put_action(server, :failed, error: inspect(reason))
-    end
-  end
-
-  def command(:lookup, _params, server), do: put_action(server, :failed, error: :invalid_input)
+  def command(:lookup, _params, server),
+    do: put_action(server, :failed, error: :service_unavailable)
 
   def template do
     ~HOLO"""
     <section class="container mx-auto px-6 my-12">
+      <p role="status" class="alert alert-info mb-6">{@text.service_unavailable}</p>
       <form id="ip-geo-form" $submit="lookup" class="flex flex-col gap-4 max-w-sm mx-auto">
         <label for="ip-input">{@text.ip}</label>
-        <input id="ip-input" name="ip" class="input input-primary w-full" required maxlength="45" />
-        <button id="ip-submit" type="submit" class="btn btn-primary" disabled={@loading}>
+        <input id="ip-input" name="ip" class="input input-primary w-full" disabled required maxlength="45" />
+        <button id="ip-submit" type="submit" class="btn btn-primary" disabled>
           {%if @loading}{@text.loading}{%else}{@text.lookup}{/if}
         </button>
       </form>

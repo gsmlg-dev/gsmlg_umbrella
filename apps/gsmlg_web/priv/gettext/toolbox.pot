@@ -111,3 +111,6 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "start-fullscreen"
 msgstr ""
+
+msgid "Service temporarily unavailable."
+msgstr ""

@@ -111,3 +111,6 @@ msgstr "WHOIS"
 #, elixir-autogen, elixir-format
 msgid "start-fullscreen"
 msgstr "Start Fullscreen"
+
+msgid "Service temporarily unavailable."
+msgstr "Service temporarily unavailable."

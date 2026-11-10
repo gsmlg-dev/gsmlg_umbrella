@@ -27,26 +27,17 @@ defmodule GSMLG.Web.Hologram.Pages.MacManufacturer do
     put_state(component, loading: false, result: nil, error: error)
   end
 
-  def command(:lookup, %{mac: mac}, server) when is_binary(mac) and byte_size(mac) <= 64 do
-    if Regex.match?(~r/\A[0-9a-fA-F:.\-]+\z/, mac) and GSMLG.MAC.validate(mac) do
-      case GSMLG.MAC.lookup_vendor(mac) do
-        {:ok, short, full} -> put_action(server, :loaded, result: %{short: short, full: full})
-        :error -> put_action(server, :failed, error: :unknown)
-      end
-    else
-      put_action(server, :failed, error: :invalid_input)
-    end
-  end
-
-  def command(:lookup, _params, server), do: put_action(server, :failed, error: :invalid_input)
+  def command(:lookup, _params, server),
+    do: put_action(server, :failed, error: :service_unavailable)
 
   def template do
     ~HOLO"""
     <section class="container mx-auto px-6 my-12">
+      <p role="status" class="alert alert-info mb-6">{@text.service_unavailable}</p>
       <form id="mac-form" $submit="lookup" class="flex flex-col gap-4 max-w-sm mx-auto">
         <label for="mac-input">MAC</label>
-        <input id="mac-input" name="mac" class="input input-primary w-full" required maxlength="64" />
-        <button id="mac-submit" class="btn btn-primary" type="submit" disabled={@loading}>
+        <input id="mac-input" name="mac" class="input input-primary w-full" disabled required maxlength="64" />
+        <button id="mac-submit" class="btn btn-primary" type="submit" disabled>
           {%if @loading}{@text.loading}{%else}{@text.lookup}{/if}
         </button>
       </form>
