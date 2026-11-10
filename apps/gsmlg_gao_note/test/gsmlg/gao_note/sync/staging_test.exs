@@ -7,7 +7,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
   end
 
   import Ecto.Query
-  alias GSMLG.GaoNote.{Attachment, Attachments, Compat, Sync}
+  alias GSMLG.GaoNote.{Attachment, Attachments, Compat, LabelSetting, Sync}
   alias GSMLG.GaoNote.Sync.{Peer, Pin, Protocol, Record, Staging, Store}
   alias GSMLG.GaoNote.Workers.StorageFilePurgeWorker
   alias GSMLG.Repo
@@ -450,13 +450,14 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
   defp incoming_attachment do
     id = Ecto.UUID.generate()
     value = Ecto.UUID.generate()
+    key = "sync_receipt_test_" <> value
 
     {:ok, registered} =
       Sync.register_peer(%{
         node_id: Ecto.UUID.generate(),
         certificate_fingerprint: Protocol.sha256(value),
         actor_id: "receipt-test",
-        allowed_selectors: ["sync_receipt_test=" <> value]
+        allowed_selectors: [key <> "=" <> value]
       })
 
     {:ok, %{peer: peer}} =
@@ -473,6 +474,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
         Repo.delete_all(from(r in Record, where: r.peer_id == ^peer.id or r.note_id == ^id))
         Repo.delete_all(from(n in GSMLG.GaoNote.Note, where: n.id == ^id))
         Repo.delete_all(from(p in Peer, where: p.id == ^peer.id))
+        Repo.delete_all(from(s in LabelSetting, where: s.name == ^key))
       end)
     end)
 
@@ -487,7 +489,7 @@ defmodule GSMLG.GaoNote.Sync.StagingTest do
       "deleted_at" => nil,
       "labels" => [
         %{
-          "key" => "sync_receipt_test",
+          "key" => key,
           "value" => value,
           "description" => "",
           "value_type" => "text"

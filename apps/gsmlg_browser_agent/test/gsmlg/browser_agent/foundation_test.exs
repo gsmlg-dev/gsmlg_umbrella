@@ -286,7 +286,7 @@ defmodule GSMLG.BrowserAgent.FoundationTest do
     assert snapshot == %{
              "status" => "degraded",
              "backend" => "cloakbrowser",
-             "agent_version" => "0.1.0",
+             "agent_version" => to_string(Application.spec(:gsmlg_browser_agent, :vsn)),
              "error_code" => "manager_unavailable"
            }
 

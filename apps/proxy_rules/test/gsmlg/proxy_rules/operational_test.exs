@@ -78,7 +78,7 @@ defmodule GSMLG.ProxyRules.OperationalTest do
     assert deploy =~
              "sudo --user=gsmlg --group=gsmlg -- \\\n" <>
                "  env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml \\\n" <>
-               "  /opt/gsmlg/gsmlg/bin/gsmlg_umbrella eval \"GSMLG.Release.migrate()\""
+               "  /opt/gsmlg/gsmlg/bin/gsmlg_umbrella migrate"
 
     refute deploy =~
              ~r/sudo GSMLG_CONFIG_PATH=.*\n(?:.*\\\n){0,5}\s*\/opt\/gsmlg\/gsmlg\/bin\/gsmlg_umbrella (?:start|daemon)/

@@ -2,25 +2,26 @@ defmodule GSMLG.GaoNote.Sync.PendingPollTest do
   use ExUnit.Case, async: false
 
   import Ecto.Query
-  alias GSMLG.GaoNote.{Compat, Note, Sync}
+  alias GSMLG.GaoNote.{Compat, LabelSetting, Note, Sync}
   alias GSMLG.GaoNote.Sync.{Peer, Protocol, Record, Store}
   alias GSMLG.Repo
 
   setup do
     unboxed(fn ->
       value = Ecto.UUID.generate()
+      key = "pending_poll_test_" <> value
 
       {:ok, joined} =
         Sync.join(%{
           "protocol_version" => 1,
           "node_id" => Ecto.UUID.generate(),
-          "selectors" => ["pending_poll_test=" <> value],
+          "selectors" => [key <> "=" <> value],
           "max_blob_bytes" => 536_870_912
         })
 
       {:ok, note} =
         Compat.save_note(
-          %{title: "pending", content: "body", labels: [["pending_poll_test", value]]},
+          %{title: "pending", content: "body", labels: [[key, value]]},
           nil
         )
 
@@ -35,6 +36,7 @@ defmodule GSMLG.GaoNote.Sync.PendingPollTest do
 
           Repo.delete_all(from(n in Note, where: n.id == ^note.id))
           Repo.delete_all(from(p in Peer, where: p.id == ^peer.id))
+          Repo.delete_all(from(s in LabelSetting, where: s.name == ^key))
         end)
       end)
 

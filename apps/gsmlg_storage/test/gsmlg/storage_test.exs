@@ -928,6 +928,16 @@ defmodule GSMLG.StorageTest do
     end
 
     test "saves and loads config" do
+      keys = [:s3_bucket, :s3_endpoint, :max_file_size]
+      previous = Map.new(keys, &{&1, Application.fetch_env(:gsmlg_storage, &1)})
+
+      on_exit(fn ->
+        Enum.each(previous, fn
+          {key, {:ok, value}} -> Application.put_env(:gsmlg_storage, key, value)
+          {key, :error} -> Application.delete_env(:gsmlg_storage, key)
+        end)
+      end)
+
       assert {:ok, config} =
                Storage.update_config(%{s3_bucket: "test-bucket", max_file_size: 1024})
 
