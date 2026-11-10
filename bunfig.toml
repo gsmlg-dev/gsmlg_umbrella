@@ -1,14 +1,12 @@
 [install]
 registry = "https://registry.npmjs.org"
+optional = true
 
 [jsx]
 jsx = "react/jsx-runtime"
 jsxFactory = "h"
 jsxFragment = "Fragment"
 jsxImportSource = "react"
-
-[install]
-optional = true
 
 [workspaces]
 packages = ["apps/*"]
