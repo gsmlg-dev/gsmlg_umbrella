@@ -25,13 +25,17 @@ jobs:
         ports:
           - 5432:5432
 
-      minio:
-        image: minio/minio:latest
+      ess:
+        # ESS 0.6.10; MinIO no longer publishes community images or binaries.
+        image: ghcr.io/gsmlg-dev/ess:0.6.10@sha256:c5a4596ca71fd13ed8d6912f203694b074bd9c769adde60ce0b3ab2a1ead9c09
         env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
+          ESS_S3_AUTH_ENABLED: "true"
+          ESS_WEB_ENABLED: "false"
+          # Disposable CI-only encryption key, never used outside this service.
+          ESS_MASTER_KEY: "0123456789abcdef0123456789abcdef"
+          ERL_FLAGS: "+S 4:4"
         options: >-
-          --health-cmd "mc ready local || curl -f http://localhost:9000/minio/health/live"
+          --health-cmd "wget -qO- http://127.0.0.1:9000/health"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -57,11 +61,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y inotify-tools libvips-dev
 
-      - name: Create Minio storage bucket
+      - name: Create authenticated S3 test storage
+        env:
+          ESS_CONTAINER: ${{ job.services.ess.id }}
         run: |
-          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && chmod +x /usr/local/bin/mc
-          mc alias set local http://localhost:9000 minioadmin minioadmin
-          mc mb local/gsmlg-storage --ignore-existing
+          docker exec "$ESS_CONTAINER" /app/bin/ess rpc '
+            alias ExStorageService.IAM.{User, Policy, AccessKey}
+            {:ok, user} = User.create_user("ci")
+            {:ok, policy} = Policy.create_policy("ci-full-access", Policy.full_access_statements())
+            :ok = Policy.attach_policy(user.id, policy.id)
+            {:ok, _key} = AccessKey.create_fixed_access_key(user.id, "minioadmin", "minioadmin")
+            :ok
+          '
+          curl --fail-with-body --silent --show-error \
+            --aws-sigv4 "aws:amz:$AWS_REGION:s3" \
+            --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+            --request PUT "$AWS_ENDPOINT_URL/gsmlg-storage"
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
