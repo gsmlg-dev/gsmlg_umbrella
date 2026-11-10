@@ -560,19 +560,6 @@ defmodule GSMLG.Config.Schema do
     ]
   ]
 
-  @github_oauth_schema [
-    client_id: [
-      type: :string,
-      default: "",
-      doc: "GitHub OAuth client ID"
-    ],
-    client_secret: [
-      type: :string,
-      default: "",
-      doc: "GitHub OAuth client secret"
-    ]
-  ]
-
   @web_push_schema [
     subject: [
       type: :string,
@@ -930,7 +917,6 @@ defmodule GSMLG.Config.Schema do
       browser: @browser_schema,
       browser_agent: @browser_agent_schema,
       cluster: @cluster_schema,
-      oauth: %{github: @github_oauth_schema},
       web_push: @web_push_schema,
       proxy_rules: @proxy_rules_schema,
       scout: %{
@@ -978,7 +964,7 @@ defmodule GSMLG.Config.Schema do
         end
 
       schema when is_map(schema) ->
-        # Nested schema (like oauth)
+        # Nested section schemas
         validate_nested(config, schema)
     end
   end
@@ -1039,7 +1025,6 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:browser), do: @browser_schema
   defp get_section_schema(:browser_agent), do: @browser_agent_schema
   defp get_section_schema(:cluster), do: @cluster_schema
-  defp get_section_schema(:oauth), do: %{github: @github_oauth_schema}
   defp get_section_schema(:web_push), do: @web_push_schema
   defp get_section_schema(:proxy_rules), do: @proxy_rules_schema
 

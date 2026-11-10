@@ -44,11 +44,6 @@ config :guardian, Guardian.DB,
   # default: 60 minutes
   sweep_interval: 60
 
-config :ueberauth, Ueberauth,
-  providers: [
-    github: {Ueberauth.Strategy.Github, []}
-  ]
-
 # Swoosh API client is needed for adapters other than SMTP.
 config :swoosh, :api_client, false
 

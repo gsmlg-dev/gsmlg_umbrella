@@ -126,7 +126,7 @@ Guardian (JWT) for both web apps, with DB-backed token persistence via `Guardian
 - **`GSMLG.Web.Guardian`** — public web app auth
 - **`GSMLG.AdminWeb.Guardian`** — admin app auth (includes `Guardian.DB.Sweeper` for token cleanup)
 
-Auth methods: username/password (`GSMLG.Accounts.Auth`), GitHub OAuth2 (optional), magic link email authentication for public web.
+Auth methods: username/password (`GSMLG.Accounts.Auth`) and magic link email authentication for public web. The unfinished GitHub sign-in integration and Ueberauth dependencies are removed; API-provider OAuth credentials use the independent `GSMLG.ApiProvider.OAuth` implementation.
 
 Router pipelines: `maybe_browser_auth` / `maybe_api_auth` (optional auth), `ensure_authed_access` (required auth). Admin routes also use `ensure_session_process_started` for `phoenix_session_process` integration.
 

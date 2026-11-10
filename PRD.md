@@ -145,7 +145,6 @@ IP geolocation (including IP to GeoMap), WHOIS/RDAP and MAC lookup services are 
 
 **Supported Methods:**
 - Email/password authentication with secure hashing
-- GitHub OAuth integration
 - Magic link (passwordless) authentication
 - Two-factor authentication (TOTP)
 - JWT tokens via Guardian
@@ -489,10 +488,6 @@ name = "commander-prod"
 platform_url = "wss://admin.gsmlg.org/commander-socket/websocket"
 platform_key = "***"
 
-[oauth.github]
-client_id = "***"
-client_secret = "***"
-
 [web_push]
 subject = "mailto:admin@gsmlg.org"
 public_key = "***"
@@ -561,7 +556,7 @@ services:
 ### Phase 1: Foundation (Current)
 - [x] Core umbrella structure
 - [x] PostgreSQL integration with Unix socket support
-- [x] User authentication (email, OAuth, magic links)
+- [x] User authentication (email, magic links)
 - [x] Basic blog functionality
 - [x] Toolbox utilities
 - [x] Admin dashboard structure

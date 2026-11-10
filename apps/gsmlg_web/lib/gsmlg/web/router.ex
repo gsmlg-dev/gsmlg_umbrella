@@ -55,13 +55,6 @@ defmodule GSMLG.Web.Router do
     forward("/mcp", GSMLG.Web.AgentNoteMCPPlug)
   end
 
-  scope "/auth", GSMLG.Web do
-    pipe_through :browser
-
-    get("/:provider", AuthController, :request)
-    get("/:provider/callback", AuthController, :callback)
-  end
-
   # Phoenix 1.8 Magic Link Authentication
   scope "/auth/magic-link", GSMLG.Web do
     pipe_through :browser

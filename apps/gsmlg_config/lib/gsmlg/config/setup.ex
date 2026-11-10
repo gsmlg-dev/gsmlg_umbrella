@@ -60,10 +60,6 @@ defmodule GSMLG.Config.Setup do
       setup_cluster(config[:cluster])
     end
 
-    if config[:oauth] != nil do
-      setup_oauth(config[:oauth])
-    end
-
     if config[:web_push] != nil do
       setup_web_push(config[:web_push])
     end
@@ -431,15 +427,6 @@ defmodule GSMLG.Config.Setup do
 
     Application.put_env(:gsmlg, :cluster, config)
     Application.put_env(:libcluster, :topologies, topologies)
-  end
-
-  def setup_oauth(config) do
-    if config[:github] != nil do
-      Application.put_env(:ueberauth, Ueberauth.Strategy.Github.OAuth,
-        client_id: config[:github][:client_id],
-        client_secret: config[:github][:client_secret]
-      )
-    end
   end
 
   def setup_web_push(config) do

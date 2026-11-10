@@ -69,8 +69,6 @@ defmodule GSMLG.Web.MixProject do
       {:guardian_phoenix, "~> 2.0"},
       {:guardian_db, "~> 3.0"},
       {:open_api_spex, "~> 3.22"},
-      {:ueberauth, "~> 0.11"},
-      {:ueberauth_github, "~> 0.8"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

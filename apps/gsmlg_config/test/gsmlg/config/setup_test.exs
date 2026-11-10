@@ -20,7 +20,6 @@ defmodule GSMLG.Config.SetupTest do
             {:gsmlg_couchdb, GSMLG.CouchDB.Connection},
             {:gsmlg_commander, GSMLG.Commander},
             {:gsmlg_browser_agent, :settings},
-            {:ueberauth, Ueberauth.Strategy.Github.OAuth},
             {:gsmlg_web_push, :vapid_details},
             {:gsmlg_scout, :settings},
             {:proxy_rules, :settings},
@@ -79,12 +78,19 @@ defmodule GSMLG.Config.SetupTest do
           platform_key: "runtime-test-key"
         },
         browser_agent: %{enabled: false},
-        oauth: %{github: %{client_id: "test", client_secret: "test"}},
         web_push: %{subject: "test", public_key: "test", private_key: "test"}
       }
 
       # Should not crash
       assert Setup.setup(config) == nil
+    end
+
+    test "legacy GitHub sign-in configuration is accepted and ignored" do
+      legacy = %{oauth: %{github: %{client_id: "old-id", client_secret: "old-secret"}}}
+
+      assert {:ok, ^legacy} = GSMLG.Config.Schema.validate(legacy)
+      assert Setup.setup(legacy) == nil
+      assert Application.get_all_env(:ueberauth) == []
     end
 
     test "configures scout settings when scout config is present" do
@@ -485,30 +491,6 @@ defmodule GSMLG.Config.SetupTest do
                  ]
                ]
              ] = Application.get_env(:libcluster, :topologies)
-    end
-  end
-
-  describe "setup_oauth/1" do
-    test "configures github oauth" do
-      config = %{
-        github: %{
-          client_id: "github_client_id",
-          client_secret: "github_client_secret"
-        }
-      }
-
-      Setup.setup_oauth(config)
-
-      oauth_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Github.OAuth)
-      assert oauth_config[:client_id] == "github_client_id"
-      assert oauth_config[:client_secret] == "github_client_secret"
-    end
-
-    test "handles missing github config" do
-      config = %{}
-
-      # Should not crash
-      assert Setup.setup_oauth(config) == nil
     end
   end
 

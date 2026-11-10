@@ -46,8 +46,6 @@ defmodule GSMLG.MixProject do
       {:gsmlg_logger, in_umbrella: true},
       {:gsmlg_telemetry, in_umbrella: true},
       {:gsmlg_web_push, in_umbrella: true},
-      {:ueberauth, "~> 0.11"},
-      {:ueberauth_github, "~> 0.8"},
       {:styx, "~> 0.1"},
       {:mox, "~> 1.3", only: :test},
       {:meck, "~> 1.2", only: :test},

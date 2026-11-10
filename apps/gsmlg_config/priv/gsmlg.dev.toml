@@ -92,10 +92,6 @@ gossip_multicast_ttl = 1
 gossip_secret = ""
 gossip_broadcast_only = false
 
-[oauth.github]
-client_id = ""
-client_secret = ""
-
 [storage]
 s3_bucket = "gsmlg-storage"
 s3_endpoint = "http://localhost:9000"

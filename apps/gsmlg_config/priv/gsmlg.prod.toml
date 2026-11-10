@@ -94,10 +94,6 @@ gossip_multicast_ttl = 1
 gossip_secret = ""
 gossip_broadcast_only = false
 
-[oauth.github]
-client_id = "CHANGE_ME"
-client_secret = "CHANGE_ME"
-
 [caddy]
 start = true
 mode = "external"
