@@ -15,6 +15,14 @@ defmodule GSMLG.SessionProcess do
   end
 
   @impl true
+  def handle_call({:dispatch_action, %Phoenix.SessionProcess.Action{} = action}, _from, state) do
+    {:noreply, new_state} = handle_cast({:dispatch_action, action}, state)
+    {:reply, {:ok, new_state.app_state}, new_state}
+  end
+
+  def handle_call(request, from, state), do: super(request, from, state)
+
+  @impl true
   def handle_cast({:storage_load_finished, token}, state) do
     ref = {:storage, token}
 
