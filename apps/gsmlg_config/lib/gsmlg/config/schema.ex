@@ -22,10 +22,6 @@ defmodule GSMLG.Config.Schema do
     tailwind_path: [
       type: :string,
       doc: "Deprecated and ignored; Tailwind is built by DuskmoonBundler"
-    ],
-    bun_path: [
-      type: :string,
-      doc: "Path to the Bun executable for React server-side rendering"
     ]
   ]
 
@@ -952,6 +948,10 @@ defmodule GSMLG.Config.Schema do
               do:
                 Keyword.drop(config_list, [:enabled, :ssh_enabled, :ssh_port, :trusted_proxy_ips]),
               else: config_list
+
+          # Retired renderer paths must not prevent existing TOML files from loading.
+          config_list =
+            if section == :gsmlg, do: Keyword.delete(config_list, :bun_path), else: config_list
 
           case NimbleOptions.validate(config_list, schema) do
             {:ok, validated} ->

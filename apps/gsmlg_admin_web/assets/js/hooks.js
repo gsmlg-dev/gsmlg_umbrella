@@ -1,4 +1,3 @@
-import { blogFormHook } from "./hooks/blog_form";
 import TerminalHook from "./hooks/terminal_hook";
 import ClipboardHook from "./hooks/clipboard_hook";
 import { GaoNoteLabelsMultiSelect } from "./hooks/gao_note_labels_multi_select";
@@ -68,7 +67,6 @@ const ThemeSwitcher = {
 };
 
 export const hooks = {
-  ...blogFormHook,
   Terminal: TerminalHook,
   Clipboard: ClipboardHook,
   GaoNoteLabelsMultiSelect,

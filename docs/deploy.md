@@ -17,7 +17,6 @@ Production hosts need:
 - PostgreSQL reachable by the umbrella app.
 - RabbitMQ reachable by the umbrella app and Scout agents when Scout distributed fetching is enabled.
 - `openssl` and system CA certificates for release hosts.
-- `bun` on the umbrella host when running the tarball release directly. The Docker image already includes Bun and sets the component server path.
 - Lightpanda for Scout agents, either as a native executable or through a local wrapper script that runs Docker.
 
 Generate production secrets before deploying. Do not reuse checked-in development secrets.
@@ -451,8 +450,7 @@ Start the service:
 ```bash
 sudo --user=gsmlg --group=gsmlg -- \
   env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml \
-  MNESIA_DIR=/var/lib/mnesia MIX_BUN_PATH=/usr/bin/bun \
-  BUN_SERVER_JS=/opt/gsmlg/gsmlg/lib/gsmlg_component-${VERSION}/priv/server.js \
+  MNESIA_DIR=/var/lib/mnesia \
   /opt/gsmlg/gsmlg/bin/gsmlg_umbrella start
 ```
 
@@ -564,8 +562,6 @@ User=gsmlg
 WorkingDirectory=/opt/gsmlg/gsmlg
 Environment=GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_umbrella.toml
 Environment=MNESIA_DIR=/var/lib/mnesia
-Environment=MIX_BUN_PATH=/usr/bin/bun
-Environment=BUN_SERVER_JS=/opt/gsmlg/gsmlg/lib/gsmlg_component-5.6.0/priv/server.js
 ConfigurationDirectory=gsmlg/proxy-rules
 ConfigurationDirectoryMode=0750
 StateDirectory=gsmlg/proxy-rules

@@ -8,7 +8,7 @@ Docker image: [ghcr.io/gsmlg-dev/gsmlg-umbrella](https://github.com/gsmlg-dev/gs
 
 | App | Port | Purpose |
 |-----|------|---------|
-| `gsmlg_web` | 4110 | Public-facing Phoenix app (LiveView + React) |
+| `gsmlg_web` | 4110 | Public-facing Phoenix app (LiveView and Hologram) |
 | `gsmlg_admin_web` | 4111 | Admin dashboard (Mnesia browser, storage, GaoNote, Commander) |
 | `gsmlg_commander` | — | Dual-mode command system (WebSocket agent or session server) |
 
@@ -74,10 +74,10 @@ development bootstrap
 
 Source environment checks use `import.meta.env.DEV` / `import.meta.env.MODE`.
 
-Bun is still required by `phoenix_react_server` for React server-side rendering
-and its release bundle, and by the existing JavaScript tests. Frontend asset
-builds and npm dependency installs use Mix. Set `MIX_BUN_PATH`, `BUN_BIN`, or
-the TOML `gsmlg.bun_path` to configure the SSR executable, in that order.
+Blog Markdown is rendered by the existing DuskMoon/MDEx components on the
+server. JavaScript tests use Node.js's built-in runner (`npm test`); frontend
+asset builds and npm dependency installs use Mix. No separate JavaScript
+runtime is required in the release image.
 The legacy TOML `tailwind_path` is accepted but ignored; no Tailwind CLI is
 required.
 

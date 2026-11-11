@@ -367,10 +367,11 @@ IP geolocation (including IP to GeoMap), WHOIS/RDAP and MAC lookup services are 
 **Frontend:**
 | Component | Technology | Version |
 |-----------|------------|---------|
-| UI Framework | Phoenix LiveView | 1.0+ |
-| Components | React | 18+ |
-| Styling | Tailwind CSS | 3.x |
-| Build Tool | Bun | Latest |
+| UI Framework | Phoenix LiveView | 1.2+ |
+| Components | phoenix_duskmoon / MDEx | 10.x / 0.14.x |
+| Styling | Tailwind CSS | 4.x |
+| JavaScript Runtime | Node.js | 22 |
+| Build Tool | DuskmoonBundler | 10.1.x |
 
 **Data Storage:**
 | Purpose | Technology |

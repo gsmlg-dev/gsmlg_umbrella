@@ -78,11 +78,6 @@ jobs:
             --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
             --request PUT "$AWS_ENDPOINT_URL/gsmlg-storage"
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
@@ -113,6 +108,9 @@ jobs:
 
       - name: Install JavaScript dependencies
         run: mix npm.ci
+
+      - name: Run JavaScript tests
+        run: npm test
 
       - name: Setup database
         env:

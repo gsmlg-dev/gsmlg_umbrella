@@ -24,18 +24,9 @@ ARG https_proxy
 ARG NPM_CONFIG_REGISTRY=https://nexus.gsmlg.net/repository/npm/
 ARG HEX_MIRROR=https://nexus.gsmlg.net/repository/hex-pm
 
-ARG BUN_VERSION=1.3.4
 ARG TARGETARCH
 
-# Bun is retained for phoenix_react_server's server-side renderer and bundle.
-RUN apt-get update && apt-get install -y --no-install-recommends unzip curl ca-certificates python3 build-essential perl cmake && rm -rf /var/lib/apt/lists/*
-
-RUN curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip -o /tmp/bun.zip \
-    && unzip /tmp/bun.zip -d /tmp/ \
-    && mv /tmp/bun-linux-x64/bun /usr/local/bin/bun \
-    && rm -rf /tmp/bun.zip /tmp/bun-linux-x64
-
-ARG MIX_BUN_PATH=/usr/local/bin/bun
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates python3 build-essential perl cmake && rm -rf /var/lib/apt/lists/*
 
 COPY . /build
 
@@ -92,8 +83,6 @@ LABEL RELEASE_VERSION="${RELEASE_VERSION}"
 ENV REPLACE_OS_VARS=true
 ENV ERL_EPMD_PORT=4369
 ENV ERLCOOKIE=erlang_cookie
-ENV BUN_BIN=/usr/bin/bun
-ENV BUN_SERVER_JS=/app/lib/gsmlg_component-$RELEASE_VERSION/priv/server.js
 ENV GSMLG_CONFIG_PATH=/etc/gsmlg_umbrella.toml
 
 ENV ELIXIR_ERL_OPTIONS="+fnu"
@@ -101,7 +90,6 @@ ENV ELIXIR_ERL_OPTIONS="+fnu"
 COPY apps/gsmlg_config/priv/gsmlg.toml /etc/gsmlg_umbrella.toml
 
 COPY --from=builder /app /app
-COPY --from=builder /usr/local/bin/bun /usr/bin/bun
 
 RUN <<EOF
 apt-get update

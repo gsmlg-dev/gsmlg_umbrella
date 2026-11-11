@@ -39,7 +39,7 @@
   </:header_slot>
   <div class="container flex flex-col my-8">
     <div class="flex flex-col">
-      <.react_markdown data={
+      <.markdown data={
         if @translation && @translation.status == "completed",
           do: @translation.content,
           else: @blog.content

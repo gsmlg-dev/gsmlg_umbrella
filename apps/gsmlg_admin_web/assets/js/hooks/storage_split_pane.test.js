@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, describe, test } from "node:test";
 
 import StorageSplitPane from "./storage_split_pane.js";
 
@@ -40,62 +41,64 @@ afterEach(() => {
 describe("storage split pane hook", () => {
   test("uses responsive CSS defaults and publishes accessible pixel bounds", () => {
     const { root, splitter, width } = setup();
-    expect(width()).toBe("320px");
-    expect(splitter.attributes).toMatchObject({
+    assert.strictEqual(width(), "320px");
+    for (const [name, value] of Object.entries({
       "aria-valuemin": "224",
       "aria-valuemax": "868",
       "aria-valuenow": "320",
       "aria-valuetext": "320 pixels",
-    });
+    })) {
+      assert.strictEqual(splitter.attributes[name], value);
+    }
     root.defaultWidth = 384;
     observers[0].callback();
-    expect(width()).toBe("384px");
+    assert.strictEqual(width(), "384px");
   });
 
   test("drags using pointer capture and ignores unrelated pointer input", () => {
     const { root, splitter, width } = setup();
     splitter.dispatch("pointerdown", event({ button: 2 }));
     splitter.dispatch("pointerdown", event({ isPrimary: false }));
-    expect(splitter.captured.size).toBe(0);
+    assert.strictEqual(splitter.captured.size, 0);
     const down = event({ clientX: 400 });
     splitter.dispatch("pointerdown", down);
-    expect(down.defaultPrevented).toBe(true);
-    expect(splitter.captured.has(1)).toBe(true);
-    expect(root.classList.contains("is-resizing")).toBe(true);
+    assert.strictEqual(down.defaultPrevented, true);
+    assert.strictEqual(splitter.captured.has(1), true);
+    assert.strictEqual(root.classList.contains("is-resizing"), true);
     splitter.dispatch("pointermove", event({ pointerId: 2, clientX: 600 }));
-    expect(width()).toBe("320px");
+    assert.strictEqual(width(), "320px");
     splitter.dispatch("pointermove", event({ clientX: 550 }));
-    expect(width()).toBe("470px");
+    assert.strictEqual(width(), "470px");
     splitter.dispatch("pointerup", event());
-    expect(splitter.captured.size).toBe(0);
-    expect(root.classList.contains("is-resizing")).toBe(false);
+    assert.strictEqual(splitter.captured.size, 0);
+    assert.strictEqual(root.classList.contains("is-resizing"), false);
     splitter.dispatch("pointermove", event({ clientX: 800 }));
-    expect(width()).toBe("470px");
+    assert.strictEqual(width(), "470px");
   });
 
   test("clamps dragging and supports keyboard sizing without blocking other keys", () => {
     const { splitter, width } = setup();
     splitter.dispatch("pointerdown", event({ clientX: 400 }));
     splitter.dispatch("pointermove", event({ clientX: -1000 }));
-    expect(width()).toBe("224px");
+    assert.strictEqual(width(), "224px");
     splitter.dispatch("pointermove", event({ clientX: 2000 }));
-    expect(width()).toBe("868px");
+    assert.strictEqual(width(), "868px");
     splitter.dispatch("pointerup", event());
     const key = (key) => {
       const e = event({ key });
       splitter.dispatch("keydown", e);
       return e;
     };
-    expect(key("Home").defaultPrevented).toBe(true);
-    expect(width()).toBe("224px");
+    assert.strictEqual(key("Home").defaultPrevented, true);
+    assert.strictEqual(width(), "224px");
     key("ArrowRight");
-    expect(width()).toBe("240px");
+    assert.strictEqual(width(), "240px");
     key("ArrowLeft");
-    expect(width()).toBe("224px");
+    assert.strictEqual(width(), "224px");
     key("End");
-    expect(width()).toBe("868px");
-    expect(key("Tab").defaultPrevented).toBe(false);
-    expect(key("Enter").defaultPrevented).toBe(false);
+    assert.strictEqual(width(), "868px");
+    assert.strictEqual(key("Tab").defaultPrevented, false);
+    assert.strictEqual(key("Enter").defaultPrevented, false);
   });
 
   test("a valid drag focuses the separator so keyboard sizing continues there", () => {
@@ -104,13 +107,13 @@ describe("storage split pane hook", () => {
     document.activeElement = previousFocus;
     splitter.dispatch("pointerdown", event({ button: 2 }));
     splitter.dispatch("pointerdown", event({ isPrimary: false }));
-    expect(document.activeElement).toBe(previousFocus);
+    assert.strictEqual(document.activeElement, previousFocus);
     splitter.dispatch("pointerdown", event());
     splitter.dispatch("pointermove", event({ clientX: 450 }));
     splitter.dispatch("pointerup", event());
-    expect(document.activeElement).toBe(splitter);
+    assert.strictEqual(document.activeElement, splitter);
     document.activeElement.dispatch("keydown", event({ key: "ArrowRight" }));
-    expect(width()).toBe("386px");
+    assert.strictEqual(width(), "386px");
   });
 
   test("retains user width through LiveView updates and temporary container shrink", () => {
@@ -121,18 +124,18 @@ describe("storage split pane hook", () => {
     root.style.removeProperty("--storage-tree-width");
     splitter.attributes = {};
     hook.updated();
-    expect(width()).toBe("520px");
-    expect(splitter.attributes["aria-valuenow"]).toBe("520");
+    assert.strictEqual(width(), "520px");
+    assert.strictEqual(splitter.attributes["aria-valuenow"], "520");
     root.width = 700;
     observers[0].callback();
-    expect(width()).toBe("368px");
+    assert.strictEqual(width(), "368px");
     root.width = 1200;
     observers[0].callback();
-    expect(width()).toBe("520px");
+    assert.strictEqual(width(), "520px");
     root.width = 500;
     observers[0].callback();
-    expect(width()).toBe("168px");
-    expect(splitter.attributes["aria-valuemin"]).toBe("168");
+    assert.strictEqual(width(), "168px");
+    assert.strictEqual(splitter.attributes["aria-valuemin"], "168");
   });
 
   test("mobile disables resizing, ends active drag, and restores desktop width", () => {
@@ -141,28 +144,28 @@ describe("storage split pane hook", () => {
     splitter.dispatch("pointerdown", event());
     media.matches = false;
     media.dispatch("change", {});
-    expect(width()).toBeUndefined();
-    expect(root.classList.contains("is-resizing")).toBe(false);
-    expect(splitter.captured.size).toBe(0);
+    assert.strictEqual(width(), undefined);
+    assert.strictEqual(root.classList.contains("is-resizing"), false);
+    assert.strictEqual(splitter.captured.size, 0);
     const key = event({ key: "ArrowRight" });
     splitter.dispatch("keydown", key);
     splitter.dispatch("pointerdown", event());
-    expect(key.defaultPrevented).toBe(false);
-    expect(splitter.captured.size).toBe(0);
+    assert.strictEqual(key.defaultPrevented, false);
+    assert.strictEqual(splitter.captured.size, 0);
     media.matches = true;
     media.dispatch("change", {});
-    expect(width()).toBe("336px");
+    assert.strictEqual(width(), "336px");
   });
 
   test("mounting on mobile leaves the stacked layout to CSS", () => {
     media.matches = false;
     const { splitter, width } = setup();
     splitter.dispatch("pointerdown", event());
-    expect(width()).toBeUndefined();
-    expect(splitter.captured.size).toBe(0);
+    assert.strictEqual(width(), undefined);
+    assert.strictEqual(splitter.captured.size, 0);
     media.matches = true;
     media.dispatch("change", {});
-    expect(width()).toBe("320px");
+    assert.strictEqual(width(), "320px");
   });
 
   test("a replacement separator receives listeners and width after a patch", () => {
@@ -172,12 +175,12 @@ describe("storage split pane hook", () => {
     const replacement = createSplitter();
     root.splitter = replacement;
     hook.updated();
-    expect(splitter.listenerCount()).toBe(0);
-    expect(splitter.captured.size).toBe(0);
-    expect(root.classList.contains("is-resizing")).toBe(false);
-    expect(replacement.attributes["aria-valuenow"]).toBe("336");
+    assert.strictEqual(splitter.listenerCount(), 0);
+    assert.strictEqual(splitter.captured.size, 0);
+    assert.strictEqual(root.classList.contains("is-resizing"), false);
+    assert.strictEqual(replacement.attributes["aria-valuenow"], "336");
     replacement.dispatch("keydown", event({ key: "ArrowRight" }));
-    expect(width()).toBe("352px");
+    assert.strictEqual(width(), "352px");
   });
 
   test("cancel, lost capture, and destroy clean up dragging and listeners", () => {
@@ -185,16 +188,16 @@ describe("storage split pane hook", () => {
     for (const type of ["pointercancel", "lostpointercapture"]) {
       splitter.dispatch("pointerdown", event());
       splitter.dispatch(type, event());
-      expect(root.classList.contains("is-resizing")).toBe(false);
-      expect(splitter.captured.size).toBe(0);
+      assert.strictEqual(root.classList.contains("is-resizing"), false);
+      assert.strictEqual(splitter.captured.size, 0);
     }
     splitter.dispatch("pointerdown", event());
     hook.destroyed();
-    expect(root.classList.contains("is-resizing")).toBe(false);
-    expect(splitter.captured.size).toBe(0);
-    expect(splitter.listenerCount()).toBe(0);
-    expect(media.listenerCount()).toBe(0);
-    expect(observers[0].disconnected).toBe(true);
+    assert.strictEqual(root.classList.contains("is-resizing"), false);
+    assert.strictEqual(splitter.captured.size, 0);
+    assert.strictEqual(splitter.listenerCount(), 0);
+    assert.strictEqual(media.listenerCount(), 0);
+    assert.strictEqual(observers[0].disconnected, true);
   });
 });
 

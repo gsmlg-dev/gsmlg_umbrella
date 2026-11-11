@@ -1,10 +1,6 @@
 # Base configuration for GSMLG applications
 # This file contains default settings that apply across all environments
 
-[gsmlg]
-# Bun is used only by the React server-side renderer.
-bun_path = "/usr/bin/bun"
-
 [logger]
 log_level = "info"
 

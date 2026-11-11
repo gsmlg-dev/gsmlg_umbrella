@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import assert from "node:assert/strict";
+import { afterEach, describe, test } from "node:test";
 
 import ProxyRulesSourceViewer, {
   sourcePageUrl,
@@ -10,9 +11,7 @@ afterEach(() => {
 
 describe("proxy rule source viewer", () => {
   test("builds bounded page URLs with encoded cursors", () => {
-    expect(sourcePageUrl("/proxy-rules/sources/local-direct", "a+b", 200)).toBe(
-      "/proxy-rules/sources/local-direct?limit=200&cursor=a%2Bb",
-    );
+    assert.strictEqual(sourcePageUrl("/proxy-rules/sources/local-direct", "a+b", 200), "/proxy-rules/sources/local-direct?limit=200&cursor=a%2Bb");
   });
 
   test("selects Local Direct lazily and routes it to its own URL", async () => {
@@ -26,17 +25,17 @@ describe("proxy rule source viewer", () => {
       viewer.mounted();
       root.click(root.directButton);
 
-      expect(viewer.source).toBe("local-direct");
-      expect(requests).toHaveLength(0);
-      expect(root.content.textContent).toBe("");
+      assert.strictEqual(viewer.source, "local-direct");
+      assert.strictEqual((requests).length, 0);
+      assert.strictEqual(root.content.textContent, "");
 
       root.click(root.viewButton);
       await settle();
 
-      expect(requests).toEqual([
+      assert.deepStrictEqual(requests, [
         "/proxy-rules/sources/local-direct?limit=200",
       ]);
-      expect(root.content.textContent).toBe("direct.example");
+      assert.strictEqual(root.content.textContent, "direct.example");
     });
   });
 
@@ -65,22 +64,22 @@ describe("proxy rule source viewer", () => {
       };
 
       viewer.mounted();
-      expect(requests).toHaveLength(0);
+      assert.strictEqual((requests).length, 0);
       root.click(root.viewButton);
       await settle();
 
-      expect(requests).toEqual([
+      assert.deepStrictEqual(requests, [
         "/proxy-rules/sources/gfwlist?limit=200",
         "/proxy-rules/sources/gfwlist?limit=200&cursor=next",
       ]);
-      expect(root.content.textContent).toBe("one\ntwo\nthree");
-      expect(root.loading.textContent).toBe("Loaded all 3 lines.");
-      expect(viewer.cache.get("gfwlist")).toEqual({
+      assert.strictEqual(root.content.textContent, "one\ntwo\nthree");
+      assert.strictEqual(root.loading.textContent, "Loaded all 3 lines.");
+      assert.deepStrictEqual(viewer.cache.get("gfwlist"), {
         version: "a".repeat(64),
         totalLines: 3,
         content: "one\ntwo\nthree",
       });
-      expect(Object.hasOwn(viewer.cache.get("gfwlist"), "lines")).toBe(false);
+      assert.strictEqual(Object.hasOwn(viewer.cache.get("gfwlist"), "lines"), false);
     });
   });
 
@@ -125,8 +124,8 @@ describe("proxy rule source viewer", () => {
         root.click(root.viewButton);
         await settle();
 
-        expect(root.content.textContent).toBe(testCase.content);
-        expect(viewer.cache.get("gfwlist").content).toBe(testCase.content);
+        assert.strictEqual(root.content.textContent, testCase.content);
+        assert.strictEqual(viewer.cache.get("gfwlist").content, testCase.content);
       });
     }
   });
@@ -159,9 +158,9 @@ describe("proxy rule source viewer", () => {
       root.click(root.viewButton);
       await settle();
 
-      expect(root.error.textContent).toBe("The source returned an invalid response.");
-      expect(root.content.textContent).toBe("");
-      expect(viewer.cache.has("gfwlist")).toBe(false);
+      assert.strictEqual(root.error.textContent, "The source returned an invalid response.");
+      assert.strictEqual(root.content.textContent, "");
+      assert.strictEqual(viewer.cache.has("gfwlist"), false);
     });
   });
 
@@ -181,15 +180,15 @@ describe("proxy rule source viewer", () => {
       remote.resolve(response(page({ version: "a", lines: ["stale.example"] })));
       await settle();
 
-      expect(root.content.textContent).toBe("");
+      assert.strictEqual(root.content.textContent, "");
       root.click(root.viewButton);
       await settle();
-      expect(root.content.textContent).toBe("direct.example");
+      assert.strictEqual(root.content.textContent, "direct.example");
 
       root.click(root.gfwlistButton);
-      expect(root.content.textContent).toBe("");
+      assert.strictEqual(root.content.textContent, "");
       root.click(root.directButton);
-      expect(root.content.textContent).toBe("direct.example");
+      assert.strictEqual(root.content.textContent, "direct.example");
     });
   });
 
@@ -211,11 +210,11 @@ describe("proxy rule source viewer", () => {
       await settle();
 
       sourceChanged.callback({ source: "local-direct" });
-      expect(viewer.cache.has("local-direct")).toBe(false);
-      expect(viewer.cache.has("local-proxy")).toBe(true);
+      assert.strictEqual(viewer.cache.has("local-direct"), false);
+      assert.strictEqual(viewer.cache.has("local-proxy"), true);
 
       root.click(root.proxyButton);
-      expect(root.content.textContent).toBe("proxy.example");
+      assert.strictEqual(root.content.textContent, "proxy.example");
     });
   });
 
@@ -236,15 +235,15 @@ describe("proxy rule source viewer", () => {
       viewer.mounted();
       root.click(root.viewButton);
       await settle();
-      expect(root.content.textContent).toBe("stale.example");
+      assert.strictEqual(root.content.textContent, "stale.example");
 
       root.gfwlistButton.dataset.version = "b".repeat(64);
       viewer.updated();
       await settle();
 
-      expect(requestCount).toBe(2);
-      expect(root.content.textContent).toBe("fresh.example");
-      expect(viewer.cache.get("gfwlist").version).toBe("b".repeat(64));
+      assert.strictEqual(requestCount, 2);
+      assert.strictEqual(root.content.textContent, "fresh.example");
+      assert.strictEqual(viewer.cache.get("gfwlist").version, "b".repeat(64));
     });
   });
 
@@ -270,9 +269,9 @@ describe("proxy rule source viewer", () => {
       root.proxyButton.dataset.version = "c".repeat(64);
       viewer.updated();
 
-      expect(viewer.cache.has("local-proxy")).toBe(false);
-      expect(viewer.cache.has("local-direct")).toBe(true);
-      expect(root.content.textContent).toBe("direct.example");
+      assert.strictEqual(viewer.cache.has("local-proxy"), false);
+      assert.strictEqual(viewer.cache.has("local-direct"), true);
+      assert.strictEqual(root.content.textContent, "direct.example");
     });
   });
 
@@ -297,10 +296,10 @@ describe("proxy rule source viewer", () => {
       stale.resolve(response(page({ version: "a", lines: ["stale.example"] })));
       await settle();
 
-      expect(requestCount).toBe(2);
-      expect(root.content.textContent).toBe("fresh.example");
-      expect(viewer.cache.get("gfwlist").version).toBe("b".repeat(64));
-      expect(root.content.textContent).not.toContain("stale.example");
+      assert.strictEqual(requestCount, 2);
+      assert.strictEqual(root.content.textContent, "fresh.example");
+      assert.strictEqual(viewer.cache.get("gfwlist").version, "b".repeat(64));
+      assert.strictEqual((root.content.textContent).includes("stale.example"), false);
     });
   });
 
@@ -318,15 +317,15 @@ describe("proxy rule source viewer", () => {
       viewer.mounted();
       root.click(root.viewButton);
       await settle();
-      expect(viewer.cache.has("gfwlist")).toBe(false);
+      assert.strictEqual(viewer.cache.has("gfwlist"), false);
 
       root.gfwlistButton.dataset.version = "b".repeat(64);
       viewer.updated();
       await settle();
 
-      expect(requestCount).toBe(2);
-      expect(root.error.textContent).toBe("");
-      expect(root.content.textContent).toBe("recovered.example");
+      assert.strictEqual(requestCount, 2);
+      assert.strictEqual(root.error.textContent, "");
+      assert.strictEqual(root.content.textContent, "recovered.example");
     });
   });
 
@@ -340,10 +339,10 @@ describe("proxy rule source viewer", () => {
       root.click(root.viewButton);
       await settle();
 
-      expect(root.content.textContent).toBe(hostile);
-      expect(root.content.innerHTMLWrites).toBe(0);
-      expect(root.queries).not.toContain("#proxy-rules-source-spacer");
-      expect(root.queries).not.toContain("#proxy-rules-source-rows");
+      assert.strictEqual(root.content.textContent, hostile);
+      assert.strictEqual(root.content.innerHTMLWrites, 0);
+      assert.strictEqual((root.queries).includes("#proxy-rules-source-spacer"), false);
+      assert.strictEqual((root.queries).includes("#proxy-rules-source-rows"), false);
     });
   });
 
@@ -370,13 +369,13 @@ describe("proxy rule source viewer", () => {
       root.click(root.viewButton);
       await settle();
 
-      expect(requests).toEqual([
+      assert.deepStrictEqual(requests, [
         "/proxy-rules/sources/gfwlist?limit=200",
         "/proxy-rules/sources/gfwlist?limit=200&cursor=stale",
         "/proxy-rules/sources/gfwlist?limit=200",
       ]);
-      expect(root.content.textContent).toBe("fresh.example");
-      expect(root.content.textContent).not.toContain("discarded.example");
+      assert.strictEqual(root.content.textContent, "fresh.example");
+      assert.strictEqual((root.content.textContent).includes("discarded.example"), false);
     });
   });
 
@@ -400,12 +399,12 @@ describe("proxy rule source viewer", () => {
       root.click(root.viewButton);
       await settle();
 
-      expect(requestCount).toBe(4);
-      expect(root.loading.textContent).toBe("");
-      expect(root.error.textContent).toBe("Source content changed. Try again.");
-      expect(root.error.textContent.length).toBeLessThanOrEqual(160);
-      expect(root.content.textContent).toBe("");
-      expect(viewer.cache.has("gfwlist")).toBe(false);
+      assert.strictEqual(requestCount, 4);
+      assert.strictEqual(root.loading.textContent, "");
+      assert.strictEqual(root.error.textContent, "Source content changed. Try again.");
+      assert.ok(root.error.textContent.length <= 160);
+      assert.strictEqual(root.content.textContent, "");
+      assert.strictEqual(viewer.cache.has("gfwlist"), false);
     });
   });
 
@@ -448,12 +447,12 @@ describe("proxy rule source viewer", () => {
         root.click(root.viewButton);
         await settle();
 
-        expect(requestCount).toBe(2);
-        expect(root.loading.textContent).toBe("");
-        expect(root.error.textContent).toBe(testCase.message);
-        expect(root.error.textContent.length).toBeLessThanOrEqual(160);
-        expect(root.content.textContent).toBe("");
-        expect(viewer.cache.has("gfwlist")).toBe(false);
+        assert.strictEqual(requestCount, 2);
+        assert.strictEqual(root.loading.textContent, "");
+        assert.strictEqual(root.error.textContent, testCase.message);
+        assert.ok(root.error.textContent.length <= 160);
+        assert.strictEqual(root.content.textContent, "");
+        assert.strictEqual(viewer.cache.has("gfwlist"), false);
       });
     }
   });
@@ -466,18 +465,18 @@ describe("proxy rule source viewer", () => {
       viewer.mounted();
       root.click(root.viewButton);
 
-      expect(root.loading.textContent).toBe("Loading source content…");
-      expect(root.viewButton.getAttribute("disabled")).toBe("");
-      expect(root.viewButton.getAttribute("aria-disabled")).toBe("true");
-      expect(root.content.textContent).toBe("");
+      assert.strictEqual(root.loading.textContent, "Loading source content…");
+      assert.strictEqual(root.viewButton.getAttribute("disabled"), "");
+      assert.strictEqual(root.viewButton.getAttribute("aria-disabled"), "true");
+      assert.strictEqual(root.content.textContent, "");
 
       pending.resolve(response(page({ version: "a", lines: ["ready.example"] })));
       await settle();
 
-      expect(root.loading.textContent).toBe("Loaded all 1 line.");
-      expect(root.viewButton.getAttribute("disabled")).toBeNull();
-      expect(root.viewButton.getAttribute("aria-disabled")).toBe("false");
-      expect(root.content.textContent).toBe("ready.example");
+      assert.strictEqual(root.loading.textContent, "Loaded all 1 line.");
+      assert.strictEqual(root.viewButton.getAttribute("disabled"), null);
+      assert.strictEqual(root.viewButton.getAttribute("aria-disabled"), "false");
+      assert.strictEqual(root.content.textContent, "ready.example");
     });
   });
 
@@ -494,11 +493,11 @@ describe("proxy rule source viewer", () => {
         root.click(root.viewButton);
         await settle();
 
-        expect(root.loading.textContent).toBe("");
-        expect(root.error.textContent).toBe(message);
-        expect(root.error.textContent.length).toBeLessThanOrEqual(160);
-        expect(root.content.textContent).toBe("");
-        expect(root.viewButton.getAttribute("disabled")).toBeNull();
+        assert.strictEqual(root.loading.textContent, "");
+        assert.strictEqual(root.error.textContent, message);
+        assert.ok(root.error.textContent.length <= 160);
+        assert.strictEqual(root.content.textContent, "");
+        assert.strictEqual(root.viewButton.getAttribute("disabled"), null);
       });
     }
   });
@@ -535,12 +534,12 @@ describe("proxy rule source viewer", () => {
         root.click(root.viewButton);
         await settle();
 
-        expect(root.loading.textContent).toBe("");
-        expect(root.error.textContent).toBe(testCase.message);
-        expect(root.error.textContent.length).toBeLessThanOrEqual(160);
-        expect(root.content.textContent).toBe("");
-        expect(root.content.textContent).not.toContain("secret");
-        expect(root.viewButton.getAttribute("disabled")).toBeNull();
+        assert.strictEqual(root.loading.textContent, "");
+        assert.strictEqual(root.error.textContent, testCase.message);
+        assert.ok(root.error.textContent.length <= 160);
+        assert.strictEqual(root.content.textContent, "");
+        assert.strictEqual((root.content.textContent).includes("secret"), false);
+        assert.strictEqual(root.viewButton.getAttribute("disabled"), null);
       });
     }
   });
@@ -564,13 +563,13 @@ describe("proxy rule source viewer", () => {
 
       viewer.updated();
 
-      expect(root.gfwlistButton.getAttribute("aria-pressed")).toBe("false");
-      expect(root.proxyButton.getAttribute("aria-pressed")).toBe("true");
-      expect(root.proxyButton.dataset.loaded).toBe("false");
-      expect(root.viewButton.getAttribute("disabled")).toBe("");
-      expect(root.viewButton.getAttribute("aria-disabled")).toBe("true");
-      expect(root.loading.textContent).toBe("Loading source content…");
-      expect(root.error.textContent).toBe("");
+      assert.strictEqual(root.gfwlistButton.getAttribute("aria-pressed"), "false");
+      assert.strictEqual(root.proxyButton.getAttribute("aria-pressed"), "true");
+      assert.strictEqual(root.proxyButton.dataset.loaded, "false");
+      assert.strictEqual(root.viewButton.getAttribute("disabled"), "");
+      assert.strictEqual(root.viewButton.getAttribute("aria-disabled"), "true");
+      assert.strictEqual(root.loading.textContent, "Loading source content…");
+      assert.strictEqual(root.error.textContent, "");
 
       pending.resolve(response(page({ version: "b", lines: ["proxy.example"] })));
       await settle();
@@ -592,16 +591,16 @@ describe("proxy rule source viewer", () => {
 
       viewer.mounted();
       root.click(root.viewButton);
-      expect(root.listeners.has("click")).toBe(true);
+      assert.strictEqual(root.listeners.has("click"), true);
 
       viewer.destroyed();
       viewer.destroyed = null;
       await settle();
 
-      expect(aborted).toBe(true);
-      expect(root.listeners.has("click")).toBe(false);
-      expect(removedEventRefs).toEqual(["source-change-ref"]);
-      expect(root.viewButton.getAttribute("disabled")).toBeNull();
+      assert.strictEqual(aborted, true);
+      assert.strictEqual(root.listeners.has("click"), false);
+      assert.deepStrictEqual(removedEventRefs, ["source-change-ref"]);
+      assert.strictEqual(root.viewButton.getAttribute("disabled"), null);
     });
   });
 });

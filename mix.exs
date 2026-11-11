@@ -173,27 +173,6 @@ defmodule GSMLG.Umbrella.MixProject do
   end
 
   defp build_assets(release) do
-    # File.cd(Path.expand("apps/gsmlg_component", __DIR__))
-    IO.puts("Building component for #{inspect(release)}...")
-
-    {output, exit_status} =
-      System.cmd(
-        "mix",
-        [
-          "phx.react.bun.bundle",
-          "--component-base=assets/component",
-          "--output=priv/server.js"
-        ],
-        cd: Path.expand("apps/gsmlg_component", __DIR__)
-      )
-
-    if exit_status != 0 do
-      IO.puts("Error building component for #{inspect(release)}: #{output}")
-      raise "Failed to build component"
-    end
-
-    IO.puts(output)
-
     IO.puts("Building gsmlg_web for #{inspect(release)}...")
     # File.cd(Path.expand("apps/gsmlg_web", __DIR__))
     {output, exit_status} =

@@ -19,7 +19,6 @@ defmodule GSMLG.Component.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {GSMLG.ComponentServer, []},
       extra_applications: [:logger, :inets]
     ]
   end
@@ -28,7 +27,8 @@ defmodule GSMLG.Component.MixProject do
   defp deps do
     [
       {:phoenix_duskmoon, "~> 10.0"},
-      {:phoenix_react_server, "~> 0.7"},
+      {:mdex, "~> 0.14"},
+      {:mdex_gfm, "~> 0.2.0"},
       {:phoenix_html, "~> 4.3"},
       {:phoenix_live_view, "~> 1.2"},
       {:gettext, "~> 1.0"},

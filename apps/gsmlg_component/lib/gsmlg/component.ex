@@ -7,7 +7,7 @@ defmodule GSMLG.Component do
     quote do
       import GSMLG.Component.Admin
       import GSMLG.Component.Github
-      import GSMLG.Component.React
+      import GSMLG.Component.Markdown
       import GSMLG.Component.Static.Logo
     end
   end

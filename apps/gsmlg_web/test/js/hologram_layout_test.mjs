@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, test } from "node:test";
 
 const adapter = await import('../../assets/js/hologram/browser.mjs');
 
@@ -74,60 +75,60 @@ function chooseTheme(value) {
 }
 
 test('shared header shows its fixed navigation after scrolling without duplicate observers', () => {
-  expect(typeof adapter.mountLayout).toBe('function');
+  assert.strictEqual(typeof adapter.mountLayout, 'function');
   adapter.mountLayout();
   adapter.mountLayout();
-  expect(intersections).toHaveLength(1);
+  assert.strictEqual((intersections).length, 1);
   intersections[0].callback([{ intersectionRatio: 0.25 }]);
-  expect(nav.getAttribute('aria-hidden')).toBe('false');
-  expect(nav.style.opacity).toBe(0.75);
+  assert.strictEqual(nav.getAttribute('aria-hidden'), 'false');
+  assert.strictEqual(nav.style.opacity, 0.75);
   intersections[0].callback([{ intersectionRatio: 0.8 }]);
-  expect(nav.getAttribute('aria-hidden')).toBe('true');
+  assert.strictEqual(nav.getAttribute('aria-hidden'), 'true');
 });
 
 test('SPA replacement and persisted history restoration release and rebind header observers', () => {
-  expect(typeof adapter.mountLayout).toBe('function');
+  assert.strictEqual(typeof adapter.mountLayout, 'function');
   adapter.mountLayout();
   headers[0].isConnected = false;
   headers = [new Element({ 'data-nav-id': 'fixed-nav' })];
   mutations[0].callback();
-  expect(intersections[0].disconnected).toBe(true);
-  expect(intersections.filter((observer) => !observer.disconnected)).toHaveLength(1);
+  assert.strictEqual(intersections[0].disconnected, true);
+  assert.strictEqual((intersections.filter((observer) => !observer.disconnected)).length, 1);
   window.dispatchEvent(new Event('pagehide'));
-  expect(intersections.every((observer) => observer.disconnected)).toBe(true);
-  expect(mutations[0].disconnected).toBe(true);
+  assert.strictEqual(intersections.every((observer) => observer.disconnected), true);
+  assert.strictEqual(mutations[0].disconnected, true);
   const restored = new Event('pageshow');
   Object.defineProperty(restored, 'persisted', { value: true });
   window.dispatchEvent(restored);
   window.dispatchEvent(restored);
-  expect(intersections.filter((observer) => !observer.disconnected)).toHaveLength(1);
+  assert.strictEqual((intersections.filter((observer) => !observer.disconnected)).length, 1);
 });
 
 test('shared theme menu restores storage, synchronizes radios and persists a selection', () => {
-  expect(typeof adapter.mountLayout).toBe('function');
+  assert.strictEqual(typeof adapter.mountLayout, 'function');
   storage.set('theme', 'moonlight');
-  expect(adapter.mountLayout()).toBe('moonlight');
-  expect(root.getAttribute('data-theme')).toBe('moonlight');
-  expect(radios.map((radio) => radio.checked)).toEqual([false, false, true]);
+  assert.strictEqual(adapter.mountLayout(), 'moonlight');
+  assert.strictEqual(root.getAttribute('data-theme'), 'moonlight');
+  assert.deepStrictEqual(radios.map((radio) => radio.checked), [false, false, true]);
   chooseTheme('sunshine');
-  expect(storage.get('theme')).toBe('sunshine');
-  expect(root.getAttribute('data-theme')).toBe('sunshine');
-  expect(details.getAttribute('open')).toBe(null);
+  assert.strictEqual(storage.get('theme'), 'sunshine');
+  assert.strictEqual(root.getAttribute('data-theme'), 'sunshine');
+  assert.strictEqual(details.getAttribute('open'), null);
   chooseTheme('default');
   media.matches = true;
   media.dispatchEvent(new Event('change'));
-  expect(root.getAttribute('data-theme')).toBe('moonlight');
-  expect(storage.get('theme')).toBe('default');
+  assert.strictEqual(root.getAttribute('data-theme'), 'moonlight');
+  assert.strictEqual(storage.get('theme'), 'default');
   adapter.unmountLayout();
   media.matches = false;
   media.dispatchEvent(new Event('change'));
-  expect(root.getAttribute('data-theme')).toBe('moonlight');
+  assert.strictEqual(root.getAttribute('data-theme'), 'moonlight');
 });
 
 test('a fresh page bundle binds restored layout markup before Hologram replays any action', async () => {
-  expect(typeof adapter.mountLayout).toBe('function');
+  assert.strictEqual(typeof adapter.mountLayout, 'function');
   await import('../../assets/js/hologram/layout.mjs?restored-snapshot');
-  expect(intersections).toHaveLength(1);
+  assert.strictEqual((intersections).length, 1);
   adapter.mountLayout();
-  expect(intersections).toHaveLength(1);
+  assert.strictEqual((intersections).length, 1);
 });

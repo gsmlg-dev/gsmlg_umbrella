@@ -136,6 +136,19 @@ defmodule GSMLG.Web.BlogControllerTest do
   end
 
   describe "show (HTML — locale-aware)" do
+    test "renders source Markdown as HTML without a JavaScript renderer" do
+      blog =
+        blog_fixture(%{
+          content: "# Server-rendered blog\n\n**Formatted content**",
+          source_locale: "zh-Hans"
+        })
+
+      body = build_conn() |> get(~p"/blogs/#{blog.slug}?lang=zh-Hans") |> html_response(200)
+
+      assert body =~ "Server-rendered blog</h1>"
+      assert body =~ "<strong>Formatted content</strong>"
+    end
+
     test "renders blog show page successfully" do
       blog = blog_fixture()
       conn = build_conn() |> get(~p"/blogs/#{blog.slug}")

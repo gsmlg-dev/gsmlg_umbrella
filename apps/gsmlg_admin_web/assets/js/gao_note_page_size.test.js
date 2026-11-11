@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import assert from "node:assert/strict";
+import { afterEach, describe, test } from "node:test";
 
 import { readGaoNotePageSize, saveGaoNotePageSize } from './gao_note_page_size.js';
 
@@ -14,28 +15,30 @@ afterEach(() => {
 });
 
 describe('GaoNote page-size preference', () => {
-  test.each([10, 25, 50, 100])('persists and reads page size %i', (pageSize) => {
-    const values = installStorage();
+  for (const pageSize of [10, 25, 50, 100]) {
+    test(`persists and reads page size ${pageSize}`, () => {
+      const values = installStorage();
 
-    saveGaoNotePageSize(pageSize);
+      saveGaoNotePageSize(pageSize);
 
-    expect(values.get(storageKey)).toBe(String(pageSize));
-    expect(readGaoNotePageSize()).toBe(pageSize);
-  });
+      assert.strictEqual(values.get(storageKey), String(pageSize));
+      assert.strictEqual(readGaoNotePageSize(), pageSize);
+    });
+  }
 
   test('accepts a valid choice received as a string', () => {
     installStorage();
     saveGaoNotePageSize('50');
-    expect(readGaoNotePageSize()).toBe(50);
+    assert.strictEqual(readGaoNotePageSize(), 50);
   });
 
   test('returns null for missing, malformed, or unsupported storage values', () => {
     const values = installStorage();
-    expect(readGaoNotePageSize()).toBeNull();
+    assert.strictEqual(readGaoNotePageSize(), null);
 
     for (const value of ['', 'null', 'abc', '25.0', '025', ' 25 ', '20', '200', '-10']) {
       values.set(storageKey, value);
-      expect(readGaoNotePageSize()).toBeNull();
+      assert.strictEqual(readGaoNotePageSize(), null);
     }
   });
 
@@ -45,22 +48,22 @@ describe('GaoNote page-size preference', () => {
 
     for (const value of [null, undefined, false, [], {}, 0, 20, 25.5, '25.0', ' 25 ']) {
       saveGaoNotePageSize(value);
-      expect(values.get(storageKey)).toBe('25');
+      assert.strictEqual(values.get(storageKey), '25');
     }
   });
 
   test('handles unavailable storage including a blocked storage property', () => {
     delete globalThis.localStorage;
-    expect(readGaoNotePageSize()).toBeNull();
-    expect(() => saveGaoNotePageSize(25)).not.toThrow();
+    assert.strictEqual(readGaoNotePageSize(), null);
+    assert.doesNotThrow(() => saveGaoNotePageSize(25));
 
     Object.defineProperty(globalThis, 'localStorage', {
       configurable: true,
       get() { throw new Error('Storage blocked'); },
     });
 
-    expect(readGaoNotePageSize()).toBeNull();
-    expect(() => saveGaoNotePageSize(25)).not.toThrow();
+    assert.strictEqual(readGaoNotePageSize(), null);
+    assert.doesNotThrow(() => saveGaoNotePageSize(25));
   });
 
   test('handles failed reads and writes without interrupting the page', () => {
@@ -72,16 +75,16 @@ describe('GaoNote page-size preference', () => {
       },
     });
 
-    expect(readGaoNotePageSize()).toBeNull();
-    expect(() => saveGaoNotePageSize(100)).not.toThrow();
+    assert.strictEqual(readGaoNotePageSize(), null);
+    assert.doesNotThrow(() => saveGaoNotePageSize(100));
   });
 
   test('reads the latest preference on each call', () => {
     installStorage();
     saveGaoNotePageSize(10);
-    expect(readGaoNotePageSize()).toBe(10);
+    assert.strictEqual(readGaoNotePageSize(), 10);
     saveGaoNotePageSize(100);
-    expect(readGaoNotePageSize()).toBe(100);
+    assert.strictEqual(readGaoNotePageSize(), 100);
   });
 });
 

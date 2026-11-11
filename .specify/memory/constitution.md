@@ -1,23 +1,20 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: 1.0.2 → 1.1.0 (Minor - new architectural principle added)
+Version Change: 1.1.0 → 1.2.0 (Minor - frontend technology standards updated)
 Modified Principles:
-  - IV. OTP Distribution Model - Enhanced with detailed commander architecture
-Added Sections:
-  - VI. Commander Platform Architecture (new principle)
+  - II. Phoenix DuskMoon UI Standard - LiveView/Hologram and server-rendered Markdown
+  - III. Modern Frontend Workflow - npm, DuskmoonBundler and Node.js tests
+Added Sections: None
 Removed Sections: None
 Templates Requiring Updates:
-  ✅ plan-template.md - Already references gsmlg_commander, no changes needed
+  ✅ plan-template.md - Frontend technology and workflow references updated
   ✅ spec-template.md - No changes needed (technology-agnostic)
-  ✅ tasks-template.md - Already includes gsmlg_commander paths, no changes needed
+  ✅ tasks-template.md - No changes needed
 Follow-up TODOs: None
-Rationale: MINOR bump - This adds a new architectural principle (VI. Commander Platform
-Architecture) that codifies the phoenix_socket_client-based communication pattern between
-gsmlg_commander and gsmlg_admin_web. The principle also documents the PTY shell requirement
-for remote control and the command_platform management layer in the gsmlg core app.
-This is a non-breaking addition that provides architectural guidance for the distributed
-command execution system.
+Rationale: The project removes the React SSR runtime. Existing Node.js tooling,
+npm workspace installs, DuskmoonBundler and server-side DuskMoon/MDEx rendering
+replace the retired frontend requirements.
 -->
 
 # GSMLG Umbrella Constitution
@@ -48,7 +45,7 @@ Component reuse requirements:
 All user interfaces MUST use the phoenix_duskmoon package for UI components:
 - Components MUST extend DaisyUI patterns via phoenix_duskmoon
 - Custom styling MUST be applied through TailwindCSS utility classes
-- React components MUST be integrated via Phoenix.React when LiveView is insufficient
+- Pages MUST use Phoenix LiveView or Hologram; shared Markdown MUST render on the server through DuskMoon/MDEx
 - Component consistency across both web applications (public and admin) is REQUIRED
 - Shared components between gsmlg_web and gsmlg_admin_web MUST be placed in `gsmlg_component`
 
@@ -56,14 +53,16 @@ All user interfaces MUST use the phoenix_duskmoon package for UI components:
 
 ### III. Modern Frontend Workflow
 Frontend assets MUST follow the established build pipeline:
-- **JavaScript**: Bun as the package manager and bundler (not npm/yarn)
+- **JavaScript**: npm workspace dependencies via `mix npm.install`; commit the root `package-lock.json` and use `mix npm.ci` for frozen installs
+- **Bundling**: DuskmoonBundler for JavaScript and CSS
 - **CSS**: TailwindCSS for styling with app-specific configuration
 - **Asset compilation**: Phoenix asset pipeline with `mix assets.deploy`
-- **Development mode**: Live reload via `mix phx.server` with Bun watching
+- **Development mode**: Live reload via `mix phx.server` with DuskmoonBundler development HMR
+- **JavaScript tests**: Node.js 22 built-in test runner via `npm test`
 
 Node modules and compiled assets MUST NOT be committed. The `assets/` directory structure MUST be preserved per Phoenix conventions.
 
-**Rationale**: Bun provides faster builds and better developer experience. TailwindCSS enables rapid UI development while maintaining consistency.
+**Rationale**: npm lockfiles keep dependency installs reproducible; DuskmoonBundler integrates the asset pipeline with Phoenix. Node.js runs frontend tooling and tests, while Markdown rendering remains in Elixir. TailwindCSS maintains styling consistency.
 
 ### IV. OTP Distribution Model
 The project follows a dual OTP release strategy:
@@ -217,4 +216,4 @@ This constitution is a living document. It should:
 - Remain concise and actionable (not bureaucratic)
 - Be referenced in daily development decisions
 
-**Version**: 1.1.0 | **Ratified**: 2025-01-17 | **Last Amended**: 2025-12-22
+**Version**: 1.2.0 | **Ratified**: 2025-01-17 | **Last Amended**: 2026-11-11

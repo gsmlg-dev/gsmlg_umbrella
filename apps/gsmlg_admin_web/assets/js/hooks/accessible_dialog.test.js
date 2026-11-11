@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, describe, test } from "node:test";
 
 import AccessibleDialog, {
   closeDialogAndFocus,
@@ -64,15 +65,15 @@ describe("accessible dialog hook", () => {
   test("moves the single dialog role and accessible name into the shadow dialog", () => {
     const { hook, host, shadowDialog } = mountedDialog();
 
-    expect(host.hasAttribute("role")).toBe(false);
-    expect(host.hasAttribute("aria-modal")).toBe(false);
-    expect(host.hasAttribute("aria-labelledby")).toBe(false);
-    expect(host.hasAttribute("aria-label")).toBe(false);
-    expect(shadowDialog.getAttribute("role")).toBe("dialog");
-    expect(shadowDialog.getAttribute("aria-modal")).toBe("true");
-    expect(shadowDialog.getAttribute("aria-label")).toBe("Edit selected labels");
-    expect(mutationObservers[0].target).toBe(host);
-    expect(mutationObservers[0].options).toEqual({
+    assert.strictEqual(host.hasAttribute("role"), false);
+    assert.strictEqual(host.hasAttribute("aria-modal"), false);
+    assert.strictEqual(host.hasAttribute("aria-labelledby"), false);
+    assert.strictEqual(host.hasAttribute("aria-label"), false);
+    assert.strictEqual(shadowDialog.getAttribute("role"), "dialog");
+    assert.strictEqual(shadowDialog.getAttribute("aria-modal"), "true");
+    assert.strictEqual(shadowDialog.getAttribute("aria-label"), "Edit selected labels");
+    assert.strictEqual(mutationObservers[0].target, host);
+    assert.deepStrictEqual(mutationObservers[0].options, {
       attributes: true,
       attributeFilter: ["open"],
     });
@@ -87,10 +88,10 @@ describe("accessible dialog hook", () => {
     mutationObservers[0].trigger();
     flushAnimationFrames();
 
-    expect(cancelTarget.focusCount).toBe(1);
-    expect(documentFake.activeElement.getAttribute("data-dialog-initial-focus")).toBe("");
-    expect(documentFake.listenerCount("keydown")).toBe(1);
-    expect(trigger.focusCount).toBe(0);
+    assert.strictEqual(cancelTarget.focusCount, 1);
+    assert.strictEqual(documentFake.activeElement.getAttribute("data-dialog-initial-focus"), "");
+    assert.strictEqual(documentFake.listenerCount("keydown"), 1);
+    assert.strictEqual(trigger.focusCount, 0);
 
     hook.destroyed();
   });
@@ -106,8 +107,8 @@ describe("accessible dialog hook", () => {
     const event = keyEvent({ key: "Tab" });
     documentFake.dispatch("keydown", event);
 
-    expect(event.defaultPrevented).toBe(true);
-    expect(cancelTarget.focusCount).toBe(2);
+    assert.strictEqual(event.defaultPrevented, true);
+    assert.strictEqual(cancelTarget.focusCount, 2);
 
     hook.destroyed();
   });
@@ -123,8 +124,8 @@ describe("accessible dialog hook", () => {
     const event = keyEvent({ key: "Tab", shiftKey: true });
     documentFake.dispatch("keydown", event);
 
-    expect(event.defaultPrevented).toBe(true);
-    expect(lastTarget.focusCount).toBe(1);
+    assert.strictEqual(event.defaultPrevented, true);
+    assert.strictEqual(lastTarget.focusCount, 1);
 
     hook.destroyed();
   });
@@ -140,16 +141,16 @@ describe("accessible dialog hook", () => {
     host.removeAttribute("open");
     hostObserver.trigger();
 
-    expect(documentFake.listenerCount("keydown")).toBe(0);
-    expect(trigger.focusCount).toBe(1);
-    expect(documentFake.activeElement).toBe(trigger);
-    expect(hostObserver.disconnected).toBe(true);
-    expect(shadowObserver.disconnected).toBe(true);
-    expect(observerFor(host)).not.toBe(hostObserver);
+    assert.strictEqual(documentFake.listenerCount("keydown"), 0);
+    assert.strictEqual(trigger.focusCount, 1);
+    assert.strictEqual(documentFake.activeElement, trigger);
+    assert.strictEqual(hostObserver.disconnected, true);
+    assert.strictEqual(shadowObserver.disconnected, true);
+    assert.notStrictEqual(observerFor(host), hostObserver);
 
     shadowObserver.trigger({ type: "childList" });
-    expect(animationFrames.size).toBe(0);
-    expect(trigger.focusCount).toBe(1);
+    assert.strictEqual(animationFrames.size, 0);
+    assert.strictEqual(trigger.focusCount, 1);
 
     hook.destroyed();
   });
@@ -162,8 +163,8 @@ describe("accessible dialog hook", () => {
     title.textContent = "Delete three notes";
     hook.updated();
 
-    expect(shadowDialog.getAttribute("aria-label")).toBe("Delete three notes");
-    expect(host.hasAttribute("open")).toBe(true);
+    assert.strictEqual(shadowDialog.getAttribute("aria-label"), "Delete three notes");
+    assert.strictEqual(host.hasAttribute("open"), true);
 
     hook.destroyed();
   });
@@ -200,30 +201,28 @@ describe("accessible dialog hook", () => {
     });
 
     const shadowObserver = observerFor(hostShadow);
-    expect(shadowObserver).toBeDefined();
+    assert.notStrictEqual(shadowObserver, undefined);
     shadowObserver?.trigger({ type: "childList" });
     flushAnimationFrames();
 
-    expect(replacementDialog.getAttribute("role")).toBe("dialog");
-    expect(replacementDialog.getAttribute("aria-modal")).toBe("true");
-    expect(replacementDialog.getAttribute("aria-label")).toBe(
-      "Edit selected labels",
-    );
-    expect(oldCancelTarget.focusCount).toBe(0);
-    expect(replacementCancel.focusCount).toBe(1);
+    assert.strictEqual(replacementDialog.getAttribute("role"), "dialog");
+    assert.strictEqual(replacementDialog.getAttribute("aria-modal"), "true");
+    assert.strictEqual(replacementDialog.getAttribute("aria-label"), "Edit selected labels");
+    assert.strictEqual(oldCancelTarget.focusCount, 0);
+    assert.strictEqual(replacementCancel.focusCount, 1);
 
     documentFake.activeElement = lastHost;
     const tab = keyEvent({ key: "Tab" });
     documentFake.dispatch("keydown", tab);
-    expect(tab.defaultPrevented).toBe(true);
-    expect(replacementClose.focusCount).toBe(1);
+    assert.strictEqual(tab.defaultPrevented, true);
+    assert.strictEqual(replacementClose.focusCount, 1);
 
     documentFake.activeElement = host;
     hostShadow.activeElement = replacementClose;
     const shiftTab = keyEvent({ key: "Tab", shiftKey: true });
     documentFake.dispatch("keydown", shiftTab);
-    expect(shiftTab.defaultPrevented).toBe(true);
-    expect(replacementLast.focusCount).toBe(1);
+    assert.strictEqual(shiftTab.defaultPrevented, true);
+    assert.strictEqual(replacementLast.focusCount, 1);
 
     hook.destroyed();
   });
@@ -241,7 +240,7 @@ describe("accessible dialog hook", () => {
     host.setAttribute("open", "");
     observerFor(host).trigger();
     flushAnimationFrames();
-    expect(oldCancelTarget.focusCount).toBe(1);
+    assert.strictEqual(oldCancelTarget.focusCount, 1);
 
     const replacementDialog = element(documentFake);
     const replacementCancel = element(documentFake, {
@@ -262,15 +261,13 @@ describe("accessible dialog hook", () => {
     });
 
     const shadowObserver = observerFor(hostShadow);
-    expect(shadowObserver).toBeDefined();
+    assert.notStrictEqual(shadowObserver, undefined);
     shadowObserver?.trigger({ type: "childList" });
     flushAnimationFrames();
 
-    expect(replacementDialog.getAttribute("aria-label")).toBe(
-      "Edit selected labels",
-    );
-    expect(oldCancelTarget.focusCount).toBe(1);
-    expect(replacementCancel.focusCount).toBe(0);
+    assert.strictEqual(replacementDialog.getAttribute("aria-label"), "Edit selected labels");
+    assert.strictEqual(oldCancelTarget.focusCount, 1);
+    assert.strictEqual(replacementCancel.focusCount, 0);
 
     hook.destroyed();
   });
@@ -287,7 +284,7 @@ describe("accessible dialog hook", () => {
     host.setAttribute("open", "");
     observerFor(host).trigger();
     flushAnimationFrames();
-    expect(oldCancelTarget.focusCount).toBe(1);
+    assert.strictEqual(oldCancelTarget.focusCount, 1);
 
     const replacementCancelHost = element(documentFake, {
       attributes: { "data-dialog-initial-focus": "" },
@@ -308,11 +305,11 @@ describe("accessible dialog hook", () => {
 
     hook.updated();
 
-    expect(replacementCancelTarget.focusCount).toBe(0);
+    assert.strictEqual(replacementCancelTarget.focusCount, 0);
     flushAnimationFrames();
-    expect(replacementCancelTarget.focusCount).toBe(1);
-    expect(documentFake.activeElement).toBe(replacementCancelHost);
-    expect(host.contains(documentFake.activeElement)).toBe(true);
+    assert.strictEqual(replacementCancelTarget.focusCount, 1);
+    assert.strictEqual(documentFake.activeElement, replacementCancelHost);
+    assert.strictEqual(host.contains(documentFake.activeElement), true);
 
     hook.destroyed();
   });
@@ -353,9 +350,9 @@ describe("accessible dialog hook", () => {
     hook.updated();
     flushAnimationFrames();
 
-    expect(oldCancelTarget.focusCount).toBe(1);
-    expect(replacementCancelTarget.focusCount).toBe(0);
-    expect(documentFake.activeElement).toBe(currentHost);
+    assert.strictEqual(oldCancelTarget.focusCount, 1);
+    assert.strictEqual(replacementCancelTarget.focusCount, 0);
+    assert.strictEqual(documentFake.activeElement, currentHost);
 
     hook.destroyed();
   });
@@ -373,12 +370,12 @@ describe("accessible dialog hook", () => {
     hook.destroyed();
     flushAnimationFrames();
 
-    expect(mutationObservers.every(({ disconnected }) => disconnected)).toBe(true);
-    expect(documentFake.listenerCount("keydown")).toBe(0);
-    expect(documentFake.body.style.overflow).toBe("");
-    expect(trigger.focusCount).toBe(1);
-    expect(cancelTarget.focusCount).toBe(0);
-    expect(host.closeCalls).toBe(0);
+    assert.strictEqual(mutationObservers.every(({ disconnected }) => disconnected), true);
+    assert.strictEqual(documentFake.listenerCount("keydown"), 0);
+    assert.strictEqual(documentFake.body.style.overflow, "");
+    assert.strictEqual(trigger.focusCount, 1);
+    assert.strictEqual(cancelTarget.focusCount, 0);
+    assert.strictEqual(host.closeCalls, 0);
   });
 });
 
@@ -395,8 +392,8 @@ describe("close dialog event helper", () => {
 
     closeDialogAndFocus({ id: "dialog-id" });
 
-    expect(dialog.closeCalls).toBe(1);
-    expect(animationFrames.size).toBe(0);
+    assert.strictEqual(dialog.closeCalls, 1);
+    assert.strictEqual(animationFrames.size, 0);
   });
 
   test("focuses the requested fallback after the LiveView patch removes the trigger", () => {
@@ -420,13 +417,13 @@ describe("close dialog event helper", () => {
       focus: "#gao-note-search-input",
     });
 
-    expect(dialog.closeCalls).toBe(1);
-    expect(fallback.focusCount).toBe(0);
+    assert.strictEqual(dialog.closeCalls, 1);
+    assert.strictEqual(fallback.focusCount, 0);
 
     flushAnimationFrames();
 
-    expect(fallback.focusCount).toBe(1);
-    expect(documentFake.activeElement).toBe(fallback);
+    assert.strictEqual(fallback.focusCount, 1);
+    assert.strictEqual(documentFake.activeElement, fallback);
   });
 
   test("focuses the deep button target for a DuskMoon fallback host", () => {
@@ -447,9 +444,9 @@ describe("close dialog event helper", () => {
     closeDialogAndFocus({ id: "dialog-id", focus: "#gao-note-recycle-refresh" });
     flushAnimationFrames();
 
-    expect(fallbackButton.focusCount).toBe(1);
-    expect(fallbackHost.focusCount).toBe(0);
-    expect(documentFake.activeElement).toBe(fallbackHost);
+    assert.strictEqual(fallbackButton.focusCount, 1);
+    assert.strictEqual(fallbackHost.focusCount, 0);
+    assert.strictEqual(documentFake.activeElement, fallbackHost);
   });
 });
 

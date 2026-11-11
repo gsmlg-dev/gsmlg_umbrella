@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 
 import StorageFolderActions from "./storage_folder_actions.js";
 
@@ -6,14 +7,14 @@ describe("storage folder dialog focus return", () => {
   test("returns focus to the leaf menu button after a native dialog closes", () => {
     const { root, trigger, dialog } = setup();
     root.dispatchClose(dialog);
-    expect(trigger.focusCount).toBe(1);
+    assert.strictEqual(trigger.focusCount, 1);
   });
 
   test("uses the bucket root when the leaf trigger has been removed", () => {
     const { root, rootLink, dialog, elements } = setup();
     elements.delete("folder-actions-popover-trigger");
     root.dispatchClose(dialog);
-    expect(rootLink.focusCount).toBe(1);
+    assert.strictEqual(rootLink.focusCount, 1);
   });
 
   test("ignores other dialogs and events from non-dialog elements", () => {
@@ -23,16 +24,16 @@ describe("storage folder dialog focus return", () => {
       matches: () => false,
       dataset: { folderActionTrigger: "folder-actions-popover-trigger" },
     });
-    expect(rootLink.focusCount).toBe(0);
-    expect(trigger.focusCount).toBe(0);
+    assert.strictEqual(rootLink.focusCount, 0);
+    assert.strictEqual(trigger.focusCount, 0);
   });
 
   test("does not focus a matching trigger outside this tree", () => {
     const { root, trigger, rootLink, dialog } = setup();
     trigger.inTree = false;
     root.dispatchClose(dialog);
-    expect(trigger.focusCount).toBe(0);
-    expect(rootLink.focusCount).toBe(1);
+    assert.strictEqual(trigger.focusCount, 0);
+    assert.strictEqual(rootLink.focusCount, 1);
   });
 
   test("delegates to newly inserted dialogs and removes its capture listener on destroy", () => {
@@ -41,14 +42,14 @@ describe("storage folder dialog focus return", () => {
       matches: () => true,
       dataset: { folderActionTrigger: "folder-actions-popover-trigger" },
     });
-    expect(trigger.focusCount).toBe(1);
+    assert.strictEqual(trigger.focusCount, 1);
     hook.destroyed();
     root.dispatchClose({
       matches: () => true,
       dataset: { folderActionTrigger: "folder-actions-popover-trigger" },
     });
-    expect(trigger.focusCount).toBe(1);
-    expect(root.listeners.size).toBe(0);
+    assert.strictEqual(trigger.focusCount, 1);
+    assert.strictEqual(root.listeners.size, 0);
   });
 });
 
@@ -62,13 +63,13 @@ function setup() {
     contains: (element) => element.inTree,
     querySelector: (selector) => selector === "#storage-root-folder" ? rootLink : null,
     addEventListener(type, listener, capture) {
-      expect(type).toBe("close");
-      expect(capture).toBe(true);
+      assert.strictEqual(type, "close");
+      assert.strictEqual(capture, true);
       this.listeners.add(listener);
     },
     removeEventListener(type, listener, capture) {
-      expect(type).toBe("close");
-      expect(capture).toBe(true);
+      assert.strictEqual(type, "close");
+      assert.strictEqual(capture, true);
       this.listeners.delete(listener);
     },
     dispatchClose(target) {

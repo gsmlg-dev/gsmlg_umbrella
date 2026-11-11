@@ -3,6 +3,7 @@ _build
 deps
 node_modules
 bun.lock
+apps/gsmlg_component/priv/server.*
 **/_build
 **/deps
 **/node_modules

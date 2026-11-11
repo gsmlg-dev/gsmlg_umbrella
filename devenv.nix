@@ -6,7 +6,6 @@ let
 in
 {
   env.GREET = "GSMLG Umbrella";
-  env.MIX_BUN_PATH = lib.getExe pkgs-stable.bun;
   env.NODE_PATH = "${config.git.root}/deps";
 
   packages = with pkgs-stable; [
@@ -31,8 +30,6 @@ in
   languages.javascript.enable = true;
   languages.javascript.package = pkgs-stable.nodejs_22; # frontend tooling
   languages.javascript.pnpm.enable = true;
-  languages.javascript.bun.enable = true;
-  languages.javascript.bun.package = pkgs-stable.bun;
 
   env.AWS_ACCESS_KEY_ID = "minioadmin";
   env.AWS_SECRET_ACCESS_KEY = "minioadmin";

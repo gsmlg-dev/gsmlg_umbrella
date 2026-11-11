@@ -20,12 +20,6 @@ config :logger, :default_handler,
 # non-JSON SASL progress reports during boot. Kernel config cannot be set in
 # Elixir config files for releases (kernel starts before config is loaded).
 
-config :phoenix_react_server, Phoenix.React, cache_ttl: 1440
-
-config :phoenix_react_server, Phoenix.React.Runtime.Bun,
-  port: 4633,
-  env: :prod
-
 # Production telemetry configuration
 config :gsmlg_telemetry,
   level: :info,

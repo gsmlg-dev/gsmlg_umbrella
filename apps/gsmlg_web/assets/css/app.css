@@ -2,7 +2,6 @@
 @source "../../lib/gsmlg/web/hologram/**/*.{ex,holo}";
 @source "../../lib/*_web.ex";
 @source "../../lib/*_web/**/*.*ex";
-@source "../../../gsmlg_component/assets/**/*.js";
 @source "../../../gsmlg_component/lib/**/*.*ex";
 @source "../../../../deps/phoenix_duskmoon/lib/**/*.*ex";
 

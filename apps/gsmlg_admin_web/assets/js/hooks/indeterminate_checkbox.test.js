@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 
 import IndeterminateCheckbox from "./indeterminate_checkbox.js";
 
@@ -11,7 +12,7 @@ describe("indeterminate checkbox hook", () => {
 
     hook.mounted();
 
-    expect(hook.el.indeterminate).toBe(true);
+    assert.strictEqual(hook.el.indeterminate, true);
   });
 
   test("clears the indeterminate property when updated", () => {
@@ -24,6 +25,6 @@ describe("indeterminate checkbox hook", () => {
     hook.el.dataset.state = "all";
     hook.updated();
 
-    expect(hook.el.indeterminate).toBe(false);
+    assert.strictEqual(hook.el.indeterminate, false);
   });
 });

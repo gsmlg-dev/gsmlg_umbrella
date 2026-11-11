@@ -18,10 +18,6 @@ defmodule GSMLG.Config.Setup do
       )
     end
 
-    if config[:gsmlg] != nil do
-      setup_gsmlg(config[:gsmlg])
-    end
-
     if config[:logger] != nil do
       setup_logger(config[:logger])
     end
@@ -83,20 +79,6 @@ defmodule GSMLG.Config.Setup do
     if config[:i18n] != nil do
       setup_i18n(config[:i18n])
     end
-  end
-
-  def setup_gsmlg(config) do
-    bun_path =
-      System.get_env("MIX_BUN_PATH") || System.get_env("BUN_BIN") || config[:bun_path] ||
-        System.find_executable("bun")
-
-    runtime_config = Application.get_env(:phoenix_react_server, Phoenix.React.Runtime.Bun, [])
-
-    Application.put_env(
-      :phoenix_react_server,
-      Phoenix.React.Runtime.Bun,
-      Keyword.put(runtime_config, :cmd, bun_path)
-    )
   end
 
   def setup_logger(config) do

@@ -93,18 +93,6 @@ config :phoenix_live_view,
   debug_attributes: true,
   enable_expensive_runtime_checks: true
 
-config :phoenix_react_server, Phoenix.React,
-  component_base: Path.expand("../apps/gsmlg_component/assets/component", __DIR__),
-  render_timeout: 30_000,
-  cache_ttl: 5
-
-config :phoenix_react_server, Phoenix.React.Runtime.Bun,
-  cmd: System.find_executable("bun"),
-  cd: Path.expand("../apps/gsmlg_component", __DIR__),
-  server_js: Path.expand("../apps/gsmlg_component/priv/server.js", __DIR__),
-  port: 4632,
-  env: :dev
-
 # Development-specific telemetry configuration
 config :gsmlg_telemetry,
   level: :debug,

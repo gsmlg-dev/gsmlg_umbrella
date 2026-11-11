@@ -46,7 +46,7 @@ docker build -f Dockerfile.alpine \
   --build-arg NPM_CONFIG_REGISTRY=https://registry.npmjs.org \
   -t gsmlg-umbrella .
 
-# Pre-release asset build (React component bundle)
+# Pre-release asset build (both web apps)
 mix prerelease
 
 # Production release
@@ -70,7 +70,7 @@ scripts/update_version.sh 1.2.3
 Uses [devenv](https://devenv.sh/) (Nix-based). `devenv shell` automatically:
 - Starts PostgreSQL with Unix socket (sets `PGHOST`, `DATABASE_URL`)
 - Creates `gsmlg_dev` and `gsmlg_test` databases with `gsmlg_dev` user
-- Provides Elixir 1.18.5, OTP 28, Node.js 22 and Bun (React SSR and JS tests)
+- Provides Elixir 1.18.5, OTP 28, Node.js 22 (frontend tooling and JS tests)
 
 ## CI
 
@@ -87,11 +87,11 @@ Releases are triggered manually via the `release` workflow dispatch (inputs: `re
 | App | Purpose |
 |-----|---------|
 | `gsmlg` | Core domain: Ecto schemas, Repo, PubSub, supervision tree for all business services |
-| `gsmlg_web` | Public Phoenix app (port 4110). LiveView + React via `phoenix_react_server` |
+| `gsmlg_web` | Public Phoenix app (port 4110). LiveView and Hologram |
 | `gsmlg_admin_web` | Admin Phoenix app (port 4111). Storage and GaoNote management, Commander control |
 | `gsmlg_config` | TOML-based config system. Loads config, validates via NimbleOptions, applies to Application env |
 | `gsmlg_commander` | Dual-mode command system: agent (outbound WebSocket) or server (session management) |
-| `gsmlg_component` | Shared React components rendered server-side via Bun |
+| `gsmlg_component` | Shared Phoenix UI, DuskMoon/MDEx Markdown and CSS |
 | `gsmlg_telemetry` | Structured logging, metrics collection, file/console backends |
 
 Other utility apps: `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
@@ -140,7 +140,7 @@ PostgreSQL in production and CI. Dev supports both TCP (`POSTGRES_HOST`) and Uni
 
 ### Frontend
 
-Hybrid rendering: Phoenix LiveView for most pages, React components via `phoenix_react_server` (Bun runtime and SSR release bundle). Shared components live in `apps/gsmlg_component/assets/component/`. Both web apps use DuskmoonBundler 10.1 for JavaScript, Tailwind CSS v4, manifests and development HMR. Named profiles are `gsmlg_web` and `gsmlg_admin_web`. Serve source JS under `/assets/js/`, generated CSS under `/assets/css/`, and static service workers at `/sw.js`.
+Phoenix LiveView and Hologram render pages; shared Markdown is rendered on the server by DuskMoon/MDEx. Shared UI and CSS live in `apps/gsmlg_component/`. Both web apps use DuskmoonBundler 10.1 for JavaScript, Tailwind CSS v4, manifests and development HMR. Named profiles are `gsmlg_web` and `gsmlg_admin_web`. Serve source JS under `/assets/js/`, generated CSS under `/assets/css/`, and static service workers at `/sw.js`.
 
 ### UI Framework: Duskmoon
 
@@ -187,7 +187,7 @@ If you encounter missing features, bugs, or need functionality not yet available
 - List directly imported packages in the owning app's `package.json`. Use `.jsx` for files containing JSX.
 - Vize uses its supported Rust source build via `config :rustler_precompiled, :force_build, duskmoon_vize: true`; GNU prebuilts require glibc 2.43, which is newer than the Nix and Debian build environments.
 - Native dependency builds require Rust 1.99.0 or later. `rust-toolchain.toml` pins the Rustup toolchain used by CI and matches the Docker builder stages. Devenv takes Rust from its dedicated `nixpkgs-unstable` input.
-- Bun remains required for `phoenix_react_server` and JavaScript tests. `MIX_BUN_PATH`, `BUN_BIN`, then TOML `gsmlg.bun_path` select the SSR executable. The legacy TOML `tailwind_path` is ignored.
+- JavaScript tests run with Node.js 22 via `npm test`. No React SSR process or separate JavaScript runtime ships in releases. Legacy TOML `bun_path` and `tailwind_path` are accepted and ignored.
 
 ### Telemetry File Backend
 - The file backend JSON-encodes all telemetry events. Phoenix events include `%Plug.Conn{}` in metadata, which has no `Jason.Encoder` implementation.

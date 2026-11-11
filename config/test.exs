@@ -80,7 +80,3 @@ config :gsmlg_web_push, :vapid_details,
   public_key:
     "BIkdbSFSsaW83HRGHxCjbspeLSWh-uLtGsKaF6SMniO-nezdWstXnKm8aIuM4vaFnxVGibz1OvtMCJi2cImQfxg",
   private_key: "waTKfV8CQpcUtwWgOYdNQcWbVAv-oWfAYk8Y70TduO8"
-
-config :phoenix_react_server, Phoenix.React,
-  component_base: Path.expand("../apps/gsmlg_component/assets/component", __DIR__),
-  cache_ttl: 0

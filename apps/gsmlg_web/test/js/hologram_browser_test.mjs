@@ -1,34 +1,12 @@
-import { afterEach, beforeEach, expect, mock, test } from 'bun:test';
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, test } from "node:test";
+
+import { register } from "node:module";
+import { resources } from "../../../../scripts/test/browser-three.mjs";
+
+register(new URL("../../../../scripts/test/browser-module-loader.mjs", import.meta.url));
 
 const adapter = await import('../../assets/js/hologram/browser.mjs');
-
-const resources = [];
-class Resource {
-  constructor() { this.disposed = false; resources.push(this); }
-  dispose() { this.disposed = true; }
-}
-class Position { set() {} }
-class Mesh {
-  constructor() { this.position = new Position(); this.rotation = { z: 0 }; }
-}
-class Renderer extends Resource {
-  setSize(width, height) { this.size = [width, height]; }
-  render() {}
-}
-class Camera { constructor() { this.position = {}; } }
-class Light { constructor() { this.position = new Position(); } }
-mock.module('https://esm-run.gsmlg.dev/three', () => ({
-  Clock: class { getDelta() { return 0.1; } },
-  WebGLRenderer: Renderer,
-  Scene: class { add() {} },
-  PerspectiveCamera: Camera,
-  DirectionalLight: Light,
-  TextureLoader: class { load() { return new Resource(); } },
-  MeshLambertMaterial: Resource,
-  PlaneGeometry: Resource,
-  Mesh,
-}));
-mock.module('https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo', () => ({}));
 
 class Element extends EventTarget {
   constructor() {
@@ -109,39 +87,39 @@ afterEach(() => {
 });
 
 test('map updates preserve coordinates on the equator and center longitude zero', async () => {
-  expect(typeof adapter.updateMap).toBe('function');
+  assert.strictEqual(typeof adapter.updateMap, 'function');
   const map = new Element();
   nodes.set('map', map);
-  expect(await adapter.mountMap('map')).toBe(true);
-  expect(adapter.updateMap('map', [[0, 0], [2, 0]], 0)).toBe(true);
-  expect(map.getAttribute('points')).toBe('[[0,0],[2,0]]');
-  expect(map.getAttribute('center-longitude')).toBe('0');
-  expect(adapter.updateMap('missing', [])).toBe(false);
+  assert.strictEqual(await adapter.mountMap('map'), true);
+  assert.strictEqual(adapter.updateMap('map', [[0, 0], [2, 0]], 0), true);
+  assert.strictEqual(map.getAttribute('points'), '[[0,0],[2,0]]');
+  assert.strictEqual(map.getAttribute('center-longitude'), '0');
+  assert.strictEqual(adapter.updateMap('missing', []), false);
 });
 
 test('SVG measurement uses a script-disabled sandbox and removes temporary DOM', async () => {
-  expect(typeof adapter.autocropSvg).toBe('function');
+  assert.strictEqual(typeof adapter.autocropSvg, 'function');
   const pending = adapter.autocropSvg('<svg width="100" height="100"/>');
-  expect(body.children[0].getAttribute('sandbox')).toBe('allow-same-origin');
+  assert.strictEqual(body.children[0].getAttribute('sandbox'), 'allow-same-origin');
   for (const fn of [...frames.values()]) fn();
-  expect(await pending).toEqual({ ok: true, output: '<svg viewBox="2 3 20 30"/>', error: '' });
-  expect(body.children[0].isConnected).toBe(false);
+  assert.deepStrictEqual(await pending, { ok: true, output: '<svg viewBox="2 3 20 30"/>', error: '' });
+  assert.strictEqual(body.children[0].isConnected, false);
 });
 
 test('malformed SVG is reported without attaching a measurement frame', async () => {
-  expect(typeof adapter.autocropSvg).toBe('function');
+  assert.strictEqual(typeof adapter.autocropSvg, 'function');
   parseError = true;
-  expect((await adapter.autocropSvg('<svg')).ok).toBe(false);
-  expect(body.children).toHaveLength(0);
+  assert.strictEqual((await adapter.autocropSvg('<svg')).ok, false);
+  assert.strictEqual((body.children).length, 0);
 });
 
 test('SVG measurement failure removes the frame and resolves an error envelope', async () => {
-  expect(typeof adapter.autocropSvg).toBe('function');
+  assert.strictEqual(typeof adapter.autocropSvg, 'function');
   measuredSvg.getBBox = () => { throw new Error('Cannot measure SVG'); };
   const pending = adapter.autocropSvg('<svg/>');
   for (const fn of [...frames.values()]) fn();
-  expect(await pending).toEqual({ ok: false, output: '', error: 'Cannot measure SVG' });
-  expect(body.children[0].isConnected).toBe(false);
+  assert.deepStrictEqual(await pending, { ok: false, output: '', error: 'Cannot measure SVG' });
+  assert.strictEqual(body.children[0].isConnected, false);
 });
 
 function screenElements() {
@@ -159,41 +137,41 @@ function screenElements() {
 }
 
 test('screensaver releases WebGL resources, animation and media on navigation', async () => {
-  expect(typeof adapter.mountScreensaver).toBe('function');
+  assert.strictEqual(typeof adapter.mountScreensaver, 'function');
   const { canvas, video, tracks } = screenElements();
-  expect(await adapter.mountScreensaver('canvas', 'video')).toBe(true);
-  expect(await adapter.startFullscreen('canvas')).toBe(true);
-  expect(video.srcObject).toBeTruthy();
+  assert.strictEqual(await adapter.mountScreensaver('canvas', 'video'), true);
+  assert.strictEqual(await adapter.startFullscreen('canvas'), true);
+  assert.ok(video.srcObject);
   canvas.isConnected = false;
   observers[0].callback();
-  expect(resources.every((resource) => resource.disposed)).toBe(true);
-  expect(tracks[0].stopped).toBe(true);
-  expect(video.srcObject).toBe(null);
-  expect(video.paused).toBe(true);
-  expect(cancelled).toHaveLength(1);
-  expect(adapter.unmountScreensaver('canvas')).toBe(false);
-  expect(observers[0].disconnected).toBe(true);
+  assert.strictEqual(resources.every((resource) => resource.disposed), true);
+  assert.strictEqual(tracks[0].stopped, true);
+  assert.strictEqual(video.srcObject, null);
+  assert.strictEqual(video.paused, true);
+  assert.strictEqual((cancelled).length, 1);
+  assert.strictEqual(adapter.unmountScreensaver('canvas'), false);
+  assert.strictEqual(observers[0].disconnected, true);
 });
 
 test('remounting the same canvas leaves a single animation and pagehide cleans it up', async () => {
-  expect(typeof adapter.mountScreensaver).toBe('function');
+  assert.strictEqual(typeof adapter.mountScreensaver, 'function');
   screenElements();
   await adapter.mountScreensaver('canvas', 'video');
   await adapter.mountScreensaver('canvas', 'video');
-  expect(frames.size).toBe(1);
+  assert.strictEqual(frames.size, 1);
   window.dispatchEvent(new Event('pagehide'));
-  expect(resources.every((resource) => resource.disposed)).toBe(true);
-  expect(frames.size).toBe(0);
+  assert.strictEqual(resources.every((resource) => resource.disposed), true);
+  assert.strictEqual(frames.size, 0);
 });
 
 test('fullscreen rejection stops the captured tracks and hides video', async () => {
   const { video, tracks } = screenElements();
   video.requestFullscreen = async () => { throw new Error('Denied'); };
   await adapter.mountScreensaver('canvas', 'video');
-  expect(await adapter.startFullscreen('canvas')).toBe(false);
-  expect(tracks[0].stopped).toBe(true);
-  expect(video.srcObject).toBe(null);
-  expect(video.attributes.has('class:hidden')).toBe(true);
+  assert.strictEqual(await adapter.startFullscreen('canvas'), false);
+  assert.strictEqual(tracks[0].stopped, true);
+  assert.strictEqual(video.srcObject, null);
+  assert.strictEqual(video.attributes.has('class:hidden'), true);
 });
 
 test('fullscreen exit stops captured media while retaining the embedded animation', async () => {
@@ -202,22 +180,22 @@ test('fullscreen exit stops captured media while retaining the embedded animatio
   await adapter.startFullscreen('canvas');
   document.fullscreenElement = video;
   video.dispatchEvent(new Event('fullscreenchange'));
-  expect(resources[0].size).toEqual([1280, 720]);
+  assert.deepStrictEqual(resources[0].size, [1280, 720]);
   document.fullscreenElement = null;
   video.dispatchEvent(new Event('fullscreenchange'));
-  expect(resources[0].size).toEqual([640, 320]);
-  expect(tracks[0].stopped).toBe(true);
-  expect(frames.size).toBe(1);
+  assert.deepStrictEqual(resources[0].size, [640, 320]);
+  assert.strictEqual(tracks[0].stopped, true);
+  assert.strictEqual(frames.size, 1);
 });
 
 test('concurrent setup only starts the most recent screensaver', async () => {
   screenElements();
   const first = adapter.mountScreensaver('canvas', 'video');
   const second = adapter.mountScreensaver('canvas', 'video');
-  expect(await first).toBe(false);
-  expect(await second).toBe(true);
-  expect(frames.size).toBe(1);
-  expect(resources).toHaveLength(4);
+  assert.strictEqual(await first, false);
+  assert.strictEqual(await second, true);
+  assert.strictEqual(frames.size, 1);
+  assert.strictEqual((resources).length, 4);
 });
 
 function notifyDomChanges() {
@@ -238,18 +216,18 @@ test('history reinsertion restores a disposed screensaver without duplicating a 
   original.video.isConnected = false;
   nodes.clear();
   notifyDomChanges();
-  expect(frames.size).toBe(0);
-  expect(resources.every((resource) => resource.disposed)).toBe(true);
-  expect(original.tracks[0].stopped).toBe(true);
+  assert.strictEqual(frames.size, 0);
+  assert.strictEqual(resources.every((resource) => resource.disposed), true);
+  assert.strictEqual(original.tracks[0].stopped, true);
 
   const restored = screenElements();
   notifyDomChanges();
   notifyDomChanges();
   await settleMount();
-  expect(frames.size).toBe(1);
-  expect(resources.filter((resource) => !resource.disposed)).toHaveLength(4);
-  expect(await adapter.startFullscreen('canvas')).toBe(true);
-  expect(restored.video.srcObject).toBeTruthy();
+  assert.strictEqual(frames.size, 1);
+  assert.strictEqual((resources.filter((resource) => !resource.disposed)).length, 4);
+  assert.strictEqual(await adapter.startFullscreen('canvas'), true);
+  assert.ok(restored.video.srcObject);
 });
 
 test('persisted pageshow remounts after pagehide and repeated restoration stays singular', async () => {
@@ -257,12 +235,12 @@ test('persisted pageshow remounts after pagehide and repeated restoration stays 
   await adapter.mountScreensaver('canvas', 'video');
   await adapter.startFullscreen('canvas');
   window.dispatchEvent(new Event('pagehide'));
-  expect(frames.size).toBe(0);
-  expect(tracks[0].stopped).toBe(true);
-  expect(resources.every((resource) => resource.disposed)).toBe(true);
+  assert.strictEqual(frames.size, 0);
+  assert.strictEqual(tracks[0].stopped, true);
+  assert.strictEqual(resources.every((resource) => resource.disposed), true);
   notifyDomChanges();
   await settleMount();
-  expect(frames.size).toBe(0);
+  assert.strictEqual(frames.size, 0);
 
   const restored = new Event('pageshow');
   Object.defineProperty(restored, 'persisted', { value: true });
@@ -270,24 +248,24 @@ test('persisted pageshow remounts after pagehide and repeated restoration stays 
   window.dispatchEvent(restored);
   notifyDomChanges();
   await settleMount();
-  expect(frames.size).toBe(1);
-  expect(resources).toHaveLength(8);
-  expect(resources.filter((resource) => !resource.disposed)).toHaveLength(4);
-  expect(await adapter.startFullscreen('canvas')).toBe(true);
+  assert.strictEqual(frames.size, 1);
+  assert.strictEqual((resources).length, 8);
+  assert.strictEqual((resources.filter((resource) => !resource.disposed)).length, 4);
+  assert.strictEqual(await adapter.startFullscreen('canvas'), true);
 });
 
 test('explicit unmount cancels restoration and disconnects its native lifecycle watcher', async () => {
   screenElements();
   await adapter.mountScreensaver('canvas', 'video');
-  expect(adapter.unmountScreensaver('canvas')).toBe(true);
+  assert.strictEqual(adapter.unmountScreensaver('canvas'), true);
   notifyDomChanges();
   const restored = new Event('pageshow');
   Object.defineProperty(restored, 'persisted', { value: true });
   window.dispatchEvent(restored);
   await settleMount();
-  expect(frames.size).toBe(0);
-  expect(resources).toHaveLength(4);
-  expect(observers.every((observer) => observer.disconnected)).toBe(true);
+  assert.strictEqual(frames.size, 0);
+  assert.strictEqual((resources).length, 4);
+  assert.strictEqual(observers.every((observer) => observer.disconnected), true);
 });
 
 test('pagehide during async setup cannot let a stale mount replace the restored renderer', async () => {
@@ -298,11 +276,11 @@ test('pagehide during async setup cannot let a stale mount replace the restored 
   Object.defineProperty(restored, 'persisted', { value: true });
   window.dispatchEvent(restored);
   notifyDomChanges();
-  expect(await originalMount).toBe(false);
+  assert.strictEqual(await originalMount, false);
   await settleMount();
-  expect(frames.size).toBe(1);
-  expect(resources).toHaveLength(4);
-  expect(await adapter.startFullscreen('canvas')).toBe(true);
+  assert.strictEqual(frames.size, 1);
+  assert.strictEqual((resources).length, 4);
+  assert.strictEqual(await adapter.startFullscreen('canvas'), true);
 });
 
 test('a later page bundle controls and disposes the screensaver restored by an earlier bundle', async () => {
@@ -316,17 +294,17 @@ test('a later page bundle controls and disposes the screensaver restored by an e
   // Hologram registers the next page's separately bundled adapter functions,
   // then Back restores component state without restoring those JS bindings.
   const nextPageAdapter = await import('../../assets/js/hologram/browser.mjs?next-page-bundle');
-  expect(nextPageAdapter.startFullscreen).not.toBe(adapter.startFullscreen);
+  assert.notStrictEqual(nextPageAdapter.startFullscreen, adapter.startFullscreen);
   const restored = screenElements();
   notifyDomChanges();
   await settleMount();
-  expect(frames.size).toBe(1);
-  expect(await nextPageAdapter.startFullscreen('canvas')).toBe(true);
-  expect(restored.video.srcObject).toBeTruthy();
-  expect(nextPageAdapter.unmountScreensaver('canvas')).toBe(true);
-  expect(frames.size).toBe(0);
-  expect(resources.every((resource) => resource.disposed)).toBe(true);
-  expect(observers.every((observer) => observer.disconnected)).toBe(true);
+  assert.strictEqual(frames.size, 1);
+  assert.strictEqual(await nextPageAdapter.startFullscreen('canvas'), true);
+  assert.ok(restored.video.srcObject);
+  assert.strictEqual(nextPageAdapter.unmountScreensaver('canvas'), true);
+  assert.strictEqual(frames.size, 0);
+  assert.strictEqual(resources.every((resource) => resource.disposed), true);
+  assert.strictEqual(observers.every((observer) => observer.disconnected), true);
 });
 
 async function inFreshDocument(suffix, verify) {
@@ -350,21 +328,21 @@ test('fresh document restores animation when snapshot markup becomes ready witho
   canvas.setAttribute('data-hologram-screensaver-video', '');
 
   await inFreshDocument('snapshot-after-bundle', async (freshAdapter) => {
-    expect(frames.size).toBe(0);
+    assert.strictEqual(frames.size, 0);
     canvas.setAttribute('data-hologram-screensaver-video', 'video');
     notifyDomChanges();
     await settleMount();
-    expect(frames.size).toBe(1);
-    expect(await freshAdapter.startFullscreen('canvas')).toBe(true);
-    expect(video.srcObject).toBeTruthy();
+    assert.strictEqual(frames.size, 1);
+    assert.strictEqual(await freshAdapter.startFullscreen('canvas'), true);
+    assert.ok(video.srcObject);
 
     freshAdapter.unmountScreensaver('canvas');
     // A later page bundle must not undo an explicit unmount of marked DOM.
     await import('../../assets/js/hologram/browser.mjs?after-explicit-unmount');
     notifyDomChanges();
     await settleMount();
-    expect(frames.size).toBe(0);
-    expect(resources.every((resource) => resource.disposed)).toBe(true);
+    assert.strictEqual(frames.size, 0);
+    assert.strictEqual(resources.every((resource) => resource.disposed), true);
   });
 });
 
@@ -374,10 +352,10 @@ test('fresh document discovers already-restored markup when the page bundle arri
 
   await inFreshDocument('snapshot-before-bundle', async (freshAdapter) => {
     await settleMount();
-    expect(frames.size).toBe(1);
-    expect(await freshAdapter.startFullscreen('canvas')).toBe(true);
+    assert.strictEqual(frames.size, 1);
+    assert.strictEqual(await freshAdapter.startFullscreen('canvas'), true);
     notifyDomChanges();
     await settleMount();
-    expect(resources).toHaveLength(4);
+    assert.strictEqual((resources).length, 4);
   });
 });
