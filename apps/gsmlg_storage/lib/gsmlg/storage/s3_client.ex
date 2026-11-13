@@ -103,6 +103,9 @@ defmodule GSMLG.Storage.S3Client do
   defp decode_objects(objects) do
     Enum.reduce_while(objects, {:ok, []}, fn object, {:ok, acc} ->
       # Decoded keys must stay valid UTF-8 for manifests and paths.
+      # TODO(upstream): gsmlg-opt/ex_storage_service#27
+      # WORKAROUND(upstream): gsmlg-opt/ex_storage_service#27
+      # Drop the String.valid?/1 check once the SDK rejects non-UTF-8 decoded keys.
       with key when is_binary(key) and key != "" <- object["Key"],
            true <- String.valid?(key),
            size when is_integer(size) and size >= 0 <- object["Size"],
