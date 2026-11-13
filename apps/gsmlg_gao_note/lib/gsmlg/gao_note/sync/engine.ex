@@ -391,7 +391,7 @@ defmodule GSMLG.GaoNote.Sync.Engine do
     else
       false -> false
       {:error, :not_found} -> false
-      {:error, {:unexpected_response, %{status_code: 404}}} -> false
+      {:error, %ExStorageServiceSdk.Error{http_status: 404}} -> false
       {:error, _} -> nil
     end
   end

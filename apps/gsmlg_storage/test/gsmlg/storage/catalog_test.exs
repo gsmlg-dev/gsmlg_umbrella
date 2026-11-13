@@ -1,16 +1,16 @@
 defmodule GSMLG.Storage.CatalogTest do
   use ExUnit.Case, async: true
-  alias GSMLG.Storage.{Catalog, S3Client, StorageFile}
+  alias GSMLG.Storage.{Catalog, FakeS3, StorageFile}
 
-  defmodule HTTPClient do
-    @behaviour ExAws.Request.HttpClient
-    def request(method, url, body, _headers, options) do
-      store = options[:store]
+  setup do
+    store = start_supervised!({Agent, fn -> %{} end})
+
+    handler = fn method, url, body, _headers ->
       key = URI.parse(url).path |> String.replace_prefix("/catalog-test/", "") |> URI.decode()
 
       case method do
         :put ->
-          Agent.update(store, &Map.put(&1, key, IO.iodata_to_binary(body)))
+          Agent.update(store, &Map.put(&1, key, body))
           {:ok, %{status_code: 200, headers: [], body: ""}}
 
         :get ->
@@ -24,25 +24,8 @@ defmodule GSMLG.Storage.CatalogTest do
           {:ok, %{status_code: 204, headers: [], body: ""}}
       end
     end
-  end
 
-  setup do
-    store = start_supervised!({Agent, fn -> %{} end})
-
-    {:ok, backend} =
-      S3Client.capture_backend(
-        s3_bucket: "catalog-test",
-        s3_endpoint: "http://s3.example.test",
-        s3_access_key_id: "test",
-        s3_secret_access_key: "secret"
-      )
-
-    backend = %{
-      backend
-      | client: Map.merge(backend.client, %{http_client: HTTPClient, http_opts: [store: store]})
-    }
-
-    %{backend: backend, store: store}
+    %{backend: FakeS3.backend!("catalog-test", handler), store: store}
   end
 
   test "preserves legacy identity and complete metadata in S3 without a database", %{

@@ -291,7 +291,7 @@ defmodule GSMLG.Storage.MultipartUploadTest do
   for malformed <- [:trailing_root, :trailing_garbage, :dtd] do
     @tag complete_response: malformed
     test "aborts an upload when completion XML contains #{malformed}", context do
-      assert {:error, :invalid_s3_multipart_completion_response} =
+      assert {:error, %ExStorageServiceSdk.Error{category: :protocol}} =
                S3Client.put_file(
                  context.backend,
                  "attachment.pdf",

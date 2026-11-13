@@ -518,7 +518,11 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
       }
     }
 
-    reason = {:unexpected_response, %{status_code: 403, body: "private upstream response"}}
+    reason = %ExStorageServiceSdk.Error{
+      category: :service,
+      message: "private upstream response",
+      http_status: 403
+    }
 
     assert {:stop, {:shutdown, :sync_session_error}, _socket} =
              NoteSyncChannel.handle_info({ref, {:error, reason}}, socket)
@@ -528,7 +532,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannelTest do
     assert metadata == %{
              message: "GaoNote sync operation failed",
              operation: :read,
-             reason: :unexpected_response,
+             reason: ExStorageServiceSdk.Error,
              peer_id: peer.id,
              note_id: note_id,
              storage_file_id: storage_id

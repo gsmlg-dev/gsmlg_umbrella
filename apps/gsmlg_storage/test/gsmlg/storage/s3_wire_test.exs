@@ -1,7 +1,8 @@
-defmodule GSMLG.Storage.HTTPClientTest do
+defmodule GSMLG.Storage.S3WireTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.Storage.{HTTPClient, S3Client}
+  alias ExStorageServiceSdk.Error
+  alias GSMLG.Storage.S3Client
 
   test "S3-compatible uploads retain the storage endpoint, signed headers and raw bytes" do
     bytes = <<0, 255, 1, 2>>
@@ -15,7 +16,7 @@ defmodule GSMLG.Storage.HTTPClientTest do
     endpoint = url |> URI.parse() |> Map.put(:path, "") |> URI.to_string()
 
     assert {:ok, backend} =
-             GSMLG.Storage.S3Client.capture_backend(
+             S3Client.capture_backend(
                s3_bucket: "attachments",
                s3_endpoint: endpoint,
                s3_region: "storage-region",
@@ -24,7 +25,7 @@ defmodule GSMLG.Storage.HTTPClientTest do
              )
 
     assert :ok =
-             GSMLG.Storage.S3Client.put_object(
+             S3Client.put_object(
                backend,
                "raw.bin",
                bytes,
@@ -43,161 +44,6 @@ defmodule GSMLG.Storage.HTTPClientTest do
     assert request =~ "/storage-region/s3/aws4_request"
     assert String.ends_with?(request, bytes)
     assert_wire_signature(request)
-  end
-
-  test "preserves JSON requests, signed headers, query parameters and error status" do
-    url =
-      endpoint(fn socket, owner ->
-        request = request(socket)
-        send(owner, {:request, request})
-        respond(socket, 403, "application/json", ~s({"error":"denied"}))
-      end)
-
-    assert {:ok, %{status_code: 403, body: %{"error" => "denied"}}} =
-             HTTPClient.request(
-               :post,
-               url <> "?key=a%2Bb",
-               %{name: "Alice"},
-               [{"authorization", "signed value"}],
-               []
-             )
-
-    assert_receive {:request, request}
-    assert request =~ "POST /resource?key=a%2Bb HTTP/1.1"
-    assert String.downcase(request) =~ "authorization: signed value"
-    assert request =~ ~s({"name":"Alice"})
-  end
-
-  test "preserves compressed wire bytes when JSON decoding is disabled" do
-    bytes = :zlib.gzip("wire bytes")
-
-    url =
-      endpoint(fn socket, _owner ->
-        request(socket)
-
-        :gen_tcp.send(socket, [
-          "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: ",
-          Integer.to_string(byte_size(bytes)),
-          "\r\nConnection: close\r\n\r\n",
-          bytes
-        ])
-      end)
-
-    assert {:ok, %{body: ^bytes}} = HTTPClient.request(:get, url, "", [], decode_json: false)
-  end
-
-  test "preserves a DELETE request body used by signed API calls" do
-    url =
-      endpoint(fn socket, owner ->
-        send(owner, {:delete_request, request(socket)})
-        respond(socket, 200, "application/json", ~s({"ok":true}))
-      end)
-
-    assert {:ok, %{status_code: 200}} =
-             HTTPClient.request(:delete, url, %{name: "Alice"}, [], [])
-
-    assert_receive {:delete_request, request}
-    assert request =~ "DELETE /resource HTTP/1.1"
-    assert request =~ ~s({"name":"Alice"})
-  end
-
-  test "returns redirects without forwarding authorization to their destination" do
-    target =
-      endpoint(fn socket, owner ->
-        send(owner, :redirect_destination_contacted)
-        request(socket)
-        respond(socket, 200, "text/plain", "destination")
-      end)
-
-    url =
-      endpoint(fn socket, _owner ->
-        request(socket)
-
-        :gen_tcp.send(
-          socket,
-          "HTTP/1.1 302 Found\r\nLocation: #{target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-        )
-      end)
-
-    assert {:ok, %{status_code: 302, body: ""}} =
-             HTTPClient.request(:get, url, "", [{"authorization", "secret"}], decode_json: false)
-
-    refute_receive :redirect_destination_contacted
-  end
-
-  test "accepts the exact body limit and rejects a chunk that would exceed it" do
-    for {body, expected} <- [
-          {"12345", {:ok, "12345"}},
-          {"123456", {:error, %{reason: :response_limit}}}
-        ] do
-      url =
-        endpoint(fn socket, _owner ->
-          request(socket)
-
-          :gen_tcp.send(socket, [
-            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
-            Integer.to_string(byte_size(body), 16),
-            "\r\n",
-            body,
-            "\r\n0\r\n\r\n"
-          ])
-        end)
-
-      result =
-        HTTPClient.request(:get, url, "", [],
-          decode_json: false,
-          adapter: [max_body_bytes: 5, receive_timeout: 1_000]
-        )
-
-      case expected do
-        {:ok, body} -> assert {:ok, %{body: ^body}} = result
-        error -> assert result == error
-      end
-    end
-  end
-
-  test "rejects an oversized Content-Length without waiting for its body and closes the connection" do
-    url =
-      endpoint(fn socket, owner ->
-        request(socket)
-        :gen_tcp.send(socket, "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\n")
-        send(owner, {:peer_closed, :gen_tcp.recv(socket, 0, 2_000)})
-      end)
-
-    assert {:error, %{reason: :response_limit}} =
-             HTTPClient.request(:get, url, "", [],
-               decode_json: false,
-               adapter: [max_body_bytes: 5, receive_timeout: 500]
-             )
-
-    assert_receive {:peer_closed, {:error, :closed}}, 1_000
-  end
-
-  test "returns timeout and truncated-response failures without a partial success" do
-    url =
-      endpoint(fn socket, _owner ->
-        request(socket)
-        :gen_tcp.recv(socket, 0, 1_000)
-      end)
-
-    assert {:error, %{reason: :timeout}} =
-             HTTPClient.request(:get, url, "", [],
-               decode_json: false,
-               adapter: [receive_timeout: 50]
-             )
-
-    url =
-      endpoint(fn socket, _owner ->
-        request(socket)
-
-        :gen_tcp.send(
-          socket,
-          "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nab"
-        )
-      end)
-
-    assert {:error, %{reason: _reason}} =
-             HTTPClient.request(:get, url, "", [], decode_json: false)
   end
 
   for key <- [
@@ -263,7 +109,7 @@ defmodule GSMLG.Storage.HTTPClientTest do
           do: S3Client.get_object(backend, "missing"),
           else: S3Client.get_object_range(backend, "empty", 0, 0)
 
-      assert {:error, {:unexpected_response, %{status_code: ^status}}} = result
+      assert {:error, %Error{category: :service, http_status: ^status, code: ^code}} = result
       assert_receive {:failed_request, request}
       if status == 416, do: assert(request_headers(request)["range"] == "bytes=0-0")
     end
@@ -385,8 +231,7 @@ defmodule GSMLG.Storage.HTTPClientTest do
         ])
       end)
 
-    assert {:error, {:unexpected_response, %{status_code: 302}}} =
-             S3Client.get_object(backend(url), "object")
+    assert {:error, %Error{http_status: 302}} = S3Client.get_object(backend(url), "object")
 
     assert_receive {:signed_redirect_request, request}
     assert request_headers(request)["authorization"] =~ "AWS4-HMAC-SHA256"
@@ -461,7 +306,8 @@ defmodule GSMLG.Storage.HTTPClientTest do
         if String.downcase(name) == "authorization", do: value
       end)
 
-    assert authorization == expected
+    # Botocore-style clients separate Authorization fields with ", ".
+    assert String.replace(authorization, ", ", ",") == expected
   end
 
   defp request_line(request),

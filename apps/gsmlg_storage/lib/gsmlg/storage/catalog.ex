@@ -47,7 +47,7 @@ defmodule GSMLG.Storage.Catalog do
       with {:ok, file} <- decode(data, id), do: {:ok, %{file | backend_id: backend.id}}
     else
       :error -> {:error, :invalid_id}
-      {:error, {:unexpected_response, %{status_code: 404}}} -> {:error, :not_found}
+      {:error, %ExStorageServiceSdk.Error{http_status: 404}} -> {:error, :not_found}
       {:error, _} = error -> error
     end
   end

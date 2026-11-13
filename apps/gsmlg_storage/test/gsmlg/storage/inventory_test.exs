@@ -1,18 +1,8 @@
 defmodule GSMLG.Storage.InventoryTest do
   use ExUnit.Case, async: true
 
-  alias GSMLG.Storage.{Inventory, S3Client}
-
-  defmodule HTTPClient do
-    @behaviour ExAws.Request.HttpClient
-
-    def request(method, url, body, headers, options) do
-      case options[:handler].(method, url, body, headers) do
-        {:error, reason} -> {:error, %{reason: reason}}
-        response -> response
-      end
-    end
-  end
+  alias ExStorageServiceSdk.Error
+  alias GSMLG.Storage.{FakeS3, Inventory, S3Client}
 
   defmodule S3Server do
     import Plug.Conn
@@ -122,7 +112,7 @@ defmodule GSMLG.Storage.InventoryTest do
         end
       end)
 
-    assert {:error, :offline} = Inventory.load(backend)
+    assert {:error, %Error{category: :transport}} = Inventory.load(backend)
   end
 
   test "rejects malformed pages, invalid sizes, missing tokens and repeated tokens" do
@@ -132,16 +122,21 @@ defmodule GSMLG.Storage.InventoryTest do
       page([{"bad.txt", "-1"}], false),
       page([], true),
       String.replace(page([], false), "<IsTruncated>false</IsTruncated>", ""),
-      String.replace(page([{"good", 1}], false), "<Key>good</Key>", "<Key>bad%xx</Key>"),
       String.replace(page([{"good", 1}], false), "<Key>good</Key>", "<Key>%FF</Key>")
     ]
 
     for xml <- invalid_pages do
-      assert {:error, :invalid_s3_list_response} =
-               Inventory.load(backend(fn _, _, _, _ -> response(xml) end))
+      assert_rejected_listing(Inventory.load(backend(fn _, _, _, _ -> response(xml) end)))
     end
 
-    assert {:error, :repeated_s3_continuation_token} =
+    # Like botocore, the SDK form-decodes listing keys and keeps an invalid
+    # escape literally instead of rejecting the page.
+    lenient = String.replace(page([{"good", 1}], false), "<Key>good</Key>", "<Key>bad%xx</Key>")
+
+    assert {:ok, %{objects: [%{key: "bad%xx", size: 1}]}} =
+             Inventory.load(backend(fn _, _, _, _ -> response(lenient) end))
+
+    assert {:error, %Error{code: :repeated_pagination_token}} =
              Inventory.load(backend(fn _, _, _, _ -> response(page([], true, "same")) end))
   end
 
@@ -160,8 +155,7 @@ defmodule GSMLG.Storage.InventoryTest do
     ]
 
     for xml <- malformed do
-      assert {:error, :invalid_s3_list_response} =
-               Inventory.load(backend(fn _, _, _, _ -> response(xml) end))
+      assert_rejected_listing(Inventory.load(backend(fn _, _, _, _ -> response(xml) end)))
     end
   end
 
@@ -175,7 +169,7 @@ defmodule GSMLG.Storage.InventoryTest do
         end
       end)
 
-    assert {:error, :invalid_s3_list_response} = Inventory.load(backend)
+    assert_rejected_listing(Inventory.load(backend))
   end
 
   test "projects actual prefixes, empty folders, integer totals, search and pagination" do
@@ -357,28 +351,25 @@ defmodule GSMLG.Storage.InventoryTest do
   end
 
   test "HEAD failures and missing sizes are explicit errors" do
-    assert {:error, :offline} =
+    assert {:error, %Error{category: :transport}} =
              S3Client.head_object(backend(fn _, _, _, _ -> {:error, :offline} end), "key")
 
+    # A chunked HEAD reply carries no Content-Length.
     assert {:error, :invalid_s3_object_size} =
-             S3Client.head_object(backend(fn _, _, _, _ -> response("") end), "key")
+             S3Client.head_object(
+               backend(fn _, _, _, _ ->
+                 {:ok, %{status_code: 200, headers: [], body: "", chunked: true}}
+               end),
+               "key"
+             )
   end
 
-  defp backend(handler) do
-    {:ok, backend} =
-      Inventory.backend(
-        s3_bucket: "inventory-test",
-        s3_endpoint: "http://localhost:9000",
-        s3_access_key_id: "test-access",
-        s3_secret_access_key: "test-secret"
-      )
+  # The SDK rejects invalid S3 documents; S3Client rejects invalid object entries.
+  defp assert_rejected_listing({:error, :invalid_s3_list_response}), do: :ok
+  defp assert_rejected_listing({:error, %Error{category: :protocol}}), do: :ok
+  defp assert_rejected_listing(result), do: flunk("listing accepted: #{inspect(result)}")
 
-    %{
-      backend
-      | client:
-          Map.merge(backend.client, %{http_client: HTTPClient, http_opts: [handler: handler]})
-    }
-  end
+  defp backend(handler), do: FakeS3.backend!("inventory-test", handler)
 
   defp object(key, size),
     do: %{key: key, size: size, folder?: size == 0 and String.ends_with?(key, "/")}

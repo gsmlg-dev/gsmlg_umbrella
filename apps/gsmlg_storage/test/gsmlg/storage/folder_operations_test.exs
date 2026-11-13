@@ -39,7 +39,12 @@ defmodule GSMLG.Storage.FolderOperationsTest do
 
     defp handle(%{method: "PUT"} = conn, key, objects, faults) do
       [source] = get_req_header(conn, "x-amz-copy-source")
-      source = source |> URI.decode() |> String.replace_prefix("folders-test/", "")
+      # S3 accepts the copy source with or without a leading slash.
+      source =
+        source
+        |> URI.decode()
+        |> String.trim_leading("/")
+        |> String.replace_prefix("folders-test/", "")
 
       case :ets.lookup(objects, source) do
         [{_, bytes}] ->

@@ -21,7 +21,7 @@ defmodule GSMLG.Storage.Migration do
           {:ok, checkpoint} ->
             validate_checkpoint(checkpoint)
 
-          {:error, {:unexpected_response, %{status_code: 404}}} ->
+          {:error, %ExStorageServiceSdk.Error{http_status: 404}} ->
             case export_catalog(backend: backend) do
               {:ok, summary} ->
                 S3Client.put_object(
@@ -118,7 +118,7 @@ defmodule GSMLG.Storage.Migration do
       {:ok, _object} ->
         {:error, :legacy_folder_key_conflict}
 
-      {:error, {:unexpected_response, %{status_code: 404}}} ->
+      {:error, %ExStorageServiceSdk.Error{http_status: 404}} ->
         case S3Client.put_folder_marker(backend, key) do
           {:error, :folder_key_conflict} -> {:error, :legacy_folder_key_conflict}
           result -> result

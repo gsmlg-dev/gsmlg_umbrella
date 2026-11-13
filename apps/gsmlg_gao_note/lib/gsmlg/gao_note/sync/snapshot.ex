@@ -128,7 +128,7 @@ defmodule GSMLG.GaoNote.Sync.Snapshot do
          true <- is_nil(file.backend_id) or file.backend_id == backend.id do
       case S3Client.get_object_range(backend, file.s3_key, 0, 0) do
         {:ok, ""} -> {:ok, ""}
-        {:error, {:unexpected_response, %{status_code: 416}}} -> {:ok, ""}
+        {:error, %ExStorageServiceSdk.Error{http_status: 416}} -> {:ok, ""}
         {:ok, _bytes} -> {:error, :object_size_mismatch}
         {:error, _} = error -> error
       end

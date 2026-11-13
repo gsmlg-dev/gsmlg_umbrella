@@ -102,7 +102,7 @@ defmodule GSMLG.Storage.MigrationTest do
 
     error = assert_raise MatchError, fn -> GSMLG.Release.migrate_storage() end
 
-    assert {:ok, {:error, {:unexpected_response, %{status_code: 503}}}, _started_apps} =
+    assert {:ok, {:error, %ExStorageServiceSdk.Error{http_status: 503}}, _started_apps} =
              error.term
 
     assert Repo.get!(StorageFile, original.id) == original

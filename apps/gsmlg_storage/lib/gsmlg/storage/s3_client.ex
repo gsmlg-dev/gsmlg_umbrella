@@ -2,31 +2,31 @@ defmodule GSMLG.Storage.S3Client do
   @moduledoc """
   S3 client for storage operations.
 
-  Captures an independent S3 connection using ExAws operation builders and the
-  public AWS signer, with storage-specific endpoints for Minio and compatible services.
+  Captures an independent S3 connection with `ExStorageServiceSdk`, supporting
+  ESS, MinIO and other S3-compatible endpoints. Service and transport failures are
+  returned as `{:error, %ExStorageServiceSdk.Error{}}`; `http_status` carries the
+  S3 status (404, 412, 416, ...).
   """
 
   require Logger
 
-  alias GSMLG.Storage.S3Request
+  alias ExStorageServiceSdk.Error
+
+  @part_size 5_242_880
 
   @doc "Captures one immutable S3 connection for an entire inventory operation."
   def capture_backend(config \\ Application.get_all_env(:gsmlg_storage)) do
     config = backend_config(config)
 
     with {:ok, access, secret} <- backend_credentials(config),
-         client <-
-           ExAws.Config.new(:s3,
-             access_key_id: access,
-             secret_access_key: secret,
+         {:ok, endpoint} <- endpoint(config),
+         {:ok, client} <-
+           ExStorageServiceSdk.new(
+             endpoint: endpoint,
              region: config.region,
-             http_client: GSMLG.Storage.HTTPClient,
-             http_opts: [decode_json: false],
-             normalize_path: false,
-             retries: [max_attempts: 1],
-             refreshable: false
-           ),
-         {:ok, client} <- configure_endpoint(client, config.endpoint) do
+             access_key_id: access,
+             secret_access_key: secret
+           ) do
       {:ok, %{bucket: config.bucket, client: client, id: fingerprint(config)}}
     end
   end
@@ -37,14 +37,28 @@ defmodule GSMLG.Storage.S3Client do
 
   @doc "Lists every object, preserving exact keys and failing the whole scan on page errors."
   def list_objects(%{client: client, bucket: bucket}) do
-    list_pages(client, bucket, nil, MapSet.new(), [])
+    client
+    |> ExStorageServiceSdk.pages("ListObjectsV2", %{"Bucket" => bucket})
+    |> Enum.reduce_while({:ok, []}, fn
+      {:ok, page}, {:ok, pages} ->
+        case decode_objects(page["Contents"] || []) do
+          {:ok, objects} -> {:cont, {:ok, [objects | pages]}}
+          error -> {:halt, error}
+        end
+
+      {:error, _} = error, _acc ->
+        {:halt, error}
+    end)
+    |> case do
+      {:ok, pages} -> {:ok, pages |> Enum.reverse() |> List.flatten()}
+      error -> error
+    end
   end
 
   @doc "Reads object details from the captured backend."
   def head_object(%{client: client, bucket: bucket}, key) do
-    with {:ok, _decoded, response} <- request(client, ExAws.S3.head_object(bucket, key), :empty),
-         headers <-
-           Map.new(response.headers, fn {name, value} -> {String.downcase(name), value} end),
+    with {:ok, %{headers: headers}} <- ExStorageServiceSdk.head_object(client, bucket, key),
+         headers <- Map.new(headers, fn {name, value} -> {String.downcase(name), value} end),
          {:ok, size} <- nonnegative_integer(headers["content-length"]) do
       {:ok,
        %{
@@ -86,64 +100,18 @@ defmodule GSMLG.Storage.S3Client do
   defp fingerprint(config),
     do: :crypto.hash(:sha256, :erlang.term_to_binary(config)) |> Base.url_encode64(padding: false)
 
-  defp list_pages(client, bucket, token, seen, pages) do
-    with {:ok, decoded, _response} <- list_page(client, bucket, token),
-         {:ok, objects, next} <- decode_page(decoded) do
-      case next do
-        nil ->
-          {:ok, [objects | pages] |> Enum.reverse() |> List.flatten()}
-
-        next ->
-          if MapSet.member?(seen, next) do
-            {:error, :repeated_s3_continuation_token}
-          else
-            list_pages(client, bucket, next, MapSet.put(seen, next), [objects | pages])
-          end
-      end
-    end
-  end
-
-  defp list_page(client, bucket, token) do
-    # URL encoding keeps whitespace and XML-invalid characters in keys intact.
-    options = [encoding_type: "url"]
-    options = if token, do: Keyword.put(options, :continuation_token, token), else: options
-    request(client, ExAws.S3.list_objects_v2(bucket, options), :list)
-  rescue
-    _error -> {:error, :invalid_s3_list_response}
-  catch
-    :exit, _reason -> {:error, :invalid_s3_list_response}
-  end
-
-  defp decode_page(%{"ListBucketResult" => result}) when is_map(result) do
-    with "url" <- xml_text(result["EncodingType"]),
-         truncated when truncated in ["true", "false"] <- xml_text(result["IsTruncated"]),
-         {:ok, objects} <- decode_objects(result["Contents"]),
-         {:ok, next} <- next_token(truncated, result["NextContinuationToken"]) do
-      {:ok, objects, next}
-    else
-      _ -> {:error, :invalid_s3_list_response}
-    end
-  end
-
-  defp decode_page(_decoded), do: {:error, :invalid_s3_list_response}
-
-  defp decode_objects(nil), do: {:ok, []}
-  defp decode_objects(object) when is_map(object), do: decode_objects([object])
-
-  defp decode_objects(objects) when is_list(objects) do
+  defp decode_objects(objects) do
     Enum.reduce_while(objects, {:ok, []}, fn object, {:ok, acc} ->
-      with key when is_binary(key) and key != "" <- xml_text(object["Key"]),
-           false <- Regex.match?(~r/%(?![0-9a-fA-F]{2})/, key),
-           {:ok, size} <- object["Size"] |> xml_text() |> nonnegative_integer(),
-           modified when is_binary(modified) <- xml_text(object["LastModified"]),
-           {:ok, _, _} <- DateTime.from_iso8601(modified),
-           key <- URI.decode(key),
-           true <- String.valid?(key) do
+      # Decoded keys must stay valid UTF-8 for manifests and paths.
+      with key when is_binary(key) and key != "" <- object["Key"],
+           true <- String.valid?(key),
+           size when is_integer(size) and size >= 0 <- object["Size"],
+           %DateTime{} = modified <- object["LastModified"] do
         entry = %{
           key: key,
           size: size,
-          last_modified: modified,
-          etag: xml_text(object["ETag"]),
+          last_modified: DateTime.to_iso8601(modified),
+          etag: object["ETag"],
           folder?: size == 0 and String.ends_with?(key, "/")
         }
 
@@ -156,24 +124,7 @@ defmodule GSMLG.Storage.S3Client do
       {:ok, entries} -> {:ok, Enum.reverse(entries)}
       error -> error
     end
-  rescue
-    _error -> {:error, :invalid_s3_list_response}
   end
-
-  defp decode_objects(_objects), do: {:error, :invalid_s3_list_response}
-
-  defp next_token("false", _token), do: {:ok, nil}
-
-  defp next_token("true", token) do
-    case xml_text(token) do
-      token when is_binary(token) and token != "" -> {:ok, token}
-      _ -> {:error, :invalid_s3_list_response}
-    end
-  end
-
-  defp xml_text(value) when is_binary(value), do: value
-  defp xml_text(%{"__text" => value}), do: value
-  defp xml_text(_value), do: nil
 
   defp nonnegative_integer(value) when is_binary(value) do
     case Integer.parse(value) do
@@ -186,15 +137,13 @@ defmodule GSMLG.Storage.S3Client do
 
   @doc "Creates a directory marker without overwriting an existing object's bytes."
   def put_folder_marker(%{client: client, bucket: bucket} = backend, key) do
-    operation =
-      ExAws.S3.put_object(bucket, key, "", content_type: "application/x-directory")
-      |> put_headers(%{"if-none-match" => "*"})
+    input = %{"ContentType" => "application/x-directory", "IfNoneMatch" => "*"}
 
-    case request(client, operation, :empty) do
-      {:ok, _, _} ->
+    case ExStorageServiceSdk.put_object(client, bucket, key, "", input) do
+      {:ok, _} ->
         :ok
 
-      {:error, {:unexpected_response, %{status_code: 412}}} ->
+      {:error, %Error{http_status: 412}} ->
         case head_object(backend, key) do
           {:ok, %{size: 0}} -> :ok
           {:ok, _} -> {:error, :folder_key_conflict}
@@ -209,24 +158,28 @@ defmodule GSMLG.Storage.S3Client do
   @doc "Copies exact bytes and metadata without replacing a destination or changed source."
   def copy_object(%{client: client, bucket: bucket}, source, destination, etag)
       when is_binary(etag) and etag != "" do
-    operation =
-      ExAws.S3.put_object_copy(bucket, destination, bucket, source,
-        copy_source_if_match: etag,
-        metadata_directive: "COPY",
-        tagging_directive: "COPY"
-      )
-      |> put_headers(%{
-        "x-amz-copy-source" =>
-          S3Request.object_path(bucket, source) |> String.replace_prefix("/", ""),
-        "x-amz-copy-source-if-match" => etag,
-        "if-none-match" => "*",
-        "x-amz-metadata-directive" => "COPY",
-        "x-amz-tagging-directive" => "COPY"
-      })
+    input = %{
+      "CopySource" => %{"Bucket" => bucket, "Key" => source},
+      "CopySourceIfMatch" => etag,
+      "MetadataDirective" => "COPY",
+      "TaggingDirective" => "COPY"
+    }
 
-    case request(client, operation, :copy) do
-      {:ok, %{"CopyObjectResult" => result}, _} when is_map(result) -> :ok
-      {:ok, result, _} -> {:error, {:invalid_s3_copy_response, result}}
+    # The pinned S3 model has no CopyObject IfNoneMatch member; send it as a
+    # signed request header on this call's config only.
+    client = %{
+      client
+      | options:
+          Map.update(
+            client.options,
+            :request_headers,
+            [{"if-none-match", "*"}],
+            &[{"if-none-match", "*"} | &1]
+          )
+    }
+
+    case ExStorageServiceSdk.copy_object(client, bucket, destination, input) do
+      {:ok, _} -> :ok
       {:error, _} = error -> error
     end
   end
@@ -237,10 +190,8 @@ defmodule GSMLG.Storage.S3Client do
   @doc "Deletes only the object version observed by the folder operation."
   def delete_object(%{client: client, bucket: bucket}, key, etag)
       when is_binary(etag) and etag != "" do
-    operation = ExAws.S3.delete_object(bucket, key) |> put_headers(%{"if-match" => etag})
-
-    case request(client, operation, :empty) do
-      {:ok, _, _} -> :ok
+    case ExStorageServiceSdk.delete_object(client, bucket, key, %{"IfMatch" => etag}) do
+      {:ok, _} -> :ok
       {:error, _} = error -> error
     end
   end
@@ -252,10 +203,10 @@ defmodule GSMLG.Storage.S3Client do
   Returns `:ok` or `{:error, reason}`.
   """
   def put_object(%{client: client, bucket: bucket}, key, data, content_type) do
-    operation = ExAws.S3.put_object(bucket, key, data, content_type: content_type)
-
-    case request(client, operation, :empty) do
-      {:ok, _, _} -> :ok
+    case ExStorageServiceSdk.put_object(client, bucket, key, data, %{
+           "ContentType" => content_type
+         }) do
+      {:ok, _} -> :ok
       {:error, _} = error -> error
     end
   end
@@ -268,7 +219,7 @@ defmodule GSMLG.Storage.S3Client do
   @doc "Uploads a file using bounded 5 MiB chunks."
   def put_file(bucket, key, path, content_type) do
     with {:ok, %{size: size}} <- File.stat(path) do
-      if size <= 5_242_880 do
+      if size <= @part_size do
         with {:ok, data} <- File.read(path), do: put_object(bucket, key, data, content_type)
       else
         multipart_file(bucket, key, path, content_type)
@@ -285,25 +236,22 @@ defmodule GSMLG.Storage.S3Client do
   end
 
   defp multipart_file_with_client(client, bucket, key, path, content_type) do
-    with {:ok, result, _response} <-
-           request(
-             client,
-             ExAws.S3.initiate_multipart_upload(bucket, key, content_type: content_type),
-             :multipart_init
-           ),
+    with {:ok, result} <-
+           ExStorageServiceSdk.create_multipart_upload(client, bucket, key, %{
+             "ContentType" => content_type
+           }),
          {:ok, upload_id} <- multipart_upload_id(result) do
       result =
         with {:ok, parts} <- upload_parts(client, bucket, key, upload_id, path),
-             {:ok, %{"CompleteMultipartUploadResult" => %{}}, _response} <-
-               request(
+             {:ok, _} <-
+               ExStorageServiceSdk.complete_multipart_upload(
                  client,
-                 ExAws.S3.complete_multipart_upload(bucket, key, upload_id, parts),
-                 :multipart_complete
+                 bucket,
+                 key,
+                 upload_id,
+                 parts
                ) do
           :ok
-        else
-          {:ok, _result, _response} -> {:error, :invalid_s3_multipart_completion_response}
-          {:error, _reason} = error -> error
         end
 
       case result do
@@ -311,14 +259,11 @@ defmodule GSMLG.Storage.S3Client do
           :ok
 
         {:error, _reason} = error ->
-          _ = request(client, ExAws.S3.abort_multipart_upload(bucket, key, upload_id), :empty)
+          _ = ExStorageServiceSdk.abort_multipart_upload(client, bucket, key, upload_id)
           error
       end
     end
   end
-
-  defp multipart_upload_id(%{"InitiateMultipartUploadResult" => result}),
-    do: multipart_upload_id(result)
 
   defp multipart_upload_id(%{"UploadId" => upload_id})
        when is_binary(upload_id) and upload_id != "",
@@ -337,7 +282,7 @@ defmodule GSMLG.Storage.S3Client do
   end
 
   defp upload_part_chunks(client, bucket, key, upload_id, io, number, parts) do
-    case IO.binread(io, 5_242_880) do
+    case IO.binread(io, @part_size) do
       :eof ->
         {:ok, Enum.reverse(parts)}
 
@@ -345,32 +290,18 @@ defmodule GSMLG.Storage.S3Client do
         {:error, reason}
 
       chunk ->
-        operation = ExAws.S3.upload_part(bucket, key, upload_id, number, chunk)
-
-        case request(client, operation, :empty) do
-          {:ok, result, response} ->
-            with {:ok, etag} <- multipart_part_etag(result, response) do
-              upload_part_chunks(client, bucket, key, upload_id, io, number + 1, [
-                {number, S3Request.escape_xml(etag)} | parts
-              ])
-            end
-
-          {:error, _reason} = error ->
-            error
+        with {:ok, %{etag: etag}} <-
+               ExStorageServiceSdk.upload_part(client, bucket, key, upload_id, number, chunk),
+             {:ok, etag} <- multipart_part_etag(etag) do
+          upload_part_chunks(client, bucket, key, upload_id, io, number + 1, [
+            {number, etag} | parts
+          ])
         end
     end
   end
 
-  defp multipart_part_etag(%{"ETag" => etag}, _response)
-       when is_binary(etag) and etag != "",
-       do: {:ok, etag}
-
-  defp multipart_part_etag(_result, %{headers: headers}) do
-    case Enum.find(headers, fn {name, _value} -> String.downcase(name) == "etag" end) do
-      {_name, etag} when is_binary(etag) and etag != "" -> {:ok, etag}
-      _ -> {:error, :invalid_s3_multipart_etag}
-    end
-  end
+  defp multipart_part_etag(etag) when is_binary(etag) and etag != "", do: {:ok, etag}
+  defp multipart_part_etag(_etag), do: {:error, :invalid_s3_multipart_etag}
 
   @doc """
   Gets an object from S3.
@@ -379,45 +310,34 @@ defmodule GSMLG.Storage.S3Client do
   def get_object(%{client: client, bucket: bucket}, key) do
     # TODO(upstream): gsmlg-dev/concord#98
     # ESS metadata reads can stall while validating a retained VSR log.
-    case request(client, ExAws.S3.get_object(bucket, key), :raw) do
-      {:ok, body, response} -> extract_body(body, response)
-      {:error, _} = error -> error
-    end
+    read_object(client, bucket, key, %{})
   end
 
   def get_object(bucket, key) do
-    with {:ok, client} <- get_client() do
-      case request(client, ExAws.S3.get_object(bucket, key), :raw) do
-        {:ok, body, response} -> extract_body(body, response)
-        {:error, _} = error -> error
-      end
-    end
+    with {:ok, client} <- get_client(), do: read_object(client, bucket, key, %{})
   end
 
   @doc """
   Gets an inclusive byte range from an object in S3.
   Returns `{:ok, binary}` or `{:error, reason}`.
   """
-  @spec get_object_range(String.t(), String.t(), non_neg_integer(), non_neg_integer()) ::
+  @spec get_object_range(map() | String.t(), String.t(), non_neg_integer(), non_neg_integer()) ::
           {:ok, binary()} | {:error, term()}
   def get_object_range(%{client: client, bucket: bucket}, key, first, last),
-    do: range_with_client(client, bucket, key, first, last)
+    do: read_object(client, bucket, key, %{"Range" => "bytes=#{first}-#{last}"})
 
   def get_object_range(bucket, key, first, last) do
-    with {:ok, client} <- get_client(), do: range_with_client(client, bucket, key, first, last)
+    with {:ok, client} <- get_client(),
+         do: read_object(client, bucket, key, %{"Range" => "bytes=#{first}-#{last}"})
   end
 
-  defp range_with_client(client, bucket, key, first, last) do
-    case get_object_with_range(client, bucket, key, "bytes=#{first}-#{last}") do
-      {:ok, body, response} ->
-        extract_body(body, response)
-
-      {:error, {:unexpected_response, %{status_code: 206, body: body}}} when is_binary(body) ->
-        {:ok, body}
-
-      {:error, _} = error ->
-        error
-    end
+  # Stored objects are bounded by max_file_size, not the SDK's 8 MiB default.
+  defp read_object(client, bucket, key, input) do
+    with {:ok, %{body: body}} <-
+           ExStorageServiceSdk.get_object(client, bucket, key, input,
+             max_body_bytes: max_file_size()
+           ),
+         do: {:ok, body}
   end
 
   @doc """
@@ -425,16 +345,16 @@ defmodule GSMLG.Storage.S3Client do
   Returns `:ok` or `{:error, reason}`.
   """
   def delete_object(%{client: client, bucket: bucket}, key) do
-    case request(client, ExAws.S3.delete_object(bucket, key), :empty) do
-      {:ok, _, _} -> :ok
+    case ExStorageServiceSdk.delete_object(client, bucket, key) do
+      {:ok, _} -> :ok
       {:error, _} = error -> error
     end
   end
 
   def delete_object(bucket, key) do
     with {:ok, client} <- get_client() do
-      case request(client, ExAws.S3.delete_object(bucket, key), :empty) do
-        {:ok, _, _} ->
+      case ExStorageServiceSdk.delete_object(client, bucket, key) do
+        {:ok, _} ->
           :ok
 
         {:error, reason} ->
@@ -444,30 +364,19 @@ defmodule GSMLG.Storage.S3Client do
     end
   end
 
-  defp get_object_with_range(client, bucket, key, range) do
-    request(client, ExAws.S3.get_object(bucket, key, range: range), :raw)
-  end
-
-  # Preserve raw object bytes, including successful zero-byte responses.
-  defp extract_body(body, _response) when is_binary(body), do: {:ok, body}
-  defp extract_body(_body, _response), do: {:error, :invalid_s3_response_body}
-
-  defp request(client, operation, response_kind),
-    do: S3Request.request(client, operation, response_kind)
-
-  defp put_headers(operation, headers),
-    do: %{operation | headers: Map.merge(operation.headers, headers)}
-
   defp get_client do
     with {:ok, backend} <- capture_backend(), do: {:ok, backend.client}
   end
 
-  defp configure_endpoint(client, endpoint) when endpoint in [nil, ""], do: {:ok, client}
+  defp max_file_size,
+    do: Application.get_env(:gsmlg_storage, :max_file_size, 5 * 1024 * 1024 * 1024)
 
-  defp configure_endpoint(client, endpoint_url) do
-    with {:ok, uri} <- parse_endpoint(endpoint_url) do
-      {:ok, %{client | host: uri.host, scheme: uri.scheme <> "://", port: uri.port}}
-    end
+  defp endpoint(%{endpoint: endpoint, region: region}) when endpoint in [nil, ""],
+    do: {:ok, "https://s3.#{region}.amazonaws.com"}
+
+  defp endpoint(%{endpoint: endpoint_url}) do
+    with {:ok, uri} <- parse_endpoint(endpoint_url),
+         do: {:ok, URI.to_string(%{uri | path: nil})}
   end
 
   defp parse_endpoint(endpoint_url) when is_binary(endpoint_url) do

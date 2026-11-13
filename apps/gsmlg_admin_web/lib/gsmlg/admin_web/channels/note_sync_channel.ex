@@ -828,7 +828,7 @@ defmodule GSMLG.AdminWeb.NoteSyncChannel do
       {:error, reason} when reason in @source_preparation_errors or is_binary(reason) ->
         defer_checkout(socket, task.note_id, reason)
 
-      {:error, {:unexpected_response, _} = reason} ->
+      {:error, %ExStorageServiceSdk.Error{category: :service} = reason} ->
         defer_checkout(socket, task.note_id, reason)
 
       {:error, reason} ->
