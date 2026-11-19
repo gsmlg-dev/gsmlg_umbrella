@@ -49,7 +49,6 @@ defmodule GSMLG.Web.MixProject do
       {:websock_adapter, "~> 0.12", hex: :gaoxy_websock_adapter, override: true},
       {:floki, "~> 0.38"},
       {:mdex, "~> 0.14"},
-      {:lazy_html, "~> 0.1"},
       {:phoenix_live_dashboard, "~> 0.9"},
       {:duskmoon_bundler_runtime, "~> 10.1.5"},
       {:duskmoon_bundler, "~> 10.1.5", runtime: Mix.env() == :dev},

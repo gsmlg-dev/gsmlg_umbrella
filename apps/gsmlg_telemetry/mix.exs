@@ -43,7 +43,6 @@ defmodule GSMLG.Telemetry.MixProject do
       {:jason, "~> 1.4"},
       {:gsmlg_logger, in_umbrella: true},
       {:stream_data, "~> 1.4", only: [:dev, :test]},
-      {:castore, "~> 1.0", only: [:dev, :test]},
       {:excoveralls, "~> 0.18", only: [:dev, :test]},
       {:junit_formatter, "~> 3.4", only: [:test]},
       {:ex_doc, "~> 0.40", only: [:dev, :test], runtime: false},

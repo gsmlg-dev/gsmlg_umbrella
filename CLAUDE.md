@@ -50,9 +50,6 @@ mix prerelease
 # Production release
 MIX_ENV=prod mix release gsmlg_umbrella
 
-# Standalone binary (via Burrito)
-MIX_ENV=prod BURRITO_TARGET=linux_amd64 mix release gsmlg_umbrella_standalone
-
 # Update version in all mix.exs files
 scripts/update_version.sh 1.2.3
 
@@ -90,7 +87,7 @@ Releases are triggered manually via the `release` workflow dispatch (inputs: `re
 | `gsmlg_component` | Shared Phoenix UI, CSS and server-rendered Markdown via DuskMoon/MDEx |
 | `gsmlg_telemetry` | Structured logging, metrics collection, file/console backends |
 
-Other utility apps: `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_tor`, `gsmlg_socket`, `gsmlg_logger`.
+Other utility apps: `gsmlg_couchdb`, `gsmlg_web_push`, `gsmlg_tor`, `gsmlg_logger`.
 
 The `gsmlg_mac`, `gsmlg_ip_geo` and `gsmlg_whois` service apps have been removed for extraction to another project. Their public toolbox UI remains, with disabled lookup controls and a temporary-unavailability notice; the existing lookup APIs return HTTP 503.
 

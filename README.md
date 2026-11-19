@@ -31,11 +31,7 @@ port and `server` flag. HTTP test fixtures also use Gaoxy. HTTP clients use
 http_fetch through Tesla or direct streaming transports, and CDP uses
 http_web_socket.
 
-Finch and Mint remain indirect dependencies: `backplane_mcp_protocol` requires
-Finch ([upstream tracking](https://github.com/gsmlg-opt/backplane/issues/120)),
-and the Burrito build tool requires Req, which also requires Finch. Complete
-removal awaits supported upstream releases for these paths. Bandit and
-mint_web_socket are no longer required.
+Finch, Mint, Bandit and mint_web_socket are no longer required.
 
 Direct Hex dependencies use `~> major.minor` requirements. Resolved versions
 are recorded in `mix.lock`.
@@ -129,12 +125,6 @@ Exporting the legacy SQL storage catalog to S3 is a separate, explicit operation
 ```
 
 This export requires S3 access. See [the storage upgrade procedure](docs/storage/README.md#upgrading-an-existing-installation).
-
-### Standalone Binary (Burrito)
-
-```shell
-MIX_ENV=prod BURRITO_TARGET=linux_amd64 mix release gsmlg_umbrella_standalone
-```
 
 ## Supported Languages
 

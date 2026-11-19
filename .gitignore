@@ -64,8 +64,6 @@ Mnesia.*
 LATEST.LOG
 PREVIOUS.LOG
 
-# burrito binary
-/burrito_out
 
 # nodejs
 node_modules

@@ -43,26 +43,6 @@ defmodule GSMLG.Umbrella.MixProject do
             gsmlg_web: :permanent
           ]
         ],
-        gsmlg_umbrella_standalone: [
-          applications: [
-            gsmlg_commander_protocol: :permanent,
-            gsmlg: :permanent,
-            gsmlg_browser: :permanent,
-            gsmlg_scout_server: :permanent,
-            proxy_rules: :permanent,
-            gsmlg_admin_web: :permanent,
-            gsmlg_web: :permanent
-          ],
-          steps: [&build_assets/1, :assemble, &add_migrate_help/1, &Burrito.wrap/1],
-          burrito: [
-            targets: [
-              linux_amd64: [
-                os: :linux,
-                cpu: :x86_64
-              ]
-            ]
-          ]
-        ],
         gsmlg_scout_agent: [
           include_executables_for: [:unix],
           steps: [:assemble, :tar],
@@ -88,7 +68,6 @@ defmodule GSMLG.Umbrella.MixProject do
 
   defp deps do
     [
-      {:burrito, "~> 1.6", runtime: false},
       {:excoveralls, "~> 0.18", only: [:dev, :test]},
       {:jason, "~> 1.4"},
       {:phoenix, "~> 1.8"},

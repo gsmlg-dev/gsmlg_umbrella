@@ -4,7 +4,7 @@ defmodule GSMLG.Commander.ReleaseConfigurationTest do
   test "protocol application starts permanently in every Commander-bearing release" do
     releases = GSMLG.Umbrella.MixProject.project()[:releases]
 
-    for release <- [:gsmlg_commander, :gsmlg_umbrella, :gsmlg_umbrella_standalone] do
+    for release <- [:gsmlg_commander, :gsmlg_umbrella] do
       assert get_in(releases, [release, :applications, :gsmlg_commander_protocol]) == :permanent
     end
   end
@@ -17,7 +17,7 @@ defmodule GSMLG.Commander.ReleaseConfigurationTest do
 
     refute get_in(releases, [:gsmlg_commander, :applications, :gsmlg_browser])
 
-    for release <- [:gsmlg_umbrella, :gsmlg_umbrella_standalone] do
+    for release <- [:gsmlg_umbrella] do
       assert get_in(releases, [release, :applications, :gsmlg_browser]) == :permanent
       refute get_in(releases, [release, :applications, :gsmlg_browser_agent])
     end

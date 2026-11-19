@@ -48,7 +48,6 @@ defmodule GSMLG.MixProject do
       {:gsmlg_web_push, in_umbrella: true},
       {:styx, "~> 0.1"},
       {:mox, "~> 1.3", only: :test},
-      {:meck, "~> 1.2", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
