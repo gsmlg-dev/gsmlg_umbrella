@@ -334,13 +334,22 @@ defmodule GSMLG.Storage.S3Client do
          do: read_object(client, bucket, key, %{"Range" => "bytes=#{first}-#{last}"})
   end
 
-  # Stored objects are bounded by max_file_size, not the SDK's 8 MiB default.
+  # Upload limits do not bound existing objects or internal catalog metadata.
+  # Consume the SDK stream to preserve full reads above its 8 MiB buffer default.
   defp read_object(client, bucket, key, input) do
-    with {:ok, %{body: body}} <-
-           ExStorageServiceSdk.get_object(client, bucket, key, input,
-             max_body_bytes: max_file_size()
-           ),
-         do: {:ok, body}
+    with {:ok, response} <- ExStorageServiceSdk.get_object_stream(client, bucket, key, input) do
+      case ExStorageServiceSdk.S3.Decoder.decode_headers("GetObject", response) do
+        {:ok, _metadata} ->
+          with {:ok, chunks, _metadata} <-
+                 client.transport.consume(response, [], &{:ok, [&1 | &2]}, []) do
+            {:ok, chunks |> Enum.reverse() |> IO.iodata_to_binary()}
+          end
+
+        {:error, _} = error ->
+          client.transport.close(response)
+          error
+      end
+    end
   end
 
   @doc """
@@ -370,9 +379,6 @@ defmodule GSMLG.Storage.S3Client do
   defp get_client do
     with {:ok, backend} <- capture_backend(), do: {:ok, backend.client}
   end
-
-  defp max_file_size,
-    do: Application.get_env(:gsmlg_storage, :max_file_size, 5 * 1024 * 1024 * 1024)
 
   defp endpoint(%{endpoint: endpoint, region: region}) when endpoint in [nil, ""],
     do: {:ok, "https://s3.#{region}.amazonaws.com"}
