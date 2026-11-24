@@ -19,7 +19,7 @@
 
 **Language/Version**: Elixir 1.15+ / OTP 26+
 **Framework**: Phoenix 1.7+ with LiveView
-**Primary Dependencies**: [e.g., Ecto, Phoenix.PubSub, Guardian, phoenix_duskmoon or NEEDS CLARIFICATION]
+**Primary Dependencies**: [e.g., Ecto, Phoenix.PubSub, Guardian, duskmoon_phoenix or NEEDS CLARIFICATION]
 **Storage**: MariaDB (Ecto), Mnesia (distributed state), CouchDB (documents) - specify which applies
 **Testing**: ExUnit with async test support; Node.js built-in JavaScript tests (`npm test`)
 **Target Platform**: Linux server (OTP release via Burrito or Docker)
@@ -36,7 +36,7 @@
 Verify compliance with `.specify/memory/constitution.md`:
 
 - [ ] **Umbrella Architecture**: Feature placed in correct app (gsmlg/gsmlg_web/gsmlg_admin_web/gsmlg_commander)
-- [ ] **Phoenix DuskMoon UI**: Uses phoenix_duskmoon components + TailwindCSS (no custom CSS frameworks)
+- [ ] **Phoenix DuskMoon UI**: Uses duskmoon_phoenix components + TailwindCSS (no custom CSS frameworks)
 - [ ] **Modern Frontend Workflow**: npm workspace lockfile, DuskmoonBundler, TailwindCSS and Node.js tests
 - [ ] **OTP Distribution Model**: Appropriate for standalone vs commander deployment model
 - [ ] **Test-First Development**: Test tasks included and written BEFORE implementation tasks

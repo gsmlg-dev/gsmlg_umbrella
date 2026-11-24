@@ -67,11 +67,11 @@ scripts/update_version.sh 1.2.3
 Uses [devenv](https://devenv.sh/) (Nix-based). `devenv shell` automatically:
 - Starts PostgreSQL with Unix socket (sets `PGHOST`, `DATABASE_URL`)
 - Creates `gsmlg_dev` and `gsmlg_test` databases with `gsmlg_dev` user
-- Provides Elixir 1.18.5, OTP 28, Node.js 22 (frontend tooling and JS tests)
+- Provides Elixir 1.18.5, OTP 28, Node.js 26 LTS (frontend tooling and JS tests; minimum supported Node.js is 24)
 
 ## CI
 
-GitHub Actions runs on every push: `compile --warnings-as-errors`, `format --check-formatted`, `credo --strict`, and `dialyzer` (non-blocking). Tests run on pushes to main/develop and PRs to main. CI uses Elixir 1.18.4 + OTP 28, Node.js 22/npm, PostgreSQL 16.
+GitHub Actions runs on every push: `compile --warnings-as-errors`, `format --check-formatted`, `credo --strict`, and `dialyzer` (non-blocking). Tests run on pushes to main/develop and PRs to main. CI uses Elixir 1.18.4 + OTP 28, Node.js 26 LTS/npm, PostgreSQL 16. Node selection follows the root `.node-version`; `package.json` declares Node.js >= 24.
 
 The project requires Elixir >= 1.18.0 and OTP >= 28.0. Development uses the locked Nix Elixir 1.18.5 package. CI and Docker builders use Elixir 1.18.4, whose regular and Alpine images support both amd64 and arm64.
 
@@ -139,6 +139,8 @@ PostgreSQL in production and CI. Dev supports both TCP (`POSTGRES_HOST`) and Uni
 
 Phoenix LiveView and Hologram render pages; shared Markdown is rendered on the server by DuskMoon/MDEx. Shared UI and CSS live in `apps/gsmlg_component/`. Both web apps use DuskmoonBundler 10.1 for JavaScript, Tailwind CSS v4, manifests and development HMR. Named profiles are `gsmlg_web` and `gsmlg_admin_web`. Serve source JS under `/assets/js/`, generated CSS under `/assets/css/`, and static service workers at `/sw.js`.
 
+The public `gsmlg_web` app uses native HTML/HEEx and DuskMoon CSS, with Phoenix or plain JavaScript interactions. Do not render custom elements or register custom-element packages there, including through shared layouts and component wrappers. Choose native-rendering `duskmoon_phoenix` components; use `type="submit"` only for wired form submission and native `type="button"` for non-submit actions. The admin app has its own component requirements.
+
 ### UI Framework: Duskmoon
 
 This project uses the DuskMoon UI system for all UI.
@@ -147,23 +149,23 @@ This project uses the DuskMoon UI system for all UI.
 
 This project uses the DuskMoon UI system:
 
-- **`phoenix_duskmoon`** — Phoenix LiveView UI component library (primary web UI)
+- **`duskmoon_phoenix`** — Phoenix LiveView UI component library (primary web UI, Duskmoon Web 2.0.0-rc.4)
 - **`@duskmoon-dev/core`** — Core Tailwind CSS plugin and utilities
 - **`@duskmoon-dev/elements`** — Base web components
 - **`@duskmoon-dev/art-elements`** — Art/decorative web components
 
-Do NOT use DaisyUI or other CSS component libraries. Do NOT use `core_components.ex` — use `phoenix_duskmoon` components instead.
+Do NOT use DaisyUI or other CSS component libraries. Do NOT use `core_components.ex` — use `duskmoon_phoenix` components instead.
 Use `@duskmoon-dev/core/plugin` as the Tailwind CSS plugin.
 
 ### Reporting issues or feature requests
 
 If you encounter missing features, bugs, or need functionality not yet available in any DuskMoon package, open a GitHub issue in the appropriate repository with the label `internal request`:
 
-- **`phoenix_duskmoon`** — https://github.com/gsmlg-dev/phoenix_duskmoon/issues
-- **`@duskmoon-dev/core`** — https://github.com/gsmlg-dev/duskmoon-dev/issues
-- **`@duskmoon-dev/css-art`** — https://github.com/gsmlg-dev/duskmoon-dev/issues
-- **`@duskmoon-dev/elements`** — https://github.com/gsmlg-dev/duskmoon-dev/issues
-- **`@duskmoon-dev/art-elements`** — https://github.com/gsmlg-dev/duskmoon-dev/issues
+- **`duskmoon_phoenix`** — https://github.com/duskmoon-dev/duskmoon-web/issues
+- **`@duskmoon-dev/core`** — https://github.com/duskmoon-dev/duskmoon-web/issues
+- **`@duskmoon-dev/css-art`** — https://github.com/duskmoon-dev/duskmoon-web/issues
+- **`@duskmoon-dev/elements`** — https://github.com/duskmoon-dev/duskmoon-web/issues
+- **`@duskmoon-dev/art-elements`** — https://github.com/duskmoon-dev/duskmoon-web/issues
 
 ## Critical Gotchas
 
@@ -184,7 +186,7 @@ If you encounter missing features, bugs, or need functionality not yet available
 - List directly imported packages in the owning app's `package.json`. Use `.jsx` for files containing JSX.
 - Vize uses its supported Rust source build via `config :rustler_precompiled, :force_build, duskmoon_vize: true`; GNU prebuilts require glibc 2.43, which is newer than the Nix and Debian build environments.
 - Native dependency builds require Rust 1.99.0 or later. `rust-toolchain.toml` pins the Rustup toolchain used by CI and matches the Docker builder stages. Devenv takes Rust from its dedicated `nixpkgs-unstable` input.
-- JavaScript tests run with Node.js 22 via `npm test`. No React SSR process or separate JavaScript runtime ships in releases. Legacy TOML `bun_path` and `tailwind_path` are accepted and ignored.
+- JavaScript tests run with Node.js 26 LTS via `npm test`, with Node.js 24 as the minimum supported runtime. No React SSR process or separate JavaScript runtime ships in releases. Legacy TOML `bun_path` and `tailwind_path` are accepted and ignored.
 
 ### Telemetry File Backend
 - The file backend JSON-encodes all telemetry events. Phoenix events include `%Plug.Conn{}` in metadata, which has no `Jason.Encoder` implementation.
@@ -194,7 +196,7 @@ If you encounter missing features, bugs, or need functionality not yet available
 ## Active Technologies
 - Elixir 1.18 / OTP 28 (001-blog-multilang)
 - PostgreSQL via `GSMLG.Repo`. Two schema changes: new `source_locale` column on `blogs`; new `blog_translations` table. (001-blog-multilang)
-- Elixir 1.18 / OTP 28 + Ecto, Styx 0.1, Tesla + http_fetch (HTTP), Phoenix.PubSub, phoenix_duskmoon, Mox (test) (001-blog-multilang)
+- Elixir 1.18 / OTP 28 + Ecto, Styx 0.1, Tesla + http_fetch (HTTP), Phoenix.PubSub, duskmoon_phoenix, Mox (test) (001-blog-multilang)
 - PostgreSQL (Ecto). Styx uses same Repo. No Mnesia or CouchDB required for this feature. (001-blog-multilang)
 
 ## Recent Changes

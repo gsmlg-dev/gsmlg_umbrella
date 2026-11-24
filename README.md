@@ -39,13 +39,17 @@ are recorded in `mix.lock`.
 The SVG-to-React toolbox entry and page remain available, with conversion
 temporarily disabled and Babel/SVGR dependencies removed.
 
-Toolbox pages use `duskmoon_hologram` 10.0 with the existing `Hologram.*` API,
+Toolbox pages use `duskmoon_hologram` 10.1.12 with the existing `Hologram.*` API,
 `:hologram` compiler and `/hologram/` routes. Configure the fork under
 `:duskmoon_hologram`; the upstream `hologram` package must not be installed
 alongside it. `mix phx.server` and `mix test` enable it with `HOLOGRAM_START=1`
 from either the umbrella root or `apps/gsmlg_web`.
 
-Both web apps use `duskmoon_bundler` 10.0.8 for JavaScript, Tailwind CSS v4 and
+UI components use `duskmoon_phoenix` and `@duskmoon-dev/core` at `2.0.0-rc.4` from
+[Duskmoon Web](https://github.com/duskmoon-dev/duskmoon-web). Hex and npm Web
+packages are pinned to the same release; the public app uses native HTML/HEEx.
+
+Both web apps use `duskmoon_bundler` 10.1.12 for JavaScript, Tailwind CSS v4 and
 development HMR. Run `mix npm.install` at the umbrella root to install the
 workspace dependencies; commit `package-lock.json` and use `mix npm.ci` for
 frozen installs. When migrating an existing Bun checkout, remove the generated
@@ -71,7 +75,9 @@ development bootstrap
 Source environment checks use `import.meta.env.DEV` / `import.meta.env.MODE`.
 
 Blog Markdown is rendered by the existing DuskMoon/MDEx components on the
-server. JavaScript tests use Node.js's built-in runner (`npm test`); frontend
+server. Node.js 24 is the minimum supported version; Node.js 26 LTS is the primary
+toolchain selected by `.node-version`, devenv, CI and Docker builders.
+JavaScript tests use Node.js's built-in runner (`npm test`); frontend
 asset builds and npm dependency installs use Mix. No separate JavaScript
 runtime is required in the release image.
 The legacy TOML `tailwind_path` is accepted but ignored; no Tailwind CLI is

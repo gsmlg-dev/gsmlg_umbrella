@@ -368,9 +368,9 @@ IP geolocation (including IP to GeoMap), WHOIS/RDAP and MAC lookup services are 
 | Component | Technology | Version |
 |-----------|------------|---------|
 | UI Framework | Phoenix LiveView | 1.2+ |
-| Components | phoenix_duskmoon / MDEx | 10.x / 0.14.x |
+| Components | duskmoon_phoenix / MDEx | 2.0.0-rc.4 / 0.14.x |
 | Styling | Tailwind CSS | 4.x |
-| JavaScript Runtime | Node.js | 22 |
+| JavaScript Runtime | Node.js | >=24; primary 26 LTS |
 | Build Tool | DuskmoonBundler | 10.1.x |
 
 **Data Storage:**

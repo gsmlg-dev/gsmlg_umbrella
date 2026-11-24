@@ -1,20 +1,21 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: 1.1.0 → 1.2.0 (Minor - frontend technology standards updated)
+Version Change: 1.2.0 → 1.3.0 (Minor - Node.js support baseline updated)
 Modified Principles:
-  - II. Phoenix DuskMoon UI Standard - LiveView/Hologram and server-rendered Markdown
-  - III. Modern Frontend Workflow - npm, DuskmoonBundler and Node.js tests
+  - II. Phoenix DuskMoon UI Standard - Duskmoon Web 2 and native Phoenix components
+  - III. Modern Frontend Workflow - Node.js >=24, primary Node.js 26 LTS
 Added Sections: None
 Removed Sections: None
 Templates Requiring Updates:
-  ✅ plan-template.md - Frontend technology and workflow references updated
+  ✅ plan-template.md - No changes needed (Node.js test workflow remains applicable)
   ✅ spec-template.md - No changes needed (technology-agnostic)
   ✅ tasks-template.md - No changes needed
 Follow-up TODOs: None
-Rationale: The project removes the React SSR runtime. Existing Node.js tooling,
-npm workspace installs, DuskmoonBundler and server-side DuskMoon/MDEx rendering
-replace the retired frontend requirements.
+Rationale: Node.js 24 is the minimum supported version. Node.js 26 LTS is the
+primary development, CI and builder toolchain; the root .node-version selects it.
+The consolidated Duskmoon Web 2 RC package is named duskmoon_phoenix and uses
+native markup with Duskmoon Core CSS.
 -->
 
 # GSMLG Umbrella Constitution
@@ -42,8 +43,8 @@ Component reuse requirements:
 **Rationale**: Maintains clear separation of concerns, enables independent deployment, supports distributed OTP architecture, and promotes UI consistency through shared components.
 
 ### II. Phoenix DuskMoon UI Standard
-All user interfaces MUST use the phoenix_duskmoon package for UI components:
-- Components MUST extend DaisyUI patterns via phoenix_duskmoon
+All user interfaces MUST use the duskmoon_phoenix package for UI components:
+- Components MUST use native Duskmoon Phoenix markup and Duskmoon Core CSS
 - Custom styling MUST be applied through TailwindCSS utility classes
 - Pages MUST use Phoenix LiveView or Hologram; shared Markdown MUST render on the server through DuskMoon/MDEx
 - Component consistency across both web applications (public and admin) is REQUIRED
@@ -58,7 +59,7 @@ Frontend assets MUST follow the established build pipeline:
 - **CSS**: TailwindCSS for styling with app-specific configuration
 - **Asset compilation**: Phoenix asset pipeline with `mix assets.deploy`
 - **Development mode**: Live reload via `mix phx.server` with DuskmoonBundler development HMR
-- **JavaScript tests**: Node.js 22 built-in test runner via `npm test`
+- **JavaScript tests**: Node.js 26 LTS built-in test runner via `npm test`; Node.js >=24 is required
 
 Node modules and compiled assets MUST NOT be committed. The `assets/` directory structure MUST be preserved per Phoenix conventions.
 
@@ -216,4 +217,4 @@ This constitution is a living document. It should:
 - Remain concise and actionable (not bureaucratic)
 - Be referenced in daily development decisions
 
-**Version**: 1.2.0 | **Ratified**: 2025-01-17 | **Last Amended**: 2026-11-11
+**Version**: 1.3.0 | **Ratified**: 2025-01-17 | **Last Amended**: 2026-11-21
