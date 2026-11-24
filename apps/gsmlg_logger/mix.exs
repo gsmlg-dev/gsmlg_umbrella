@@ -1,7 +1,7 @@
 defmodule GSMLG.Logger.MixProject do
   use Mix.Project
 
-  @version "5.13.12"
+  @version "5.13.13"
 
   def project do
     [

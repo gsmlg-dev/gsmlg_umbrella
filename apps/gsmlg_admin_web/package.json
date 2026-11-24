@@ -1,6 +1,6 @@
 {
   "name": "gsmlg_admin_web",
-  "version": "5.13.12",
+  "version": "5.13.13",
   "type": "module",
   "dependencies": {
     "@duskmoon-dev/el-markdown": "2.0.0-rc.4",

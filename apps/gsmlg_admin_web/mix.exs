@@ -4,7 +4,7 @@ defmodule GSMLG.AdminWeb.MixProject do
   def project do
     [
       app: :gsmlg_admin_web,
-      version: "5.13.12",
+      version: "5.13.13",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
