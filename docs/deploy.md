@@ -46,8 +46,8 @@ The workflow publishes:
 - `ghcr.io/gsmlg-dev/gsmlg-umbrella:v<version>`
 - `ghcr.io/gsmlg-dev/gsmlg-umbrella:latest`
 
-The root Mix version, every `apps/*/mix.exs` and explicit root/application
-`package.json` versions must match. Dependency versions are not changed. For
+The root Mix version, every `apps/*/mix.exs`, and the project versions in
+`package.json` and `package-lock.json` must match. Dependency versions are not changed. For
 local changes, use `scripts/update_version.sh <version>` and check with
 `scripts/update_version.sh --check`. The updater discovers new applications
 automatically; CI runs the check without starting services.

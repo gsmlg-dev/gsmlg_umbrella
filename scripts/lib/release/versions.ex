@@ -24,18 +24,20 @@ defmodule GSMLG.Release.Versions do
       projects = read_projects!(root)
 
       # Read and validate every declaration before changing any source file.
-      Enum.each(projects, fn project ->
-        <<before::binary-size(project.offset), rest::binary>> = project.source
+      Enum.each(Enum.group_by(projects, & &1.file), fn {file, edits} ->
+        source = hd(edits).source
 
-        rest =
-          binary_part(
-            rest,
-            byte_size(project.literal),
-            byte_size(rest) - byte_size(project.literal)
-          )
+        updated =
+          edits
+          |> Enum.sort_by(& &1.offset, :desc)
+          |> Enum.reduce(source, fn edit, text ->
+            before = binary_part(text, 0, edit.offset)
+            after_offset = edit.offset + byte_size(edit.literal)
+            rest = binary_part(text, after_offset, byte_size(text) - after_offset)
+            before <> inspect(version) <> rest
+          end)
 
-        updated = before <> inspect(version) <> rest
-        if updated != project.source, do: File.write!(project.file, updated)
+        if updated != source, do: File.write!(file, updated)
       end)
 
       :ok
@@ -44,7 +46,8 @@ defmodule GSMLG.Release.Versions do
 
   defp read_projects!(root) do
     root = Path.expand(root)
-    read_mix_projects!(root) ++ read_json_projects!(root)
+    manifests = read_json_projects!(root)
+    read_mix_projects!(root) ++ manifests ++ read_lock_projects!(root, manifests)
   end
 
   defp read_mix_projects!(root) do
@@ -153,13 +156,7 @@ defmodule GSMLG.Release.Versions do
           validate_version!(version, path)
 
           # Token offsets let us change only the top-level value and preserve JSON formatting.
-          tokens =
-            Regex.scan(~r/"(?:[^"\\]|\\.)*"|[{}\[\]:,]/, source, return: :index)
-            |> Enum.map(fn [{offset, length}] ->
-              {binary_part(source, offset, length), offset}
-            end)
-
-          case json_version_tokens(tokens, 0, []) do
+          case Map.get(json_versions(source), []) do
             [{literal, offset}] ->
               [
                 %{
@@ -179,22 +176,95 @@ defmodule GSMLG.Release.Versions do
     end)
   end
 
-  defp json_version_tokens([], _depth, versions), do: versions
+  defp read_lock_projects!(root, manifests) do
+    file = Path.join(root, "package-lock.json")
 
-  defp json_version_tokens([{key, _}, {":", _}, value | rest], 1, versions) do
-    versions = if JSON.decode!(key) == "version", do: [value | versions], else: versions
-    json_version_tokens([value | rest], 1, versions)
+    case File.read(file) do
+      {:ok, source} ->
+        case JSON.decode(source) do
+          {:ok, %{"packages" => packages} = lock} when is_map(packages) ->
+            locations =
+              for %{path: path} <- manifests,
+                  location = if(path == "package.json", do: "", else: Path.dirname(path)),
+                  Map.has_key?(packages, location),
+                  do: [location, "packages"]
+
+            locations = if Map.has_key?(lock, "version"), do: [[] | locations], else: locations
+            versions = json_versions(source)
+
+            Enum.map(locations, fn location ->
+              path = Enum.join(["package-lock.json" | Enum.reverse(location)], ":")
+              version = get_in(lock, Enum.reverse(["version" | location]))
+              validate_version!(version, path)
+
+              case Map.get(versions, location) do
+                [{literal, offset}] ->
+                  %{
+                    file: file,
+                    path: path,
+                    source: source,
+                    version: version,
+                    offset: offset,
+                    literal: literal
+                  }
+
+                _ ->
+                  raise ArgumentError, "#{path}: expected one version declaration"
+              end
+            end)
+
+          _ ->
+            raise ArgumentError, "package-lock.json: expected a JSON object with a packages map"
+        end
+
+      {:error, :enoent} ->
+        []
+
+      {:error, reason} ->
+        raise File.Error, reason: reason, action: "read file", path: file
+    end
   end
 
-  defp json_version_tokens([{token, _} | rest], depth, versions) do
-    depth =
-      case token do
-        opening when opening in ["{", "["] -> depth + 1
-        closing when closing in ["}", "]"] -> depth - 1
-        _ -> depth
-      end
+  defp json_versions(source) do
+    [{"{", _} | tokens] =
+      Regex.scan(~r/"(?:[^"\\]|\\.)*"|[{}\[\]:,]/, source, return: :index)
+      |> Enum.map(fn [{offset, length}] -> {binary_part(source, offset, length), offset} end)
 
-    json_version_tokens(rest, depth, versions)
+    json_version_tokens(tokens, [[]], %{})
+  end
+
+  defp json_version_tokens([], _scopes, versions), do: versions
+
+  defp json_version_tokens([{key, _}, {":", _}, {"{", _} | rest], [path | _] = scopes, versions)
+       when is_list(path) do
+    json_version_tokens(rest, [[JSON.decode!(key) | path] | scopes], versions)
+  end
+
+  defp json_version_tokens(
+         [{key, _}, {":", _}, {<<"\"", _::binary>>, _} = value | rest],
+         [path | _] = scopes,
+         versions
+       )
+       when is_list(path) do
+    versions =
+      if JSON.decode!(key) == "version",
+        do: Map.update(versions, path, [value], &[value | &1]),
+        else: versions
+
+    json_version_tokens(rest, scopes, versions)
+  end
+
+  defp json_version_tokens([{opening, _} | rest], scopes, versions) when opening in ["{", "["] do
+    json_version_tokens(rest, [nil | scopes], versions)
+  end
+
+  defp json_version_tokens([{closing, _} | rest], [_ | scopes], versions)
+       when closing in ["}", "]"] do
+    json_version_tokens(rest, scopes, versions)
+  end
+
+  defp json_version_tokens([_ | rest], scopes, versions) do
+    json_version_tokens(rest, scopes, versions)
   end
 
   defp validate_version!(version, path \\ nil) do

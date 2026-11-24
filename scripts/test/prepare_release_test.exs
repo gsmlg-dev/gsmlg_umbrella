@@ -86,7 +86,20 @@ defmodule GSMLG.Release.PrepareReleaseTest do
       )
     end
 
-    git!(fixture.root, ["add", "package.json", "apps/child/package.json"])
+    lock = """
+    {
+      "version": "1.0.0",
+      "lockfileVersion": 3,
+      "packages": {
+        "": {"version": "1.0.0"},
+        "apps/child": {"version": "1.0.0"},
+        "node_modules/external": {"version": "1.0.0"}
+      }
+    }
+    """
+
+    File.write!(Path.join(fixture.root, "package-lock.json"), lock)
+    git!(fixture.root, ["add", "package.json", "apps/child/package.json", "package-lock.json"])
     git!(fixture.root, ["commit", "-m", "Add frontend metadata"])
 
     assert {_, 0} = prepare(fixture, "5.13.8")
@@ -96,6 +109,16 @@ defmodule GSMLG.Release.PrepareReleaseTest do
       assert git!(fixture.root, ["show", "#{sha}:#{file}"]) ==
                ~s({"version":"5.13.8","dependencies":{"external":"1.0.0"}})
     end
+
+    assert git!(fixture.root, ["show", "#{sha}:package-lock.json"]) ==
+             lock
+             |> String.replace(
+               ~r/^(?!.*node_modules\/external).*"version": "1\.0\.0"/m,
+               fn line ->
+                 String.replace(line, "1.0.0", "5.13.8")
+               end
+             )
+             |> String.trim()
 
     assert remote_ref(fixture, "refs/tags/v5.13.8^{}") == sha
     assert remote_ref(fixture, "refs/heads/main") == fixture.baseline

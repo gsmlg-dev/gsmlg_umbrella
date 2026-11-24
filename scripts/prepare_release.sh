@@ -24,6 +24,9 @@ fi
 bash "$script_dir/update_version.sh" "$version"
 
 files=(mix.exs)
+if [[ -f "$root/package-lock.json" ]]; then
+  files+=(package-lock.json)
+fi
 for version_file in "$root"/apps/*/mix.exs "$root"/package.json "$root"/apps/*/package.json; do
   if [[ -f "$version_file" ]]; then
     files+=("${version_file#"$root"/}")
