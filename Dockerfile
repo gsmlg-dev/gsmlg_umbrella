@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS node
+FROM node:26-bookworm-slim AS node
 FROM rust:1.99.0-slim-bookworm AS rust
 
 FROM elixir:1.18.4-otp-28 AS builder

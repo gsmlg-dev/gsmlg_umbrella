@@ -50,7 +50,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .node-version
 
       - name: Set up Elixir
         id: beam
@@ -85,7 +85,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .node-version
 
       - name: Set up Elixir
         id: beam
@@ -120,7 +120,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .node-version
 
       - name: Set up Elixir
         id: beam
@@ -155,7 +155,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .node-version
 
       - name: Set up Elixir
         id: beam

@@ -28,7 +28,7 @@ in
   languages.elixir.package = pkgs-stable.beam28Packages.elixir_1_18;
 
   languages.javascript.enable = true;
-  languages.javascript.package = pkgs-stable.nodejs_22; # frontend tooling
+  languages.javascript.package = pkgs-unstable.nodejs_26; # primary Node.js LTS toolchain
   languages.javascript.pnpm.enable = true;
 
   env.AWS_ACCESS_KEY_ID = "minioadmin";
