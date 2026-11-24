@@ -3,10 +3,9 @@
   "version": "5.13.12",
   "type": "module",
   "dependencies": {
-    "@duskmoon-dev/elements": "1.10.2",
+    "duskmoon_phoenix": "2.0.0-rc.4",
     "gsmlg_component": "file:../gsmlg_component",
     "phoenix": "file:../../deps/phoenix",
-    "phoenix_duskmoon": "file:../../deps/phoenix_duskmoon",
     "phoenix_html": "file:../../deps/phoenix_html",
     "phoenix_live_view": "file:../../deps/phoenix_live_view"
   }

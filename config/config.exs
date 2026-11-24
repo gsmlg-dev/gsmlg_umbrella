@@ -92,7 +92,7 @@ config :rustler_precompiled, :force_build, duskmoon_vize: true
 for app <- [:gsmlg_web, :gsmlg_admin_web] do
   app_dir = Path.expand("../apps/#{app}", __DIR__)
   component_dir = Path.expand("../apps/gsmlg_component", __DIR__)
-  duskmoon_dir = Path.expand("../deps/phoenix_duskmoon/lib", __DIR__)
+  duskmoon_dir = Path.expand("../deps/duskmoon_phoenix/lib", __DIR__)
 
   config :duskmoon_bundler, app,
     root: Path.join(app_dir, "assets"),

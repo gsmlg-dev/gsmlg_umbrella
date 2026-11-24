@@ -121,13 +121,17 @@ defmodule GSMLG.Storage.InventoryTest do
       "<Other />",
       page([{"bad.txt", "-1"}], false),
       page([], true),
-      String.replace(page([], false), "<IsTruncated>false</IsTruncated>", ""),
-      String.replace(page([{"good", 1}], false), "<Key>good</Key>", "<Key>%FF</Key>")
+      String.replace(page([], false), "<IsTruncated>false</IsTruncated>", "")
     ]
 
     for xml <- invalid_pages do
       assert_rejected_listing(Inventory.load(backend(fn _, _, _, _ -> response(xml) end)))
     end
+
+    invalid_utf8 = String.replace(page([{"good", 1}], false), "<Key>good</Key>", "<Key>%FF</Key>")
+
+    assert {:error, %Error{category: :protocol, code: :invalid_utf8}} =
+             Inventory.load(backend(fn _, _, _, _ -> response(invalid_utf8) end))
 
     # Like botocore, the SDK form-decodes listing keys and keeps an invalid
     # escape literally instead of rejecting the page.

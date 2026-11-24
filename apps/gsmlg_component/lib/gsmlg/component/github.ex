@@ -4,7 +4,7 @@ defmodule GSMLG.Component.Github do
 
   """
   use Phoenix.Component
-  use PhoenixDuskmoon.Component
+  use DuskmoonPhoenix.Component
 
   # alias Phoenix.LiveView.JS
   use Gettext, backend: GSMLG.Component.Gettext

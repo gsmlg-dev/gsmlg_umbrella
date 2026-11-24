@@ -24,8 +24,8 @@ defmodule GSMLG.BrowserAgent.MixProject do
 
   defp deps do
     [
-      {:http_fetch, "~> 1.0.0-rc.8"},
-      {:http_web_socket, "~> 1.0.0-rc.8"},
+      {:http_fetch, "~> 1.0.0-rc.20"},
+      {:http_web_socket, "~> 1.0.0-rc.20"},
       {:telemetry, "~> 1.4"},
       {:gsmlg_commander, in_umbrella: true},
       {:gsmlg_commander_protocol, in_umbrella: true}

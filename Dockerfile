@@ -38,28 +38,6 @@ cd /build
 
 mix deps.get
 mix npm.ci
-python3 - <<'PY'
-from pathlib import Path
-
-for path in [
-    Path("/build/node_modules/@duskmoon-dev/el-code-block/dist/esm/index.js"),
-    Path("/build/node_modules/@duskmoon-dev/el-code-block/dist/esm/register.js"),
-    Path("/build/node_modules/@duskmoon-dev/el-code-block/dist/cjs/index.js"),
-    Path("/build/node_modules/@duskmoon-dev/el-code-block/dist/cjs/register.js"),
-]:
-    source = path.read_text()
-    source = source.replace(
-        'import { css as codeBlockCSS } from "@duskmoon-dev/core/components/code-block";\n'
-        'var coreStyles = codeBlockCSS.replace(/@layer\\s+components\\s*\\{/, "").replace(/\\}\\s*$/, "");',
-        'var coreStyles = "";',
-    )
-    source = source.replace(
-        'var import_code_block = require("@duskmoon-dev/core/components/code-block");\n'
-        'var coreStyles = import_code_block.css.replace(/@layer\\s+components\\s*\\{/, "").replace(/\\}\\s*$/, "");',
-        'var coreStyles = "";',
-    )
-    path.write_text(source)
-PY
 bash scripts/update_version.sh $RELEASE_VERSION
 
 mix release gsmlg_umbrella --version "${RELEASE_VERSION}" --overwrite

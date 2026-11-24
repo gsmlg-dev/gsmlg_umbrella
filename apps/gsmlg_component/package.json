@@ -3,8 +3,9 @@
   "version": "5.13.12",
   "type": "module",
   "dependencies": {
-    "@duskmoon-dev/core": "1.21.0",
+    "@duskmoon-dev/core": "2.0.0-rc.4",
     "@tailwindcss/typography": "0.5.20",
+    "duskmoon_phoenix": "2.0.0-rc.4",
     "highlight.js": "^11.12.0"
   }
 }

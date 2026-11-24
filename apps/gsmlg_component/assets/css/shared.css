@@ -1,3 +1,5 @@
+@layer properties, theme, base, components, utilities;
+@import "duskmoon_phoenix/css";
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 @plugin "@duskmoon-dev/core/plugin";

@@ -38,7 +38,7 @@ defmodule GSMLG.MixProject do
       {:caddy, "~> 2.3"},
       {:swoosh, "~> 1.29"},
       {:tesla, "~> 1.22"},
-      {:http_fetch, "~> 1.0.0-rc.8"},
+      {:http_fetch, "~> 1.0.0-rc.20"},
       {:libcluster, "~> 3.5"},
       {:concord, "~> 3.1"},
       {:gsmlg_config, in_umbrella: true},

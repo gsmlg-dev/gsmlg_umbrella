@@ -1,9 +1,6 @@
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
-import { WebComponentHook, FormElementHook, ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight, DuskmoonPopover } from "phoenix_duskmoon/hooks";
-
-// Register duskmoon custom elements
-import "@duskmoon-dev/elements/register";
+import { ThemeSwitcher as UpstreamThemeSwitcher, PageHeader, Spotlight, DuskmoonPopover } from "duskmoon_phoenix/hooks";
 
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -53,7 +50,7 @@ const ThemeSwitcher = {
   },
 };
 
-const hooks = { WebComponentHook, FormElementHook, ThemeSwitcher, PageHeader, Spotlight, DuskmoonPopover };
+const hooks = { ThemeSwitcher, PageHeader, Spotlight, DuskmoonPopover };
 
 let token;
 

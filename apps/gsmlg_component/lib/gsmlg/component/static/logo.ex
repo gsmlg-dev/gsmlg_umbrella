@@ -10,7 +10,7 @@ defmodule GSMLG.Component.Static.Logo do
   [heroicons_elixir](https://github.com/mveytsman/heroicons_elixir) project.
   """
   use Phoenix.Component
-  use PhoenixDuskmoon.Component
+  use DuskmoonPhoenix.Component
 
   @doc """
   Renders app logo.

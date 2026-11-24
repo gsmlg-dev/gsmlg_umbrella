@@ -4,7 +4,7 @@ defmodule GSMLG.AdminWeb.GaoNoteMarkdown do
   use Phoenix.Component
 
   alias GSMLG.GaoNote.Attachment
-  alias PhoenixDuskmoon.Component.DataDisplay.Markdown
+  alias DuskmoonPhoenix.Component.DataDisplay.Markdown
 
   @safe_link_schemes ~w(http https mailto tel)
   @safe_image_schemes ~w(http https)

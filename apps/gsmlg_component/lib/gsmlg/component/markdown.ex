@@ -5,7 +5,7 @@ defmodule GSMLG.Component.Markdown do
 
   use Phoenix.Component
 
-  alias PhoenixDuskmoon.Component.DataDisplay.Markdown
+  alias DuskmoonPhoenix.Component.DataDisplay.Markdown
 
   @sanitize_options MDEx.Document.default_sanitize_options()
                     |> Keyword.update!(:tags, &["input" | &1])

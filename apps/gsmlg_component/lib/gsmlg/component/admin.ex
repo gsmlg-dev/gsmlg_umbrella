@@ -3,7 +3,7 @@ defmodule GSMLG.Component.Admin do
   Provides App UI components.
   """
   use Phoenix.Component
-  use PhoenixDuskmoon.Component
+  use DuskmoonPhoenix.Component
 
   # alias Phoenix.LiveView.JS
 

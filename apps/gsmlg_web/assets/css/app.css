@@ -3,7 +3,7 @@
 @source "../../lib/*_web.ex";
 @source "../../lib/*_web/**/*.*ex";
 @source "../../../gsmlg_component/lib/**/*.*ex";
-@source "../../../../deps/phoenix_duskmoon/lib/**/*.*ex";
+@source "../../../../deps/duskmoon_phoenix/lib/**/*.*ex";
 
 @import "gsmlg_component/assets/css/shared.css";
 

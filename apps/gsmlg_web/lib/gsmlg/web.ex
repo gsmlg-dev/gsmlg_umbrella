@@ -86,7 +86,7 @@ defmodule GSMLG.Web do
       # Core UI components and translation
       use Gettext, backend: GSMLG.Web.Gettext
       use GSMLG.Component
-      use PhoenixDuskmoon.Component
+      use DuskmoonPhoenix.Component
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

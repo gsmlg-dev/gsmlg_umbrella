@@ -7,10 +7,6 @@ apps/gsmlg_component/priv/server.*
 **/_build
 **/deps
 **/node_modules
-!deps/
-deps/*
-!deps/phoenix_duskmoon/
-!deps/phoenix_duskmoon/**
 .elixir_ls
 .devenv
 .direnv

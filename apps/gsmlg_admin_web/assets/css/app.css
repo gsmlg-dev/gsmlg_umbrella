@@ -2,9 +2,10 @@
 @source "../../lib/*_web.ex";
 @source "../../lib/*_web/**/*.*ex";
 @source "../../../gsmlg_component/lib/**/*.*ex";
-@source "../../../../deps/phoenix_duskmoon/lib/phoenix_duskmoon/**/*.*ex";
+@source "../../../../deps/duskmoon_phoenix/lib/duskmoon_phoenix/**/*.*ex";
 
 @import "gsmlg_component/assets/css/shared.css";
+@import "duskmoon_phoenix/elements.css";
 @import '@xterm/xterm/css/xterm.css';
 
 @import './main.css';

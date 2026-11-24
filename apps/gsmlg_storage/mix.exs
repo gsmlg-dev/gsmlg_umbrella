@@ -30,7 +30,7 @@ defmodule GSMLG.Storage.MixProject do
   defp deps do
     [
       {:gsmlg, in_umbrella: true},
-      {:ex_storage_service_sdk, "~> 0.7.1"},
+      {:ex_storage_service_sdk, "~> 0.8"},
       {:vix, "~> 0.42"},
       {:gaoxy_http, "~> 0.12", only: :test},
       # Independent oracles for wire-level S3 signature and XML assertions.
