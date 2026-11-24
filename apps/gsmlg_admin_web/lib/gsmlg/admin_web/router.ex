@@ -109,6 +109,7 @@ defmodule GSMLG.AdminWeb.Router do
     delete("/sign_out", AuthController, :sign_out)
 
     get("/", PageController, :index)
+    get("/dashboard", PageController, :dashboard)
 
     get("/node_management", NodeManagementController, :index)
     post("/node_management", NodeManagementController, :update)

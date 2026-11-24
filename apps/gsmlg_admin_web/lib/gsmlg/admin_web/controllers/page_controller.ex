@@ -20,6 +20,10 @@ defmodule GSMLG.AdminWeb.PageController do
     )
   end
 
+  def dashboard(conn, _params) do
+    render(conn, :dashboard, page_title: gettext("Live Dashboard"))
+  end
+
   def caddy_disabled(conn, _params) do
     send_resp(conn, :not_found, "Not Found")
   end

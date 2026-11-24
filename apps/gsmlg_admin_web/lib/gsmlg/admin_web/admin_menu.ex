@@ -20,7 +20,7 @@ defmodule GSMLG.AdminWeb.AdminMenu do
               id: "live_dashboard",
               icon: "chart-box-outline",
               label: "Live Dashboard",
-              path: "/live_dashboard"
+              path: "/dashboard"
             }
           ]
         }
