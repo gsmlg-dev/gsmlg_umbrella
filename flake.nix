@@ -14,11 +14,9 @@
       pkgs = import nixpkgs {inherit system;};
       umbrella_app = pkgs.callPackage ./pkgs/gsmlg_umbrella.nix {inherit system;};
       commander_app = pkgs.callPackage ./pkgs/gsmlg_commander.nix {inherit system;};
-      scout_agent_app = pkgs.callPackage ./pkgs/gsmlg_scout_agent.nix {inherit system;};
     in {
       packages.gsmlg-umbrella = umbrella_app;
       packages.gsmlg-commander = commander_app;
-      packages.gsmlg_scout_agent = scout_agent_app;
 
       packages.default = umbrella_app;
     });

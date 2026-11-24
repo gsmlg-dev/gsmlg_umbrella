@@ -9,11 +9,8 @@ defmodule GSMLG.Scout.Agent.Application do
       children =
         [
           {Task.Supervisor, name: GSMLG.Scout.Agent.TaskSupervisor},
-          GSMLG.Scout.Agent.LightpandaPool,
-          GSMLG.Scout.Agent.Heartbeat,
-          maybe_rabbitmq_consumer()
+          GSMLG.Scout.Agent.LightpandaPool
         ]
-        |> Enum.reject(&is_nil/1)
 
       Supervisor.start_link(children, strategy: :one_for_one, name: GSMLG.Scout.Agent.Supervisor)
     else
@@ -27,12 +24,5 @@ defmodule GSMLG.Scout.Agent.Application do
     settings["agent"]["enabled"] == true ||
       System.get_env("GSMLG_SCOUT_AGENT_ENABLED") == "true" ||
       Application.get_env(:gsmlg_scout_agent, :force_enabled, false)
-  end
-
-  defp maybe_rabbitmq_consumer do
-    if GSMLG.Scout.RabbitMQ.enabled?() and
-         Application.get_env(:gsmlg_scout_agent, :consumer_enabled, true) do
-      GSMLG.Scout.Agent.AMQPConsumer
-    end
   end
 end

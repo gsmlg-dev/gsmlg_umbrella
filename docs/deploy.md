@@ -1,23 +1,20 @@
 # Deployment Guide
 
-This guide covers deployment for the three release targets in this umbrella:
+This guide covers deployment for the umbrella service and Commander workers:
 
 | Release | Purpose | Artifact |
 | --- | --- | --- |
 | `gsmlg_umbrella` | Main service: public web, admin web, database-backed domain services, Scout server, Commander platform | `gsmlg.tar.gz` or Docker image |
 | `gsmlg_commander` | Remote Commander worker that connects back to the admin platform over WebSocket | `commander-<os>-<arch>.tar.gz` |
-| `gsmlg_scout_agent` | Remote Scout fetch worker that consumes RabbitMQ jobs and runs Lightpanda | `gsmlg_scout_agent.tar.gz` |
 
-The GitHub `release` workflow builds all three tarballs and the umbrella Docker image. Nix flakes also expose all three packages.
+The GitHub `release` workflow builds the umbrella and Commander tarballs and the umbrella Docker image. Nix flakes expose both packages.
 
 ## Prerequisites
 
 Production hosts need:
 
 - PostgreSQL reachable by the umbrella app.
-- RabbitMQ reachable by the umbrella app and Scout agents when Scout distributed fetching is enabled.
 - `openssl` and system CA certificates for release hosts.
-- Lightpanda for Scout agents, either as a native executable or through a local wrapper script that runs Docker.
 
 Generate production secrets before deploying. Do not reuse checked-in development secrets.
 
@@ -46,7 +43,6 @@ The workflow publishes:
 - `commander-macos-arm64.tar.gz`
 - `commander-windows-amd64.tar.gz`
 - `commander-freebsd-amd64.tar.gz`
-- `gsmlg_scout_agent.tar.gz`
 - `ghcr.io/gsmlg-dev/gsmlg-umbrella:v<version>`
 - `ghcr.io/gsmlg-dev/gsmlg-umbrella:latest`
 
@@ -92,7 +88,6 @@ MIX_ENV=prod mix compile
 MIX_ENV=prod mix prerelease
 MIX_ENV=prod mix release gsmlg_umbrella --overwrite
 MIX_ENV=prod mix release gsmlg_commander --overwrite
-MIX_ENV=prod mix release gsmlg_scout_agent --overwrite
 ```
 
 Local release outputs are created under `_build/prod/rel/<release_name>`.
@@ -102,7 +97,6 @@ Local release outputs are created under `_build/prod/rel/<release_name>`.
 ```bash
 nix build .#gsmlg-umbrella
 nix build .#gsmlg-commander
-nix build .#gsmlg_scout_agent
 ```
 
 The default flake package is `gsmlg-umbrella`.
@@ -124,7 +118,6 @@ Use separate config files per host when the roles differ:
 
 - `/etc/gsmlg_umbrella.toml` for the main service.
 - `$HOME/.config/gsmlg/commander/config.toml` for Commander workers.
-- `/etc/gsmlg_scout_agent.toml` for Scout agents.
 
 ### Main Service Config
 
@@ -165,13 +158,9 @@ start = false
 name = "platform"
 platform_url = "wss://admin.gsmlg.example.com/commander-socket/websocket"
 platform_key = "CHANGE_ME_SHARED_COMMANDER_KEY"
-
-[scout.rabbitmq]
-enabled = true
-url = "amqp://scout:CHANGE_ME@rabbitmq.example.internal:5672"
 ```
 
-The umbrella app starts the public endpoint, admin endpoint, Scout server, and supporting domain services. It also provides the admin-side Commander and Scout dashboards.
+The umbrella app starts the public endpoint, admin endpoint, Scout server, and supporting domain services. It also provides the admin-side Commander and Scout dashboards. Scout remote fetching is unavailable until the Commander integration is ready. The fetch submission endpoints return HTTP 503.
 
 ### Commander Worker Config
 
@@ -188,41 +177,6 @@ features = ["pty"]
 ```
 
 `platform_key` must match the key configured for the admin platform. The worker does not need inbound ports opened.
-
-### Scout Agent Config
-
-Scout agents consume RabbitMQ jobs and publish results/heartbeats:
-
-```toml
-[scout.rabbitmq]
-enabled = true
-url = "amqp://scout:CHANGE_ME@rabbitmq.example.internal:5672"
-
-[scout.agent]
-enabled = true
-id = "scout-agent-edge-01"
-region = "local"
-heartbeat_interval_ms = 10000
-capacity = 16
-browser_instances = 2
-page_concurrency = 16
-lightpanda_path = "/usr/local/bin/lightpanda-docker"
-```
-
-`lightpanda_path` must be one executable path, not a full shell command. For Docker-based Lightpanda, install a wrapper on the Scout agent host:
-
-```bash
-sudo tee /usr/local/bin/lightpanda-docker >/dev/null <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-
-exec docker run --pull=never --rm --network host lightpanda/browser:nightly lightpanda "$@"
-SH
-sudo chmod +x /usr/local/bin/lightpanda-docker
-docker pull lightpanda/browser:nightly
-```
-
-The `--network host` flag is needed because the Scout agent serves a temporary local page on `127.0.0.1` before Lightpanda renders it.
 
 ## Deploy The Umbrella App
 
@@ -522,29 +476,6 @@ Expected result:
 - The admin UI can show the Commander under `/commander`.
 - No inbound firewall rule is required for the Commander worker.
 
-## Deploy Scout Agent
-
-```bash
-VERSION=5.6.0
-sudo mkdir -p /opt/gsmlg /etc/gsmlg
-curl -L -o /tmp/gsmlg_scout_agent.tar.gz \
-  "https://github.com/gsmlg-dev/gsmlg_umbrella/releases/download/v${VERSION}/gsmlg_scout_agent.tar.gz"
-sudo tar -xzf /tmp/gsmlg_scout_agent.tar.gz -C /opt/gsmlg
-sudo install -o root -g gsmlg -m 0640 /path/to/gsmlg_scout_agent.toml \
-  /etc/gsmlg/gsmlg_scout_agent.toml
-
-sudo --user=gsmlg --group=gsmlg -- \
-  env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_scout_agent.toml \
-  /opt/gsmlg/gsmlg_scout_agent/bin/gsmlg_scout_agent start
-```
-
-Expected result:
-
-- The agent publishes heartbeats to `scout.agent.heartbeat`.
-- RabbitMQ shows a consumer on `scout.fetch.jobs`.
-- The admin Scout page shows the agent.
-- Fetch jobs complete when Lightpanda is available.
-
 ## systemd Units
 
 Use separate units per role. Adjust paths and users for the target host.
@@ -595,27 +526,6 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-### Scout Agent
-
-```ini
-[Unit]
-Description=GSMLG Scout Agent
-After=network-online.target docker.service
-Wants=network-online.target
-
-[Service]
-User=gsmlg
-WorkingDirectory=/opt/gsmlg/gsmlg_scout_agent
-Environment=GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_scout_agent.toml
-ExecStart=/opt/gsmlg/gsmlg_scout_agent/bin/gsmlg_scout_agent start
-ExecStop=/opt/gsmlg/gsmlg_scout_agent/bin/gsmlg_scout_agent stop
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
 Enable and start a unit:
 
 ```bash
@@ -648,15 +558,6 @@ journalctl -u gsmlg-commander.service -f
 ```
 
 Check the admin UI under `/commander`.
-
-Scout agent:
-
-```bash
-journalctl -u gsmlg-scout-agent.service -f
-rabbitmqctl list_queues name consumers messages | grep scout
-```
-
-Check the admin UI under `/scout` and submit a fetch job for `https://example.com/`.
 
 ## Rollback
 

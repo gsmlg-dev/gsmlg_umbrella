@@ -5,7 +5,7 @@ defmodule GSMLG.Scout.Server.TransportDisabled do
     {:error,
      %{
        type: "transport_disabled",
-       message: "Scout RabbitMQ transport is disabled",
+       message: "Scout fetch transport is unavailable",
        retryable: false
      }}
   end

@@ -486,17 +486,6 @@ defmodule GSMLG.Config.SetupTest do
           default_region: "local",
           request_timeout_ms: 30_000
         },
-        rabbitmq: %{
-          enabled: false,
-          url: "amqp://guest:guest@localhost:5672",
-          queues: %{
-            jobs: "scout.fetch.jobs",
-            results: "scout.fetch.results",
-            failed: "scout.fetch.failed",
-            heartbeat: "scout.agent.heartbeat"
-          },
-          regional_queues: %{eu: "scout.fetch.jobs.eu"}
-        },
         fetch: %{
           default_timeout_ms: 30_000,
           max_timeout_ms: 60_000,

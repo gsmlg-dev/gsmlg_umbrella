@@ -68,11 +68,6 @@ defmodule GSMLG.ProxyRules.OperationalTest do
                "  /opt/gsmlg/commander/bin/gsmlg_commander start"
 
     assert deploy =~
-             "sudo --user=gsmlg --group=gsmlg -- \\\n" <>
-               "  env GSMLG_CONFIG_PATH=/etc/gsmlg/gsmlg_scout_agent.toml \\\n" <>
-               "  /opt/gsmlg/gsmlg_scout_agent/bin/gsmlg_scout_agent start"
-
-    assert deploy =~
              "sudo install -d -o gsmlg -g gsmlg -m 0750 /var/lib/mnesia /var/log/gsmlg"
 
     assert deploy =~

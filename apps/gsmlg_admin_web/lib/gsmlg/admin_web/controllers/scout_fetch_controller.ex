@@ -51,5 +51,6 @@ defmodule GSMLG.AdminWeb.ScoutFetchController do
   defp status_for(%{type: "unsupported_protocol"}), do: :unprocessable_entity
   defp status_for(%{type: "blocked_target"}), do: :unprocessable_entity
   defp status_for(%{type: "timeout"}), do: :gateway_timeout
+  defp status_for(%{type: "transport_disabled"}), do: :service_unavailable
   defp status_for(_error), do: :internal_server_error
 end

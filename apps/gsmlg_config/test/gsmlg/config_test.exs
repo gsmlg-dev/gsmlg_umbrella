@@ -236,6 +236,15 @@ defmodule GSMLG.ConfigTest do
                GSMLG.Config.Schema.validate(%{scout: %{security: %{redirect_limit: 7}}})
     end
 
+    test "ignores the retired Scout RabbitMQ section in existing configurations" do
+      assert {:ok, %{scout: %{security: %{redirect_limit: 7}} = scout}} =
+               GSMLG.Config.Schema.validate(%{
+                 scout: %{rabbitmq: %{enabled: true}, security: %{redirect_limit: 7}}
+               })
+
+      refute Map.has_key?(scout, :rabbitmq)
+    end
+
     test "returns errors for invalid scout nested shapes" do
       top_level_result =
         try do

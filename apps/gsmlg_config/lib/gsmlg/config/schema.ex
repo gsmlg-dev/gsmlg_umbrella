@@ -719,29 +719,6 @@ defmodule GSMLG.Config.Schema do
     ]
   ]
 
-  @scout_rabbitmq_schema [
-    enabled: [
-      type: :boolean,
-      default: false,
-      doc: "Enable Scout RabbitMQ integration"
-    ],
-    url: [
-      type: :string,
-      default: "amqp://guest:guest@localhost:5672",
-      doc: "RabbitMQ connection URL"
-    ],
-    queues: [
-      type: :map,
-      default: %{},
-      doc: "Scout RabbitMQ queue names"
-    ],
-    regional_queues: [
-      type: :map,
-      default: %{},
-      doc: "Scout regional RabbitMQ queue names"
-    ]
-  ]
-
   @scout_fetch_schema [
     default_timeout_ms: [
       type: :pos_integer,
@@ -917,7 +894,6 @@ defmodule GSMLG.Config.Schema do
       proxy_rules: @proxy_rules_schema,
       scout: %{
         general: @scout_general_schema,
-        rabbitmq: @scout_rabbitmq_schema,
         fetch: @scout_fetch_schema,
         agent: @scout_agent_schema,
         security: @scout_security_schema
@@ -964,7 +940,12 @@ defmodule GSMLG.Config.Schema do
         end
 
       schema when is_map(schema) ->
-        # Nested section schemas
+        # Ignore the retired transport section in existing Scout configurations.
+        config =
+          if section == :scout and is_map(config),
+            do: Map.delete(config, :rabbitmq),
+            else: config
+
         validate_nested(config, schema)
     end
   end
@@ -1031,7 +1012,6 @@ defmodule GSMLG.Config.Schema do
   defp get_section_schema(:scout),
     do: %{
       general: @scout_general_schema,
-      rabbitmq: @scout_rabbitmq_schema,
       fetch: @scout_fetch_schema,
       agent: @scout_agent_schema,
       security: @scout_security_schema

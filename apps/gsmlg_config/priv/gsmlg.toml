@@ -138,21 +138,6 @@ instance_name = "GSMLG Scout"
 default_region = "local"
 request_timeout_ms = 30000
 
-[scout.rabbitmq]
-enabled = true
-url = "amqp://guest:guest@localhost:5672"
-
-[scout.rabbitmq.queues]
-jobs = "scout.fetch.jobs"
-results = "scout.fetch.results"
-failed = "scout.fetch.failed"
-heartbeat = "scout.agent.heartbeat"
-
-[scout.rabbitmq.regional_queues]
-eu = "scout.fetch.jobs.eu"
-us = "scout.fetch.jobs.us"
-asia = "scout.fetch.jobs.asia"
-
 [scout.fetch]
 default_timeout_ms = 30000
 max_timeout_ms = 60000

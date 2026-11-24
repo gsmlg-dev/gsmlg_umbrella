@@ -65,6 +65,20 @@ defmodule GSMLG.AdminWeb.ScoutFetchControllerTest do
     assert markdown =~ "# Example Documentation"
   end
 
+  test "fetch submission reports service unavailable without a transport", %{conn: conn} do
+    Application.delete_env(:gsmlg_scout_server, :job_publisher)
+    Application.put_env(:gsmlg_scout, :settings, %{})
+
+    conn = authenticated_conn(conn)
+
+    for path <- [~p"/api/scout/fetch", ~p"/api/scout/fetch/sync"] do
+      assert %{"error" => %{"type" => "transport_disabled", "retryable" => false}} =
+               conn
+               |> post(path, %{url: "https://example.com/docs"})
+               |> json_response(503)
+    end
+  end
+
   test "sync returns 422 for a completed failed fetch result", %{conn: conn} do
     Application.put_env(:gsmlg_scout_server, :job_publisher, __MODULE__.FailingPublisher)
 

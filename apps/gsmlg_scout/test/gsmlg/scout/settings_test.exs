@@ -32,7 +32,6 @@ defmodule GSMLG.Scout.SettingsTest do
     assert settings["fetch"]["max_timeout_ms"] == 2_000
     assert settings["fetch"]["retry"]["max_attempts"] == 2
     assert settings["agent"]["id"] == "test-agent-1"
-    assert settings["rabbitmq"]["queues"]["jobs"] == "scout.fetch.jobs"
   end
 
   test "configured blocked CIDRs cannot narrow the built-in SSRF denylist" do

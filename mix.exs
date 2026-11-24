@@ -42,14 +42,6 @@ defmodule GSMLG.Umbrella.MixProject do
             gsmlg_admin_web: :permanent,
             gsmlg_web: :permanent
           ]
-        ],
-        gsmlg_scout_agent: [
-          include_executables_for: [:unix],
-          steps: [:assemble, :tar],
-          applications: [
-            gsmlg_scout: :permanent,
-            gsmlg_scout_agent: :permanent
-          ]
         ]
       ]
     ]
@@ -88,8 +80,7 @@ defmodule GSMLG.Umbrella.MixProject do
       test: [&enable_hologram/1, "test"],
       "phx.server": [&enable_hologram/1, "phx.server"],
       "service.run": ["phx.server"],
-      "commander.run": ["app.config", &run_commander/1],
-      "scout_agent.run": ["app.config", &run_scout_agent/1]
+      "commander.run": ["app.config", &run_commander/1]
     ]
   end
 
@@ -113,11 +104,6 @@ defmodule GSMLG.Umbrella.MixProject do
   end
 
   def prepare_commander_run(_env), do: :ok
-
-  defp run_scout_agent(_args) do
-    Application.put_env(:gsmlg_scout_agent, :force_enabled, true)
-    run_apps([:gsmlg_scout, :gsmlg_scout_agent])
-  end
 
   defp run_apps(apps) do
     Enum.each(apps, fn app ->

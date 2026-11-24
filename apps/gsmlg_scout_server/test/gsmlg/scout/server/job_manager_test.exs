@@ -64,13 +64,13 @@ defmodule GSMLG.Scout.Server.JobManagerTest do
   end
 
   @tag :without_test_publisher
-  test "returns an explicit error when RabbitMQ transport is disabled" do
+  test "returns an explicit error when the fetch transport is unavailable" do
     Phoenix.PubSub.subscribe(GSMLG.PubSub, "gsmlg_scout:jobs")
 
     assert {:error, %{type: "transport_disabled", message: message, retryable: false} = error} =
              GSMLG.Scout.Server.submit_fetch(%{"url" => "https://example.com/no-transport"})
 
-    assert message == "Scout RabbitMQ transport is disabled"
+    assert message == "Scout fetch transport is unavailable"
 
     assert_receive {:job_updated, %{job_id: job_id, status: "queued"}}
     assert_receive {:job_updated, %{job_id: ^job_id, status: "failed", error: ^error}}
@@ -96,7 +96,7 @@ defmodule GSMLG.Scout.Server.JobManagerTest do
     assert {:error,
             %{
               type: "transport_disabled",
-              message: "Scout RabbitMQ transport is disabled",
+              message: "Scout fetch transport is unavailable",
               retryable: false
             }} =
              GSMLG.Scout.Server.fetch_sync(%{
@@ -263,7 +263,7 @@ defmodule GSMLG.Scout.Server.JobManagerTest do
       {:error,
        %{
          type: "transport_disabled",
-         message: "Scout RabbitMQ transport is disabled",
+         message: "Scout fetch transport is unavailable",
          retryable: false
        }}
     end
