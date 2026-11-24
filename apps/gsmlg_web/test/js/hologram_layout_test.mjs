@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 
 const adapter = await import('../../assets/js/hologram/browser.mjs');
+const { mountThemeColor } = await import('gsmlg_component/assets/js/theme_color.js');
 
 class Element extends EventTarget {
   constructor(attributes = {}) {
@@ -19,7 +20,7 @@ class Element extends EventTarget {
   removeAttribute(name) { this.attributes.delete(name); }
 }
 
-let headers, nav, radios, details, root, mutations, intersections, media, storage;
+let headers, nav, radios, details, root, mutations, intersections, media, storage, themeColor;
 beforeEach(() => {
   adapter.unmountLayout?.();
   headers = [new Element({ 'data-nav-id': 'fixed-nav' })];
@@ -33,6 +34,7 @@ beforeEach(() => {
     return radio;
   });
   root = new Element();
+  themeColor = new Element({ content: '' });
   mutations = [];
   intersections = [];
   media = new EventTarget();
@@ -40,11 +42,16 @@ beforeEach(() => {
   storage = new Map();
   globalThis.document = Object.assign(new EventTarget(), {
     documentElement: root,
+    createElement: () => ({ getContext: () => null }),
+    querySelector: () => themeColor,
     querySelectorAll: (selector) => selector.includes('data-nav-id') ? headers : radios,
     getElementById: () => nav,
   });
   globalThis.window = new EventTarget();
   window.matchMedia = () => media;
+  globalThis.getComputedStyle = () => ({
+    getPropertyValue: () => root.getAttribute('data-theme') === 'moonlight' ? 'rgb(20, 30, 40)' : 'rgb(120, 130, 140)',
+  });
   globalThis.localStorage = {
     getItem: (key) => storage.get(key) ?? null,
     setItem: (key, value) => storage.set(key, value),
@@ -63,7 +70,8 @@ beforeEach(() => {
 
 afterEach(() => {
   adapter.unmountLayout?.();
-  for (const key of ['document', 'window', 'localStorage', 'MutationObserver', 'IntersectionObserver']) {
+  mountThemeColor().dispose();
+  for (const key of ['document', 'window', 'localStorage', 'MutationObserver', 'IntersectionObserver', 'getComputedStyle']) {
     delete globalThis[key];
   }
 });

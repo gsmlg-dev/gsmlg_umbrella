@@ -1,7 +1,7 @@
 defmodule GSMLG.Web.Hologram.Pages.IpGeo do
   use Hologram.Page
 
-  alias GSMLG.Web.Hologram.{Browser, Messages}
+  alias GSMLG.Web.Hologram.Messages
 
   route("/toolbox/ip_geo")
   layout(GSMLG.Web.Hologram.Shell, title_key: :ip_geo)
@@ -10,15 +10,6 @@ defmodule GSMLG.Web.Hologram.Pages.IpGeo do
     component
     |> Messages.init(server)
     |> put_state(loading: false, result: nil, error: nil)
-    |> put_action(:mount_map)
-  end
-
-  def action(:mount_map, _params, component) do
-    if Browser.mount_map("ip-geo-map") do
-      component
-    else
-      put_state(component, :error, component.state.text.browser_unavailable)
-    end
   end
 
   def action(:lookup, params, component) do
@@ -28,15 +19,6 @@ defmodule GSMLG.Web.Hologram.Pages.IpGeo do
   end
 
   def action(:loaded, params, component) do
-    case params.result do
-      %{latitude: latitude, longitude: longitude}
-      when is_number(latitude) and is_number(longitude) ->
-        Browser.update_map("ip-geo-map", [[longitude, latitude]], longitude)
-
-      _ ->
-        Browser.update_map("ip-geo-map", [], 0)
-    end
-
     put_state(component, loading: false, result: params.result, error: nil)
   end
 
@@ -70,7 +52,13 @@ defmodule GSMLG.Web.Hologram.Pages.IpGeo do
           </dl>
         {/if}
       </div>
-      <d3-world-map id="ip-geo-map" class="block w-full aspect-2/1" points="[]" center-longitude="0"></d3-world-map>
+      <div id="ip-geo-map" role="img" aria-label={@text.service_unavailable} class="my-8 flex w-full aspect-2/1 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-low text-on-surface-variant">
+        <svg viewBox="0 0 120 80" class="h-32 w-48" fill="none" stroke="currentColor" aria-hidden="true">
+          <ellipse cx="60" cy="40" rx="50" ry="30" />
+          <ellipse cx="60" cy="40" rx="25" ry="30" />
+          <path d="M10 40h100M60 10v60M17 25h86M17 55h86" />
+        </svg>
+      </div>
     </section>
     """
   end

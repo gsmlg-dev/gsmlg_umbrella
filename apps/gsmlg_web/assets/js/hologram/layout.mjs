@@ -1,3 +1,5 @@
+import { mountThemeColor } from "gsmlg_component/assets/js/theme_color.js";
+
 // Each Hologram page bundles this adapter; keep one owner for the document.
 const layoutState = globalThis[Symbol.for('gsmlg.toolbox.layout')] ??= {};
 
@@ -88,6 +90,7 @@ export function mountLayout() {
   window.addEventListener('pagehide', suspend);
   window.addEventListener('pageshow', onPageShow);
   layoutState.lifecycle = lifecycle;
+  mountThemeColor();
   return resume();
 }
 

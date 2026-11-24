@@ -10,6 +10,10 @@ defmodule GSMLG.Web.Layouts do
 
   embed_templates "layouts/*"
 
+  # sRGB projections of the Duskmoon Web 2 RC.3 primary tokens. HTML metadata
+  # cannot resolve CSS variables; the client resyncs from the active CSS token.
+  def theme_colors, do: %{sunshine: "#f2bd4b", moonlight: "#cfcfcf"}
+
   @doc """
   Renders your app layout.
 
@@ -60,9 +64,6 @@ defmodule GSMLG.Web.Layouts do
       </:user_profile>
       {render_slot(@header_slot)}
     </.dm_page_header>
-    <div class="pointer-events-none absolute top-84 overflow-x-clip w-full h-screen z-0">
-      <.dm_art_snow id="snow-bg" unicode={true} />
-    </div>
     <main class="flex flex-col items-center z-1">
       <.dm_flash_group flash={@flash} />
       {render_slot(@inner_block)}

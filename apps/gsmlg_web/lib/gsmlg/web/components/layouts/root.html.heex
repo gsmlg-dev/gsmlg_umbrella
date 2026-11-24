@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="sunshine">
   <head>
+    <meta charset="utf-8" />
+    <meta
+      name="theme-color"
+      content={theme_colors().sunshine}
+      data-sunshine={theme_colors().sunshine}
+      data-moonlight={theme_colors().moonlight}
+    />
     <script>
       (function(){
         var t = localStorage.getItem("theme");
@@ -8,15 +15,10 @@
           t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "moonlight" : "sunshine";
         }
         document.documentElement.setAttribute("data-theme", t);
+        var color = document.querySelector('meta[name="theme-color"]');
+        color.content = color.getAttribute("data-" + t) || color.content;
       })();
     </script>
-    <meta charset="utf-8" />
-    <meta
-      name="theme-color"
-      media="(prefers-color-scheme: light)"
-      content="oklch(95.86% 0.0693 95.91)"
-    />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="oklch(85.45% 0 0)" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title suffix="">
@@ -31,9 +33,6 @@
         )
       }
     />
-    <script type="module">
-      document.querySelector('meta[name=theme-color]').setAttribute('content', getComputedStyle(document.body).getPropertyValue('--color-primary'));
-    </script>
     <script
       defer
       phx-track-static

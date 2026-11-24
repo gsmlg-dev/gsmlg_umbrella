@@ -40,31 +40,37 @@
       </div>
     </div>
 
-    <el-dm-tabs
-      :if={@group_repos != []}
-      id="home-github-repo-tabs"
-      value={@active_repo_group}
-      variant="underline"
-      aria-label={dgettext("github", "Github Repos")}
-      class="block"
-    >
-      <el-dm-tab
-        :for={{{group, repos}, index} <- Enum.with_index(@group_repos)}
-        tab-id={group}
-        active={index == 0}
+    <div :if={@group_repos != []} id="home-github-repo-tabs">
+      <div
+        role="tablist"
+        aria-label={dgettext("github", "Github Repos")}
+        class="tabs tabs-scrollable"
       >
-        <span class="inline-flex items-center gap-2">
+        <button
+          :for={{{group, repos}, index} <- Enum.with_index(@group_repos)}
+          id={"home-repo-tab-#{index}"}
+          type="button"
+          role="tab"
+          aria-selected={to_string(group == @active_repo_group)}
+          aria-controls={"home-repo-panel-#{index}"}
+          tabindex={if group == @active_repo_group, do: 0, else: -1}
+          class="tab shrink-0"
+        >
           <span class="font-mono font-bold">{group}</span>
           <span class="rounded-full bg-surface-container-high px-2 py-0.5 font-mono text-[11px] text-on-surface-variant">
             {length(repos)}
           </span>
-        </span>
-      </el-dm-tab>
+        </button>
+      </div>
 
-      <el-dm-tab-panel
+      <section
         :for={{{group, repos}, index} <- Enum.with_index(@group_repos)}
-        panel-for={group}
-        active={index == 0}
+        id={"home-repo-panel-#{index}"}
+        role="tabpanel"
+        aria-labelledby={"home-repo-tab-#{index}"}
+        tabindex="0"
+        hidden={group != @active_repo_group}
+        class="py-4"
       >
         <div class="mb-5 flex flex-col gap-3 border-b border-outline-variant pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div class="min-w-0">
@@ -86,7 +92,7 @@
         <div :if={repos != []} class="grid grid-cols-auto-fill-96 gap-4">
           <.github_repo_card :for={repo <- repos} repo={repo} />
         </div>
-      </el-dm-tab-panel>
-    </el-dm-tabs>
+      </section>
+    </div>
   </section>
 </Layouts.app>

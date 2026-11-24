@@ -27,7 +27,9 @@ defmodule GSMLG.Web.ToolboxControllerTest do
       assert [_result] = Floki.find(document, result)
 
       if path in ["/toolbox/ip_geo", "/toolbox/ip_to_geomap"] do
-        assert [_map] = Floki.find(document, "d3-world-map#ip-geo-map")
+        assert [_map] = Floki.find(document, "div#ip-geo-map[role=img]")
+        assert [_globe] = Floki.find(document, "#ip-geo-map svg[aria-hidden=true]")
+        assert Floki.attribute(document, "#ip-geo-map", "aria-label") == [message]
       end
 
       if path == "/toolbox/whois" do

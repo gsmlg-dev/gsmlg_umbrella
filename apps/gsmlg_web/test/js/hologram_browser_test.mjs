@@ -86,17 +86,6 @@ afterEach(() => {
   for (const id of ['canvas', 'other']) adapter.unmountScreensaver?.(id);
 });
 
-test('map updates preserve coordinates on the equator and center longitude zero', async () => {
-  assert.strictEqual(typeof adapter.updateMap, 'function');
-  const map = new Element();
-  nodes.set('map', map);
-  assert.strictEqual(await adapter.mountMap('map'), true);
-  assert.strictEqual(adapter.updateMap('map', [[0, 0], [2, 0]], 0), true);
-  assert.strictEqual(map.getAttribute('points'), '[[0,0],[2,0]]');
-  assert.strictEqual(map.getAttribute('center-longitude'), '0');
-  assert.strictEqual(adapter.updateMap('missing', []), false);
-});
-
 test('SVG measurement uses a script-disabled sandbox and removes temporary DOM', async () => {
   assert.strictEqual(typeof adapter.autocropSvg, 'function');
   const pending = adapter.autocropSvg('<svg width="100" height="100"/>');

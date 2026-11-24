@@ -22,7 +22,12 @@ defmodule GSMLG.Web.Hologram.LayoutTest do
       assert document |> Floki.find("header h1") |> Floki.text() |> String.trim() == title
       assert [_mobile] = Floki.find(document, "input#dm-mobile-menu-control[type=checkbox]")
       assert [_fixed_mobile] = Floki.find(document, "input#mobile-menu[type=checkbox]")
-      assert [_snow] = Floki.find(document, "#snow-bg")
+
+      assert document
+             |> Floki.find("*")
+             |> Enum.map(&elem(&1, 0))
+             |> Enum.filter(&String.contains?(&1, "-")) == []
+
       assert Floki.find(document, "[phx-hook=ThemeSwitcher]") != []
       assert Floki.find(document, "header svg path") != []
       assert Floki.find(document, "main h1") == []
@@ -30,6 +35,10 @@ defmodule GSMLG.Web.Hologram.LayoutTest do
       assert [_tool_link] = Floki.find(document, "footer a[href='/toolbox/ip_geo']")
       assert [_language] = Floki.find(document, "footer a[href='?lang=en'][aria-current=true]")
       assert [_stylesheet] = Floki.find(document, "link[rel=stylesheet][href^='/assets/css/app']")
+      assert [theme_color] = Floki.find(document, "meta[name=theme-color]")
+      assert [color] = Floki.attribute(theme_color, "content")
+      assert color =~ ~r/^#[0-9a-f]{6}$/i
+      assert Floki.attribute(theme_color, "media") == []
       assert Floki.find(document, "script[src*='/assets/js/app']") == []
     end
   end

@@ -12,26 +12,6 @@ const screensaverState = globalThis[Symbol.for('gsmlg.toolbox.screensavers')] ??
 const screensavers = screensaverState.records;
 const screensaverTargets = screensaverState.targets;
 
-export async function mountMap(id) {
-  try {
-    await import('https://esm-run.gsmlg.dev/@gsmlg/lit/d3-geo');
-    const map = document.getElementById(id);
-    if (!map) return false;
-    map.classList.remove('skeleton');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function updateMap(id, points, centerLongitude = null) {
-  const map = document.getElementById(id);
-  if (!map) return false;
-  map.setAttribute('points', JSON.stringify(points));
-  if (centerLongitude !== null) map.setAttribute('center-longitude', centerLongitude);
-  return true;
-}
-
 export async function autocropSvg(svgText) {
   let frame;
   try {

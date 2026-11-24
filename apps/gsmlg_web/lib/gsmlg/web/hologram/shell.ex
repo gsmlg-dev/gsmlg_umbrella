@@ -29,6 +29,7 @@ defmodule GSMLG.Web.Hologram.Shell do
       DuskmoonBundler.static_path(GSMLG.Web.Endpoint, "/assets/css/app.css", profile: :gsmlg_web)
     )
     |> put_state(:theme, "sunshine")
+    |> put_state(:theme_colors, GSMLG.Web.Layouts.theme_colors())
     |> put_state(:title, title)
     |> put_state(:layout_dom, layout_dom)
     |> put_action(:restore_theme)
@@ -46,6 +47,7 @@ defmodule GSMLG.Web.Hologram.Shell do
         ~HOLO"""
         <head>
           <meta charset="utf-8" />
+          <meta name="theme-color" content={@theme_colors.sunshine} data-sunshine={@theme_colors.sunshine} data-moonlight={@theme_colors.moonlight} />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>{@title} · GSMLG</title>
           <link rel="stylesheet" href={@stylesheet} />
@@ -56,6 +58,8 @@ defmodule GSMLG.Web.Hologram.Shell do
               const theme = stored && stored !== "default" ? stored :
                 (matchMedia("(prefers-color-scheme: dark)").matches ? "moonlight" : "sunshine");
               document.documentElement.setAttribute("data-theme", theme);
+              const color = document.querySelector('meta[name="theme-color"]');
+              color.content = color.getAttribute("data-" + theme) || color.content;
             })();
             {/raw}
           </script>

@@ -1,7 +1,7 @@
 defmodule GSMLG.Web.Hologram.Pages.IpToGeomap do
   use Hologram.Page
 
-  alias GSMLG.Web.Hologram.{Browser, Messages, Shell}
+  alias GSMLG.Web.Hologram.{Messages, Shell}
 
   route("/toolbox/ip_to_geomap")
   layout(Shell, title_key: :ip_to_geomap)
@@ -11,18 +11,9 @@ defmodule GSMLG.Web.Hologram.Pages.IpToGeomap do
     component
     |> Messages.init(server)
     |> put_state(ips: "", points: [], remaining: [], loading: false, error: nil)
-    |> put_action(:setup)
   end
 
   @impl true
-  def action(:setup, _params, component) do
-    if Browser.mount_map("ip-geo-map") do
-      component
-    else
-      put_state(component, :error, component.state.text.browser_unavailable)
-    end
-  end
-
   def action(:edit_ips, %{event: %{value: ips}}, component) do
     put_state(component, :ips, ips)
   end
@@ -33,8 +24,6 @@ defmodule GSMLG.Web.Hologram.Pages.IpToGeomap do
         put_state(component, error: component.state.text.invalid_input, loading: false)
 
       [ip | remaining] ->
-        Browser.update_map("ip-geo-map", [], nil)
-
         component
         |> put_state(ips: ips, remaining: remaining, points: [], loading: true, error: nil)
         |> put_command(:lookup, ip: ip)
@@ -43,7 +32,6 @@ defmodule GSMLG.Web.Hologram.Pages.IpToGeomap do
 
   def action(:located, %{point: point}, component) do
     points = if point, do: component.state.points ++ [point], else: component.state.points
-    Browser.update_map("ip-geo-map", points, nil)
     component = put_state(component, :points, points)
 
     case component.state.remaining do
@@ -80,7 +68,13 @@ defmodule GSMLG.Web.Hologram.Pages.IpToGeomap do
       </form>
       {%if @loading}<p role="status" class="my-4">{@text.loading}</p>{/if}
       {%if @error}<p role="alert" class="alert alert-error my-4">{@error}</p>{/if}
-      <d3-world-map id="ip-geo-map" class="block w-full aspect-2/1 my-8" points="[]"></d3-world-map>
+      <div id="ip-geo-map" role="img" aria-label={@text.service_unavailable} class="my-8 flex w-full aspect-2/1 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-low text-on-surface-variant">
+        <svg viewBox="0 0 120 80" class="h-32 w-48" fill="none" stroke="currentColor" aria-hidden="true">
+          <ellipse cx="60" cy="40" rx="50" ry="30" />
+          <ellipse cx="60" cy="40" rx="25" ry="30" />
+          <path d="M10 40h100M60 10v60M17 25h86M17 55h86" />
+        </svg>
+      </div>
     </div>
     """
   end

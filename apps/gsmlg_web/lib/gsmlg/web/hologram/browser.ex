@@ -2,20 +2,12 @@ defmodule GSMLG.Web.Hologram.Browser do
   @moduledoc false
   use Hologram.JS
 
-  js_import(:mountMap, from: "../../../../assets/js/hologram/browser.mjs")
-  js_import(:updateMap, from: "../../../../assets/js/hologram/browser.mjs")
   js_import(:autocropSvg, from: "../../../../assets/js/hologram/browser.mjs")
   js_import(:mountScreensaver, from: "../../../../assets/js/hologram/browser.mjs")
   js_import(:startFullscreen, from: "../../../../assets/js/hologram/browser.mjs")
   js_import(:mountLayout, from: "../../../../assets/js/hologram/browser.mjs")
 
   def mount_layout, do: JS.call(:mountLayout, [])
-
-  def mount_map(id), do: JS.call(:mountMap, [id]) |> Task.await()
-
-  def update_map(id, points, center_longitude) do
-    JS.call(:updateMap, [id, points, center_longitude])
-  end
 
   def autocrop_svg(source), do: JS.call(:autocropSvg, [source]) |> Task.await()
 

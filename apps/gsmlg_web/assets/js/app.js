@@ -4,6 +4,9 @@ import "phoenix_html";
 import { startSocket, joinChannels } from "./user_socket.js";
 
 import { registerSW } from './register_sw.js';
+import { mountRepoTabs } from './repo_tabs.js';
+
+mountRepoTabs(document.getElementById('home-github-repo-tabs'));
 
 if (import.meta.env.DEV) {
   console.log('NODE_ENV: ', import.meta.env.MODE);
